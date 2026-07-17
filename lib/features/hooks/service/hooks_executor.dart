@@ -121,6 +121,14 @@ class HooksExecutor {
 
   static const Uuid _uuid = Uuid();
   final List<HookEntry> Function(HookEvent event) _enabledHooksForEvent;
+  Future<void> Function(String sessionId, Iterable<String> hookIds)?
+  _usageRecorder;
+
+  void configureUsageRecorder(
+    Future<void> Function(String sessionId, Iterable<String> hookIds)? recorder,
+  ) {
+    _usageRecorder = recorder;
+  }
 
   bool hasEnabledHooksForEvent(HookEvent event) {
     return _enabledHooksForEvent(event).isNotEmpty;
@@ -185,6 +193,7 @@ class HooksExecutor {
     var timedOutCount = 0;
     String? blockReason;
     final hookResults = <HookEntryResult>[];
+    final executedHookIds = <String>[];
 
     final effectivePayload = <String, Object?>{
       'hook_event_name': event.storageValue,
@@ -193,6 +202,7 @@ class HooksExecutor {
     };
 
     for (final hook in hooks) {
+      executedHookIds.add(hook.id);
       final stopwatch = Stopwatch()..start();
       try {
         final result = await _runHookScript(
@@ -298,6 +308,14 @@ class HooksExecutor {
       }
     }
 
+    final recorder = _usageRecorder;
+    if (recorder != null && executedHookIds.isNotEmpty) {
+      try {
+        await recorder(sessionId, executedHookIds);
+      } catch (error, stack) {
+        silentLog('hooks_executor', '记录 Hook 调用统计', error, stack);
+      }
+    }
     return HookExecutionResult(
       executedCount: successCount + failedCount + timedOutCount,
       successCount: successCount,

@@ -337,11 +337,21 @@ class _KnowledgeToolbarActions extends StatelessWidget {
         ),
       ),
     );
+    final usageButton = resourceUsageStatisticsButton(
+      context,
+      onPressed: () => showResourceUsageStatisticsDialog(
+        context,
+        kind: AiResourceUsageKind.knowledge,
+        resourceLabels: <String, String>{
+          for (final source in controller.sources) source.id: source.title,
+        },
+      ),
+    );
 
     if (compact) {
       return _KnowledgeToolbarRows(
         rows: [
-          [refreshButton, importButton, configButton],
+          [refreshButton, importButton, configButton, usageButton],
           [
             _KnowledgeToolbarIconButton(
               tooltip: openHandLocalizedText(
@@ -504,6 +514,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           ),
           importButton,
           configButton,
+          usageButton,
         ],
       ],
     );

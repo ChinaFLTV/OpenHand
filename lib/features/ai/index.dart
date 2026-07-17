@@ -151,3 +151,8 @@ export 'tools/web/ai_web_search_tool.dart';
 
 // util
 export 'util/agent_builtin_tool_display.dart';
+export 'widgets/resource_usage_statistics_dialog.dart'
+    show
+        resourceUsageStatisticsButton,
+        resourceUsageKindLabel,
+        showResourceUsageStatisticsDialog;

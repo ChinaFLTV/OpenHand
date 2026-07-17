@@ -1,4 +1,4 @@
-// ToolboxPage —— 只读浏览 MCP 服务器 / 已安装技能 / 用户记忆 / 定时任务。
+// ToolboxPage —— 只读浏览应用资源及其调用统计。
 //
 // App 端是这些资源的真权威 (新增/修改/删除全在 GUI), Web 端只展示当前
 // 已加载的快照, 帮助远程使用者快速确认 MCP 是否在线 / 哪些技能可用 /
@@ -9,20 +9,30 @@ import { useMemo, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
 import {
+  AgentSummary,
+  BuiltinToolSummary,
   CronEntrySummary,
+  HookEntrySummary,
+  KnowledgeSourceSummary,
   McpServerSummary,
   MemoryEntrySummary,
+  ResourceUsageKind,
   SkillSummary,
+  listAgents,
+  listBuiltinTools,
   listCrons,
+  listHooks,
+  listKnowledgeSources,
   listMcpServers,
   listMemories,
   listSkills,
 } from '../../../api/toolbox';
+import { ResourceUsageDialog } from '../../../components/ResourceUsageDialog';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t, tDateTime } from '../../../i18n';
 import { describeApiError } from '../../../utils/api_error';
 
-type TabKey = 'mcp' | 'skills' | 'memories' | 'crons';
+type TabKey = 'tools' | 'mcp' | 'skills' | 'memories' | 'hooks' | 'knowledge' | 'agents' | 'crons';
 const TOOLBOX_POLL_INTERVAL_MS = 5_000;
 
 interface TabSpec {
@@ -52,30 +62,43 @@ function associationLabel(item: { template_id: string; label_zh?: string; label_
 }
 
 export function ToolboxPage() {
-  const [active, setActive] = useState<TabKey>('mcp');
+  const [active, setActive] = useState<TabKey>('tools');
 
+  const [tools, setTools] = useState<BuiltinToolSummary[] | null>(null);
   const [mcp, setMcp] = useState<McpServerSummary[] | null>(null);
   const [skills, setSkills] = useState<SkillSummary[] | null>(null);
   const [skillsRoot, setSkillsRoot] = useState<string>('');
   const [memories, setMemories] = useState<MemoryEntrySummary[] | null>(null);
   const [crons, setCrons] = useState<CronEntrySummary[] | null>(null);
+  const [hooks, setHooks] = useState<HookEntrySummary[] | null>(null);
+  const [knowledge, setKnowledge] = useState<KnowledgeSourceSummary[] | null>(null);
+  const [agents, setAgents] = useState<AgentSummary[] | null>(null);
+  const [usageKind, setUsageKind] = useState<ResourceUsageKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useAsyncPolling(async (isActive, signal) => {
     try {
-      const [m, s, mem, c] = await Promise.all([
+      const [toolItems, m, s, mem, c, h, k, a] = await Promise.all([
+        listBuiltinTools({ signal }),
         listMcpServers({ signal }),
         listSkills({ signal }),
         listMemories({ signal }),
         listCrons({ signal }),
+        listHooks({ signal }),
+        listKnowledgeSources({ signal }),
+        listAgents({ signal }),
       ]);
       if (!isActive()) return;
+      setTools(toolItems.items);
       setMcp(m.items);
       setSkills(s.items);
       setSkillsRoot(s.storage_path);
       setMemories(mem.items);
       setCrons(c.items);
+      setHooks(h.items);
+      setKnowledge(k.items);
+      setAgents(a.items);
       setError(null);
     } catch (err) {
       if (isActive()) setError(describeApiError(err));
@@ -92,20 +115,46 @@ export function ToolboxPage() {
 
   const tabs: TabSpec[] = useMemo(
     () => [
+      { key: 'tools', label: `${t('toolbox.tools', '工具')} (${tools?.length ?? '—'})` },
       { key: 'mcp', label: `MCP (${mcp?.length ?? '—'})` },
       { key: 'skills', label: `${t('toolbox.skills', '技能')} (${skills?.length ?? '—'})` },
       { key: 'memories', label: `${t('toolbox.memories', '记忆')} (${memories?.length ?? '—'})` },
+      { key: 'hooks', label: `Hooks (${hooks?.length ?? '—'})` },
+      { key: 'knowledge', label: `${t('toolbox.knowledge', '知识库')} (${knowledge?.length ?? '—'})` },
+      { key: 'agents', label: `${t('toolbox.agents', '智能体')} (${agents?.length ?? '—'})` },
       { key: 'crons', label: `${t('toolbox.crons', '定时任务')} (${crons?.length ?? '—'})` },
     ],
-    [mcp, skills, memories, crons],
+    [tools, mcp, skills, memories, hooks, knowledge, agents, crons],
   );
+
+  const activeUsageKind: ResourceUsageKind | null = {
+    tools: 'tool', mcp: 'mcp', skills: 'skill', memories: 'memory', hooks: 'hook', knowledge: 'knowledge', agents: 'agent', crons: null,
+  }[active] as ResourceUsageKind | null;
+  const usageLabels = useMemo<Record<string, string>>(() => {
+    if (usageKind === 'tool') return Object.fromEntries((tools ?? []).map((item) => [item.id, item.name]));
+    if (usageKind === 'mcp') return Object.fromEntries((mcp ?? []).map((item) => [item.name, item.name]));
+    if (usageKind === 'skill') return Object.fromEntries((skills ?? []).flatMap((item) => [[item.relative_directory_path, item.name], [item.name, item.name]]));
+    if (usageKind === 'memory') return Object.fromEntries((memories ?? []).map((item) => [item.id, item.title]));
+    if (usageKind === 'hook') return Object.fromEntries((hooks ?? []).map((item) => [item.id, item.label]));
+    if (usageKind === 'knowledge') return Object.fromEntries((knowledge ?? []).map((item) => [item.id, item.title]));
+    if (usageKind === 'agent') return Object.fromEntries((agents ?? []).map((item) => [item.id, item.name]));
+    return {};
+  }, [usageKind, tools, mcp, skills, memories, hooks, knowledge, agents]);
 
   return (
     <main
       class="min-h-screen"
       style={{ background: 'var(--m3-background)', color: 'var(--m3-on-surface)' }}
     >
-      <TopBar title={t('home.openToolbox', '工具箱')} subtitle={t('toolbox.subtitle', '远程查看本机已加载的 MCP / 技能 / 记忆 / 定时任务')} />
+      <TopBar
+        title={t('home.openToolbox', '工具箱')}
+        subtitle={t('toolbox.subtitle', '远程查看本机已加载的 MCP、技能、记忆、Hooks、知识库与智能体')}
+        actionSlot={activeUsageKind ? (
+          <button type="button" class="oh-topbar-action oh-tap-press px-3 py-1.5 rounded-m3-sm text-sm" onClick={() => setUsageKind(activeUsageKind)}>
+            {t('resourceUsage.title', '使用统计')}
+          </button>
+        ) : null}
+      />
 
       <div class="max-w-6xl mx-auto px-4 py-6">
         {error ? (
@@ -139,18 +188,98 @@ export function ToolboxPage() {
           })}
         </div>
 
-        {loading && !mcp && !skills && !memories && !crons ? (
+        {loading && !tools && !mcp && !skills && !memories && !hooks && !knowledge && !agents && !crons ? (
           <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('common.loading', '加载中…')}
           </p>
         ) : null}
 
+        {active === 'tools' && tools ? <ToolsList items={tools} /> : null}
         {active === 'mcp' && mcp ? <McpList items={mcp} /> : null}
         {active === 'skills' && skills ? <SkillsList items={skills} root={skillsRoot} /> : null}
         {active === 'memories' && memories ? <MemoriesList items={memories} /> : null}
+        {active === 'hooks' && hooks ? <HooksList items={hooks} /> : null}
+        {active === 'knowledge' && knowledge ? <KnowledgeList items={knowledge} /> : null}
+        {active === 'agents' && agents ? <AgentsList items={agents} /> : null}
         {active === 'crons' && crons ? <CronsList items={crons} /> : null}
       </div>
+      {usageKind ? <ResourceUsageDialog kind={usageKind} labels={usageLabels} onClose={() => setUsageKind(null)} /> : null}
     </main>
+  );
+}
+
+function ToolsList(props: { items: BuiltinToolSummary[] }) {
+  if (props.items.length === 0) return emptyHint(t('toolbox.empty.tools', '暂无内建工具配置'));
+  return (
+    <ul class="space-y-2">
+      {props.items.map((item, idx) => (
+        <Appear key={item.id} variant="up" index={idx}>
+          <li class="oh-toolbox-card">
+            <div class="flex items-baseline justify-between gap-3">
+              <h3 class="text-sm font-semibold">{item.name}</h3>
+              <span class="oh-toolbox-badge" style={{ color: item.enabled ? '#16a34a' : 'var(--m3-on-surface-variant)', background: item.enabled ? 'rgba(22,163,74,.1)' : 'rgba(120,120,120,.1)' }}>
+                {item.enabled ? t('common.enabled', '已启用') : t('common.disabled', '未启用')}
+              </span>
+            </div>
+            <div class="oh-toolbox-meta-grid"><div>{t('toolbox.tool.kind', '类型')}: <code>{item.kind}</code></div><div>{t('toolbox.tool.loading', '加载策略')}: <code>{item.load_strategy}</code></div><div class="col-span-2"><code>{item.id}</code></div></div>
+          </li>
+        </Appear>
+      ))}
+    </ul>
+  );
+}
+
+function HooksList(props: { items: HookEntrySummary[] }) {
+  if (props.items.length === 0) return emptyHint(t('toolbox.empty.hooks', '尚未配置 Hook'));
+  return (
+    <ul class="space-y-2">
+      {props.items.map((item, idx) => (
+        <Appear key={item.id} variant="up" index={idx}>
+          <li class="oh-toolbox-card">
+            <div class="flex items-baseline justify-between gap-3">
+              <h3 class="text-sm font-semibold">{item.label}</h3>
+              <span class="oh-toolbox-badge" style={{ color: item.enabled ? '#16a34a' : 'var(--m3-on-surface-variant)', background: item.enabled ? 'rgba(22,163,74,.1)' : 'rgba(120,120,120,.1)' }}>
+                {item.enabled ? t('common.enabled', '已启用') : t('common.disabled', '未启用')}
+              </span>
+            </div>
+            <div class="oh-toolbox-meta-grid"><div>{t('toolbox.hook.event', '事件')}: <code>{item.event}</code></div><div>{t('toolbox.hook.timeout', '超时')}: {item.timeout_seconds}s</div></div>
+          </li>
+        </Appear>
+      ))}
+    </ul>
+  );
+}
+
+function KnowledgeList(props: { items: KnowledgeSourceSummary[] }) {
+  if (props.items.length === 0) return emptyHint(t('toolbox.empty.knowledge', '知识库中暂无资源'));
+  return (
+    <ul class="space-y-2">
+      {props.items.map((item, idx) => (
+        <Appear key={item.id} variant="up" index={idx}>
+          <li class="oh-toolbox-card">
+            <div class="flex items-baseline justify-between gap-3"><h3 class="text-sm font-semibold">{item.title}</h3><span class="oh-toolbox-badge">{item.status}</span></div>
+            <div class="oh-toolbox-meta-grid"><div>{t('toolbox.knowledge.kind', '类型')}: <code>{item.kind}</code></div><div>{t('toolbox.knowledge.updated', '更新时间')}: {tDateTime(item.updated_at)}</div><div class="col-span-2"><code>{item.id}</code></div></div>
+          </li>
+        </Appear>
+      ))}
+    </ul>
+  );
+}
+
+function AgentsList(props: { items: AgentSummary[] }) {
+  if (props.items.length === 0) return emptyHint(t('toolbox.empty.agents', '尚未创建智能体'));
+  return (
+    <ul class="space-y-2">
+      {props.items.map((item, idx) => (
+        <Appear key={item.id} variant="up" index={idx}>
+          <li class="oh-toolbox-card">
+            <div class="flex items-baseline justify-between gap-3"><h3 class="text-sm font-semibold">{item.name}</h3><span class="oh-toolbox-badge">{item.lifecycle_state}</span></div>
+            {item.position || item.department ? <p class="text-xs mt-1.5" style={{ color: 'var(--m3-on-surface-variant)' }}>{[item.position, item.department].filter(Boolean).join(' · ')}</p> : null}
+            <div class="oh-toolbox-meta-grid"><div>{t('toolbox.agent.skills', '技能')}: {item.skill_count}</div><div>{t('toolbox.agent.knowledge', '知识')}: {item.knowledge_count}</div><div>{t('toolbox.agent.memories', '记忆')}: {item.memory_count}</div><div>{item.enabled ? t('common.enabled', '已启用') : t('common.disabled', '未启用')}</div></div>
+          </li>
+        </Appear>
+      ))}
+    </ul>
   );
 }
 

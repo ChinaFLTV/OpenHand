@@ -13,6 +13,7 @@ import '../../shared/util/timer_safety.dart';
 import '../agents/index.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
+import '../hooks/index.dart' show HooksController;
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart' show KnowledgeBaseController;
 import '../machine_terminal/index.dart';
@@ -78,6 +79,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     required McpController mcpController,
     required MemoryController memoryController,
     required CronsController cronsController,
+    required HooksController hooksController,
     required InstructionsController instructionsController,
     KnowledgeBaseController? knowledgeBaseController,
     required MachineTerminalService machineTerminalService,
@@ -102,6 +104,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
              mcpController: mcpController,
              memoryController: memoryController,
              cronsController: cronsController,
+             hooksController: hooksController,
              instructionsController: instructionsController,
              knowledgeBaseController: knowledgeBaseController,
              machineTerminalService: machineTerminalService,

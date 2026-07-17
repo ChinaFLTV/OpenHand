@@ -13,6 +13,11 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../ai/index.dart'
+    show
+        AiResourceUsageKind,
+        resourceUsageStatisticsButton,
+        showResourceUsageStatisticsDialog;
 import '../hooks_controller.dart';
 
 class HooksView extends StatelessWidget {
@@ -39,6 +44,16 @@ class HooksView extends StatelessWidget {
       runSpacing: 12,
       alignment: WrapAlignment.end,
       children: [
+        resourceUsageStatisticsButton(
+          context,
+          onPressed: () => showResourceUsageStatisticsDialog(
+            context,
+            kind: AiResourceUsageKind.hook,
+            resourceLabels: <String, String>{
+              for (final entry in snapshot.entries) entry.id: entry.label,
+            },
+          ),
+        ),
         if (snapshot.errorMessage != null)
           FilledButton.tonalIcon(
             onPressed: snapshot.isLoading ? null : hooksController.refresh,

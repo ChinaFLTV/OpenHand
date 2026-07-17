@@ -42,7 +42,12 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
-import '../../ai/index.dart' show AiToolRuntimeService;
+import '../../ai/index.dart'
+    show
+        AiResourceUsageKind,
+        AiToolRuntimeService,
+        resourceUsageStatisticsButton,
+        showResourceUsageStatisticsDialog;
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../memory/index.dart';
@@ -345,6 +350,17 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               : () => mcpController.refresh(),
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.mcpRefresh),
+        ),
+        resourceUsageStatisticsButton(
+          context,
+          onPressed: () => showResourceUsageStatisticsDialog(
+            context,
+            kind: AiResourceUsageKind.mcp,
+            resourceLabels: <String, String>{
+              for (final server in mcpSnapshot.servers)
+                server.name: server.name,
+            },
+          ),
         ),
         FilledButton.tonalIcon(
           onPressed: () => _showMcpOpsDialog(context),

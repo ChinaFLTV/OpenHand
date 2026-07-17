@@ -333,6 +333,60 @@ class AiSessionController extends ChangeNotifier {
     final resolvedToolUsagePromotionStore =
         toolUsagePromotionStore ?? AiToolUsagePromotionStore.shared;
     await resolvedToolUsagePromotionStore.initialize();
+    String rootUsageSessionId(String value) {
+      var end = value.length;
+      for (final marker in const <String>['::parallel-', '/task/']) {
+        final index = value.indexOf(marker);
+        if (index >= 0 && index < end) end = index;
+      }
+      return value.substring(0, end).trim();
+    }
+
+    final resolvedToolRuntimeService =
+        toolRuntimeService ??
+        AiToolRuntimeService(
+          bashToolService: resolvedBashToolService,
+          hookService: resolvedHookService,
+          mcpToolService: resolvedMcpToolService!,
+          backgroundChatClient: resolvedBackgroundChatClient,
+          skillsDirProvider: skillsDirProvider,
+          memoryControllerProvider: memoryControllerProvider,
+          agentsControllerProvider: agentsControllerProvider,
+          instructionsControllerProvider: instructionsControllerProvider,
+          knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+          aiModelsProvider: aiModelsProvider,
+          machineTerminalService: machineTerminalService,
+          toolOutputDirectoryProvider:
+              resolvedStore.sessionToolResultsDirectoryPath,
+        );
+    resolvedToolRuntimeService.configureSubToolExecutionObserver((
+      parentContext,
+      subContext,
+      result,
+    ) async {
+      await resolvedToolUsagePromotionStore.recordToolCall(
+        sessionId: rootUsageSessionId(parentContext.sessionId),
+        catalog: subContext.catalog,
+        toolCall: subContext.toolCall,
+        resultMetadata: result.metadata,
+      );
+    });
+    resolvedHookService.configureUsageRecorder((sessionId, hookIds) {
+      return resolvedToolUsagePromotionStore.recordResources(
+        sessionId: rootUsageSessionId(sessionId),
+        resources: <AiResourceUsageKind, Iterable<String>>{
+          AiResourceUsageKind.hook: hookIds,
+        },
+      );
+    });
+    userHooksExecutor?.configureUsageRecorder((sessionId, hookIds) {
+      return resolvedToolUsagePromotionStore.recordResources(
+        sessionId: rootUsageSessionId(sessionId),
+        resources: <AiResourceUsageKind, Iterable<String>>{
+          AiResourceUsageKind.hook: hookIds,
+        },
+      );
+    });
     final controller = AiSessionController._(
       store: resolvedStore,
       chatClient: resolvedChatClient,
@@ -342,23 +396,7 @@ class AiSessionController extends ChangeNotifier {
       bashToolService: resolvedBashToolService,
       hookService: resolvedHookService,
       userHooksExecutor: userHooksExecutor,
-      toolRuntimeService:
-          toolRuntimeService ??
-          AiToolRuntimeService(
-            bashToolService: resolvedBashToolService,
-            hookService: resolvedHookService,
-            mcpToolService: resolvedMcpToolService!,
-            backgroundChatClient: resolvedBackgroundChatClient,
-            skillsDirProvider: skillsDirProvider,
-            memoryControllerProvider: memoryControllerProvider,
-            agentsControllerProvider: agentsControllerProvider,
-            instructionsControllerProvider: instructionsControllerProvider,
-            knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
-            aiModelsProvider: aiModelsProvider,
-            machineTerminalService: machineTerminalService,
-            toolOutputDirectoryProvider:
-                resolvedStore.sessionToolResultsDirectoryPath,
-          ),
+      toolRuntimeService: resolvedToolRuntimeService,
       toolUsagePromotionStore: resolvedToolUsagePromotionStore,
       attachmentService:
           attachmentService ??
@@ -6379,6 +6417,18 @@ class AiSessionController extends ChangeNotifier {
           );
         }
 
+        if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty) {
+          await _recordResourceUsage(
+            sessionId: session.id,
+            kind: AiResourceUsageKind.skill,
+            resourceIds: <String>[
+              for (final key in const <String>['resource_id', 'path', 'name'])
+                if ('${selectedSkillMetadata[key] ?? ''}'.trim().isNotEmpty)
+                  '${selectedSkillMetadata[key]}'.trim(),
+            ].take(1),
+          );
+        }
+
         final succeeded = await _runAssistantConversation(
           session: session,
           model: model,
@@ -6768,6 +6818,11 @@ class AiSessionController extends ChangeNotifier {
             effectiveCreationRequest.isActive
             ? _mediaGenerationTimeoutFor(effectiveCreationRequest)
             : Duration(seconds: streamOpenTimeoutSeconds);
+        await _recordResourceUsage(
+          sessionId: workingSession.id,
+          kind: AiResourceUsageKind.memory,
+          resourceIds: promptResult.memoryResourceIds,
+        );
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
           messages: promptResult.messages,
@@ -8816,6 +8871,26 @@ class AiSessionController extends ChangeNotifier {
       );
     } catch (error, stack) {
       silentLog('ai_session_controller', '记录工具调用统计失败', error, stack);
+    }
+  }
+
+  Future<void> _recordResourceUsage({
+    required String sessionId,
+    required AiResourceUsageKind kind,
+    required Iterable<String> resourceIds,
+  }) async {
+    final ids = resourceIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (ids.isEmpty) return;
+    try {
+      await _toolUsagePromotionStore.recordResources(
+        sessionId: sessionId,
+        resources: <AiResourceUsageKind, Iterable<String>>{kind: ids},
+      );
+    } catch (error, stack) {
+      silentLog('ai_session_controller', '记录资源调用统计失败', error, stack);
     }
   }
 

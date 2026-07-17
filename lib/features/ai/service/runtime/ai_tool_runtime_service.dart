@@ -362,6 +362,7 @@ class AiToolRuntimeService {
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
     String Function(String sessionId)? toolOutputDirectoryProvider,
+    AiSubToolExecutionObserver? subToolExecutionObserver,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
        _mcpToolService = mcpToolService,
@@ -375,6 +376,7 @@ class AiToolRuntimeService {
        _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
        _agentsControllerProvider = agentsControllerProvider,
        _machineTerminalService = machineTerminalService,
+       _subToolExecutionObserver = subToolExecutionObserver,
        _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
@@ -390,6 +392,7 @@ class AiToolRuntimeService {
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       aiModelsProvider: aiModelsProvider,
       machineTerminalService: machineTerminalService,
+      subToolExecutionObserver: _notifySubToolExecuted,
     );
   }
 
@@ -456,7 +459,23 @@ class AiToolRuntimeService {
   final AiFileMutationLedger _mutationLedger;
   final AgentsControllerProvider? _agentsControllerProvider;
   final MachineTerminalService? _machineTerminalService;
+  AiSubToolExecutionObserver? _subToolExecutionObserver;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
+
+  void configureSubToolExecutionObserver(AiSubToolExecutionObserver? observer) {
+    _subToolExecutionObserver = observer;
+  }
+
+  Future<void> _notifySubToolExecuted(
+    AiToolExecutionContext parentContext,
+    AiToolExecutionContext subContext,
+    AiToolExecutionResult result,
+  ) async {
+    final observer = _subToolExecutionObserver;
+    if (observer != null) {
+      await observer(parentContext, subContext, result);
+    }
+  }
 
   AiFileTrackerService _fileTrackerForSession(String sessionId) {
     return _fileTrackers.putIfAbsent(sessionId, AiFileTrackerService.new);
@@ -2179,6 +2198,7 @@ class AiToolRuntimeService {
       resultText: output,
       metadata: <String, Object?>{
         'tool_source': 'skill',
+        'skill_id': skill.relativeDirectoryPath,
         'skill_name': skill.name,
         'skill_manifest_path': skill.manifestPath,
         'skill_directory_path': skill.directoryPath,
@@ -2599,6 +2619,7 @@ class AiToolRuntimeService {
       AiRuntimeToolSource.skill => <String, Object?>{
         'tool_source': 'skill',
         if (tool.skill != null) ...<String, Object?>{
+          'skill_id': tool.skill!.relativeDirectoryPath,
           'skill_name': tool.skill!.name,
           'skill_manifest_path': tool.skill!.manifestPath,
           'skill_directory_path': tool.skill!.directoryPath,

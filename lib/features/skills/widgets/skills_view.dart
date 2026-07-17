@@ -17,6 +17,11 @@ import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../ai/index.dart'
+    show
+        AiResourceUsageKind,
+        resourceUsageStatisticsButton,
+        showResourceUsageStatisticsDialog;
 import '../model/local_skill.dart';
 import '../skills_controller.dart';
 import 'skill_market_dialog.dart';
@@ -157,6 +162,19 @@ class _SkillsViewState extends State<SkillsView> {
               : () => _refreshSkills(context),
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.skillsRefresh),
+        ),
+        resourceUsageStatisticsButton(
+          context,
+          onPressed: () => showResourceUsageStatisticsDialog(
+            context,
+            kind: AiResourceUsageKind.skill,
+            resourceLabels: <String, String>{
+              for (final skill in skillsController.skills) ...<String, String>{
+                skill.relativeDirectoryPath: skill.name,
+                skill.name: skill.name,
+              },
+            },
+          ),
         ),
         FilledButton.tonalIcon(
           onPressed: () => _showSkillMarket(context),

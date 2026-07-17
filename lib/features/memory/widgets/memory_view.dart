@@ -15,6 +15,11 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../ai/index.dart'
+    show
+        AiResourceUsageKind,
+        resourceUsageStatisticsButton,
+        showResourceUsageStatisticsDialog;
 import '../data/memory_store.dart';
 import '../memory_controller.dart';
 import '../model/user_memory_entry.dart';
@@ -79,6 +84,19 @@ class MemoryView extends StatelessWidget {
               : () => memoryController.refresh(),
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.memoryRefresh),
+        ),
+        resourceUsageStatisticsButton(
+          context,
+          onPressed: () => showResourceUsageStatisticsDialog(
+            context,
+            kind: AiResourceUsageKind.memory,
+            resourceLabels: <String, String>{
+              for (final entry in memorySnapshot.entries)
+                entry.id: entry.title.trim().isEmpty
+                    ? entry.type
+                    : entry.title.trim(),
+            },
+          ),
         ),
         OutlinedButton.icon(
           onPressed: () => _openDirectory(context),

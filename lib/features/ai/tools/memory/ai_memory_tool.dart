@@ -143,6 +143,7 @@ class AiMemoryTool extends AiTool {
         'limit': _maxListEntries,
         'quota_recovery_mode': controller.isQuotaRecoveryMode,
         'tag': tag,
+        'memory_ids': visibleEntries.map((entry) => entry.id).toList(),
       },
     );
   }
@@ -152,12 +153,12 @@ class AiMemoryTool extends AiTool {
     _MemoryToolRequest request,
     Stopwatch sw,
   ) async {
-    final ok = await controller.createMemory(
+    final entry = await controller.createMemoryEntry(
       content: request.content!,
       tags: request.tags ?? const <String>[],
       title: request.title ?? '',
     );
-    if (!ok) {
+    if (entry == null) {
       return _failedResult(
         sw,
         'Memory could not be appended.',
@@ -170,7 +171,7 @@ class AiMemoryTool extends AiTool {
       durationMs: sw.elapsedMilliseconds,
       isWriteCommand: true,
       writeAnalysisReason: 'memory store mutation',
-      metadata: <String, Object?>{'action': 'append'},
+      metadata: <String, Object?>{'action': 'append', 'id': entry.id},
     );
   }
 

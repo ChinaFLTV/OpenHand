@@ -15,6 +15,14 @@ export interface McpServerSummary {
   template_associations?: TemplateMcpAssociation[];
 }
 
+export interface BuiltinToolSummary {
+  id: string;
+  name: string;
+  kind: string;
+  enabled: boolean;
+  load_strategy: string;
+}
+
 interface TemplateMcpAssociation {
   template_id: string;
   label_zh?: string;
@@ -65,10 +73,67 @@ export interface CronEntrySummary {
   consecutive_failures: number;
 }
 
+export interface HookEntrySummary {
+  id: string;
+  label: string;
+  event: string;
+  enabled: boolean;
+  timeout_seconds: number;
+}
+
+export interface KnowledgeSourceSummary {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  size_bytes: number;
+  updated_at: string;
+}
+
+export interface AgentSummary {
+  id: string;
+  name: string;
+  position: string;
+  department: string;
+  enabled: boolean;
+  lifecycle_state: string;
+  skill_count: number;
+  knowledge_count: number;
+  memory_count: number;
+}
+
+export type ResourceUsageKind = 'tool' | 'skill' | 'hook' | 'knowledge' | 'agent' | 'memory' | 'mcp';
+export type ResourceUsageLevel = 'session' | 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+export interface ResourceUsageTrendPoint {
+  bucket: string;
+  total: number;
+}
+
+export interface ResourceUsageLevelSnapshot {
+  level: ResourceUsageLevel;
+  bucket: string;
+  total: number;
+  resource_count: number;
+  counts: Record<string, number>;
+  trend: ResourceUsageTrendPoint[];
+}
+
+export interface ResourceUsageSnapshot {
+  kind: ResourceUsageKind;
+  generated_at: string;
+  levels: Record<ResourceUsageLevel, ResourceUsageLevelSnapshot>;
+}
+
 export function listMcpServers(
   options: ApiRequestSignalOptions = {},
 ): Promise<{ items: McpServerSummary[] }> {
   return apiRequest<{ items: McpServerSummary[] }>('/api/mcp/servers', options);
+}
+export function listBuiltinTools(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: BuiltinToolSummary[] }> {
+  return apiRequest<{ items: BuiltinToolSummary[] }>('/api/tools', options);
 }
 export function listSkills(
   options: ApiRequestSignalOptions = {},
@@ -84,4 +149,29 @@ export function listCrons(
   options: ApiRequestSignalOptions = {},
 ): Promise<{ items: CronEntrySummary[] }> {
   return apiRequest<{ items: CronEntrySummary[] }>('/api/crons', options);
+}
+
+export function listHooks(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: HookEntrySummary[] }> {
+  return apiRequest<{ items: HookEntrySummary[] }>('/api/hooks', options);
+}
+
+export function listKnowledgeSources(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: KnowledgeSourceSummary[] }> {
+  return apiRequest<{ items: KnowledgeSourceSummary[] }>('/api/knowledge/sources', options);
+}
+
+export function listAgents(
+  options: ApiRequestSignalOptions = {},
+): Promise<{ items: AgentSummary[] }> {
+  return apiRequest<{ items: AgentSummary[] }>('/api/agents', options);
+}
+
+export function getResourceUsage(
+  kind: ResourceUsageKind,
+  options: ApiRequestSignalOptions = {},
+): Promise<ResourceUsageSnapshot> {
+  return apiRequest<ResourceUsageSnapshot>(`/api/resource-usage?kind=${encodeURIComponent(kind)}`, options);
 }

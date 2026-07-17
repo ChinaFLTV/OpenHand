@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
@@ -90,6 +91,14 @@ class AiClaudeHookService {
       LifecycleLruCache<_AiCachedHookConfigPresence>(
         maxEntries: _maxAiHookPresenceCacheEntries,
       );
+  Future<void> Function(String sessionId, Iterable<String> hookIds)?
+  _usageRecorder;
+
+  void configureUsageRecorder(
+    Future<void> Function(String sessionId, Iterable<String> hookIds)? recorder,
+  ) {
+    _usageRecorder = recorder;
+  }
 
   Future<AiClaudeHookInvocationResult> runHooks({
     required String eventName,
@@ -126,12 +135,14 @@ class AiClaudeHookService {
     final userFeedback = <String>[];
     final systemReminders = <String>[];
     final executedCommands = <String>[];
+    final executedHookIds = <String>[];
     String? blockReason;
     var executedHookCount = 0;
 
     for (final entry in configuredHooks.entries) {
       executedHookCount += 1;
       executedCommands.add(entry.command);
+      executedHookIds.add(entry.id);
       try {
         final commandResult = await _runCommand(
           command: entry.command,
@@ -157,6 +168,19 @@ class AiClaudeHookService {
       }
     }
 
+    final recorder = _usageRecorder;
+    if (recorder != null && executedHookIds.isNotEmpty) {
+      try {
+        await recorder(sessionId, executedHookIds);
+      } catch (error, stack) {
+        silentLog(
+          'ai_claude_hook_service',
+          '记录 Claude Hook 调用统计',
+          error,
+          stack,
+        );
+      }
+    }
     return AiClaudeHookInvocationResult(
       blocked: blockReason != null,
       blockReason: blockReason,
@@ -306,6 +330,7 @@ class AiClaudeHookService {
         if (eventHooks is! List) {
           continue;
         }
+        var entryIndex = 0;
         for (final group in eventHooks) {
           if (group is! Map) {
             continue;
@@ -327,7 +352,12 @@ class AiClaudeHookService {
             if (type != 'command' || command.isEmpty) {
               continue;
             }
-            entries.add(_AiConfiguredHookEntry(command: command));
+            entries.add(
+              _AiConfiguredHookEntry(
+                id: '$filePath::$eventName::${entryIndex++}',
+                command: command,
+              ),
+            );
           }
         }
       } on IOException {
@@ -618,8 +648,9 @@ class _AiCachedHookConfigPresence {
 }
 
 class _AiConfiguredHookEntry {
-  const _AiConfiguredHookEntry({required this.command});
+  const _AiConfiguredHookEntry({required this.id, required this.command});
 
+  final String id;
   final String command;
 }
 

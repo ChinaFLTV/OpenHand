@@ -126,16 +126,24 @@ class MemoryController extends ManagedChangeNotifier {
     required String content,
     required List<String> tags,
     String title = '',
+  }) async =>
+      await createMemoryEntry(content: content, tags: tags, title: title) !=
+      null;
+
+  Future<UserMemoryEntry?> createMemoryEntry({
+    required String content,
+    required List<String> tags,
+    String title = '',
   }) async {
     final normalizedContent = UserMemoryEntry.normalizeContent(content);
     if (normalizedContent.isEmpty) {
-      return false;
+      return null;
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(tags);
     final normalizedTitle = UserMemoryEntry.normalizeTitle(title);
     return _enqueueOperation(() async {
-      if (!await _ensureTrustedSnapshotLocked()) return false;
-      if (_isQuotaRecoveryMode) return false;
+      if (!await _ensureTrustedSnapshotLocked()) return null;
+      if (_isQuotaRecoveryMode) return null;
       final entry = UserMemoryEntry(
         id: _idGenerator(),
         type: UserMemoryEntry.userType,
@@ -145,10 +153,11 @@ class MemoryController extends ManagedChangeNotifier {
         title: normalizedTitle,
       );
       final nextEntries = <UserMemoryEntry>[entry, ..._entries];
-      return _commitMutationLocked(
+      final committed = await _commitMutationLocked(
         nextEntries,
         () => _store.insertEntry(entry),
       );
+      return committed ? entry : null;
     });
   }
 

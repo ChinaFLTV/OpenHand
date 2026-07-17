@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/silent_log.dart';
 import '../../agents/agents_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../knowledge_base/knowledge_base_controller.dart';
@@ -46,6 +47,13 @@ import 'web/ai_web_search_tool.dart';
 export 'ai_tool.dart';
 export 'ai_tool_execution_context.dart';
 export 'planning/ai_task_tool.dart' show AiSubToolExecutor;
+
+typedef AiSubToolExecutionObserver =
+    Future<void> Function(
+      AiToolExecutionContext parentContext,
+      AiToolExecutionContext subContext,
+      AiToolExecutionResult result,
+    );
 
 class AiToolRegistry {
   // ──────────────────────────────────────────────────────────────
@@ -100,6 +108,7 @@ class AiToolRegistry {
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
+    AiSubToolExecutionObserver? subToolExecutionObserver,
   }) {
     final registry = AiToolRegistry.lightweightOnly(
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
@@ -167,7 +176,15 @@ class AiToolRegistry {
             subContext,
             resolvedTool!.builtinKind!,
           );
-          if (result != null) return result;
+          if (result != null) {
+            await _notifySubToolExecuted(
+              subToolExecutionObserver,
+              parentContext,
+              subContext,
+              result,
+            );
+            return result;
+          }
           return AiToolExecutionResult(
             status: BashToolExecutionStatus.invalidArguments,
             command: subContext.toolCall.name,
@@ -236,7 +253,15 @@ class AiToolRegistry {
         subContext,
         resolvedTool!.builtinKind!,
       );
-      if (result != null) return result;
+      if (result != null) {
+        await _notifySubToolExecuted(
+          subToolExecutionObserver,
+          parentContext,
+          subContext,
+          result,
+        );
+        return result;
+      }
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: subContext.toolCall.name,
@@ -346,5 +371,19 @@ class AiToolRegistry {
     return _disposeFuture = Future.wait<void>(
       tools.map((tool) => tool.dispose()),
     );
+  }
+}
+
+Future<void> _notifySubToolExecuted(
+  AiSubToolExecutionObserver? observer,
+  AiToolExecutionContext parentContext,
+  AiToolExecutionContext subContext,
+  AiToolExecutionResult result,
+) async {
+  if (observer == null) return;
+  try {
+    await observer(parentContext, subContext, result);
+  } catch (error, stack) {
+    silentLog('ai_tool_registry', '记录子智能体工具调用统计', error, stack);
   }
 }

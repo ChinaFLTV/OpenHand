@@ -1161,6 +1161,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return <String, Object?>{
       'name': skill.name,
       'path': skill.manifestPath,
+      'resource_id': skill.relativeDirectoryPath,
       if (skill.hasEmojiIcon) 'emoji': skill.emojiIcon,
       if (skill.hasIcon) 'icon_path': skill.iconPath,
       if (skill.hasIcon && skill.iconKind != null)

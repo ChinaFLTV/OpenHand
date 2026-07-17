@@ -41,9 +41,12 @@ import '../../ai/index.dart'
         AiBuiltinToolConfig,
         AiBuiltinToolKind,
         AiBuiltinToolKindAgentMetadata,
+        AiResourceUsageKind,
         agentBuiltinToolCanonicalName,
         agentBuiltinToolLabel,
-        agentBuiltinToolSummary;
+        agentBuiltinToolSummary,
+        resourceUsageStatisticsButton,
+        showResourceUsageStatisticsDialog;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../instructions/index.dart';
@@ -329,10 +332,26 @@ class AgentsView extends StatelessWidget {
     return FeaturePageShell(
       title: l10n.agentsTitle,
       subtitle: l10n.agentsSubtitle,
-      actions: FilledButton.icon(
-        onPressed: () => _handleCreateAgent(context, snapshot.runtime),
-        icon: const Icon(Icons.add_rounded),
-        label: Text(l10n.agentsCreateAgent),
+      actions: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          resourceUsageStatisticsButton(
+            context,
+            onPressed: () => showResourceUsageStatisticsDialog(
+              context,
+              kind: AiResourceUsageKind.agent,
+              resourceLabels: <String, String>{
+                for (final agent in snapshot.agents) agent.id: agent.name,
+              },
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () => _handleCreateAgent(context, snapshot.runtime),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(l10n.agentsCreateAgent),
+          ),
+        ],
       ),
       successSignal: controller.saveSuccessSignal,
       body: _AgentsBody(snapshot: snapshot),

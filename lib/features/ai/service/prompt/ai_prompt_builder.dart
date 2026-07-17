@@ -58,6 +58,7 @@ class AiPromptBuildResult {
     required this.promptCharacterCount,
     required this.systemMessageCount,
     required this.historyMessageCount,
+    required this.memoryResourceIds,
   });
 
   final List<AiChatTurn> messages;
@@ -65,6 +66,7 @@ class AiPromptBuildResult {
   final int promptCharacterCount;
   final int systemMessageCount;
   final int historyMessageCount;
+  final Set<String> memoryResourceIds;
 }
 
 class _PromptSection {
@@ -515,6 +517,7 @@ class AiPromptBuilder {
       latestUserInline: latestUserInline,
     );
 
+    final memoryResourceIds = <String>{};
     final stablePrefixTurns = <AiChatTurn>[
       _systemSectionTurn(
         AiPromptSectionHeaders.systemInstructions,
@@ -537,8 +540,8 @@ class AiPromptBuilder {
       _systemSectionTurn(
         AiPromptSectionHeaders.userMemory,
         'Long-term user facts and preferences.\n\n'
-        '${_renderUserProfileSection(promptMemoryEntries, runtimeContext.memoryEnabled)}'
-        '${_renderUserMemory(promptMemoryEntries, runtimeContext.memoryEnabled)}',
+        '${_renderUserProfileSection(promptMemoryEntries, runtimeContext.memoryEnabled, memoryResourceIds)}'
+        '${_renderUserMemory(promptMemoryEntries, runtimeContext.memoryEnabled, memoryResourceIds)}',
       ),
       // 【指令】模块注入。
       // 为了不让「本轮临时跳过某条指令」的勾选击穿
@@ -829,6 +832,7 @@ class AiPromptBuilder {
       promptCharacterCount: promptCharacterCount,
       systemMessageCount: systemMessageCount,
       historyMessageCount: historyMessageCount,
+      memoryResourceIds: Set<String>.unmodifiable(memoryResourceIds),
     );
   }
 
@@ -3875,6 +3879,7 @@ $tail''';
   String _renderUserMemory(
     List<UserMemoryEntry> memoryEntries,
     bool memoryEnabled,
+    Set<String> resourceIds,
   ) {
     if (!memoryEnabled) {
       return 'Memory is disabled for the current runtime request.';
@@ -3889,6 +3894,7 @@ $tail''';
       return 'No saved user memory entries.';
     }
     final lines = <String>[];
+    final includedIds = <String>[];
     var renderedCharacters = 0;
     final candidateCount = math.min(
       filtered.length,
@@ -3914,6 +3920,7 @@ $tail''';
         break;
       }
       lines.add(line);
+      includedIds.add(entry.id);
       renderedCharacters += separatorCharacters + line.length;
     }
     while (true) {
@@ -3928,8 +3935,10 @@ $tail''';
       }
       if (lines.isEmpty) return marker;
       final removed = lines.removeLast();
+      includedIds.removeLast();
       renderedCharacters -= removed.length + (lines.isEmpty ? 0 : 1);
     }
+    resourceIds.addAll(includedIds.where((id) => id.trim().isNotEmpty));
     final rendered = lines.join('\n');
     assert(rendered.length <= _userMemoryPromptMaxCharacters);
     return rendered;
@@ -4039,6 +4048,7 @@ $tail''';
   String _renderUserProfileSection(
     List<UserMemoryEntry> memoryEntries,
     bool memoryEnabled,
+    Set<String> resourceIds,
   ) {
     if (!memoryEnabled) return '';
     UserMemoryEntry? profile;
@@ -4057,6 +4067,9 @@ $tail''';
       marker: 'user_profile_truncated',
     ).text;
     if (content.isEmpty) return '';
+    if (profile != null && profile.id.trim().isNotEmpty) {
+      resourceIds.add(profile.id.trim());
+    }
     final rendered = '$prefix$content$suffix';
     assert(rendered.length <= _userProfilePromptMaxCharacters);
     return rendered;

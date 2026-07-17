@@ -4232,6 +4232,23 @@ class _SettingsViewState extends State<SettingsView> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
+                  resourceUsageStatisticsButton(
+                    context,
+                    onPressed: () => showResourceUsageStatisticsDialog(
+                      context,
+                      kind: AiResourceUsageKind.tool,
+                      resourceLabels: <String, String>{
+                        for (final config in sorted) ...<String, String>{
+                          config.effectiveName: config.effectiveName,
+                          if (AiToolRuntimeService.builtinToolDefault(
+                                config.kind,
+                              )
+                              case final tool?)
+                            tool.definition.name: config.effectiveName,
+                        },
+                      },
+                    ),
+                  ),
                   FilledButton.icon(
                     onPressed: () => _showBuiltinToolResetConfirmDialog(
                       context,

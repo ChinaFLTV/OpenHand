@@ -421,6 +421,7 @@ Future<void> _bootstrap() async {
     mcpController: mcp.controller,
     memoryController: memory.controller,
     cronsController: cronsController,
+    hooksController: hooks.controller,
     instructionsController: instructions.controller,
     knowledgeBaseController: knowledgeBase.controller,
     machineTerminalService: machineTerminalService,

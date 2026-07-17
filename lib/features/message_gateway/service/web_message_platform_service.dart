@@ -45,6 +45,7 @@ import '../../crons/index.dart';
 import '../../harness/index.dart';
 import '../../home/index.dart'
     show SessionCacheHitTrend, SessionCacheHitDisplayMode;
+import '../../hooks/index.dart';
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../machine_terminal/index.dart';
@@ -192,6 +193,7 @@ class WebMessagePlatformService {
     required McpController mcpController,
     required MemoryController memoryController,
     required CronsController cronsController,
+    required HooksController hooksController,
     required InstructionsController instructionsController,
     KnowledgeBaseController? knowledgeBaseController,
     required MachineTerminalService machineTerminalService,
@@ -207,6 +209,7 @@ class WebMessagePlatformService {
        _mcpController = mcpController,
        _memoryController = memoryController,
        _cronsController = cronsController,
+       _hooksController = hooksController,
        _instructionsController = instructionsController,
        _knowledgeBaseController = knowledgeBaseController,
        _machineTerminalService = machineTerminalService,
@@ -231,6 +234,7 @@ class WebMessagePlatformService {
   final McpController _mcpController;
   final MemoryController _memoryController;
   final CronsController _cronsController;
+  final HooksController _hooksController;
   final InstructionsController _instructionsController;
   final KnowledgeBaseController? _knowledgeBaseController;
   final MachineTerminalService _machineTerminalService;
@@ -2382,11 +2386,15 @@ class WebMessagePlatformService {
       (shelf.Request r) => _withAuth(r, (req, _) => _deleteWorkspaceFile(req)),
     );
 
-    // Toolbox: 只读列出 MCP 服务器 / 已安装技能 / 用户记忆 / 定时任务
+    // Toolbox: 只读列出应用资源与调用统计。
     // App 端是这些资源的真权威 (增删改全在 GUI), Web 端只读消费即可。
     router.get(
       '/api/mcp/servers',
       (shelf.Request r) => _withAuth(r, (_, _) => _listMcpServersHandler()),
+    );
+    router.get(
+      '/api/tools',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listBuiltinToolsHandler()),
     );
     router.get(
       '/api/skills',
@@ -2399,6 +2407,23 @@ class WebMessagePlatformService {
     router.get(
       '/api/crons',
       (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()),
+    );
+    router.get(
+      '/api/hooks',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listHooksHandler()),
+    );
+    router.get(
+      '/api/knowledge/sources',
+      (shelf.Request r) =>
+          _withAuth(r, (_, _) => _listKnowledgeSourcesHandler()),
+    );
+    router.get(
+      '/api/agents',
+      (shelf.Request r) => _withAuth(r, (_, _) => _listAgentsHandler()),
+    );
+    router.get(
+      '/api/resource-usage',
+      (shelf.Request r) => _withAuth(r, (req, _) => _resourceUsageHandler(req)),
     );
     router.get(
       '/api/knowledge/vector-distribution',
@@ -2812,6 +2837,24 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
 
+  Future<shelf.Response> _listBuiltinToolsHandler() async {
+    final items = _settingsController.builtinToolConfigs
+        .map((config) {
+          final runtimeTool = AiToolRuntimeService.builtinToolDefault(
+            config.kind,
+          );
+          return <String, Object?>{
+            'id': runtimeTool?.definition.name ?? config.effectiveName,
+            'name': config.effectiveName,
+            'kind': config.kind.name,
+            'enabled': config.enabled,
+            'load_strategy': config.loadStrategy.name,
+          };
+        })
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
   /// Toolbox: 列出已安装本地技能（来自 SkillsController）。
   Future<shelf.Response> _listSkillsHandler() async {
     final Iterable<LocalSkill> visibleSkills =
@@ -2882,6 +2925,86 @@ class WebMessagePlatformService {
         )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _listHooksHandler() async {
+    final items = _hooksController.entries
+        .map(
+          (entry) => <String, Object?>{
+            'id': entry.id,
+            'label': entry.label,
+            'event': entry.event.storageValue,
+            'enabled': entry.enabled,
+            'timeout_seconds': entry.timeoutSeconds,
+          },
+        )
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _listKnowledgeSourcesHandler() async {
+    if (!_config.knowledgeBaseEnabled) {
+      return _json(HttpStatus.ok, <String, Object?>{
+        'items': const <Object?>[],
+        'disabled': true,
+      });
+    }
+    final controller = _knowledgeBaseController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'error': 'knowledge_base_unavailable',
+      });
+    }
+    final items = controller.sources
+        .map(
+          (source) => <String, Object?>{
+            'id': source.id,
+            'title': source.title,
+            'kind': source.kind,
+            'status': source.status,
+            'size_bytes': source.sizeBytes,
+            'updated_at': source.updatedAt.toUtc().toIso8601String(),
+          },
+        )
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _listAgentsHandler() async {
+    final items = _exposedWebAgents()
+        .map(
+          (agent) => <String, Object?>{
+            'id': agent.id,
+            'name': agent.name,
+            'position': agent.position,
+            'department': agent.department,
+            'enabled': agent.enabled,
+            'lifecycle_state': agent.lifecycleState.storageValue,
+            'skill_count': agent.skillNames.length,
+            'knowledge_count': agent.knowledgeSourceIds.length,
+            'memory_count': agent.memoryIds.length,
+          },
+        )
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _resourceUsageHandler(shelf.Request request) async {
+    final kind = AiResourceUsageKind.fromStorage(
+      request.url.queryParameters['kind'],
+    );
+    if (kind == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'resource_usage_kind_invalid',
+      });
+    }
+    final store = _sessionController.toolUsagePromotionStore;
+    await store.initialize();
+    final snapshot = store.snapshot(
+      kind: kind,
+      preferredSessionId: request.url.queryParameters['session_id'],
+    );
+    return _json(HttpStatus.ok, snapshot.toJson());
   }
 
   Future<shelf.Response> _knowledgeVectorDistributionHandler(
@@ -4412,6 +4535,7 @@ class WebMessagePlatformService {
       metadata: <String, Object?>{
         'name': selected.name,
         'path': selected.manifestPath,
+        'resource_id': selected.relativeDirectoryPath,
         if (selected.hasEmojiIcon) 'emoji': selected.emojiIcon,
         if (selected.hasIcon) 'icon_path': selected.iconPath,
         if (selected.hasIcon && selected.iconKind != null)
