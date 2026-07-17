@@ -213,60 +213,6 @@ class _TranscriptScrollDispatcher {
   }
 }
 
-class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
-  const _SessionTranscriptLoadingPlaceholder({
-    super.key,
-    required this.session,
-    required this.liveRuntimeToolPreview,
-    required this.sendPhase,
-    required this.planTimelineCollapsed,
-    required this.onPlanTimelineCollapsedChanged,
-    this.fileExplorerVisible = false,
-    this.onFileExplorerToggled,
-    this.machineTerminalPanelVisible = false,
-    this.onMachineTerminalPanelToggled,
-    this.activeProfile,
-    this.claudeStyle = true,
-  });
-
-  final AiSession session;
-  final AiRuntimeToolPreview? liveRuntimeToolPreview;
-  final AiSendPhase sendPhase;
-  final bool planTimelineCollapsed;
-  final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
-  final bool fileExplorerVisible;
-  final VoidCallback? onFileExplorerToggled;
-  final bool machineTerminalPanelVisible;
-  final VoidCallback? onMachineTerminalPanelToggled;
-  final AiModelProfile? activeProfile;
-  final bool claudeStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SessionToolbar(
-          session: session,
-          liveRuntimeToolPreview: liveRuntimeToolPreview,
-          sendPhase: sendPhase,
-          planTimelineCollapsed: planTimelineCollapsed,
-          onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
-          fileExplorerVisible: fileExplorerVisible,
-          onFileExplorerToggled: onFileExplorerToggled,
-          machineTerminalPanelVisible: machineTerminalPanelVisible,
-          onMachineTerminalPanelToggled: onMachineTerminalPanelToggled,
-          activeProfile: activeProfile,
-          claudeStyle: claudeStyle,
-        ),
-        const SizedBox(height: 14),
-        // 保留 Expanded 占位以维持 Column 布局，使工具栏与底部输入框间距一致。
-        const Expanded(child: SizedBox.shrink()),
-      ],
-    );
-  }
-}
-
 class _TranscriptRenderEntry {
   const _TranscriptRenderEntry({required this.message});
 

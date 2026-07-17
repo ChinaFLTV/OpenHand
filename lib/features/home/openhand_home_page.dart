@@ -369,9 +369,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
   bool _detachedFullAccessPermission = false;
   String? _activeComposerSessionId;
-  String? _activeTranscriptSessionId;
-  String? _preparingTranscriptSessionId;
-  int _transcriptPreparationGeneration = 0;
   bool _sessionControllerUiSyncQueued = false;
   int _sessionActivationGeneration = 0;
   AppLifecycleState? _appLifecycleState;
@@ -1001,7 +998,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _handleToolSearchLoadedSignal,
     );
     _activeComposerSessionId = sessionController.currentSessionId;
-    _activeTranscriptSessionId = sessionController.currentSessionId;
     final messageGatewayController = _readMessageGatewayController();
     if (!identical(
       _observedMessageGatewayController,
@@ -1859,7 +1855,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         final sessionController = _observedSessionController;
         _syncComposerDraftForSession(sessionController?.currentSessionId);
-        _syncTranscriptPreparation(sessionController?.currentSession);
         _syncEditorTabsForSession(sessionController?.currentSessionId);
       }),
     );
@@ -2147,114 +2142,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } finally {
       _processingQueueInProgress = false;
     }
-  }
-
-  bool _shouldPrepareTranscript(AiSession? session) {
-    if (session == null) return false;
-    final messageCount = session.messages.isNotEmpty
-        ? session.messages.length
-        : session.statistics.totalMessageCount;
-    return messageCount >= _transcriptPreparationThreshold;
-  }
-
-  bool _isTranscriptReadyForReveal(String sessionId) {
-    final controller = _observedSessionController;
-    if (controller == null) {
-      return true;
-    }
-    final session = controller.sessionById(sessionId);
-    if (session == null) {
-      return true;
-    }
-    if (controller.isSessionMessagesHydrating(sessionId)) {
-      return false;
-    }
-    return session.messages.isNotEmpty ||
-        session.statistics.totalMessageCount <= 0 ||
-        !session.hasMoreHistoricalMessages;
-  }
-
-  bool _isPreparingTranscriptForSession(AiSession? session) {
-    return session != null && _preparingTranscriptSessionId == session.id;
-  }
-
-  void _syncTranscriptPreparation(AiSession? session) {
-    final nextSessionId = session?.id;
-    if (_activeTranscriptSessionId == nextSessionId) {
-      return;
-    }
-    _activeTranscriptSessionId = nextSessionId;
-    _transcriptPreparationGeneration += 1;
-    final generation = _transcriptPreparationGeneration;
-    if (!_shouldPrepareTranscript(session) || nextSessionId == null) {
-      if (_preparingTranscriptSessionId == null) {
-        return;
-      }
-      setState(() {
-        _preparingTranscriptSessionId = null;
-      });
-      return;
-    }
-    setState(() {
-      _preparingTranscriptSessionId = nextSessionId;
-    });
-    _scheduleTranscriptReveal(
-      generation: generation,
-      expectedSessionId: nextSessionId,
-    );
-  }
-
-  // Frame-driven placeholder dismissal. We wait for both the selected
-  // session's initial message window to hydrate and a few rendered frames to
-  // pass; only then do we mount the real transcript tree.  This keeps slow
-  // SQLite / very long sessions from dropping the mask while the expensive
-  // first transcript build is still queued.
-  void _scheduleTranscriptReveal({
-    required int generation,
-    required String expectedSessionId,
-  }) {
-    final stopwatch = Stopwatch()..start();
-
-    void finish() {
-      if (!mounted ||
-          generation != _transcriptPreparationGeneration ||
-          _preparingTranscriptSessionId != expectedSessionId) {
-        return;
-      }
-      setState(() {
-        if (_preparingTranscriptSessionId == expectedSessionId) {
-          _preparingTranscriptSessionId = null;
-        }
-      });
-    }
-
-    void scheduleNextFrame(int remainingFrames) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted ||
-            generation != _transcriptPreparationGeneration ||
-            _preparingTranscriptSessionId != expectedSessionId) {
-          return;
-        }
-        final ready = _isTranscriptReadyForReveal(expectedSessionId);
-        if (ready && remainingFrames <= 0) {
-          finish();
-          return;
-        }
-        if (stopwatch.elapsed >= _transcriptPreparationHardTimeout) {
-          finish();
-          return;
-        }
-        scheduleNextFrame(ready ? remainingFrames - 1 : remainingFrames);
-      });
-    }
-
-    scheduleNextFrame(_transcriptPreparationFrameBudget);
-
-    // Safety net in case post-frame callbacks stop firing (e.g. the route is
-    // backgrounded) or a storage fault leaves hydration stuck.  It is long
-    // enough not to mask ordinary slow-disk hydration, but prevents a
-    // permanent overlay.
-    Future<void>.delayed(_transcriptPreparationHardTimeout, finish);
   }
 
   String _composerDraftKeyForSessionId(String? sessionId) {
@@ -2761,20 +2648,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _selectSection(AppSection section) {
     setState(() {
       _selectedSection = section;
-      // 切回 workspace 板块时强制清掉残留的「转换中」遮罩。
-      // 当用户从 workspace（曾经触发过一次 prep 流程）切到其他板块、再
-      // 切回 workspace 时，`_WorkspaceView` 是一棵刚 mount 的全新子树，
-      // 老 `_SessionTranscript` 早已被 dispose。新 transcript 在
-      // initState 里就会同步物化 render entries 并 jumpToBottom，根本
-      // 不需要再走 prep placeholder；但如果 `_preparingTranscriptSessionId`
-      // 还指向当前 session（比如刚才 prep 还没走完就被切走、frame 回调
-      // 提前 return），新 transcript 会被 AnimatedOpacity 覆盖成空白
-      // `SizedBox.expand()`，呈现"消息卡片消失"的错觉。
-      if (section == AppSection.workspace &&
-          _preparingTranscriptSessionId != null) {
-        _preparingTranscriptSessionId = null;
-        _transcriptPreparationGeneration += 1;
-      }
     });
   }
 
@@ -3264,8 +3137,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (_selectedSection != AppSection.workspace) {
         setState(() {
           _selectedSection = AppSection.workspace;
-          _preparingTranscriptSessionId = null;
-          _transcriptPreparationGeneration += 1;
         });
         _clearPendingAutoFollowState();
         _requestFollowToLatest();
@@ -3273,37 +3144,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     await _ttsPlaybackService.stop();
-    // Devtools / Timeline marker: lets us measure first-open latency on
-    // real sessions without sprinkling debug prints. Pairs with the
-    // `openhand.boot.*` markers in main.dart.
+    // Timeline 标记用于测量真实会话的首次打开耗时。
     developer.Timeline.startSync(
       'openhand.session.open',
       arguments: <String, Object?>{'sessionId': sessionId},
     );
     try {
       final activationGeneration = ++_sessionActivationGeneration;
-      // 阶段㉒ — 同步预亮 placeholder 防首帧爆裂：
-      // 之前流程是「点击会话 → selectSession 触发 notifyListeners →
-      // build 同帧把新 transcript 直接 mount → 等下一帧 listener 才设
-      // _preparingTranscriptSessionId」，导致用户看见 1 帧"光秃秃的真
-      // 实 transcript 在同步堆 N 张消息卡片"，正是 ANR 主因。
-      // 现在在调 selectSession 之前同步置位，让接下来的 build 直接渲染
-      // placeholder 而不是真实 transcript，把 mount 延后到 placeholder
-      // 反向淡出之后；与 _scheduleTranscriptReveal 的帧预算 + 320ms
-      // 兜底配合。极小会话 (<15 条) 跳过本路径，照旧无闪烁直接 mount。
-      AiSession? targetSession;
-      for (final candidate in sessionController.sessions) {
-        if (candidate.id == sessionId) {
-          targetSession = candidate;
-          break;
-        }
-      }
-      if (_shouldPrepareTranscript(targetSession) &&
-          _preparingTranscriptSessionId != sessionId) {
-        setState(() {
-          _preparingTranscriptSessionId = sessionId;
-        });
-      }
       await _awaitEndOfFrame();
       if (!mounted || activationGeneration != _sessionActivationGeneration) {
         return;
@@ -9721,9 +9568,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final transcriptHydrating =
         currentSession != null &&
         sessionController.isSessionMessagesHydrating(currentSession.id);
-    final transcriptPreparing = _isPreparingTranscriptForSession(
-      currentSession,
-    );
     // Defer runtime catalog preview work to the workspace section — these
     // computations involve DateTime.now(), object allocation, and tool catalog
     // resolution that are wasted when viewing other sections.
@@ -9737,9 +9581,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         appInfo: appInfo,
         session: currentSession,
       );
-      if (!transcriptPreparing) {
-        _maybeAutoFollowSession(currentSession);
-      }
+      _maybeAutoFollowSession(currentSession);
     }
 
     return switch (effectiveSection) {
@@ -9751,7 +9593,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         currentSession: currentSession,
         liveRuntimeToolPreview: liveRuntimeToolPreview,
         transcriptHydrating: transcriptHydrating,
-        transcriptPreparing: transcriptPreparing,
         selectedModel: selectedModel,
         availableModels: settingsController.aiModels,
         recentModelSelections: settingsController.recentModelSelections,

@@ -9,7 +9,6 @@ class _WorkspaceView extends StatelessWidget {
     required this.currentSession,
     required this.liveRuntimeToolPreview,
     required this.transcriptHydrating,
-    required this.transcriptPreparing,
     required this.selectedModel,
     required this.availableModels,
     required this.recentModelSelections,
@@ -91,7 +90,6 @@ class _WorkspaceView extends StatelessWidget {
   final AiSession? currentSession;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final bool transcriptHydrating;
-  final bool transcriptPreparing;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
   final List<RecentModelSelection> recentModelSelections;
@@ -198,148 +196,13 @@ class _WorkspaceView extends StatelessWidget {
                     ? const _WorkspaceEmptyState(
                         key: ValueKey<String>('no-session'),
                       )
-                    : !hasLoadedMessages
-                    ? Column(
-                        key: ValueKey<String>('empty-${session.id}'),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SessionToolbar(
-                            session: session,
-                            liveRuntimeToolPreview: liveRuntimeToolPreview,
-                            sendPhase: sendPhase,
-                            planTimelineCollapsed: planTimelineCollapsed,
-                            onPlanTimelineCollapsedChanged:
-                                onPlanTimelineCollapsedChanged,
-                            fileExplorerVisible: fileExplorerVisible,
-                            onFileExplorerToggled: onFileExplorerToggled,
-                            machineTerminalPanelVisible:
-                                machineTerminalPanelVisible,
-                            onMachineTerminalPanelToggled:
-                                onMachineTerminalPanelToggled,
-                            activeProfile: selectedModel
-                                ?.modelProfiles[selectedModel!.modelId],
-                            claudeStyle:
-                                selectedModel?.protocolType ==
-                                AiProtocolType.claude,
-                          ),
-                          const SizedBox(height: 14),
-                          Expanded(
-                            child: shouldShowTranscriptHydrating
-                                ? _TranscriptHydratingPlaceholder(
-                                    key: ValueKey<String>(
-                                      'hydrating-${session.id}',
-                                    ),
-                                  )
-                                : _WorkspaceEmptyState(
-                                    key: ValueKey<String>(session.id),
-                                    session: session,
-                                  ),
-                          ),
-                        ],
-                      )
                     : KeyedSubtree(
-                        key: ValueKey<String>('content-${session.id}'),
-                        child: Stack(
-                          children: [
-                            // placeholder 阶段直接 SizedBox 占位，不
-                            // 把 _SessionTranscript 树挂进 widget tree。之前
-                            // 用 AnimatedOpacity(0) 隐身但保留 mount 的写法，
-                            // initState/build/markdown 解析照常跑，等于 ANR
-                            // 隐藏在 placeholder 背后。现在严格延后到
-                            // transcriptPreparing 反向之后才 mount，让
-                            // placeholder 阶段主线程完全空出来给首帧布局。
-                            Positioned.fill(
-                              child: AnimatedOpacity(
-                                opacity: transcriptPreparing ? 0.0 : 1.0,
-                                duration: transcriptPreparing
-                                    ? Duration.zero
-                                    : const Duration(milliseconds: 160),
-                                curve: Curves.easeOutCubic,
-                                child: transcriptPreparing
-                                    ? const SizedBox.expand()
-                                    : Listener(
-                                        behavior: HitTestBehavior.translucent,
-                                        onPointerSignal: onMessagePointerSignal,
-                                        child: _SessionTranscript(
-                                          key: ValueKey<String>(
-                                            'messages-${session.id}',
-                                          ),
-                                          controller: messageScrollController,
-                                          onScrollNotification:
-                                              onMessageScrollNotification,
-                                          session: session,
-                                          liveRuntimeToolPreview:
-                                              liveRuntimeToolPreview,
-                                          sendPhase: sendPhase,
-                                          planTimelineCollapsed:
-                                              planTimelineCollapsed,
-                                          onPlanTimelineCollapsedChanged:
-                                              onPlanTimelineCollapsedChanged,
-                                          onLayoutChanged:
-                                              onTranscriptLayoutChanged,
-                                          onRevealOlderMessages:
-                                              onRevealOlderMessages,
-                                          onProgrammaticScrollCorrection:
-                                              onProgrammaticScrollCorrection,
-                                          onEditMessage: onEditMessage,
-                                          onCopyMessage: onCopyMessage,
-                                          onDeleteMessage: onDeleteMessage,
-                                          onDeleteMessageFromHere:
-                                              onDeleteMessageFromHere,
-                                          onForkMessage: onForkMessage,
-                                          onSetMessageFeedback:
-                                              onSetMessageFeedback,
-                                          onRegenerateMessage:
-                                              onRegenerateMessage,
-                                          onSelectMessageResponseVariant:
-                                              onSelectMessageResponseVariant,
-                                          ttsPlaybackService:
-                                              ttsPlaybackService,
-                                          translationService:
-                                              translationService,
-                                          onDismissError: onDismissError,
-                                          // Jump to the very bottom on the first
-                                          // frame when the session was just
-                                          // activated, so the user never sees a
-                                          // flash from scroll-top to
-                                          // scroll-bottom.
-                                          jumpToBottomOnInit:
-                                              jumpToBottomOnInit,
-                                          fileExplorerVisible:
-                                              fileExplorerVisible,
-                                          onFileExplorerToggled:
-                                              onFileExplorerToggled,
-                                          machineTerminalPanelVisible:
-                                              machineTerminalPanelVisible,
-                                          onMachineTerminalPanelToggled:
-                                              onMachineTerminalPanelToggled,
-                                          activeProfile:
-                                              selectedModel
-                                                  ?.modelProfiles[selectedModel!
-                                                  .modelId],
-                                          claudeStyle:
-                                              selectedModel?.protocolType ==
-                                              AiProtocolType.claude,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            // Overlay mask that visually hides the initial rendering
-                            // and scroll-to-bottom operations of the transcript list.
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                ignoring: !transcriptPreparing,
-                                child: AnimatedOpacity(
-                                  opacity: transcriptPreparing ? 1.0 : 0.0,
-                                  // 进场需提前快过底部列表跳跃，退场再慢慢淡出
-                                  duration: transcriptPreparing
-                                      ? const Duration(milliseconds: 80)
-                                      : const Duration(milliseconds: 160),
-                                  curve: Curves.easeOutCubic,
-                                  child: _SessionTranscriptLoadingPlaceholder(
-                                    key: ValueKey<String>(
-                                      'session-transcript-loading-${session.id}',
-                                    ),
+                        key: ValueKey<String>('session-${session.id}'),
+                        child: !hasLoadedMessages
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _SessionToolbar(
                                     session: session,
                                     liveRuntimeToolPreview:
                                         liveRuntimeToolPreview,
@@ -361,11 +224,69 @@ class _WorkspaceView extends StatelessWidget {
                                         selectedModel?.protocolType ==
                                         AiProtocolType.claude,
                                   ),
+                                  const SizedBox(height: 14),
+                                  Expanded(
+                                    child: shouldShowTranscriptHydrating
+                                        ? _TranscriptHydratingPlaceholder(
+                                            key: ValueKey<String>(
+                                              'hydrating-${session.id}',
+                                            ),
+                                          )
+                                        : _WorkspaceEmptyState(
+                                            key: ValueKey<String>(session.id),
+                                            session: session,
+                                          ),
+                                  ),
+                                ],
+                              )
+                            : Listener(
+                                behavior: HitTestBehavior.translucent,
+                                onPointerSignal: onMessagePointerSignal,
+                                child: _SessionTranscript(
+                                  key: ValueKey<String>(
+                                    'messages-${session.id}',
+                                  ),
+                                  controller: messageScrollController,
+                                  onScrollNotification:
+                                      onMessageScrollNotification,
+                                  session: session,
+                                  liveRuntimeToolPreview:
+                                      liveRuntimeToolPreview,
+                                  sendPhase: sendPhase,
+                                  planTimelineCollapsed: planTimelineCollapsed,
+                                  onPlanTimelineCollapsedChanged:
+                                      onPlanTimelineCollapsedChanged,
+                                  onLayoutChanged: onTranscriptLayoutChanged,
+                                  onRevealOlderMessages: onRevealOlderMessages,
+                                  onProgrammaticScrollCorrection:
+                                      onProgrammaticScrollCorrection,
+                                  onEditMessage: onEditMessage,
+                                  onCopyMessage: onCopyMessage,
+                                  onDeleteMessage: onDeleteMessage,
+                                  onDeleteMessageFromHere:
+                                      onDeleteMessageFromHere,
+                                  onForkMessage: onForkMessage,
+                                  onSetMessageFeedback: onSetMessageFeedback,
+                                  onRegenerateMessage: onRegenerateMessage,
+                                  onSelectMessageResponseVariant:
+                                      onSelectMessageResponseVariant,
+                                  ttsPlaybackService: ttsPlaybackService,
+                                  translationService: translationService,
+                                  onDismissError: onDismissError,
+                                  jumpToBottomOnInit: jumpToBottomOnInit,
+                                  fileExplorerVisible: fileExplorerVisible,
+                                  onFileExplorerToggled: onFileExplorerToggled,
+                                  machineTerminalPanelVisible:
+                                      machineTerminalPanelVisible,
+                                  onMachineTerminalPanelToggled:
+                                      onMachineTerminalPanelToggled,
+                                  activeProfile: selectedModel
+                                      ?.modelProfiles[selectedModel!.modelId],
+                                  claudeStyle:
+                                      selectedModel?.protocolType ==
+                                      AiProtocolType.claude,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
                       ),
               ),
             ),
@@ -586,40 +507,11 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
   }
 }
 
-/// Animates the workspace primary content (empty-state / transcript) across
-/// session/template changes using the global page animation settings.
-///
-/// The transcript reuses a long-lived [ScrollController] owned by the home
-/// page. Keeping an outgoing transcript mounted during an [AnimatedSwitcher]
-/// cross-fade attaches that controller to two [ScrollPosition]s at once,
-/// which trips desktop [RawScrollbar] validation. We therefore allow only the
-/// empty-state placeholders to overlap during the transition; transcript
-/// content always swaps atomically.
+/// 使用全局页面动画切换工作区内容，但不保留旧会话叠层。
 class _WorkspacePrimarySwitcher extends StatelessWidget {
   const _WorkspacePrimarySwitcher({super.key, required this.child});
 
   final Widget child;
-
-  static bool _allowsOutgoingOverlap(Widget child) {
-    if (child is KeyedSubtree) {
-      return _allowsOutgoingOverlap(child.child);
-    }
-    final key = child.key;
-    if (key is! ValueKey<String>) {
-      return false;
-    }
-    return key.value == 'no-session' || key.value.startsWith('empty-');
-  }
-
-  static bool _transitionAllowsOutgoingOverlap(Widget child) {
-    if (child is _WorkspacePrimarySwitchTransition) {
-      return child.allowOutgoingOverlap;
-    }
-    if (child is KeyedSubtree) {
-      return _transitionAllowsOutgoingOverlap(child.child);
-    }
-    return false;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -629,53 +521,28 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
     );
     final entranceDuration = _effectiveSwitchDuration(
       settings.entranceDuration,
-      minimumAnimatedDurationMs: 280,
+      minimumAnimatedDurationMs: 180,
+      maximumAnimatedDurationMs: _sessionSwitchMaxDurationMs,
     );
     final exitDuration = _effectiveSwitchDuration(
       settings.exitDuration,
-      minimumAnimatedDurationMs: 280,
+      minimumAnimatedDurationMs: 180,
+      maximumAnimatedDurationMs: _sessionSwitchMaxDurationMs,
     );
     return AnimatedSwitcher(
       duration: entranceDuration,
       reverseDuration: exitDuration,
-      layoutBuilder: (currentChild, previousChildren) {
-        final safePreviousChildren = previousChildren.where((previousChild) {
-          return _transitionAllowsOutgoingOverlap(previousChild);
-        });
-        return Stack(
-          alignment: Alignment.topCenter,
-          children: <Widget>[
-            ...safePreviousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        );
-      },
-      transitionBuilder: (animatedChild, animation) {
-        return _WorkspacePrimarySwitchTransition(
-          allowOutgoingOverlap: _allowsOutgoingOverlap(animatedChild),
-          child: _buildWorkspaceContentTransition(
+      layoutBuilder: (currentChild, _) =>
+          currentChild ?? const SizedBox.shrink(),
+      transitionBuilder: (animatedChild, animation) =>
+          _buildWorkspaceContentTransition(
             child: animatedChild,
             animation: animation,
             settings: settings,
           ),
-        );
-      },
       child: child,
     );
   }
-}
-
-class _WorkspacePrimarySwitchTransition extends StatelessWidget {
-  const _WorkspacePrimarySwitchTransition({
-    required this.allowOutgoingOverlap,
-    required this.child,
-  });
-
-  final bool allowOutgoingOverlap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => child;
 }
 
 /// 输入框上方的【指令】胶囊条。

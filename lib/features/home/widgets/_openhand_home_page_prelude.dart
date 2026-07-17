@@ -35,7 +35,6 @@ const int _transcriptWindowIncrement =
     TranscriptListWindowing.defaultWindowIncrement;
 const int _transcriptOpenFirstPaintCap =
     TranscriptListWindowing.defaultOpenFirstPaintCap;
-const int _transcriptPreparationThreshold = 12;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
 const int _transcriptWarmupCharacterBudget = 12000;
@@ -56,14 +55,11 @@ const double _messageScrollActivityDeltaThreshold = 0.05;
 const double _messageDistanceToBottomDeltaThreshold = 0.15;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 const double _autoFollowResumeDistance = 24;
-// Frame-driven reveal keeps long transcript switches smooth without a fixed
-// blank delay.
-const int _transcriptPreparationFrameBudget = 6;
-const Duration _transcriptPreparationHardTimeout = Duration(milliseconds: 1600);
 const Duration _editorTabsPersistenceDebounce = Duration(milliseconds: 500);
 const Duration _harnessSessionPersistenceDebounce = Duration(milliseconds: 320);
 const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);
 const int _workspaceSwitchMaxDurationMs = 800;
+const int _sessionSwitchMaxDurationMs = 360;
 const double _workspaceSidebarPaneSlideDistance = 38;
 const double _workspaceSidebarPaneScaleBegin = 0.974;
 const double _workspacePaneFadeScaleBegin = 0.985;
@@ -249,13 +245,15 @@ Widget _buildWorkspaceSettingsAwareTransition({
 Duration _effectiveSwitchDuration(
   Duration duration, {
   int minimumAnimatedDurationMs = 0,
+  int maximumAnimatedDurationMs = _workspaceSwitchMaxDurationMs,
 }) {
   if (duration <= Duration.zero) return Duration.zero;
+  final maximumDurationMs = math.max(
+    DialogAnimationSettings.minAnimatedDurationMs,
+    maximumAnimatedDurationMs,
+  );
   final clamped = duration.inMilliseconds
-      .clamp(
-        DialogAnimationSettings.minAnimatedDurationMs,
-        _workspaceSwitchMaxDurationMs,
-      )
+      .clamp(DialogAnimationSettings.minAnimatedDurationMs, maximumDurationMs)
       .toInt();
   return Duration(milliseconds: math.max(clamped, minimumAnimatedDurationMs));
 }
