@@ -534,12 +534,17 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
       reverseDuration: exitDuration,
       layoutBuilder: (currentChild, _) =>
           currentChild ?? const SizedBox.shrink(),
-      transitionBuilder: (animatedChild, animation) =>
-          _buildWorkspaceContentTransition(
-            child: animatedChild,
-            animation: animation,
-            settings: settings,
-          ),
+      transitionBuilder: (animatedChild, animation) {
+        final visibleAnimation = Tween<double>(
+          begin: _sessionSwitchInitialProgress,
+          end: 1,
+        ).animate(animation);
+        return _buildWorkspaceContentTransition(
+          child: animatedChild,
+          animation: visibleAnimation,
+          settings: settings,
+        );
+      },
       child: child,
     );
   }

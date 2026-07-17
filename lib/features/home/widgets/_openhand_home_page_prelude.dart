@@ -60,6 +60,7 @@ const Duration _harnessSessionPersistenceDebounce = Duration(milliseconds: 320);
 const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);
 const int _workspaceSwitchMaxDurationMs = 800;
 const int _sessionSwitchMaxDurationMs = 360;
+const double _sessionSwitchInitialProgress = 0.45;
 const double _workspaceSidebarPaneSlideDistance = 38;
 const double _workspaceSidebarPaneScaleBegin = 0.974;
 const double _workspacePaneFadeScaleBegin = 0.985;

@@ -258,15 +258,18 @@ class SessionCacheHitTrend {
     var averagePromptTotal = 0;
     var averageCacheReadTotal = 0;
     var averageCacheWriteTotal = 0;
+    AiSessionMessage? previousRoundStarter;
 
     for (var index = 0; index < session.messages.length; index++) {
       final message = session.messages[index];
       if (!message.startsConversationRound) {
         continue;
       }
+      final previousStarter = previousRoundStarter;
+      previousRoundStarter = message;
       final telemetryMessage = _cacheHitRelatedTelemetryMessage(
-        session,
-        message,
+        session.messages,
+        index,
       );
       if (telemetryMessage == null) {
         continue;
@@ -303,15 +306,9 @@ class SessionCacheHitTrend {
         claudeStyle: claudeStyle,
         cacheWriteTokens: averageCacheWriteTotal,
       );
-      final previousRoundStarter = _previousRoundStarterMessage(
-        session,
-        message.id,
-      );
-      final fallbackIdleGapSeconds = previousRoundStarter == null
+      final fallbackIdleGapSeconds = previousStarter == null
           ? null
-          : message.createdAt
-                .difference(previousRoundStarter.createdAt)
-                .inSeconds;
+          : message.createdAt.difference(previousStarter.createdAt).inSeconds;
       final diagnostics = _cacheHitDiagnostics(
         primaryMetadata: telemetryMessage.metadata,
         relatedMetadata: message.metadata,
@@ -361,6 +358,32 @@ class SessionCacheHitTrend {
     final points = statistics.cacheHitTrendPoints;
     return points.isNotEmpty &&
         points.every((point) => point.starterOrigin != null);
+  }
+
+  static bool statisticsNeedHydration(AiSession session) {
+    final statistics = session.statistics;
+    final hasCacheUsageTelemetry =
+        statistics.cacheReadTokens != null ||
+        statistics.cacheCreationTokens != null;
+    if (!hasCacheUsageTelemetry || session.messageTotalCount <= 0) {
+      return false;
+    }
+    final cacheRead = statistics.cacheReadTokens ?? 0;
+    final cacheWrite = statistics.cacheCreationTokens ?? 0;
+    final hasCacheTokens = cacheRead > 0 || cacheWrite > 0;
+    final hasCurrentTrendSchema = statisticsTrendUsesRoundStarterSchema(
+      statistics,
+    );
+    final staleZeroRatio =
+        cacheRead > 0 &&
+        (statistics.cacheHitRatio ?? 0) <= 0 &&
+        !hasCurrentTrendSchema;
+    final likelyWindowedStatistics =
+        session.hasPartialMessages &&
+        statistics.totalMessageCount < session.messageTotalCount;
+    return staleZeroRatio ||
+        (hasCacheTokens &&
+            (!hasCurrentTrendSchema || likelyWindowedStatistics));
   }
 
   static SessionCacheHitTrend fromStatistics(
@@ -494,39 +517,17 @@ class _CacheHitDiagnostics {
   final bool automaticProviderMissSuspected;
 }
 
-AiSessionMessage? _previousRoundStarterMessage(
-  AiSession session,
-  String currentStarterMessageId,
-) {
-  final startIndex = session.messages.indexWhere(
-    (item) => item.id == currentStarterMessageId,
-  );
-  if (startIndex <= 0) {
-    return null;
-  }
-  for (var index = startIndex - 1; index >= 0; index--) {
-    final candidate = session.messages[index];
-    if (candidate.startsConversationRound) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
 AiSessionMessage? _cacheHitRelatedTelemetryMessage(
-  AiSession session,
-  AiSessionMessage starterMessage,
+  List<AiSessionMessage> messages,
+  int startIndex,
 ) {
-  final startIndex = session.messages.indexWhere(
-    (item) => item.id == starterMessage.id,
-  );
-  if (startIndex == -1) {
+  if (startIndex < 0 || startIndex >= messages.length) {
     return null;
   }
   AiSessionMessage? firstAiReply;
   AiSessionMessage? fallbackTelemetry;
-  for (var index = startIndex + 1; index < session.messages.length; index++) {
-    final candidate = session.messages[index];
+  for (var index = startIndex + 1; index < messages.length; index++) {
+    final candidate = messages[index];
     if (candidate.isDeleted) {
       continue;
     }

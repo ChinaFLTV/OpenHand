@@ -465,9 +465,8 @@ class AiSessionController extends ChangeNotifier {
   static const int _initialMessageHydrationWindowSize = 8;
   static const int _initialMessageHydrationCharacterBudget = 14000;
   static const int _olderMessageHydrationBatchSize = 12;
-  // Cache-hit trend repair may load the full historical transcript. Defer it
-  // for partial sessions so selecting a long thread paints the tail window
-  // before any best-effort statistics work competes for the UI isolate.
+  // 缓存趋势修复可能加载完整历史；统一避开会话首屏，且先等待消息窗口水合，
+  // 防止非关键统计任务与首屏查询、解码争抢 UI isolate。
   static const Duration _cacheStatisticsHydrationOpenDelay = Duration(
     milliseconds: 1800,
   );
@@ -1722,13 +1721,18 @@ class AiSessionController extends ChangeNotifier {
   Future<AiSession?> _deferredSessionCacheStatisticsHydration(
     String sessionId,
   ) async {
-    final initial = _sessionById(sessionId);
-    final deferForOpenFrame = initial != null && initial.hasPartialMessages;
-    if (deferForOpenFrame) {
-      await Future<void>.delayed(_cacheStatisticsHydrationOpenDelay);
-      if (_isDisposed || _currentSessionId != sessionId) {
-        return _sessionById(sessionId);
-      }
+    await Future<void>.delayed(_cacheStatisticsHydrationOpenDelay);
+    if (_isDisposed || _currentSessionId != sessionId) {
+      return _sessionById(sessionId);
+    }
+    final messageHydrationTask =
+        _sessionMessageWindowHydrationTasks[sessionId] ??
+        _sessionMessageHydrationTasks[sessionId];
+    if (messageHydrationTask != null) {
+      await messageHydrationTask;
+    }
+    if (_isDisposed || _currentSessionId != sessionId) {
+      return _sessionById(sessionId);
     }
     return ensureSessionCacheStatisticsHydrated(sessionId);
   }
@@ -1794,7 +1798,8 @@ class AiSessionController extends ChangeNotifier {
       return Future<AiSession?>.value();
     }
     final current = _sessionById(normalizedSessionId);
-    if (current == null || !_sessionNeedsCacheStatisticsHydration(current)) {
+    if (current == null ||
+        !SessionCacheHitTrend.statisticsNeedHydration(current)) {
       return Future<AiSession?>.value(current);
     }
     final existingTask = _sessionCacheStatsHydrationTasks[normalizedSessionId];
@@ -1830,34 +1835,11 @@ class AiSessionController extends ChangeNotifier {
     return !session.hasCompleteMessages && session.messageTotalCount > 0;
   }
 
-  bool _sessionNeedsCacheStatisticsHydration(AiSession session) {
-    final statistics = session.statistics;
-    final hasCacheUsageTelemetry =
-        statistics.cacheReadTokens != null ||
-        statistics.cacheCreationTokens != null;
-    if (!hasCacheUsageTelemetry || session.messageTotalCount <= 0) {
-      return false;
-    }
-    final cacheRead = statistics.cacheReadTokens ?? 0;
-    final cacheWrite = statistics.cacheCreationTokens ?? 0;
-    final hasCacheTokens = cacheRead > 0 || cacheWrite > 0;
-    final hasCurrentTrendSchema =
-        SessionCacheHitTrend.statisticsTrendUsesRoundStarterSchema(statistics);
-    final staleZeroRatio =
-        cacheRead > 0 && (statistics.cacheHitRatio ?? 0) <= 0;
-    final likelyWindowedStatistics =
-        session.hasPartialMessages &&
-        statistics.totalMessageCount < session.messageTotalCount;
-    return staleZeroRatio ||
-        (hasCacheTokens &&
-            (!hasCurrentTrendSchema || likelyWindowedStatistics));
-  }
-
   Future<AiSession?> _hydrateSessionCacheStatistics(String sessionId) async {
     try {
       final liveBeforeLoad = _sessionById(sessionId);
       if (liveBeforeLoad == null ||
-          !_sessionNeedsCacheStatisticsHydration(liveBeforeLoad)) {
+          !SessionCacheHitTrend.statisticsNeedHydration(liveBeforeLoad)) {
         return liveBeforeLoad;
       }
       final fullSession = liveBeforeLoad.hasCompleteMessages
@@ -1872,7 +1854,7 @@ class AiSessionController extends ChangeNotifier {
       final rebuiltFullSession = _rebuildSession(fullSession, model: model);
       final live = _sessionById(sessionId);
       if (live == null) return null;
-      if (!_sessionNeedsCacheStatisticsHydration(live) &&
+      if (!SessionCacheHitTrend.statisticsNeedHydration(live) &&
           !_sessionStatisticsDiffer(
             live.statistics,
             rebuiltFullSession.statistics,
