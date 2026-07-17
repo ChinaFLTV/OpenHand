@@ -25,6 +25,7 @@ const DONUT_RADIUS = 62;
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 const DONUT_SEGMENT_GAP = 4;
 const LIVE_REFRESH_INTERVAL_MS = 2000;
+const RESOURCE_USAGE_REQUEST_TIMEOUT_MS = 10000;
 
 interface ResourceUsageDialogProps {
   kind: ResourceUsageKind;
@@ -85,7 +86,10 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
       inFlight = true;
       controller = new AbortController();
       try {
-        const value = await getResourceUsage(kind, { signal: controller.signal });
+        const value = await getResourceUsage(kind, {
+          signal: controller.signal,
+          timeoutMs: RESOURCE_USAGE_REQUEST_TIMEOUT_MS,
+        });
         if (!disposed) {
           setSnapshot(value);
           setError('');

@@ -52,7 +52,7 @@ OpenHandDialogSession<bool> _showMcpOpsWriteApprovalSession({
           activeSession.dismiss(
             result: approved,
             logTag: 'mcp',
-            logAction: 'resolve ops write approval dialog',
+            logAction: '处理 MCP 写操作审批弹窗',
           ),
         );
       },

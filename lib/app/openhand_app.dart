@@ -60,12 +60,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
         try {
           await killAllTrackedChildren();
         } catch (error, stack) {
-          silentLog(
-            'openhand_app',
-            'kill tracked children on exit',
-            error,
-            stack,
-          );
+          silentLog('openhand_app', '退出时终止已跟踪的子进程', error, stack);
         }
         return AppExitResponse.exit;
       },
@@ -88,7 +83,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
     try {
       await widget.onShutdown?.call();
     } catch (error, stack) {
-      silentLog('openhand_app', 'shutdown runtime', error, stack);
+      silentLog('openhand_app', '关闭应用运行时', error, stack);
     }
   }
 
@@ -175,12 +170,16 @@ class _McpOpsApprovalHost extends StatefulWidget {
 }
 
 class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
-  static const Duration _navigatorRetryDelay = Duration(milliseconds: 120);
+  static const Duration _navigatorRetryBaseDelay = Duration(milliseconds: 120);
+  static const Duration _navigatorRetryMaxDelay = Duration(seconds: 2);
+  static const int _navigatorRetryLimit = 12;
 
   final Set<String> _handledDialogIds = <String>{};
   McpController? _controller;
   Timer? _dialogRetryTimer;
   String? _scheduledDialogId;
+  String? _retryingDialogId;
+  int _dialogRetryAttempts = 0;
   String? _presentingDialogId;
   OpenHandDialogSession<bool>? _activeDialogSession;
   VoidCallback? _detachActiveDialogListener;
@@ -197,7 +196,8 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     if (identical(_controller, controller)) {
       return;
     }
-    _dismissActiveApprovalDialog('controller changed');
+    _resetApprovalDialogRetry();
+    _dismissActiveApprovalDialog('控制器已切换');
     _controller?.removeListener(_handleApprovalsChanged);
     _controller = controller;
     _controller?.addListener(_handleApprovalsChanged);
@@ -206,8 +206,8 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
 
   @override
   void dispose() {
-    _dialogRetryTimer?.cancel();
-    _dismissActiveApprovalDialog('host disposed');
+    _resetApprovalDialogRetry();
+    _dismissActiveApprovalDialog('宿主已销毁');
     _controller?.removeListener(_handleApprovalsChanged);
     _controller = null;
     super.dispose();
@@ -220,10 +220,7 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     _activeDialogSession = null;
     if (session == null) return;
     unawaited(
-      session.dismiss(
-        logTag: 'openhand_app',
-        logAction: 'dismiss MCP ops approval: $reason',
-      ),
+      session.dismiss(logTag: 'openhand_app', logAction: '关闭 MCP 操作审批：$reason'),
     );
   }
 
@@ -234,6 +231,10 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     }
     final approvals = controller.opsApprovalRequests;
     final pendingIds = approvals.map((item) => item.id).toSet();
+    final retryingDialogId = _retryingDialogId;
+    if (retryingDialogId != null && !pendingIds.contains(retryingDialogId)) {
+      _resetApprovalDialogRetry();
+    }
     final scheduledId = _scheduledDialogId;
     if (scheduledId != null && !pendingIds.contains(scheduledId)) {
       _dialogRetryTimer?.cancel();
@@ -318,15 +319,14 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
         unawaited(
           session.dismiss(
             logTag: 'openhand_app',
-            logAction: 'dismiss externally resolved MCP ops approval',
+            logAction: '关闭已由外部处理的 MCP 操作审批',
           ),
         );
       };
       controller.addListener(listener);
       listenerAttached = true;
       _detachActiveDialogListener = detachListener;
-      // Recheck after listener registration so an approval resolved between
-      // the initial pending check and route presentation cannot get stranded.
+      // 注册监听器后立即复查，避免请求在初次检查与路由呈现之间已被处理。
       listener();
 
       final approved = await session.result;
@@ -336,9 +336,10 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
         return;
       }
       detachListener();
+      _resetApprovalDialogRetry();
       controller.resolveOpsApproval(approval.id, approved: approved == true);
     } catch (error, stack) {
-      silentLog('openhand_app', 'present MCP ops approval', error, stack);
+      silentLog('openhand_app', '呈现 MCP 操作审批弹窗', error, stack);
       if (!mounted || !identical(_controller, controller)) {
         return;
       }
@@ -391,12 +392,23 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
       _presentingDialogId = null;
     }
     if (!_approvalStillPending(controller, approval)) {
+      _rejectApprovalAfterRetry(controller, approval);
       return;
     }
     _dialogRetryTimer?.cancel();
+    if (_retryingDialogId != approval.id) {
+      _retryingDialogId = approval.id;
+      _dialogRetryAttempts = 0;
+    }
+    if (_dialogRetryAttempts >= _navigatorRetryLimit) {
+      _rejectApprovalAfterRetry(controller, approval);
+      return;
+    }
+    final delay = _navigatorRetryDelay(_dialogRetryAttempts);
+    _dialogRetryAttempts += 1;
     _scheduledDialogId = approval.id;
     _dialogRetryTimer = startSafeTimer(
-      _navigatorRetryDelay,
+      delay,
       () {
         _dialogRetryTimer = null;
         if (_scheduledDialogId == approval.id) {
@@ -407,9 +419,36 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
         }
       },
       onError: (error, stack) {
-        silentLog('openhand_app', 'retry approval dialog', error, stack);
+        silentLog('openhand_app', '重试 MCP 操作审批弹窗', error, stack);
+        _rejectApprovalAfterRetry(controller, approval);
       },
     );
+  }
+
+  static Duration _navigatorRetryDelay(int attempt) {
+    final shift = attempt > 4 ? 4 : attempt;
+    final microseconds = _navigatorRetryBaseDelay.inMicroseconds * (1 << shift);
+    final delay = Duration(microseconds: microseconds);
+    return delay > _navigatorRetryMaxDelay ? _navigatorRetryMaxDelay : delay;
+  }
+
+  void _rejectApprovalAfterRetry(
+    McpController controller,
+    McpOpsApprovalRequest approval,
+  ) {
+    _resetApprovalDialogRetry();
+    if (!mounted || !identical(_controller, controller)) return;
+    if (controller.opsApprovalRequests.any((item) => item.id == approval.id)) {
+      controller.resolveOpsApproval(approval.id, approved: false);
+    }
+  }
+
+  void _resetApprovalDialogRetry() {
+    _dialogRetryTimer?.cancel();
+    _dialogRetryTimer = null;
+    _scheduledDialogId = null;
+    _retryingDialogId = null;
+    _dialogRetryAttempts = 0;
   }
 
   @override
@@ -435,10 +474,8 @@ class _OverlayPortalStabilityBoundary extends StatelessWidget {
   }
 }
 
-/// Work around a Flutter framework bug on macOS where trackpad pointer events
-/// can arrive with non‑monotonic timestamps, causing an assertion failure in
-/// [IOSScrollViewFlingVelocityTracker].  Using the basic [VelocityTracker]
-/// avoids that assertion while keeping fling/scroll behaviour functional.
+/// 规避 macOS 触控板事件时间戳非单调导致的 Flutter 断言。
+/// 使用基础 [VelocityTracker] 保持滚动惯性，同时绕开框架缺陷。
 class _SafeScrollBehavior extends MaterialScrollBehavior {
   const _SafeScrollBehavior();
 

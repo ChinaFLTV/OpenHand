@@ -8,42 +8,36 @@ import '../util/async_concurrency.dart';
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
 final class ByteStreamSizeLimitException extends HttpException {
-  ByteStreamSizeLimitException(this.maxBytes)
-    : super('Byte stream exceeds the $maxBytes byte limit.');
+  ByteStreamSizeLimitException(this.maxBytes) : super('字节流超过 $maxBytes 字节上限。');
 
   final int maxBytes;
 }
 
-/// Reads an HTTP response into memory with explicit idle, total, and size
-/// limits. Callers remain responsible for closing the owning [HttpClient].
+/// 在明确的空闲、总时长和容量限制内读取 HTTP 响应。
+/// 调用方仍负责关闭响应所属的 [HttpClient]。
 Future<Uint8List> readBoundedHttpResponseBytes(
   HttpClientResponse response, {
   required int maxBytes,
   required Duration idleTimeout,
   Duration? totalTimeout,
 }) {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
-  if (idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
-  }
-  if (totalTimeout != null && totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
+  _validateByteStreamLimits(
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
   if (response.contentLength > maxBytes) {
     throw ByteStreamSizeLimitException(maxBytes);
   }
 
-  return readBoundedByteStream(
+  return _consumeByteStream(
     response,
     maxBytes: maxBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
+    retainBytes: true,
+    truncateOnOverflow: false,
+    cancelOnFailure: true,
   );
 }
 
@@ -76,6 +70,11 @@ Future<Uint8List> readBoundedByteStream(
   bool truncateOnOverflow = false,
   bool cancelOnFailure = true,
 }) {
+  _validateByteStreamLimits(
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
   return _consumeByteStream(
     stream,
     maxBytes: maxBytes,
@@ -105,28 +104,19 @@ Future<String> readBoundedByteStreamText(
   return utf8.decode(bytes, allowMalformed: allowMalformed);
 }
 
-/// Preserves streaming/backpressure while rejecting the first chunk that
-/// would cross [maxBytes]. Cancellation of the returned stream propagates to
-/// the source subscription.
+/// 保持流式背压，并拒绝首个会突破 [maxBytes] 的数据块。
+/// 取消返回的流时会同步取消源订阅。
 Stream<List<int>> limitByteStream(
   Stream<List<int>> stream, {
   required int maxBytes,
   Duration? idleTimeout,
   Duration? totalTimeout,
 }) {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
-  if (idleTimeout != null && idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
-  }
-  if (totalTimeout != null && totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
+  _validateByteStreamLimits(
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
 
   late final StreamController<List<int>> controller;
   StreamSubscription<List<int>>? subscription;
@@ -167,10 +157,7 @@ Stream<List<int>> limitByteStream(
     idleTimer?.cancel();
     idleTimer = Timer(
       timeout,
-      () => terminate(
-        TimeoutException('HTTP response stream stalled.', timeout),
-        StackTrace.current,
-      ),
+      () => terminate(_idleTimeoutException(timeout), StackTrace.current),
     );
   }
 
@@ -181,13 +168,7 @@ Stream<List<int>> limitByteStream(
       if (timeout != null) {
         totalTimer = Timer(
           timeout,
-          () => terminate(
-            TimeoutException(
-              'HTTP response stream exceeded its total time limit.',
-              timeout,
-            ),
-            StackTrace.current,
-          ),
+          () => terminate(_totalTimeoutException(timeout), StackTrace.current),
         );
       }
       resetIdleTimer();
@@ -234,8 +215,7 @@ Stream<List<int>> limitByteStream(
   return controller.stream;
 }
 
-/// Streams bytes to an asynchronous sink with backpressure while enforcing
-/// the same idle, total, and size bounds as in-memory response collection.
+/// 保持背压地将字节写入异步接收端，并执行与内存读取一致的限制。
 Future<int> writeBoundedByteStream(
   Stream<List<int>> stream, {
   required Future<void> Function(List<int> chunk) writeChunk,
@@ -243,9 +223,11 @@ Future<int> writeBoundedByteStream(
   required Duration idleTimeout,
   required Duration totalTimeout,
 }) async {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
+  _validateByteStreamLimits(
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
   var writtenBytes = 0;
   final writeStream = limitByteStream(stream, maxBytes: maxBytes)
       .asyncMap<List<int>>((chunk) async {
@@ -261,13 +243,16 @@ Future<int> writeBoundedByteStream(
   return writtenBytes;
 }
 
-/// Discards a response stream while retaining connection-pool hygiene without
-/// allowing a hostile peer to hold the caller forever.
+/// 丢弃响应流并保持连接池可复用，同时防止异常对端无限占用调用方。
 Future<void> drainByteStreamWithTimeout(
   Stream<List<int>> stream, {
   required Duration idleTimeout,
   required Duration totalTimeout,
 }) async {
+  _validateByteStreamLimits(
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
   await _consumeByteStream(
     stream,
     idleTimeout: idleTimeout,
@@ -287,20 +272,6 @@ Future<Uint8List> _consumeByteStream(
   required bool truncateOnOverflow,
   required bool cancelOnFailure,
 }) {
-  if (maxBytes != null && maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
-  if (idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
-  }
-  if (totalTimeout != null && totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
-
   final completer = Completer<Uint8List>();
   final bytes = retainBytes ? BytesBuilder(copy: false) : null;
   StreamSubscription<List<int>>? subscription;
@@ -339,23 +310,14 @@ Future<Uint8List> _consumeByteStream(
     idleTimer?.cancel();
     idleTimer = Timer(
       idleTimeout,
-      () => fail(
-        TimeoutException('HTTP response stream stalled.', idleTimeout),
-        StackTrace.current,
-      ),
+      () => fail(_idleTimeoutException(idleTimeout), StackTrace.current),
     );
   }
 
   if (totalTimeout != null) {
     totalTimer = Timer(
       totalTimeout,
-      () => fail(
-        TimeoutException(
-          'HTTP response stream exceeded its total time limit.',
-          totalTimeout,
-        ),
-        StackTrace.current,
-      ),
+      () => fail(_totalTimeoutException(totalTimeout), StackTrace.current),
     );
   }
   resetIdleTimer();
@@ -367,7 +329,7 @@ Future<Uint8List> _consumeByteStream(
         final nextByteCount = receivedBytes + chunk.length;
         if (maxBytes != null &&
             truncateOnOverflow &&
-            nextByteCount >= maxBytes) {
+            nextByteCount > maxBytes) {
           final remaining = maxBytes - receivedBytes;
           if (remaining > 0) {
             bytes?.add(chunk.take(remaining).toList(growable: false));
@@ -401,4 +363,28 @@ Future<Uint8List> _consumeByteStream(
     cancelSubscription();
   }
   return completer.future;
+}
+
+void _validateByteStreamLimits({
+  int? maxBytes,
+  Duration? idleTimeout,
+  Duration? totalTimeout,
+}) {
+  if (maxBytes != null && maxBytes < 1) {
+    throw ArgumentError.value(maxBytes, 'maxBytes', '必须大于 0。');
+  }
+  if (idleTimeout != null && idleTimeout <= Duration.zero) {
+    throw ArgumentError.value(idleTimeout, 'idleTimeout', '必须大于 0。');
+  }
+  if (totalTimeout != null && totalTimeout <= Duration.zero) {
+    throw ArgumentError.value(totalTimeout, 'totalTimeout', '必须大于 0。');
+  }
+}
+
+TimeoutException _idleTimeoutException(Duration timeout) {
+  return TimeoutException('HTTP 响应流在限定时间内没有新数据。', timeout);
+}
+
+TimeoutException _totalTimeoutException(Duration timeout) {
+  return TimeoutException('HTTP 响应流超过总时长限制。', timeout);
 }

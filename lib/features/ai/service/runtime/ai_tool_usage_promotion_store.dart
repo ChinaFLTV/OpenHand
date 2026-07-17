@@ -346,6 +346,12 @@ final class AiToolUsagePromotionStore {
   static const int _maxSubResourcesPerResource = 256;
   static const int _maxSummaryLength = 720;
   static const int _maxErrorSummaryLength = 480;
+  static const int _periodTrimBatchSize = 8;
+  static const List<String> _nestedSessionMarkers = <String>[
+    '::parallel-',
+    '/agent/',
+    '/task/',
+  ];
   static const Map<AiResourceUsagePeriod, int> _periodRetention =
       <AiResourceUsagePeriod, int>{
         AiResourceUsagePeriod.day: 90,
@@ -509,13 +515,15 @@ final class AiToolUsagePromotionStore {
     String errorSummary = '',
     String source = 'runtime',
   }) async {
-    final normalized = <AiResourceUsageKind, Set<String>>{
-      for (final entry in resources.entries)
-        entry.key: entry.value
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty)
-            .toSet(),
-    }..removeWhere((_, ids) => ids.isEmpty);
+    final normalized = <AiResourceUsageKind, Set<String>>{};
+    for (final entry in resources.entries) {
+      final ids = <String>{};
+      for (final item in entry.value.take(_maxResourcesPerKind)) {
+        final id = item.trim();
+        if (id.isNotEmpty) ids.add(id);
+      }
+      if (ids.isNotEmpty) normalized[entry.key] = ids;
+    }
     if (normalized.isEmpty) return;
     await _recordBatch(
       sessionId: sessionId,
@@ -549,14 +557,14 @@ final class AiToolUsagePromotionStore {
   }) {
     return _operations.enqueue(() async {
       await _initializeLocked();
-      final normalizedSessionId = _validIdentifier(sessionId);
+      final normalizedSessionId = _validSessionId(sessionId);
       if (normalizedSessionId == null) {
         return const AiToolUsageRecord.ignored();
       }
       final normalizedResources = <AiResourceUsageKind, Set<String>>{};
       for (final entry in resources.entries) {
         final ids = <String>{};
-        for (final id in entry.value) {
+        for (final id in entry.value.take(_maxResourcesPerKind)) {
           final normalized = _validIdentifier(id);
           if (normalized != null) ids.add(normalized);
         }
@@ -663,12 +671,18 @@ final class AiToolUsagePromotionStore {
   }
 
   Set<String> promotedToolIdsForSession(String sessionId) {
-    final usage = _sessions[sessionId.trim()];
+    final normalizedSessionId = _validSessionId(sessionId);
+    final usage = normalizedSessionId == null
+        ? null
+        : _sessions[normalizedSessionId];
     return Set<String>.unmodifiable(usage?.promotedToolIds ?? const <String>{});
   }
 
   AiToolUsageSessionSnapshot? sessionSnapshot(String sessionId) {
-    final usage = _sessions[sessionId.trim()];
+    final normalizedSessionId = _validSessionId(sessionId);
+    final usage = normalizedSessionId == null
+        ? null
+        : _sessions[normalizedSessionId];
     if (usage == null) return null;
     return AiToolUsageSessionSnapshot(
       totalCallCount: usage.totalFor(AiResourceUsageKind.tool),
@@ -697,7 +711,7 @@ final class AiToolUsagePromotionStore {
         (left, right) => left.value.updatedAt.compareTo(right.value.updatedAt),
       );
     MapEntry<String, _SessionUsage>? activeSession;
-    final preferred = preferredSessionId?.trim() ?? '';
+    final preferred = _validSessionId(preferredSessionId ?? '') ?? '';
     if (preferred.isNotEmpty) {
       final usage = _sessions[preferred];
       if (usage != null) {
@@ -832,13 +846,19 @@ final class AiToolUsagePromotionStore {
       for (final buckets in _periods.values) {
         buckets.clear();
       }
+      _dirty = true;
+      _schedulePersist();
       silentLog('ai_tool_usage_promotion_store', '初始化资源调用统计失败', error, stack);
     }
     _pruneAll();
   }
 
   void _restore(Object? raw) {
-    if (raw is! Map) return;
+    if (raw is! Map) {
+      _dirty = true;
+      _schedulePersist();
+      return;
+    }
     final version = raw['version'];
     if (version == _legacyVersion) {
       _restoreLegacy(raw);
@@ -849,41 +869,64 @@ final class AiToolUsagePromotionStore {
     if (version != _version && version != _aggregateVersion) return;
     _restoreSessions(raw['sessions']);
     final rawPeriods = raw['periods'];
-    if (rawPeriods is! Map) return;
-    for (final period in _periodRetention.keys) {
-      final rawBuckets = rawPeriods[period.storageValue];
-      if (rawBuckets is! Map) continue;
-      final buckets = _periods[period]!;
-      for (final entry in rawBuckets.entries) {
-        if (entry.key is! String || entry.value is! Map) continue;
-        final key = _validPeriodKey(entry.key as String);
-        if (key == null) continue;
-        buckets[key] = _UsageBucket.fromJson(
-          entry.value,
-          validIdentifier: _validIdentifier,
-          validCount: _validCount,
-        );
+    if (rawPeriods is Map) {
+      for (final period in _periodRetention.keys) {
+        final rawBuckets = rawPeriods[period.storageValue];
+        if (rawBuckets is! Map) continue;
+        final buckets = _periods[period]!;
+        final currentKey = _periodKey(period, _clock());
+        for (final entry in rawBuckets.entries) {
+          if (entry.key is! String || entry.value is! Map) {
+            _dirty = true;
+            continue;
+          }
+          final key = _validPeriodKey(period, entry.key as String);
+          if (key == null || key.compareTo(currentKey) > 0) {
+            _dirty = true;
+            continue;
+          }
+          buckets[key] = _UsageBucket.fromJson(
+            entry.value,
+            validIdentifier: _validIdentifier,
+            validSessionIdentifier: _validSessionId,
+            validCount: _validCount,
+          );
+          while (buckets.length > _periodRetention[period]!) {
+            buckets.remove(buckets.firstKey());
+            _dirty = true;
+          }
+        }
       }
+    } else {
+      _dirty = true;
     }
     if (version == _version) {
       _restoreEvents(raw['recent_events']);
     } else {
       _dirty = true;
-      _schedulePersist();
     }
+    if (_dirty) _schedulePersist();
   }
 
   void _restoreEvents(Object? rawEvents) {
-    if (rawEvents is! List) return;
+    if (rawEvents is! List) {
+      _dirty = true;
+      return;
+    }
     final start = rawEvents.length > _maxRecentEvents
         ? rawEvents.length - _maxRecentEvents
         : 0;
+    if (start > 0) _dirty = true;
     for (var index = start; index < rawEvents.length; index++) {
       final raw = rawEvents[index];
-      if (raw is! Map) continue;
+      if (raw is! Map) {
+        _dirty = true;
+        continue;
+      }
       final kind = AiResourceUsageKind.fromStorage(raw['kind']);
       final resourceId = _validIdentifier('${raw['resource_id'] ?? ''}');
-      final sessionId = _validIdentifier('${raw['session_id'] ?? ''}');
+      final rawSessionId = '${raw['session_id'] ?? ''}';
+      final sessionId = _validSessionId(rawSessionId);
       final occurredAt = DateTime.tryParse(
         '${raw['occurred_at'] ?? ''}',
       )?.toUtc();
@@ -891,8 +934,10 @@ final class AiToolUsagePromotionStore {
           resourceId == null ||
           sessionId == null ||
           occurredAt == null) {
+        _dirty = true;
         continue;
       }
+      if (sessionId != rawSessionId.trim()) _dirty = true;
       final restoredEventId = _validIdentifier('${raw['event_id'] ?? ''}');
       if (restoredEventId != null) {
         final separator = restoredEventId.lastIndexOf('-');
@@ -937,16 +982,37 @@ final class AiToolUsagePromotionStore {
   }
 
   void _restoreSessions(Object? rawSessions) {
-    if (rawSessions is! Map) return;
+    if (rawSessions is! Map) {
+      _dirty = true;
+      return;
+    }
     for (final entry in rawSessions.entries) {
-      if (entry.key is! String || entry.value is! Map) continue;
-      final sessionId = _validIdentifier(entry.key as String);
-      if (sessionId == null) continue;
-      _sessions[sessionId] = _SessionUsage.fromJson(
+      if (entry.key is! String || entry.value is! Map) {
+        _dirty = true;
+        continue;
+      }
+      final sessionId = _validSessionId(entry.key as String);
+      if (sessionId == null) {
+        _dirty = true;
+        continue;
+      }
+      final restored = _SessionUsage.fromJson(
         entry.value,
         validIdentifier: _validIdentifier,
+        validSessionIdentifier: _validSessionId,
         validCount: _validCount,
       );
+      final existing = _sessions[sessionId];
+      if (existing == null) {
+        _sessions[sessionId] = restored;
+      } else {
+        existing.absorb(restored);
+      }
+      if (sessionId != (entry.key as String).trim()) _dirty = true;
+      while (_sessions.length > _maxSessions) {
+        _removeOldestSession();
+        _dirty = true;
+      }
     }
   }
 
@@ -955,7 +1021,7 @@ final class AiToolUsagePromotionStore {
     if (rawSessions is Map) {
       for (final entry in rawSessions.entries) {
         if (entry.key is! String || entry.value is! Map) continue;
-        final sessionId = _validIdentifier(entry.key as String);
+        final sessionId = _validSessionId(entry.key as String);
         if (sessionId == null) continue;
         final value = entry.value as Map;
         final counts = _restoreLegacyCounts(value['counts']);
@@ -963,11 +1029,12 @@ final class AiToolUsagePromotionStore {
         final rawPromoted = value['promoted_tools'];
         if (rawPromoted is List) {
           for (final item in rawPromoted) {
+            if (promoted.length >= _maxResourcesPerKind) break;
             final id = item is String ? _validIdentifier(item) : null;
             if (id != null) promoted.add(id);
           }
         }
-        _sessions[sessionId] = _SessionUsage(
+        final restored = _SessionUsage(
           updatedAt:
               DateTime.tryParse('${value['updated_at'] ?? ''}')?.toUtc() ??
               DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
@@ -985,6 +1052,15 @@ final class AiToolUsagePromotionStore {
           },
           promotedToolIds: promoted,
         );
+        final existing = _sessions[sessionId];
+        if (existing == null) {
+          _sessions[sessionId] = restored;
+        } else {
+          existing.absorb(restored);
+        }
+        while (_sessions.length > _maxSessions) {
+          _removeOldestSession();
+        }
       }
     }
     for (final legacy in <(String, AiResourceUsagePeriod)>[
@@ -994,8 +1070,10 @@ final class AiToolUsagePromotionStore {
     ]) {
       final value = raw[legacy.$1];
       if (value is! Map) continue;
-      final key = _validPeriodKey('${value['period'] ?? ''}');
-      if (key == null) continue;
+      final key = _validPeriodKey(legacy.$2, '${value['period'] ?? ''}');
+      if (key == null || key.compareTo(_periodKey(legacy.$2, _clock())) > 0) {
+        continue;
+      }
       final counts = _restoreLegacyCounts(value['counts']);
       _periods[legacy.$2]![key] = _UsageBucket(
         counts: <AiResourceUsageKind, Map<String, int>>{
@@ -1015,7 +1093,8 @@ final class AiToolUsagePromotionStore {
     final counts = <String, int>{};
     if (raw is! Map) return counts;
     for (final entry in raw.entries) {
-      if (counts.length >= _maxResourcesPerKind || entry.key is! String) break;
+      if (counts.length >= _maxResourcesPerKind) break;
+      if (entry.key is! String) continue;
       final id = _validIdentifier(entry.key as String);
       final count = _validCount(entry.value);
       if (id != null && count > 0) counts[id] = count;
@@ -1073,16 +1152,61 @@ final class AiToolUsagePromotionStore {
 
   String? _validIdentifier(String value) {
     final normalized = value.trim();
-    if (normalized.isEmpty || normalized.length > _maxIdentifierLength) {
+    if (normalized.isEmpty ||
+        normalized.length > _maxIdentifierLength ||
+        _identifierControlCharacterPattern.hasMatch(normalized)) {
       return null;
     }
     return normalized;
   }
 
-  String? _validPeriodKey(String value) {
+  String? _validSessionId(String value) {
+    var normalized = value.trim();
+    var end = normalized.length;
+    for (final marker in _nestedSessionMarkers) {
+      final index = normalized.indexOf(marker);
+      if (index >= 0 && index < end) end = index;
+    }
+    if (end < normalized.length) normalized = normalized.substring(0, end);
+    return _validIdentifier(normalized);
+  }
+
+  String? _validPeriodKey(AiResourceUsagePeriod period, String value) {
     final normalized = value.trim();
-    if (normalized.isEmpty || normalized.length > 24) return null;
-    return normalized;
+    final valid = switch (period) {
+      AiResourceUsagePeriod.day => _isValidDayPeriodKey(normalized),
+      AiResourceUsagePeriod.week =>
+        _weekPeriodKeyPattern.hasMatch(normalized) &&
+            _isInRange(normalized.substring(6), 1, 53),
+      AiResourceUsagePeriod.month =>
+        _monthPeriodKeyPattern.hasMatch(normalized) &&
+            _isInRange(normalized.substring(5), 1, 12),
+      AiResourceUsagePeriod.quarter =>
+        _quarterPeriodKeyPattern.hasMatch(normalized) &&
+            _isInRange(normalized.substring(6), 1, 4),
+      AiResourceUsagePeriod.year =>
+        _yearPeriodKeyPattern.hasMatch(normalized) &&
+            _isInRange(normalized, 1, 9999),
+      AiResourceUsagePeriod.session => false,
+    };
+    return valid ? normalized : null;
+  }
+
+  static bool _isValidDayPeriodKey(String value) {
+    if (!_dayPeriodKeyPattern.hasMatch(value)) return false;
+    final year = int.parse(value.substring(0, 4));
+    final month = int.parse(value.substring(5, 7));
+    final day = int.parse(value.substring(8, 10));
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) {
+      return false;
+    }
+    final parsed = DateTime.utc(year, month, day);
+    return parsed.year == year && parsed.month == month && parsed.day == day;
+  }
+
+  static bool _isInRange(String value, int min, int max) {
+    final parsed = int.tryParse(value);
+    return parsed != null && parsed >= min && parsed <= max;
   }
 
   void _evictOldestSessionIfNeeded() {
@@ -1129,40 +1253,49 @@ final class AiToolUsagePromotionStore {
   Future<void> _flushLocked() async {
     _persistDebouncer.cancel();
     if (!_dirty) return;
-    var content = _encodeState();
-    var contentBytes = utf8.encode(content).length;
-    while (contentBytes > _maxStoreBytes && _recentEvents.isNotEmpty) {
-      final removeCount = (_recentEvents.length ~/ 4).clamp(
-        1,
-        _recentEvents.length,
-      );
-      _recentEvents.removeRange(0, removeCount);
-      content = _encodeState();
-      contentBytes = utf8.encode(content).length;
-    }
-    while (contentBytes > _maxStoreBytes && _sessions.length > 1) {
-      final removeCount = (_sessions.length ~/ 8).clamp(
-        1,
-        _sessions.length - 1,
-      );
-      for (var index = 0; index < removeCount; index++) {
-        _removeOldestSession();
+    var pruned = false;
+    try {
+      var content = _encodeState();
+      var contentBytes = utf8.encode(content).length;
+      while (contentBytes > _maxStoreBytes && _recentEvents.isNotEmpty) {
+        final removeCount = (_recentEvents.length ~/ 4).clamp(
+          1,
+          _recentEvents.length,
+        );
+        _recentEvents.removeRange(0, removeCount);
+        pruned = true;
+        content = _encodeState();
+        contentBytes = utf8.encode(content).length;
       }
-      content = _encodeState();
-      contentBytes = utf8.encode(content).length;
+      while (contentBytes > _maxStoreBytes && _sessions.length > 1) {
+        final removeCount = (_sessions.length ~/ 8).clamp(
+          1,
+          _sessions.length - 1,
+        );
+        for (var index = 0; index < removeCount; index++) {
+          _removeOldestSession();
+        }
+        pruned = true;
+        content = _encodeState();
+        contentBytes = utf8.encode(content).length;
+      }
+      while (contentBytes > _maxStoreBytes && _trimOldestPeriodBuckets()) {
+        pruned = true;
+        content = _encodeState();
+        contentBytes = utf8.encode(content).length;
+      }
+      if (contentBytes > _maxStoreBytes) {
+        throw const FileSystemException('资源调用统计文件超过大小上限');
+      }
+      await writeFileAtomically(_file, content);
+      _dirty = false;
+    } finally {
+      if (pruned) _revision.value += 1;
     }
-    while (contentBytes > _maxStoreBytes && _trimOldestPeriodBucket()) {
-      content = _encodeState();
-      contentBytes = utf8.encode(content).length;
-    }
-    if (contentBytes > _maxStoreBytes) {
-      throw const FileSystemException('资源调用统计文件超过大小上限');
-    }
-    await writeFileAtomically(_file, content);
-    _dirty = false;
   }
 
-  bool _trimOldestPeriodBucket() {
+  bool _trimOldestPeriodBuckets() {
+    var removed = 0;
     for (final period in const <AiResourceUsagePeriod>[
       AiResourceUsagePeriod.day,
       AiResourceUsagePeriod.week,
@@ -1171,12 +1304,13 @@ final class AiToolUsagePromotionStore {
       AiResourceUsagePeriod.year,
     ]) {
       final buckets = _periods[period]!;
-      if (buckets.length > 1) {
+      while (buckets.length > 1 && removed < _periodTrimBatchSize) {
         buckets.remove(buckets.firstKey());
-        return true;
+        removed += 1;
       }
+      if (removed >= _periodTrimBatchSize) break;
     }
-    return false;
+    return removed > 0;
   }
 
   String _encodeState() {
@@ -1268,13 +1402,21 @@ final class AiToolUsagePromotionStore {
     caseSensitive: false,
   );
   static final RegExp _sensitiveValuePattern = RegExp(
-    r'''((?:"|'|\b)(?:password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)(?:"|'|\b)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|\S+)''',
+    r'''((?:"|'|\b)[a-z0-9_-]*(?:password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)[a-z0-9_-]*(?:"|'|\b)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|\S+)''',
     caseSensitive: false,
   );
   static final RegExp _bearerTokenPattern = RegExp(
     r'(bearer\s+)[a-z0-9._~+/=-]+',
     caseSensitive: false,
   );
+  static final RegExp _identifierControlCharacterPattern = RegExp(
+    r'[\x00-\x1f\x7f]',
+  );
+  static final RegExp _dayPeriodKeyPattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+  static final RegExp _weekPeriodKeyPattern = RegExp(r'^\d{4}-W\d{2}$');
+  static final RegExp _monthPeriodKeyPattern = RegExp(r'^\d{4}-\d{2}$');
+  static final RegExp _quarterPeriodKeyPattern = RegExp(r'^\d{4}-Q\d$');
+  static final RegExp _yearPeriodKeyPattern = RegExp(r'^\d{4}$');
 
   static String _string(Object? value) => value is String ? value.trim() : '';
 
@@ -1293,7 +1435,11 @@ final class AiToolUsagePromotionStore {
   ) {
     final normalized = id.trim();
     if (normalized.isEmpty) return;
-    resources.putIfAbsent(kind, () => <String>{}).add(normalized);
+    final target = resources.putIfAbsent(kind, () => <String>{});
+    if (target.length >= _maxResourcesPerKind && !target.contains(normalized)) {
+      return;
+    }
+    target.add(normalized);
   }
 
   static void _addAllResources(
@@ -1301,7 +1447,7 @@ final class AiToolUsagePromotionStore {
     AiResourceUsageKind kind,
     Iterable<String> ids,
   ) {
-    for (final id in ids) {
+    for (final id in ids.take(_maxResourcesPerKind)) {
       _addResource(resources, kind, id);
     }
   }
@@ -1319,7 +1465,7 @@ final class AiToolUsagePromotionStore {
     for (final key in listKeys) {
       final value = metadata[key];
       if (value is! Iterable) continue;
-      for (final item in value) {
+      for (final item in value.take(_maxResourcesPerKind)) {
         final id = _string(item);
         if (id.isNotEmpty) ids.add(id);
       }
@@ -1331,7 +1477,7 @@ final class AiToolUsagePromotionStore {
     final ids = <String>{};
     void absorbResults(Object? raw) {
       if (raw is! Iterable) return;
-      for (final item in raw) {
+      for (final item in raw.take(_maxResourcesPerKind)) {
         if (item is! Map) continue;
         final id = _string(item['source_id']);
         if (id.isNotEmpty) ids.add(id);
@@ -1356,7 +1502,7 @@ final class AiToolUsagePromotionStore {
       if (kind == null) continue;
       final value = entry.value;
       if (value is Iterable) {
-        for (final item in value) {
+        for (final item in value.take(_maxResourcesPerKind)) {
           _addResource(resources, kind, _string(item));
         }
       } else {
@@ -1379,6 +1525,7 @@ class _UsageBucket {
   factory _UsageBucket.fromJson(
     Object? raw, {
     required String? Function(String value) validIdentifier,
+    required String? Function(String value) validSessionIdentifier,
     required int Function(Object? value) validCount,
   }) {
     final bucket = _UsageBucket();
@@ -1391,10 +1538,10 @@ class _UsageBucket {
         final kindCounts = <String, int>{};
         for (final entry in (kindEntry.value as Map).entries) {
           if (kindCounts.length >=
-                  AiToolUsagePromotionStore._maxResourcesPerKind ||
-              entry.key is! String) {
+              AiToolUsagePromotionStore._maxResourcesPerKind) {
             break;
           }
+          if (entry.key is! String) continue;
           final id = validIdentifier(entry.key as String);
           final count = validCount(entry.value);
           if (id != null && count > 0) kindCounts[id] = count;
@@ -1418,15 +1565,16 @@ class _UsageBucket {
         final kindMetrics = <String, _ResourceMetric>{};
         for (final entry in (kindEntry.value as Map).entries) {
           if (kindMetrics.length >=
-                  AiToolUsagePromotionStore._maxResourcesPerKind ||
-              entry.key is! String) {
+              AiToolUsagePromotionStore._maxResourcesPerKind) {
             break;
           }
+          if (entry.key is! String) continue;
           final id = validIdentifier(entry.key as String);
           if (id == null || entry.value is! Map) continue;
           kindMetrics[id] = _ResourceMetric.fromJson(
             entry.value,
             validIdentifier: validIdentifier,
+            validSessionIdentifier: validSessionIdentifier,
             validCount: validCount,
           );
         }
@@ -1457,6 +1605,37 @@ class _UsageBucket {
   final Map<AiResourceUsageKind, Map<String, int>> counts;
   final Map<AiResourceUsageKind, int> totals;
   final Map<AiResourceUsageKind, Map<String, _ResourceMetric>> metrics;
+
+  void absorb(_UsageBucket other) {
+    for (final entry in other.totals.entries) {
+      totals[entry.key] = _boundedAdd(totals[entry.key] ?? 0, entry.value);
+    }
+    for (final kindEntry in other.counts.entries) {
+      final target = counts.putIfAbsent(kindEntry.key, () => <String, int>{});
+      for (final entry in kindEntry.value.entries) {
+        if (!target.containsKey(entry.key) &&
+            target.length >= AiToolUsagePromotionStore._maxResourcesPerKind) {
+          continue;
+        }
+        target[entry.key] = _boundedAdd(target[entry.key] ?? 0, entry.value);
+      }
+    }
+    for (final kindEntry in other.metrics.entries) {
+      final target = metrics.putIfAbsent(
+        kindEntry.key,
+        () => <String, _ResourceMetric>{},
+      );
+      for (final entry in kindEntry.value.entries) {
+        final existing = target[entry.key];
+        if (existing != null) {
+          existing.absorb(entry.value);
+        } else if (target.length <
+            AiToolUsagePromotionStore._maxResourcesPerKind) {
+          target[entry.key] = entry.value;
+        }
+      }
+    }
+  }
 
   void increment(
     AiResourceUsageKind kind,
@@ -1596,6 +1775,7 @@ class _ResourceMetric {
   factory _ResourceMetric.fromJson(
     Object? raw, {
     required String? Function(String value) validIdentifier,
+    required String? Function(String value) validSessionIdentifier,
     required int Function(Object? value) validCount,
     int depth = 0,
   }) {
@@ -1605,7 +1785,7 @@ class _ResourceMetric {
     if (rawSessions is List) {
       for (final value in rawSessions) {
         if (sessionIds.length >= AiToolUsagePromotionStore._maxSessions) break;
-        final id = validIdentifier('$value');
+        final id = validSessionIdentifier('$value');
         if (id != null) sessionIds.add(id);
       }
     }
@@ -1614,16 +1794,16 @@ class _ResourceMetric {
     if (depth == 0 && rawSubResources is Map) {
       for (final entry in rawSubResources.entries) {
         if (subResources.length >=
-                AiToolUsagePromotionStore._maxSubResourcesPerResource ||
-            entry.key is! String ||
-            entry.value is! Map) {
+            AiToolUsagePromotionStore._maxSubResourcesPerResource) {
           break;
         }
+        if (entry.key is! String || entry.value is! Map) continue;
         final id = validIdentifier(entry.key as String);
         if (id != null) {
           subResources[id] = _ResourceMetric.fromJson(
             entry.value,
             validIdentifier: validIdentifier,
+            validSessionIdentifier: validSessionIdentifier,
             validCount: validCount,
             depth: depth + 1,
           );
@@ -1654,6 +1834,38 @@ class _ResourceMetric {
   DateTime? lastCalledAt;
   final Set<String> sessionIds;
   final Map<String, _ResourceMetric> subResources;
+
+  void absorb(_ResourceMetric other) {
+    callCount = _boundedAdd(callCount, other.callCount);
+    successCount = _boundedAdd(successCount, other.successCount);
+    failureCount = _boundedAdd(failureCount, other.failureCount);
+    totalDurationMs = _boundedAdd(totalDurationMs, other.totalDurationMs);
+    durationSampleCount = _boundedAdd(
+      durationSampleCount,
+      other.durationSampleCount,
+    );
+    if (other.maxDurationMs > maxDurationMs) {
+      maxDurationMs = other.maxDurationMs;
+    }
+    final otherLastCalledAt = other.lastCalledAt;
+    if (otherLastCalledAt != null &&
+        (lastCalledAt == null || otherLastCalledAt.isAfter(lastCalledAt!))) {
+      lastCalledAt = otherLastCalledAt;
+    }
+    for (final sessionId in other.sessionIds) {
+      if (sessionIds.length >= AiToolUsagePromotionStore._maxSessions) break;
+      sessionIds.add(sessionId);
+    }
+    for (final entry in other.subResources.entries) {
+      final existing = subResources[entry.key];
+      if (existing != null) {
+        existing.absorb(entry.value);
+      } else if (subResources.length <
+          AiToolUsagePromotionStore._maxSubResourcesPerResource) {
+        subResources[entry.key] = entry.value;
+      }
+    }
+  }
 
   void increment({
     required String sessionId,
@@ -1753,16 +1965,21 @@ final class _SessionUsage extends _UsageBucket {
   factory _SessionUsage.fromJson(
     Object? raw, {
     required String? Function(String value) validIdentifier,
+    required String? Function(String value) validSessionIdentifier,
     required int Function(Object? value) validCount,
   }) {
     final bucket = _UsageBucket.fromJson(
       raw,
       validIdentifier: validIdentifier,
+      validSessionIdentifier: validSessionIdentifier,
       validCount: validCount,
     );
     final promoted = <String>{};
     if (raw is Map && raw['promoted_tools'] is List) {
       for (final item in raw['promoted_tools'] as List) {
+        if (promoted.length >= AiToolUsagePromotionStore._maxResourcesPerKind) {
+          break;
+        }
         if (item is! String) continue;
         final id = validIdentifier(item);
         if (id != null) promoted.add(id);
@@ -1782,6 +1999,20 @@ final class _SessionUsage extends _UsageBucket {
 
   final Set<String> promotedToolIds;
   DateTime updatedAt;
+
+  @override
+  void absorb(_UsageBucket other) {
+    super.absorb(other);
+    if (other is! _SessionUsage) return;
+    for (final id in other.promotedToolIds) {
+      if (promotedToolIds.length >=
+          AiToolUsagePromotionStore._maxResourcesPerKind) {
+        break;
+      }
+      promotedToolIds.add(id);
+    }
+    if (other.updatedAt.isAfter(updatedAt)) updatedAt = other.updatedAt;
+  }
 
   @override
   Map<String, Object?> toJson() {

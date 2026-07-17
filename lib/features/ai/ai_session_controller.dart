@@ -333,14 +333,6 @@ class AiSessionController extends ChangeNotifier {
     final resolvedToolUsagePromotionStore =
         toolUsagePromotionStore ?? AiToolUsagePromotionStore.shared;
     await resolvedToolUsagePromotionStore.initialize();
-    String rootUsageSessionId(String value) {
-      var end = value.length;
-      for (final marker in const <String>['::parallel-', '/task/']) {
-        final index = value.indexOf(marker);
-        if (index >= 0 && index < end) end = index;
-      }
-      return value.substring(0, end).trim();
-    }
 
     final resolvedToolRuntimeService =
         toolRuntimeService ??
@@ -365,7 +357,7 @@ class AiSessionController extends ChangeNotifier {
       result,
     ) async {
       await resolvedToolUsagePromotionStore.recordToolCall(
-        sessionId: rootUsageSessionId(parentContext.sessionId),
+        sessionId: parentContext.sessionId,
         catalog: subContext.catalog,
         toolCall: subContext.toolCall,
         result: result,
@@ -374,7 +366,7 @@ class AiSessionController extends ChangeNotifier {
     resolvedHookService.configureUsageRecorder((sessionId, records) async {
       for (final record in records) {
         await resolvedToolUsagePromotionStore.recordResources(
-          sessionId: rootUsageSessionId(sessionId),
+          sessionId: sessionId,
           resources: <AiResourceUsageKind, Iterable<String>>{
             AiResourceUsageKind.hook: <String>[record.hookId],
           },
@@ -391,7 +383,7 @@ class AiSessionController extends ChangeNotifier {
     userHooksExecutor?.configureUsageRecorder((sessionId, records) async {
       for (final record in records) {
         await resolvedToolUsagePromotionStore.recordResources(
-          sessionId: rootUsageSessionId(sessionId),
+          sessionId: sessionId,
           resources: <AiResourceUsageKind, Iterable<String>>{
             AiResourceUsageKind.hook: <String>[record.hookId],
           },

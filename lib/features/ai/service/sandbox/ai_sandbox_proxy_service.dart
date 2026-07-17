@@ -9,6 +9,7 @@ import '../../../../shared/net/tcp_port_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 
@@ -85,42 +86,38 @@ class _SandboxProxyLimits {
       throw ArgumentError.value(
         handshakeTimeout,
         'handshakeTimeout',
-        'Must be positive.',
+        '必须大于 0。',
       );
     }
     if (connectionTimeout <= Duration.zero) {
       throw ArgumentError.value(
         connectionTimeout,
         'connectionTimeout',
-        'Must be positive.',
+        '必须大于 0。',
       );
     }
     if (idleTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        idleTimeout,
-        'idleTimeout',
-        'Must be positive.',
-      );
+      throw ArgumentError.value(idleTimeout, 'idleTimeout', '必须大于 0。');
     }
     if (maxConnectionDuration <= Duration.zero) {
       throw ArgumentError.value(
         maxConnectionDuration,
         'maxConnectionDuration',
-        'Must be positive.',
+        '必须大于 0。',
       );
     }
     if (maxConcurrentConnections <= 0) {
       throw ArgumentError.value(
         maxConcurrentConnections,
         'maxConcurrentConnections',
-        'Must be positive.',
+        '必须大于 0。',
       );
     }
     if (maxHttpRequestBodyBytes < 1) {
       throw ArgumentError.value(
         maxHttpRequestBodyBytes,
         'maxHttpRequestBodyBytes',
-        'Must be positive.',
+        '必须大于 0。',
       );
     }
   }
@@ -169,7 +166,7 @@ class _SandboxProxyInstance {
           (client) => unawaited(_handleHttpClient(client)),
           onError: (Object error, StackTrace stack) {
             if (!_closed) {
-              silentLog('ai_sandbox_proxy', 'http accept', error, stack);
+              silentLog('ai_sandbox_proxy', '接受 HTTP 代理连接', error, stack);
             }
           },
         ),
@@ -184,7 +181,7 @@ class _SandboxProxyInstance {
             (client) => unawaited(_handleSocksClient(client)),
             onError: (Object error, StackTrace stack) {
               if (!_closed) {
-                silentLog('ai_sandbox_proxy', 'socks accept', error, stack);
+                silentLog('ai_sandbox_proxy', '接受 SOCKS 代理连接', error, stack);
               }
             },
           ),
@@ -233,7 +230,7 @@ class _SandboxProxyInstance {
       );
     } catch (error, stack) {
       await close();
-      silentLog('ai_sandbox_proxy', 'start', error, stack);
+      silentLog('ai_sandbox_proxy', '启动沙箱代理', error, stack);
       throw AiSandboxProxyStartException(
         'Failed to start sandbox proxy: $error',
       );
@@ -260,10 +257,9 @@ class _SandboxProxyInstance {
     _acceptSubscriptions.clear();
 
     await Future.wait<void>(<Future<void>>[
-      for (final server in servers)
-        _closeResource(server.close(), 'close server'),
+      for (final server in servers) _closeResource(server.close(), '关闭代理服务'),
       for (final subscription in acceptSubscriptions)
-        _closeResource(subscription.cancel(), 'cancel accept'),
+        _closeResource(subscription.cancel(), '取消代理连接监听'),
     ]);
 
     for (final socket in _openSockets.toList(growable: false)) {
@@ -271,9 +267,9 @@ class _SandboxProxyInstance {
     }
     await Future.wait<void>(<Future<void>>[
       for (final reader in _readers.toList(growable: false))
-        _closeResource(reader.cancel(), 'cancel reader'),
+        _closeResource(reader.cancel(), '取消代理读取器'),
       for (final tunnel in _tunnels.toList(growable: false))
-        _closeResource(tunnel.close(), 'close tunnel'),
+        _closeResource(tunnel.close(), '关闭代理隧道'),
     ]);
     _readers.clear();
     _tunnels.clear();
@@ -325,21 +321,21 @@ class _SandboxProxyInstance {
       }
     } on SocketException catch (error, stack) {
       if (!_closed) {
-        silentLog('ai_sandbox_proxy', 'http connect', error, stack);
+        silentLog('ai_sandbox_proxy', '建立 HTTP 代理连接', error, stack);
         _writeHttpError(client, 502, 'Proxy destination is unavailable.');
       } else {
         client.destroy();
       }
     } on TimeoutException catch (error, stack) {
       if (!_closed) {
-        silentLog('ai_sandbox_proxy', 'http connect', error, stack);
+        silentLog('ai_sandbox_proxy', '建立 HTTP 代理连接', error, stack);
         _writeHttpError(client, 504, 'Proxy destination timed out.');
       } else {
         client.destroy();
       }
     } catch (error, stack) {
       if (!_closed) {
-        silentLog('ai_sandbox_proxy', 'http client', error, stack);
+        silentLog('ai_sandbox_proxy', '处理 HTTP 代理客户端', error, stack);
       }
       client.destroy();
     } finally {
@@ -348,7 +344,7 @@ class _SandboxProxyInstance {
         _clientSockets.remove(client);
         await _closeResource(
           reader.cancel(destroySocket: false),
-          'cancel HTTP handshake reader',
+          '取消 HTTP 握手读取器',
         );
       }
     }
@@ -617,21 +613,21 @@ class _SandboxProxyInstance {
       _startTunnel(client: client, remote: remote, reader: reader);
     } on SocketException catch (error, stack) {
       if (!_closed) {
-        silentLog('ai_sandbox_proxy', 'socks connect', error, stack);
+        silentLog('ai_sandbox_proxy', '建立 SOCKS 代理连接', error, stack);
         _writeSocksReply(client, 0x05);
       } else {
         client.destroy();
       }
     } on TimeoutException catch (error, stack) {
       if (!_closed) {
-        silentLog('ai_sandbox_proxy', 'socks connect', error, stack);
+        silentLog('ai_sandbox_proxy', '建立 SOCKS 代理连接', error, stack);
         _writeSocksReply(client, 0x04);
       } else {
         client.destroy();
       }
     } catch (error, stack) {
       if (!_closed) {
-        silentLog('ai_sandbox_proxy', 'socks client', error, stack);
+        silentLog('ai_sandbox_proxy', '处理 SOCKS 代理客户端', error, stack);
       }
       client.destroy();
     } finally {
@@ -640,7 +636,7 @@ class _SandboxProxyInstance {
         _clientSockets.remove(client);
         await _closeResource(
           reader.cancel(destroySocket: false),
-          'cancel SOCKS handshake reader',
+          '取消 SOCKS 握手读取器',
         );
       }
     }
@@ -821,7 +817,7 @@ class _SandboxProxyInstance {
           )
           .catchError((Object error, StackTrace stack) {
             if (!_closed) {
-              silentLog('ai_sandbox_proxy', 'close socket', error, stack);
+              silentLog('ai_sandbox_proxy', '关闭代理套接字', error, stack);
             }
             socket.destroy();
           }),
@@ -853,7 +849,7 @@ class _SandboxProxyInstance {
       socket.done
           .catchError((Object error, StackTrace stack) {
             if (!_closed) {
-              silentLog('ai_sandbox_proxy', 'socket done', error, stack);
+              silentLog('ai_sandbox_proxy', '等待套接字关闭', error, stack);
             }
           })
           .whenComplete(() {
@@ -895,10 +891,16 @@ class _SocketTunnel {
 
   void start(Stream<Uint8List> clientInput) {
     if (_closed || _clientToRemote != null || _remoteToClient != null) {
-      throw StateError('Proxy tunnel has already been started or closed.');
+      throw StateError('代理隧道已启动或关闭。');
     }
     _resetIdleTimer();
-    _maxDurationTimer = Timer(maxDuration, () => unawaited(close()));
+    _maxDurationTimer = startSafeTimer(
+      maxDuration,
+      close,
+      max: maxDuration,
+      onError: (error, stack) =>
+          silentLog('ai_sandbox_proxy', '按最大时长关闭代理隧道', error, stack),
+    );
     _clientToRemote = clientInput
         .asyncMap((data) {
           return _forward(data, remote);
@@ -907,7 +909,7 @@ class _SocketTunnel {
           null,
           onDone: () => _onInputDone(clientToRemote: true),
           onError: (Object error, StackTrace stack) {
-            _onPipeError('client pipe', error, stack);
+            _onPipeError('客户端转发管道', error, stack);
           },
           cancelOnError: true,
         );
@@ -919,7 +921,7 @@ class _SocketTunnel {
           null,
           onDone: () => _onInputDone(clientToRemote: false),
           onError: (Object error, StackTrace stack) {
-            _onPipeError('remote pipe', error, stack);
+            _onPipeError('远端转发管道', error, stack);
           },
           cancelOnError: true,
         );
@@ -943,7 +945,7 @@ class _SocketTunnel {
       _halfClose(client);
     }
     if (_clientInputDone && _remoteInputDone) {
-      unawaited(close());
+      _closeWithoutWaiting('关闭已完成双向传输的代理隧道');
     }
   }
 
@@ -959,7 +961,7 @@ class _SocketTunnel {
           )
           .catchError((Object error, StackTrace stack) {
             if (!_closed) {
-              silentLog('ai_sandbox_proxy', 'half close', error, stack);
+              silentLog('ai_sandbox_proxy', '半关闭代理套接字', error, stack);
             }
             socket.destroy();
           }),
@@ -971,13 +973,28 @@ class _SocketTunnel {
     if (error is! FormatException && error is! SocketException) {
       silentLog('ai_sandbox_proxy', where, error, stack);
     }
-    unawaited(close());
+    _closeWithoutWaiting('转发异常后关闭代理隧道');
   }
 
   void _resetIdleTimer() {
     if (_closed) return;
     _idleTimer?.cancel();
-    _idleTimer = Timer(idleTimeout, () => unawaited(close()));
+    _idleTimer = startSafeTimer(
+      idleTimeout,
+      close,
+      max: idleTimeout,
+      onError: (error, stack) =>
+          silentLog('ai_sandbox_proxy', '按空闲超时关闭代理隧道', error, stack),
+    );
+  }
+
+  void _closeWithoutWaiting(String action) {
+    unawaited(
+      close().catchError(
+        (Object error, StackTrace stack) =>
+            silentLog('ai_sandbox_proxy', action, error, stack),
+      ),
+    );
   }
 
   Future<void> close() {
@@ -1003,7 +1020,7 @@ class _SocketTunnel {
         ).timeout(_cancelTimeout, onTimeout: () => <void>[]);
       }
     } catch (error, stack) {
-      silentLog('ai_sandbox_proxy', 'cancel tunnel', error, stack);
+      silentLog('ai_sandbox_proxy', '取消代理隧道订阅', error, stack);
     } finally {
       _onClosed();
     }
@@ -1700,12 +1717,8 @@ class _SocketReadBuffer {
     _wakeWaiter();
     await cancelStreamSubscriptionBounded<Uint8List>(
       _subscription,
-      onError: (error, stack) => silentLog(
-        'ai_sandbox_proxy',
-        'cancel handshake reader',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('ai_sandbox_proxy', '取消握手读取器', error, stack),
     );
   }
 
