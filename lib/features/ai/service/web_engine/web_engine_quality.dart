@@ -165,17 +165,24 @@ final RegExp _webQualityAlphaNumericPattern = RegExp(
   r'[A-Za-z0-9\u4e00-\u9fff]',
 );
 
-List<String> webQualityTerms(String input, {int limit = 24}) {
+List<String> webQualityTerms(
+  String input, {
+  int limit = 24,
+  bool preserveCase = false,
+}) {
+  if (limit <= 0) return const <String>[];
   final seen = <String>{};
   final terms = <String>[];
   for (final part
       in input
           .replaceAll(_webQualitySplitPattern, ' ')
           .split(_webQualityWhitespacePattern)) {
-    final term = lowercaseStringFromValue(part);
-    if (term.length < 2 || _webQualityStopWords.contains(term)) continue;
-    if (seen.add(term)) {
-      terms.add(term);
+    final normalized = lowercaseStringFromValue(part);
+    if (normalized.length < 2 || _webQualityStopWords.contains(normalized)) {
+      continue;
+    }
+    if (seen.add(normalized)) {
+      terms.add(preserveCase ? part : normalized);
       if (terms.length >= limit) break;
     }
   }

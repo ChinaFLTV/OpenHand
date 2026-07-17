@@ -146,9 +146,8 @@ class AiResolvedToolCatalog {
     return null;
   }
 
-  /// Aggressive normalization for tool-name lookup so that PascalCase,
-  /// camelCase, snake_case, kebab-case and even slightly garbled names
-  /// (extra spaces / underscores / dashes) all resolve to the same tool.
+  /// 统一工具名大小写及分隔符，兼容 PascalCase、camelCase、snake_case、
+  /// kebab-case 和多余空格。
   static String _normalizeToolLookupKey(String value) {
     final buffer = StringBuffer();
     for (final code in value.codeUnits) {
@@ -198,21 +197,30 @@ class AiResolvedTool {
   /// 运行时策略；execute() 据此包裹超时与重试逻辑。
   final AiBuiltinToolConfig? builtinConfig;
 
-  /// Per-catalog sidecar used only by the built-in ToolSearch tool.
-  ///
-  /// Runtime-tool lazy loading is resolved per session/round, while the tool
-  /// registry keeps one global ToolSearch instance. Keeping deferred schemas
-  /// here lets ToolSearch execute against the same catalog the model saw, even
-  /// if another session refreshes its own catalog before this tool call runs.
+  /// 当前目录中由 ToolSearch 使用的延迟工具定义快照。
   final Map<String, AiToolDefinition> toolSearchDeferredToolDefinitions;
 
-  /// Resolved metadata for deferred tools keyed by callable name.
-  ///
-  /// Prompt/runtime policies sometimes need source/server metadata without
-  /// expanding the full schema into the visible catalog. This sidecar keeps
-  /// that information available while ToolSearch still receives only compact
-  /// schema definitions in the prompt.
+  /// 以可调用名称索引的延迟工具完整元数据。
   final Map<String, AiResolvedTool> toolSearchDeferredTools;
+
+  AiResolvedTool withToolSearchDeferredTools({
+    required Map<String, AiToolDefinition> definitions,
+    required Map<String, AiResolvedTool> tools,
+  }) {
+    return AiResolvedTool(
+      name: name,
+      definition: definition,
+      source: source,
+      builtinKind: builtinKind,
+      mcpServer: mcpServer,
+      mcpTool: mcpTool,
+      skill: skill,
+      builtinConfig: builtinConfig,
+      toolSearchDeferredToolDefinitions:
+          Map<String, AiToolDefinition>.unmodifiable(definitions),
+      toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(tools),
+    );
+  }
 }
 
 enum AiBuiltinToolKind {

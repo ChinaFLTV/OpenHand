@@ -4,8 +4,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
-import '../../../../app/support/openhand_notification_service.dart';
-import '../../../../app/support/silent_log.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -586,48 +584,15 @@ language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
   final WebEngineHealthAlertTracker _healthAlertTracker =
       WebEngineHealthAlertTracker();
 
-  /// 健康度告警：在每次 recordCall 之后扫一遍当前 engineStats，命中阈值
-  /// 触发系统通知；同一异常持续期间只提醒一次，恢复后再次恶化才重新提醒。
-  Future<void> _maybeFireHealthAlerts(AiWebSearchSettings settings) async {
-    final pctTh = settings.alertSuccessRatePct;
-    final avgTh = settings.alertAvgDurationMs;
-    if (pctTh <= 0 && avgTh <= 0) {
-      _healthAlertTracker.reset();
-      return;
-    }
-    try {
-      final stats = await WebSearchTelemetryStore.instance.engineStats();
-      _healthAlertTracker.retainEngines(
-        stats.keys.map((engine) => engine.name),
-      );
-      for (final entry in stats.entries) {
-        final s = entry.value;
-        final alerts = _healthAlertTracker.update(
-          engineName: entry.key.name,
-          totalCalls: s.totalCalls,
-          successRate: s.successRate,
-          averageDurationMs: s.avgDurationMs,
-          successRateThresholdPct: pctTh,
-          averageDurationThresholdMs: avgTh,
-        );
-        for (final alert in alerts) {
-          final body = switch (alert.kind) {
-            WebEngineHealthAlertKind.lowSuccessRate =>
-              '成功率 ${alert.actualValue}% < 阈值 ${alert.threshold}%'
-                  '（共 ${s.totalCalls} 次调用）',
-            WebEngineHealthAlertKind.slowAverageDuration =>
-              '平均耗时 ${alert.actualValue}ms > 阈值 ${alert.threshold}ms',
-          };
-          await OpenHandNotificationService.showInApp(
-            title: 'WebSearch · ${alert.engineName}',
-            body: body,
-            level: OpenHandNotificationLevel.warning,
-          );
-        }
-      }
-    } catch (error, stack) {
-      silentLog('ai_web_search_tool', '_maybeFireHealthAlerts', error, stack);
-    }
+  Future<void> _maybeFireHealthAlerts(AiWebSearchSettings settings) {
+    return _healthAlertTracker.notifyFromStats(
+      loadStats: WebSearchTelemetryStore.instance.engineStats,
+      engineName: (engine) => engine.name,
+      successRateThresholdPct: settings.alertSuccessRatePct,
+      averageDurationThresholdMs: settings.alertAvgDurationMs,
+      titlePrefix: 'WebSearch',
+      logTag: 'ai_web_search_tool',
+    );
   }
 }
 

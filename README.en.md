@@ -115,7 +115,6 @@ The Web client includes:
 flutter pub get
 flutter gen-l10n
 flutter analyze
-flutter test
 flutter run -d macos
 ```
 

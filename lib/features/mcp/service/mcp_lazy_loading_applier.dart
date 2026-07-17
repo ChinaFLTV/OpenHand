@@ -83,10 +83,9 @@ class McpLazyLoadingApplier {
         keptEntries.add(
           MapEntry<String, AiResolvedTool>(
             entry.key,
-            _attachDeferredTools(
-              entry.value,
-              deferredDefinitions: deferredDefinitions,
-              deferredTools: deferredTools,
+            entry.value.withToolSearchDeferredTools(
+              definitions: deferredDefinitions,
+              tools: deferredTools,
             ),
           ),
         );
@@ -105,28 +104,6 @@ class McpLazyLoadingApplier {
       toolsByName: Map<String, AiResolvedTool>.fromEntries(keptEntries),
       notices: <String>[...catalog.notices, notice],
       mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
-    );
-  }
-
-  static AiResolvedTool _attachDeferredTools(
-    AiResolvedTool original, {
-    required Map<String, AiToolDefinition> deferredDefinitions,
-    required Map<String, AiResolvedTool> deferredTools,
-  }) {
-    return AiResolvedTool(
-      name: original.name,
-      definition: original.definition,
-      source: original.source,
-      builtinKind: original.builtinKind,
-      mcpServer: original.mcpServer,
-      mcpTool: original.mcpTool,
-      skill: original.skill,
-      builtinConfig: original.builtinConfig,
-      toolSearchDeferredToolDefinitions:
-          Map<String, AiToolDefinition>.unmodifiable(deferredDefinitions),
-      toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(
-        deferredTools,
-      ),
     );
   }
 

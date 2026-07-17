@@ -110,10 +110,9 @@ class AiBuiltinToolLazyLoadingApplier {
         keptEntries.add(
           MapEntry<String, AiResolvedTool>(
             entry.key,
-            _attachDeferredTools(
-              entry.value,
-              deferredDefinitions: deferredDefinitions,
-              deferredTools: deferredTools,
+            entry.value.withToolSearchDeferredTools(
+              definitions: deferredDefinitions,
+              tools: deferredTools,
             ),
           ),
         );
@@ -126,10 +125,9 @@ class AiBuiltinToolLazyLoadingApplier {
       keptEntries.add(
         MapEntry<String, AiResolvedTool>(
           toolSearchEntry.key,
-          _attachDeferredTools(
-            toolSearchEntry.value,
-            deferredDefinitions: deferredDefinitions,
-            deferredTools: deferredTools,
+          toolSearchEntry.value.withToolSearchDeferredTools(
+            definitions: deferredDefinitions,
+            tools: deferredTools,
           ),
         ),
       );
@@ -260,27 +258,5 @@ class AiBuiltinToolLazyLoadingApplier {
     return entry.value.builtinConfig?.sortOrder ??
         entry.value.builtinKind?.index ??
         0;
-  }
-
-  static AiResolvedTool _attachDeferredTools(
-    AiResolvedTool original, {
-    required Map<String, AiToolDefinition> deferredDefinitions,
-    required Map<String, AiResolvedTool> deferredTools,
-  }) {
-    return AiResolvedTool(
-      name: original.name,
-      definition: original.definition,
-      source: original.source,
-      builtinKind: original.builtinKind,
-      mcpServer: original.mcpServer,
-      mcpTool: original.mcpTool,
-      skill: original.skill,
-      builtinConfig: original.builtinConfig,
-      toolSearchDeferredToolDefinitions:
-          Map<String, AiToolDefinition>.unmodifiable(deferredDefinitions),
-      toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(
-        deferredTools,
-      ),
-    );
   }
 }

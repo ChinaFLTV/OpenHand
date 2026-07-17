@@ -8,7 +8,6 @@ import '../../skills/index.dart';
 import 'ai_allow_command_rule.dart';
 import 'ai_auto_title_fetch_mode.dart';
 import 'ai_builtin_tool_config.dart';
-import 'ai_deny_command_rule.dart';
 import 'ai_message_content_format.dart';
 import 'ai_request_timeout_policy.dart';
 import 'ai_sandbox_settings.dart';
@@ -217,30 +216,7 @@ class AiSessionRuntimeContext {
        streamThrottleDurationSeconds = normalizeStreamThrottleDurationSeconds(
          streamThrottleDurationSeconds,
        ),
-       sandboxSettings =
-           sandboxSettings ??
-           const AiSandboxSettings(
-             enabled: false,
-             failIfUnavailable: true,
-             allowUnsandboxedCommands: false,
-             autoAllowBashIfSandboxed: false,
-             sandboxedBuiltinTools: <String>[],
-             filesystemRules: <AiSandboxFileRule>[
-               AiSandboxFileRule(
-                 id: 'default-openhand-ro',
-                 path: '.openhand',
-                 accessMode: AiSandboxFileAccessMode.readOnly,
-                 matchMode: AiDenyCommandMatchMode.simple,
-                 note: 'OpenHand workspace metadata is read-only by default.',
-               ),
-             ],
-             excludedCommands: <AiSandboxPatternRule>[],
-             allowedDomains: <AiSandboxPatternRule>[],
-             deniedDomains: <AiSandboxPatternRule>[],
-             httpProxyPort: 0,
-             socksProxyPort: 0,
-             allowNetworkWhenNoDomainRules: true,
-           );
+       sandboxSettings = sandboxSettings ?? AiSandboxSettings.defaultValue;
 
   static const int defaultSingleRoundToolCallLimit =
       AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;

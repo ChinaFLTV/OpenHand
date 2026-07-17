@@ -307,6 +307,56 @@ class _HeSmartView extends StatefulWidget {
   List<String> lines,
 ) => _heSplitLogForMarkdown(lines);
 
+Widget _heProcessingIndicator(BuildContext context, ColorScheme colorScheme) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.8,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          openHandLocalizedText(
+            context,
+            zh: '正在处理…',
+            zhHant: '正在處理…',
+            en: 'Processing…',
+            fr: 'Traitement…',
+            de: 'Wird verarbeitet…',
+            ja: '処理中…',
+          ),
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _heEmptyOutputText(BuildContext context, ColorScheme colorScheme) {
+  return Text(
+    openHandLocalizedText(
+      context,
+      zh: '（无文本输出）',
+      zhHant: '（無文字輸出）',
+      en: '(no text output)',
+      fr: '(aucune sortie texte)',
+      de: '(keine Textausgabe)',
+      ja: '（テキスト出力なし）',
+    ),
+    style: TextStyle(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 13,
+      fontStyle: FontStyle.italic,
+    ),
+  );
+}
+
 class _HeSmartViewState extends State<_HeSmartView> {
   ({String? command, String body})? _parsed;
 
@@ -339,39 +389,8 @@ class _HeSmartViewState extends State<_HeSmartView> {
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
 
-    // Show a lightweight spinner while the isolate is working.
     if (_parsed == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.8,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              openHandLocalizedText(
-                context,
-                zh: '正在处理…',
-                zhHant: '正在處理…',
-                en: 'Processing…',
-                fr: 'Traitement…',
-                de: 'Wird verarbeitet…',
-                ja: '処理中…',
-              ),
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      );
+      return _heProcessingIndicator(context, colorScheme);
     }
 
     final (:command, :body) = _parsed!;
@@ -392,22 +411,7 @@ class _HeSmartViewState extends State<_HeSmartView> {
             filePathRoots: widget.filePathRoots,
           )
         else
-          Text(
-            openHandLocalizedText(
-              context,
-              zh: '（无文本输出）',
-              zhHant: '（無文字輸出）',
-              en: '(no text output)',
-              fr: '(aucune sortie texte)',
-              de: '(keine Textausgabe)',
-              ja: '（テキスト出力なし）',
-            ),
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 13,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+          _heEmptyOutputText(context, colorScheme),
       ],
     );
   }
@@ -493,56 +497,11 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
     final segments = _segments;
 
     if (segments == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.8,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              openHandLocalizedText(
-                context,
-                zh: '正在处理…',
-                zhHant: '正在處理…',
-                en: 'Processing…',
-                fr: 'Traitement…',
-                de: 'Wird verarbeitet…',
-                ja: '処理中…',
-              ),
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      );
+      return _heProcessingIndicator(context, colorScheme);
     }
 
     if (segments.isEmpty) {
-      return Text(
-        openHandLocalizedText(
-          context,
-          zh: '（无文本输出）',
-          zhHant: '（無文字輸出）',
-          en: '(no text output)',
-          fr: '(aucune sortie texte)',
-          de: '(keine Textausgabe)',
-          ja: '（テキスト出力なし）',
-        ),
-        style: TextStyle(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 13,
-          fontStyle: FontStyle.italic,
-        ),
-      );
+      return _heEmptyOutputText(context, colorScheme);
     }
 
     final needsTruncation =

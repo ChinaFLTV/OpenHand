@@ -142,30 +142,7 @@ class AiSandboxFileRule {
 }
 
 class AiSandboxSettings {
-  factory AiSandboxSettings.defaults() {
-    return const AiSandboxSettings(
-      enabled: false,
-      failIfUnavailable: true,
-      allowUnsandboxedCommands: false,
-      autoAllowBashIfSandboxed: false,
-      sandboxedBuiltinTools: <String>[],
-      filesystemRules: <AiSandboxFileRule>[
-        AiSandboxFileRule(
-          id: 'default-openhand-ro',
-          path: '.openhand',
-          accessMode: AiSandboxFileAccessMode.readOnly,
-          matchMode: AiDenyCommandMatchMode.simple,
-          note: 'OpenHand workspace metadata is read-only by default.',
-        ),
-      ],
-      excludedCommands: <AiSandboxPatternRule>[],
-      allowedDomains: <AiSandboxPatternRule>[],
-      deniedDomains: <AiSandboxPatternRule>[],
-      httpProxyPort: 0,
-      socksProxyPort: 0,
-      allowNetworkWhenNoDomainRules: true,
-    );
-  }
+  factory AiSandboxSettings.defaults() => defaultValue;
 
   factory AiSandboxSettings.fromJson(Object? raw) {
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
@@ -212,6 +189,29 @@ class AiSandboxSettings {
     required this.socksProxyPort,
     required this.allowNetworkWhenNoDomainRules,
   });
+
+  static const AiSandboxSettings defaultValue = AiSandboxSettings(
+    enabled: false,
+    failIfUnavailable: true,
+    allowUnsandboxedCommands: false,
+    autoAllowBashIfSandboxed: false,
+    sandboxedBuiltinTools: <String>[],
+    filesystemRules: <AiSandboxFileRule>[
+      AiSandboxFileRule(
+        id: 'default-openhand-ro',
+        path: '.openhand',
+        accessMode: AiSandboxFileAccessMode.readOnly,
+        matchMode: AiDenyCommandMatchMode.simple,
+        note: 'OpenHand workspace metadata is read-only by default.',
+      ),
+    ],
+    excludedCommands: <AiSandboxPatternRule>[],
+    allowedDomains: <AiSandboxPatternRule>[],
+    deniedDomains: <AiSandboxPatternRule>[],
+    httpProxyPort: 0,
+    socksProxyPort: 0,
+    allowNetworkWhenNoDomainRules: true,
+  );
 
   final bool enabled;
   final bool failIfUnavailable;

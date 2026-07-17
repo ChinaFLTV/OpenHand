@@ -8,6 +8,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/web_engine/web_engine_quality.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
@@ -261,42 +262,10 @@ class AiCodebaseSearchTool extends AiTool {
   }
 
   List<String> _extractKeywords(String query) {
-    // Remove common English stop words and extract meaningful terms
-    const stopWords = <String>{
-      'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-      'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'shall',
-      'should', 'may', 'might', 'must', 'can', 'could', 'to', 'of', 'in',
-      'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through',
-      'during', 'before', 'after', 'above', 'below', 'between', 'and', 'but',
-      'or', 'not', 'no', 'nor', 'so', 'yet', 'both', 'either', 'neither',
-      'each', 'every', 'all', 'any', 'few', 'more', 'most', 'other', 'some',
-      'such', 'than', 'too', 'very', 'just', 'about', 'also', 'then',
-      'this', 'that', 'these', 'those', 'it', 'its', 'i', 'we', 'you',
-      'they', 'he', 'she', 'me', 'us', 'him', 'her', 'them', 'my', 'our',
-      'your', 'their', 'what', 'which', 'who', 'whom', 'when', 'where',
-      'why', 'how', 'if', 'up', 'out', 'off', 'over', 'under', 'again',
-      // Common Chinese stop words
-      '的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一',
-      '个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着',
-      '没有', '看', '好', '自己', '这', '他', '她', '它', '们', '吗', '吧',
-      '被', '让', '给', '把', '那', '些', '么', '什么', '怎么', '哪', '谁',
-    };
-
-    // Split on non-alphanumeric characters (keeping CJK, underscores)
-    final words =
-        trimmedNonEmptyStrings(
-              query
-                  .replaceAll(RegExp(r'[^\w\u4e00-\u9fff]+'), ' ')
-                  .split(RegExp(r'\s+')),
-            )
-            .where((w) => w.length >= 2 && !stopWords.contains(w.toLowerCase()))
-            .toList(growable: false);
-
-    // Also extract camelCase/snake_case fragments
+    final words = webQualityTerms(query, limit: 64, preserveCase: true);
     final fragments = <String>[];
     for (final word in words) {
       fragments.add(word);
-      // Split camelCase: "handleUserAuth" → ["handle", "User", "Auth"]
       final camelParts = word
           .replaceAllMapped(
             RegExp(r'([a-z])([A-Z])'),
@@ -306,18 +275,15 @@ class AiCodebaseSearchTool extends AiTool {
           .where((p) => p.length >= 3)
           .toList();
       if (camelParts.length > 1) fragments.addAll(camelParts);
-      // Split snake_case
       if (word.contains('_')) {
         fragments.addAll(word.split('_').where((p) => p.length >= 3));
       }
     }
 
-    // Deduplicate while preserving order
     final seen = <String>{};
     return fragments.where((f) => seen.add(f.toLowerCase())).toList();
   }
 
-  // 修复 rg 命令路径解析问题，使用共享工具方法
   Future<List<_SearchResult>> _ripgrepSearch(
     String searchRoot,
     String pattern, {
@@ -326,10 +292,8 @@ class AiCodebaseSearchTool extends AiTool {
     bool caseInsensitive = true,
     required String filePattern,
   }) async {
-    // 先检查 ripgrep 是否可用
     final rgPath = await AiToolUtils.resolveRipgrepPath();
     if (rgPath == null) {
-      // ripgrep 不可用，静默返回空结果（CodebaseSearch 有多个信号源）
       return const <_SearchResult>[];
     }
 
@@ -337,7 +301,7 @@ class AiCodebaseSearchTool extends AiTool {
       '--json',
       '-C', '$contextLines',
       if (caseInsensitive) '-i',
-      '--max-count', '5', // max matches per file
+      '--max-count', '5',
       '--type-add',
       'code:*.{dart,ts,tsx,js,jsx,py,go,rs,java,kt,swift,c,cpp,h,hpp,cs,rb,php,yaml,yml,json,toml,md}',
       '--type', 'code',
@@ -346,7 +310,6 @@ class AiCodebaseSearchTool extends AiTool {
       '.', // 在工作目录中搜索
     ];
 
-    // 使用共享工具方法执行进程
     final result = await AiToolUtils.runProcessSafely(
       rgPath,
       args,

@@ -1,3 +1,7 @@
+import '../../../../app/support/openhand_notification_service.dart';
+import '../../../../app/support/silent_log.dart';
+import 'web_engine_telemetry_store_base.dart';
+
 enum WebEngineHealthAlertKind { lowSuccessRate, slowAverageDuration }
 
 class WebEngineHealthAlert {
@@ -14,8 +18,7 @@ class WebEngineHealthAlert {
   final int threshold;
 }
 
-/// Emits one alert when an engine enters an unhealthy state, then suppresses
-/// repeats until that metric recovers. State is bounded by engine × alert kind.
+/// 引擎进入异常状态时仅提醒一次，指标恢复后才允许再次提醒。
 class WebEngineHealthAlertTracker {
   static const int minimumSampleCount = 5;
 
@@ -72,6 +75,51 @@ class WebEngineHealthAlertTracker {
   }
 
   void reset() => _activeAlerts.clear();
+
+  Future<void> notifyFromStats<E, S extends WebEngineStatBase>({
+    required Future<Map<E, S>> Function() loadStats,
+    required String Function(E engine) engineName,
+    required int successRateThresholdPct,
+    required int averageDurationThresholdMs,
+    required String titlePrefix,
+    required String logTag,
+  }) async {
+    if (successRateThresholdPct <= 0 && averageDurationThresholdMs <= 0) {
+      reset();
+      return;
+    }
+    try {
+      final stats = await loadStats();
+      retainEngines(stats.keys.map(engineName));
+      for (final entry in stats.entries) {
+        final stat = entry.value;
+        final alerts = update(
+          engineName: engineName(entry.key),
+          totalCalls: stat.totalCalls,
+          successRate: stat.successRate,
+          averageDurationMs: stat.avgDurationMs,
+          successRateThresholdPct: successRateThresholdPct,
+          averageDurationThresholdMs: averageDurationThresholdMs,
+        );
+        for (final alert in alerts) {
+          final body = switch (alert.kind) {
+            WebEngineHealthAlertKind.lowSuccessRate =>
+              '成功率 ${alert.actualValue}% < 阈值 ${alert.threshold}%'
+                  '（共 ${stat.totalCalls} 次调用）',
+            WebEngineHealthAlertKind.slowAverageDuration =>
+              '平均耗时 ${alert.actualValue}ms > 阈值 ${alert.threshold}ms',
+          };
+          await OpenHandNotificationService.showInApp(
+            title: '$titlePrefix · ${alert.engineName}',
+            body: body,
+            level: OpenHandNotificationLevel.warning,
+          );
+        }
+      }
+    } catch (error, stack) {
+      silentLog(logTag, '检查 Web 引擎健康状态', error, stack);
+    }
+  }
 
   void _updateMetric(
     List<WebEngineHealthAlert> alerts, {
