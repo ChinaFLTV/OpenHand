@@ -15,6 +15,7 @@ export 'model/ai_api_family.dart';
 export 'model/ai_attachment.dart';
 export 'model/ai_auto_title_fetch_mode.dart';
 export 'model/ai_builtin_tool_config.dart';
+export 'model/ai_command_rule.dart';
 export 'model/ai_cost_breakdown.dart';
 export 'model/ai_creation_mode.dart';
 export 'model/ai_deny_command_rule.dart';
@@ -41,6 +42,7 @@ export 'model/ai_translation_provider_catalog.dart';
 export 'model/ai_translation_settings.dart';
 export 'model/ai_tts_provider_catalog.dart';
 export 'model/ai_tts_settings.dart';
+export 'model/ai_web_engine_resilience.dart';
 export 'model/ai_web_fetch_settings.dart';
 export 'model/ai_web_search_settings.dart';
 

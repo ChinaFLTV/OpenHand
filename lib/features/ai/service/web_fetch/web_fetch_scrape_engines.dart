@@ -47,14 +47,9 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Firecrawl ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Firecrawl response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Firecrawl',
     );
     final data = jsonObjectOf(body['data']);
     final markdown = stringOf(data['markdown']);
@@ -234,13 +229,9 @@ class WebFetchTavilyEngine extends WebFetchEngine {
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Tavily-extract ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Tavily-extract',
       source: 'Tavily extract response',
     );
     final results = (body['results'] as List?) ?? const [];
@@ -286,13 +277,9 @@ class WebFetchExaEngine extends WebFetchEngine {
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Exa-contents ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Exa-contents',
       source: 'Exa contents response',
     );
     final results = (body['results'] as List?) ?? const [];

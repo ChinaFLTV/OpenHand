@@ -3,6 +3,10 @@ import '../../../../shared/util/input_value_parsing.dart';
 const int _minHttpStatusCode = 100;
 const int _maxHttpStatusCode = 599;
 
+String? resolveWebEngineApiKey(String? configured, String? fallback) {
+  return configured != null && configured.isNotEmpty ? configured : fallback;
+}
+
 double? webEngineScoreFromValue(Object? value) {
   return optionalNonNegativeDoubleFromValue(value);
 }

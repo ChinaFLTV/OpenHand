@@ -2,10 +2,10 @@ part of 'settings_view.dart';
 
 String _commandRuleMatchModeLabel(
   BuildContext context,
-  AiDenyCommandMatchMode matchMode,
+  AiCommandMatchMode matchMode,
 ) {
   return switch (matchMode) {
-    AiDenyCommandMatchMode.simple => openHandLocalizedText(
+    AiCommandMatchMode.simple => openHandLocalizedText(
       context,
       zh: '简单匹配',
       zhHant: '簡單匹配',
@@ -14,7 +14,7 @@ String _commandRuleMatchModeLabel(
       de: 'Einfache Übereinstimmung',
       ja: '単純一致',
     ),
-    AiDenyCommandMatchMode.regex => openHandLocalizedText(
+    AiCommandMatchMode.regex => openHandLocalizedText(
       context,
       zh: '正则匹配',
       zhHant: '正則匹配',
@@ -94,7 +94,7 @@ class _CommandRuleTile extends StatelessWidget {
 
   final String pattern;
   final String note;
-  final AiDenyCommandMatchMode matchMode;
+  final AiCommandMatchMode matchMode;
   final IconData icon;
   final Color iconBackgroundColor;
   final Color iconColor;
@@ -132,14 +132,14 @@ class _CommandRuleTile extends StatelessWidget {
                   Text(pattern, style: theme.textTheme.titleSmall),
                   const SizedBox(height: 6),
                   Text(
-                    matchMode == AiDenyCommandMatchMode.regex
+                    matchMode == AiCommandMatchMode.regex
                         ? _commandRuleMatchModeLabel(
                             context,
-                            AiDenyCommandMatchMode.regex,
+                            AiCommandMatchMode.regex,
                           )
                         : _commandRuleMatchModeLabel(
                             context,
-                            AiDenyCommandMatchMode.simple,
+                            AiCommandMatchMode.simple,
                           ),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: colorScheme.primary,
@@ -325,7 +325,7 @@ typedef _CommandRuleBuilder<T> =
     T Function({
       required String id,
       required String pattern,
-      required AiDenyCommandMatchMode matchMode,
+      required AiCommandMatchMode matchMode,
       required String note,
     });
 
@@ -346,7 +346,7 @@ class _CommandRuleEditorDialog<T> extends StatefulWidget {
   final _CommandRuleEditorCopy copy;
   final String Function(T rule) idOf;
   final String Function(T rule) patternOf;
-  final AiDenyCommandMatchMode Function(T rule) matchModeOf;
+  final AiCommandMatchMode Function(T rule) matchModeOf;
   final String Function(T rule) noteOf;
   final _CommandRuleBuilder<T> buildRule;
 
@@ -360,7 +360,7 @@ class _CommandRuleEditorDialogState<T>
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _patternController;
   late final TextEditingController _noteController;
-  late AiDenyCommandMatchMode _matchMode;
+  late AiCommandMatchMode _matchMode;
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   @override
@@ -374,7 +374,7 @@ class _CommandRuleEditorDialogState<T>
       text: initialRule == null ? '' : widget.noteOf(initialRule),
     );
     _matchMode = initialRule == null
-        ? AiDenyCommandMatchMode.simple
+        ? AiCommandMatchMode.simple
         : widget.matchModeOf(initialRule);
   }
 
@@ -424,7 +424,7 @@ class _CommandRuleEditorDialogState<T>
                     },
                   ),
                   const SizedBox(height: 16),
-                  AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
+                  AnimatedDropdownButtonFormField<AiCommandMatchMode>(
                     initialValue: _matchMode,
                     decoration: InputDecoration(
                       labelText: openHandLocalizedText(
@@ -439,20 +439,20 @@ class _CommandRuleEditorDialogState<T>
                     ),
                     items: [
                       DropdownMenuItem(
-                        value: AiDenyCommandMatchMode.simple,
+                        value: AiCommandMatchMode.simple,
                         child: Text(
                           _commandRuleMatchModeLabel(
                             context,
-                            AiDenyCommandMatchMode.simple,
+                            AiCommandMatchMode.simple,
                           ),
                         ),
                       ),
                       DropdownMenuItem(
-                        value: AiDenyCommandMatchMode.regex,
+                        value: AiCommandMatchMode.regex,
                         child: Text(
                           _commandRuleMatchModeLabel(
                             context,
-                            AiDenyCommandMatchMode.regex,
+                            AiCommandMatchMode.regex,
                           ),
                         ),
                       ),

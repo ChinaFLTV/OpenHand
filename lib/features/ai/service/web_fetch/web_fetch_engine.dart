@@ -11,8 +11,12 @@ import 'web_fetch_scrapling_bridge.dart';
 export '../web_engine/web_engine_base.dart' show WebEngineRequest;
 export '../web_engine/web_engine_http_exception.dart'
     show WebEngineHttpException;
+export '../web_engine/web_engine_http_utils.dart'
+    show decodeSuccessfulWebEngineJsonResponse;
 export '../web_engine/web_engine_json_utils.dart'
     show decodeJsonObjectBytes, jsonObjectOf, stringOf, readJsonPath;
+export '../web_engine/web_engine_value_parsing.dart'
+    show resolveWebEngineApiKey;
 
 /// 单个 URL 抓取的统一返回。
 class WebFetchEngineContent {
@@ -132,6 +136,22 @@ abstract class WebFetchEngine
         .map((c) => c.truncated(config.truncationChars))
         .toList(growable: false);
   }
+}
+
+abstract class WebFetchProviderKeyEngine extends WebFetchEngine {
+  WebFetchProviderKeyEngine({
+    required super.config,
+    required super.httpClient,
+    required this.fallbackKey,
+  });
+
+  final String? fallbackKey;
+
+  String? get effectiveApiKey =>
+      resolveWebEngineApiKey(config.apiKey, fallbackKey);
+
+  @override
+  bool get isReady => (effectiveApiKey ?? '').isNotEmpty;
 }
 
 class WebFetchEngineContext {

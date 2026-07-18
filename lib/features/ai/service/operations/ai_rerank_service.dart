@@ -250,6 +250,11 @@ class _RerankRequestContext {
 
   String get normalizedModelId => modelId.toLowerCase();
   String? get profileEndpointPath => _trimmedOrNull(profile.rerankEndpointPath);
+  Map<String, Object?> get textRequestFields => <String, Object?>{
+    'model': modelId,
+    'query': query,
+    'documents': _textDocuments(documents),
+  };
   int? get resolvedTopN {
     final requested = topN != null && topN! > 0
         ? topN
@@ -315,9 +320,7 @@ class _DashScopeCompatibleRerankStrategy extends _RerankRequestStrategy {
       context.model,
       family,
       context.withProfileDefaults(<String, Object?>{
-        'model': context.modelId,
-        'query': context.query,
-        'documents': _textDocuments(context.documents),
+        ...context.textRequestFields,
         if (context.supportsParameter('top_n') && context.resolvedTopN != null)
           'top_n': context.resolvedTopN,
         if (context.supportsParameter('instruct') &&
@@ -408,9 +411,7 @@ class _VoyageRerankStrategy extends _RerankRequestStrategy {
       context.model,
       family,
       context.withProfileDefaults(<String, Object?>{
-        'model': context.modelId,
-        'query': context.query,
-        'documents': _textDocuments(context.documents),
+        ...context.textRequestFields,
         if ((forceVoyageDialect || context.supportsParameter('top_k')) &&
             context.resolvedTopN != null)
           'top_k': context.resolvedTopN,
@@ -461,9 +462,7 @@ class _CohereRerankStrategy extends _RerankRequestStrategy {
       context.model,
       family,
       context.withProfileDefaults(<String, Object?>{
-        'model': context.modelId,
-        'query': context.query,
-        'documents': _textDocuments(context.documents),
+        ...context.textRequestFields,
         if (context.supportsParameter('top_n') && context.resolvedTopN != null)
           'top_n': context.resolvedTopN,
         if (context.supportsParameter('max_tokens_per_doc') &&

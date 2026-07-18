@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_search_settings.dart';
-import '../web_engine/web_engine_http_exception.dart';
 import 'web_search_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,23 +13,12 @@ import 'web_search_engine.dart';
 // 然后从 citations / groundingChunks 抽取命中结果。
 // ─────────────────────────────────────────────────────────────────────────────
 
-class WebSearchGrokEngine extends WebSearchEngine {
+class WebSearchGrokEngine extends WebSearchProviderKeyEngine {
   WebSearchGrokEngine({
     required super.config,
     required super.httpClient,
-    required this.fallbackKey,
+    required super.fallbackKey,
   });
-
-  final String? fallbackKey;
-
-  String? get _key {
-    final c = config.apiKey;
-    if (c != null && c.isNotEmpty) return c;
-    return fallbackKey;
-  }
-
-  @override
-  bool get isReady => (_key ?? '').isNotEmpty;
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
@@ -38,7 +26,7 @@ class WebSearchGrokEngine extends WebSearchEngine {
       'POST',
       Uri.parse('https://api.x.ai/v1/chat/completions'),
       headers: {
-        'authorization': 'Bearer $_key',
+        'authorization': 'Bearer $effectiveApiKey',
         'content-type': 'application/json',
       },
       body: jsonEncode({
@@ -59,14 +47,9 @@ class WebSearchGrokEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Grok ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Grok response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Grok',
     );
     final citations = readJsonPath<List>(body, ['citations']) ?? const [];
     final replyText =
@@ -97,29 +80,18 @@ class WebSearchGrokEngine extends WebSearchEngine {
   }
 }
 
-class WebSearchGeminiEngine extends WebSearchEngine {
+class WebSearchGeminiEngine extends WebSearchProviderKeyEngine {
   WebSearchGeminiEngine({
     required super.config,
     required super.httpClient,
-    required this.fallbackKey,
+    required super.fallbackKey,
   });
-
-  final String? fallbackKey;
-
-  String? get _key {
-    final c = config.apiKey;
-    if (c != null && c.isNotEmpty) return c;
-    return fallbackKey;
-  }
-
-  @override
-  bool get isReady => (_key ?? '').isNotEmpty;
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/'
-      'models/gemini-2.0-flash:generateContent?key=$_key',
+      'models/gemini-2.0-flash:generateContent?key=$effectiveApiKey',
     );
     final response = await sendWebEngineHttpRequest(
       'POST',
@@ -139,14 +111,9 @@ class WebSearchGeminiEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Gemini ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Gemini response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Gemini',
     );
     final chunks =
         readJsonPath<List>(body, [

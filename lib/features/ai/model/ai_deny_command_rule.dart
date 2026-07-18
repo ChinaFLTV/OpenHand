@@ -1,51 +1,29 @@
 import '../../../shared/util/input_value_parsing.dart';
+import 'ai_command_rule.dart';
 
-enum AiDenyCommandMatchMode {
-  regex('regex'),
-  simple('simple');
-
-  const AiDenyCommandMatchMode(this.storageValue);
-
-  final String storageValue;
-
-  static AiDenyCommandMatchMode fromStorage(String value) {
-    return enumByStorageValueOr(
-      values,
-      value,
-      (mode) => mode.storageValue,
-      fallback: AiDenyCommandMatchMode.simple,
-    );
-  }
-}
-
-class AiDenyCommandRule {
+class AiDenyCommandRule extends AiCommandRule {
   factory AiDenyCommandRule.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiDenyCommandRule(
       id: stringFromValue(json['id']),
       pattern: stringFromValue(json['pattern']),
-      matchMode: AiDenyCommandMatchMode.fromStorage(
+      matchMode: AiCommandMatchMode.fromStorage(
         stringFromValue(json['match_mode']),
       ),
       note: stringFromValue(json['note']),
     );
   }
   const AiDenyCommandRule({
-    required this.id,
-    required this.pattern,
-    required this.matchMode,
-    this.note = '',
+    required super.id,
+    required super.pattern,
+    required super.matchMode,
+    super.note,
   });
-
-  final String id;
-  final String pattern;
-  final AiDenyCommandMatchMode matchMode;
-  final String note;
 
   AiDenyCommandRule copyWith({
     String? id,
     String? pattern,
-    AiDenyCommandMatchMode? matchMode,
+    AiCommandMatchMode? matchMode,
     String? note,
   }) {
     return AiDenyCommandRule(
@@ -55,46 +33,4 @@ class AiDenyCommandRule {
       note: note ?? this.note,
     );
   }
-
-  bool matches(String command) {
-    return aiCommandRuleMatches(
-      pattern: pattern,
-      matchMode: matchMode,
-      command: command,
-    );
-  }
-
-  Map<String, Object?> toJson() {
-    return <String, Object?>{
-      'id': id,
-      'pattern': pattern,
-      'match_mode': matchMode.storageValue,
-      'note': note,
-    };
-  }
-}
-
-bool aiCommandRuleMatches({
-  required String pattern,
-  required AiDenyCommandMatchMode matchMode,
-  required String command,
-}) {
-  final normalizedPattern = pattern.trim();
-  final normalizedCommand = command.trim();
-  if (normalizedPattern.isEmpty || normalizedCommand.isEmpty) {
-    return false;
-  }
-  try {
-    final regex = matchMode == AiDenyCommandMatchMode.regex
-        ? RegExp(normalizedPattern, multiLine: true)
-        : RegExp(simplePatternToRegex(normalizedPattern), multiLine: true);
-    return regex.hasMatch(normalizedCommand);
-  } catch (_) {
-    return false;
-  }
-}
-
-String simplePatternToRegex(String pattern) {
-  final escaped = RegExp.escape(pattern).replaceAll(r'\*', '.*');
-  return '^$escaped\$';
 }

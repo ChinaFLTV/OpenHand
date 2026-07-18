@@ -71,6 +71,30 @@ abstract class WebEngineStatBase {
     this.lastQuotaAt,
   });
 
+  WebEngineStatBase.fromJson(Map<String, Object?> json)
+    : totalCalls = webEngineNonNegativeIntFromValue(json['total_calls']),
+      successCalls = webEngineNonNegativeIntFromValue(json['success_calls']),
+      totalDurationMs = webEngineNonNegativeIntFromValue(
+        json['total_duration_ms'],
+      ),
+      lastError = json['last_error'] as String?,
+      lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
+        json['last_failure_at'],
+      ),
+      lastInvokedAt = webEngineOptionalNonNegativeIntFromValue(
+        json['last_invoked_at'],
+      ),
+      consecutiveFailures = webEngineNonNegativeIntFromValue(
+        json['consecutive_failures'],
+      ),
+      cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
+        json['cooldown_until_ms'],
+      ),
+      lastQuotaError = json['last_quota_error'] as String?,
+      lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
+        json['last_quota_at'],
+      );
+
   final int totalCalls;
   final int successCalls;
   final int totalDurationMs;
@@ -207,6 +231,29 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       silentLog(logTag, 'rawEngineHistory', error, stack);
       return const {};
     }
+  }
+
+  Future<Map<TKind, TStat>> typedEngineStats<TStat>(
+    TStat Function(Map<String, Object?> json) decode,
+  ) async {
+    final result = <TKind, TStat>{};
+    for (final entry in (await rawEngineStats()).entries) {
+      final kind = parseKind(entry.key);
+      if (kind != null) result[kind] = decode(entry.value);
+    }
+    return result;
+  }
+
+  Future<Map<TKind, List<TSample>>> typedEngineHistory<TSample>(
+    TSample Function(Map<String, Object?> json) decode,
+  ) async {
+    final result = <TKind, List<TSample>>{};
+    for (final entry in (await rawEngineHistory()).entries) {
+      final kind = parseKind(entry.key);
+      if (kind == null) continue;
+      result[kind] = entry.value.map(decode).toList(growable: false);
+    }
+    return result;
   }
 
   Future<void> clearAll() async {

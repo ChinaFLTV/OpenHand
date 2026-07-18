@@ -13,7 +13,6 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
-import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/byte_size_format.dart';
@@ -320,27 +319,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     child: HighlightPulse(signal: _actionPulse),
                   ),
                 ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: HighlightPulse(
-                      signal: _successPulse,
-                      color: OpenHandStatusColors.success,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: HighlightPulse(
-                      signal: _errorPulse,
-                      color: OpenHandStatusColors.error,
-                    ),
-                  ),
+                FeedbackHighlightPulseOverlay(
+                  successSignal: _successPulse,
+                  errorSignal: _errorPulse,
                 ),
               ],
             ),

@@ -7,6 +7,8 @@ import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/text_clip.dart';
+import 'web_engine_http_exception.dart';
+import 'web_engine_json_utils.dart';
 
 const int defaultWebEngineResponseMaxBytes = 8 * kBytesPerMiB;
 const int _webEngineErrorPreviewCharacters = 2000;
@@ -33,6 +35,23 @@ class BoundedWebEngineHttpResponse {
   String errorPreview() {
     return clipTextWithEllipsis(text(), _webEngineErrorPreviewCharacters - 1);
   }
+}
+
+/// 校验成功状态并将响应解析为 JSON 对象，统一保留错误预览和来源信息。
+Map<String, Object?> decodeSuccessfulWebEngineJsonResponse(
+  BoundedWebEngineHttpResponse response, {
+  required String engineLabel,
+  String? source,
+}) {
+  if (response.statusCode != 200) {
+    throw WebEngineHttpException(
+      '$engineLabel ${response.statusCode}: ${response.errorPreview()}',
+    );
+  }
+  return decodeJsonObjectBytes(
+    response.bodyBytes,
+    source: source ?? '$engineLabel response',
+  );
 }
 
 mixin BoundedWebEngineHttpClient {

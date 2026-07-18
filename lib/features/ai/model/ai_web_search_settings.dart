@@ -228,13 +228,20 @@ class AiWebSearchSettings {
     this.summaryMaxChars = defaultSummaryMaxChars,
     this.cacheTtlSeconds = defaultCacheTtlSeconds,
     this.cacheMaxBytes = defaultCacheMaxBytes,
-    this.cooldownTier1Failures = defaultCooldownTier1Failures,
-    this.cooldownTier1Seconds = defaultCooldownTier1Seconds,
-    this.cooldownTier2Failures = defaultCooldownTier2Failures,
-    this.cooldownTier2Seconds = defaultCooldownTier2Seconds,
-    this.cooldownTier3Failures = defaultCooldownTier3Failures,
-    this.cooldownTier3Seconds = defaultCooldownTier3Seconds,
-    this.cooldownQuotaSeconds = defaultCooldownQuotaSeconds,
+    this.cooldownTier1Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier1Failures,
+    this.cooldownTier1Seconds =
+        AiWebEngineResiliencePolicy.defaultCooldownTier1Seconds,
+    this.cooldownTier2Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier2Failures,
+    this.cooldownTier2Seconds =
+        AiWebEngineResiliencePolicy.defaultCooldownTier2Seconds,
+    this.cooldownTier3Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier3Failures,
+    this.cooldownTier3Seconds =
+        AiWebEngineResiliencePolicy.defaultCooldownTier3Seconds,
+    this.cooldownQuotaSeconds =
+        AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds,
     this.alertSuccessRatePct = 0,
     this.alertAvgDurationMs = 0,
     this.throttlePerMinute = 0,
@@ -272,34 +279,6 @@ class AiWebSearchSettings {
   static const int minCacheMaxBytes = kBytesPerMiB;
   static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
-  static const int defaultCooldownTier1Failures =
-      AiWebEngineResiliencePolicy.defaultCooldownTier1Failures;
-  static const int defaultCooldownTier1Seconds =
-      AiWebEngineResiliencePolicy.defaultCooldownTier1Seconds;
-  static const int defaultCooldownTier2Failures =
-      AiWebEngineResiliencePolicy.defaultCooldownTier2Failures;
-  static const int defaultCooldownTier2Seconds =
-      AiWebEngineResiliencePolicy.defaultCooldownTier2Seconds;
-  static const int defaultCooldownTier3Failures =
-      AiWebEngineResiliencePolicy.defaultCooldownTier3Failures;
-  static const int defaultCooldownTier3Seconds =
-      AiWebEngineResiliencePolicy.defaultCooldownTier3Seconds;
-  static const int defaultCooldownQuotaSeconds =
-      AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds;
-  static const int minCooldownFailures =
-      AiWebEngineResiliencePolicy.minCooldownFailures;
-  static const int maxCooldownFailures =
-      AiWebEngineResiliencePolicy.maxCooldownFailures;
-  static const int minCooldownSeconds =
-      AiWebEngineResiliencePolicy.minCooldownSeconds;
-  static const int maxCooldownSeconds =
-      AiWebEngineResiliencePolicy.maxCooldownSeconds;
-  static const int maxAlertSuccessRatePct =
-      AiWebEngineResiliencePolicy.maxAlertSuccessRatePct;
-  static const int maxAlertAvgDurationMs =
-      AiWebEngineResiliencePolicy.maxAlertAvgDurationMs;
-  static const int maxThrottlePerMinute =
-      AiWebEngineResiliencePolicy.maxThrottlePerMinute;
   static const IntValueRange _resultCountRange = IntValueRange(
     fallback: defaultResultCount,
     min: minResultCount,

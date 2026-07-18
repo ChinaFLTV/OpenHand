@@ -1,8 +1,5 @@
-// Streaming text reveal: time-driven fade bands for independently arriving
-// deltas.
-// Each delta gets its own fade window, so newer text can appear without
-// restarting older fades. Reduced motion and very long text fall back to a
-// plain child to avoid unnecessary GPU work.
+// 流式文本渐显：每批增量拥有独立渐显窗口，新文本不会重启旧文本动画。
+// 减少动态效果或文本过长时直接渲染，避免无意义的 GPU 合成开销。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -10,9 +7,8 @@ import 'package:flutter/scheduler.dart';
 import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
-class StreamingTextReveal extends StatefulWidget {
-  const StreamingTextReveal({
-    super.key,
+class _StreamingTextFadeMask extends StatefulWidget {
+  const _StreamingTextFadeMask({
     required this.textLength,
     required this.streaming,
     required this.child,
@@ -27,13 +23,11 @@ class StreamingTextReveal extends StatefulWidget {
 
   final Widget child;
 
-  /// Whether this widget should animate its own height. Message/tool cards
-  /// already wrapped in an outer AnimatedSize pass false to avoid competing
-  /// height tweens while keeping the text reveal animation intact.
+  /// 是否在内部执行高度动画；外层已有 AnimatedSize 时应关闭，避免动画竞争。
   final bool animateSize;
 
   @override
-  State<StreamingTextReveal> createState() => _StreamingTextRevealState();
+  State<_StreamingTextFadeMask> createState() => _StreamingTextFadeMaskState();
 }
 
 class _FadeSegment {
@@ -46,7 +40,7 @@ class _FadeSegment {
   final int startedAtMs;
 }
 
-class _StreamingTextRevealState extends State<StreamingTextReveal>
+class _StreamingTextFadeMaskState extends State<_StreamingTextFadeMask>
     with SingleTickerProviderStateMixin {
   /// 单 delta fade-in 时长。Gemini 网页端实测约 450-600ms，
   /// 取 520ms：长到能看到 Q 弹「亮」起来，又不至于压住下一批的登场感。
@@ -82,7 +76,7 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
   }
 
   @override
-  void didUpdateWidget(covariant StreamingTextReveal oldWidget) {
+  void didUpdateWidget(covariant _StreamingTextFadeMask oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!openHandTickerMotionEnabled(context)) {
       _settleWithoutMotion();
@@ -232,13 +226,7 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
 typedef StreamingTextRevealBuilder =
     Widget Function(BuildContext context, String visibleText);
 
-/// Text-driven streaming reveal.
-///
-/// The legacy [StreamingTextReveal] only fades the latest already-rendered
-/// diff. This wrapper first stages the visible text by grapheme cluster, then
-/// lets [StreamingTextReveal] fade each staged increment. Small deltas appear
-/// character-by-character; large backlogs automatically catch up in bounded
-/// batches so streaming cannot leave an unbounded animation queue behind.
+/// 按字素簇分批放出文本，再由内部蒙层渐显；积压较大时按有界批次追赶。
 class StreamingTextRevealText extends StatefulWidget {
   const StreamingTextRevealText({
     super.key,
@@ -426,7 +414,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     if (!motionEnabled || _bypassReveal) {
       return widget.builder(context, visibleText);
     }
-    return StreamingTextReveal(
+    return _StreamingTextFadeMask(
       textLength: visibleText.length,
       streaming: widget.streaming,
       animateSize: widget.animateSize,

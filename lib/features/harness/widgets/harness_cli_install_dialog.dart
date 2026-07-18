@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -673,27 +672,9 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
                 ),
               ],
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: HighlightPulse(
-                  signal: _successPulse,
-                  color: OpenHandStatusColors.success,
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: HighlightPulse(
-                  signal: _errorPulse,
-                  color: OpenHandStatusColors.error,
-                ),
-              ),
+            FeedbackHighlightPulseOverlay(
+              successSignal: _successPulse,
+              errorSignal: _errorPulse,
             ),
           ],
         ),

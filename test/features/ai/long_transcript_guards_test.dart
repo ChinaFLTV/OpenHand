@@ -1,10 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/model/ai_allow_command_rule.dart';
+import 'package:openhand/features/ai/model/ai_command_rule.dart';
+import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
+import 'package:openhand/features/ai/model/ai_sandbox_settings.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
 import 'package:openhand/features/ai/service/mcp_bridge/mcp_loaded_tools_tracker.dart';
+import 'package:openhand/features/ai/service/web_engine/web_engine_http_exception.dart';
+import 'package:openhand/features/ai/service/web_engine/web_engine_http_utils.dart';
+import 'package:openhand/features/ai/service/web_engine/web_engine_value_parsing.dart';
+import 'package:openhand/features/ai/service/web_fetch/web_fetch_telemetry_store.dart';
+import 'package:openhand/features/ai/service/web_search/web_search_telemetry_store.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
 import 'package:openhand/shared/util/bounded_log_buffer.dart';
@@ -192,5 +202,77 @@ void main() {
 
     expect(released, isTrue);
     expect(await file.readAsBytes(), orderedEquals(<int>[1, 2, 3]));
+  });
+
+  test('Web 引擎统一校验 JSON 响应与密钥回退', () {
+    final success = BoundedWebEngineHttpResponse(
+      statusCode: 200,
+      headers: const <String, String>{},
+      bodyBytes: Uint8List.fromList(utf8.encode('{"ok":true}')),
+      requestUrl: Uri.parse('https://example.com'),
+    );
+    expect(
+      decodeSuccessfulWebEngineJsonResponse(success, engineLabel: '测试引擎')['ok'],
+      isTrue,
+    );
+    expect(resolveWebEngineApiKey('configured', 'fallback'), 'configured');
+    expect(resolveWebEngineApiKey('', 'fallback'), 'fallback');
+
+    final statJson = <String, Object?>{
+      'total_calls': 3,
+      'success_calls': 2,
+      'total_duration_ms': 120,
+      'consecutive_failures': 1,
+      'total_bytes': 64,
+      'total_hits': 4,
+    };
+    final fetchStat = WebFetchEngineStat.fromJson(statJson);
+    final searchStat = WebSearchEngineStat.fromJson(statJson);
+    expect(fetchStat.totalCalls, 3);
+    expect(fetchStat.totalBytes, 64);
+    expect(searchStat.successCalls, 2);
+    expect(searchStat.totalHits, 4);
+
+    final failure = BoundedWebEngineHttpResponse(
+      statusCode: 500,
+      headers: const <String, String>{},
+      bodyBytes: Uint8List.fromList(utf8.encode('failed')),
+      requestUrl: Uri.parse('https://example.com'),
+    );
+    expect(
+      () => decodeSuccessfulWebEngineJsonResponse(failure, engineLabel: '测试引擎'),
+      throwsA(isA<WebEngineHttpException>()),
+    );
+  });
+
+  test('命令与沙箱规则复用统一匹配及序列化逻辑', () {
+    const allow = AiAllowCommandRule(
+      id: 'allow',
+      pattern: 'git *',
+      matchMode: AiCommandMatchMode.simple,
+    );
+    const deny = AiDenyCommandRule(
+      id: 'deny',
+      pattern: r'^rm\s',
+      matchMode: AiCommandMatchMode.regex,
+    );
+    const sandbox = AiSandboxPatternRule(
+      id: 'domain',
+      pattern: '*.example.com',
+      matchMode: AiCommandMatchMode.simple,
+    );
+
+    expect(allow.matches('git status'), isTrue);
+    expect(deny.matches('rm -rf build'), isTrue);
+    expect(sandbox.matches('api.example.com'), isTrue);
+    expect(
+      AiAllowCommandRule.fromJson(allow.toJson()).toJson(),
+      allow.toJson(),
+    );
+    expect(AiDenyCommandRule.fromJson(deny.toJson()).toJson(), deny.toJson());
+    expect(
+      AiSandboxPatternRule.fromJson(sandbox.toJson()).toJson(),
+      sandbox.toJson(),
+    );
   });
 }

@@ -12,22 +12,12 @@ import 'web_fetch_engine.dart';
 // 内容。覆盖：kimi / baidu / linkup / bocha / grok / gemini。
 // ─────────────────────────────────────────────────────────────────────────────
 
-class WebFetchKimiEngine extends WebFetchEngine {
+class WebFetchKimiEngine extends WebFetchProviderKeyEngine {
   WebFetchKimiEngine({
     required super.config,
     required super.httpClient,
-    required this.fallbackKey,
+    required super.fallbackKey,
   });
-
-  final String? fallbackKey;
-  String? get _key {
-    final c = config.apiKey;
-    if (c != null && c.isNotEmpty) return c;
-    return fallbackKey;
-  }
-
-  @override
-  bool get isReady => (_key ?? '').isNotEmpty;
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
@@ -35,7 +25,7 @@ class WebFetchKimiEngine extends WebFetchEngine {
       'POST',
       Uri.parse('https://api.moonshot.cn/v1/chat/completions'),
       headers: {
-        'authorization': 'Bearer $_key',
+        'authorization': 'Bearer $effectiveApiKey',
         'content-type': 'application/json',
       },
       body: jsonEncode({
@@ -55,14 +45,9 @@ class WebFetchKimiEngine extends WebFetchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Kimi ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Kimi response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Kimi',
     );
     final references =
         readJsonPath<List>(body, ['choices', 0, 'message', 'references']) ??
@@ -114,14 +99,9 @@ class WebFetchBaiduEngine extends WebFetchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Baidu ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Baidu response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Baidu',
     );
     final references = readJsonPath<List>(body, ['references']) ?? const [];
     final hit = _firstUrlMatchOrFirstMap(references, req.url);
@@ -164,14 +144,9 @@ class WebFetchLinkupEngine extends WebFetchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Linkup ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Linkup response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Linkup',
     );
     final results = (body['results'] as List?) ?? const [];
     final hit = _firstUrlMatchOrFirstMap(results, req.url);
@@ -206,14 +181,9 @@ class WebFetchBochaEngine extends WebFetchEngine {
       body: jsonEncode({'query': req.url, 'count': 5, 'summary': true}),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Bocha ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Bocha response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Bocha',
     );
     final pages =
         readJsonPath<List>(body, ['data', 'webPages', 'value']) ?? const [];
@@ -234,22 +204,12 @@ class WebFetchBochaEngine extends WebFetchEngine {
   }
 }
 
-class WebFetchGrokEngine extends WebFetchEngine {
+class WebFetchGrokEngine extends WebFetchProviderKeyEngine {
   WebFetchGrokEngine({
     required super.config,
     required super.httpClient,
-    required this.fallbackKey,
+    required super.fallbackKey,
   });
-
-  final String? fallbackKey;
-  String? get _key {
-    final c = config.apiKey;
-    if (c != null && c.isNotEmpty) return c;
-    return fallbackKey;
-  }
-
-  @override
-  bool get isReady => (_key ?? '').isNotEmpty;
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
@@ -257,7 +217,7 @@ class WebFetchGrokEngine extends WebFetchEngine {
       'POST',
       Uri.parse('https://api.x.ai/v1/chat/completions'),
       headers: {
-        'authorization': 'Bearer $_key',
+        'authorization': 'Bearer $effectiveApiKey',
         'content-type': 'application/json',
       },
       body: jsonEncode({
@@ -281,14 +241,9 @@ class WebFetchGrokEngine extends WebFetchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Grok ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Grok response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Grok',
     );
     final reply =
         readJsonPath<String>(body, ['choices', 0, 'message', 'content']) ?? '';
@@ -299,28 +254,18 @@ class WebFetchGrokEngine extends WebFetchEngine {
   }
 }
 
-class WebFetchGeminiEngine extends WebFetchEngine {
+class WebFetchGeminiEngine extends WebFetchProviderKeyEngine {
   WebFetchGeminiEngine({
     required super.config,
     required super.httpClient,
-    required this.fallbackKey,
+    required super.fallbackKey,
   });
-
-  final String? fallbackKey;
-  String? get _key {
-    final c = config.apiKey;
-    if (c != null && c.isNotEmpty) return c;
-    return fallbackKey;
-  }
-
-  @override
-  bool get isReady => (_key ?? '').isNotEmpty;
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/'
-      'models/gemini-2.0-flash:generateContent?key=$_key',
+      'models/gemini-2.0-flash:generateContent?key=$effectiveApiKey',
     );
     final response = await sendWebEngineHttpRequest(
       'POST',
@@ -340,14 +285,9 @@ class WebFetchGeminiEngine extends WebFetchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Gemini ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Gemini response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Gemini',
     );
     final parts =
         readJsonPath<List>(body, ['candidates', 0, 'content', 'parts']) ??

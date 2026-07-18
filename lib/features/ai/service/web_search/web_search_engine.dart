@@ -8,8 +8,12 @@ import '../web_engine/web_engine_http_utils.dart';
 import '../web_engine/web_engine_value_parsing.dart';
 
 export '../web_engine/web_engine_base.dart' show WebEngineRequest;
+export '../web_engine/web_engine_http_utils.dart'
+    show decodeSuccessfulWebEngineJsonResponse;
 export '../web_engine/web_engine_json_utils.dart'
     show decodeJsonObjectBytes, jsonObjectOf, stringOf, readJsonPath;
+export '../web_engine/web_engine_value_parsing.dart'
+    show resolveWebEngineApiKey;
 
 /// 单条搜索命中结果（统一抽象）。
 class WebSearchEngineHit {
@@ -165,6 +169,22 @@ abstract class WebSearchEngine
         })
         .toList(growable: false);
   }
+}
+
+abstract class WebSearchProviderKeyEngine extends WebSearchEngine {
+  WebSearchProviderKeyEngine({
+    required super.config,
+    required super.httpClient,
+    required this.fallbackKey,
+  });
+
+  final String? fallbackKey;
+
+  String? get effectiveApiKey =>
+      resolveWebEngineApiKey(config.apiKey, fallbackKey);
+
+  @override
+  bool get isReady => (effectiveApiKey ?? '').isNotEmpty;
 }
 
 /// 引擎构造上下文：提供共享 http、provider 列表（用于复用 key）。

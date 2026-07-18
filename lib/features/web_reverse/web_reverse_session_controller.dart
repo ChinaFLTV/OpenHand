@@ -201,17 +201,12 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxPageTargetUrlChars = kWebReverseMaxPageUrlChars;
   static const int maxPageTargetTitleChars = kWebReverseMaxPageTitleChars;
   static const int maxServiceWorkers = kWebReverseMaxServiceWorkers;
-  static const int maxCacheStorageNames = kWebReverseMaxCacheStorageNames;
-  static const int maxCookies = kWebReverseMaxCookies;
   static const int maxCookieNameChars = kWebReverseMaxCookieNameChars;
   static const int maxCookieValueChars = kWebReverseMaxCookieValueChars;
   static const int maxCookieDomainChars = kWebReverseMaxCookieDomainChars;
   static const int maxCookiePathChars = kWebReverseMaxCookiePathChars;
-  static const int maxDomStorageEntries = kWebReverseMaxDomStorageEntries;
   static const int maxStorageKeyChars = kWebReverseMaxStorageKeyChars;
   static const int maxStorageValueChars = kWebReverseMaxStorageValueChars;
-  static const int maxIndexedDbNames = kWebReverseMaxIndexedDbNames;
-  static const int maxIndexedDbStores = kWebReverseMaxIndexedDbStores;
   static const int maxIndexedDbNameChars = kWebReverseMaxIndexedDbNameChars;
   static const int defaultIndexedDbPageSize =
       kWebReverseDefaultIndexedDbPageSize;

@@ -10,7 +10,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/timer_safety.dart';
-import '../../model/ai_deny_command_rule.dart';
+import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 
 class AiSandboxProxyStartException implements Exception {
@@ -722,7 +722,7 @@ class _SandboxProxyInstance {
     if (pattern.isEmpty) return false;
     final values = <String>[host, '$host:$port'];
     try {
-      final regex = rule.matchMode == AiDenyCommandMatchMode.regex
+      final regex = rule.matchMode == AiCommandMatchMode.regex
           ? RegExp(pattern, multiLine: true, caseSensitive: false)
           : RegExp(
               simplePatternToRegex(pattern.toLowerCase()),

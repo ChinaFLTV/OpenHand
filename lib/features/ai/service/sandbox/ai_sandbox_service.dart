@@ -7,7 +7,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/bounded_file_io.dart';
-import '../../model/ai_deny_command_rule.dart';
+import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 import 'ai_sandbox_proxy_service.dart';
 
@@ -166,7 +166,7 @@ class AiSandboxService {
       if (!await _commandExists('bwrap')) missing.add('bwrap');
       if (!await _commandExists('sh')) missing.add('sh');
       if (settings.filesystemRules.any(
-        (rule) => rule.matchMode == AiDenyCommandMatchMode.regex,
+        (rule) => rule.matchMode == AiCommandMatchMode.regex,
       )) {
         warnings.add(
           'Linux bubblewrap cannot enforce regex filesystem paths directly; use simple path patterns for OS-level enforcement.',
@@ -490,6 +490,25 @@ class AiSandboxService {
     final environment = proxyLease != null
         ? proxyLease.environment
         : userProxyEnvironment;
+    Map<String, Object?> appliedMetadata({
+      required bool networkDirectBlocked,
+      required bool domainFilterEnforced,
+      String? domainFilterWarning,
+    }) => <String, Object?>{
+      ...baseMetadata,
+      'sandbox_applied': true,
+      'sandbox_platform': status.platform,
+      'sandbox_backend': status.backend,
+      'sandbox_filesystem_rule_count': settings.filesystemRules.length,
+      'sandbox_working_directory_writable': true,
+      'sandbox_allowed_domain_count': settings.allowedDomains.length,
+      'sandbox_denied_domain_count': settings.deniedDomains.length,
+      if (proxyLease != null) ...proxyLease.metadata,
+      'sandbox_network_direct_blocked': networkDirectBlocked,
+      'sandbox_domain_filter_enforced': domainFilterEnforced,
+      if (domainFilterWarning != null)
+        'sandbox_domain_filter_warning': domainFilterWarning,
+    };
     if (Platform.isMacOS) {
       final profile = _buildMacSandboxProfile(
         normalizedWorkingDirectory,
@@ -503,19 +522,10 @@ class AiSandboxService {
         applied: true,
         blocked: false,
         proxyLease: proxyLease,
-        metadata: <String, Object?>{
-          ...baseMetadata,
-          'sandbox_applied': true,
-          'sandbox_platform': status.platform,
-          'sandbox_backend': status.backend,
-          'sandbox_filesystem_rule_count': settings.filesystemRules.length,
-          'sandbox_working_directory_writable': true,
-          'sandbox_allowed_domain_count': settings.allowedDomains.length,
-          'sandbox_denied_domain_count': settings.deniedDomains.length,
-          if (proxyLease != null) ...proxyLease.metadata,
-          'sandbox_network_direct_blocked': proxyLease != null,
-          'sandbox_domain_filter_enforced': proxyLease != null,
-        },
+        metadata: appliedMetadata(
+          networkDirectBlocked: proxyLease != null,
+          domainFilterEnforced: proxyLease != null,
+        ),
       );
     }
 
@@ -533,22 +543,13 @@ class AiSandboxService {
         applied: true,
         blocked: false,
         proxyLease: proxyLease,
-        metadata: <String, Object?>{
-          ...baseMetadata,
-          'sandbox_applied': true,
-          'sandbox_platform': status.platform,
-          'sandbox_backend': status.backend,
-          'sandbox_filesystem_rule_count': settings.filesystemRules.length,
-          'sandbox_working_directory_writable': true,
-          'sandbox_allowed_domain_count': settings.allowedDomains.length,
-          'sandbox_denied_domain_count': settings.deniedDomains.length,
-          if (proxyLease != null) ...proxyLease.metadata,
-          'sandbox_network_direct_blocked': false,
-          'sandbox_domain_filter_enforced': false,
-          if (proxyLease != null)
-            'sandbox_domain_filter_warning':
-                _linuxDomainFilterBestEffortWarning,
-        },
+        metadata: appliedMetadata(
+          networkDirectBlocked: false,
+          domainFilterEnforced: false,
+          domainFilterWarning: proxyLease == null
+              ? null
+              : _linuxDomainFilterBestEffortWarning,
+        ),
       );
     }
 
@@ -597,7 +598,7 @@ class AiSandboxService {
     for (final rule in settings.filesystemRules) {
       final path = rule.path.trim();
       if (path.isEmpty) continue;
-      final filter = rule.matchMode == AiDenyCommandMatchMode.regex
+      final filter = rule.matchMode == AiCommandMatchMode.regex
           ? _profileRegex(path)
           : _profileSubpath(_resolveFilesystemPath(path, workingDirectory));
       if (rule.accessMode == AiSandboxFileAccessMode.readWrite) {
@@ -664,7 +665,7 @@ class AiSandboxService {
     final probeStopwatch = Stopwatch()..start();
     for (final rule in settings.filesystemRules) {
       if (probeStopwatch.elapsed >= _sandboxPathProbeTotalTimeout) break;
-      if (rule.matchMode == AiDenyCommandMatchMode.regex) continue;
+      if (rule.matchMode == AiCommandMatchMode.regex) continue;
       final resolved = _resolveFilesystemPath(rule.path, workingDirectory);
       if (rule.accessMode == AiSandboxFileAccessMode.readWrite) {
         final existing = await _existingWritableBindPath(

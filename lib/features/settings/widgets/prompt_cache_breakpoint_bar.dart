@@ -343,6 +343,22 @@ class _PromptStructureSegment {
   final double weight;
 }
 
+TextSpan _promptSegmentTooltip(_PromptStructureSegment segment) {
+  return TextSpan(
+    children: [
+      TextSpan(
+        text: '${segment.label}\n',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      TextSpan(text: '${segment.summary}\n\n'),
+      TextSpan(
+        text: segment.cacheHint,
+        style: const TextStyle(fontStyle: FontStyle.italic),
+      ),
+    ],
+  );
+}
+
 class _StructureSegmentTile extends StatelessWidget {
   const _StructureSegmentTile({required this.segment, required this.height});
 
@@ -353,19 +369,7 @@ class _StructureSegmentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Tooltip(
-      richMessage: TextSpan(
-        children: [
-          TextSpan(
-            text: '${segment.label}\n',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: '${segment.summary}\n\n'),
-          TextSpan(
-            text: segment.cacheHint,
-            style: const TextStyle(fontStyle: FontStyle.italic),
-          ),
-        ],
-      ),
+      richMessage: _promptSegmentTooltip(segment),
       waitDuration: const Duration(milliseconds: 250),
       preferBelow: false,
       child: MouseRegion(
@@ -618,19 +622,7 @@ class _SegmentLegendChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Tooltip(
-      richMessage: TextSpan(
-        children: [
-          TextSpan(
-            text: '${segment.label}\n',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: '${segment.summary}\n\n'),
-          TextSpan(
-            text: segment.cacheHint,
-            style: const TextStyle(fontStyle: FontStyle.italic),
-          ),
-        ],
-      ),
+      richMessage: _promptSegmentTooltip(segment),
       waitDuration: const Duration(milliseconds: 250),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

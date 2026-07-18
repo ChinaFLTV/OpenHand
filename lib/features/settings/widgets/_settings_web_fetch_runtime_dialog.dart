@@ -285,27 +285,9 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                 ),
               ],
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: HighlightPulse(
-                  signal: _successPulse,
-                  color: OpenHandStatusColors.success,
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: HighlightPulse(
-                  signal: _errorPulse,
-                  color: OpenHandStatusColors.error,
-                ),
-              ),
+            FeedbackHighlightPulseOverlay(
+              successSignal: _successPulse,
+              errorSignal: _errorPulse,
             ),
           ],
         ),

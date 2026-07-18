@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
-import '../web_engine/web_engine_http_exception.dart';
 import 'web_search_engine.dart';
 
 export '../web_engine/web_engine_http_exception.dart'
@@ -40,14 +39,9 @@ class WebSearchTavilyEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Tavily ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Tavily response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Tavily',
     );
     final results = (body['results'] as List?) ?? const [];
     return results
@@ -91,14 +85,9 @@ class WebSearchExaEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Exa ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Exa response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Exa',
     );
     final results = (body['results'] as List?) ?? const [];
     return results
@@ -141,14 +130,9 @@ class WebSearchLinkupEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Linkup ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Linkup response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Linkup',
     );
     final results = (body['results'] as List?) ?? const [];
     return results
@@ -189,14 +173,9 @@ class WebSearchBochaEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Bocha ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Bocha response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Bocha',
     );
     final pages =
         readJsonPath<List>(body, ['data', 'webPages', 'value']) ?? const [];
@@ -244,14 +223,9 @@ class WebSearchBaiduEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Baidu ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Baidu response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Baidu',
     );
     final references = readJsonPath<List>(body, ['references']) ?? const [];
     return references
@@ -274,23 +248,12 @@ class WebSearchBaiduEngine extends WebSearchEngine {
 /// 此实现走 Moonshot 提供的轻量级 builtin function `$web_search`：
 /// 我们直接调用 `/v1/tools/web_search`（如果该 endpoint 存在）；
 /// 若 endpoint 不存在则回退使用 chat completions + tool 模式。
-class WebSearchKimiEngine extends WebSearchEngine {
+class WebSearchKimiEngine extends WebSearchProviderKeyEngine {
   WebSearchKimiEngine({
     required super.config,
     required super.httpClient,
-    required this.fallbackKey,
+    required super.fallbackKey,
   });
-
-  final String? fallbackKey;
-
-  String? get _key {
-    final c = config.apiKey;
-    if (c != null && c.isNotEmpty) return c;
-    return fallbackKey;
-  }
-
-  @override
-  bool get isReady => (_key ?? '').isNotEmpty;
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
@@ -300,7 +263,7 @@ class WebSearchKimiEngine extends WebSearchEngine {
       'POST',
       Uri.parse('https://api.moonshot.cn/v1/chat/completions'),
       headers: {
-        'authorization': 'Bearer $_key',
+        'authorization': 'Bearer $effectiveApiKey',
         'content-type': 'application/json',
       },
       body: jsonEncode({
@@ -317,14 +280,9 @@ class WebSearchKimiEngine extends WebSearchEngine {
       }),
       cancelSignal: req.cancelSignal,
     );
-    if (response.statusCode != 200) {
-      throw WebEngineHttpException(
-        'Kimi ${response.statusCode}: ${response.errorPreview()}',
-      );
-    }
-    final body = decodeJsonObjectBytes(
-      response.bodyBytes,
-      source: 'Kimi response',
+    final body = decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Kimi',
     );
     final references =
         readJsonPath<List>(body, ['choices', 0, 'message', 'references']) ??

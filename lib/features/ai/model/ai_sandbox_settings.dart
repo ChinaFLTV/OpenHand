@@ -1,7 +1,7 @@
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
-import 'ai_deny_command_rule.dart';
+import 'ai_command_rule.dart';
 
 enum AiSandboxFileAccessMode {
   readOnly('ro'),
@@ -21,12 +21,12 @@ enum AiSandboxFileAccessMode {
   }
 }
 
-class AiSandboxPatternRule {
+class AiSandboxPatternRule extends AiCommandRule {
   factory AiSandboxPatternRule.fromJson(Map<String, Object?> json) {
     return AiSandboxPatternRule(
       id: stringFromValue(json['id']),
       pattern: stringFromValue(json['pattern']),
-      matchMode: AiDenyCommandMatchMode.fromStorage(
+      matchMode: AiCommandMatchMode.fromStorage(
         stringFromValue(json['match_mode']),
       ),
       note: stringFromValue(json['note']),
@@ -34,21 +34,16 @@ class AiSandboxPatternRule {
   }
 
   const AiSandboxPatternRule({
-    required this.id,
-    required this.pattern,
-    required this.matchMode,
-    this.note = '',
+    required super.id,
+    required super.pattern,
+    required super.matchMode,
+    super.note,
   });
-
-  final String id;
-  final String pattern;
-  final AiDenyCommandMatchMode matchMode;
-  final String note;
 
   AiSandboxPatternRule copyWith({
     String? id,
     String? pattern,
-    AiDenyCommandMatchMode? matchMode,
+    AiCommandMatchMode? matchMode,
     String? note,
   }) {
     return AiSandboxPatternRule(
@@ -57,31 +52,6 @@ class AiSandboxPatternRule {
       matchMode: matchMode ?? this.matchMode,
       note: note ?? this.note,
     );
-  }
-
-  bool matches(String value) {
-    final normalizedPattern = nullIfBlank(pattern);
-    final normalizedValue = nullIfBlank(value);
-    if (normalizedPattern == null || normalizedValue == null) {
-      return false;
-    }
-    try {
-      final regex = matchMode == AiDenyCommandMatchMode.regex
-          ? RegExp(normalizedPattern, multiLine: true)
-          : RegExp(simplePatternToRegex(normalizedPattern), multiLine: true);
-      return regex.hasMatch(normalizedValue);
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Map<String, Object?> toJson() {
-    return <String, Object?>{
-      'id': id,
-      'pattern': pattern,
-      'match_mode': matchMode.storageValue,
-      'note': note,
-    };
   }
 }
 
@@ -93,7 +63,7 @@ class AiSandboxFileRule {
       accessMode: AiSandboxFileAccessMode.fromStorage(
         stringFromValue(json['access_mode']),
       ),
-      matchMode: AiDenyCommandMatchMode.fromStorage(
+      matchMode: AiCommandMatchMode.fromStorage(
         stringFromValue(json['match_mode']),
       ),
       note: stringFromValue(json['note']),
@@ -111,14 +81,14 @@ class AiSandboxFileRule {
   final String id;
   final String path;
   final AiSandboxFileAccessMode accessMode;
-  final AiDenyCommandMatchMode matchMode;
+  final AiCommandMatchMode matchMode;
   final String note;
 
   AiSandboxFileRule copyWith({
     String? id,
     String? path,
     AiSandboxFileAccessMode? accessMode,
-    AiDenyCommandMatchMode? matchMode,
+    AiCommandMatchMode? matchMode,
     String? note,
   }) {
     return AiSandboxFileRule(
@@ -201,7 +171,7 @@ class AiSandboxSettings {
         id: 'default-openhand-ro',
         path: '.openhand',
         accessMode: AiSandboxFileAccessMode.readOnly,
-        matchMode: AiDenyCommandMatchMode.simple,
+        matchMode: AiCommandMatchMode.simple,
         note: 'OpenHand workspace metadata is read-only by default.',
       ),
     ],

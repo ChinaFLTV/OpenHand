@@ -61,17 +61,14 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     );
     final initialStatus = _toolExecutionStatus(widget.message);
     if (_isTerminalStatus(initialStatus)) {
-      // Tool message rebuilt from history — already terminal, skip the
-      // ceremony to avoid replaying glows on session switch.
+      // 历史工具消息已处于终态，切换会话时不重复播放完成动画。
       _lastTerminalStatus = initialStatus;
       _completionGlowCtrl.value = 1.0;
     }
-    initElapsedTicker();
   }
 
   @override
   void dispose() {
-    disposeElapsedTicker();
     _completionGlowCtrl.dispose();
     _settleBounceCtrl.dispose();
     super.dispose();
@@ -83,12 +80,10 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     final wasFresh = _lastTerminalStatus == null;
     _lastTerminalStatus = status;
     if (!wasFresh) {
-      return; // status churn (e.g. success→failure) shouldn't replay
+      return; // 终态变化（如成功转失败）不重复播放动画。
     }
     if (!openHandTickerMotionEnabled(context)) {
-      // Skip the 620ms glow ceremony when the user has opted in to
-      // reduce motion or the subtree ticker is paused. The glow at value=1.0
-      // evaluates to no glow, so this matches a finished animation.
+      // 用户减少动态效果或子树暂停时直接进入完成态。
       _completionGlowCtrl.value = 1.0;
       return;
     }

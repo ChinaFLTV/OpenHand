@@ -850,25 +850,25 @@ class _SandboxRuleTile extends StatelessWidget {
 
 Widget _buildSandboxMatchModeField(
   BuildContext context, {
-  required AiDenyCommandMatchMode value,
-  required ValueChanged<AiDenyCommandMatchMode> onChanged,
+  required AiCommandMatchMode value,
+  required ValueChanged<AiCommandMatchMode> onChanged,
 }) {
-  return AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
+  return AnimatedDropdownButtonFormField<AiCommandMatchMode>(
     initialValue: value,
     decoration: InputDecoration(
       labelText: openHandLocalizedText(context, zh: '匹配模式', en: 'Match Mode'),
     ),
     items: [
       DropdownMenuItem(
-        value: AiDenyCommandMatchMode.simple,
+        value: AiCommandMatchMode.simple,
         child: Text(openHandLocalizedText(context, zh: '简单匹配', en: 'Simple')),
       ),
       DropdownMenuItem(
-        value: AiDenyCommandMatchMode.regex,
+        value: AiCommandMatchMode.regex,
         child: Text(openHandLocalizedText(context, zh: '正则匹配', en: 'Regex')),
       ),
     ],
-    onChanged: (next) => onChanged(next ?? AiDenyCommandMatchMode.simple),
+    onChanged: (next) => onChanged(next ?? AiCommandMatchMode.simple),
   );
 }
 
@@ -886,7 +886,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
   late final TextEditingController _pathController;
   late final TextEditingController _noteController;
   late AiSandboxFileAccessMode _accessMode;
-  late AiDenyCommandMatchMode _matchMode;
+  late AiCommandMatchMode _matchMode;
 
   @override
   void initState() {
@@ -899,7 +899,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
     );
     _accessMode =
         widget.initialRule?.accessMode ?? AiSandboxFileAccessMode.readOnly;
-    _matchMode = widget.initialRule?.matchMode ?? AiDenyCommandMatchMode.simple;
+    _matchMode = widget.initialRule?.matchMode ?? AiCommandMatchMode.simple;
   }
 
   @override
@@ -1033,7 +1033,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _patternController;
   late final TextEditingController _noteController;
-  late AiDenyCommandMatchMode _matchMode;
+  late AiCommandMatchMode _matchMode;
 
   @override
   void initState() {
@@ -1044,7 +1044,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
     _noteController = TextEditingController(
       text: widget.initialRule?.note ?? '',
     );
-    _matchMode = widget.initialRule?.matchMode ?? AiDenyCommandMatchMode.simple;
+    _matchMode = widget.initialRule?.matchMode ?? AiCommandMatchMode.simple;
   }
 
   @override

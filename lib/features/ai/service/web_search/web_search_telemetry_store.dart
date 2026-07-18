@@ -20,7 +20,6 @@ class WebSearchTelemetryStore
   static final WebSearchTelemetryStore instance = WebSearchTelemetryStore._();
 
   static const int maxRecentCalls = 200;
-  static const int maxEngineHistorySamples = 200;
 
   @override
   String get subdir => 'web_search';
@@ -64,36 +63,20 @@ class WebSearchTelemetryStore
   }
 
   Future<Map<AiWebSearchEngineKind, WebSearchEngineStat>> engineStats() async {
-    final raw = await rawEngineStats();
-    final out = <AiWebSearchEngineKind, WebSearchEngineStat>{};
-    for (final entry in raw.entries) {
-      final kind = parseKind(entry.key);
-      if (kind == null) continue;
-      out[kind] = WebSearchEngineStat.fromJson(entry.value);
-    }
-    return out;
+    return typedEngineStats(WebSearchEngineStat.fromJson);
   }
 
   /// 读取 engine_history.json，按引擎返回采样列表（按时间升序）。
   Future<Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>>
   engineHistory() async {
-    final raw = await rawEngineHistory();
-    final out = <AiWebSearchEngineKind, List<WebSearchEngineSample>>{};
-    for (final entry in raw.entries) {
-      final kind = parseKind(entry.key);
-      if (kind == null) continue;
-      out[kind] = entry.value
-          .map(
-            (m) => WebSearchEngineSample(
-              timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
-              durationMs: webEngineNonNegativeIntFromValue(m['dur']),
-              success: m['ok'] == true,
-              hitCount: webEngineNonNegativeIntFromValue(m['hits']),
-            ),
-          )
-          .toList(growable: false);
-    }
-    return out;
+    return typedEngineHistory(
+      (m) => WebSearchEngineSample(
+        timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
+        durationMs: webEngineNonNegativeIntFromValue(m['dur']),
+        success: m['ok'] == true,
+        hitCount: webEngineNonNegativeIntFromValue(m['hits']),
+      ),
+    );
   }
 }
 
@@ -229,29 +212,12 @@ class WebSearchEngineStat extends WebEngineStatBase {
     super.lastQuotaAt,
   });
 
-  factory WebSearchEngineStat.fromJson(
-    Map<String, Object?> m,
-  ) => WebSearchEngineStat(
-    totalCalls: webEngineNonNegativeIntFromValue(m['total_calls']),
-    successCalls: webEngineNonNegativeIntFromValue(m['success_calls']),
-    totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
-    totalHits: webEngineNonNegativeIntFromValue(m['total_hits']),
-    lastError: m['last_error'] as String?,
-    lastFailureAt: webEngineOptionalNonNegativeIntFromValue(
-      m['last_failure_at'],
-    ),
-    lastInvokedAt: webEngineOptionalNonNegativeIntFromValue(
-      m['last_invoked_at'],
-    ),
-    consecutiveFailures: webEngineNonNegativeIntFromValue(
-      m['consecutive_failures'],
-    ),
-    cooldownUntilMs: webEngineOptionalNonNegativeIntFromValue(
-      m['cooldown_until_ms'],
-    ),
-    lastQuotaError: m['last_quota_error'] as String?,
-    lastQuotaAt: webEngineOptionalNonNegativeIntFromValue(m['last_quota_at']),
-  );
+  factory WebSearchEngineStat.fromJson(Map<String, Object?> m) =>
+      WebSearchEngineStat._fromJson(m);
+
+  WebSearchEngineStat._fromJson(super.json)
+    : totalHits = webEngineNonNegativeIntFromValue(json['total_hits']),
+      super.fromJson();
 
   final int totalHits;
 }

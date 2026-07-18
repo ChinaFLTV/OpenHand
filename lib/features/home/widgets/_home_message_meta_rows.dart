@@ -102,12 +102,6 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   bool get shouldTickElapsed => widget.showSweep;
 
   @override
-  void initState() {
-    super.initState();
-    initElapsedTicker();
-  }
-
-  @override
   void didUpdateWidget(covariant _ReasoningMetaRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.showSweep != widget.showSweep ||
@@ -115,12 +109,6 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
         oldWidget.message.createdAt != widget.message.createdAt) {
       syncElapsedTicker();
     }
-  }
-
-  @override
-  void dispose() {
-    disposeElapsedTicker();
-    super.dispose();
   }
 
   @override
@@ -225,12 +213,6 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
   bool get shouldTickElapsed => widget.showSweep;
 
   @override
-  void initState() {
-    super.initState();
-    initElapsedTicker();
-  }
-
-  @override
   void didUpdateWidget(covariant _ResponseMetaRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.showSweep != widget.showSweep ||
@@ -238,12 +220,6 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
         oldWidget.message.createdAt != widget.message.createdAt) {
       syncElapsedTicker();
     }
-  }
-
-  @override
-  void dispose() {
-    disposeElapsedTicker();
-    super.dispose();
   }
 
   @override
@@ -342,7 +318,9 @@ mixin _ForegroundElapsedTicker<T extends StatefulWidget>
 
   bool get shouldTickElapsed;
 
-  void initElapsedTicker() {
+  @override
+  void initState() {
+    super.initState();
     WidgetsBinding.instance.addObserver(this);
     syncElapsedTicker();
   }
@@ -363,9 +341,11 @@ mixin _ForegroundElapsedTicker<T extends StatefulWidget>
     });
   }
 
-  void disposeElapsedTicker() {
+  @override
+  void dispose() {
     _elapsedTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -397,12 +377,6 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
   bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(widget.message);
 
   @override
-  void initState() {
-    super.initState();
-    initElapsedTicker();
-  }
-
-  @override
   void didUpdateWidget(covariant _ToolCallMetaRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.id != widget.message.id ||
@@ -416,12 +390,6 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
             widget.message.metadata['tool_execution_duration_ms']) {
       syncElapsedTicker();
     }
-  }
-
-  @override
-  void dispose() {
-    disposeElapsedTicker();
-    super.dispose();
   }
 
   @override

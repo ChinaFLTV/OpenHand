@@ -16,7 +16,6 @@ class WebFetchTelemetryStore
   static final WebFetchTelemetryStore instance = WebFetchTelemetryStore._();
 
   static const int maxRecentCalls = 200;
-  static const int maxEngineHistorySamples = 200;
 
   @override
   String get subdir => 'web_fetch';
@@ -58,35 +57,19 @@ class WebFetchTelemetryStore
   }
 
   Future<Map<AiWebFetchEngineKind, WebFetchEngineStat>> engineStats() async {
-    final raw = await rawEngineStats();
-    final out = <AiWebFetchEngineKind, WebFetchEngineStat>{};
-    for (final entry in raw.entries) {
-      final kind = parseKind(entry.key);
-      if (kind == null) continue;
-      out[kind] = WebFetchEngineStat.fromJson(entry.value);
-    }
-    return out;
+    return typedEngineStats(WebFetchEngineStat.fromJson);
   }
 
   Future<Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>>
   engineHistory() async {
-    final raw = await rawEngineHistory();
-    final out = <AiWebFetchEngineKind, List<WebFetchEngineSample>>{};
-    for (final entry in raw.entries) {
-      final kind = parseKind(entry.key);
-      if (kind == null) continue;
-      out[kind] = entry.value
-          .map(
-            (m) => WebFetchEngineSample(
-              timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
-              durationMs: webEngineNonNegativeIntFromValue(m['dur']),
-              success: m['ok'] == true,
-              contentBytes: webEngineNonNegativeIntFromValue(m['bytes']),
-            ),
-          )
-          .toList(growable: false);
-    }
-    return out;
+    return typedEngineHistory(
+      (m) => WebFetchEngineSample(
+        timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
+        durationMs: webEngineNonNegativeIntFromValue(m['dur']),
+        success: m['ok'] == true,
+        contentBytes: webEngineNonNegativeIntFromValue(m['bytes']),
+      ),
+    );
   }
 }
 
@@ -218,29 +201,12 @@ class WebFetchEngineStat extends WebEngineStatBase {
     super.lastQuotaAt,
   });
 
-  factory WebFetchEngineStat.fromJson(
-    Map<String, Object?> m,
-  ) => WebFetchEngineStat(
-    totalCalls: webEngineNonNegativeIntFromValue(m['total_calls']),
-    successCalls: webEngineNonNegativeIntFromValue(m['success_calls']),
-    totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
-    totalBytes: webEngineNonNegativeIntFromValue(m['total_bytes']),
-    lastError: m['last_error'] as String?,
-    lastFailureAt: webEngineOptionalNonNegativeIntFromValue(
-      m['last_failure_at'],
-    ),
-    lastInvokedAt: webEngineOptionalNonNegativeIntFromValue(
-      m['last_invoked_at'],
-    ),
-    consecutiveFailures: webEngineNonNegativeIntFromValue(
-      m['consecutive_failures'],
-    ),
-    cooldownUntilMs: webEngineOptionalNonNegativeIntFromValue(
-      m['cooldown_until_ms'],
-    ),
-    lastQuotaError: m['last_quota_error'] as String?,
-    lastQuotaAt: webEngineOptionalNonNegativeIntFromValue(m['last_quota_at']),
-  );
+  factory WebFetchEngineStat.fromJson(Map<String, Object?> m) =>
+      WebFetchEngineStat._fromJson(m);
+
+  WebFetchEngineStat._fromJson(super.json)
+    : totalBytes = webEngineNonNegativeIntFromValue(json['total_bytes']),
+      super.fromJson();
 
   final int totalBytes;
 }

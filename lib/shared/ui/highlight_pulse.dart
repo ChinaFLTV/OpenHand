@@ -1,16 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/openhand_status_colors.dart';
 import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
-/// Generic top-edge / inline highlight pulse driven by an external
-/// `ValueListenable<int>` signal. Each time the signal increments the
-/// pulse fades in and decays over ~660 ms, drawing a soft primary-tinted
-/// gradient bar (with optional box-shadow halo). Used to give positive
-/// confirmation after an action lands without stealing focus or layout.
-///
-/// Honors reduce-motion and `TickerMode`.
+/// 由外部计数信号驱动的高亮脉冲，遵循减少动态效果和 `TickerMode` 设置。
 class HighlightPulse extends StatefulWidget {
   const HighlightPulse({
     super.key,
@@ -20,18 +15,16 @@ class HighlightPulse extends StatefulWidget {
     this.borderRadius = BorderRadius.zero,
   });
 
-  /// Increment-this-and-the-pulse-fires notifier.
+  /// 每次递增都会触发一次脉冲。
   final ValueListenable<int> signal;
 
-  /// Bar thickness in logical pixels. 3 px is the default for top-edge
-  /// pane indicators; bump higher for inline field highlights.
+  /// 高亮条厚度。
   final double height;
 
-  /// Optional override; defaults to `Theme.of(context).colorScheme.primary`.
+  /// 默认使用主题主色。
   final Color? color;
 
-  /// Optional rounded corners — useful when the pulse sits on top of a
-  /// rounded container instead of a panel edge.
+  /// 高亮条圆角。
   final BorderRadiusGeometry borderRadius;
 
   @override
@@ -95,7 +88,7 @@ class _HighlightPulseState extends State<HighlightPulse>
       builder: (context, _) {
         final v = _ctrl.value;
         if (v == 0) return const SizedBox.shrink();
-        // Two-stage envelope: 0..0.22 = ramp in, 0.22..1 = decay.
+        // 两段式包络：前 22% 渐入，其余时段衰减。
         final double opacity;
         if (v < 0.22) {
           opacity = unitRatio(v, 0.22);
@@ -125,6 +118,42 @@ class _HighlightPulseState extends State<HighlightPulse>
           ),
         );
       },
+    );
+  }
+}
+
+/// 在堆叠布局顶部统一叠加成功与失败反馈脉冲。
+class FeedbackHighlightPulseOverlay extends StatelessWidget {
+  const FeedbackHighlightPulseOverlay({
+    super.key,
+    required this.successSignal,
+    required this.errorSignal,
+  });
+
+  final ValueListenable<int> successSignal;
+  final ValueListenable<int> errorSignal;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        child: Stack(
+          fit: StackFit.passthrough,
+          children: [
+            HighlightPulse(
+              signal: successSignal,
+              color: OpenHandStatusColors.success,
+            ),
+            HighlightPulse(
+              signal: errorSignal,
+              color: OpenHandStatusColors.error,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
