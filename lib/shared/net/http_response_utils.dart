@@ -15,6 +15,13 @@ final class ByteStreamSizeLimitException extends HttpException {
   final int maxBytes;
 }
 
+final class BoundedByteStreamPrefix {
+  const BoundedByteStreamPrefix({required this.bytes, required this.truncated});
+
+  final Uint8List bytes;
+  final bool truncated;
+}
+
 /// 获取 HTTP(S) 资源，并统一执行状态码、类型、空闲时限、总时限和容量校验。
 /// 调用方仍负责关闭 [client]。
 Future<Uint8List> fetchBoundedHttpBytes({
@@ -157,6 +164,32 @@ Future<Uint8List> readBoundedByteStream(
     retainBytes: true,
     truncateOnOverflow: truncateOnOverflow,
     cancelOnFailure: cancelOnFailure,
+  );
+}
+
+/// 在容量、空闲和总时限内读取字节流前缀；超限时取消源订阅并返回截断标记。
+Future<BoundedByteStreamPrefix> readBoundedByteStreamPrefix(
+  Stream<List<int>> stream, {
+  required int maxBytes,
+  required Duration idleTimeout,
+  Duration? totalTimeout,
+}) async {
+  _validateByteStreamLimits(
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
+  final probed = await readBoundedByteStream(
+    stream,
+    maxBytes: maxBytes + 1,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+    truncateOnOverflow: true,
+  );
+  final truncated = probed.length > maxBytes;
+  return BoundedByteStreamPrefix(
+    bytes: truncated ? Uint8List.sublistView(probed, 0, maxBytes) : probed,
+    truncated: truncated,
   );
 }
 

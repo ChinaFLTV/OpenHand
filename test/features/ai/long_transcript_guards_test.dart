@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
 import 'package:openhand/features/ai/service/mcp_bridge/mcp_loaded_tools_tracker.dart';
+import 'package:openhand/shared/net/http_response_utils.dart';
 import 'package:openhand/shared/util/bounded_log_buffer.dart';
 import 'package:openhand/shared/util/html_webview_mount_limiter.dart';
 
@@ -141,5 +142,29 @@ void main() {
 
     expect(result.executedHookCount, 2);
     expect(result.executedCommands, <String>['echo 第一项', 'echo 第二项']);
+  });
+
+  test('字节流前缀读取严格限制容量并返回截断状态', () async {
+    final exact = await readBoundedByteStreamPrefix(
+      Stream<List<int>>.fromIterable(<List<int>>[
+        <int>[1, 2],
+        <int>[3],
+      ]),
+      maxBytes: 3,
+      idleTimeout: const Duration(seconds: 1),
+    );
+    expect(exact.bytes, orderedEquals(<int>[1, 2, 3]));
+    expect(exact.truncated, isFalse);
+
+    final truncated = await readBoundedByteStreamPrefix(
+      Stream<List<int>>.fromIterable(<List<int>>[
+        <int>[1, 2],
+        <int>[3, 4, 5],
+      ]),
+      maxBytes: 3,
+      idleTimeout: const Duration(seconds: 1),
+    );
+    expect(truncated.bytes, orderedEquals(<int>[1, 2, 3]));
+    expect(truncated.truncated, isTrue);
   });
 }

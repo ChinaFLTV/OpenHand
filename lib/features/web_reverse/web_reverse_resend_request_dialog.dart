@@ -14,7 +14,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -50,6 +52,10 @@ class _ResendRequestDialog extends StatefulWidget {
 
 class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   static const int _kMaxResponseBytes = 2 * 1024 * 1024;
+  static const int _kMaxHeaderRows = 128;
+  static const int _kMaxUrlCharacters = 16 * 1024;
+  static const int _kMaxHeaderCharacters = 64 * 1024;
+  static const int _kMaxRequestBodyBytes = 1024 * 1024;
   static const Duration _kRequestTimeout = Duration(seconds: 30);
   static const Duration _kResponseReadIdleTimeout = Duration(seconds: 5);
 
@@ -113,40 +119,46 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     _transport = widget.controller.isBrowserAlive
         ? _ReplayTransport.browser
         : _ReplayTransport.direct;
-    widget.initial.requestHeaders.forEach((k, v) {
-      if (k.startsWith(':')) return; // 跳过 HTTP/2 伪头
+    for (final entry in widget.initial.requestHeaders.entries) {
+      final k = entry.key;
+      if (k.startsWith(':')) continue; // 跳过 HTTP/2 伪头
+      if (_headers.length >= _kMaxHeaderRows) break;
       _headers.add(
         _HeaderRow(
           name: TextEditingController(text: k),
-          value: TextEditingController(text: v),
+          value: TextEditingController(text: entry.value),
           enabled: true,
         ),
       );
-    });
-    if (_headers.isEmpty) _addBlankHeader();
+    }
+    if (_headers.isEmpty) _headers.add(_createBlankHeader());
   }
 
   @override
   void dispose() {
+    _sendGeneration++;
+    _cancelActiveTransports();
     _urlCtrl.dispose();
     _bodyCtrl.dispose();
     for (final h in _headers) {
       h.name.dispose();
       h.value.dispose();
     }
-    _activeClient?.close(force: true);
     super.dispose();
   }
 
+  _HeaderRow _createBlankHeader() {
+    return _HeaderRow(
+      name: TextEditingController(),
+      value: TextEditingController(),
+      enabled: true,
+    );
+  }
+
   void _addBlankHeader() {
+    if (_headers.length >= _kMaxHeaderRows) return;
     setState(() {
-      _headers.add(
-        _HeaderRow(
-          name: TextEditingController(),
-          value: TextEditingController(),
-          enabled: true,
-        ),
-      );
+      _headers.add(_createBlankHeader());
     });
   }
 
@@ -155,7 +167,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       final h = _headers.removeAt(i);
       h.name.dispose();
       h.value.dispose();
-      if (_headers.isEmpty) _addBlankHeader();
+      if (_headers.isEmpty) _headers.add(_createBlankHeader());
     });
   }
 
@@ -166,6 +178,50 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       showWebReverseErrorSnack(
         context,
         loc0?.webReverseResendRequestUrlEmpty ?? 'URL is required',
+      );
+      return;
+    }
+    if (urlText.length > _kMaxUrlCharacters) {
+      showWebReverseErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: 'URL 超过长度上限',
+          en: 'URL exceeds the length limit',
+        ),
+      );
+      return;
+    }
+    final headerCharacters = _headers.fold<int>(
+      0,
+      (total, header) => header.enabled
+          ? total + header.name.text.length + header.value.text.length
+          : total,
+    );
+    if (headerCharacters > _kMaxHeaderCharacters) {
+      showWebReverseErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '请求头超过容量上限',
+          en: 'Request headers exceed the size limit',
+        ),
+      );
+      return;
+    }
+    final body = _requestBodyOrNull();
+    final bodyBytes = body == null || body.length > _kMaxRequestBodyBytes
+        ? null
+        : utf8.encode(body);
+    if (body != null &&
+        (bodyBytes == null || bodyBytes.length > _kMaxRequestBodyBytes)) {
+      showWebReverseErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '请求体超过 1 MiB 上限',
+          en: 'Request body exceeds the 1 MiB limit',
+        ),
       );
       return;
     }
@@ -189,13 +245,17 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       _lastError = null;
     });
     if (_transport == _ReplayTransport.browser) {
-      await _sendViaBrowser(uri, generation);
+      await _sendViaBrowser(uri, generation, body: body);
     } else {
-      await _sendViaHttpClient(uri, generation);
+      await _sendViaHttpClient(uri, generation, bodyBytes: bodyBytes);
     }
   }
 
-  Future<void> _sendViaBrowser(Uri uri, int generation) async {
+  Future<void> _sendViaBrowser(
+    Uri uri,
+    int generation, {
+    required String? body,
+  }) async {
     if (!widget.controller.isBrowserAlive) {
       if (!mounted || generation != _sendGeneration) return;
       setState(() {
@@ -218,7 +278,6 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     _activeBrowserAbortKey = abortKey;
     try {
       final headers = _headersMap(forBrowserFetch: true);
-      final body = _requestBodyOrNull();
       final js = _browserFetchExpression(
         url: uri.toString(),
         method: _method,
@@ -291,10 +350,14 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     }
   }
 
-  Future<void> _sendViaHttpClient(Uri uri, int generation) async {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 12)
-      ..idleTimeout = const Duration(seconds: 6);
+  Future<void> _sendViaHttpClient(
+    Uri uri,
+    int generation, {
+    required List<int>? bodyBytes,
+  }) async {
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: const Duration(seconds: 12),
+    )..idleTimeout = const Duration(seconds: 6);
     _activeClient = client;
     final sw = Stopwatch()..start();
 
@@ -322,29 +385,21 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
           // 某些 header（如 transfer-encoding）HttpClient 不让覆盖，忽略。
         }
       }
-      final body = _requestBodyOrNull();
-      if (body != null && body.isNotEmpty) {
-        req.add(utf8.encode(body));
+      if (bodyBytes != null && bodyBytes.isNotEmpty) {
+        req.add(bodyBytes);
       }
       final resp = await req.close().timeout(remainingRequestTime());
-      final bodyBytes = <int>[];
-      var truncated = false;
       final remainingReadTime = remainingRequestTime();
       final readIdleTimeout = remainingReadTime < _kResponseReadIdleTimeout
           ? remainingReadTime
           : _kResponseReadIdleTimeout;
-      await for (final chunk in resp.timeout(readIdleTimeout)) {
-        bodyBytes.addAll(chunk);
-        if (bodyBytes.length > _kMaxResponseBytes) {
-          bodyBytes.removeRange(_kMaxResponseBytes, bodyBytes.length);
-          truncated = true;
-          break;
-        }
-        if (sw.elapsed >= _kRequestTimeout) {
-          truncated = true;
-          break;
-        }
-      }
+      final bodyResult = await readBoundedByteStreamPrefix(
+        resp,
+        maxBytes: _kMaxResponseBytes,
+        idleTimeout: readIdleTimeout,
+        totalTimeout: remainingReadTime,
+      );
+      final responseBodyBytes = bodyResult.bytes;
       sw.stop();
       final respHeaders = <String, String>{};
       resp.headers.forEach((name, vals) {
@@ -353,9 +408,9 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       String? bodyText;
       bool isBase64 = false;
       try {
-        bodyText = utf8.decode(bodyBytes, allowMalformed: false);
+        bodyText = utf8.decode(responseBodyBytes, allowMalformed: false);
       } catch (_) {
-        bodyText = base64Encode(bodyBytes);
+        bodyText = base64Encode(responseBodyBytes);
         isBase64 = true;
       }
       if (!mounted || generation != _sendGeneration) return;
@@ -366,10 +421,10 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
           headers: respHeaders,
           body: bodyText ?? '',
           bodyIsBase64: isBase64,
-          byteSize: bodyBytes.length,
+          byteSize: responseBodyBytes.length,
           elapsed: sw.elapsed,
           transport: _ReplayTransport.direct,
-          truncated: truncated,
+          truncated: bodyResult.truncated,
         );
         _sending = false;
       });
@@ -388,30 +443,42 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
 
   void _abort() {
     _sendGeneration++;
-    final abortKey = _activeBrowserAbortKey;
-    if (abortKey != null && abortKey.isNotEmpty) {
-      unawaited(
-        widget.controller.sendRawCdp(
-          method: 'Runtime.evaluate',
-          paramsJson: jsonEncode(<String, Object?>{
-            'expression':
-                '(() => { const c = window[${jsonEncode(abortKey)}]; '
-                'if (c) c.abort("aborted"); delete window[${jsonEncode(abortKey)}]; })()',
-            'returnByValue': true,
-            'silent': true,
-          }),
-        ),
-      );
-      _activeBrowserAbortKey = null;
-    }
-    _activeClient?.close(force: true);
-    _activeClient = null;
+    _cancelActiveTransports();
     if (mounted) {
       final loc = AppLocalizations.of(context);
       setState(() {
         _sending = false;
         _lastError = loc?.webReverseResendRequestAborted ?? 'Aborted';
       });
+    }
+  }
+
+  void _cancelActiveTransports() {
+    final abortKey = _activeBrowserAbortKey;
+    if (abortKey != null && abortKey.isNotEmpty) {
+      _activeBrowserAbortKey = null;
+      unawaited(_abortBrowserReplay(abortKey));
+    }
+    _activeClient?.close(force: true);
+    _activeClient = null;
+  }
+
+  Future<void> _abortBrowserReplay(String abortKey) async {
+    if (!widget.controller.isBrowserAlive) return;
+    try {
+      await widget.controller.sendRawCdp(
+        method: 'Runtime.evaluate',
+        paramsJson: jsonEncode(<String, Object?>{
+          'expression':
+              '(() => { const c = window[${jsonEncode(abortKey)}]; '
+              'if (c) c.abort("aborted"); delete window[${jsonEncode(abortKey)}]; })()',
+          'returnByValue': true,
+          'silent': true,
+        }),
+        timeout: const Duration(seconds: 2),
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_resend_request_dialog', '终止浏览器重放请求', error, stack);
     }
   }
 
@@ -873,7 +940,9 @@ print(resp.text[:2000])''';
               TextButton.icon(
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(loc?.webReverseResendRequestAddRow ?? 'Add'),
-                onPressed: _addBlankHeader,
+                onPressed: _headers.length >= _kMaxHeaderRows
+                    ? null
+                    : _addBlankHeader,
               ),
             ],
           ),
