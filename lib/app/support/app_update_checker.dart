@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/bounded_delete.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
@@ -20,6 +21,7 @@ const Duration _kUpdateResponseHeaderTimeout = Duration(seconds: 30);
 const Duration _kUpdateResponseIdleTimeout = Duration(seconds: 30);
 const Duration _kUpdateCheckTotalTimeout = Duration(seconds: 45);
 const Duration _kUpdateDownloadTotalTimeout = Duration(minutes: 30);
+const Duration _kUpdateFileIoTimeout = Duration(seconds: 30);
 const int _kUpdateMetadataMaxBytes = 2 * 1024 * 1024;
 const int _kUpdateMaxDownloadBytes = 2 * 1024 * 1024 * 1024;
 const int _kUpdateMaxRedirects = 5;
@@ -117,11 +119,15 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
   @override
   Future<AppUpdateCheckResult> checkForUpdate(String currentVersion) async {
     final client = _createHttpClient(_kUpdateCheckConnectionTimeout);
+    final stopwatch = Stopwatch()..start();
+    Duration remainingBudget() =>
+        _remainingUpdateBudget(stopwatch, _kUpdateCheckTotalTimeout, '更新检查');
     try {
       final result = await _getFollowingSecureRedirects(
         client: client,
         initialUri: Uri.parse(_apiUrl),
         connectionTimeout: _kUpdateCheckConnectionTimeout,
+        remainingBudget: remainingBudget,
         headers: const <String, String>{
           'Accept': _kGitHubReleaseAcceptHeader,
           'User-Agent': _kUpdateCheckerUserAgent,
@@ -132,7 +138,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         response,
         maxBytes: _kUpdateMetadataMaxBytes,
         idleTimeout: _kUpdateResponseIdleTimeout,
-        totalTimeout: _kUpdateCheckTotalTimeout,
+        totalTimeout: remainingBudget(),
         allowMalformed: true,
       );
       if (response.statusCode != 200) {
@@ -155,6 +161,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       silentLog('app_update_checker', 'checkForUpdate', error, stack);
       return AppUpdateCheckError(message: '$error');
     } finally {
+      stopwatch.stop();
       client.close(force: true);
     }
   }
@@ -178,6 +185,12 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       throw const FileSystemException('Update package is too large.');
     }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
+    final stopwatch = Stopwatch()..start();
+    Duration remainingBudget() => _remainingUpdateBudget(
+      stopwatch,
+      _kUpdateDownloadTotalTimeout,
+      '更新包下载',
+    );
     var finished = false;
     var cancelled = false;
     void cancelDownload() {
@@ -199,6 +212,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         client: client,
         initialUri: initialDownloadUri,
         connectionTimeout: _kUpdateDownloadConnectionTimeout,
+        remainingBudget: remainingBudget,
         headers: const <String, String>{'User-Agent': _kUpdateCheckerUserAgent},
       );
       final response = result.response;
@@ -208,7 +222,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           response,
           maxBytes: _kUpdateMetadataMaxBytes,
           idleTimeout: _kUpdateResponseIdleTimeout,
-          totalTimeout: _kUpdateCheckTotalTimeout,
+          totalTimeout: remainingBudget(),
           allowMalformed: true,
         );
         throw HttpException(
@@ -239,29 +253,39 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       final fileName = _safeUpdateFileName(initialDownloadUri);
       final filePath = p.join(downloadDirectory.path, fileName);
       final partialFile = File('$filePath.part');
-      final sink = partialFile.openWrite();
+      BoundedRandomAccessFileLease? output;
       try {
+        final openedOutput = BoundedRandomAccessFileLease(
+          await _openUpdateOutput(
+            partialFile,
+            _shorterUpdateDuration(_kUpdateFileIoTimeout, remainingBudget()),
+          ),
+        );
+        output = openedOutput;
         var received = 0;
-        final deadline = DateTime.now().add(_kUpdateDownloadTotalTimeout);
-        await for (final chunk in response.timeout(
-          _kUpdateResponseIdleTimeout,
-        )) {
+        final boundedResponse = limitByteStream(
+          response,
+          maxBytes: _kUpdateMaxDownloadBytes,
+          idleTimeout: _kUpdateResponseIdleTimeout,
+          totalTimeout: remainingBudget(),
+        );
+        await for (final chunk in boundedResponse) {
           if (cancelled) {
             throw const HttpException('Update download was cancelled.');
           }
-          if (DateTime.now().isAfter(deadline)) {
-            throw TimeoutException('Update download exceeded time limit.');
-          }
-          sink.add(chunk);
-          received += chunk.length;
-          if (received > _kUpdateMaxDownloadBytes) {
-            throw const FileSystemException('Update package is too large.');
-          }
-          if (received > expectedLength) {
+          if (chunk.length > expectedLength - received) {
             throw const FileSystemException(
               'Update package size does not match release metadata.',
             );
           }
+          await openedOutput.run(
+            (file) => file.writeFrom(chunk),
+            timeout: _shorterUpdateDuration(
+              _kUpdateFileIoTimeout,
+              remainingBudget(),
+            ),
+          );
+          received += chunk.length;
           onProgress(unitRatio(received, expectedLength));
         }
         if (cancelled) {
@@ -273,9 +297,22 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         if (received != expectedLength) {
           throw const FileSystemException('Update download is incomplete.');
         }
-        await sink.flush();
+        await openedOutput.run(
+          (file) => file.flush(),
+          timeout: _shorterUpdateDuration(
+            _kUpdateFileIoTimeout,
+            remainingBudget(),
+          ),
+        );
+        await openedOutput.close(
+          timeout: _shorterUpdateDuration(
+            _kUpdateFileIoTimeout,
+            remainingBudget(),
+          ),
+        );
+        output = null;
       } finally {
-        await sink.close();
+        await output?.cleanup();
       }
       if (cancelled) {
         throw const HttpException('Update download was cancelled.');
@@ -308,6 +345,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       rethrow;
     } finally {
       finished = true;
+      stopwatch.stop();
       client.close(force: true);
     }
   }
@@ -317,12 +355,17 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     required HttpClient client,
     required Uri initialUri,
     required Duration connectionTimeout,
+    required Duration Function() remainingBudget,
     required Map<String, String> headers,
   }) async {
     var uri = initialUri;
     for (var redirects = 0; ; redirects += 1) {
       _validateSecureUpdateUri(uri);
-      final request = await client.getUrl(uri).timeout(connectionTimeout);
+      final request = await client
+          .getUrl(uri)
+          .timeout(
+            _shorterUpdateDuration(connectionTimeout, remainingBudget()),
+          );
       request
         ..followRedirects = false
         ..maxRedirects = 0;
@@ -330,7 +373,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         request.headers.set(header.key, header.value);
       }
       final response = await request.close().timeout(
-        _kUpdateResponseHeaderTimeout,
+        _shorterUpdateDuration(
+          _kUpdateResponseHeaderTimeout,
+          remainingBudget(),
+        ),
       );
       if (!isRedirectStatusCode(response.statusCode)) {
         return (response: response, uri: uri);
@@ -347,7 +393,15 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       }
       final nextUri = uri.resolve(location.trim());
       _validateSecureUpdateUri(nextUri);
-      await response.drain<void>().timeout(_kUpdateRedirectDrainTimeout);
+      final remaining = remainingBudget();
+      await drainByteStreamWithTimeout(
+        response,
+        idleTimeout: _shorterUpdateDuration(
+          _kUpdateRedirectDrainTimeout,
+          remaining,
+        ),
+        totalTimeout: remaining,
+      );
       uri = nextUri;
     }
   }
@@ -359,6 +413,48 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (Platform.isAndroid) return '.apk';
     if (Platform.isIOS) return '.ipa';
     return '';
+  }
+}
+
+Duration _remainingUpdateBudget(
+  Stopwatch stopwatch,
+  Duration totalTimeout,
+  String operation,
+) {
+  final remainingMicroseconds =
+      totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+  if (remainingMicroseconds <= 0) {
+    throw TimeoutException('$operation超过总时限。', totalTimeout);
+  }
+  return Duration(microseconds: remainingMicroseconds);
+}
+
+Duration _shorterUpdateDuration(Duration first, Duration second) {
+  return first <= second ? first : second;
+}
+
+Future<RandomAccessFile> _openUpdateOutput(File file, Duration timeout) async {
+  final openFuture = file.open(mode: FileMode.write);
+  try {
+    return await openFuture.timeout(timeout);
+  } on TimeoutException {
+    unawaited(_closeLateUpdateOutput(file, openFuture));
+    rethrow;
+  }
+}
+
+Future<void> _closeLateUpdateOutput(
+  File file,
+  Future<RandomAccessFile> openFuture,
+) async {
+  try {
+    final output = await openFuture;
+    await output.close().timeout(_kUpdateFileIoTimeout);
+    if (await file.exists().timeout(_kUpdateFileIoTimeout)) {
+      await file.delete().timeout(_kUpdateFileIoTimeout);
+    }
+  } catch (error, stack) {
+    silentLog('app_update_checker', '清理延迟打开的更新包文件', error, stack);
   }
 }
 
