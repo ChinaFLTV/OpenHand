@@ -84,7 +84,6 @@ class _HighlightSpanCache {
 int _highlightSignatureForInputs({
   required String content,
   required String? effectiveLanguage,
-  required bool allowAutoDetection,
   required Color baseColor,
   required bool useDarkPalette,
   required ThemeData theme,
@@ -92,7 +91,6 @@ int _highlightSignatureForInputs({
   return Object.hashAll(<Object?>[
     content,
     effectiveLanguage,
-    allowAutoDetection,
     baseColor.toARGB32(),
     useDarkPalette,
     theme.textTheme.bodyMedium?.fontSize,
@@ -117,7 +115,6 @@ TextStyle _baseCodeStyleForTheme({
 TextSpan _computeHighlightedCodeSpan({
   required String content,
   required String? effectiveLanguage,
-  required bool allowAutoDetection,
   required ThemeData theme,
   required Color baseColor,
   required bool useDarkPalette,
@@ -138,18 +135,14 @@ TextSpan _computeHighlightedCodeSpan({
     return span;
   }
   final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
-      ? 'highlight(auto, ${content.length}c)'
-      : 'highlight($effectiveLanguage, ${content.length}c)';
+      ? '代码高亮（纯文本，${content.length} 字符）'
+      : '代码高亮（$effectiveLanguage，${content.length} 字符）';
   final span = developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
     final highlighter = _CodeSyntaxHighlighter(
       baseStyle: baseStyle,
       darkSurface: useDarkPalette,
     );
-    return highlighter.build(
-      content,
-      language: effectiveLanguage,
-      allowAutoDetection: allowAutoDetection,
-    );
+    return highlighter.build(content, language: effectiveLanguage);
   });
   _highlightSpanCache.put(signature, span);
   return span;
@@ -161,7 +154,6 @@ void _warmHighlightedCodeSpan({
   required Color baseColor,
   required bool forceDarkSurface,
   String? language,
-  bool allowAutoDetection = false,
 }) {
   final effectiveLanguage = _normalizeCodeLanguage(language);
   final useDarkPalette =
@@ -169,7 +161,6 @@ void _warmHighlightedCodeSpan({
   final signature = _highlightSignatureForInputs(
     content: content,
     effectiveLanguage: effectiveLanguage,
-    allowAutoDetection: allowAutoDetection,
     baseColor: baseColor,
     useDarkPalette: useDarkPalette,
     theme: theme,
@@ -199,7 +190,6 @@ void _warmHighlightedCodeSpan({
       _computeHighlightedCodeSpan(
         content: content,
         effectiveLanguage: effectiveLanguage,
-        allowAutoDetection: allowAutoDetection,
         theme: theme,
         baseColor: baseColor,
         useDarkPalette: useDarkPalette,
@@ -264,7 +254,6 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
         selectable: _selectable,
         baseColor: _baseColor,
         forceDarkSurface: _darkSurface,
-        allowAutoDetection: true,
       ),
     );
   }
@@ -932,7 +921,6 @@ class _HighlightedCodePanel extends StatefulWidget {
     this.language,
     this.forceDarkSurface = false,
     this.accentColor,
-    this.allowAutoDetection = false,
     this.wrapLines = false,
     this.showToolbar = true,
     this.internalVerticalScroll = false,
@@ -945,7 +933,6 @@ class _HighlightedCodePanel extends StatefulWidget {
   final bool selectable;
   final bool forceDarkSurface;
   final Color? accentColor;
-  final bool allowAutoDetection;
   final bool wrapLines;
   final bool showToolbar;
   final bool internalVerticalScroll;
@@ -996,7 +983,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         oldWidget.selectable != widget.selectable ||
         oldWidget.baseColor != widget.baseColor ||
         oldWidget.forceDarkSurface != widget.forceDarkSurface ||
-        oldWidget.allowAutoDetection != widget.allowAutoDetection ||
         oldWidget.showToolbar != widget.showToolbar ||
         oldWidget.internalVerticalScroll != widget.internalVerticalScroll ||
         oldWidget.theme.brightness != widget.theme.brightness ||
@@ -1051,6 +1037,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   @override
   Widget build(BuildContext context) {
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
+    final displayLanguage = effectiveLanguage == 'plaintext'
+        ? null
+        : effectiveLanguage;
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
     final paletteSignature = Object.hashAll(<Object?>[
@@ -1111,9 +1100,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
               ),
               child: Row(
                 children: [
-                  if (effectiveLanguage != null)
+                  if (displayLanguage != null)
                     _buildToolPill(
-                      label: effectiveLanguage,
+                      label: displayLanguage,
                       icon: Icons.code_rounded,
                       backgroundColor: palette.badgeColor,
                       foregroundColor: palette.badgeTextColor,
@@ -1378,7 +1367,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     return _highlightSignatureForInputs(
       content: widget.content,
       effectiveLanguage: effectiveLanguage,
-      allowAutoDetection: widget.allowAutoDetection,
       baseColor: widget.baseColor,
       useDarkPalette: useDarkPalette,
       theme: widget.theme,
@@ -1401,7 +1389,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     return _computeHighlightedCodeSpan(
       content: widget.content,
       effectiveLanguage: effectiveLanguage,
-      allowAutoDetection: widget.allowAutoDetection,
       theme: widget.theme,
       baseColor: widget.baseColor,
       useDarkPalette: useDarkPalette,
@@ -1916,6 +1903,10 @@ class _CodeSyntaxHighlighter {
     bool allowAutoDetection = false,
   }) {
     final normalizedLanguage = _normalizeCodeLanguage(language);
+    if (normalizedLanguage == 'plaintext' ||
+        normalizedLanguage == null && !allowAutoDetection) {
+      return TextSpan(text: source, style: _baseStyle);
+    }
     try {
       final parsed = highlight.highlight.parse(
         source,
@@ -1927,7 +1918,7 @@ class _CodeSyntaxHighlighter {
         children: _buildHighlightedNodes(parsed.nodes),
       );
     } catch (_) {
-      if (normalizedLanguage != null) {
+      if (allowAutoDetection && normalizedLanguage != null) {
         try {
           final parsed = highlight.highlight.parse(source, autoDetection: true);
           return TextSpan(
@@ -2003,10 +1994,11 @@ String? _extractCodeLanguage(md.Element? element) {
 
 String? _normalizeCodeLanguage(String? language) {
   final normalized = (language ?? '').trim().toLowerCase();
-  if (normalized.isEmpty || normalized == 'text' || normalized == 'plaintext') {
+  if (normalized.isEmpty) {
     return null;
   }
   return switch (normalized) {
+    'text' || 'txt' || 'plain' || 'plaintext' => 'plaintext',
     'shell' || 'sh' || 'zsh' => 'bash',
     'yml' => 'yaml',
     'htm' => 'html',

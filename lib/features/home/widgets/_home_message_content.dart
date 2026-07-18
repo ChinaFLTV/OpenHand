@@ -1919,7 +1919,6 @@ void _warmHighlightedCodeBlocksFromMarkdownAst({
         baseColor: textColor,
         forceDarkSurface: useDarkCodeSurface,
         language: _extractCodeLanguage(codeElement),
-        allowAutoDetection: true,
       );
     }
     final children = node.children;
