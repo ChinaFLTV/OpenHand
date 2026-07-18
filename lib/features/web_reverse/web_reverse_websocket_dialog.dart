@@ -796,15 +796,7 @@ class _WsDialogState extends State<_WsDialog> {
         children: [
           Expanded(
             child: OpenHandDialogActionButton.secondary(
-              label: openHandLocalizedText(
-                ctx,
-                zh: '取消',
-                zhHant: '取消',
-                en: 'Cancel',
-                fr: 'Annuler',
-                de: 'Abbrechen',
-                ja: 'キャンセル',
-              ),
+              label: openHandCancelLabel(ctx),
               onPressed: () => Navigator.of(ctx).pop(),
             ),
           ),
@@ -1201,15 +1193,7 @@ class _WsDialogState extends State<_WsDialog> {
             child: SizedBox(
               width: double.infinity,
               child: OpenHandDialogActionButton.primary(
-                label: openHandLocalizedText(
-                  context,
-                  zh: '关闭',
-                  zhHant: '關閉',
-                  en: 'Close',
-                  fr: 'Fermer',
-                  de: 'Schließen',
-                  ja: '閉じる',
-                ),
+                label: openHandCloseLabel(context),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),

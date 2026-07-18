@@ -756,8 +756,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   ),
                   helperText: openHandLocalizedText(
                     context,
-                    zh: '默认 50 MB; 0 = 不限 (不推荐)',
-                    en: 'Default 50 MB; 0 = unlimited (not recommended)',
+                    zh: '默认 50 MB；范围 1 MB–2 GB',
+                    en: 'Default 50 MB; range 1 MB–2 GB',
                   ),
                 ),
                 onChanged: (s) {

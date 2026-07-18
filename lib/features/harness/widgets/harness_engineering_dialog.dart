@@ -593,15 +593,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         de: 'Von ${cli.name} abmelden? Danach musst du dich erneut anmelden, um diese CLI zu nutzen.',
         ja: '${cli.name} からログアウトしますか？この CLI を使うには再ログインが必要です。',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '登出',
@@ -1308,15 +1300,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: () => Navigator.of(context).pop(),
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '取消',
-                        zhHant: '取消',
-                        en: 'Cancel',
-                        fr: 'Annuler',
-                        de: 'Abbrechen',
-                        ja: 'キャンセル',
-                      ),
+                      label: openHandCancelLabel(context),
                     ),
                     OpenHandDialogActionButton.primary(
                       onPressed: canSubmit ? _submit : null,

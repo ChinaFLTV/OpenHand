@@ -10145,7 +10145,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           zh: '完全访问模式会让智能体在工作循环中自动执行常规文件与命令操作，减少审批打断。\n\n越权目录、凭据或密钥访问、不可逆外部副作用、缺少证据的生产变更仍需审批。启用前请确认该智能体的职责边界与工作目录范围已配置清楚。',
           en: 'Full access lets the agent automatically run routine file and command actions during its work loop, reducing approval interruptions.\n\nScope violations, credential or secret access, irreversible external side effects, and production changes without evidence still require approval. Confirm the agent boundary and workspace scope before enabling it.',
         ),
-        cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+        cancelLabel: openHandCancelLabel(context),
         confirmLabel: openHandLocalizedText(
           context,
           zh: '是，仍然继续',

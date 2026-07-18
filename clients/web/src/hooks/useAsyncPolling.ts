@@ -17,7 +17,7 @@ const MAX_TASK_TIMEOUT_MS = 120_000;
 
 class AsyncPollingTimeoutError extends Error {
   constructor(public readonly timeoutMs: number) {
-    super(`Polling task timed out after ${timeoutMs}ms`);
+    super(`轮询任务在 ${timeoutMs} 毫秒后超时`);
     this.name = 'AsyncPollingTimeoutError';
   }
 }
@@ -48,7 +48,6 @@ function normalizeTaskTimeoutMs(value: number | undefined): number {
     fallback: DEFAULT_TASK_TIMEOUT_MS,
     min: MIN_TASK_TIMEOUT_MS,
     max: MAX_TASK_TIMEOUT_MS,
-    zeroDisables: true,
   });
 }
 

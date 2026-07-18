@@ -13,6 +13,7 @@ export interface TimedAbortController {
 }
 
 const DEFAULT_ABORT_TIMEOUT_MS = 30_000;
+const MIN_ABORT_TIMEOUT_MS = 1;
 const MAX_ABORT_TIMEOUT_MS = 60 * 60 * 1000;
 const MAX_ABORTABLE_DELAY_MS = Math.min(
   MAX_ABORT_TIMEOUT_MS,
@@ -21,14 +22,14 @@ const MAX_ABORTABLE_DELAY_MS = Math.min(
 
 export class OperationTimeoutError extends Error {
   constructor(public readonly timeoutMs: number) {
-    super(`Operation timed out after ${timeoutMs}ms`);
+    super(`操作在 ${timeoutMs} 毫秒后超时`);
     this.name = 'OperationTimeoutError';
   }
 }
 
 class OperationAbortedError extends Error {
   constructor() {
-    super('Operation aborted');
+    super('操作已取消');
     this.name = 'OperationAbortedError';
   }
 }
@@ -52,8 +53,9 @@ function abortController(controller: AbortController, reason?: unknown): void {
 }
 
 function normalizeAbortTimeoutMs(value: number | undefined): number {
-  return normalizeDurationMs(value, {
+  return normalizeDurationMs(value == null || value <= 0 ? undefined : value, {
     fallback: DEFAULT_ABORT_TIMEOUT_MS,
+    min: MIN_ABORT_TIMEOUT_MS,
     max: MAX_ABORT_TIMEOUT_MS,
   });
 }

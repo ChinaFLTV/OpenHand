@@ -13,6 +13,8 @@ import {
 } from '../utils/timed_abort';
 
 const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000;
+const MIN_API_REQUEST_TIMEOUT_MS = 1_000;
+const MAX_API_REQUEST_TIMEOUT_MS = 60 * 60 * 1_000;
 export const LONG_API_REQUEST_TIMEOUT_MS = 300_000;
 
 export class ApiError extends Error {
@@ -31,7 +33,7 @@ export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
-  /** Per-request timeout in milliseconds. Set 0 to disable timeout. */
+  /** 单次请求超时毫秒数；非法值回落默认值。 */
   timeoutMs?: number;
   /// 设为 true 时不带 Authorization 头（用于 /api/login 自身调用）
   anonymous?: boolean;
@@ -57,17 +59,15 @@ interface ApiAbortSignal {
 }
 
 function normalizeApiRequestTimeoutMs(value: number | undefined): number {
-  return normalizeDurationMs(value, {
+  return normalizeDurationMs(value == null || value <= 0 ? undefined : value, {
     fallback: DEFAULT_API_REQUEST_TIMEOUT_MS,
-    zeroDisables: true,
+    min: MIN_API_REQUEST_TIMEOUT_MS,
+    max: MAX_API_REQUEST_TIMEOUT_MS,
   });
 }
 
 function createApiAbortSignal(opts: ApiOptions): ApiAbortSignal {
   const timeoutMs = normalizeApiRequestTimeoutMs(opts.timeoutMs);
-  if (timeoutMs <= 0) {
-    return { signal: opts.signal, cleanup: () => {} };
-  }
   const timed = createTimedAbortController(timeoutMs, opts.signal);
   return {
     signal: timed.controller.signal,

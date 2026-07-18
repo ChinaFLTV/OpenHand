@@ -770,15 +770,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('cancel'),
-              label: openHandLocalizedText(
-                context,
-                zh: '取消',
-                zhHant: '取消',
-                en: 'Cancel',
-                fr: 'Annuler',
-                de: 'Abbrechen',
-                ja: 'キャンセル',
-              ),
+              label: openHandCancelLabel(context),
             ),
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('merge'),
@@ -1033,15 +1025,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         de: 'HAR-Diff',
         ja: 'HAR 差分',
       ),
-      closeLabel: openHandLocalizedText(
-        context,
-        zh: '关闭',
-        zhHant: '關閉',
-        en: 'Close',
-        fr: 'Fermer',
-        de: 'Schließen',
-        ja: '閉じる',
-      ),
+      closeLabel: openHandCloseLabel(context),
       content: SizedBox(
         width: 880,
         height: 540,
@@ -1170,15 +1154,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: openHandLocalizedText(
-              context,
-              zh: '取消',
-              zhHant: '取消',
-              en: 'Cancel',
-              fr: 'Annuler',
-              de: 'Abbrechen',
-              ja: 'キャンセル',
-            ),
+            label: openHandCancelLabel(context),
           ),
           OpenHandDialogActionButton.secondary(
             onPressed: filtered.isEmpty

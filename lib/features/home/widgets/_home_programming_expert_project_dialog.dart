@@ -1685,14 +1685,7 @@ class _ProgrammingExpertProjectDialogState
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: text(
-            zh: '取消',
-            zhHant: '取消',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: 'キャンセル',
-          ),
+          label: openHandCancelLabel(context),
         ),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: _pathController,

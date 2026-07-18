@@ -754,15 +754,7 @@ Future<String?> _showEditQueuedMessageDialog(
     ),
     initialValue: currentText,
     hintText: hint,
-    cancelLabel: openHandLocalizedText(
-      context,
-      zh: '取消',
-      zhHant: '取消',
-      en: 'Cancel',
-      fr: 'Annuler',
-      de: 'Abbrechen',
-      ja: 'キャンセル',
-    ),
+    cancelLabel: openHandCancelLabel(context),
     confirmLabel: openHandLocalizedText(
       context,
       zh: '保存',

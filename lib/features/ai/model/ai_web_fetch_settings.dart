@@ -341,9 +341,9 @@ class AiWebFetchSettings {
   static const int minCacheTtlSeconds = 0;
   static const int maxCacheTtlSeconds = 60 * 60 * 24 * 7;
 
-  /// 缓存目录磁盘占用上限（字节）。默认 50 MB；0 = 无上限。
+  /// 缓存目录磁盘占用上限（字节）。默认 50 MB，范围 1 MB 至 2 GB。
   static const int defaultCacheMaxBytes = 50 * kBytesPerMiB;
-  static const int minCacheMaxBytes = 0;
+  static const int minCacheMaxBytes = kBytesPerMiB;
   static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
   static const int defaultCooldownTier1Failures =
@@ -529,7 +529,9 @@ class AiWebFetchSettings {
       cacheTtlSeconds: _cacheTtlSecondsRange.fromValue(
         json['cache_ttl_seconds'],
       ),
-      cacheMaxBytes: _cacheMaxBytesRange.fromValue(json['cache_max_bytes']),
+      cacheMaxBytes: _cacheMaxBytesRange.fromValue(
+        optionalPositiveIntFromValue(json['cache_max_bytes']),
+      ),
       cooldownTier1Failures: resilience.cooldownTier1Failures,
       cooldownTier1Seconds: resilience.cooldownTier1Seconds,
       cooldownTier2Failures: resilience.cooldownTier2Failures,

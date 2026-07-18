@@ -2426,15 +2426,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: openHandLocalizedText(
-                      context,
-                      zh: '关闭',
-                      zhHant: '關閉',
-                      en: 'Close',
-                      fr: 'Fermer',
-                      de: 'Schließen',
-                      ja: '閉じる',
-                    ),
+                    tooltip: openHandCloseLabel(context),
                   ),
                 ],
               ),

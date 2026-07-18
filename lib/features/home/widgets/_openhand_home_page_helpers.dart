@@ -364,7 +364,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+          label: openHandCancelLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: validSelection && !invalidLimit ? _submit : null,
@@ -1633,7 +1633,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
           constraints: const BoxConstraints(minWidth: 128),
           child: OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(),
-            label: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+            label: openHandCancelLabel(context),
           ),
         ),
         ConstrainedBox(

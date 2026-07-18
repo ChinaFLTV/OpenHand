@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
-/// Sends a regular package:http request as an [http.AbortableRequest].
+/// 将普通 package:http 请求作为 [http.AbortableRequest] 发送。
 ///
-/// External cancellation aborts both header acquisition and a subsequently
-/// consumed response stream. A header timeout also aborts the underlying I/O
-/// instead of only detaching the caller's wait.
+/// 外部取消会中止响应头获取及后续响应流；响应头超时也会终止底层 I/O，
+/// 而不是只解除调用方等待。
 Future<http.StreamedResponse> sendAbortableHttpRequest({
   required http.Client client,
   required http.Request request,
@@ -14,14 +13,10 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
   Future<void>? cancelSignal,
 }) async {
   if (connectionTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      connectionTimeout,
-      'connectionTimeout',
-      'Must be positive.',
-    );
+    throw ArgumentError.value(connectionTimeout, 'connectionTimeout', '必须大于零。');
   }
   if (request.finalized) {
-    throw StateError('Cannot send an already finalized HTTP request.');
+    throw StateError('不能重复发送已完成构建的 HTTP 请求。');
   }
 
   final connectionTimeoutAbort = Completer<void>();
@@ -55,10 +50,7 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
           if (!connectionTimeoutAbort.isCompleted) {
             connectionTimeoutAbort.complete();
           }
-          throw TimeoutException(
-            'HTTP response headers exceeded the connection time limit.',
-            connectionTimeout,
-          );
+          throw TimeoutException('HTTP 响应头获取超过连接时限。', connectionTimeout);
         },
       );
 }

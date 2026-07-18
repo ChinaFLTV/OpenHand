@@ -1049,15 +1049,7 @@ class _NetworkRow extends StatelessWidget {
           ),
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: openHandLocalizedText(
-              dialogContext,
-              zh: '关闭',
-              zhHant: '關閉',
-              en: 'Close',
-              fr: 'Fermer',
-              de: 'Schließen',
-              ja: '閉じる',
-            ),
+            label: openHandCloseLabel(dialogContext),
           ),
         ],
       ),
@@ -1373,15 +1365,7 @@ class _PendingFetchBanner extends StatelessWidget {
           de: 'Senden',
           ja: '送信',
         ),
-        cancelLabel: openHandLocalizedText(
-          context,
-          zh: '取消',
-          zhHant: '取消',
-          en: 'Cancel',
-          fr: 'Annuler',
-          de: 'Abbrechen',
-          ja: 'キャンセル',
-        ),
+        cancelLabel: openHandCancelLabel(context),
         maxWidth: 560,
         onSubmit: (_) => true,
         contentBuilder: (_) => SizedBox(
@@ -1555,15 +1539,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: openHandLocalizedText(
-            context,
-            zh: '取消',
-            zhHant: '取消',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: 'キャンセル',
-          ),
+          label: openHandCancelLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () {

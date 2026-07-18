@@ -66,7 +66,7 @@ void main() {
   if (outRoot.existsSync()) outRoot.deleteSync(recursive: true);
   outRoot.createSync(recursive: true);
 
-  print('Dry-run preview output: ${outRoot.absolute.path}');
+  print('试运行预览输出：${outRoot.absolute.path}');
   print('');
 
   for (final policy in _templates) {
@@ -140,7 +140,7 @@ void main() {
     print('');
   }
 
-  print('done.');
+  print('完成。');
 }
 
 double _cjkRatioPct(String text) {

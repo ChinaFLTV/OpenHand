@@ -2455,15 +2455,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Diese Phase wirklich löschen? Das Ausführungslog wird entfernt.',
         ja: 'このフェーズを削除しますか？実行ログも削除されます。',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '删除',

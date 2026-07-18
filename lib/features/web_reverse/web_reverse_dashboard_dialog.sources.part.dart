@@ -532,15 +532,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
-              label: openHandLocalizedText(
-                dialogContext,
-                zh: '取消',
-                zhHant: '取消',
-                en: 'Cancel',
-                fr: 'Annuler',
-                de: 'Abbrechen',
-                ja: 'キャンセル',
-              ),
+              label: openHandCancelLabel(dialogContext),
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
             OpenHandDialogActionButton.primary(
@@ -775,15 +767,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     showOpenHandInfoDialog(
       context: context,
       title: 'LSP Hover',
-      closeLabel: openHandLocalizedText(
-        context,
-        zh: '关闭',
-        zhHant: '關閉',
-        en: 'Close',
-        fr: 'Fermer',
-        de: 'Schließen',
-        ja: '閉じる',
-      ),
+      closeLabel: openHandCloseLabel(context),
       content: SizedBox(
         width: 560,
         child: SelectableText(
@@ -854,15 +838,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         de: 'Umbenennen in',
         ja: '新しい名前',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '确定',
@@ -909,15 +885,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         de: 'Umbenennen-Ergebnis (schreibgeschützt)',
         ja: '名前変更結果（読み取り専用）',
       ),
-      closeLabel: openHandLocalizedText(
-        context,
-        zh: '关闭',
-        zhHant: '關閉',
-        en: 'Close',
-        fr: 'Fermer',
-        de: 'Schließen',
-        ja: '閉じる',
-      ),
+      closeLabel: openHandCloseLabel(context),
       content: SizedBox(
         width: 600,
         child: SelectableText(
@@ -2173,15 +2141,7 @@ class _SourcesGlobalSearchDialogState
                 ),
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '关闭',
-                    zhHant: '關閉',
-                    en: 'Close',
-                    fr: 'Fermer',
-                    de: 'Schließen',
-                    ja: '閉じる',
-                  ),
+                  label: openHandCloseLabel(context),
                 ),
               ],
             ),

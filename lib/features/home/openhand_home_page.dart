@@ -8107,7 +8107,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _showSlashHelpDialog() {
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
-    final closeLabel = openHandLocalizedText(context, zh: '关闭', en: 'Close');
+    final closeLabel = openHandCloseLabel(context);
     final allowRulePreview = settingsController.aiAllowCommandRules
         .take(4)
         .map((item) => '- ${item.pattern}')
@@ -8149,7 +8149,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _showFeedbackDialog(String note) {
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
-    final closeLabel = openHandLocalizedText(context, zh: '关闭', en: 'Close');
+    final closeLabel = openHandCloseLabel(context);
     final copiedLabel = openHandLocalizedText(
       context,
       zh: '反馈模板已复制。',
@@ -8716,7 +8716,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '正在导出 “${loaded.title}”…',
         en: 'Exporting "${loaded.title}"…',
       ),
-      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      cancelLabel: openHandCancelLabel(context),
     );
 
     final destinationPath = normalizeJsonlExportPath(location.path);
@@ -8811,7 +8811,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '正在导出 “${record.title}”…',
         en: 'Exporting "${record.title}"…',
       ),
-      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      cancelLabel: openHandCancelLabel(context),
     );
 
     final destinationPath = normalizeJsonlExportPath(location.path);

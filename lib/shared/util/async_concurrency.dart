@@ -6,16 +6,15 @@ typedef OpenHandAsyncCleanupErrorHandler =
     void Function(Object error, StackTrace stackTrace);
 
 const int kOpenHandMaxAsyncConcurrency = 64;
+const int kOpenHandMaxAsyncWaiters = 4096;
 const Duration kOpenHandDefaultAsyncCleanupTimeout = Duration(seconds: 2);
 const Duration kOpenHandMaxAsyncCleanupTimeout = Duration(seconds: 30);
 const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
 
-/// Runs best-effort asynchronous cleanup without allowing a broken resource to
-/// hold shutdown forever.
+/// 尽力执行异步清理，同时防止异常资源永久阻塞关闭流程。
 ///
-/// Failures are delivered to [onError] and converted to `false`. Oversized
-/// caller-provided timeouts are capped so settings or dependency injection
-/// cannot reintroduce an effectively unbounded shutdown path.
+/// 失败会交给 [onError] 并转换为 `false`；调用方提供的超大时限也会被截断，
+/// 避免设置或依赖注入重新引入无界关闭路径。
 Future<bool> runAsyncCleanupBounded(
   FutureOr<void> Function() cleanup, {
   Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
@@ -33,13 +32,13 @@ Future<bool> runAsyncCleanupBounded(
     try {
       onError?.call(error, stack);
     } catch (_) {
-      // A cleanup logger must never replace the primary shutdown result.
+      // 清理日志异常不能覆盖原始关闭结果。
     }
     return false;
   }
 }
 
-/// Cancels a stream subscription through [runAsyncCleanupBounded].
+/// 通过 [runAsyncCleanupBounded] 取消流订阅。
 Future<bool> cancelStreamSubscriptionBounded<T>(
   StreamSubscription<T>? subscription, {
   Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
@@ -53,24 +52,26 @@ Future<bool> cancelStreamSubscriptionBounded<T>(
   );
 }
 
-/// Small FIFO semaphore for bounded async fan-out.
+/// 控制异步扇出的轻量 FIFO 信号量。
 ///
-/// Invalid or oversized limits are normalized so caller mistakes cannot create
-/// unbounded workers or a permanently closed semaphore.
+/// 并发数和等待数都会归一化，避免异常配置创建无界工作器或等待队列。
 class OpenHandAsyncSemaphore {
   OpenHandAsyncSemaphore(
     int maxPermits, {
     int maxAllowedPermits = kOpenHandMaxAsyncConcurrency,
+    int maxWaiters = kOpenHandMaxAsyncWaiters,
   }) : maxPermits = _normalizeAsyncConcurrencyLimit(
          maxPermits,
          maxAllowedPermits: maxAllowedPermits,
        ),
+       maxWaiters = _normalizeAsyncWaiterLimit(maxWaiters),
        _available = _normalizeAsyncConcurrencyLimit(
          maxPermits,
          maxAllowedPermits: maxAllowedPermits,
        );
 
   final int maxPermits;
+  final int maxWaiters;
   int _available;
   final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
 
@@ -78,6 +79,9 @@ class OpenHandAsyncSemaphore {
     if (_available > 0) {
       _available -= 1;
       return Future<void>.value();
+    }
+    if (_waiters.length >= maxWaiters) {
+      return Future<void>.error(StateError('异步信号量等待队列已满。'));
     }
     final completer = Completer<void>();
     _waiters.add(completer);
@@ -161,10 +165,15 @@ int _normalizeAsyncConcurrencyLimit(
   return value > upper ? upper : value;
 }
 
-/// Runs indexed async work with a bounded worker pool and preserves result order.
+int _normalizeAsyncWaiterLimit(int value) {
+  if (value < 1) return 1;
+  return value > kOpenHandMaxAsyncWaiters ? kOpenHandMaxAsyncWaiters : value;
+}
+
+/// 使用有界工作池执行索引任务，并保持结果顺序。
 ///
-/// [maxConcurrency] is clamped to [kOpenHandMaxAsyncConcurrency] so accidental
-/// oversized inputs cannot spawn an unbounded number of workers.
+/// [maxConcurrency] 会限制到 [kOpenHandMaxAsyncConcurrency]，避免异常参数
+/// 创建无界工作器。
 Future<List<T>> runOrderedWithConcurrencyLimit<T>({
   required int itemCount,
   required int maxConcurrency,
@@ -182,11 +191,10 @@ Future<List<T>> runOrderedWithConcurrencyLimit<T>({
   return results.cast<T>();
 }
 
-/// Runs indexed async side effects with bounded concurrency.
+/// 以有界并发执行索引副作用任务。
 ///
-/// [shouldContinue] is checked before acquiring each new item and after each
-/// task, so disposed widgets/controllers can stop scheduling new work promptly.
-/// [maxConcurrency] is clamped to [kOpenHandMaxAsyncConcurrency].
+/// 每次获取新任务前及任务结束后都会检查 [shouldContinue]，使已销毁的组件或
+/// 控制器及时停止调度；[maxConcurrency] 同样受全局上限约束。
 Future<void> forEachIndexWithConcurrencyLimit({
   required int itemCount,
   required int maxConcurrency,

@@ -216,14 +216,7 @@ class _AndroidReverseSetupDialogState
               de: 'Android-App-APIs mit ADB + Frida + jadx analysieren und Parameter rekonstruieren',
               ja: 'ADB + Frida + jadx で Android アプリ API とパラメータを解析',
             ),
-            closeTooltip: _text(
-              zh: '关闭',
-              en: 'Close',
-              zhHant: '關閉',
-              fr: 'Fermer',
-              de: 'Schließen',
-              ja: '閉じる',
-            ),
+            closeTooltip: openHandCloseLabel(context),
           ),
           Divider(height: 1, color: cs.outlineVariant),
           Flexible(
@@ -551,14 +544,7 @@ class _AndroidReverseSetupDialogState
             actions: [
               OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(context).pop(),
-                label: _text(
-                  zh: '取消',
-                  en: 'Cancel',
-                  zhHant: '取消',
-                  fr: 'Annuler',
-                  de: 'Abbrechen',
-                  ja: 'キャンセル',
-                ),
+                label: openHandCancelLabel(context),
               ),
               OpenHandDialogActionButton.primary(
                 onPressed: _canSubmit ? _submit : null,

@@ -1460,15 +1460,7 @@ Future<void> _showExtraHeadersDialog(
         de: 'Speichern',
         ja: '保存',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       maxWidth: 520,
       onSubmit: (_) => true,
       contentBuilder: (dialogContext) => SizedBox(
@@ -1654,15 +1646,7 @@ Future<void> _showCdpPaletteDialog(
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: openHandLocalizedText(
-              dialogContext,
-              zh: '关闭',
-              zhHant: '關閉',
-              en: 'Close',
-              fr: 'Fermer',
-              de: 'Schliessen',
-              ja: '閉じる',
-            ),
+            label: openHandCloseLabel(dialogContext),
           ),
           OpenHandDialogActionButton.primary(
             onPressed: () async {
@@ -1892,15 +1876,7 @@ Future<void> _showDiffPicker(
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          label: openHandLocalizedText(
-            dialogContext,
-            zh: '取消',
-            zhHant: '取消',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: 'キャンセル',
-          ),
+          label: openHandCancelLabel(dialogContext),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: (a == null || b == null)
@@ -2073,15 +2049,7 @@ Future<void> _showServiceWorkersDialog(
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          label: openHandLocalizedText(
-            dialogContext,
-            zh: '关闭',
-            zhHant: '關閉',
-            en: 'Close',
-            fr: 'Fermer',
-            de: 'Schliessen',
-            ja: '閉じる',
-          ),
+          label: openHandCloseLabel(dialogContext),
         ),
         if (list.isNotEmpty)
           OpenHandDialogActionButton.destructive(
@@ -2252,15 +2220,7 @@ Future<void> _toggleMitmproxyBridge(
         de: 'mitmdump nicht gefunden',
         ja: 'mitmdump が見つかりません',
       ),
-      closeLabel: openHandLocalizedText(
-        context,
-        zh: '关闭',
-        zhHant: '關閉',
-        en: 'Close',
-        fr: 'Fermer',
-        de: 'Schliessen',
-        ja: '閉じる',
-      ),
+      closeLabel: openHandCloseLabel(context),
       message: openHandLocalizedText(
         context,
         zh:
@@ -2310,15 +2270,7 @@ Future<void> _toggleMitmproxyBridge(
       de: 'Startet mitmdump -p 8080; richten Sie den Client-Proxy auf 127.0.0.1:8080.\n\nZum ersten Mal? CA uber http://mitm.it vertrauen.\n\nErfasster Traffic erscheint als mitmproxy-Ressource in Network.',
       ja: 'mitmdump -p 8080 で起動します。起動後、対象クライアントのプロキシを 127.0.0.1:8080 に向けてください。\n\n初回は http://mitm.it で CA を信頼してください。\n\n取得した通信は Network リストに mitmproxy リソースとして表示されます。',
     ),
-    cancelLabel: openHandLocalizedText(
-      context,
-      zh: '取消',
-      zhHant: '取消',
-      en: 'Cancel',
-      fr: 'Annuler',
-      de: 'Abbrechen',
-      ja: 'キャンセル',
-    ),
+    cancelLabel: openHandCancelLabel(context),
     confirmLabel: openHandLocalizedText(
       context,
       zh: '启动',
@@ -3626,15 +3578,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: openHandLocalizedText(
-              dialogContext,
-              zh: '关闭',
-              zhHant: '關閉',
-              en: 'Close',
-              fr: 'Fermer',
-              de: 'Schliessen',
-              ja: '閉じる',
-            ),
+            label: openHandCloseLabel(dialogContext),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: running,
@@ -4084,15 +4028,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
               children: [
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '取消',
-                    zhHant: '取消',
-                    en: 'Cancel',
-                    fr: 'Annuler',
-                    de: 'Abbrechen',
-                    ja: 'キャンセル',
-                  ),
+                  label: openHandCancelLabel(context),
                 ),
                 const SizedBox(width: 8),
                 OpenHandDialogActionButton.primary(
@@ -4259,15 +4195,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: openHandLocalizedText(
-            context,
-            zh: '取消',
-            zhHant: '取消',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: 'キャンセル',
-          ),
+          label: openHandCancelLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () {

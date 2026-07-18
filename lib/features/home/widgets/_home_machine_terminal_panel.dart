@@ -1820,7 +1820,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
           if (trailingActions.isNotEmpty) const SizedBox(width: 7),
           _MachineTerminalIconButton(
             icon: Icons.close_rounded,
-            tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
+            tooltip: openHandCloseLabel(context),
             onPressed: onClose,
           ),
         ],

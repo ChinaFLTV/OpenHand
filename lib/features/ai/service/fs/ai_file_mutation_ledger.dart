@@ -232,7 +232,7 @@ class LedgerConfig {
     this.miniDiffMaxBytes = defaultMiniDiffMaxBytes,
   });
 
-  /// 每个会话内同一文件保留的最近 N 条变动。<=0 表示不限制。
+  /// 每个会话内同一文件保留的最近 N 条变动。
   final int maxVersionsPerFile;
 
   /// 自动清理 N 天前的全部变动（启动时触发一次）。<=0 表示禁用。
@@ -244,7 +244,7 @@ class LedgerConfig {
   final int miniDiffMaxBytes;
 
   static const int defaultMaxVersionsPerFile = 10;
-  static const int minMaxVersionsPerFile = 0;
+  static const int minMaxVersionsPerFile = 1;
   static const int maxMaxVersionsPerFile = 200;
   static const int defaultAutoCleanupDays = 30;
   static const int minAutoCleanupDays = 0;
@@ -318,7 +318,7 @@ class LedgerConfig {
   static LedgerConfig fromJson(Map<String, Object?> json) {
     return LedgerConfig(
       maxVersionsPerFile: maxVersionsPerFileFromValue(
-        json['max_versions_per_file'],
+        optionalPositiveIntFromValue(json['max_versions_per_file']),
       ),
       autoCleanupDays: autoCleanupDaysFromValue(json['auto_cleanup_days']),
       miniDiffMaxBytes: miniDiffMaxBytesFromValue(json['mini_diff_max_bytes']),
@@ -428,9 +428,7 @@ class AiFileMutationLedger {
         totalTimeout: _ledgerTreeScanTimeout,
       );
 
-  /// Upper bound for the negative-cache of blob shas that failed legacy
-  /// recovery. Keeps the set from growing without limit across long sessions
-  /// while still skipping repeated lookups for recently-missed shas.
+  /// 旧版 Blob 恢复失败记录的缓存上限，避免长会话持续增长。
   static const int _maxLegacyBlobRecoveryMisses = 4096;
 
   final Random _rand = Random.secure();
@@ -600,8 +598,9 @@ class AiFileMutationLedger {
   Future<void> saveConfig(LedgerConfig config) async {
     try {
       await _ensureInitialized();
-      await writeFileAtomically(_configFile(), jsonEncode(config.toJson()));
-      _cachedConfig = config;
+      final normalized = config.copyWith();
+      await writeFileAtomically(_configFile(), jsonEncode(normalized.toJson()));
+      _cachedConfig = normalized;
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'saveConfig', error, stack);
       rethrow;
@@ -673,21 +672,14 @@ class AiFileMutationLedger {
   Future<void> _runAutoCleanupOnce() async {
     try {
       final config = await loadConfig();
-      var shouldCollectBlobs = false;
       if (config.autoCleanupDays > 0) {
         await _pruneOlderThan(Duration(days: config.autoCleanupDays));
-        shouldCollectBlobs = true;
       }
-      if (config.maxVersionsPerFile > 0) {
-        await _pruneToMaxVersionsPerFile(
-          config.maxVersionsPerFile,
-          initializeRecordReads: false,
-        );
-        shouldCollectBlobs = true;
-      }
-      if (shouldCollectBlobs) {
-        await _gcUnreferencedBlobs(initializeRecordReads: false);
-      }
+      await _pruneToMaxVersionsPerFile(
+        config.maxVersionsPerFile,
+        initializeRecordReads: false,
+      );
+      await _gcUnreferencedBlobs(initializeRecordReads: false);
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'auto cleanup', error, stack);
     }
@@ -828,13 +820,11 @@ class AiFileMutationLedger {
       // 写入后按当前配置即时收紧每文件历史数。autoCleanupDays 在启动时已处理。
       try {
         final cfg = await loadConfig();
-        if (cfg.maxVersionsPerFile > 0) {
-          await _trimSessionFileVersions(
-            normalizedSessionId,
-            record.filePath,
-            cfg.maxVersionsPerFile,
-          );
-        }
+        await _trimSessionFileVersions(
+          normalizedSessionId,
+          record.filePath,
+          cfg.maxVersionsPerFile,
+        );
       } catch (error, stack) {
         silentLog('ai_file_mutation_ledger', 'post-record trim', error, stack);
       }
@@ -896,14 +886,12 @@ class AiFileMutationLedger {
           firstMalformedError ??= error;
           firstMalformedStack ??= stack;
           if (malformedLines >= _maxMalformedLedgerLines) {
-            throw const FormatException(
-              'Ledger malformed record limit exceeded.',
-            );
+            throw const FormatException('变更账本损坏记录数已达到上限。');
           }
         }
       }
       if (hitRecordLimit) {
-        throw const FormatException('Ledger record limit exceeded.');
+        throw const FormatException('变更账本记录数已达到上限。');
       }
       if (malformedLines > 0) {
         silentLog(

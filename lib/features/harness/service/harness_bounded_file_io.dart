@@ -7,8 +7,9 @@ import 'dart:math' as math;
 import 'package:path/path.dart' as p;
 
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/timer_safety.dart';
 
-/// Safety limits shared by Harness prompt-context reads and workspace scans.
+/// Harness 提示词上下文读取与工作区扫描共用的安全限制。
 class HarnessFileIoLimits {
   HarnessFileIoLimits({
     required this.maxScannedFiles,
@@ -28,22 +29,14 @@ class HarnessFileIoLimits {
     };
     for (final entry in positiveIntegers.entries) {
       if (entry.value < 1) {
-        throw ArgumentError.value(entry.value, entry.key, 'Must be positive.');
+        throw ArgumentError.value(entry.value, entry.key, '必须大于零。');
       }
     }
     if (totalTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        totalTimeout,
-        'totalTimeout',
-        'Must be positive.',
-      );
+      throw ArgumentError.value(totalTimeout, 'totalTimeout', '必须大于零。');
     }
     if (operationTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        operationTimeout,
-        'operationTimeout',
-        'Must be positive.',
-      );
+      throw ArgumentError.value(operationTimeout, 'operationTimeout', '必须大于零。');
     }
   }
 
@@ -78,7 +71,7 @@ class HarnessFileSnapshot {
       HarnessFileSnapshot(modified: modified, size: size, content: value);
 }
 
-/// A snapshot is safe to compare only when [complete] is true.
+/// 仅当 [complete] 为 true 时，快照才可安全比较。
 class HarnessDirectorySnapshot {
   HarnessDirectorySnapshot({
     required Map<String, HarnessFileSnapshot> files,
@@ -101,11 +94,10 @@ class HarnessFileScanResult {
   final bool complete;
 }
 
-/// Performs asynchronous Harness file-system work under one aggregate budget.
+/// 在统一总预算内执行 Harness 异步文件系统操作。
 ///
-/// Instances are intentionally short-lived and used sequentially. Directory
-/// enumeration, text decoding, retained content, and elapsed time are all
-/// bounded so project-controlled paths cannot stall or exhaust the UI isolate.
+/// 实例按短生命周期串行使用；目录枚举、文本解码、保留内容与耗时均有上限，
+/// 避免项目路径阻塞或耗尽 UI isolate。
 class HarnessBoundedFileIo {
   HarnessBoundedFileIo(this.limits) : _stopwatch = Stopwatch()..start();
 
@@ -118,9 +110,8 @@ class HarnessBoundedFileIo {
 
   bool get isExpired => _remainingTime <= Duration.zero;
 
-  /// Reads one UTF-8 file without ever retaining more than the configured
-  /// per-file or aggregate byte budgets. Invalid UTF-8 and partial reads are
-  /// treated as unavailable content.
+  /// 读取单个 UTF-8 文件，保留内容不超过单文件及总字节预算。
+  /// 无效 UTF-8 或不完整读取均视为内容不可用。
   Future<HarnessTextFileRead?> readText(
     File file, {
     int? knownSize,
@@ -150,8 +141,8 @@ class HarnessBoundedFileIo {
     return result;
   }
 
-  /// Enumerates files without recursively entering ignored directory names.
-  /// [complete] is false when a count, time, or file-system boundary is hit.
+  /// 枚举文件且不递归进入已忽略目录；触及数量、时间或文件系统边界时，
+  /// [complete] 为 false。
   Future<HarnessFileScanResult> scanFiles(
     Directory root, {
     bool recursive = false,
@@ -221,8 +212,7 @@ class HarnessBoundedFileIo {
     return (await readText(latest, maxBytes: maxBytes))?.text ?? '';
   }
 
-  /// Reads direct child files in enumeration order and joins them while also
-  /// enforcing a local aggregate output limit, including separators.
+  /// 按枚举顺序读取直接子文件并拼接，同时限制包含分隔符的局部输出总量。
   Future<String> readJoinedTextFiles(
     Directory directory, {
     required String separator,
@@ -255,9 +245,8 @@ class HarnessBoundedFileIo {
     return buffer.toString();
   }
 
-  /// Captures bounded metadata for every enumerated file, then uses remaining
-  /// time and bytes to retain UTF-8 content for diffs. Content exhaustion does
-  /// not make the metadata snapshot incomplete.
+  /// 为每个已枚举文件采集有界元数据，再用剩余时间和字节保留差异比较所需的
+  /// UTF-8 内容；内容预算耗尽不会使元数据快照失效。
   Future<HarnessDirectorySnapshot> snapshotDirectory(
     Directory root, {
     Set<String> ignoredNames = const <String>{},
@@ -303,8 +292,7 @@ class HarnessBoundedFileIo {
       final read = await readText(candidate.file, knownSize: candidate.size);
       if (read == null) continue;
       if (read.byteLength != candidate.size) {
-        // The file changed between metadata capture and content retention;
-        // comparing this mixed-generation snapshot could report a false diff.
+        // 文件在元数据采集与内容保留之间发生变化，混合代际快照可能误报差异。
         return HarnessDirectorySnapshot.incomplete();
       }
       snapshots[candidate.relativePath] = snapshots[candidate.relativePath]!
@@ -371,7 +359,7 @@ class HarnessBoundedFileIo {
               .catchError((Object _, StackTrace _) {}),
         );
       } on Object {
-        // The listing has settled; cancellation is best-effort cleanup.
+        // 枚举结果已经确定，取消仅作为尽力清理。
       }
     }
 
@@ -405,7 +393,7 @@ class HarnessBoundedFileIo {
       if (settled) {
         cancelSubscription();
       } else {
-        timer = Timer(timeout, () => settle(false, cancel: true));
+        timer = startSafeTimer(timeout, () => settle(false, cancel: true));
       }
     } on Object {
       settle(false, cancel: true);

@@ -5496,7 +5496,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.close_rounded,
-            tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
+            tooltip: openHandCloseLabel(context),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],

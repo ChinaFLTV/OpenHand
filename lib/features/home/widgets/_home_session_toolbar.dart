@@ -1883,7 +1883,7 @@ class _GoalDetailsDialog extends StatelessWidget {
       actions: [
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
+          label: openHandCloseLabel(context),
         ),
       ],
     );
@@ -2855,7 +2855,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         actions: [
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).maybePop(),
-            label: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
+            label: openHandCloseLabel(context),
           ),
         ],
       );
@@ -3098,7 +3098,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         OpenHandDialogActionButton.secondary(
           onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
           icon: Icons.close_rounded,
-          label: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
+          label: openHandCloseLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: (_busy || disableCompact) ? null : _handleCompactPressed,
@@ -4112,14 +4112,7 @@ class _StreamThrottleSessionDialogState
                   ),
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    label: text(
-                      zh: '取消',
-                      zhHant: '取消',
-                      en: 'Cancel',
-                      fr: 'Annuler',
-                      de: 'Abbrechen',
-                      ja: 'キャンセル',
-                    ),
+                    label: openHandCancelLabel(context),
                   ),
                   OpenHandDialogActionButton.primary(
                     onPressed: () {

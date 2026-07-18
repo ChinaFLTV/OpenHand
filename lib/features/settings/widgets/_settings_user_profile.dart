@@ -328,11 +328,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                           onPressed: _isSaving
                               ? null
                               : () => Navigator.of(context).pop(false),
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '取消',
-                            en: 'Cancel',
-                          ),
+                          label: openHandCancelLabel(context),
                         ),
                         OpenHandDialogActionButton.primary(
                           onPressed: _isSaving ? null : _handleSave,
@@ -430,7 +426,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
         zh: '此操作将永久删除当前用户画像。',
         en: 'This permanently deletes the current user profile.',
       ),
-      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(context, zh: '清空', en: 'Clear'),
       destructive: true,
     );

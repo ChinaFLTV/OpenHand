@@ -1139,15 +1139,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                 ),
                 const SizedBox(width: 10),
                 IconButton.filledTonal(
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '关闭',
-                    zhHant: '關閉',
-                    en: 'Close',
-                    fr: 'Fermer',
-                    de: 'Schließen',
-                    ja: '閉じる',
-                  ),
+                  tooltip: openHandCloseLabel(context),
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -2058,15 +2050,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '取消',
-                        zhHant: '取消',
-                        en: 'Cancel',
-                        fr: 'Annuler',
-                        de: 'Abbrechen',
-                        ja: 'キャンセル',
-                      ),
+                      label: openHandCancelLabel(context),
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(),
@@ -2798,15 +2782,7 @@ class _WebGatewayConnectivityDialogState
                           : const Icon(Icons.refresh_rounded),
                     ),
                     IconButton.filledTonal(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '关闭',
-                        zhHant: '關閉',
-                        en: 'Close',
-                        fr: 'Fermer',
-                        de: 'Schließen',
-                        ja: '閉じる',
-                      ),
+                      tooltip: openHandCloseLabel(context),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -3587,15 +3563,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                           .toList(growable: false),
                     ),
                     IconButton(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '关闭',
-                        zhHant: '關閉',
-                        en: 'Close',
-                        fr: 'Fermer',
-                        de: 'Schließen',
-                        ja: '閉じる',
-                      ),
+                      tooltip: openHandCloseLabel(context),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -5258,15 +5226,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       context: context,
       title: title,
       message: message,
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '确认清理',
@@ -10800,15 +10760,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '关闭',
-                    zhHant: '關閉',
-                    en: 'Close',
-                    fr: 'Fermer',
-                    de: 'Schließen',
-                    ja: '閉じる',
-                  ),
+                  tooltip: openHandCloseLabel(context),
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                 ),

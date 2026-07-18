@@ -154,7 +154,7 @@ Future<bool> _confirmClearLocalCache({
       en: '$titleEnVerb $toolLabel local cache?',
     ),
     message: openHandLocalizedText(context, zh: contentZh, en: contentEn),
-    cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+    cancelLabel: openHandCancelLabel(context),
     confirmLabel: openHandLocalizedText(context, zh: '确认清理', en: 'Clear'),
     destructive: true,
   );
@@ -176,7 +176,7 @@ Future<bool> _confirmClearToolTelemetry({
       zh: '会同时清掉最近 200 条调用记录与每引擎累计成功率/耗时统计。本地缓存 (summary) 不受影响。',
       en: 'Removes the recent call ring buffer (up to 200 entries) and all per-engine success-rate/latency aggregates. Cached summaries are not affected.',
     ),
-    cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+    cancelLabel: openHandCancelLabel(context),
     confirmLabel: openHandLocalizedText(context, zh: '确认清空', en: 'Clear'),
     destructive: true,
   );

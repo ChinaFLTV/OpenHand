@@ -672,15 +672,7 @@ class _HeSteeringFileEditorDialogState
         de: 'Es gibt ungespeicherte Änderungen. Verwerfen?',
         ja: '未保存の変更があります。破棄しますか？',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '放弃',
@@ -1065,15 +1057,7 @@ class _HeSteeringFileEditorDialogState
                         if (context.mounted) Navigator.of(context).pop();
                       }
                     },
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '关闭',
-                      zhHant: '關閉',
-                      en: 'Close',
-                      fr: 'Fermer',
-                      de: 'Schließen',
-                      ja: '閉じる',
-                    ),
+                    label: openHandCloseLabel(context),
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(

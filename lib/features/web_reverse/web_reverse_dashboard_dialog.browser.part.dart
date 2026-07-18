@@ -3159,15 +3159,7 @@ class _FindBar extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             IconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '关闭',
-                zhHant: '關閉',
-                en: 'Close',
-                fr: 'Fermer',
-                de: 'Schließen',
-                ja: '閉じる',
-              ),
+              tooltip: openHandCloseLabel(context),
               visualDensity: VisualDensity.compact,
               iconSize: 16,
               padding: const EdgeInsets.all(6),

@@ -642,15 +642,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Neuen Namen eingeben',
         ja: '新しい名前を入力',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '确定',
@@ -698,15 +690,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Möchtest du "${node.name}" wirklich löschen? Dies kann nicht rückgängig gemacht werden.',
         ja: '"${node.name}" を削除しますか？この操作は元に戻せません。',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '删除',
@@ -2969,14 +2953,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       ),
                     ),
                     IconButton(
-                      tooltip: text(
-                        zh: '关闭',
-                        zhHant: '關閉',
-                        en: 'Close',
-                        fr: 'Fermer',
-                        de: 'Schließen',
-                        ja: '閉じる',
-                      ),
+                      tooltip: openHandCloseLabel(dialogContext),
                       onPressed: () => Navigator.of(dialogContext).pop(false),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -3249,14 +3226,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: () => Navigator.of(dialogContext).pop(false),
-                      label: text(
-                        zh: '取消',
-                        zhHant: '取消',
-                        en: 'Cancel',
-                        fr: 'Annuler',
-                        de: 'Abbrechen',
-                        ja: 'キャンセル',
-                      ),
+                      label: openHandCancelLabel(dialogContext),
                     ),
                     const SizedBox(width: 8),
                     OpenHandDialogActionButton.primary(
@@ -3364,15 +3334,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         de: 'Neuer Name',
         ja: '新しい名前',
       ),
-      cancelLabel: openHandLocalizedText(
-        context,
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
         zh: '应用',
@@ -9767,14 +9729,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             OpenHandDialogActionButton.secondary(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.cancel),
-              label: _editorText(
-                zh: '取消',
-                zhHant: '取消',
-                en: 'Cancel',
-                fr: 'Annuler',
-                de: 'Abbrechen',
-                ja: 'キャンセル',
-              ),
+              label: openHandCancelLabel(dialogContext),
             ),
             OpenHandDialogActionButton.destructive(
               onPressed: () =>
@@ -10049,14 +10004,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: _EditorTabMenuAction.close,
           icon: Icons.close_rounded,
-          label: _editorText(
-            zh: '关闭',
-            zhHant: '關閉',
-            en: 'Close',
-            fr: 'Fermer',
-            de: 'Schließen',
-            ja: '閉じる',
-          ),
+          label: openHandCloseLabel(context),
         ),
         buildItem(
           value: _EditorTabMenuAction.closeOthers,
@@ -11067,14 +11015,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              label: _editorText(
-                zh: '取消',
-                zhHant: '取消',
-                en: 'Cancel',
-                fr: 'Annuler',
-                de: 'Abbrechen',
-                ja: 'キャンセル',
-              ),
+              label: openHandCancelLabel(dialogContext),
             ),
           ],
         );

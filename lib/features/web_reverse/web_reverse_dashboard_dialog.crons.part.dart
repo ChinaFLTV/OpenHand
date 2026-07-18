@@ -258,14 +258,7 @@ class _CronsBodyState extends State<_CronsBody> {
         de: 'Der Timer wird beendet.',
         ja: 'タイマーは直ちに解除されます。',
       ),
-      cancelLabel: _text(
-        zh: '取消',
-        zhHant: '取消',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: 'キャンセル',
-      ),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: _text(
         zh: '删除',
         zhHant: '刪除',

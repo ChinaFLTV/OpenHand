@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../util/async_concurrency.dart';
+import '../util/timer_safety.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
@@ -155,7 +156,7 @@ Stream<List<int>> limitByteStream(
     final timeout = idleTimeout;
     if (timeout == null || settled) return;
     idleTimer?.cancel();
-    idleTimer = Timer(
+    idleTimer = startSafeTimer(
       timeout,
       () => terminate(_idleTimeoutException(timeout), StackTrace.current),
     );
@@ -166,7 +167,7 @@ Stream<List<int>> limitByteStream(
     onListen: () {
       final timeout = totalTimeout;
       if (timeout != null) {
-        totalTimer = Timer(
+        totalTimer = startSafeTimer(
           timeout,
           () => terminate(_totalTimeoutException(timeout), StackTrace.current),
         );
@@ -308,14 +309,14 @@ Future<Uint8List> _consumeByteStream(
 
   void resetIdleTimer() {
     idleTimer?.cancel();
-    idleTimer = Timer(
+    idleTimer = startSafeTimer(
       idleTimeout,
       () => fail(_idleTimeoutException(idleTimeout), StackTrace.current),
     );
   }
 
   if (totalTimeout != null) {
-    totalTimer = Timer(
+    totalTimer = startSafeTimer(
       totalTimeout,
       () => fail(_totalTimeoutException(totalTimeout), StackTrace.current),
     );

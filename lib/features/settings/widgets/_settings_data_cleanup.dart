@@ -943,9 +943,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (cfg.autoCleanupDays > 0) {
         await _ledger.pruneOlderThan(Duration(days: cfg.autoCleanupDays));
       }
-      if (cfg.maxVersionsPerFile > 0) {
-        await _ledger.pruneToMaxVersionsPerFile(cfg.maxVersionsPerFile);
-      }
+      await _ledger.pruneToMaxVersionsPerFile(cfg.maxVersionsPerFile);
       final gc = await _ledger.gcUnreferencedBlobs();
       if (mounted) {
         setState(() => _lastGcStats = gc);
@@ -1200,13 +1198,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   zh: '每文件最多保留 N 条历史',
                   en: 'Max versions per file',
                 ),
-                valueText: config.maxVersionsPerFile == 0
-                    ? openHandLocalizedText(context, zh: '不限制', en: 'Unlimited')
-                    : '${config.maxVersionsPerFile}',
+                valueText: '${config.maxVersionsPerFile}',
                 value: config.maxVersionsPerFile.toDouble(),
                 min: LedgerConfig.minMaxVersionsPerFile.toDouble(),
                 max: LedgerConfig.maxMaxVersionsPerFile.toDouble(),
-                divisions: LedgerConfig.maxMaxVersionsPerFile,
+                divisions:
+                    LedgerConfig.maxMaxVersionsPerFile -
+                    LedgerConfig.minMaxVersionsPerFile,
                 onChanged: (v) => _scheduleSave(
                   config.copyWith(maxVersionsPerFile: v.round()),
                 ),
@@ -1576,11 +1574,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                     const Spacer(),
                     IconButton(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '关闭',
-                        en: 'Close',
-                      ),
+                      tooltip: openHandCloseLabel(context),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded, size: 18),
                     ),

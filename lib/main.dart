@@ -156,7 +156,7 @@ Future<void> _bootstrap() async {
   try {
     await DatabaseService.initialize();
   } catch (error, stackTrace) {
-    debugPrint('Fatal: database initialization failed: $error\n$stackTrace');
+    debugPrint('致命错误：数据库初始化失败：$error\n$stackTrace');
     runApp(
       Directionality(
         textDirection: TextDirection.ltr,

@@ -41,7 +41,7 @@ class AiSessionLoadResult {
   final List<AiSessionPersistenceIssue> issues;
 }
 
-/// Provides a page of messages for lazy-loading scenarios.
+/// 面向懒加载场景的有界消息页。
 class AiSessionMessagePage {
   const AiSessionMessagePage({
     required this.messages,
@@ -846,12 +846,10 @@ class AiSessionStore {
     return _sessionFromRowCooperatively(rows.first, messageRows);
   }
 
-  /// Loads a single session with only the newest [limit] message rows.
+  /// 仅加载会话最新的 [limit] 条消息。
   ///
-  /// This is the fast path used by the APP transcript when opening an
-  /// existing long thread. It keeps the first interactive frame independent of
-  /// total transcript size; callers can later promote to [loadSession] when
-  /// full prompt history is required.
+  /// 这是长会话首次打开时的快速路径，使首个可交互帧不受历史总量影响；
+  /// 后续需要完整提示词历史时再通过 [loadSession] 升级加载。
   Future<AiSession?> loadSessionTailWindow(
     String sessionId, {
     required int limit,
@@ -944,10 +942,8 @@ class AiSessionStore {
         messageTotalCount: totalCount,
       );
     }
-    // Tail-window hydration is for first paint only. Restoring an older
-    // compression sidecar into a partial tail would both add extra disk I/O to
-    // the open path and place that historical checkpoint at the visible tail.
-    // Full-session loaders still restore the sidecar before prompt building.
+    // 尾部窗口只服务首屏。向局部尾窗恢复旧压缩旁路文件既会增加磁盘开销，
+    // 也会把历史检查点错误放到可见尾部；完整加载仍会在构建提示词前恢复。
     return session.hasCompleteMessages
         ? restoreCompressionCheckpointFromSidecar(session)
         : session;
@@ -958,8 +954,8 @@ class AiSessionStore {
     required int totalCount,
   }) {
     if (totalCount <= 0) return 0;
-    if (requestedLimit <= 0) return totalCount;
-    return math.min(requestedLimit, totalCount);
+    final safeLimit = requestedLimit.clamp(1, _kMessageBatchSize);
+    return math.min(safeLimit, totalCount);
   }
 
   int _messageWindowStartOffset(
@@ -1151,10 +1147,10 @@ class AiSessionStore {
     );
   }
 
-  /// Loads a page of messages for a session (for lazy / paginated loading).
+  /// 分页加载会话消息，按 [sort_order] 升序返回。
   ///
-  /// Messages are ordered by [sort_order] ascending.
-  /// [offset] is 0-based.  Pass [limit] = -1 to load all remaining.
+  /// [offset] 从零开始；[limit] 始终限制在 1 至 [_kMessageBatchSize]，
+  /// 防止异常参数退化为全量历史加载。
   Future<AiSessionMessagePage> loadMessages(
     String sessionId, {
     int limit = 50,
@@ -1163,9 +1159,10 @@ class AiSessionStore {
   }) async {
     final totalCount = await _countMessages(sessionId);
     final safeOffset = math.min(math.max(0, offset), totalCount);
+    final safeLimit = limit.clamp(1, _kMessageBatchSize);
     final messages = await _loadMessageBatch(
       sessionId,
-      limit: limit,
+      limit: safeLimit,
       offset: safeOffset,
       deferTelemetryMetadata: deferTelemetryMetadata,
     );
@@ -1200,7 +1197,7 @@ class AiSessionStore {
       where: 'session_id = ?',
       whereArgs: <Object?>[sessionId],
       orderBy: 'sort_order ASC',
-      limit: limit > 0 ? limit : null,
+      limit: limit,
       offset: offset,
       deferTelemetryMetadata: deferTelemetryMetadata,
     );

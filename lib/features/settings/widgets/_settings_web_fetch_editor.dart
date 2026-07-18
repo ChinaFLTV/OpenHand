@@ -208,7 +208,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         zh: '会执行 python -m pip uninstall -y scrapling，并重置当前 Scrapling 本地运行时。',
         en: 'This runs python -m pip uninstall -y scrapling and resets the current local Scrapling runtime.',
       ),
-      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(context, zh: '确认卸载', en: 'Uninstall'),
       destructive: true,
     );
@@ -650,8 +650,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   ),
                   helperText: openHandLocalizedText(
                     context,
-                    zh: '默认 50 MB; 0 = 不限 (不推荐)',
-                    en: 'Default 50 MB; 0 = unlimited (not recommended)',
+                    zh: '默认 50 MB；范围 1 MB–2 GB',
+                    en: 'Default 50 MB; range 1 MB–2 GB',
                   ),
                 ),
                 onChanged: (s) {

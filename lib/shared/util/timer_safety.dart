@@ -268,7 +268,7 @@ class _NonOverlappingPeriodicTimerGate {
       onError: onError,
     );
     if (!cancelOnCallbackTimeout) {
-      // Keep the gate closed until the slow callback actually settles.
+      // 慢回调真正结束前保持门闩关闭，避免并发重入。
       await pending;
       return;
     }
@@ -292,7 +292,7 @@ void _handleTimerCallbackTimeout({
     timer.cancel();
   }
   _reportTimerError(
-    TimeoutException('Periodic timer callback exceeded $timeout', timeout),
+    TimeoutException('周期定时器回调超过时限 $timeout', timeout),
     StackTrace.current,
     zone,
     onError,

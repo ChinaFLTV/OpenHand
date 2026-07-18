@@ -567,15 +567,7 @@ class _KnowledgeSourceContentDialogState
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: openHandLocalizedText(
-            context,
-            zh: '关闭',
-            zhHant: '關閉',
-            en: 'Close',
-            fr: 'Fermer',
-            de: 'Schließen',
-            ja: '閉じる',
-          ),
+          label: openHandCloseLabel(context),
         ),
       ],
     );

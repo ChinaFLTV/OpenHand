@@ -460,8 +460,7 @@ class AiSessionController extends ChangeNotifier {
   /// 手动压缩拒绝阈值——percentLeft 高于该值（即 prompt 占比很低）时
   /// 拒绝触发，避免「0% 占比下也强行压缩」。
   static const int _manualCompactionRefusePercentLeftAbove = 85;
-  // Keep store-side first-open load aligned with transcript UI window bounds
-  // so large sessions never decode hundreds of rows before first paint.
+  // 首次打开时与消息列表窗口保持一致，避免长会话在首帧前解码大量消息。
   static const int _initialMessageHydrationWindowSize = 8;
   static const int _initialMessageHydrationCharacterBudget = 14000;
   static const int _olderMessageHydrationBatchSize = 12;
@@ -871,8 +870,6 @@ class AiSessionController extends ChangeNotifier {
       <String, String>{};
   final Map<String, int> _sessionMessageWindowHydrationGenerations =
       <String, int>{};
-  final Map<String, Timer> _sessionMessageWindowHydrationTimers =
-      <String, Timer>{};
   final Map<String, Future<AiSessionMessage?>> _sessionMessageContentLoadTasks =
       <String, Future<AiSessionMessage?>>{};
   final Map<String, int> _sessionMessageContentLoadGenerations =
@@ -1531,12 +1528,6 @@ class AiSessionController extends ChangeNotifier {
     _sessionMessageWindowHydrationGenerations.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
-    for (final entry in _sessionMessageWindowHydrationTimers.entries.toList()) {
-      if (!liveSessionIds.contains(entry.key)) {
-        entry.value.cancel();
-        _sessionMessageWindowHydrationTimers.remove(entry.key);
-      }
-    }
     _lastCharThroughputSnapshot.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
@@ -1829,19 +1820,21 @@ class AiSessionController extends ChangeNotifier {
     _sessionMessageWindowLoadErrors.remove(normalizedSessionId);
     _hydratingSessionMessageIds.add(normalizedSessionId);
     notifyListeners();
-    final task = _hydrateSessionMessageWindow(
-      normalizedSessionId,
-      generation: generation,
-    );
+    final task =
+        _hydrateSessionMessageWindow(
+          normalizedSessionId,
+          generation: generation,
+        ).timeout(
+          _initialMessageHydrationTimeout,
+          onTimeout: () {
+            _handleSessionMessageWindowHydrationTimeout(
+              normalizedSessionId,
+              generation,
+            );
+            return null;
+          },
+        );
     _sessionMessageWindowHydrationTasks[normalizedSessionId] = task;
-    _sessionMessageWindowHydrationTimers.remove(normalizedSessionId)?.cancel();
-    _sessionMessageWindowHydrationTimers[normalizedSessionId] = Timer(
-      _initialMessageHydrationTimeout,
-      () => _handleSessionMessageWindowHydrationTimeout(
-        normalizedSessionId,
-        generation,
-      ),
-    );
     return task;
   }
 
@@ -1851,7 +1844,6 @@ class AiSessionController extends ChangeNotifier {
   ) {
     if (!_isCurrentSessionMessageWindowAttempt(sessionId, generation)) return;
     _sessionMessageWindowHydrationGenerations[sessionId] = generation + 1;
-    _sessionMessageWindowHydrationTimers.remove(sessionId)?.cancel();
     _sessionMessageWindowHydrationTasks.remove(sessionId);
     _hydratingSessionMessageIds.remove(sessionId);
     _sessionMessageWindowLoadErrors[sessionId] = '加载会话历史超时，请重试。';
@@ -1862,7 +1854,6 @@ class AiSessionController extends ChangeNotifier {
     final nextGeneration =
         (_sessionMessageWindowHydrationGenerations[sessionId] ?? 0) + 1;
     _sessionMessageWindowHydrationGenerations[sessionId] = nextGeneration;
-    _sessionMessageWindowHydrationTimers.remove(sessionId)?.cancel();
     _sessionMessageWindowHydrationTasks.remove(sessionId);
     _hydratingSessionMessageIds.remove(sessionId);
   }
@@ -2272,12 +2263,7 @@ class AiSessionController extends ChangeNotifier {
       }
       return effective;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'hydrate session message window',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '加载会话消息窗口', error, stack);
       if (_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
         _sessionMessageWindowLoadErrors[sessionId] =
             _friendlyAiSessionPersistenceError(error, operation: 'load');
@@ -2285,7 +2271,6 @@ class AiSessionController extends ChangeNotifier {
       return null;
     } finally {
       if (_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
-        _sessionMessageWindowHydrationTimers.remove(sessionId)?.cancel();
         _sessionMessageWindowHydrationTasks.remove(sessionId);
         _hydratingSessionMessageIds.remove(sessionId);
         notifyListeners();
@@ -2327,12 +2312,7 @@ class AiSessionController extends ChangeNotifier {
         _scheduleResponseRegenerationRecoveryPersistence(sessionId);
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'persist hydrated session normalization',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '持久化会话加载修复结果', error, stack);
     }
   }
 
@@ -6792,10 +6772,6 @@ class AiSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
-    for (final timer in _sessionMessageWindowHydrationTimers.values) {
-      timer.cancel();
-    }
-    _sessionMessageWindowHydrationTimers.clear();
     _sessionMessageWindowHydrationTasks.clear();
     _sessionMessageWindowHydrationGenerations.clear();
     _sessionMessageContentLoadTasks.clear();

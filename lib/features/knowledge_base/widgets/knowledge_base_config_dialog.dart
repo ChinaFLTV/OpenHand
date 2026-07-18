@@ -2207,14 +2207,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          label: t(
-            zh: '取消',
-            zhHant: '取消',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: 'キャンセル',
-          ),
+          label: openHandCancelLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _saving ? null : _save,

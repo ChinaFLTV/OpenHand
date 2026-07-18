@@ -1,26 +1,20 @@
 import 'package:flutter/widgets.dart';
 
-/// Single source of truth for in-widget, locale-based text selection.
+/// 组件内按语言选择文本的唯一入口。
 ///
-/// Historically each feature library defined its own private `_localizedText`
-/// helper with subtly different locale checks (`== 'zh'`, `startsWith('zh')`,
-/// `.toLowerCase() == 'zh'`). Those diverged on variants such as `zh-Hans`,
-/// `zh_CN` or upper-cased tags. This module unifies the check so every surface
-/// resolves Chinese locales identically.
+/// 旧代码曾在各功能模块重复实现 `_localizedText`，且中文判断规则不一致。
+/// 此处统一处理 `zh-Hans`、`zh_CN` 及大小写变体。
 
-/// Whether the active locale should render Chinese copy.
-///
-/// Matches any Chinese variant (`zh`, `zh_CN`, `zh-Hans`, `ZH`, ...) by doing a
-/// case-insensitive prefix match on the language subtag.
+/// 当前语言是否应显示中文文本。
 bool openHandIsChineseLocale(BuildContext context) {
   final languageCode = Localizations.localeOf(context).languageCode;
   return languageCode.toLowerCase().startsWith('zh');
 }
 
-/// Returns text for the active OpenHand locale with conservative fallback.
+/// 按当前语言返回文本，并执行保守回退。
 ///
-/// Prefer generated [AppLocalizations] for user-facing app copy. This helper is
-/// for compact shared widgets and legacy surfaces that still accept inline copy.
+/// 正式界面文本优先使用生成的 AppLocalizations；此方法仅服务紧凑公共组件及
+/// 仍使用内联文本的旧界面。
 String openHandLocalizedText(
   BuildContext context, {
   required String zh,
@@ -43,10 +37,27 @@ String openHandLocalizedText(
   );
 }
 
-/// Returns text for an explicit locale.
+/// 公共“取消”标签，避免各弹窗重复维护同一组多语言文本。
+String openHandCancelLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '取消', en: 'Cancel');
+}
+
+/// 公共“关闭”标签，避免各弹窗重复维护同一组多语言文本。
+String openHandCloseLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '关闭',
+    zhHant: '關閉',
+    en: 'Close',
+    fr: 'Fermer',
+    de: 'Schließen',
+    ja: '閉じる',
+  );
+}
+
+/// 按明确指定的语言返回文本。
 ///
-/// Use this from services/controllers that must produce user-visible copy
-/// without a [BuildContext], such as desktop notifications.
+/// 供没有 [BuildContext] 但必须生成用户可见文本的服务或控制器使用。
 String openHandLocalizedTextForLocale(
   Locale locale, {
   required String zh,
@@ -74,7 +85,7 @@ String openHandLocalizedTextForLocale(
   }
 }
 
-/// Returns text for a platform locale name such as `zh_CN`, `zh-Hant`, or `fr`.
+/// 按 `zh_CN`、`zh-Hant`、`fr` 等平台语言名称返回文本。
 String openHandLocalizedTextForLocaleName(
   String localeName, {
   required String zh,

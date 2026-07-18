@@ -1443,15 +1443,7 @@ class _WebReverseDashboardDialogState
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '关闭',
-              zhHant: '關閉',
-              en: 'Close',
-              fr: 'Fermer',
-              de: 'Schliessen',
-              ja: '閉じる',
-            ),
+            tooltip: openHandCloseLabel(context),
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close_rounded),
           ),

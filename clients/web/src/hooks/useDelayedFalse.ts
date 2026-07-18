@@ -4,8 +4,7 @@ import { useTimeoutController } from './useTimeoutController';
 
 const MAX_DELAYED_FALSE_MS = 5 * 60 * 1000;
 
-// True edges apply immediately; false edges wait for [delayMs].
-// Useful for smoothing short idle gaps without duplicating timer cleanup code.
+// true 立即生效，false 延迟 [delayMs]，用于平滑短暂空闲且统一定时器清理。
 export function useDelayedFalse(value: boolean, delayMs: number): boolean {
   const [stableValue, setStableValue] = useState(value);
   const { clearTimer, scheduleTimer } = useTimeoutController();

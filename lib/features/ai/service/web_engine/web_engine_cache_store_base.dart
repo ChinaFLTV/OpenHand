@@ -99,7 +99,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         silentLog(
           logTag,
           'totalBytesOnDisk',
-          StateError('Web engine cache measurement reached its safety limit.'),
+          StateError('Web 引擎缓存空间统计已达到安全上限。'),
           StackTrace.current,
         );
       }
@@ -118,9 +118,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       try {
         final complete = await clearWebEngineDirectoryBounded(dir);
         if (!complete) {
-          throw StateError(
-            'Web engine cache cleanup reached its safety limit.',
-          );
+          throw StateError('Web 引擎缓存清理已达到安全上限。');
         }
       } catch (error, stack) {
         silentLog(logTag, 'clearAll', error, stack);
@@ -163,7 +161,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                 final decoded = await readWebEngineJsonFile(indexFile);
                 if (decoded is Map) root = stringKeyedMapFromValue(decoded);
               } catch (_) {
-                /* corrupt index: 视作空 */
+                /* 索引损坏时按空索引处理。 */
               }
             }
             final entries = webEngineCacheEntriesFromValue(root['entries']);
@@ -194,7 +192,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                   try {
                     await f.delete().timeout(deadline.nextOperationTimeout());
                   } catch (_) {
-                    /* tolerate */
+                    /* 删除失败不影响其余缓存自愈。 */
                   }
                 }
                 removedExpired++;
@@ -230,11 +228,11 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                   );
                   removedOrphanFiles++;
                 } catch (_) {
-                  /* tolerate */
+                  /* 删除失败不影响其余缓存自愈。 */
                 }
               }
             } catch (_) {
-              /* tolerate listing failure */
+              /* 枚举失败时保留现有索引。 */
             }
 
             root['entries'] = entries;
@@ -269,7 +267,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     return completer.future;
   }
 
-  // protected helpers (子类的 typed lookup/store 调用)
+  // 供子类的强类型查询和写入逻辑调用。
   /// 命中查询：未启用 / 不存在 / 过期 / payload 文件丢失 → 全部返回 null。
   /// 命中后异步触发 `_touchAccess` 更新 last_accessed_at。
   Future<WebEngineCacheRawLookup?> baseLookup({
@@ -359,9 +357,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     final payloadFile = File(p.join(dir.path, payloadRel));
     final encoded = utf8.encode(payload);
     final configuredCap = cacheMaxBytes(settings);
-    final payloadLimit = configuredCap > 0
-        ? configuredCap.clamp(1, webEngineMaxPayloadFileBytes)
+    final safeCap = configuredCap > 0
+        ? configuredCap
         : webEngineMaxPayloadFileBytes;
+    final payloadLimit = safeCap.clamp(1, webEngineMaxPayloadFileBytes);
     if (encoded.length > payloadLimit) return;
     await writeFileAtomically(payloadFile, payload);
 
@@ -372,7 +371,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         final decoded = await readWebEngineJsonFile(indexFile);
         if (decoded is Map) root = stringKeyedMapFromValue(decoded);
       } catch (_) {
-        /* keep empty root */
+        /* 索引损坏时按空索引处理。 */
       }
     }
     final entries = webEngineCacheEntriesFromValue(root['entries']);
@@ -419,10 +418,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     root['entries'] = entries;
     await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
 
-    final cap = cacheMaxBytes(settings);
-    if (cap > 0) {
-      await _enforceCap(cap);
-    }
+    await _enforceCap(safeCap);
   }
 
   Future<void> _touchAccess(String key) async {
@@ -480,7 +476,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       silentLog(
         logTag,
         'enforceCap/measure',
-        StateError('Web engine cache measurement reached its safety limit.'),
+        StateError('Web 引擎缓存空间统计已达到安全上限。'),
         StackTrace.current,
       );
       return;

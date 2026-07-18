@@ -2150,15 +2150,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       de: 'HTML-Vorschau',
       ja: 'HTML プレビュー',
     );
-    final closeText = openHandLocalizedText(
-      context,
-      zh: '关闭',
-      zhHant: '關閉',
-      en: 'Close',
-      fr: 'Fermer',
-      de: 'Schließen',
-      ja: '閉じる',
-    );
+    final closeText = openHandCloseLabel(context);
     final openInBrowserText = openHandLocalizedText(
       context,
       zh: '在浏览器中打开',

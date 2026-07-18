@@ -219,14 +219,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
             ),
             actions: [
               OpenHandDialogActionButton.secondary(
-                label: _text(
-                  zh: '取消',
-                  zhHant: '取消',
-                  en: 'Cancel',
-                  fr: 'Annuler',
-                  de: 'Abbrechen',
-                  ja: 'キャンセル',
-                ),
+                label: openHandCancelLabel(dialogContext),
                 onPressed: () => Navigator.of(dialogContext).pop(),
               ),
               OpenHandDialogActionButton.primary(
