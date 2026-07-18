@@ -19,14 +19,18 @@ const int _minAiHookCapturedOutputBytes = 16 * 1024;
 const int _maxAiHookPayloadBytes = 4 * 1024 * 1024;
 const int _maxAiHookConfigBytes = 2 * 1024 * 1024;
 const int _maxAiHookPresenceCacheEntries = 128;
+const int _maxAiHookCommandCharacters = 64 * 1024;
+const int _maxAiHookResultItems = 64;
+const int _maxAiHookResultCharacters = 4 * 1024 * 1024;
+const int _defaultMaxAiHookCommandsPerInvocation = 64;
+const Duration _defaultAiHookInvocationTimeout = Duration(minutes: 2);
 
 const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
 const String aiUserPromptHookFeedbackMetadataKey =
     'user_prompt_submit_hook_feedback';
 
-/// Metadata key used to persist the user's explicit skill selection on a
-/// user message, so the transcript bubble can render a skill capsule under
-/// the timestamp similar to the creation-mode chip.  Value shape:
+/// 在用户消息元数据中保存显式技能选择，供会话气泡在时间戳下方渲染技能标签。
+/// 数据结构：
 ///   { 'name': String, 'path': String, 'icon': String? }
 const String aiUserSkillSelectionMetadataKey = 'user_skill_selection';
 
@@ -88,6 +92,8 @@ class AiClaudeHookService {
     String Function()? applicationDirectoryPath,
     String Function()? homeDirectoryPath,
     Duration? commandTimeout,
+    Duration invocationTimeout = _defaultAiHookInvocationTimeout,
+    int maxCommandsPerInvocation = _defaultMaxAiHookCommandsPerInvocation,
     Duration configPresenceCacheTtl = const Duration(seconds: 3),
     DateTime Function()? clock,
   }) : _applicationDirectoryPath =
@@ -95,14 +101,24 @@ class AiClaudeHookService {
        _homeDirectoryPath =
            homeDirectoryPath ?? OpenHandPaths.homeDirectoryPath,
        _commandTimeout = commandTimeout ?? const Duration(seconds: 12),
+       _invocationTimeout = invocationTimeout,
+       _maxCommandsPerInvocation = maxCommandsPerInvocation,
        _configPresenceCacheTtl = configPresenceCacheTtl,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now {
+    if (_commandTimeout <= Duration.zero ||
+        _invocationTimeout <= Duration.zero ||
+        _maxCommandsPerInvocation < 1) {
+      throw ArgumentError('Hook 超时和单次命令上限必须大于零。');
+    }
+  }
 
   int maxHookTextCharacters = 4000;
 
   final String Function() _applicationDirectoryPath;
   final String Function() _homeDirectoryPath;
   final Duration _commandTimeout;
+  final Duration _invocationTimeout;
+  final int _maxCommandsPerInvocation;
   final Duration _configPresenceCacheTtl;
   final DateTime Function() _clock;
   final LifecycleLruCache<_AiCachedHookConfigPresence> _configPresenceCache =
@@ -163,8 +179,16 @@ class AiClaudeHookService {
     final usageRecords = <AiClaudeHookUsageRecord>[];
     String? blockReason;
     var executedHookCount = 0;
+    final invocationStopwatch = Stopwatch()..start();
 
     for (final entry in configuredHooks.entries) {
+      final remainingMicroseconds =
+          _invocationTimeout.inMicroseconds -
+          invocationStopwatch.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) {
+        systemReminders.add('Hook 执行达到单次总时限，剩余命令已跳过。');
+        break;
+      }
       executedHookCount += 1;
       executedCommands.add(entry.command);
       final stopwatch = Stopwatch()..start();
@@ -173,6 +197,10 @@ class AiClaudeHookService {
           command: entry.command,
           payload: effectivePayload,
           workingDirectory: workingDirectory,
+          timeout:
+              Duration(microseconds: remainingMicroseconds) < _commandTimeout
+              ? Duration(microseconds: remainingMicroseconds)
+              : _commandTimeout,
         );
         final parsed = _parseHookCommandResult(
           commandResult: commandResult,
@@ -217,9 +245,10 @@ class AiClaudeHookService {
             errorSummary: '$error',
           ),
         );
-        systemReminders.add('Hook command failed to start: $error');
+        systemReminders.add('Hook 命令启动失败：$error');
       }
     }
+    invocationStopwatch.stop();
 
     final recorder = _usageRecorder;
     if (recorder != null && usageRecords.isNotEmpty) {
@@ -278,6 +307,7 @@ class AiClaudeHookService {
     required String command,
     required Map<String, Object?> payload,
     required String workingDirectory,
+    required Duration timeout,
   }) async {
     final shellCommand = _resolveShellCommand(command);
     final payloadBytes = _encodeBoundedHookPayload(payload);
@@ -294,7 +324,7 @@ class AiClaudeHookService {
       shellCommand.executable,
       shellCommand.arguments,
       stdinBytes: payloadBytes,
-      timeout: _commandTimeout,
+      timeout: timeout,
       tag: 'ai_claude_hook_service',
       workingDirectory: workingDirectory,
       maxStdoutBytes: captureBytes,
@@ -308,7 +338,7 @@ class AiClaudeHookService {
       throw ProcessException(
         shellCommand.executable,
         shellCommand.arguments,
-        'Hook process could not be executed safely.',
+        '无法安全执行 Hook 进程。',
       );
     }
     return _AiHookCommandResult(
@@ -361,6 +391,7 @@ class AiClaudeHookService {
     final loadedConfigPaths = <String>[];
     final entries = <_AiConfiguredHookEntry>[];
     for (final filePath in _candidateConfigPaths(cwd)) {
+      if (entries.length >= _maxCommandsPerInvocation) break;
       final file = File(filePath);
       if (!await file.exists()) {
         continue;
@@ -385,6 +416,7 @@ class AiClaudeHookService {
         }
         var entryIndex = 0;
         for (final group in eventHooks) {
+          if (entries.length >= _maxCommandsPerInvocation) break;
           if (group is! Map) {
             continue;
           }
@@ -397,12 +429,15 @@ class AiClaudeHookService {
             continue;
           }
           for (final hookItem in hookItems) {
+            if (entries.length >= _maxCommandsPerInvocation) break;
             if (hookItem is! Map) {
               continue;
             }
             final type = '${hookItem['type'] ?? ''}'.trim();
             final command = '${hookItem['command'] ?? ''}'.trim();
-            if (type != 'command' || command.isEmpty) {
+            if (type != 'command' ||
+                command.isEmpty ||
+                command.length > _maxAiHookCommandCharacters) {
               continue;
             }
             entries.add(
@@ -503,19 +538,17 @@ class AiClaudeHookService {
     }
 
     if (commandResult.timedOut) {
-      systemReminders.add('Hook command timed out and was terminated.');
+      systemReminders.add('Hook 命令执行超时，已终止。');
     } else if (commandResult.exitCode != null &&
         commandResult.exitCode != 0 &&
         blockReason == null) {
       if (commandResult.exitCode == 2) {
-        blockReason = combinedText.isEmpty
-            ? 'Blocked by hook command.'
-            : combinedText;
+        blockReason = combinedText.isEmpty ? 'Hook 命令已阻止本次操作。' : combinedText;
       } else {
         systemReminders.add(
           combinedText.isEmpty
-              ? 'Hook command failed with exit code ${commandResult.exitCode}.'
-              : 'Hook command failed with exit code ${commandResult.exitCode}: $combinedText',
+              ? 'Hook 命令执行失败，退出码：${commandResult.exitCode}。'
+              : 'Hook 命令执行失败，退出码：${commandResult.exitCode}：$combinedText',
         );
       }
     }
@@ -534,7 +567,7 @@ class AiClaudeHookService {
         jsonPayload['reason'],
         jsonPayload['message'],
       ]);
-      return reason ?? 'Blocked by hook decision.';
+      return reason ?? 'Hook 决策已阻止本次操作。';
     }
 
     final permissionDecision = '${jsonPayload['permissionDecision'] ?? ''}'
@@ -546,7 +579,7 @@ class AiClaudeHookService {
             jsonPayload['reason'],
             jsonPayload['message'],
           ]) ??
-          'Blocked by hook permission decision.';
+          'Hook 权限决策已阻止本次操作。';
     }
 
     final hookSpecificOutput = jsonPayload['hookSpecificOutput'];
@@ -560,7 +593,7 @@ class AiClaudeHookService {
             outputMap['reason'],
             outputMap['message'],
           ]) ??
-          'Blocked by hook decision.';
+          'Hook 决策已阻止本次操作。';
     }
     final nestedPermissionDecision = '${outputMap['permissionDecision'] ?? ''}'
         .trim()
@@ -572,7 +605,7 @@ class AiClaudeHookService {
             outputMap['reason'],
             outputMap['message'],
           ]) ??
-          'Blocked by hook permission decision.';
+          'Hook 权限决策已阻止本次操作。';
     }
     return null;
   }
@@ -653,18 +686,38 @@ class AiClaudeHookService {
     final captureReachedLimit =
         utf8.encode(capturedText).length >= captureBytes;
     if (preview == normalized && !captureReachedLimit) return normalized;
-    return preview.isEmpty ? '...[truncated]' : '$preview\n...[truncated]';
+    return preview.isEmpty ? '...[已截断]' : '$preview\n...[已截断]';
   }
 
   List<String> _deduplicate(List<String> items) {
     final seen = <String>{};
     final result = <String>[];
+    final perItemLimit =
+        AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(
+          maxHookTextCharacters,
+        );
+    final totalLimit = (perItemLimit * 4)
+        .clamp(perItemLimit, _maxAiHookResultCharacters)
+        .toInt();
+    var retainedCharacters = 0;
     for (final item in items) {
       final trimmed = item.trim();
       if (trimmed.isEmpty || !seen.add(trimmed)) {
         continue;
       }
-      result.add(trimmed);
+      if (result.length >= _maxAiHookResultItems ||
+          retainedCharacters >= totalLimit) {
+        break;
+      }
+      final remaining = totalLimit - retainedCharacters;
+      final retained = clipText(
+        trimmed,
+        remaining < perItemLimit ? remaining : perItemLimit,
+        suffix: '',
+      );
+      if (retained.isEmpty) break;
+      result.add(retained);
+      retainedCharacters += retained.length;
     }
     return result;
   }

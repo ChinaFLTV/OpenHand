@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
+import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
+import 'package:openhand/features/ai/service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 import 'package:openhand/shared/util/bounded_log_buffer.dart';
 import 'package:openhand/shared/util/html_webview_mount_limiter.dart';
 
@@ -63,5 +68,78 @@ void main() {
 
     expect(buffer.snapshot(), <String>['defghi']);
     expect(buffer.characterCount, 6);
+  });
+
+  test('ToolSearch 跟踪限制会话、工具名和历史容量', () {
+    final tracker = McpLoadedToolsTracker(
+      maxTrackedSessions: 2,
+      maxNamesPerSession: 3,
+      maxHistoryPerSession: 2,
+      maxNameCharacters: 3,
+      maxQueryCharacters: 4,
+    );
+    addTearDown(tracker.dispose);
+
+    tracker
+      ..absorb(sessionId: 's1', loadedNamesRaw: <String>['toolong', 'a'])
+      ..absorb(sessionId: 's1', loadedNamesRaw: <String>['b'])
+      ..absorb(
+        sessionId: 's1',
+        loadedNamesRaw: <String>['c'],
+        queryRaw: '12345',
+      )
+      ..absorb(sessionId: 's1', loadedNamesRaw: <String>['d']);
+    expect(tracker.namesForSession('s1'), <String>['a', 'b', 'c']);
+    expect(tracker.historyForSession('s1'), hasLength(2));
+    expect(tracker.historyForSession('s1').last.query, '1234');
+
+    tracker
+      ..absorb(sessionId: 's2', loadedNamesRaw: <String>['d'])
+      ..absorb(sessionId: 's3', loadedNamesRaw: <String>['e']);
+
+    expect(tracker.namesForSession('s1'), isEmpty);
+    expect(tracker.namesForSession('s2'), <String>['d']);
+    expect(tracker.namesForSession('s3'), <String>['e']);
+  });
+
+  test('Claude Hook 限制单次执行命令数量', () async {
+    final root = await Directory.systemTemp.createTemp('openhand_hook_guard_');
+    addTearDown(() => root.delete(recursive: true));
+    final home = Directory('${root.path}/home');
+    final configDirectory = Directory('${home.path}/.claude');
+    await configDirectory.create(recursive: true);
+    await File('${configDirectory.path}/settings.json').writeAsString(
+      jsonEncode(<String, Object?>{
+        'hooks': <String, Object?>{
+          'GuardTest': <Object?>[
+            <String, Object?>{
+              'hooks': <Object?>[
+                <String, Object?>{'type': 'command', 'command': 'echo 第一项'},
+                <String, Object?>{'type': 'command', 'command': 'echo 第二项'},
+                <String, Object?>{'type': 'command', 'command': 'echo 第三项'},
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    final service = AiClaudeHookService(
+      applicationDirectoryPath: () => root.path,
+      homeDirectoryPath: () => home.path,
+      commandTimeout: const Duration(seconds: 2),
+      invocationTimeout: const Duration(seconds: 5),
+      maxCommandsPerInvocation: 2,
+      configPresenceCacheTtl: Duration.zero,
+    );
+
+    final result = await service.runHooks(
+      eventName: 'GuardTest',
+      sessionId: 'session',
+      payload: const <String, Object?>{},
+      cwd: root.path,
+    );
+
+    expect(result.executedHookCount, 2);
+    expect(result.executedCommands, <String>['echo 第一项', 'echo 第二项']);
   });
 }

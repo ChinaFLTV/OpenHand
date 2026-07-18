@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 
 /// 描述一次成功的 `ToolSearch` 加载，用于触发 transcript 顶部的 SnackBar 提示。
 @immutable
@@ -66,6 +67,33 @@ class AiToolSearchLoadHistoryEntry {
 /// 跨调用累计每个会话已通过 `ToolSearch` 匹配的工具名，并以
 /// [ValueListenable] 形式向 UI 广播一次性事件。
 class McpLoadedToolsTracker {
+  McpLoadedToolsTracker({
+    this.maxTrackedSessions = defaultMaxTrackedSessions,
+    this.maxNamesPerSession = defaultMaxNamesPerSession,
+    this.maxHistoryPerSession = defaultMaxHistoryPerSession,
+    this.maxNameCharacters = defaultMaxNameCharacters,
+    this.maxQueryCharacters = defaultMaxQueryCharacters,
+  }) {
+    if (maxTrackedSessions < 1 ||
+        maxNamesPerSession < 1 ||
+        maxHistoryPerSession < 1 ||
+        maxNameCharacters < 1 ||
+        maxQueryCharacters < 1) {
+      throw ArgumentError('ToolSearch 跟踪上限必须大于零。');
+    }
+  }
+
+  static const int defaultMaxTrackedSessions = 128;
+  static const int defaultMaxNamesPerSession = 4096;
+  static const int defaultMaxHistoryPerSession = 500;
+  static const int defaultMaxNameCharacters = 512;
+  static const int defaultMaxQueryCharacters = 4096;
+
+  final int maxTrackedSessions;
+  final int maxNamesPerSession;
+  final int maxHistoryPerSession;
+  final int maxNameCharacters;
+  final int maxQueryCharacters;
   final Map<String, Set<String>> _loadedBySession = <String, Set<String>>{};
   final Map<String, List<AiToolSearchLoadHistoryEntry>> _historyBySession =
       <String, List<AiToolSearchLoadHistoryEntry>>{};
@@ -77,7 +105,9 @@ class McpLoadedToolsTracker {
 
   /// 返回指定会话已加载的工具名（按字母升序，不可变视图）。
   List<String> namesForSession(String sessionId) {
-    final names = _loadedBySession[sessionId];
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null) return const <String>[];
+    final names = _loadedBySession[normalizedSessionId];
     if (names == null || names.isEmpty) return const <String>[];
     final sorted = _sortedToolNames(names);
     return List<String>.unmodifiable(sorted);
@@ -85,7 +115,11 @@ class McpLoadedToolsTracker {
 
   /// 返回指定会话的 ToolSearch 加载历史，按时间正序（旧→新）。
   List<AiToolSearchLoadHistoryEntry> historyForSession(String sessionId) {
-    final history = _historyBySession[sessionId];
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null) {
+      return const <AiToolSearchLoadHistoryEntry>[];
+    }
+    final history = _historyBySession[normalizedSessionId];
     if (history == null || history.isEmpty) {
       return const <AiToolSearchLoadHistoryEntry>[];
     }
@@ -100,33 +134,49 @@ class McpLoadedToolsTracker {
     Object? totalDeferredRaw,
     Object? queryRaw,
   }) {
-    if (loadedNamesRaw is! List || loadedNamesRaw.isEmpty) {
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null ||
+        loadedNamesRaw is! List ||
+        loadedNamesRaw.isEmpty) {
       return const <String>[];
     }
     final bucket = _loadedBySession.putIfAbsent(
-      sessionId,
+      normalizedSessionId,
       () => SplayTreeSet<String>(),
     );
     final addedNames = <String>[];
-    for (final entry in loadedNamesRaw) {
+    for (final entry in loadedNamesRaw.take(maxNamesPerSession * 2)) {
+      if (bucket.length >= maxNamesPerSession) break;
       if (entry is String) {
         final name = entry.trim();
-        if (name.isNotEmpty && bucket.add(name)) {
+        if (name.isNotEmpty &&
+            name.length <= maxNameCharacters &&
+            !bucket.contains(name) &&
+            bucket.length < maxNamesPerSession &&
+            bucket.add(name)) {
           addedNames.add(name);
         }
       }
     }
-    if (addedNames.isEmpty) return const <String>[];
+    if (addedNames.isEmpty) {
+      if (bucket.isEmpty) _loadedBySession.remove(normalizedSessionId);
+      _touchSession(normalizedSessionId);
+      return const <String>[];
+    }
     _revision += 1;
     final totalDeferred = _nonNegativeIntFromMetadata(
       totalDeferredRaw,
       fallback: addedNames.length,
     );
-    final query = queryRaw is String ? queryRaw.trim() : '';
+    final query = queryRaw is String
+        ? clipText(queryRaw.trim(), maxQueryCharacters, suffix: '')
+        : '';
     final sortedAdded = _sortedToolNames(addedNames);
-    _historyBySession
-        .putIfAbsent(sessionId, () => <AiToolSearchLoadHistoryEntry>[])
-        .add(
+    final history =
+        _historyBySession.putIfAbsent(
+          normalizedSessionId,
+          () => <AiToolSearchLoadHistoryEntry>[],
+        )..add(
           AiToolSearchLoadHistoryEntry(
             timestamp: DateTime.now().toUtc(),
             query: query,
@@ -134,8 +184,13 @@ class McpLoadedToolsTracker {
             totalDeferred: totalDeferred,
           ),
         );
+    if (history.length > maxHistoryPerSession) {
+      history.removeRange(0, history.length - maxHistoryPerSession);
+    }
+    _touchSession(normalizedSessionId);
+    _trimTrackedSessions();
     _signal.value = AiToolSearchLoadedEvent(
-      sessionId: sessionId,
+      sessionId: normalizedSessionId,
       loadedNames: List<String>.unmodifiable(sortedAdded),
       totalDeferred: totalDeferred,
       query: query,
@@ -146,13 +201,32 @@ class McpLoadedToolsTracker {
 
   /// 清空指定会话的已加载缓存与历史时间线。返回被清除的工具数量。
   int clearSession(String sessionId) {
-    final removed = _loadedBySession.remove(sessionId);
-    _historyBySession.remove(sessionId);
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null) return 0;
+    final removed = _loadedBySession.remove(normalizedSessionId);
+    _historyBySession.remove(normalizedSessionId);
     return removed?.length ?? 0;
   }
 
   void dispose() {
+    _loadedBySession.clear();
+    _historyBySession.clear();
     _signal.dispose();
+  }
+
+  void _touchSession(String sessionId) {
+    final loaded = _loadedBySession.remove(sessionId);
+    if (loaded != null) _loadedBySession[sessionId] = loaded;
+    final history = _historyBySession.remove(sessionId);
+    if (history != null) _historyBySession[sessionId] = history;
+  }
+
+  void _trimTrackedSessions() {
+    while (_loadedBySession.length > maxTrackedSessions) {
+      final oldestSessionId = _loadedBySession.keys.first;
+      _loadedBySession.remove(oldestSessionId);
+      _historyBySession.remove(oldestSessionId);
+    }
   }
 
   static List<String> _sortedToolNames(Iterable<String> names) {

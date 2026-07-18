@@ -1,4 +1,4 @@
-/// Stream output back-pressure helpers for AiSessionController.
+/// AiSessionController 的流式输出背压辅助逻辑。
 ///
 /// 两个轻量令牌桶限速器，用于在流式追加层做背压：
 ///
@@ -119,11 +119,12 @@ class _StreamCharThrottleBudget {
   _StreamCharThrottleBudget({required int maxCharsPerSecond})
     : _maxCharsPerSecond = maxCharsPerSecond,
       _budget = maxCharsPerSecond > 0 ? maxCharsPerSecond.toDouble() : 0.0,
-      _lastTickAt = DateTime.now();
+      _clock = Stopwatch()..start();
 
   int _maxCharsPerSecond;
   double _budget;
-  DateTime _lastTickAt;
+  final Stopwatch _clock;
+  int _lastTickMicroseconds = 0;
   int _wallSecond = 0;
   int _emittedThisWallSecond = 0;
 
@@ -168,7 +169,8 @@ class _StreamCharThrottleBudget {
       _wallSecond = nowSec;
       _emittedThisWallSecond = 0;
     }
-    final elapsedMicros = now.difference(_lastTickAt).inMicroseconds;
+    final nowMicroseconds = _clock.elapsedMicroseconds;
+    final elapsedMicros = nowMicroseconds - _lastTickMicroseconds;
     if (elapsedMicros <= 0) {
       return;
     }
@@ -176,7 +178,7 @@ class _StreamCharThrottleBudget {
     if (_budget > _maxCharsPerSecond) {
       _budget = _maxCharsPerSecond.toDouble();
     }
-    _lastTickAt = now;
+    _lastTickMicroseconds = nowMicroseconds;
   }
 }
 
@@ -205,22 +207,21 @@ class _StreamCharThrottle {
            sharedBudget ??
            _StreamCharThrottleBudget(maxCharsPerSecond: maxCharsPerSecond),
        _onTick = onTick,
-       _expireAt =
+       _throttleDuration =
            (throttleDuration != null && throttleDuration.inMilliseconds > 0)
-           ? DateTime.now().add(throttleDuration)
-           : null {
-    // 持续节流模式下 `_expireAt` 必须保持 null，避免正式响应在流期内
+           ? throttleDuration
+           : null,
+       _durationClock = Stopwatch()..start() {
+    // 持续节流模式下 `_throttleDuration` 必须保持 null，避免正式响应在流期内
     // 意外穿透限速。
     assert(
-      !(maxCharsPerSecond > 0 && throttleDuration == null) || _expireAt == null,
-      'positive-rate continuous throttle (assistant_final path) MUST keep '
-      '_expireAt == null so _isExpired stays false for the whole stream — '
-      'rate=$maxCharsPerSecond throttleDuration=$throttleDuration.',
+      !(maxCharsPerSecond > 0 && throttleDuration == null) ||
+          _throttleDuration == null,
+      '正速率持续节流必须在整个流式阶段保持未过期。',
     );
     assert(
       !(maxCharsPerSecond > 0 && throttleDuration == null) || !_isExpired,
-      'positive-rate continuous throttle MUST NOT be _isExpired at '
-      'construction time — rate=$maxCharsPerSecond.',
+      '正速率持续节流在创建时不能处于过期状态。',
     );
   }
 
@@ -240,7 +241,7 @@ class _StreamCharThrottle {
     // 关闭节流后立刻补一次 onTick，让等待中的 grapheme 一次性兑现，
     // 不必等下一个 textDelta 才看见输出。
     if (next == false && !_disposed) {
-      _runStreamThrottleCallback(_onTick, 'char enabledOverride');
+      _runStreamThrottleCallback(_onTick, '字符节流开关回调');
     }
   }
 
@@ -253,13 +254,14 @@ class _StreamCharThrottle {
   // 最近一次 [renderableGraphemeCount] 的总 grapheme 数；用于
   // [hasPending] / [drainGracefully] 判定。
   int _lastKnownTotalGraphemes = 0;
-  final DateTime? _expireAt;
+  final Duration? _throttleDuration;
+  final Stopwatch _durationClock;
 
   bool get isEnabled => (_enabledOverride ?? true) && maxCharsPerSecond > 0;
 
   bool get _isExpired {
-    final exp = _expireAt;
-    return exp != null && !DateTime.now().isBefore(exp);
+    final duration = _throttleDuration;
+    return duration != null && _durationClock.elapsed >= duration;
   }
 
   /// 节流时长是否已耗尽。仅在传入 throttleDuration 时为 true；用于 UI
@@ -336,7 +338,7 @@ class _StreamCharThrottle {
       if (_disposed) {
         return;
       }
-      _runStreamThrottleCallback(_onTick, 'char drain tick');
+      _runStreamThrottleCallback(_onTick, '字符节流排空回调');
       if (_emittedGraphemes < _lastKnownTotalGraphemes) {
         _scheduleDrain();
       }
@@ -370,9 +372,9 @@ class _StreamCharThrottle {
   /// 返回 true 表示自然排空，false 表示因超时被外部强制 release。
   Future<bool> drainGracefully({Duration? maxWait}) async {
     if (!hasPending) return true;
-    final deadline = maxWait == null ? null : DateTime.now().add(maxWait);
+    final waitStopwatch = maxWait == null ? null : (Stopwatch()..start());
     while (hasPending) {
-      if (deadline != null && DateTime.now().isAfter(deadline)) {
+      if (maxWait != null && waitStopwatch!.elapsed >= maxWait) {
         return false;
       }
       await Future<void>.delayed(const Duration(milliseconds: 32));
@@ -393,7 +395,7 @@ class _StreamCardThrottle {
   }) : _maxCardsPerSecond = math.max(0, maxCardsPerSecond),
        _onCardEmitted = onCardEmitted,
        _budget = math.max(0, maxCardsPerSecond).toDouble(),
-       _lastTickAt = DateTime.now();
+       _clock = Stopwatch()..start();
 
   /// 每秒允许被「展示」的新卡片数；<=0 视为关闭限速。
   /// 会话级节流弹窗 Apply 后可立即更新当前活跃 throttle。
@@ -427,11 +429,13 @@ class _StreamCardThrottle {
   }
 
   final void Function() _onCardEmitted;
-  final List<VoidCallback> _pending = <VoidCallback>[];
+  static const int _maxPendingCards = 2048;
+  final Queue<VoidCallback> _pending = Queue<VoidCallback>();
   Timer? _drainTimer;
   bool _disposed = false;
   double _budget;
-  DateTime _lastTickAt;
+  final Stopwatch _clock;
+  int _lastTickMicroseconds = 0;
 
   bool get isEnabled => (_enabledOverride ?? true) && maxCardsPerSecond > 0;
 
@@ -448,7 +452,11 @@ class _StreamCardThrottle {
       _budget -= 1;
       return true;
     }
-    _pending.add(create);
+    if (_pending.length >= _maxPendingCards) {
+      _flushPending();
+      return true;
+    }
+    _pending.addLast(create);
     _scheduleDrain();
     return false;
   }
@@ -456,11 +464,11 @@ class _StreamCardThrottle {
   void _refill() {
     if (maxCardsPerSecond <= 0) {
       _budget = 0;
-      _lastTickAt = DateTime.now();
+      _lastTickMicroseconds = _clock.elapsedMicroseconds;
       return;
     }
-    final now = DateTime.now();
-    final elapsedMicros = now.difference(_lastTickAt).inMicroseconds;
+    final nowMicroseconds = _clock.elapsedMicroseconds;
+    final elapsedMicros = nowMicroseconds - _lastTickMicroseconds;
     if (elapsedMicros <= 0) {
       return;
     }
@@ -468,7 +476,7 @@ class _StreamCardThrottle {
     if (_budget > maxCardsPerSecond) {
       _budget = maxCardsPerSecond.toDouble();
     }
-    _lastTickAt = now;
+    _lastTickMicroseconds = nowMicroseconds;
   }
 
   void _scheduleDrain() {
@@ -495,14 +503,14 @@ class _StreamCardThrottle {
     _refill();
     var emitted = 0;
     while (_pending.isNotEmpty && _budget >= 1) {
-      final cb = _pending.removeAt(0);
+      final cb = _pending.removeFirst();
       _budget -= 1;
-      if (_runStreamThrottleCallback(cb, 'card drain callback')) {
+      if (_runStreamThrottleCallback(cb, '卡片节流排空回调')) {
         emitted++;
       }
     }
     if (emitted > 0) {
-      _runStreamThrottleCallback(_onCardEmitted, 'card emitted');
+      _runStreamThrottleCallback(_onCardEmitted, '卡片已放出');
     }
     if (_pending.isNotEmpty) {
       _scheduleDrain();
@@ -516,9 +524,9 @@ class _StreamCardThrottle {
     final pending = List<VoidCallback>.from(_pending);
     _pending.clear();
     for (final cb in pending) {
-      _runStreamThrottleCallback(cb, 'card flush callback');
+      _runStreamThrottleCallback(cb, '卡片节流立即排空回调');
     }
-    _runStreamThrottleCallback(_onCardEmitted, 'card flushed');
+    _runStreamThrottleCallback(_onCardEmitted, '卡片积压已排空');
   }
 
   /// 立即释放：把所有积压回调一次性追加，然后置位 disposed 防止 Timer
@@ -530,10 +538,10 @@ class _StreamCardThrottle {
     final pending = List<VoidCallback>.from(_pending);
     _pending.clear();
     for (final cb in pending) {
-      _runStreamThrottleCallback(cb, 'card release callback');
+      _runStreamThrottleCallback(cb, '卡片节流释放回调');
     }
     if (pending.isNotEmpty) {
-      _runStreamThrottleCallback(_onCardEmitted, 'card released');
+      _runStreamThrottleCallback(_onCardEmitted, '卡片积压已释放');
     }
   }
 
