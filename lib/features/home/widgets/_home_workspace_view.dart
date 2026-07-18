@@ -9,6 +9,8 @@ class _WorkspaceView extends StatelessWidget {
     required this.currentSession,
     required this.liveRuntimeToolPreview,
     required this.transcriptHydrating,
+    required this.transcriptLoadError,
+    required this.onRetryTranscriptLoad,
     required this.selectedModel,
     required this.availableModels,
     required this.recentModelSelections,
@@ -90,6 +92,8 @@ class _WorkspaceView extends StatelessWidget {
   final AiSession? currentSession;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final bool transcriptHydrating;
+  final String? transcriptLoadError;
+  final Future<void> Function() onRetryTranscriptLoad;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
   final List<RecentModelSelection> recentModelSelections;
@@ -232,6 +236,14 @@ class _WorkspaceView extends StatelessWidget {
                                               'hydrating-${session.id}',
                                             ),
                                           )
+                                        : transcriptLoadError != null
+                                        ? _TranscriptLoadFailure(
+                                            key: ValueKey<String>(
+                                              'load-failed-${session.id}',
+                                            ),
+                                            message: transcriptLoadError!,
+                                            onRetry: onRetryTranscriptLoad,
+                                          )
                                         : _WorkspaceEmptyState(
                                             key: ValueKey<String>(session.id),
                                             session: session,
@@ -362,6 +374,76 @@ class _WorkspaceView extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _TranscriptLoadFailure extends StatelessWidget {
+  const _TranscriptLoadFailure({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.errorContainer.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colors.error.withValues(alpha: 0.28)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.history_toggle_off_rounded,
+                  size: 38,
+                  color: colors.onErrorContainer,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '无法加载此会话',
+                    en: 'Unable to load this conversation',
+                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: colors.onErrorContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onErrorContainer.withValues(alpha: 0.82),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () => unawaited(onRetry()),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(
+                    openHandLocalizedText(context, zh: '重新加载', en: 'Retry'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

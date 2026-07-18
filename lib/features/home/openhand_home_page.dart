@@ -3132,55 +3132,50 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _activateSession(String sessionId) async {
+    final activationGeneration = ++_sessionActivationGeneration;
     final sessionController = context.read<AiSessionController>();
-    if (sessionController.currentSessionId == sessionId) {
-      if (_selectedSection != AppSection.workspace) {
-        setState(() {
-          _selectedSection = AppSection.workspace;
-        });
-        _clearPendingAutoFollowState();
-        _requestFollowToLatest();
-      }
-      return;
+    _userScrollGraceDebouncer.cancel();
+    _userScrollInProgress = false;
+    _lastPointerSignalScrollAt = null;
+    _lastScrollActivityAt = null;
+    _transcriptScrollActivity.markInactive();
+    _clearPendingAutoFollowState();
+
+    // Session selection is a synchronous UI intent. Never keep the previous
+    // section visible while unrelated audio cleanup or frame callbacks finish.
+    if (_selectedSection != AppSection.workspace) {
+      setState(() {
+        _selectedSection = AppSection.workspace;
+      });
     }
-    await _ttsPlaybackService.stop();
-    // Timeline 标记用于测量真实会话的首次打开耗时。
+
     developer.Timeline.startSync(
       'openhand.session.open',
       arguments: <String, Object?>{'sessionId': sessionId},
     );
     try {
-      final activationGeneration = ++_sessionActivationGeneration;
-      _userScrollGraceDebouncer.cancel();
-      _userScrollInProgress = false;
-      _lastPointerSignalScrollAt = null;
-      _lastScrollActivityAt = null;
-      _transcriptScrollActivity.markInactive();
-      await _awaitEndOfFrame();
-      if (!mounted || activationGeneration != _sessionActivationGeneration) {
-        return;
-      }
       await sessionController.selectSession(sessionId);
-      if (!mounted || activationGeneration != _sessionActivationGeneration) {
-        return;
-      }
-      await _awaitEndOfFrame();
-      if (!mounted || activationGeneration != _sessionActivationGeneration) {
-        return;
-      }
-      if (sessionController.currentSessionId != sessionId) {
-        return;
-      }
-      if (_selectedSection != AppSection.workspace) {
-        setState(() {
-          _selectedSection = AppSection.workspace;
-        });
-      }
-      _clearPendingAutoFollowState();
-      _requestFollowToLatest();
     } finally {
       developer.Timeline.finishSync();
     }
+
+    unawaited(
+      _ttsPlaybackService.stop().catchError((Object error, StackTrace stack) {
+        silentLog(
+          'openhand_home_page',
+          'stop TTS after session selection',
+          error,
+          stack,
+        );
+      }),
+    );
+    if (!mounted ||
+        activationGeneration != _sessionActivationGeneration ||
+        sessionController.currentSessionId != sessionId ||
+        _selectedSection != AppSection.workspace) {
+      return;
+    }
+    _requestFollowToLatest();
   }
 
   AiModelConfig? _effectiveModelForSession(
@@ -9573,6 +9568,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final transcriptHydrating =
         currentSession != null &&
         sessionController.isSessionMessagesHydrating(currentSession.id);
+    final transcriptLoadError = currentSession == null
+        ? null
+        : sessionController.sessionMessageWindowLoadErrorFor(currentSession.id);
     // Defer runtime catalog preview work to the workspace section — these
     // computations involve DateTime.now(), object allocation, and tool catalog
     // resolution that are wasted when viewing other sections.
@@ -9598,6 +9596,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         currentSession: currentSession,
         liveRuntimeToolPreview: liveRuntimeToolPreview,
         transcriptHydrating: transcriptHydrating,
+        transcriptLoadError: transcriptLoadError,
+        onRetryTranscriptLoad: () async {
+          final session = sessionController.currentSession;
+          if (session == null) return;
+          await sessionController.retrySessionMessageWindowHydration(
+            session.id,
+          );
+        },
         selectedModel: selectedModel,
         availableModels: settingsController.aiModels,
         recentModelSelections: settingsController.recentModelSelections,

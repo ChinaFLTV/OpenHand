@@ -4486,6 +4486,7 @@ class _DeferredHtmlBubbleWebViewState
   HtmlWebViewMountPermit? _mountPermit;
   Timer? _coldMountTimer;
   Timer? _permitWaitTimer;
+  Timer? _bootstrapTimer;
 
   bool _hasWarmWebViewMetrics() {
     final cacheKey = _htmlBubbleHeightCacheKey(
@@ -4554,6 +4555,8 @@ class _DeferredHtmlBubbleWebViewState
     _scrollActivity = null;
     _generation += 1;
     _cancelColdMountTimer();
+    _bootstrapTimer?.cancel();
+    _bootstrapTimer = null;
     _releaseMountPermit();
     super.dispose();
   }
@@ -4612,6 +4615,7 @@ class _DeferredHtmlBubbleWebViewState
       if (existing.granted) {
         _pendingMountAfterScroll = false;
         _cancelPermitWaitTimer();
+        _beginWebViewBootstrap();
         setState(() => _mountWebView = true);
       }
       return;
@@ -4635,16 +4639,32 @@ class _DeferredHtmlBubbleWebViewState
       }
       _pendingMountAfterScroll = false;
       _cancelPermitWaitTimer();
+      _beginWebViewBootstrap();
       setState(() => _mountWebView = true);
     }, priority: warmMetrics);
     _mountPermit = permit;
     if (permit.granted) {
       _pendingMountAfterScroll = false;
       _cancelPermitWaitTimer();
+      _beginWebViewBootstrap();
       setState(() => _mountWebView = true);
     } else {
       _startPermitWaitTimer(permit, generation);
     }
+  }
+
+  void _beginWebViewBootstrap() {
+    _bootstrapTimer?.cancel();
+    _bootstrapTimer = startSafeTimer(
+      _htmlWebViewBootstrapTimeout,
+      _handleWebViewBootstrapReady,
+    );
+  }
+
+  void _handleWebViewBootstrapReady() {
+    _bootstrapTimer?.cancel();
+    _bootstrapTimer = null;
+    _releaseMountPermit();
   }
 
   void _releaseMountPermit() {
@@ -4716,6 +4736,7 @@ class _DeferredHtmlBubbleWebViewState
         textColor: widget.textColor,
         backgroundColor: widget.backgroundColor,
         baseTextStyle: widget.baseTextStyle,
+        onBootstrapReady: _handleWebViewBootstrapReady,
       );
     }
     return SizedBox(
@@ -4736,12 +4757,14 @@ class _HtmlBubbleWebView extends StatefulWidget {
     required this.data,
     required this.textColor,
     required this.backgroundColor,
+    required this.onBootstrapReady,
     this.baseTextStyle,
   });
 
   final String data;
   final Color textColor;
   final Color backgroundColor;
+  final VoidCallback onBootstrapReady;
   final TextStyle? baseTextStyle;
 
   @override
@@ -5239,6 +5262,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
   bool _heightFromFallback = false;
+  bool _bootstrapReadyReported = false;
   int get _heightCacheKey =>
       _htmlBubbleHeightCacheKey(widget.data, widget.baseTextStyle);
 
@@ -5418,6 +5442,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
   }
 
+  void _reportBootstrapReady() {
+    if (_bootstrapReadyReported) return;
+    _bootstrapReadyReported = true;
+    widget.onBootstrapReady();
+  }
+
   void _armInitialRevealFallback() {
     _initialRevealFallbackTimer?.cancel();
     final generation = _loadGeneration;
@@ -5441,6 +5471,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           _height = estimated;
           _heightFromFallback = true;
         });
+        _reportBootstrapReady();
         final controller = _controller;
         if (controller != null) {
           unawaited(
@@ -5462,6 +5493,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   void _onContentSizeChanged(Size newSize) {
+    _reportBootstrapReady();
     final next = newSize.height
         .clamp(_kMinHeightClamp, _kMaxHeightClamp)
         .toDouble();
@@ -5853,6 +5885,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         error,
         stack,
       );
+    } finally {
+      _reportBootstrapReady();
     }
   }
 
@@ -5861,6 +5895,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     iaw.WebResourceRequest request,
     iaw.WebResourceError error,
   ) {
+    _reportBootstrapReady();
     silentLog('home_message_content', 'html bubble webview error', error);
     if (mounted) {
       _safeSetState(() => _hasError = true);

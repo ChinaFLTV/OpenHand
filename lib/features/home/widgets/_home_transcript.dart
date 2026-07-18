@@ -413,6 +413,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
   Future<void>? _activeRevealOlderFuture;
+  int _initialBottomJumpGeneration = 0;
 
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
@@ -435,8 +436,48 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // frame-throttled by the warmup / HTML mount schedulers.
     _materializeOpenWindow(progressive: true);
     _syncVisibleError();
-    // 首屏贴底由调用方 jumpToBottomOnInit 路径在滚动视图挂载后做单帧
-    // jumpTo；这里保持当前窗口真实布局，避免依赖惰性列表估算高度。
+    if (widget.jumpToBottomOnInit) {
+      _scheduleInitialBottomJump();
+    }
+  }
+
+  void _scheduleInitialBottomJump() {
+    final generation = ++_initialBottomJumpGeneration;
+    final sessionId = widget.session.id;
+    var framesRemaining = _scrollToBottomSettleFrameLimit;
+    var stableFrames = 0;
+
+    void settle(Duration _) {
+      if (!mounted ||
+          generation != _initialBottomJumpGeneration ||
+          widget.session.id != sessionId ||
+          framesRemaining <= 0) {
+        return;
+      }
+      framesRemaining -= 1;
+      final positions = widget.controller.positions.toList(growable: false);
+      if (positions.length != 1) {
+        WidgetsBinding.instance.addPostFrameCallback(settle);
+        return;
+      }
+      final position = positions.single;
+      final target = position.maxScrollExtent
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      final distance = (target - position.pixels).abs();
+      if (distance > _scrollToBottomSettleTolerance) {
+        stableFrames = 0;
+        widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
+      } else {
+        stableFrames += 1;
+      }
+      if (stableFrames < _scrollToBottomSettleStableFrameLimit &&
+          framesRemaining > 0) {
+        WidgetsBinding.instance.addPostFrameCallback(settle);
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(settle);
   }
 
   @override
@@ -471,14 +512,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         this,
       );
       _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
-      // Switching sessions used to rebuild the full transcript synchronously
-      // inside `didUpdateWidget`, which on large sessions blocked the frame
-      // that paints the new toolbar / shell. We reset to an empty list
-      // immediately so the cross-fade can start, then materialise the complete
-      // current window on the next frame; expensive rich rendering is still
-      // throttled by the warmup schedulers.
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
+      if (widget.jumpToBottomOnInit) {
+        _scheduleInitialBottomJump();
+      }
       // 双兜底物化：在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -542,6 +580,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _resetSessionScopedState() {
+    _initialBottomJumpGeneration += 1;
     _selectedMessageId = null;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
@@ -1130,6 +1169,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   @override
   void dispose() {
+    _initialBottomJumpGeneration += 1;
     _retiringCreationPlaceholderTimer?.cancel();
     _targetHighlightTimer?.cancel();
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);

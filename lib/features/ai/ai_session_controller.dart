@@ -470,6 +470,7 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _cacheStatisticsHydrationOpenDelay = Duration(
     milliseconds: 1800,
   );
+  static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -866,6 +867,16 @@ class AiSessionController extends ChangeNotifier {
       <String, Future<AiSession?>>{};
   final Map<String, Future<AiSession?>> _sessionCacheStatsHydrationTasks =
       <String, Future<AiSession?>>{};
+  final Map<String, String> _sessionMessageWindowLoadErrors =
+      <String, String>{};
+  final Map<String, int> _sessionMessageWindowHydrationGenerations =
+      <String, int>{};
+  final Map<String, Timer> _sessionMessageWindowHydrationTimers =
+      <String, Timer>{};
+  final Map<String, Future<AiSessionMessage?>> _sessionMessageContentLoadTasks =
+      <String, Future<AiSessionMessage?>>{};
+  final Map<String, int> _sessionMessageContentLoadGenerations =
+      <String, int>{};
   final Map<String, Future<void>> _responseRegenerationRecoveryTasks =
       <String, Future<void>>{};
   final Set<String> _hydratingSessionMessageIds = <String>{};
@@ -949,6 +960,7 @@ class AiSessionController extends ChangeNotifier {
   Future<({List<String> ipAddresses, List<Map<String, Object?>> interfaces})>?
   _networkSnapshotFuture;
   String? _currentSessionId;
+  int _sessionSelectionGeneration = 0;
   AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
   String? _lastErrorMessage;
@@ -1011,6 +1023,23 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedSessionId.isEmpty) return false;
     return _isMessagesHydrating ||
         _hydratingSessionMessageIds.contains(normalizedSessionId);
+  }
+
+  String? sessionMessageWindowLoadErrorFor(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) return null;
+    return _sessionMessageWindowLoadErrors[normalizedSessionId];
+  }
+
+  Future<AiSession?> retrySessionMessageWindowHydration(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) {
+      return Future<AiSession?>.value();
+    }
+    _invalidateSessionMessageWindowHydration(normalizedSessionId);
+    _sessionMessageWindowLoadErrors.remove(normalizedSessionId);
+    notifyListeners();
+    return ensureSessionMessageWindowHydrated(normalizedSessionId);
   }
 
   /// 当前会话级节流覆盖。命中 sessionId 才返回；未配置时为 null。
@@ -1492,6 +1521,18 @@ class AiSessionController extends ChangeNotifier {
     _lastErrorMessagesBySession.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
+    _sessionMessageWindowLoadErrors.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    _sessionMessageWindowHydrationGenerations.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    for (final entry in _sessionMessageWindowHydrationTimers.entries.toList()) {
+      if (!liveSessionIds.contains(entry.key)) {
+        entry.value.cancel();
+        _sessionMessageWindowHydrationTimers.remove(entry.key);
+      }
+    }
     _lastCharThroughputSnapshot.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
@@ -1637,13 +1678,17 @@ class AiSessionController extends ChangeNotifier {
     if (!_sessionsById.containsKey(sessionId)) {
       return;
     }
+    final selectionGeneration = ++_sessionSelectionGeneration;
     if (_currentSessionId == sessionId) {
       final selectedSession = _sessionById(sessionId);
       if (selectedSession != null &&
           _sessionNeedsInitialMessageWindow(selectedSession)) {
         unawaited(ensureSessionMessageWindowHydrated(sessionId));
       }
-      _scheduleSessionCacheStatisticsHydration(sessionId);
+      _scheduleSessionCacheStatisticsHydration(
+        sessionId,
+        selectionGeneration: selectionGeneration,
+      );
       return;
     }
     _currentSessionId = sessionId;
@@ -1657,7 +1702,10 @@ class AiSessionController extends ChangeNotifier {
       sessionId,
       fallbackSession: selectedSession,
     );
-    _scheduleSessionCacheStatisticsHydration(sessionId);
+    _scheduleSessionCacheStatisticsHydration(
+      sessionId,
+      selectionGeneration: selectionGeneration,
+    );
   }
 
   AiSession? _primeSelectedSessionMessageWindow(String sessionId) {
@@ -1701,12 +1749,15 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  void _scheduleSessionCacheStatisticsHydration(String sessionId) {
+  void _scheduleSessionCacheStatisticsHydration(
+    String sessionId, {
+    required int selectionGeneration,
+  }) {
     unawaited(
-      _deferredSessionCacheStatisticsHydration(sessionId).catchError((
-        Object error,
-        StackTrace stack,
-      ) {
+      _deferredSessionCacheStatisticsHydration(
+        sessionId,
+        selectionGeneration: selectionGeneration,
+      ).catchError((Object error, StackTrace stack) {
         silentLog(
           'ai_session_controller',
           'hydrate session cache statistics after select',
@@ -1719,10 +1770,11 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<AiSession?> _deferredSessionCacheStatisticsHydration(
-    String sessionId,
-  ) async {
+    String sessionId, {
+    required int selectionGeneration,
+  }) async {
     await Future<void>.delayed(_cacheStatisticsHydrationOpenDelay);
-    if (_isDisposed || _currentSessionId != sessionId) {
+    if (!_isCurrentSessionSelection(sessionId, selectionGeneration)) {
       return _sessionById(sessionId);
     }
     final messageHydrationTask =
@@ -1731,10 +1783,19 @@ class AiSessionController extends ChangeNotifier {
     if (messageHydrationTask != null) {
       await messageHydrationTask;
     }
-    if (_isDisposed || _currentSessionId != sessionId) {
+    if (!_isCurrentSessionSelection(sessionId, selectionGeneration)) {
       return _sessionById(sessionId);
     }
-    return ensureSessionCacheStatisticsHydrated(sessionId);
+    return ensureSessionCacheStatisticsHydrated(
+      sessionId,
+      selectionGeneration: selectionGeneration,
+    );
+  }
+
+  bool _isCurrentSessionSelection(String sessionId, int generation) {
+    return !_isDisposed &&
+        _currentSessionId == sessionId &&
+        _sessionSelectionGeneration == generation;
   }
 
   Future<AiSession?> ensureSessionMessageWindowHydrated(String sessionId) {
@@ -1757,12 +1818,55 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    if (_hydratingSessionMessageIds.add(normalizedSessionId)) {
-      notifyListeners();
-    }
-    final task = _hydrateSessionMessageWindow(normalizedSessionId);
+    final generation =
+        (_sessionMessageWindowHydrationGenerations[normalizedSessionId] ?? 0) +
+        1;
+    _sessionMessageWindowHydrationGenerations[normalizedSessionId] = generation;
+    _sessionMessageWindowLoadErrors.remove(normalizedSessionId);
+    _hydratingSessionMessageIds.add(normalizedSessionId);
+    notifyListeners();
+    final task = _hydrateSessionMessageWindow(
+      normalizedSessionId,
+      generation: generation,
+    );
     _sessionMessageWindowHydrationTasks[normalizedSessionId] = task;
+    _sessionMessageWindowHydrationTimers.remove(normalizedSessionId)?.cancel();
+    _sessionMessageWindowHydrationTimers[normalizedSessionId] = Timer(
+      _initialMessageHydrationTimeout,
+      () => _handleSessionMessageWindowHydrationTimeout(
+        normalizedSessionId,
+        generation,
+      ),
+    );
     return task;
+  }
+
+  void _handleSessionMessageWindowHydrationTimeout(
+    String sessionId,
+    int generation,
+  ) {
+    if (!_isCurrentSessionMessageWindowAttempt(sessionId, generation)) return;
+    _sessionMessageWindowHydrationGenerations[sessionId] = generation + 1;
+    _sessionMessageWindowHydrationTimers.remove(sessionId)?.cancel();
+    _sessionMessageWindowHydrationTasks.remove(sessionId);
+    _hydratingSessionMessageIds.remove(sessionId);
+    _sessionMessageWindowLoadErrors[sessionId] = '加载会话历史超时，请重试。';
+    notifyListeners();
+  }
+
+  void _invalidateSessionMessageWindowHydration(String sessionId) {
+    final nextGeneration =
+        (_sessionMessageWindowHydrationGenerations[sessionId] ?? 0) + 1;
+    _sessionMessageWindowHydrationGenerations[sessionId] = nextGeneration;
+    _sessionMessageWindowHydrationTimers.remove(sessionId)?.cancel();
+    _sessionMessageWindowHydrationTasks.remove(sessionId);
+    _hydratingSessionMessageIds.remove(sessionId);
+  }
+
+  bool _isCurrentSessionMessageWindowAttempt(String sessionId, int generation) {
+    return !_isDisposed &&
+        !_deletedSessionIds.contains(sessionId) &&
+        _sessionMessageWindowHydrationGenerations[sessionId] == generation;
   }
 
   Future<AiSession?> ensureSessionMessagesHydrated(String sessionId) {
@@ -1792,10 +1896,17 @@ class AiSessionController extends ChangeNotifier {
     return task;
   }
 
-  Future<AiSession?> ensureSessionCacheStatisticsHydrated(String sessionId) {
+  Future<AiSession?> ensureSessionCacheStatisticsHydrated(
+    String sessionId, {
+    int? selectionGeneration,
+  }) {
     final normalizedSessionId = sessionId.trim();
     if (normalizedSessionId.isEmpty) {
       return Future<AiSession?>.value();
+    }
+    if (selectionGeneration != null &&
+        !_isCurrentSessionSelection(normalizedSessionId, selectionGeneration)) {
+      return Future<AiSession?>.value(_sessionById(normalizedSessionId));
     }
     final current = _sessionById(normalizedSessionId);
     if (current == null ||
@@ -1806,7 +1917,10 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    final task = _hydrateSessionCacheStatistics(normalizedSessionId);
+    final task = _hydrateSessionCacheStatistics(
+      normalizedSessionId,
+      selectionGeneration: selectionGeneration,
+    );
     _sessionCacheStatsHydrationTasks[normalizedSessionId] = task;
     return task;
   }
@@ -1826,6 +1940,84 @@ class AiSessionController extends ChangeNotifier {
     return task;
   }
 
+  Future<AiSessionMessage?> loadFullSessionMessageContent(
+    String sessionId,
+    String messageId,
+  ) {
+    final normalizedSessionId = sessionId.trim();
+    final normalizedMessageId = messageId.trim();
+    if (normalizedSessionId.isEmpty || normalizedMessageId.isEmpty) {
+      return Future<AiSessionMessage?>.value();
+    }
+    final taskKey = '$normalizedSessionId::$normalizedMessageId';
+    final existing = _sessionMessageContentLoadTasks[taskKey];
+    if (existing != null) return existing;
+    final generation =
+        (_sessionMessageContentLoadGenerations[taskKey] ?? 0) + 1;
+    _sessionMessageContentLoadGenerations[taskKey] = generation;
+    final task = _loadFullSessionMessageContent(
+      normalizedSessionId,
+      normalizedMessageId,
+      taskKey: taskKey,
+      generation: generation,
+    );
+    _sessionMessageContentLoadTasks[taskKey] = task;
+    return task;
+  }
+
+  Future<AiSessionMessage?> _loadFullSessionMessageContent(
+    String sessionId,
+    String messageId, {
+    required String taskKey,
+    required int generation,
+  }) async {
+    try {
+      final loaded = await _store.loadMessage(sessionId, messageId);
+      if (loaded == null ||
+          _isDisposed ||
+          _deletedSessionIds.contains(sessionId) ||
+          _sessionMessageContentLoadGenerations[taskKey] != generation) {
+        return null;
+      }
+      final live = _sessionById(sessionId);
+      if (live == null) return null;
+      var replacedMessage = false;
+      final messages = <AiSessionMessage>[
+        for (final message in live.messages)
+          if (message.id == messageId)
+            (() {
+              replacedMessage = true;
+              final metadata = Map<String, Object?>.from(loaded.metadata)
+                ..remove(aiSessionMessageContentPreviewMetadataKey);
+              return loaded.copyWith(metadata: metadata);
+            })()
+          else
+            message,
+      ];
+      if (!replacedMessage) return loaded;
+      final updated = live.copyWith(
+        messages: List<AiSessionMessage>.unmodifiable(messages),
+      );
+      if (_replaceSessionInMemory(updated, sortSessions: false)) {
+        notifyListeners();
+      }
+      return loaded;
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'load full session message content',
+        error,
+        stack,
+      );
+      return null;
+    } finally {
+      if (_sessionMessageContentLoadGenerations[taskKey] == generation) {
+        _sessionMessageContentLoadTasks.remove(taskKey);
+        _sessionMessageContentLoadGenerations.remove(taskKey);
+      }
+    }
+  }
+
   bool _sessionNeedsInitialMessageWindow(AiSession session) {
     return session.messageLoadState == AiSessionMessageLoadState.header &&
         session.messageTotalCount > 0;
@@ -1835,23 +2027,34 @@ class AiSessionController extends ChangeNotifier {
     return !session.hasCompleteMessages && session.messageTotalCount > 0;
   }
 
-  Future<AiSession?> _hydrateSessionCacheStatistics(String sessionId) async {
+  Future<AiSession?> _hydrateSessionCacheStatistics(
+    String sessionId, {
+    int? selectionGeneration,
+  }) async {
+    bool stillRelevant() =>
+        selectionGeneration == null ||
+        _isCurrentSessionSelection(sessionId, selectionGeneration);
     try {
       final liveBeforeLoad = _sessionById(sessionId);
-      if (liveBeforeLoad == null ||
+      if (!stillRelevant() ||
+          liveBeforeLoad == null ||
           !SessionCacheHitTrend.statisticsNeedHydration(liveBeforeLoad)) {
         return liveBeforeLoad;
       }
       final fullSession = liveBeforeLoad.hasCompleteMessages
           ? liveBeforeLoad
           : await _store.loadSessionStatisticsSnapshot(sessionId);
-      if (fullSession == null || _deletedSessionIds.contains(sessionId)) {
-        return null;
+      if (!stillRelevant() ||
+          fullSession == null ||
+          _deletedSessionIds.contains(sessionId)) {
+        return _sessionById(sessionId);
       }
       final model =
           resolveModelForSession(liveBeforeLoad) ??
           resolveModelForSession(fullSession);
+      if (!stillRelevant()) return _sessionById(sessionId);
       final rebuiltFullSession = _rebuildSession(fullSession, model: model);
+      if (!stillRelevant()) return _sessionById(sessionId);
       final live = _sessionById(sessionId);
       if (live == null) return null;
       if (!SessionCacheHitTrend.statisticsNeedHydration(live) &&
@@ -1868,6 +2071,7 @@ class AiSessionController extends ChangeNotifier {
           rebuiltFullSession.statistics.totalMessageCount,
         ),
       );
+      if (!stillRelevant()) return _sessionById(sessionId);
       final replaced = _replaceSessionInMemory(
         updatedLive,
         sortSessions: false,
@@ -1876,6 +2080,7 @@ class AiSessionController extends ChangeNotifier {
       if (replaced) {
         notifyListeners();
       }
+      if (!stillRelevant()) return _sessionById(sessionId);
       await _store.saveSessionHeader(effective);
       return effective;
     } catch (error, stack) {
@@ -1935,6 +2140,7 @@ class AiSessionController extends ChangeNotifier {
         sessionId,
         limit: limit,
         offset: offset,
+        deferTelemetryMetadata: true,
       );
       if (_deletedSessionIds.contains(sessionId)) {
         return null;
@@ -1991,14 +2197,18 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  Future<AiSession?> _hydrateSessionMessageWindow(String sessionId) async {
+  Future<AiSession?> _hydrateSessionMessageWindow(
+    String sessionId, {
+    required int generation,
+  }) async {
     try {
       final loaded = await _store.loadSessionTailWindow(
         sessionId,
         limit: _initialMessageHydrationWindowSize,
         characterBudget: _initialMessageHydrationCharacterBudget,
       );
-      if (loaded == null || _deletedSessionIds.contains(sessionId)) {
+      if (loaded == null ||
+          !_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
         return null;
       }
       final liveSession = _sessionById(sessionId);
@@ -2014,27 +2224,27 @@ class AiSessionController extends ChangeNotifier {
         restoreInterruptedResponseRegeneration:
             _canRestoreInterruptedResponseRegeneration(sessionId),
       );
-      if (!identical(normalized, loaded)) {
-        if (normalized.hasCompleteMessages) {
-          await _store.save(normalized);
-        } else {
-          await _store.saveSessionHeader(normalized);
-          if (shouldRecoverInterruptedRegeneration) {
-            _scheduleResponseRegenerationRecoveryPersistence(sessionId);
-          }
-        }
-      } else if (shouldRecoverInterruptedRegeneration) {
-        if (normalized.hasCompleteMessages) {
-          await _store.save(normalized);
-        } else {
-          _scheduleResponseRegenerationRecoveryPersistence(sessionId);
-        }
+      if (!_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
+        return _sessionById(sessionId);
       }
       final replaced = _replaceSessionInMemory(normalized, sortSessions: false);
       if (replaced) {
         notifyListeners();
       }
-      return _sessionById(sessionId) ?? normalized;
+      final effective = _sessionById(sessionId) ?? normalized;
+      if (!identical(normalized, loaded)) {
+        unawaited(
+          _persistHydratedSessionNormalization(
+            sessionId: sessionId,
+            session: normalized,
+            shouldRecoverInterruptedRegeneration:
+                shouldRecoverInterruptedRegeneration,
+          ),
+        );
+      } else if (shouldRecoverInterruptedRegeneration) {
+        _scheduleResponseRegenerationRecoveryPersistence(sessionId);
+      }
+      return effective;
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
@@ -2042,17 +2252,45 @@ class AiSessionController extends ChangeNotifier {
         error,
         stack,
       );
-      _setLastSendErrorMessage(
-        sessionId,
-        _friendlyAiSessionPersistenceError(error, operation: 'load'),
-      );
+      if (_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
+        _sessionMessageWindowLoadErrors[sessionId] =
+            _friendlyAiSessionPersistenceError(error, operation: 'load');
+      }
       return null;
     } finally {
-      _sessionMessageWindowHydrationTasks.remove(sessionId);
-      if (!_sessionMessageHydrationTasks.containsKey(sessionId) &&
-          _hydratingSessionMessageIds.remove(sessionId)) {
+      if (_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
+        _sessionMessageWindowHydrationTimers.remove(sessionId)?.cancel();
+        _sessionMessageWindowHydrationTasks.remove(sessionId);
+        _hydratingSessionMessageIds.remove(sessionId);
         notifyListeners();
       }
+    }
+  }
+
+  Future<void> _persistHydratedSessionNormalization({
+    required String sessionId,
+    required AiSession session,
+    required bool shouldRecoverInterruptedRegeneration,
+  }) async {
+    try {
+      if (session.hasCompleteMessages) {
+        await _store.save(session);
+      } else {
+        await _enqueueSessionHeaderOperation(
+          sessionId,
+          () => _store.saveSessionHeader(session),
+        );
+        if (shouldRecoverInterruptedRegeneration) {
+          _scheduleResponseRegenerationRecoveryPersistence(sessionId);
+        }
+      }
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'persist hydrated session normalization',
+        error,
+        stack,
+      );
     }
   }
 
@@ -6493,6 +6731,12 @@ class AiSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    for (final timer in _sessionMessageWindowHydrationTimers.values) {
+      timer.cancel();
+    }
+    _sessionMessageWindowHydrationTimers.clear();
+    _sessionMessageWindowHydrationGenerations.clear();
+    _sessionMessageContentLoadGenerations.clear();
     unawaited(
       _toolUsagePromotionStore.flush().catchError((
         Object error,

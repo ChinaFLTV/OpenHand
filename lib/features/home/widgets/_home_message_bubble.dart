@@ -101,6 +101,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   late bool _showRawContent = widget.initiallyShowRawContent;
   bool _responseVariantSizeMotionActive = false;
   bool _responseVariantSizeMotionExpanding = true;
+  bool _loadingFullContent = false;
 
   // 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
@@ -725,6 +726,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
       _setAssistantResponseExpandedOverride(!assistantResponseExpanded);
     }
 
+    Future<void> loadFullContent() async {
+      if (_loadingFullContent) return;
+      setState(() => _loadingFullContent = true);
+      try {
+        await context.read<AiSessionController>().loadFullSessionMessageContent(
+          widget.sessionId,
+          message.id,
+        );
+      } finally {
+        if (mounted) setState(() => _loadingFullContent = false);
+      }
+    }
+
     Widget buildAssistantBodyDispatcher({
       required String data,
       required AiMessageContentFormat format,
@@ -1127,6 +1141,36 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               ),
                             ),
                           ],
+                        ),
+                      ],
+                      if (message
+                              .metadata[aiSessionMessageContentPreviewMetadataKey] ==
+                          true) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.tonalIcon(
+                            onPressed: _loadingFullContent
+                                ? null
+                                : () => unawaited(loadFullContent()),
+                            icon: _loadingFullContent
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.unfold_more_rounded),
+                            label: Text(
+                              openHandLocalizedText(
+                                context,
+                                zh: _loadingFullContent ? '加载中' : '加载完整内容',
+                                en: _loadingFullContent
+                                    ? 'Loading'
+                                    : 'Load full content',
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ],

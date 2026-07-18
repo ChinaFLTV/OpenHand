@@ -474,6 +474,27 @@ class AiSessionStore {
   // 解码成本让步：每累积约 16KB 字符就让出一次事件循环，使 UI 能在重负载
   // 消息之间稳定绘制水合占位帧，把首屏开销摊到多帧而非一帧。
   static const int _kMessageDecodeYieldCostBudget = 16000;
+  static const String _kTailContentPreviewAlias = 'content';
+
+  static List<String> _tailMessageRowColumnsWithoutMetadata(int previewChars) {
+    final boundedPreviewChars = math.max(1, previewChars);
+    return <String>[
+      'id',
+      'session_id',
+      'sort_order',
+      'kind',
+      'role',
+      'substr(content, 1, $boundedPreviewChars) AS $_kTailContentPreviewAlias',
+      'created_at',
+      'character_count',
+      'is_deleted',
+      'model_id',
+      'model_label',
+      'usage_json',
+      'CASE WHEN length(content) > $boundedPreviewChars THEN 1 ELSE 0 END '
+          'AS $aiSessionMessageContentPreviewMetadataKey',
+    ];
+  }
 
   static String _statisticsMetadataColumn(String key) {
     if (_kStatisticsBooleanMetadataKeys.contains(key)) {
@@ -856,8 +877,13 @@ class AiSessionStore {
       requestedLimit: limit,
       totalCount: totalCount,
     );
+    final previewChars = characterBudget == null || characterBudget <= 0
+        ? _kMessageDecodeYieldCostBudget
+        : characterBudget;
     final rawRows = await _queryMessageRows(
-      columnsWithoutMetadata: _kMessageRowColumnsWithoutMetadata,
+      columnsWithoutMetadata: _tailMessageRowColumnsWithoutMetadata(
+        previewChars,
+      ),
       where: 'session_id = ?',
       whereArgs: <Object?>[normalizedId],
       orderBy: 'sort_order DESC',
@@ -893,6 +919,7 @@ class AiSessionStore {
       messages: session.messages,
       offset: offset,
       deferTelemetryMetadata: true,
+      characterBudget: characterBudget,
     );
     if (expanded.offset != offset) {
       final expandedLoadState =
@@ -1152,9 +1179,13 @@ class AiSessionStore {
     required int limit,
     required int offset,
     bool deferTelemetryMetadata = false,
+    int? contentPreviewChars,
   }) async {
     final rows = await _queryMessageRows(
-      columnsWithoutMetadata: _kMessageRowColumnsWithoutMetadata,
+      columnsWithoutMetadata:
+          contentPreviewChars != null && contentPreviewChars > 0
+          ? _tailMessageRowColumnsWithoutMetadata(contentPreviewChars)
+          : _kMessageRowColumnsWithoutMetadata,
       where: 'session_id = ?',
       whereArgs: <Object?>[sessionId],
       orderBy: 'sort_order ASC',
@@ -1178,14 +1209,28 @@ class AiSessionStore {
     required List<AiSessionMessage> messages,
     required int offset,
     bool deferTelemetryMetadata = false,
+    int? characterBudget,
   }) async {
     var resolvedOffset = math.max(0, offset);
     var remainingContext = _kTranscriptToolPairContextMaxMessages;
+    var remainingBudget = characterBudget == null || characterBudget <= 0
+        ? 0
+        : math.max(
+            0,
+            characterBudget -
+                messages.fold<int>(
+                  0,
+                  (sum, message) => sum + message.content.length,
+                ),
+          );
     var expandedMessages = messages;
     var unmatchedCallIds = unmatchedTranscriptToolCallIds(expandedMessages);
     while (unmatchedCallIds.isNotEmpty &&
         resolvedOffset > 0 &&
-        remainingContext > 0) {
+        remainingContext > 0 &&
+        (characterBudget == null ||
+            characterBudget <= 0 ||
+            remainingBudget > 0)) {
       final batchSize = math.min(
         math.min(_kTranscriptToolPairContextBatchSize, resolvedOffset),
         remainingContext,
@@ -1196,20 +1241,53 @@ class AiSessionStore {
         limit: batchSize,
         offset: previousOffset,
         deferTelemetryMetadata: deferTelemetryMetadata,
+        contentPreviewChars: remainingBudget > 0 ? remainingBudget : null,
       );
       if (previousMessages.isEmpty) break;
+      final boundedPreviousMessages = remainingBudget > 0
+          ? _takeMessagesWithinContentBudget(previousMessages, remainingBudget)
+          : previousMessages;
+      if (boundedPreviousMessages.isEmpty) break;
       expandedMessages = <AiSessionMessage>[
-        ...previousMessages,
+        ...boundedPreviousMessages,
         ...expandedMessages,
       ];
-      resolvedOffset = previousOffset;
-      remainingContext -= previousMessages.length;
+      resolvedOffset = math.max(
+        0,
+        resolvedOffset - boundedPreviousMessages.length,
+      );
+      remainingContext -= boundedPreviousMessages.length;
+      if (remainingBudget > 0) {
+        remainingBudget = math.max(
+          0,
+          remainingBudget -
+              boundedPreviousMessages.fold<int>(
+                0,
+                (sum, message) => sum + message.content.length,
+              ),
+        );
+      }
       unmatchedCallIds = unmatchedTranscriptToolCallIds(expandedMessages);
     }
     return (
       messages: List<AiSessionMessage>.unmodifiable(expandedMessages),
       offset: resolvedOffset,
     );
+  }
+
+  List<AiSessionMessage> _takeMessagesWithinContentBudget(
+    List<AiSessionMessage> messages,
+    int budget,
+  ) {
+    final selected = <AiSessionMessage>[];
+    var used = 0;
+    for (final message in messages.reversed) {
+      final cost = message.content.length;
+      if (selected.isNotEmpty && used + cost > budget) break;
+      selected.add(message);
+      used += cost;
+    }
+    return selected.reversed.toList(growable: false);
   }
 
   /// Loads one message row without hydrating the whole session.
@@ -1902,6 +1980,12 @@ class AiSessionStore {
       metadata = <String, Object?>{
         ...metadata,
         aiSessionMessageDeferredTelemetryMetadataKey: true,
+      };
+    }
+    if (row[aiSessionMessageContentPreviewMetadataKey] == 1) {
+      metadata = <String, Object?>{
+        ...metadata,
+        aiSessionMessageContentPreviewMetadataKey: true,
       };
     }
     return AiSessionMessage(

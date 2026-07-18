@@ -43,6 +43,7 @@ const int _transcriptHtmlWarmupMaxPerPass =
 const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 220);
 const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
 const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 480);
+const Duration _htmlWebViewBootstrapTimeout = Duration(seconds: 4);
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
