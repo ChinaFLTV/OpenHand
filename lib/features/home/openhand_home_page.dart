@@ -726,6 +726,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _activeSubmissionSerialsBySessionId.containsKey(sessionId);
   }
 
+  _WorkspaceSessionSnapshot _workspaceSessionSnapshot(
+    AiSessionController controller,
+  ) {
+    final session = controller.currentSession;
+    return _WorkspaceSessionSnapshot(
+      session: session,
+      sendPhase: _effectiveSendPhase(controller),
+      hydrating:
+          session != null && controller.isSessionMessagesHydrating(session.id),
+      loadError: session == null
+          ? null
+          : controller.sessionMessageWindowLoadErrorFor(session.id),
+      canStop: _canStopCurrentSessionResponse(controller),
+      editingMessageId: controller.editingMessageId,
+    );
+  }
+
   List<AiSession> _navigationSessions(AiSessionController sessionController) {
     final sessions = sessionController.sessions;
     if (sessions.length <= _navigationSessionLimit) {
@@ -8916,9 +8933,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _copyMessage(AiSessionMessage message) async {
+    var content = message.content;
+    if (message.metadata[aiSessionMessageContentPreviewMetadataKey] == true) {
+      final sessionId = context.read<AiSessionController>().currentSession?.id;
+      if (sessionId == null) return;
+      final loaded = await context
+          .read<AiSessionController>()
+          .loadFullSessionMessageContent(sessionId, message.id);
+      if (!mounted) return;
+      if (loaded == null) {
+        showHomeErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '完整内容加载失败，未执行复制。',
+            en: 'Unable to load the full content. Nothing was copied.',
+          ),
+        );
+        return;
+      }
+      content = loaded.content;
+    }
     await copyHomeTextToClipboard(
       context: context,
-      text: message.content,
+      text: content,
       logAction: 'copy message content',
       successMessage: openHandLocalizedText(
         context,
@@ -9448,14 +9486,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                               ),
                             )
                           : _selectedSection == AppSection.workspace
-                          ? Consumer<AiSessionController>(
+                          ? Selector<
+                              AiSessionController,
+                              _WorkspaceSessionSnapshot
+                            >(
                               key: ValueKey<String>(
                                 'section-${_selectedSection.name}',
                               ),
-                              builder: (context, _, _) => _ContentPane(
+                              selector: (context, controller) =>
+                                  _workspaceSessionSnapshot(controller),
+                              builder: (context, snapshot, _) => _ContentPane(
                                 child: _buildSectionContent(
                                   context,
                                   section: AppSection.workspace,
+                                  workspaceSessionSnapshot: snapshot,
                                 ),
                               ),
                             )
@@ -9539,7 +9583,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Widget _buildSectionContent(BuildContext context, {AppSection? section}) {
+  Widget _buildSectionContent(
+    BuildContext context, {
+    AppSection? section,
+    _WorkspaceSessionSnapshot? workspaceSessionSnapshot,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     final effectiveSection = section ?? _selectedSection;
     final workspaceSelected = effectiveSection == AppSection.workspace;
@@ -9552,11 +9600,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final mcpController = workspaceSelected
         ? context.watch<McpController>()
         : context.read<McpController>();
-    final sessionController = workspaceSelected
-        ? context.watch<AiSessionController>()
-        : context.read<AiSessionController>();
+    final sessionController = context.read<AiSessionController>();
     final appInfo = context.read<AppInfo>();
-    final currentSession = sessionController.currentSession;
+    final currentSession = workspaceSelected
+        ? workspaceSessionSnapshot?.session ?? sessionController.currentSession
+        : sessionController.currentSession;
     final machineTerminalSessionId =
         currentSession?.templateId == kMachineExpertTemplateId
         ? currentSession!.id
@@ -9565,10 +9613,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController,
       currentSession,
     );
-    final transcriptHydrating =
-        currentSession != null &&
-        sessionController.isSessionMessagesHydrating(currentSession.id);
-    final transcriptLoadError = currentSession == null
+    final transcriptHydrating = workspaceSelected
+        ? workspaceSessionSnapshot?.hydrating ?? false
+        : currentSession != null &&
+              sessionController.isSessionMessagesHydrating(currentSession.id);
+    final transcriptLoadError = workspaceSelected
+        ? workspaceSessionSnapshot?.loadError
+        : currentSession == null
         ? null
         : sessionController.sessionMessageWindowLoadErrorFor(currentSession.id);
     // Defer runtime catalog preview work to the workspace section — these
@@ -9657,8 +9708,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         autoFollowEnabled: _autoFollowEnabled,
         autoFollowPaused: _autoFollowPaused,
         onToggleAutoFollow: _toggleAutoFollow,
-        sendPhase: _effectiveSendPhase(sessionController),
-        canStopSending: _canStopCurrentSessionResponse(sessionController),
+        sendPhase:
+            workspaceSessionSnapshot?.sendPhase ??
+            _effectiveSendPhase(sessionController),
+        canStopSending:
+            workspaceSessionSnapshot?.canStop ??
+            _canStopCurrentSessionResponse(sessionController),
         planTimelineCollapsed: _isPlanTimelineCollapsed(currentSession?.id),
         onPlanTimelineCollapsedChanged: currentSession == null
             ? null
@@ -9813,7 +9868,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _creationOptions = AiCreationOptions.empty;
           });
         },
-        editingMessageId: sessionController.editingMessageId,
+        editingMessageId:
+            workspaceSessionSnapshot?.editingMessageId ??
+            sessionController.editingMessageId,
         onCancelEditing: _cancelEditingMessage,
         onEditMessage: _editMessage,
         onCopyMessage: _copyMessage,

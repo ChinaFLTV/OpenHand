@@ -71,9 +71,12 @@ void main() {
     final preview = loaded!.messages.single;
     final full = await store.loadMessage(sessionId, messageId);
 
-    expect(preview.content.length, 14000);
+    expect(preview.content.length, 4096);
+    expect(preview.content.length, lessThanOrEqualTo(14000));
     expect(preview.characterCount, content.length);
     expect(preview.metadata[aiSessionMessageContentPreviewMetadataKey], isTrue);
+    expect(loaded.messageLoadState, AiSessionMessageLoadState.windowed);
+    expect(loaded.hasCompleteMessages, isFalse);
     expect(full!.content, content);
     expect(full.metadata[aiSessionMessageContentPreviewMetadataKey], isNull);
   });

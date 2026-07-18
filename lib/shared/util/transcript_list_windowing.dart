@@ -82,6 +82,54 @@ abstract final class TranscriptListWindowing {
     return math.max(preferred, minStartForCap);
   }
 
+  /// Calculate a bounded materialized range beginning at [preferredStart].
+  ///
+  /// The range slides toward history instead of growing an ever-larger suffix.
+  /// This keeps widget construction, rich-render warmup, and keyed-child lookup
+  /// independent of the total number of loaded transcript messages.
+  static ({int start, int end}) boundedRange({
+    required int preferredStart,
+    required int messageCount,
+    int maxMaterialized = defaultMaxMaterializedWindow,
+  }) {
+    final count = messageCount < 0 ? 0 : messageCount;
+    if (count == 0) return (start: 0, end: 0);
+    final start = clampWindowStart(preferredStart, count);
+    final maxRows = math.max(1, maxMaterialized);
+    return (start: start, end: math.min(count, start + maxRows));
+  }
+
+  static int latestWindowStart(
+    int messageCount, {
+    int maxMaterialized = defaultMaxMaterializedWindow,
+  }) {
+    final count = math.max(0, messageCount);
+    return math.max(0, count - math.max(1, maxMaterialized));
+  }
+
+  static int windowStartAfterAppend({
+    required int previousWindowStart,
+    required int previousMessageCount,
+    required int messageCount,
+    int maxMaterialized = defaultMaxMaterializedWindow,
+  }) {
+    final previousCount = math.max(0, previousMessageCount);
+    final nextCount = math.max(0, messageCount);
+    final previousRange = boundedRange(
+      preferredStart: previousWindowStart,
+      messageCount: previousCount,
+      maxMaterialized: maxMaterialized,
+    );
+    if (nextCount > previousCount && previousRange.end >= previousCount) {
+      final previousWindowLength = math.max(
+        1,
+        previousRange.end - previousRange.start,
+      );
+      return math.max(0, nextCount - previousWindowLength);
+    }
+    return clampWindowStart(previousWindowStart, nextCount);
+  }
+
   /// First-paint subset of a visible window: always keep the latest tail so
   /// jump-to-bottom remains stable while older rows mount on later frames.
   static int openFirstPaintStartIndex(

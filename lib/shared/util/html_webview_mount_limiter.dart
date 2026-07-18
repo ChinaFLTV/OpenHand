@@ -17,7 +17,8 @@ class HtmlWebViewMountLimiter {
 
   final int maxMounted;
   final void Function(void Function() task)? _scheduleGranted;
-  final Set<int> _activeIds = <int>{};
+  final LinkedHashMap<int, HtmlWebViewMountPermit> _active =
+      LinkedHashMap<int, HtmlWebViewMountPermit>();
   final Queue<HtmlWebViewMountPermit> _waiting =
       Queue<HtmlWebViewMountPermit>();
   int _nextId = 0;
@@ -25,10 +26,16 @@ class HtmlWebViewMountLimiter {
   HtmlWebViewMountPermit request(
     void Function() onGranted, {
     bool priority = false,
+    void Function()? onRevoked,
   }) {
-    final permit = HtmlWebViewMountPermit._(++_nextId, this, onGranted);
-    if (_activeIds.length < maxMounted) {
-      _activeIds.add(permit.id);
+    final permit = HtmlWebViewMountPermit._(
+      ++_nextId,
+      this,
+      onGranted,
+      onRevoked,
+    );
+    if (_active.length < maxMounted) {
+      _active[permit.id] = permit;
       permit._granted = true;
       return permit;
     }
@@ -46,10 +53,20 @@ class HtmlWebViewMountLimiter {
     }
     permit._released = true;
     if (permit._granted) {
-      _activeIds.remove(permit.id);
+      _active.remove(permit.id);
     } else {
       _waiting.remove(permit);
     }
+    _drain();
+  }
+
+  void revokeOldest() {
+    if (_active.isEmpty) return;
+    final permit = _active.values.first;
+    _active.remove(permit.id);
+    permit._granted = false;
+    permit._released = true;
+    permit._onRevoked?.call();
     _drain();
   }
 
@@ -58,17 +75,17 @@ class HtmlWebViewMountLimiter {
       permit._released = true;
     }
     _waiting.clear();
-    _activeIds.clear();
+    _active.clear();
   }
 
   void _drain() {
-    while (_activeIds.length < maxMounted && _waiting.isNotEmpty) {
+    while (_active.length < maxMounted && _waiting.isNotEmpty) {
       final permit = _waiting.removeFirst();
       if (permit._released) {
         continue;
       }
       permit._granted = true;
-      _activeIds.add(permit.id);
+      _active[permit.id] = permit;
       final schedule = _scheduleGranted;
       if (schedule == null) {
         if (!permit._released) {
@@ -86,11 +103,17 @@ class HtmlWebViewMountLimiter {
 }
 
 class HtmlWebViewMountPermit {
-  HtmlWebViewMountPermit._(this.id, this._owner, this._onGranted);
+  HtmlWebViewMountPermit._(
+    this.id,
+    this._owner,
+    this._onGranted,
+    this._onRevoked,
+  );
 
   final int id;
   final HtmlWebViewMountLimiter _owner;
   final void Function() _onGranted;
+  final void Function()? _onRevoked;
   bool _granted = false;
   bool _released = false;
 

@@ -1036,6 +1036,10 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedSessionId.isEmpty) {
       return Future<AiSession?>.value();
     }
+    final current = _sessionById(normalizedSessionId);
+    if (current == null || !_sessionNeedsInitialMessageWindow(current)) {
+      return Future<AiSession?>.value(current);
+    }
     _invalidateSessionMessageWindowHydration(normalizedSessionId);
     _sessionMessageWindowLoadErrors.remove(normalizedSessionId);
     notifyListeners();
@@ -1981,10 +1985,16 @@ class AiSessionController extends ChangeNotifier {
       }
       final live = _sessionById(sessionId);
       if (live == null) return null;
+      final previewMessage = _messageById(live, messageId);
+      if (previewMessage == null ||
+          previewMessage.metadata[aiSessionMessageContentPreviewMetadataKey] !=
+              true) {
+        return null;
+      }
       var replacedMessage = false;
       final messages = <AiSessionMessage>[
         for (final message in live.messages)
-          if (message.id == messageId)
+          if (identical(message, previewMessage))
             (() {
               replacedMessage = true;
               final metadata = Map<String, Object?>.from(loaded.metadata)
@@ -1994,9 +2004,10 @@ class AiSessionController extends ChangeNotifier {
           else
             message,
       ];
-      if (!replacedMessage) return loaded;
-      final updated = live.copyWith(
-        messages: List<AiSessionMessage>.unmodifiable(messages),
+      if (!replacedMessage) return null;
+      final updated = _copySessionWithMessagesPreservingWindow(
+        live,
+        List<AiSessionMessage>.unmodifiable(messages),
       );
       if (_replaceSessionInMemory(updated, sortSessions: false)) {
         notifyListeners();
@@ -2116,6 +2127,14 @@ class AiSessionController extends ChangeNotifier {
         }
       }
       if (current.messageWindowStartIndex <= 0) {
+        final containsContentPreviews = current.messages.any(
+          (message) =>
+              message.metadata[aiSessionMessageContentPreviewMetadataKey] ==
+              true,
+        );
+        if (containsContentPreviews) {
+          return ensureSessionMessagesHydrated(sessionId);
+        }
         final completed = current.copyWith(
           messageLoadState: AiSessionMessageLoadState.complete,
           messageWindowStartIndex: 0,
@@ -2157,7 +2176,14 @@ class AiSessionController extends ChangeNotifier {
       ];
       final nextStart = page.offset;
       final nextTotal = math.max(page.totalCount, live.messageTotalCount);
-      final nextLoadState = nextStart == 0 && mergedMessages.length >= nextTotal
+      final containsContentPreviews = mergedMessages.any(
+        (message) =>
+            message.metadata[aiSessionMessageContentPreviewMetadataKey] == true,
+      );
+      final nextLoadState =
+          nextStart == 0 &&
+              mergedMessages.length >= nextTotal &&
+              !containsContentPreviews
           ? AiSessionMessageLoadState.complete
           : AiSessionMessageLoadState.windowed;
       final updatedSession = live.copyWith(
@@ -2274,15 +2300,31 @@ class AiSessionController extends ChangeNotifier {
   }) async {
     try {
       if (session.hasCompleteMessages) {
-        await _store.save(session);
-      } else {
-        await _enqueueSessionHeaderOperation(
-          sessionId,
-          () => _store.saveSessionHeader(session),
-        );
-        if (shouldRecoverInterruptedRegeneration) {
-          _scheduleResponseRegenerationRecoveryPersistence(sessionId);
-        }
+        await _enqueueSessionOperation(sessionId, () async {
+          if (_isDisposed || _deletedSessionIds.contains(sessionId)) return;
+          final live = _sessionById(sessionId);
+          if (live == null) return;
+          if (live.hasCompleteMessages) {
+            await _store.save(live);
+          } else {
+            await _store.saveSessionHeader(live);
+          }
+        });
+        return;
+      }
+      AiSession? normalizedSnapshot;
+      await _enqueueSessionHeaderOperation(sessionId, () async {
+        if (_isDisposed || _deletedSessionIds.contains(sessionId)) return;
+        final live = _sessionById(sessionId);
+        if (live == null) return;
+        normalizedSnapshot = live;
+        await _store.saveSessionHeader(live);
+      });
+      if (shouldRecoverInterruptedRegeneration &&
+          normalizedSnapshot != null &&
+          !_isDisposed &&
+          !_deletedSessionIds.contains(sessionId)) {
+        _scheduleResponseRegenerationRecoveryPersistence(sessionId);
       }
     } catch (error, stack) {
       silentLog(
@@ -2317,9 +2359,11 @@ class AiSessionController extends ChangeNotifier {
       if (liveSession != null &&
           liveSession.hasCompleteMessages &&
           liveSession.updatedAt.isAfter(normalized.updatedAt)) {
+        _sessionMessageWindowLoadErrors.remove(sessionId);
         return liveSession;
       }
       final replaced = _replaceSessionInMemory(normalized, sortSessions: false);
+      _sessionMessageWindowLoadErrors.remove(sessionId);
       if (replaced) {
         notifyListeners();
       }
@@ -3871,6 +3915,15 @@ class AiSessionController extends ChangeNotifier {
       }
       AiSession? nextSelectedSession;
       _deletedSessionIds.add(sessionId);
+      _invalidateSessionMessageWindowHydration(sessionId);
+      _sessionMessageWindowLoadErrors.remove(sessionId);
+      for (final taskKey
+          in _sessionMessageContentLoadGenerations.keys
+              .where((key) => key.startsWith('$sessionId::'))
+              .toList(growable: false)) {
+        _sessionMessageContentLoadGenerations.remove(taskKey);
+        _sessionMessageContentLoadTasks.remove(taskKey);
+      }
       _setSessions(updatedSessions);
       if (_currentSessionId == sessionId) {
         nextSelectedSession = updatedSessions.firstOrNull;
@@ -3955,6 +4008,14 @@ class AiSessionController extends ChangeNotifier {
         _lastErrorMessagesBySession
           ..clear()
           ..addAll(previousLastErrorMessagesBySession);
+        final restoredCurrent = _sessionById(previousCurrentSessionId ?? '');
+        if (restoredCurrent != null &&
+            _sessionNeedsInitialMessageWindow(restoredCurrent)) {
+          _scheduleSelectedSessionMessageWindowHydration(
+            restoredCurrent.id,
+            fallbackSession: restoredCurrent,
+          );
+        }
         _clearSessionExecutionState(sessionId);
         _lastErrorMessage = _friendlyAiSessionPersistenceError(
           error,
@@ -6735,7 +6796,9 @@ class AiSessionController extends ChangeNotifier {
       timer.cancel();
     }
     _sessionMessageWindowHydrationTimers.clear();
+    _sessionMessageWindowHydrationTasks.clear();
     _sessionMessageWindowHydrationGenerations.clear();
+    _sessionMessageContentLoadTasks.clear();
     _sessionMessageContentLoadGenerations.clear();
     unawaited(
       _toolUsagePromotionStore.flush().catchError((
@@ -10037,8 +10100,9 @@ class AiSessionController extends ChangeNotifier {
   }
 
   void _scheduleResponseRegenerationRecoveryPersistence(String sessionId) {
-    if (_responseRegenerationRecoveryTasks.containsKey(sessionId) ||
-        !_canRestoreInterruptedResponseRegeneration(sessionId)) {
+    if (_isDisposed ||
+        _deletedSessionIds.contains(sessionId) ||
+        _responseRegenerationRecoveryTasks.containsKey(sessionId)) {
       return;
     }
     late final Future<void> task;
@@ -10052,37 +10116,38 @@ class AiSessionController extends ChangeNotifier {
 
   Future<void> _persistResponseRegenerationRecovery(String sessionId) async {
     try {
-      if (!_canRestoreInterruptedResponseRegeneration(sessionId)) {
-        return;
-      }
-      final loaded = await _store.loadSession(sessionId);
-      if (loaded == null ||
-          !_canRestoreInterruptedResponseRegeneration(sessionId) ||
-          !_hasRestorableResponseRegenerationState(loaded)) {
-        return;
-      }
-      final normalized = _normalizeHydratedSessionForResume(
-        loaded,
-        normalizedAt: loaded.updatedAt,
-      );
-      if (identical(normalized, loaded)) {
-        return;
-      }
-      final live = _sessionById(sessionId);
-      final effectiveSession = _mergeLiveSessionState(normalized, live);
-      await _store.save(effectiveSession);
-      if (live == null ||
-          live.hasCompleteMessages ||
-          !_canRestoreInterruptedResponseRegeneration(sessionId)) {
-        return;
-      }
-      final replaced = _replaceSessionInMemory(
-        effectiveSession,
-        sortSessions: false,
-      );
-      if (replaced) {
-        notifyListeners();
-      }
+      await _enqueueSessionOperation(sessionId, () async {
+        if (_isDisposed ||
+            _deletedSessionIds.contains(sessionId) ||
+            !_canRestoreInterruptedResponseRegeneration(sessionId)) {
+          return;
+        }
+        final loaded = await _store.loadSession(sessionId);
+        if (loaded == null ||
+            !_canRestoreInterruptedResponseRegeneration(sessionId) ||
+            !_hasRestorableResponseRegenerationState(loaded)) {
+          return;
+        }
+        final normalized = _normalizeHydratedSessionForResume(
+          loaded,
+          normalizedAt: loaded.updatedAt,
+        );
+        if (identical(normalized, loaded)) return;
+        await _store.save(normalized);
+        final live = _sessionById(sessionId);
+        if (live == null ||
+            live.hasCompleteMessages ||
+            _isDisposed ||
+            !_canRestoreInterruptedResponseRegeneration(sessionId)) {
+          return;
+        }
+        final effectiveSession = _mergeLiveSessionState(normalized, live);
+        final replaced = _replaceSessionInMemory(
+          effectiveSession,
+          sortSessions: false,
+        );
+        if (replaced) notifyListeners();
+      });
     } catch (error, stackTrace) {
       silentLog(
         'ai_session_controller',

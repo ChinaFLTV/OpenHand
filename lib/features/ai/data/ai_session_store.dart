@@ -474,6 +474,7 @@ class AiSessionStore {
   // 解码成本让步：每累积约 16KB 字符就让出一次事件循环，使 UI 能在重负载
   // 消息之间稳定绘制水合占位帧，把首屏开销摊到多帧而非一帧。
   static const int _kMessageDecodeYieldCostBudget = 16000;
+  static const int _kTailMessageContentPreviewChars = 4096;
   static const String _kTailContentPreviewAlias = 'content';
 
   static List<String> _tailMessageRowColumnsWithoutMetadata(int previewChars) {
@@ -878,8 +879,8 @@ class AiSessionStore {
       totalCount: totalCount,
     );
     final previewChars = characterBudget == null || characterBudget <= 0
-        ? _kMessageDecodeYieldCostBudget
-        : characterBudget;
+        ? _kTailMessageContentPreviewChars
+        : math.min(characterBudget, _kTailMessageContentPreviewChars);
     final rawRows = await _queryMessageRows(
       columnsWithoutMetadata: _tailMessageRowColumnsWithoutMetadata(
         previewChars,
@@ -903,7 +904,11 @@ class AiSessionStore {
       messageRows,
       fallback: nonNegativeRemaining(totalCount, messageRows.length),
     );
-    final loadState = offset == 0 && messageRows.length >= totalCount
+    final hasContentPreviews = messageRows.any(
+      (row) => row[aiSessionMessageContentPreviewMetadataKey] == 1,
+    );
+    final loadState =
+        offset == 0 && messageRows.length >= totalCount && !hasContentPreviews
         ? AiSessionMessageLoadState.complete
         : AiSessionMessageLoadState.windowed;
     var session = await _sessionFromRowCooperatively(
@@ -922,8 +927,14 @@ class AiSessionStore {
       characterBudget: characterBudget,
     );
     if (expanded.offset != offset) {
+      final expandedHasContentPreviews = expanded.messages.any(
+        (message) =>
+            message.metadata[aiSessionMessageContentPreviewMetadataKey] == true,
+      );
       final expandedLoadState =
-          expanded.offset == 0 && expanded.messages.length >= totalCount
+          expanded.offset == 0 &&
+              expanded.messages.length >= totalCount &&
+              !expandedHasContentPreviews
           ? AiSessionMessageLoadState.complete
           : AiSessionMessageLoadState.windowed;
       session = session.copyWith(
@@ -937,7 +948,7 @@ class AiSessionStore {
     // compression sidecar into a partial tail would both add extra disk I/O to
     // the open path and place that historical checkpoint at the visible tail.
     // Full-session loaders still restore the sidecar before prompt building.
-    return loadState == AiSessionMessageLoadState.complete
+    return session.hasCompleteMessages
         ? restoreCompressionCheckpointFromSidecar(session)
         : session;
   }
@@ -1241,27 +1252,26 @@ class AiSessionStore {
         limit: batchSize,
         offset: previousOffset,
         deferTelemetryMetadata: deferTelemetryMetadata,
-        contentPreviewChars: remainingBudget > 0 ? remainingBudget : null,
+        contentPreviewChars: remainingBudget > 0
+            ? math.min(remainingBudget, _kTailMessageContentPreviewChars)
+            : null,
       );
       if (previousMessages.isEmpty) break;
-      final boundedPreviousMessages = remainingBudget > 0
+      final boundedBatch = remainingBudget > 0
           ? _takeMessagesWithinContentBudget(previousMessages, remainingBudget)
-          : previousMessages;
-      if (boundedPreviousMessages.isEmpty) break;
+          : (messages: previousMessages, skippedPrefixCount: 0);
+      if (boundedBatch.messages.isEmpty) break;
       expandedMessages = <AiSessionMessage>[
-        ...boundedPreviousMessages,
+        ...boundedBatch.messages,
         ...expandedMessages,
       ];
-      resolvedOffset = math.max(
-        0,
-        resolvedOffset - boundedPreviousMessages.length,
-      );
-      remainingContext -= boundedPreviousMessages.length;
+      resolvedOffset = previousOffset + boundedBatch.skippedPrefixCount;
+      remainingContext -= boundedBatch.messages.length;
       if (remainingBudget > 0) {
         remainingBudget = math.max(
           0,
           remainingBudget -
-              boundedPreviousMessages.fold<int>(
+              boundedBatch.messages.fold<int>(
                 0,
                 (sum, message) => sum + message.content.length,
               ),
@@ -1275,7 +1285,8 @@ class AiSessionStore {
     );
   }
 
-  List<AiSessionMessage> _takeMessagesWithinContentBudget(
+  ({List<AiSessionMessage> messages, int skippedPrefixCount})
+  _takeMessagesWithinContentBudget(
     List<AiSessionMessage> messages,
     int budget,
   ) {
@@ -1287,7 +1298,11 @@ class AiSessionStore {
       selected.add(message);
       used += cost;
     }
-    return selected.reversed.toList(growable: false);
+    final boundedMessages = selected.reversed.toList(growable: false);
+    return (
+      messages: boundedMessages,
+      skippedPrefixCount: messages.length - boundedMessages.length,
+    );
   }
 
   /// Loads one message row without hydrating the whole session.

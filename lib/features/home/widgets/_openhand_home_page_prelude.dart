@@ -44,9 +44,52 @@ const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 220);
 const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
 const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 480);
 const Duration _htmlWebViewBootstrapTimeout = Duration(seconds: 4);
+const int _htmlWebViewMaxActiveInstances = 6;
+const int _htmlWebViewMaxConcurrentBootstraps = 3;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
+
+@immutable
+class _WorkspaceSessionSnapshot {
+  const _WorkspaceSessionSnapshot({
+    required this.session,
+    required this.sendPhase,
+    required this.hydrating,
+    required this.loadError,
+    required this.canStop,
+    required this.editingMessageId,
+  });
+
+  final AiSession? session;
+  final AiSendPhase sendPhase;
+  final bool hydrating;
+  final String? loadError;
+  final bool canStop;
+  final String? editingMessageId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _WorkspaceSessionSnapshot &&
+          identical(session, other.session) &&
+          sendPhase == other.sendPhase &&
+          hydrating == other.hydrating &&
+          loadError == other.loadError &&
+          canStop == other.canStop &&
+          editingMessageId == other.editingMessageId;
+
+  @override
+  int get hashCode => Object.hash(
+    identityHashCode(session),
+    sendPhase,
+    hydrating,
+    loadError,
+    canStop,
+    editingMessageId,
+  );
+}
+
 const Duration _transcriptHistoryRevealCooldown = Duration(milliseconds: 120);
 const int _scrollToBottomPositionRetryLimit = 16;
 const int _scrollToBottomSettleFrameLimit = 36;

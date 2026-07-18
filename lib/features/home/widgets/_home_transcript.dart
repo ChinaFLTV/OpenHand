@@ -15,6 +15,7 @@ const Duration _kTranscriptTargetHighlightDuration = Duration(
 const Curve _kTranscriptTargetScrollCurve = Cubic(0.22, 0.92, 0.28, 1);
 const String _kTranscriptEntryKeyPrefix = 'transcript-entry-';
 const String _kTranscriptLoadEarlierKey = 'transcript-load-earlier';
+const String _kTranscriptReturnLatestKey = 'transcript-return-latest';
 const String _kTranscriptPendingCreationKey = 'transcript-pending-creation';
 const String _kTranscriptRetiringCreationKey = 'transcript-retiring-creation';
 const String _kTranscriptCreationFailureKey = 'transcript-creation-failure';
@@ -367,6 +368,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
+  Map<String, int> _renderEntryIndexById = const <String, int>{};
   // F2 memoize: visibleMessages 的 id→index 映射在 build 路径上每帧重建一次，
   // 长会话下不便宜。displayMessages 是 AiSession 内部缓存（identity 稳定），
   // 因此可以用 (引用, windowStart, length) 作为缓存键。父级 watch 在流式
@@ -514,6 +516,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
+      _renderEntryIndexById = const <String, int>{};
       if (widget.jumpToBottomOnInit) {
         _scheduleInitialBottomJump();
       }
@@ -554,8 +557,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           newDisplayLength - oldDisplayLength,
         );
         // Keep the previous tail on screen while revealing one older slice.
-        // Do not apply the open-path materialize cap here — users must be able
-        // to walk further back through history after load-older.
+        // The materialized range itself remains hard-bounded and slides toward
+        // history, so repeated pagination never grows an unbounded widget list.
         _windowStartIndex = TranscriptListWindowing.clampWindowStart(
           TranscriptListWindowing.windowStartAfterHistoryPrepend(
             previousWindowStart: _windowStartIndex,
@@ -564,7 +567,28 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           newDisplayLength,
         );
       } else {
-        _syncWindowStartIndex();
+        final oldDisplayLength = oldWidget.session.displayMessages.length;
+        final newDisplayLength = widget.session.displayMessages.length;
+        if (newDisplayLength < oldDisplayLength) {
+          final previousRange = TranscriptListWindowing.boundedRange(
+            preferredStart: previousWindowStartIndex,
+            messageCount: oldDisplayLength,
+          );
+          final previousWindowLength = math.max(
+            1,
+            previousRange.end - previousRange.start,
+          );
+          _windowStartIndex = math.max(
+            0,
+            newDisplayLength - previousWindowLength,
+          );
+        } else {
+          _windowStartIndex = TranscriptListWindowing.windowStartAfterAppend(
+            previousWindowStart: previousWindowStartIndex,
+            previousMessageCount: oldDisplayLength,
+            messageCount: newDisplayLength,
+          );
+        }
       }
       final windowChanged = previousWindowStartIndex != _windowStartIndex;
       if (prependedHistoricalMessages) {
@@ -631,9 +655,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             _windowStartIndex,
             displayMessages.length,
           );
-    // Open/session-switch only: never materialise more than the soft cap on
-    // first paint. Subsequent reveal-older may grow the window; ListView
-    // virtualizes off-screen rows and HTML mounts stay concurrency-capped.
+    // The range is hard-bounded on every build/reveal, not just on open.
+    // This keeps rich rendering and keyed-child bookkeeping independent of the
+    // number of messages already loaded into the session model.
     final nextWindowStartIndex = forceReset
         ? TranscriptListWindowing.cappedWindowStart(
             preferredWindowStart: preferred,
@@ -651,16 +675,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   List<AiSessionMessage> _visibleMessagesForWindow() {
     final displayMessages = widget.session.displayMessages;
-    final clampedWindowStartIndex = TranscriptListWindowing.clampWindowStart(
-      _windowStartIndex,
-      displayMessages.length,
+    final range = TranscriptListWindowing.boundedRange(
+      preferredStart: _windowStartIndex,
+      messageCount: displayMessages.length,
     );
-    // 避免为了“全量访问”多一份卷复制：窗口从 0 开始
-    // 且无位限制时，直接返回底层 List 的不可变视图。
-    if (clampedWindowStartIndex == 0) {
+    if (range.start == 0 && range.end == displayMessages.length) {
       return displayMessages;
     }
-    return displayMessages.sublist(clampedWindowStartIndex);
+    return displayMessages.sublist(range.start, range.end);
   }
 
   void _materializeOpenWindow({required bool progressive}) {
@@ -720,6 +742,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         for (final message in visibleMessages)
           _TranscriptRenderEntry(message: message),
       ];
+      _syncRenderEntryIndex();
     } finally {
       developer.Timeline.finishSync();
     }
@@ -768,6 +791,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
     _scheduleWarmRichRenderEntries(addedMessages);
     _renderEntries = nextEntries;
+    _syncRenderEntryIndex();
+  }
+
+  void _syncRenderEntryIndex() {
+    _renderEntryIndexById = <String, int>{
+      for (var index = 0; index < _renderEntries.length; index += 1)
+        _renderEntries[index].id: index,
+    };
   }
 
   void _warmCurrentRenderEntriesIfReady() {
@@ -803,6 +834,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       index -= 1
     ) {
       final message = staged[index];
+      if (message.metadata[aiSessionMessageContentPreviewMetadataKey] == true) {
+        continue;
+      }
       final usesHtml = _messageUsesHtmlRenderer(message, settings);
       if (usesHtml && htmlWarmups >= _transcriptHtmlWarmupMaxPerPass) {
         continue;
@@ -1107,6 +1141,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     return entry.copyWith(message: nextMessage);
                   }(),
         ];
+        _syncRenderEntryIndex();
         return;
       }
       if (!hasExitingEntries) {
@@ -1124,6 +1159,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               ? entry
               : entry.copyWith(message: visibleMessagesById[entry.id]),
       ];
+      _syncRenderEntryIndex();
       return;
     }
     if (hasAddedIds ||
@@ -1143,6 +1179,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         else if (visibleMessagesById.containsKey(entry.id))
           entry.copyWith(message: visibleMessagesById[entry.id]),
     ];
+    _syncRenderEntryIndex();
   }
 
   bool _isOrderedSubsequence(List<String> candidate, List<String> source) {
@@ -1275,13 +1312,35 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           8,
     );
     while (requestIsCurrent() && safety-- > 0) {
-      final targetNeedsWindowReveal =
-          targetDisplayIndex >= 0 && targetDisplayIndex < _windowStartIndex;
+      final currentRange = TranscriptListWindowing.boundedRange(
+        preferredStart: _windowStartIndex,
+        messageCount: display.length,
+      );
+      final targetNeedsOlderWindow =
+          targetDisplayIndex >= 0 && targetDisplayIndex < currentRange.start;
+      final targetNeedsNewerWindow =
+          targetDisplayIndex >= currentRange.end &&
+          targetDisplayIndex < display.length;
       final targetNeedsHydration =
           targetDisplayIndex < 0 && widget.session.hasMoreHistoricalMessages;
-      if (!targetNeedsWindowReveal && !targetNeedsHydration) break;
-      await _revealOlderMessages();
-      await WidgetsBinding.instance.endOfFrame;
+      if (targetNeedsNewerWindow) {
+        final nextStart = math.min(
+          targetDisplayIndex,
+          TranscriptListWindowing.latestWindowStart(display.length),
+        );
+        if (nextStart != _windowStartIndex) {
+          setState(() {
+            _windowStartIndex = nextStart;
+            _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+          });
+        }
+        await WidgetsBinding.instance.endOfFrame;
+      } else if (targetNeedsOlderWindow || targetNeedsHydration) {
+        await _revealOlderMessages();
+        await WidgetsBinding.instance.endOfFrame;
+      } else {
+        break;
+      }
       anchorMessageId = resolveAnchor();
       if (await tryEnsureVisible(anchorMessageId)) return true;
       if (!requestIsCurrent()) return false;
@@ -1293,9 +1352,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (targetDisplayIndex < 0 || anchorMessageId == null) return false;
     if (await tryEnsureVisible(anchorMessageId)) return true;
 
-    final renderIndex = _renderEntries.indexWhere(
-      (entry) => entry.id == anchorMessageId,
-    );
+    final renderIndex = _renderEntryIndexById[anchorMessageId] ?? -1;
     if (renderIndex < 0) return false;
     // 惰性列表中，目标虽然已进入 render entries，但离视口较远时尚未
     // mount，因此先按 index + 已挂载气泡高度估算滚到附近，再由
@@ -1919,6 +1976,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return future;
   }
 
+  void _showLatestWindow() {
+    final displayCount = widget.session.displayMessages.length;
+    final nextStart = TranscriptListWindowing.latestWindowStart(displayCount);
+    if (nextStart == _windowStartIndex) return;
+    setState(() {
+      _windowStartIndex = nextStart;
+      _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.controller.hasClients) return;
+      final position = widget.controller.position;
+      widget.onProgrammaticScrollCorrection(
+        () => position.jumpTo(position.maxScrollExtent),
+      );
+    });
+  }
+
   Future<void> _runRevealOlderMessages() async {
     if (_loadingOlderMessages ||
         (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
@@ -2326,6 +2400,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     required AiSession session,
     required int listItemCount,
     required int hiddenLoadMoreCount,
+    required int returnLatestCount,
     required int hiddenMessageCount,
     required int pendingPlaceholderCount,
     required int retiringPlaceholderCount,
@@ -2358,7 +2433,27 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final messageIndex = index - hiddenLoadMoreCount;
     if (messageIndex >= _renderEntries.length) {
       final afterMessagesIndex = messageIndex - _renderEntries.length;
-      if (afterMessagesIndex < pendingPlaceholderCount) {
+      if (afterMessagesIndex < returnLatestCount) {
+        return Padding(
+          key: const ValueKey<String>(_kTranscriptReturnLatestKey),
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Center(
+            child: FilledButton.tonalIcon(
+              onPressed: _showLatestWindow,
+              icon: const Icon(Icons.south_rounded, size: 18),
+              label: Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '返回最新消息',
+                  en: 'Return to latest',
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+      final afterWindowControlsIndex = afterMessagesIndex - returnLatestCount;
+      if (afterWindowControlsIndex < pendingPlaceholderCount) {
         return Padding(
           key: const ValueKey<String>(_kTranscriptPendingCreationKey),
           padding: const EdgeInsets.only(bottom: 14),
@@ -2367,7 +2462,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           ),
         );
       }
-      if (afterMessagesIndex <
+      if (afterWindowControlsIndex <
           pendingPlaceholderCount + retiringPlaceholderCount) {
         return Padding(
           key: const ValueKey<String>(_kTranscriptRetiringCreationKey),
@@ -2378,7 +2473,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           ),
         );
       }
-      if (afterMessagesIndex <
+      if (afterWindowControlsIndex <
           pendingPlaceholderCount +
               retiringPlaceholderCount +
               failureCardCount) {
@@ -2452,9 +2547,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final isLastVisibleMessage =
         visibleMessageIndex != null &&
         visibleMessageIndex == visibleMessages.length - 1;
-    final hasLaterVisibleMessages =
+    final hasLaterDisplayMessages =
         visibleMessageIndex != null &&
-        visibleMessageIndex < visibleMessages.length - 1;
+        (visibleMessageIndex < visibleMessages.length - 1 ||
+            returnLatestCount > 0);
     final shouldAnimateAppearance =
         !entry.exiting &&
         widget.sendPhase != AiSendPhase.idle &&
@@ -2582,7 +2678,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           }
           await _runDeleteAction(message, widget.onDeleteMessage);
         },
-        onDeleteFromHere: !entry.exiting && hasLaterVisibleMessages
+        onDeleteFromHere: !entry.exiting && hasLaterDisplayMessages
             ? () => _runDeleteAction(message, widget.onDeleteMessageFromHere)
             : null,
         onAudit: telemetryDebugEnabled
@@ -2636,6 +2732,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int? _findTranscriptListChildIndex(
     Key key, {
     required int hiddenLoadMoreCount,
+    required int returnLatestCount,
     required int pendingPlaceholderCount,
     required int retiringPlaceholderCount,
     required int failureCardCount,
@@ -2650,31 +2747,33 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final messageStart = hiddenLoadMoreCount;
     if (value.startsWith(_kTranscriptEntryKeyPrefix)) {
       final messageId = value.substring(_kTranscriptEntryKeyPrefix.length);
-      final messageIndex = _renderEntries.indexWhere(
-        (entry) => entry.id == messageId,
-      );
+      final messageIndex = _renderEntryIndexById[messageId] ?? -1;
       return messageIndex < 0 ? null : messageStart + messageIndex;
     }
 
     final afterMessagesStart = messageStart + _renderEntries.length;
+    if (value == _kTranscriptReturnLatestKey) {
+      return returnLatestCount > 0 ? afterMessagesStart : null;
+    }
+    final afterWindowControlsStart = afterMessagesStart + returnLatestCount;
     if (value == _kTranscriptPendingCreationKey) {
-      return pendingPlaceholderCount > 0 ? afterMessagesStart : null;
+      return pendingPlaceholderCount > 0 ? afterWindowControlsStart : null;
     }
     if (value == _kTranscriptRetiringCreationKey) {
       return retiringPlaceholderCount > 0
-          ? afterMessagesStart + pendingPlaceholderCount
+          ? afterWindowControlsStart + pendingPlaceholderCount
           : null;
     }
     if (value == _kTranscriptCreationFailureKey) {
       return failureCardCount > 0
-          ? afterMessagesStart +
+          ? afterWindowControlsStart +
                 pendingPlaceholderCount +
                 retiringPlaceholderCount
           : null;
     }
     if (value == _kTranscriptErrorBannerKey) {
       return errorBannerCount > 0
-          ? afterMessagesStart +
+          ? afterWindowControlsStart +
                 pendingPlaceholderCount +
                 retiringPlaceholderCount +
                 failureCardCount
@@ -2707,12 +2806,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
     final aiSessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
-    final clampedWindowStartIndex = _windowStartIndex
-        .clamp(0, displayMessages.length)
-        .toInt();
+    final range = TranscriptListWindowing.boundedRange(
+      preferredStart: _windowStartIndex,
+      messageCount: displayMessages.length,
+    );
+    final clampedWindowStartIndex = range.start;
     final hiddenMessageCount =
         session.hiddenHistoricalMessageCount + clampedWindowStartIndex;
-    final visibleMessages = displayMessages.sublist(clampedWindowStartIndex);
+    final visibleMessages =
+        (range.start == 0 && range.end == displayMessages.length)
+        ? displayMessages
+        : displayMessages.sublist(range.start, range.end);
     // build-stage 同步首屏 fallback：
     // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
     // callback 因 mount 抖动尚未触发时，直接同步物化首屏，避免
@@ -2770,25 +2874,29 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
     }
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
+    final returnLatestCount = range.end < displayMessages.length ? 1 : 0;
     // When the session is actively awaiting the assistant and the most
     // recent user message asked for a multimedia creation (image / video /
     // audio / deep research), we slot in a shimmering placeholder card
     // immediately below the user bubble so there is never a blank gap
     // between the request and the eventual result.
-    final pendingCreationRequest = _resolvePendingCreationPlaceholderCached(
-      session: session,
-      displayMessages: displayMessages,
-      windowStart: clampedWindowStartIndex,
-      sendPhase: widget.sendPhase,
-      allowWhenIdle: false,
-    );
+    final pendingCreationRequest = returnLatestCount == 0
+        ? _resolvePendingCreationPlaceholderCached(
+            session: session,
+            displayMessages: displayMessages,
+            windowStart: clampedWindowStartIndex,
+            sendPhase: widget.sendPhase,
+            allowWhenIdle: false,
+          )
+        : null;
     // When the assistant bailed out before producing any content AND the
     // user had asked for a multimedia creation, we swap the shimmer for an
     // explicit failure card (carrying the same error message the generic
     // banner would have shown). This keeps the failed turn visually tied to
     // the user's request instead of floating as a disconnected banner.
     final failedCreationRequest =
-        (pendingCreationRequest == null &&
+        (returnLatestCount == 0 &&
+            pendingCreationRequest == null &&
             userVisibleError != null &&
             widget.sendPhase == AiSendPhase.idle)
         ? _resolvePendingCreationPlaceholderCached(
@@ -2815,6 +2923,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final listItemCount =
         _renderEntries.length +
         hiddenLoadMoreCount +
+        returnLatestCount +
         errorBannerCount +
         pendingPlaceholderCount +
         retiringPlaceholderCount +
@@ -2870,6 +2979,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       _findTranscriptListChildIndex(
                         key,
                         hiddenLoadMoreCount: hiddenLoadMoreCount,
+                        returnLatestCount: returnLatestCount,
                         pendingPlaceholderCount: pendingPlaceholderCount,
                         retiringPlaceholderCount: retiringPlaceholderCount,
                         failureCardCount: failureCardCount,
@@ -2881,6 +2991,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     session: session,
                     listItemCount: listItemCount,
                     hiddenLoadMoreCount: hiddenLoadMoreCount,
+                    returnLatestCount: returnLatestCount,
                     hiddenMessageCount: hiddenMessageCount,
                     pendingPlaceholderCount: pendingPlaceholderCount,
                     retiringPlaceholderCount: retiringPlaceholderCount,

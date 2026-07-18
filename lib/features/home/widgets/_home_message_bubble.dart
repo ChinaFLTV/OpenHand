@@ -102,6 +102,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool _responseVariantSizeMotionActive = false;
   bool _responseVariantSizeMotionExpanding = true;
   bool _loadingFullContent = false;
+  String? _fullContentLoadError;
 
   // 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
@@ -205,6 +206,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
       _responseVariantSizeMotionResetTimer?.cancel();
       _responseVariantSizeMotionResetTimer = null;
       _responseVariantSizeMotionActive = false;
+      _loadingFullContent = false;
+      _fullContentLoadError = null;
       _invalidateCache();
       return;
     }
@@ -728,12 +731,23 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     Future<void> loadFullContent() async {
       if (_loadingFullContent) return;
-      setState(() => _loadingFullContent = true);
+      setState(() {
+        _loadingFullContent = true;
+        _fullContentLoadError = null;
+      });
       try {
-        await context.read<AiSessionController>().loadFullSessionMessageContent(
-          widget.sessionId,
-          message.id,
-        );
+        final loaded = await context
+            .read<AiSessionController>()
+            .loadFullSessionMessageContent(widget.sessionId, message.id);
+        if (mounted && loaded == null) {
+          setState(() {
+            _fullContentLoadError = openHandLocalizedText(
+              context,
+              zh: '完整内容加载失败，请重试。',
+              en: 'Unable to load the full content. Please retry.',
+            );
+          });
+        }
       } finally {
         if (mounted) setState(() => _loadingFullContent = false);
       }
@@ -795,6 +809,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
       );
     }
 
+    final isContentPreview =
+        message.metadata[aiSessionMessageContentPreviewMetadataKey] == true;
+    final contentPreviewText =
+        isContentPreview &&
+            resolvedMessageContentFormat == AiMessageContentFormat.html
+        ? _preparedHtmlRenderDataFor(effectiveContent).previewText
+        : effectiveContent;
     final responseVariantBodyMotionKey =
         isAssistantResponse && message.responseVariants.length > 1
         ? Object.hash(
@@ -919,7 +940,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     isToolResult ||
                     showAssistantResponseMetaRow)
                   const SizedBox(height: 10),
-                if (isCompressionPoint)
+                if (isContentPreview)
+                  _PlainTextMessageBody(
+                    data: contentPreviewText.isEmpty ? ' ' : contentPreviewText,
+                    textColor: textColor,
+                    backgroundColor: backgroundColor,
+                    style: markdownStyleSheet.styleSheet.p,
+                    scrollStateKey: '${message.id}|content-preview',
+                  )
+                else if (isCompressionPoint)
                   _CompressionCheckpointBody(
                     content: message.content,
                     expanded: _compressionExpanded,
@@ -1143,38 +1172,51 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ],
                         ),
                       ],
-                      if (message
-                              .metadata[aiSessionMessageContentPreviewMetadataKey] ==
-                          true) ...[
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: FilledButton.tonalIcon(
-                            onPressed: _loadingFullContent
-                                ? null
-                                : () => unawaited(loadFullContent()),
-                            icon: _loadingFullContent
-                                ? const SizedBox.square(
-                                    dimension: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.unfold_more_rounded),
-                            label: Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: _loadingFullContent ? '加载中' : '加载完整内容',
-                                en: _loadingFullContent
-                                    ? 'Loading'
-                                    : 'Load full content',
-                              ),
+                    ],
+                  ),
+                if (isContentPreview) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: _loadingFullContent
+                            ? null
+                            : () => unawaited(loadFullContent()),
+                        icon: _loadingFullContent
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.unfold_more_rounded),
+                        label: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: _loadingFullContent ? '加载中' : '加载完整内容',
+                            en: _loadingFullContent
+                                ? 'Loading'
+                                : 'Load full content',
+                          ),
+                        ),
+                      ),
+                      if (_fullContentLoadError != null)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: Text(
+                            _fullContentLoadError!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.error,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
+                ],
               ],
             );
             final transcriptScrollActive = _isTranscriptScrollActive(context);

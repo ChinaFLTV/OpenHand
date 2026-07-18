@@ -4450,12 +4450,20 @@ class _HtmlWebViewFrameScheduler {
       _scheduler.schedule(task, priority: true, isValid: isValid);
 }
 
-final HtmlWebViewMountLimiter _htmlWebViewMountLimiter =
+void _scheduleHtmlWebViewPermitGrant(void Function() task) {
+  WidgetsBinding.instance.addPostFrameCallback((_) => task());
+  WidgetsBinding.instance.ensureVisualUpdate();
+}
+
+final HtmlWebViewMountLimiter _htmlWebViewActiveLimiter =
     HtmlWebViewMountLimiter(
-      scheduleGranted: (task) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => task());
-        WidgetsBinding.instance.ensureVisualUpdate();
-      },
+      maxMounted: _htmlWebViewMaxActiveInstances,
+      scheduleGranted: _scheduleHtmlWebViewPermitGrant,
+    );
+final HtmlWebViewMountLimiter _htmlWebViewBootstrapLimiter =
+    HtmlWebViewMountLimiter(
+      maxMounted: _htmlWebViewMaxConcurrentBootstraps,
+      scheduleGranted: _scheduleHtmlWebViewPermitGrant,
     );
 
 class _DeferredHtmlBubbleWebView extends StatefulWidget {
@@ -4480,10 +4488,13 @@ class _DeferredHtmlBubbleWebView extends StatefulWidget {
 class _DeferredHtmlBubbleWebViewState
     extends State<_DeferredHtmlBubbleWebView> {
   bool _mountWebView = false;
+  bool _useFlutterFallback = false;
   int _generation = 0;
+  int? _mountedWebViewGeneration;
   TranscriptScrollActivity? _scrollActivity;
   bool _pendingMountAfterScroll = false;
-  HtmlWebViewMountPermit? _mountPermit;
+  HtmlWebViewMountPermit? _activePermit;
+  HtmlWebViewMountPermit? _bootstrapPermit;
   Timer? _coldMountTimer;
   Timer? _permitWaitTimer;
   Timer? _bootstrapTimer;
@@ -4523,13 +4534,15 @@ class _DeferredHtmlBubbleWebViewState
         oldWidget.textColor != widget.textColor ||
         oldWidget.backgroundColor != widget.backgroundColor ||
         oldWidget.baseTextStyle != widget.baseTextStyle) {
+      if (_useFlutterFallback) _useFlutterFallback = false;
+      if (_mountWebView) return;
       _generation += 1;
       _pendingMountAfterScroll = false;
-      if (!_mountWebView) {
-        _cancelColdMountTimer();
-        _releaseMountPermit();
-        _scheduleMount();
-      }
+      _cancelColdMountTimer();
+      _bootstrapTimer?.cancel();
+      _bootstrapTimer = null;
+      _releaseHtmlWebViewPermits();
+      _scheduleMount();
     }
   }
 
@@ -4557,7 +4570,7 @@ class _DeferredHtmlBubbleWebViewState
     _cancelColdMountTimer();
     _bootstrapTimer?.cancel();
     _bootstrapTimer = null;
-    _releaseMountPermit();
+    _releaseHtmlWebViewPermits();
     super.dispose();
   }
 
@@ -4574,7 +4587,7 @@ class _DeferredHtmlBubbleWebViewState
   }
 
   void _scheduleMount({bool allowColdDelay = true}) {
-    if (_mountWebView || _mountPermit != null || _coldMountTimer != null) {
+    if (_mountWebView || _activePermit != null || _coldMountTimer != null) {
       return;
     }
     final warmMetrics = _hasWarmWebViewMetrics();
@@ -4607,70 +4620,135 @@ class _DeferredHtmlBubbleWebViewState
   }
 
   void _tryMountWebView(int generation) {
-    if (!mounted || generation != _generation || _mountWebView) {
-      return;
-    }
-    final existing = _mountPermit;
+    if (!mounted || generation != _generation || _mountWebView) return;
+    final existing = _activePermit;
     if (existing != null) {
-      if (existing.granted) {
-        _pendingMountAfterScroll = false;
-        _cancelPermitWaitTimer();
-        _beginWebViewBootstrap();
-        setState(() => _mountWebView = true);
-      }
+      if (existing.granted) _requestWebViewBootstrap(generation);
       return;
     }
 
     late final HtmlWebViewMountPermit permit;
     final warmMetrics = _hasWarmWebViewMetrics();
-    permit = _htmlWebViewMountLimiter.request(() {
-      if (!mounted ||
-          generation != _generation ||
-          _mountWebView ||
-          !identical(_mountPermit, permit)) {
-        permit.release();
-        return;
-      }
-      if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+    permit = _htmlWebViewActiveLimiter.request(
+      () {
+        if (!mounted ||
+            generation != _generation ||
+            _mountWebView ||
+            !identical(_activePermit, permit)) {
+          permit.release();
+          return;
+        }
+        if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+          _pendingMountAfterScroll = true;
+          _activePermit = null;
+          permit.release();
+          return;
+        }
+        _pendingMountAfterScroll = false;
+        _cancelPermitWaitTimer();
+        _requestWebViewBootstrap(generation);
+      },
+      priority: warmMetrics,
+      onRevoked: () {
+        if (!mounted || !identical(_activePermit, permit)) return;
+        _activePermit = null;
+        _releaseBootstrapPermit();
+        _bootstrapTimer?.cancel();
+        _bootstrapTimer = null;
+        _mountedWebViewGeneration = null;
+        if (_mountWebView) setState(() => _mountWebView = false);
         _pendingMountAfterScroll = true;
-        _mountPermit = null;
-        permit.release();
-        return;
-      }
-      _pendingMountAfterScroll = false;
-      _cancelPermitWaitTimer();
-      _beginWebViewBootstrap();
-      setState(() => _mountWebView = true);
-    }, priority: warmMetrics);
-    _mountPermit = permit;
+      },
+    );
+    _activePermit = permit;
     if (permit.granted) {
       _pendingMountAfterScroll = false;
       _cancelPermitWaitTimer();
-      _beginWebViewBootstrap();
-      setState(() => _mountWebView = true);
+      _requestWebViewBootstrap(generation);
     } else {
       _startPermitWaitTimer(permit, generation);
     }
   }
 
-  void _beginWebViewBootstrap() {
+  void _requestWebViewBootstrap(int generation) {
+    if (!mounted ||
+        generation != _generation ||
+        _mountWebView ||
+        _activePermit?.granted != true ||
+        _bootstrapPermit != null) {
+      return;
+    }
+    late final HtmlWebViewMountPermit permit;
+    permit = _htmlWebViewBootstrapLimiter.request(() {
+      if (!mounted ||
+          generation != _generation ||
+          _mountWebView ||
+          !identical(_bootstrapPermit, permit) ||
+          _activePermit?.granted != true) {
+        permit.release();
+        return;
+      }
+      _mountGrantedWebView(generation);
+    }, priority: _hasWarmWebViewMetrics());
+    _bootstrapPermit = permit;
+    if (permit.granted) _mountGrantedWebView(generation);
+  }
+
+  void _mountGrantedWebView(int generation) {
+    if (!mounted ||
+        generation != _generation ||
+        _mountWebView ||
+        _activePermit?.granted != true ||
+        _bootstrapPermit?.granted != true) {
+      return;
+    }
+    _mountedWebViewGeneration = generation;
+    _beginWebViewBootstrap(generation);
+    setState(() => _mountWebView = true);
+  }
+
+  void _beginWebViewBootstrap(int generation) {
     _bootstrapTimer?.cancel();
     _bootstrapTimer = startSafeTimer(
       _htmlWebViewBootstrapTimeout,
-      _handleWebViewBootstrapReady,
+      () => _handleWebViewBootstrapReady(generation),
     );
   }
 
-  void _handleWebViewBootstrapReady() {
+  void _handleWebViewBootstrapReady(int generation) {
+    if (generation != _generation || generation != _mountedWebViewGeneration) {
+      return;
+    }
     _bootstrapTimer?.cancel();
     _bootstrapTimer = null;
-    _releaseMountPermit();
+    _releaseBootstrapPermit();
   }
 
-  void _releaseMountPermit() {
-    final permit = _mountPermit;
+  void _handleWebViewFallback() {
+    _bootstrapTimer?.cancel();
+    _bootstrapTimer = null;
+    _releaseHtmlWebViewPermits();
+    _mountedWebViewGeneration = null;
+    if (mounted) {
+      setState(() {
+        _mountWebView = false;
+        _useFlutterFallback = true;
+      });
+    }
+  }
+
+  void _releaseBootstrapPermit() {
+    final permit = _bootstrapPermit;
     if (permit == null) return;
-    _mountPermit = null;
+    _bootstrapPermit = null;
+    permit.release();
+  }
+
+  void _releaseHtmlWebViewPermits() {
+    _releaseBootstrapPermit();
+    final permit = _activePermit;
+    if (permit == null) return;
+    _activePermit = null;
     _cancelPermitWaitTimer();
     permit.release();
   }
@@ -4700,12 +4778,13 @@ class _DeferredHtmlBubbleWebViewState
       if (!mounted ||
           generation != _generation ||
           _mountWebView ||
-          !identical(_mountPermit, permit) ||
+          !identical(_activePermit, permit) ||
           permit.granted) {
         return;
       }
-      _mountPermit = null;
+      _activePermit = null;
       permit.release();
+      _htmlWebViewActiveLimiter.revokeOldest();
       if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
         _pendingMountAfterScroll = true;
         return;
@@ -4722,21 +4801,23 @@ class _DeferredHtmlBubbleWebViewState
 
   @override
   Widget build(BuildContext context) {
+    if (_useFlutterFallback) {
+      return _HtmlMessageBody(
+        data: widget.data,
+        textColor: widget.textColor,
+        baseTextStyle: widget.baseTextStyle,
+      );
+    }
     if (_mountWebView) {
       return _HtmlBubbleWebView(
-        key: ValueKey<int>(
-          Object.hash(
-            boundedTextFingerprint(widget.data),
-            widget.textColor,
-            widget.backgroundColor,
-            widget.baseTextStyle,
-          ),
-        ),
+        key: const ValueKey<String>('html-bubble-webview'),
         data: widget.data,
         textColor: widget.textColor,
         backgroundColor: widget.backgroundColor,
         baseTextStyle: widget.baseTextStyle,
-        onBootstrapReady: _handleWebViewBootstrapReady,
+        onBootstrapReady: () =>
+            _handleWebViewBootstrapReady(_mountedWebViewGeneration ?? -1),
+        onFallback: _handleWebViewFallback,
       );
     }
     return SizedBox(
@@ -4758,6 +4839,7 @@ class _HtmlBubbleWebView extends StatefulWidget {
     required this.textColor,
     required this.backgroundColor,
     required this.onBootstrapReady,
+    required this.onFallback,
     this.baseTextStyle,
   });
 
@@ -4765,6 +4847,7 @@ class _HtmlBubbleWebView extends StatefulWidget {
   final Color textColor;
   final Color backgroundColor;
   final VoidCallback onBootstrapReady;
+  final VoidCallback onFallback;
   final TextStyle? baseTextStyle;
 
   @override
@@ -5896,6 +5979,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     iaw.WebResourceError error,
   ) {
     _reportBootstrapReady();
+    widget.onFallback();
     silentLog('home_message_content', 'html bubble webview error', error);
     if (mounted) {
       _safeSetState(() => _hasError = true);
