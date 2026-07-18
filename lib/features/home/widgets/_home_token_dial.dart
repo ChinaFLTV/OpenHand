@@ -19,31 +19,25 @@ class _TokenDial extends StatefulWidget {
   int? get cacheReadTokens => statistics.cacheReadTokens;
   int? get cacheCreationTokens => statistics.cacheCreationTokens;
 
-  /// 当前会话的 cache 命中率，范围 0..1。
-  ///
-  /// 与浮窗完全同一公式：优先读取持久化趋势点；缺失时才从当前消息窗口
-  /// 兜底重算。默认口径剔除首轮冷请求和过期异常，避免历史预计算字段在
-  /// 规则升级后带来跨端数字漂移。
-  double get cacheHitRatio {
-    final trend = SessionCacheHitTrend.fromStatisticsOrSession(
-      session,
-      claudeStyle: claudeStyle,
-    );
-    final ratio = trend
-        .displayData(SessionCacheHitDisplayMode.excludeExpiredMisses)
-        .averageHitRatio;
-    final precomputed = session.statistics.cacheHitRatio;
-    if (ratio <= 0 && precomputed != null && trend.points.isEmpty) {
-      return finiteUnitInterval(precomputed);
-    }
-    return ratio;
-  }
-
   @override
   State<_TokenDial> createState() => _TokenDialState();
 }
 
 const double _cacheWriteThemeColorBlend = 0.45;
+
+double _tokenDialSummaryCacheHitRatio(
+  AiSessionStatistics statistics, {
+  required bool claudeStyle,
+}) {
+  final persisted = statistics.cacheHitRatio;
+  if (persisted != null) return finiteUnitInterval(persisted);
+  return computeCacheHitRatio(
+    promptTokens: statistics.totalPromptTokens ?? 0,
+    cacheReadTokens: statistics.cacheReadTokens ?? 0,
+    cacheWriteTokens: statistics.cacheCreationTokens ?? 0,
+    claudeStyle: claudeStyle,
+  );
+}
 
 Color _cacheWriteThemeColor(ColorScheme colorScheme) {
   return Color.lerp(
@@ -119,6 +113,7 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   void _showPopup() {
+    _hydrateCacheStatisticsOnDemand();
     _hideTimer?.cancel();
     _showQueued = true;
     final generation = ++_popupGeneration;
@@ -154,6 +149,7 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   Future<void> _showTouchPopupSheet() async {
+    _hydrateCacheStatisticsOnDemand();
     SessionCacheHitTurnPoint? selectedPoint;
     var dismissQueued = false;
     await showAnimatedModalSheet<void>(
@@ -166,7 +162,10 @@ class _TokenDialState extends State<_TokenDial>
           statistics: widget.statistics,
           activeProfile: widget.activeProfile,
           claudeStyle: widget.claudeStyle,
-          cacheHitRatio: widget.cacheHitRatio,
+          cacheHitRatio: _tokenDialSummaryCacheHitRatio(
+            widget.statistics,
+            claudeStyle: widget.claudeStyle,
+          ),
           compact: false,
           onCacheHitTrendPointSelected: (point) {
             selectedPoint = point;
@@ -196,6 +195,14 @@ class _TokenDialState extends State<_TokenDial>
     await Navigator.of(sheetContext).maybePop();
   }
 
+  void _hydrateCacheStatisticsOnDemand() {
+    unawaited(
+      context.read<AiSessionController>().ensureSessionCacheStatisticsHydrated(
+        widget.session.id,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -209,6 +216,10 @@ class _TokenDialState extends State<_TokenDial>
       color: colorScheme.onSurfaceVariant,
     );
     final hasCache = (widget.cacheReadTokens ?? 0) > 0;
+    final cacheHitRatio = _tokenDialSummaryCacheHitRatio(
+      widget.statistics,
+      claudeStyle: widget.claudeStyle,
+    );
     return OverlayPortal(
       controller: _portalController,
       overlayChildBuilder: (overlayContext) {
@@ -225,7 +236,7 @@ class _TokenDialState extends State<_TokenDial>
             statistics: widget.statistics,
             activeProfile: widget.activeProfile,
             claudeStyle: widget.claudeStyle,
-            cacheHitRatio: widget.cacheHitRatio,
+            cacheHitRatio: cacheHitRatio,
             maxHeight: metrics.maxHeight,
             minWidth: metrics.minWidth,
             maxWidth: metrics.maxWidth,
@@ -282,7 +293,7 @@ class _TokenDialState extends State<_TokenDial>
                 ),
                 const SizedBox(width: 6),
                 if (hasCache) ...[
-                  _CacheSavingsBadge(percent: widget.cacheHitRatio),
+                  _CacheSavingsBadge(percent: cacheHitRatio),
                   Container(
                     width: 1,
                     height: 12,
@@ -556,6 +567,31 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
   final ScrollController _scrollController = ScrollController();
   SessionCacheHitDisplayMode _displayMode =
       SessionCacheHitDisplayMode.excludeExpiredMisses;
+  late SessionCacheHitTrend _trend;
+
+  @override
+  void initState() {
+    super.initState();
+    _trend = _buildTrend();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TokenDialPopup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.id != widget.session.id ||
+        !identical(oldWidget.session.messages, widget.session.messages) ||
+        !identical(oldWidget.statistics, widget.statistics) ||
+        oldWidget.claudeStyle != widget.claudeStyle) {
+      _trend = _buildTrend();
+    }
+  }
+
+  SessionCacheHitTrend _buildTrend() {
+    return SessionCacheHitTrend.fromStatisticsOrSession(
+      widget.session,
+      claudeStyle: widget.claudeStyle,
+    );
+  }
 
   @override
   void dispose() {
@@ -597,10 +633,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final webSearchCalls = widget.statistics.webSearchToolUsage ?? 0;
     final webSearchPages = widget.statistics.webSearchPageUsage ?? 0;
     final total = widget.statistics.totalTokens ?? 0;
-    final trend = SessionCacheHitTrend.fromStatisticsOrSession(
-      widget.session,
-      claudeStyle: widget.claudeStyle,
-    );
+    final trend = _trend;
     final displayData = trend.displayData(_displayMode);
     final cacheHitRatio = trend.points.isEmpty
         ? widget.cacheHitRatio

@@ -3008,9 +3008,21 @@ function snapshotMessagesFingerprint(messages: SessionMessage[]): string {
 }
 
 function mergeSessionSummary(previous: SessionDetailResponse['session'], incoming: SessionDetailResponse['session']): SessionDetailResponse['session'] {
+  const statistics = incoming.statistics == null
+    ? previous.statistics
+    : previous.statistics == null
+    ? incoming.statistics
+    : {
+        ...previous.statistics,
+        ...incoming.statistics,
+        cache_hit_trend_points:
+          incoming.statistics.cache_hit_trend_points ??
+          previous.statistics.cache_hit_trend_points,
+      };
   return {
     ...previous,
     ...incoming,
+    statistics,
     metadata: incoming.metadata ?? previous.metadata,
     web_context: incoming.web_context ?? previous.web_context,
     environment: incoming.environment ?? previous.environment,
@@ -3507,6 +3519,7 @@ export function SessionDetailPage() {
   const cacheHitRevealAbortRef = useRef<AbortController | null>(null);
   const cacheHitRevealGenerationRef = useRef(0);
   const cacheHitHighlightTimerRef = useRef<number | null>(null);
+  const cacheStatisticsHydratingSessionIdRef = useRef<string | null>(null);
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
@@ -4869,6 +4882,34 @@ export function SessionDetailPage() {
     }
     if (summary.auto_title_acquired || summary.auto_title_generated_at || summary.is_title_manually_edited) {
       clearAutoTitleRefreshTimers();
+    }
+  }
+
+  async function hydrateCacheStatisticsOnDemand(): Promise<void> {
+    if (!sessionId || cacheStatisticsHydratingSessionIdRef.current === sessionId) {
+      return;
+    }
+    const requestSessionId = sessionId;
+    cacheStatisticsHydratingSessionIdRef.current = requestSessionId;
+    try {
+      const fresh = await getSession(requestSessionId, {
+        hydrateCacheStatistics: true,
+      });
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      setDetail((previous) => previous
+        ? {
+            ...fresh,
+            session: mergeSessionSummary(previous.session, fresh.session),
+          }
+        : fresh);
+      updateTotalKnown(fresh.session.message_count ?? totalKnownRef.current);
+    } catch (error: unknown) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(error) || handleSessionGoneError(error)) return;
+    } finally {
+      if (cacheStatisticsHydratingSessionIdRef.current === requestSessionId) {
+        cacheStatisticsHydratingSessionIdRef.current = null;
+      }
     }
   }
 
@@ -7016,10 +7057,10 @@ export function SessionDetailPage() {
     const tokens = session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : t('topbar.tokens.empty', 'Token 暂无');
     const tokenStats = recordFromUnknown(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
-    const cacheHitDisplay = buildSessionCacheHitDisplay(session, tokenStats);
-    const sessCacheRead = cacheHitDisplay.cacheReadTokens;
+    const cacheHitSummary = buildSessionCacheHitSummary(session, tokenStats);
+    const sessCacheRead = cacheHitSummary.cacheReadTokens;
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-    const cacheSavingsPercent = cacheHitDisplay.cacheHitRatio;
+    const cacheSavingsPercent = cacheHitSummary.cacheHitRatio;
     const cacheSavingsBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
     const tokensBadge =
       sessCacheRead > 0
@@ -7044,7 +7085,10 @@ export function SessionDetailPage() {
         label: tokens,
         title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
         badge: tokensBadge,
-        onClick: () => setTokenStatsOpen(true),
+        onClick: () => {
+          setTokenStatsOpen(true);
+          void hydrateCacheStatisticsOnDemand();
+        },
       },
     );
     const goal = latestGoalRecord(session.goal_state);
@@ -9454,6 +9498,33 @@ interface SessionCacheHitDisplay {
     points: CacheHitTrendPoint[];
     averageRatio: number;
   } | null;
+}
+
+function buildSessionCacheHitSummary(
+  session: SessionSummary,
+  stats: Record<string, unknown>,
+): { cacheReadTokens: number; cacheHitRatio: number } {
+  const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
+  const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
+  const promptTokens = readStatNumber(
+    stats['total_prompt_tokens'],
+    session.total_prompt_tokens,
+  );
+  const claudeStyle = usesClaudeStyleCacheMath(
+    session.last_used_model_protocol,
+  );
+  const denominator = claudeStyle
+    ? promptTokens + cacheReadTokens + cacheWriteTokens
+    : Math.max(promptTokens, cacheReadTokens + cacheWriteTokens);
+  const fallbackRatio = denominator > 0 ? cacheReadTokens / denominator : 0;
+  const persistedRatio = stats['cache_hit_ratio'];
+  const ratio = persistedRatio == null
+    ? fallbackRatio
+    : readDouble(persistedRatio, fallbackRatio);
+  return {
+    cacheReadTokens,
+    cacheHitRatio: cacheHitRatioPercent(ratio),
+  };
 }
 
 function buildSessionCacheHitDisplay(

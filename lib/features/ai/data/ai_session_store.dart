@@ -854,23 +854,58 @@ class AiSessionStore {
     String sessionId, {
     required int limit,
     int? characterBudget,
+    AiSession? sessionHeader,
   }) async {
     final normalizedId = sessionId.trim();
     if (!_isSafeStorageIdentifier(normalizedId)) return null;
-    final rows = await _db.query(
-      'sessions',
-      where: 'id = ?',
-      whereArgs: <Object?>[normalizedId],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
+    final reusableHeader = sessionHeader?.id == normalizedId
+        ? sessionHeader
+        : null;
+    Map<String, Object?>? sessionRow;
+    if (reusableHeader == null) {
+      final rows = await _db.query(
+        'sessions',
+        where: 'id = ?',
+        whereArgs: <Object?>[normalizedId],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      sessionRow = rows.first;
+    }
+
+    Future<AiSession> buildWindow(
+      List<Map<String, Object?>> messageRows, {
+      AiSessionMessageLoadState messageLoadState =
+          AiSessionMessageLoadState.complete,
+      int messageWindowStartIndex = 0,
+      required int messageTotalCount,
+      Map<String, Object?>? leadingKnowledgeBaseMetadata,
+    }) async {
+      if (reusableHeader == null) {
+        return _sessionFromRowCooperatively(
+          sessionRow!,
+          messageRows,
+          messageLoadState: messageLoadState,
+          messageWindowStartIndex: messageWindowStartIndex,
+          messageTotalCount: messageTotalCount,
+          leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
+        );
+      }
+      final messages = await _decodeMessagesCooperatively(
+        messageRows,
+        leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
+      );
+      return reusableHeader.copyWith(
+        messages: messages,
+        messageLoadState: messageLoadState,
+        messageWindowStartIndex: messageWindowStartIndex,
+        messageTotalCount: messageTotalCount,
+      );
+    }
+
     final totalCount = await _countMessages(normalizedId);
     if (totalCount <= 0) {
-      return await _sessionFromRowCooperatively(
-        rows.first,
-        const <Map<String, Object?>>[],
-        messageTotalCount: 0,
-      );
+      return buildWindow(const <Map<String, Object?>>[], messageTotalCount: 0);
     }
     final effectiveLimit = _boundedMessageLoadLimit(
       requestedLimit: limit,
@@ -909,8 +944,7 @@ class AiSessionStore {
         offset == 0 && messageRows.length >= totalCount && !hasContentPreviews
         ? AiSessionMessageLoadState.complete
         : AiSessionMessageLoadState.windowed;
-    var session = await _sessionFromRowCooperatively(
-      rows.first,
+    var session = await buildWindow(
       messageRows,
       messageLoadState: loadState,
       messageWindowStartIndex: offset,

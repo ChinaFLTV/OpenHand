@@ -43,8 +43,6 @@ import '../../agents/index.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
 import '../../harness/index.dart';
-import '../../home/index.dart'
-    show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../../hooks/index.dart';
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
@@ -3958,18 +3956,29 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    unawaited(
-      _sessionController.ensureSessionCacheStatisticsHydrated(session.id),
+    final includeCacheHitTrend = _truthy(
+      request.requestedUri.queryParameters['hydrate_cache_statistics'],
     );
+    final effectiveSession = includeCacheHitTrend
+        ? await _sessionController.ensureSessionCacheStatisticsHydrated(
+                session.id,
+              ) ??
+              session
+        : session;
     return _json(HttpStatus.ok, <String, Object?>{
       'session': await _sessionSummaryWithStoredMessageCount(
-        session,
+        effectiveSession,
         includeDetails: true,
+        includeCacheHitTrend: includeCacheHitTrend,
       ),
       'runtime': <String, Object?>{
-        'send_phase': _sessionController.sendPhaseForSession(session.id).name,
-        'can_stop': _sessionController.canStopResponding(session.id),
-        'last_error': _sessionController.lastErrorMessageForSession(session.id),
+        'send_phase': _sessionController
+            .sendPhaseForSession(effectiveSession.id)
+            .name,
+        'can_stop': _sessionController.canStopResponding(effectiveSession.id),
+        'last_error': _sessionController.lastErrorMessageForSession(
+          effectiveSession.id,
+        ),
       },
     });
   }
@@ -7351,67 +7360,27 @@ class WebMessagePlatformService {
     return null;
   }
 
-  /// 每次序列化会话时，只要累积 cache 数据明确有值，就用
-  /// SessionCacheHitTrend 的当前过滤规则刷新展示口径；优先复用已持久化趋势点。
-  /// 长/部分水合会话只用聚合 token 给出轻量比例，避免摘要/SSE 回扫全量消息。
-  Map<String, Object?> _ensureCacheHitStats(AiSession session) {
-    final stats = Map<String, Object?>.from(session.statistics.toJson());
-    final cacheRead = (stats['cache_read_tokens'] is int)
-        ? stats['cache_read_tokens'] as int
-        : 0;
-    final prompt = (stats['total_prompt_tokens'] is int)
-        ? stats['total_prompt_tokens'] as int
-        : 0;
-    if (cacheRead <= 0 || prompt <= 0) return stats;
-    final trendSchemaCurrent = _cacheHitTrendUsesRoundStarterSchema(
-      stats['cache_hit_trend_points'],
+  Map<String, Object?> _cacheHitStats(
+    AiSession session, {
+    required bool includeTrend,
+  }) {
+    final statistics = session.statistics;
+    final stats = Map<String, Object?>.from(
+      statistics.toJson(includeCacheHitTrendPoints: includeTrend),
     );
-    if (!trendSchemaCurrent &&
-        (session.hasPartialMessages ||
-            session.messages.length > _inMemoryMessageWindowDirectLimit)) {
-      stats['cache_hit_ratio'] = cacheRead / prompt;
-      stats['cache_hit_trend_points'] = const <Object?>[];
-      stats['cache_hit_trend_excluded_count'] = 0;
-      return stats;
-    }
-    final protocol = _lastModelProtocolForSession(session);
+    if (statistics.cacheHitRatio != null) return stats;
+    final cacheRead = statistics.cacheReadTokens ?? 0;
+    final cacheWrite = statistics.cacheCreationTokens ?? 0;
+    final prompt = statistics.totalPromptTokens ?? 0;
     final claudeStyle =
-        protocol != null && protocol.trim().toLowerCase() == 'claude';
-    final trend = trendSchemaCurrent
-        ? SessionCacheHitTrend.fromStatistics(
-            session.statistics,
-            claudeStyle: claudeStyle,
-          )
-        : SessionCacheHitTrend.fromSession(session, claudeStyle: claudeStyle);
-    final display = trend.displayData(
-      SessionCacheHitDisplayMode.excludeExpiredMisses,
-    );
-    final trendPoints = trend.points
-        .map((point) => point.toJson())
-        .toList(growable: false);
-    stats['cache_hit_ratio'] = display.averageHitRatio;
-    stats['cache_hit_trend_points'] = trendPoints;
-    stats['cache_hit_trend_excluded_count'] =
-        trend.points.length - display.trend.points.length;
-    return stats;
-  }
-
-  bool _cacheHitTrendUsesRoundStarterSchema(Object? value) {
-    if (value is! List || value.isEmpty) return false;
-    for (final item in value) {
-      final Map<String, Object?>? point = switch (item) {
-        final Map<String, Object?> typed => typed,
-        final Map raw => stringKeyedMapFromValue(raw),
-        _ => null,
-      };
-      if (point == null ||
-          !point.containsKey(
-            AiSessionCacheHitTrendPoint.starterOriginJsonKey,
-          )) {
-        return false;
-      }
+        _lastModelProtocolForSession(session)?.trim().toLowerCase() == 'claude';
+    final denominator = claudeStyle
+        ? prompt + cacheRead + cacheWrite
+        : math.max(prompt, cacheRead + cacheWrite);
+    if (cacheRead > 0 && denominator > 0) {
+      stats['cache_hit_ratio'] = cacheRead / denominator;
     }
-    return true;
+    return stats;
   }
 
   _WebSessionMessageWindow _messageWindowFromDisplayMessages(
@@ -7840,6 +7809,7 @@ class WebMessagePlatformService {
   Future<Map<String, Object?>> _sessionSummaryWithStoredMessageCount(
     AiSession session, {
     bool includeDetails = false,
+    bool includeCacheHitTrend = false,
   }) async {
     var total = session.statistics.totalMessageCount;
     try {
@@ -7854,6 +7824,7 @@ class WebMessagePlatformService {
     return _sessionSummary(
       session,
       includeDetails: includeDetails,
+      includeCacheHitTrend: includeCacheHitTrend,
       messageCountOverride: math.max(total, liveDisplayMessages.length),
       lastMessageOverride: liveDisplayMessages.isEmpty
           ? null
@@ -7873,6 +7844,7 @@ class WebMessagePlatformService {
   Map<String, Object?> _sessionSummary(
     AiSession session, {
     bool includeDetails = false,
+    bool includeCacheHitTrend = false,
     int? messageCountOverride,
     AiSessionMessage? lastMessageOverride,
     List<AiSessionMessage>? lastModelKeyCandidates,
@@ -7928,7 +7900,7 @@ class WebMessagePlatformService {
           .toIso8601String(),
       'last_model_key': lastModelKey,
       'message_count': messageCount,
-      'statistics': _ensureCacheHitStats(session),
+      'statistics': _cacheHitStats(session, includeTrend: includeCacheHitTrend),
       'total_tokens': session.statistics.totalTokens,
       'total_prompt_tokens': session.statistics.totalPromptTokens,
       'total_completion_tokens': session.statistics.totalCompletionTokens,

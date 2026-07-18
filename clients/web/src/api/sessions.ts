@@ -410,14 +410,20 @@ export function createSession(
 
 interface SessionRequestOptions {
   signal?: AbortSignal;
+  hydrateCacheStatistics?: boolean;
 }
 
 export function getSession(
   id: string,
   options: SessionRequestOptions = {},
 ): Promise<SessionDetailResponse> {
+  const params = new URLSearchParams();
+  if (options.hydrateCacheStatistics) {
+    params.set('hydrate_cache_statistics', '1');
+  }
+  const query = params.toString();
   return apiRequest<SessionDetailResponse>(
-    `/api/sessions/${encodeURIComponent(id)}`,
+    `/api/sessions/${encodeURIComponent(id)}${query ? `?${query}` : ''}`,
     { signal: options.signal },
   );
 }

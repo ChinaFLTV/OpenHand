@@ -464,11 +464,6 @@ class AiSessionController extends ChangeNotifier {
   static const int _initialMessageHydrationWindowSize = 8;
   static const int _initialMessageHydrationCharacterBudget = 14000;
   static const int _olderMessageHydrationBatchSize = 12;
-  // 缓存趋势修复可能加载完整历史；统一避开会话首屏，且先等待消息窗口水合，
-  // 防止非关键统计任务与首屏查询、解码争抢 UI isolate。
-  static const Duration _cacheStatisticsHydrationOpenDelay = Duration(
-    milliseconds: 1800,
-  );
   static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
@@ -957,7 +952,6 @@ class AiSessionController extends ChangeNotifier {
   Future<({List<String> ipAddresses, List<Map<String, Object?>> interfaces})>?
   _networkSnapshotFuture;
   String? _currentSessionId;
-  int _sessionSelectionGeneration = 0;
   AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
   String? _lastErrorMessage;
@@ -1673,17 +1667,12 @@ class AiSessionController extends ChangeNotifier {
     if (!_sessionsById.containsKey(sessionId)) {
       return;
     }
-    final selectionGeneration = ++_sessionSelectionGeneration;
     if (_currentSessionId == sessionId) {
       final selectedSession = _sessionById(sessionId);
       if (selectedSession != null &&
           _sessionNeedsInitialMessageWindow(selectedSession)) {
         unawaited(ensureSessionMessageWindowHydrated(sessionId));
       }
-      _scheduleSessionCacheStatisticsHydration(
-        sessionId,
-        selectionGeneration: selectionGeneration,
-      );
       return;
     }
     _currentSessionId = sessionId;
@@ -1696,10 +1685,6 @@ class AiSessionController extends ChangeNotifier {
     _scheduleSelectedSessionMessageWindowHydration(
       sessionId,
       fallbackSession: selectedSession,
-    );
-    _scheduleSessionCacheStatisticsHydration(
-      sessionId,
-      selectionGeneration: selectionGeneration,
     );
   }
 
@@ -1742,55 +1727,6 @@ class AiSessionController extends ChangeNotifier {
         }
       }),
     );
-  }
-
-  void _scheduleSessionCacheStatisticsHydration(
-    String sessionId, {
-    required int selectionGeneration,
-  }) {
-    unawaited(
-      _deferredSessionCacheStatisticsHydration(
-        sessionId,
-        selectionGeneration: selectionGeneration,
-      ).catchError((Object error, StackTrace stack) {
-        silentLog(
-          'ai_session_controller',
-          'hydrate session cache statistics after select',
-          error,
-          stack,
-        );
-        return null;
-      }),
-    );
-  }
-
-  Future<AiSession?> _deferredSessionCacheStatisticsHydration(
-    String sessionId, {
-    required int selectionGeneration,
-  }) async {
-    await Future<void>.delayed(_cacheStatisticsHydrationOpenDelay);
-    if (!_isCurrentSessionSelection(sessionId, selectionGeneration)) {
-      return _sessionById(sessionId);
-    }
-    final messageHydrationTask =
-        _sessionMessageWindowHydrationTasks[sessionId] ??
-        _sessionMessageHydrationTasks[sessionId];
-    if (messageHydrationTask != null) {
-      await messageHydrationTask;
-    }
-    if (!_isCurrentSessionSelection(sessionId, selectionGeneration)) {
-      return _sessionById(sessionId);
-    }
-    return ensureSessionCacheStatisticsHydrated(
-      sessionId,
-      selectionGeneration: selectionGeneration,
-    );
-  }
-
-  bool _isCurrentSessionSelection(String sessionId, int generation) {
-    return !_isDisposed &&
-        _currentSessionId == sessionId &&
-        _sessionSelectionGeneration == generation;
   }
 
   Future<AiSession?> ensureSessionMessageWindowHydrated(String sessionId) {
@@ -1891,17 +1827,10 @@ class AiSessionController extends ChangeNotifier {
     return task;
   }
 
-  Future<AiSession?> ensureSessionCacheStatisticsHydrated(
-    String sessionId, {
-    int? selectionGeneration,
-  }) {
+  Future<AiSession?> ensureSessionCacheStatisticsHydrated(String sessionId) {
     final normalizedSessionId = sessionId.trim();
     if (normalizedSessionId.isEmpty) {
       return Future<AiSession?>.value();
-    }
-    if (selectionGeneration != null &&
-        !_isCurrentSessionSelection(normalizedSessionId, selectionGeneration)) {
-      return Future<AiSession?>.value(_sessionById(normalizedSessionId));
     }
     final current = _sessionById(normalizedSessionId);
     if (current == null ||
@@ -1912,10 +1841,7 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    final task = _hydrateSessionCacheStatistics(
-      normalizedSessionId,
-      selectionGeneration: selectionGeneration,
-    );
+    final task = _hydrateSessionCacheStatistics(normalizedSessionId);
     _sessionCacheStatsHydrationTasks[normalizedSessionId] = task;
     return task;
   }
@@ -2029,34 +1955,23 @@ class AiSessionController extends ChangeNotifier {
     return !session.hasCompleteMessages && session.messageTotalCount > 0;
   }
 
-  Future<AiSession?> _hydrateSessionCacheStatistics(
-    String sessionId, {
-    int? selectionGeneration,
-  }) async {
-    bool stillRelevant() =>
-        selectionGeneration == null ||
-        _isCurrentSessionSelection(sessionId, selectionGeneration);
+  Future<AiSession?> _hydrateSessionCacheStatistics(String sessionId) async {
     try {
       final liveBeforeLoad = _sessionById(sessionId);
-      if (!stillRelevant() ||
-          liveBeforeLoad == null ||
+      if (liveBeforeLoad == null ||
           !SessionCacheHitTrend.statisticsNeedHydration(liveBeforeLoad)) {
         return liveBeforeLoad;
       }
       final fullSession = liveBeforeLoad.hasCompleteMessages
           ? liveBeforeLoad
           : await _store.loadSessionStatisticsSnapshot(sessionId);
-      if (!stillRelevant() ||
-          fullSession == null ||
-          _deletedSessionIds.contains(sessionId)) {
+      if (fullSession == null || _deletedSessionIds.contains(sessionId)) {
         return _sessionById(sessionId);
       }
       final model =
           resolveModelForSession(liveBeforeLoad) ??
           resolveModelForSession(fullSession);
-      if (!stillRelevant()) return _sessionById(sessionId);
       final rebuiltFullSession = _rebuildSession(fullSession, model: model);
-      if (!stillRelevant()) return _sessionById(sessionId);
       final live = _sessionById(sessionId);
       if (live == null) return null;
       if (!SessionCacheHitTrend.statisticsNeedHydration(live) &&
@@ -2073,7 +1988,6 @@ class AiSessionController extends ChangeNotifier {
           rebuiltFullSession.statistics.totalMessageCount,
         ),
       );
-      if (!stillRelevant()) return _sessionById(sessionId);
       final replaced = _replaceSessionInMemory(
         updatedLive,
         sortSessions: false,
@@ -2082,7 +1996,6 @@ class AiSessionController extends ChangeNotifier {
       if (replaced) {
         notifyListeners();
       }
-      if (!stillRelevant()) return _sessionById(sessionId);
       await _store.saveSessionHeader(effective);
       return effective;
     } catch (error, stack) {
@@ -2223,6 +2136,7 @@ class AiSessionController extends ChangeNotifier {
         sessionId,
         limit: _initialMessageHydrationWindowSize,
         characterBudget: _initialMessageHydrationCharacterBudget,
+        sessionHeader: _sessionById(sessionId),
       );
       if (loaded == null ||
           !_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {

@@ -1514,11 +1514,11 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     );
   }
   if (format === 'html') {
-    if (stickyLooksHtml) {
-      return <ProgressiveHtmlBody source={content} mono={mono} />;
-    }
     if (streaming) {
       return <HtmlBodyPlaceholder source={content || ' '} />;
+    }
+    if (stickyLooksHtml) {
+      return <ProgressiveHtmlBody source={content} mono={mono} />;
     }
     if (htmlFallback === 'plain_text') {
       return (
@@ -1540,6 +1540,9 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 检测内容是否像 HTML，自动升级到 HtmlBody 渲染，使 WEB 端对 AI 输出
   // 自愈，无需用户手动切设置项。sticky 与 'html' 分支共用同一 hook 结果。
   if (format === 'markdown' && stickyLooksHtml) {
+    if (streaming) {
+      return <HtmlBodyPlaceholder source={content || ' '} />;
+    }
     return <ProgressiveHtmlBody source={content} mono={mono} />;
   }
 

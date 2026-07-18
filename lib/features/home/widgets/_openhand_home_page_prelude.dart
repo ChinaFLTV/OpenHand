@@ -44,8 +44,10 @@ const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 220);
 const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
 const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 480);
 const Duration _htmlWebViewBootstrapTimeout = Duration(seconds: 4);
-const int _htmlWebViewMaxActiveInstances = 6;
-const int _htmlWebViewMaxConcurrentBootstraps = 3;
+// 平台视图创建会同时占用 UI、平台线程与 GPU 资源。长会话按顺序启动，
+// 避免多张 HTML 卡片并发初始化拖垮首屏。
+const int _htmlWebViewMaxActiveInstances = 4;
+const int _htmlWebViewMaxConcurrentBootstraps = 1;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;

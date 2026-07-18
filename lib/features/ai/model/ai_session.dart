@@ -1419,7 +1419,7 @@ class AiSessionStatistics {
     );
   }
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeCacheHitTrendPoints = true}) {
     return <String, Object?>{
       'total_message_count': totalMessageCount,
       'user_message_count': userMessageCount,
@@ -1448,9 +1448,10 @@ class AiSessionStatistics {
       'last_prompt_system_message_count': lastPromptSystemMessageCount,
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
       'cache_hit_ratio': cacheHitRatio,
-      'cache_hit_trend_points': cacheHitTrendPoints
-          .map((p) => p.toJson())
-          .toList(growable: false),
+      if (includeCacheHitTrendPoints)
+        'cache_hit_trend_points': cacheHitTrendPoints
+            .map((p) => p.toJson())
+            .toList(growable: false),
       'cache_hit_trend_excluded_count': cacheHitTrendExcludedCount,
     };
   }

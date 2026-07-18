@@ -4657,6 +4657,12 @@ class _DeferredHtmlBubbleWebViewState
         _mountedWebViewGeneration = null;
         if (_mountWebView) setState(() => _mountWebView = false);
         _pendingMountAfterScroll = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _mountWebView) return;
+          if (_scrollActivity?.value ?? false) return;
+          _pendingMountAfterScroll = false;
+          _scheduleMount();
+        });
       },
     );
     _activePermit = permit;
