@@ -138,6 +138,56 @@ final class BoundedRandomAccessFileLease {
   }
 }
 
+/// 在限定时间内打开随机访问文件；打开操作延迟完成时自动关闭句柄。
+Future<BoundedRandomAccessFileLease> openBoundedRandomAccessFileLease(
+  File file, {
+  required FileMode mode,
+  required Duration timeout,
+  bool deleteIfOpenCompletesLate = false,
+  Future<void> Function(RandomAccessFile file)? release,
+}) async {
+  if (timeout <= Duration.zero) {
+    throw ArgumentError.value(timeout, 'timeout', '必须大于零。');
+  }
+  final openFuture = file.open(mode: mode);
+  try {
+    final opened = await openFuture.timeout(
+      timeout,
+      onTimeout: () => throw TimeoutException('打开文件超过时限。', timeout),
+    );
+    return BoundedRandomAccessFileLease(opened, release: release);
+  } on TimeoutException {
+    unawaited(
+      _cleanupLateOpenedFile(
+        file,
+        openFuture,
+        timeout: timeout,
+        deleteFile: deleteIfOpenCompletesLate,
+        release: release,
+      ),
+    );
+    rethrow;
+  }
+}
+
+Future<void> _cleanupLateOpenedFile(
+  File file,
+  Future<RandomAccessFile> openFuture, {
+  required Duration timeout,
+  required bool deleteFile,
+  required Future<void> Function(RandomAccessFile file)? release,
+}) async {
+  try {
+    final opened = await openFuture;
+    await (release?.call(opened) ?? opened.close()).timeout(timeout);
+    if (deleteFile && await file.exists().timeout(timeout)) {
+      await file.delete().timeout(timeout);
+    }
+  } catch (_) {
+    // 调用方已收到主要错误，延迟清理失败不能覆盖原始结果。
+  }
+}
+
 /// A deterministic safety failure while retaining a local file in memory.
 final class BoundedFileReadException implements IOException {
   const BoundedFileReadException({

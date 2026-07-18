@@ -6,6 +6,7 @@ import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
 import 'package:openhand/features/ai/service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
+import 'package:openhand/shared/util/bounded_file_io.dart';
 import 'package:openhand/shared/util/bounded_log_buffer.dart';
 import 'package:openhand/shared/util/html_webview_mount_limiter.dart';
 
@@ -166,5 +167,30 @@ void main() {
     );
     expect(truncated.bytes, orderedEquals(<int>[1, 2, 3]));
     expect(truncated.truncated, isTrue);
+  });
+
+  test('有界文件租约串行写入并执行自定义释放', () async {
+    final root = await Directory.systemTemp.createTemp('openhand_file_guard_');
+    addTearDown(() => root.delete(recursive: true));
+    final file = File('${root.path}/output.bin');
+    var released = false;
+    final lease = await openBoundedRandomAccessFileLease(
+      file,
+      mode: FileMode.write,
+      timeout: const Duration(seconds: 1),
+      release: (output) async {
+        await output.close();
+        released = true;
+      },
+    );
+
+    await lease.run(
+      (output) => output.writeFrom(<int>[1, 2, 3]),
+      timeout: const Duration(seconds: 1),
+    );
+    await lease.close(timeout: const Duration(seconds: 1));
+
+    expect(released, isTrue);
+    expect(await file.readAsBytes(), orderedEquals(<int>[1, 2, 3]));
   });
 }

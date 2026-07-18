@@ -1920,6 +1920,7 @@ const Duration _mediaClipboardNetworkTimeout = Duration(seconds: 25);
 const Duration _remoteMediaOpenTimeout = Duration(seconds: 20);
 const Duration _remoteMediaHeaderTimeout = Duration(seconds: 30);
 const Duration _remoteMediaChunkTimeout = Duration(seconds: 30);
+const Duration _remoteMediaFileIoTimeout = Duration(seconds: 30);
 const Duration _remoteImageDownloadTimeout = Duration(minutes: 5);
 const Duration _remoteAudioDownloadTimeout = Duration(minutes: 5);
 const Duration _remoteVideoDownloadTimeout = Duration(minutes: 20);
@@ -1998,7 +1999,6 @@ Future<Uint8List> _downloadClipboardBytes(
 Future<void> _downloadRemoteUriToFile({
   required Uri uri,
   required String destination,
-  required String resourceLabel,
   required Duration totalTimeout,
   required int maxBytes,
   String? expectedPrimaryType,
@@ -2007,10 +2007,7 @@ Future<void> _downloadRemoteUriToFile({
 }) async {
   final scheme = uri.scheme.toLowerCase();
   if (scheme != 'http' && scheme != 'https') {
-    throw FileSystemException(
-      'Unsupported $resourceLabel URI scheme: ${uri.scheme}',
-      uri.toString(),
-    );
+    throw FileSystemException('不支持的媒体地址协议：${uri.scheme}', uri.toString());
   }
 
   final client = SystemProxyResolver.instance.createRawHttpClient(
@@ -2023,12 +2020,7 @@ Future<void> _downloadRemoteUriToFile({
           .then<void>(
             (_) {},
             onError: (Object error, StackTrace stack) {
-              silentLog(
-                'home_message_bubble',
-                'remote media cancel signal',
-                error,
-                stack,
-              );
+              silentLog('home_message_bubble', '远程媒体取消信号', error, stack);
             },
           )
           .whenComplete(() {
@@ -2045,10 +2037,7 @@ Future<void> _downloadRemoteUriToFile({
     }
     final response = await request.close().timeout(_remoteMediaHeaderTimeout);
     if (isHttpFailureStatus(response.statusCode)) {
-      throw HttpException(
-        'HTTP ${response.statusCode} while downloading $resourceLabel.',
-        uri: uri,
-      );
+      throw HttpException('媒体下载失败：HTTP ${response.statusCode}。', uri: uri);
     }
     final contentType = response.headers.contentType;
     if (expectedPrimaryType != null &&
@@ -2056,78 +2045,71 @@ Future<void> _downloadRemoteUriToFile({
         contentType.primaryType != expectedPrimaryType &&
         (!allowOctetStream ||
             contentType.mimeType != 'application/octet-stream')) {
-      throw HttpException(
-        'Unexpected content type: ${contentType.mimeType}',
-        uri: uri,
-      );
+      throw HttpException('媒体响应类型不符合预期：${contentType.mimeType}', uri: uri);
     }
     if (response.contentLength > maxBytes) {
-      throw FileSystemException(
-        '$resourceLabel download exceeded size limit.',
-        destination,
-      );
+      throw FileSystemException('媒体下载超过容量上限。', destination);
     }
 
     final outputFile = File(destination);
-    final output = outputFile.openWrite();
-    final deadline = DateTime.now().add(totalTimeout);
-    var receivedBytes = 0;
-    var outputClosed = false;
-
-    Future<void> closeOutput() async {
-      if (outputClosed) return;
-      outputClosed = true;
-      await output.close();
-    }
-
+    BoundedRandomAccessFileLease? output;
+    var deleteOnRelease = false;
     try {
-      await for (final chunk in response.timeout(_remoteMediaChunkTimeout)) {
+      final openedOutput = await openBoundedRandomAccessFileLease(
+        outputFile,
+        mode: FileMode.write,
+        timeout: _remoteMediaFileIoTimeout,
+        deleteIfOpenCompletesLate: true,
+        release: (file) async {
+          await file.close();
+          if (deleteOnRelease &&
+              await outputFile.exists().timeout(_remoteMediaFileIoTimeout)) {
+            await outputFile.delete().timeout(_remoteMediaFileIoTimeout);
+          }
+        },
+      );
+      output = openedOutput;
+      final boundedResponse = limitByteStream(
+        response,
+        maxBytes: maxBytes,
+        idleTimeout: _remoteMediaChunkTimeout,
+        totalTimeout: totalTimeout,
+      );
+      await for (final chunk in boundedResponse) {
         if (cancelled) {
           throw const _MediaDownloadCancelled();
         }
-        if (DateTime.now().isAfter(deadline)) {
-          throw TimeoutException(
-            '$resourceLabel download exceeded time limit.',
-          );
-        }
-        receivedBytes += chunk.length;
-        if (receivedBytes > maxBytes) {
-          throw FileSystemException(
-            '$resourceLabel download exceeded size limit.',
-            destination,
-          );
-        }
-        output.add(chunk);
-      }
-      await output.flush();
-    } catch (error, stack) {
-      try {
-        await closeOutput();
-      } catch (closeError, closeStack) {
-        silentLog(
-          'home_message_bubble',
-          'close failed $resourceLabel download stream',
-          closeError,
-          closeStack,
+        await openedOutput.run(
+          (file) => file.writeFrom(chunk),
+          timeout: _remoteMediaFileIoTimeout,
         );
       }
+      await openedOutput.run(
+        (file) => file.flush(),
+        timeout: _remoteMediaFileIoTimeout,
+      );
+      await openedOutput.close(timeout: _remoteMediaFileIoTimeout);
+      output = null;
+    } catch (error, stack) {
+      deleteOnRelease = true;
+      await output?.cleanup();
+      output = null;
       try {
-        if (await outputFile.exists()) {
-          await outputFile.delete();
+        if (await outputFile.exists().timeout(_remoteMediaFileIoTimeout)) {
+          await outputFile.delete().timeout(_remoteMediaFileIoTimeout);
         }
-      } on FileSystemException catch (cleanupError, cleanupStack) {
+      } catch (cleanupError, cleanupStack) {
         silentLog(
           'home_message_bubble',
-          'delete partial $resourceLabel download',
+          '删除未完成的远程媒体下载文件',
           cleanupError,
           cleanupStack,
         );
       }
       Error.throwWithStackTrace(error, stack);
     } finally {
-      if (!outputClosed) {
-        await output.close();
-      }
+      if (output != null) deleteOnRelease = true;
+      await output?.cleanup();
     }
   } finally {
     client.close(force: true);
@@ -3364,7 +3346,6 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     await _downloadRemoteUriToFile(
       uri: sourceUri,
       destination: destination,
-      resourceLabel: 'image',
       totalTimeout: _remoteImageDownloadTimeout,
       maxBytes: _remoteImageDownloadMaxBytes,
       expectedPrimaryType: 'image',
@@ -6052,7 +6033,6 @@ Future<void> _downloadRemoteMedia(
   await _downloadRemoteUriToFile(
     uri: source.uri,
     destination: destination,
-    resourceLabel: isVideo ? 'video' : 'audio',
     totalTimeout: isVideo
         ? _remoteVideoDownloadTimeout
         : _remoteAudioDownloadTimeout,
@@ -6075,7 +6055,7 @@ const Set<String> _videoMediaExtensions = <String>{
 class _MediaDownloadCancelled implements Exception {
   const _MediaDownloadCancelled();
   @override
-  String toString() => 'Media download cancelled by caller.';
+  String toString() => '媒体下载已取消。';
 }
 
 const Set<String> _audioMediaExtensions = <String>{

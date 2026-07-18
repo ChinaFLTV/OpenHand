@@ -254,12 +254,23 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       final filePath = p.join(downloadDirectory.path, fileName);
       final partialFile = File('$filePath.part');
       BoundedRandomAccessFileLease? output;
+      var deleteOnRelease = false;
       try {
-        final openedOutput = BoundedRandomAccessFileLease(
-          await _openUpdateOutput(
-            partialFile,
-            _shorterUpdateDuration(_kUpdateFileIoTimeout, remainingBudget()),
+        final openedOutput = await openBoundedRandomAccessFileLease(
+          partialFile,
+          mode: FileMode.write,
+          timeout: _shorterUpdateDuration(
+            _kUpdateFileIoTimeout,
+            remainingBudget(),
           ),
+          deleteIfOpenCompletesLate: true,
+          release: (file) async {
+            await file.close();
+            if (deleteOnRelease &&
+                await partialFile.exists().timeout(_kUpdateFileIoTimeout)) {
+              await partialFile.delete().timeout(_kUpdateFileIoTimeout);
+            }
+          },
         );
         output = openedOutput;
         var received = 0;
@@ -312,6 +323,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         );
         output = null;
       } finally {
+        if (output != null) deleteOnRelease = true;
         await output?.cleanup();
       }
       if (cancelled) {
@@ -431,31 +443,6 @@ Duration _remainingUpdateBudget(
 
 Duration _shorterUpdateDuration(Duration first, Duration second) {
   return first <= second ? first : second;
-}
-
-Future<RandomAccessFile> _openUpdateOutput(File file, Duration timeout) async {
-  final openFuture = file.open(mode: FileMode.write);
-  try {
-    return await openFuture.timeout(timeout);
-  } on TimeoutException {
-    unawaited(_closeLateUpdateOutput(file, openFuture));
-    rethrow;
-  }
-}
-
-Future<void> _closeLateUpdateOutput(
-  File file,
-  Future<RandomAccessFile> openFuture,
-) async {
-  try {
-    final output = await openFuture;
-    await output.close().timeout(_kUpdateFileIoTimeout);
-    if (await file.exists().timeout(_kUpdateFileIoTimeout)) {
-      await file.delete().timeout(_kUpdateFileIoTimeout);
-    }
-  } catch (error, stack) {
-    silentLog('app_update_checker', '清理延迟打开的更新包文件', error, stack);
-  }
 }
 
 void _validateSecureUpdateUri(Uri uri) {
