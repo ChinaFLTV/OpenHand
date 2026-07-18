@@ -8,14 +8,14 @@ class ResponseBodySizeLimitError extends Error {
 
   constructor(maxBytes: number) {
     const maxMiB = Math.ceil(maxBytes / (1024 * 1024));
-    super(`Response body exceeds the ${maxMiB} MiB safety limit.`);
+    super(`响应体超过 ${maxMiB} MiB 安全上限。`);
     this.name = 'ResponseBodySizeLimitError';
     this.maxBytes = maxBytes;
   }
 }
 
 function abortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+  return signal.reason ?? new DOMException('操作已取消。', 'AbortError');
 }
 
 function declaredResponseBytes(response: Response): number | null {
@@ -32,19 +32,18 @@ async function cancelReaderQuietly(
   try {
     await reader.cancel(reason);
   } catch {
-    // Cancellation is best-effort; preserve the primary timeout/limit error.
+    // 取消失败不覆盖原始超时或容量错误。
   }
 }
 
-/// Reads a complete response body while enforcing an explicit byte ceiling.
-/// The caller-provided signal should cover the entire read, not only fetch's
-/// response-header phase.
+/// 在明确的字节上限内读取完整响应体。
+/// 调用方提供的信号必须覆盖完整读取阶段，而不只是响应头阶段。
 export async function readResponseBlobBounded(
   response: Response,
   { maxBytes, signal }: BoundedResponseBlobOptions,
 ): Promise<Blob> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
-    throw new RangeError('maxBytes must be a positive safe integer.');
+    throw new RangeError('maxBytes 必须是正安全整数。');
   }
   const declaredBytes = declaredResponseBytes(response);
   if (declaredBytes != null && declaredBytes > maxBytes) {
@@ -59,7 +58,7 @@ export async function readResponseBlobBounded(
         type: response.headers.get('content-type') ?? '',
       });
     }
-    throw new Error('Response body stream is unavailable.');
+    throw new Error('响应体数据流不可用。');
   }
 
   const reader = body.getReader();
@@ -89,7 +88,7 @@ export async function readResponseBlobBounded(
     try {
       reader.releaseLock();
     } catch {
-      // The stream may already be cancelled or detached.
+      // 数据流可能已取消或分离。
     }
   }
   return new Blob(chunks, {

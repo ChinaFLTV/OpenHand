@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
+import 'package:openhand/shared/util/bounded_log_buffer.dart';
 import 'package:openhand/shared/util/html_webview_mount_limiter.dart';
 
 void main() {
@@ -50,5 +51,17 @@ void main() {
     scheduled.single();
     expect(granted, 1);
     second.release();
+  });
+
+  test('日志缓冲同时限制行数与字符数并保留最新内容', () {
+    final buffer = BoundedLogBuffer(maxLines: 2, maxCharacters: 6);
+
+    buffer
+      ..add('1234')
+      ..add('56')
+      ..add('abcdefghi');
+
+    expect(buffer.snapshot(), <String>['defghi']);
+    expect(buffer.characterCount, 6);
   });
 }

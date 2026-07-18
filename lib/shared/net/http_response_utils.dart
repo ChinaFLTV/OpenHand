@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../util/async_concurrency.dart';
 import '../util/timer_safety.dart';
+import 'http_status_utils.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
@@ -12,6 +13,78 @@ final class ByteStreamSizeLimitException extends HttpException {
   ByteStreamSizeLimitException(this.maxBytes) : super('字节流超过 $maxBytes 字节上限。');
 
   final int maxBytes;
+}
+
+/// 获取 HTTP(S) 资源，并统一执行状态码、类型、空闲时限、总时限和容量校验。
+/// 调用方仍负责关闭 [client]。
+Future<Uint8List> fetchBoundedHttpBytes({
+  required HttpClient client,
+  required Uri uri,
+  required int maxBytes,
+  required Duration openTimeout,
+  required Duration idleTimeout,
+  Duration? totalTimeout,
+  String? expectedPrimaryType,
+  bool allowOctetStream = true,
+}) async {
+  final scheme = uri.scheme.toLowerCase();
+  if ((scheme != 'http' && scheme != 'https') || uri.host.isEmpty) {
+    throw FormatException('仅支持有效的 HTTP(S) 地址：$uri');
+  }
+  if (openTimeout <= Duration.zero) {
+    throw ArgumentError.value(openTimeout, 'openTimeout', '必须大于零。');
+  }
+  _validateByteStreamLimits(
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
+
+  final stopwatch = Stopwatch()..start();
+  Duration remainingTotalBudget() {
+    final total = totalTimeout;
+    if (total == null) return openTimeout;
+    final remainingMicroseconds =
+        total.inMicroseconds - stopwatch.elapsedMicroseconds;
+    if (remainingMicroseconds <= 0) {
+      throw TimeoutException('HTTP 资源获取超过总时限。', total);
+    }
+    return Duration(microseconds: remainingMicroseconds);
+  }
+
+  Duration nextOpenTimeout() {
+    final remaining = remainingTotalBudget();
+    return remaining < openTimeout ? remaining : openTimeout;
+  }
+
+  try {
+    final request = await client.getUrl(uri).timeout(nextOpenTimeout());
+    final response = await request.close().timeout(nextOpenTimeout());
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    }
+    final contentType = response.headers.contentType;
+    if (expectedPrimaryType != null &&
+        contentType != null &&
+        contentType.primaryType != expectedPrimaryType &&
+        (!allowOctetStream ||
+            contentType.mimeType != 'application/octet-stream')) {
+      throw HttpException('响应内容类型不符合预期：${contentType.mimeType}', uri: uri);
+    }
+    final remainingTotal = totalTimeout == null ? null : remainingTotalBudget();
+    final effectiveIdleTimeout =
+        remainingTotal != null && remainingTotal < idleTimeout
+        ? remainingTotal
+        : idleTimeout;
+    return readBoundedHttpResponseBytes(
+      response,
+      maxBytes: maxBytes,
+      idleTimeout: effectiveIdleTimeout,
+      totalTimeout: remainingTotal,
+    );
+  } finally {
+    stopwatch.stop();
+  }
 }
 
 /// 在明确的空闲、总时长和容量限制内读取 HTTP 响应。

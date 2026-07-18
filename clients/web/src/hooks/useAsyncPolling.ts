@@ -128,10 +128,18 @@ export function useAsyncPolling(
       if (immediate) {
         const controller = new AbortController();
         immediateController = controller;
-        void runTask(
-          () => !stopped && !controller.signal.aborted,
-          controller.signal,
-        );
+        void (async () => {
+          try {
+            await runTask(
+              () => !stopped && !controller.signal.aborted,
+              controller.signal,
+            );
+          } catch (error) {
+            if (!stopped && !isOperationAbortedError(error)) handleError(error);
+          } finally {
+            controller.abort();
+          }
+        })();
       }
       return () => {
         stopped = true;

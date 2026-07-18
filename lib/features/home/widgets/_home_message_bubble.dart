@@ -1964,10 +1964,6 @@ Future<Uint8List> _readLocalClipboardBytes(
   required int maxBytes,
 }) async {
   final file = File(filePath);
-  final stat = await file.stat().timeout(_mediaClipboardOperationTimeout);
-  if (stat.size > maxBytes) {
-    throw FileSystemException('File is too large for clipboard.', filePath);
-  }
   return readBoundedFileBytes(
     file,
     maxBytes: maxBytes,
@@ -1981,38 +1977,18 @@ Future<Uint8List> _downloadClipboardBytes(
   required int maxBytes,
   String? expectedPrimaryType,
 }) async {
-  final scheme = uri.scheme.toLowerCase();
-  if (scheme != 'http' && scheme != 'https') {
-    throw FileSystemException('Unsupported URI scheme: ${uri.scheme}', '$uri');
-  }
   final client = SystemProxyResolver.instance.createRawHttpClient(
     connectionTimeout: _mediaClipboardNetworkTimeout,
   );
   try {
-    final request = await client
-        .getUrl(uri)
-        .timeout(_mediaClipboardNetworkTimeout);
-    final response = await request.close().timeout(
-      _mediaClipboardNetworkTimeout,
-    );
-    if (isHttpFailureStatus(response.statusCode)) {
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
-    }
-    final contentType = response.headers.contentType;
-    if (expectedPrimaryType != null &&
-        contentType != null &&
-        contentType.primaryType != expectedPrimaryType &&
-        contentType.mimeType != 'application/octet-stream') {
-      throw HttpException(
-        'Unexpected content type: ${contentType.mimeType}',
-        uri: uri,
-      );
-    }
-    return readBoundedHttpResponseBytes(
-      response,
+    return fetchBoundedHttpBytes(
+      client: client,
+      uri: uri,
       maxBytes: maxBytes,
+      openTimeout: _mediaClipboardNetworkTimeout,
       idleTimeout: _mediaClipboardNetworkTimeout,
       totalTimeout: _mediaClipboardNetworkTimeout,
+      expectedPrimaryType: expectedPrimaryType,
     );
   } finally {
     client.close(force: true);

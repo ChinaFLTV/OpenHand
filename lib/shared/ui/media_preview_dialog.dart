@@ -6,13 +6,15 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
+import 'package:path/path.dart' as p;
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
+import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../net/http_response_utils.dart';
-import '../net/http_status_utils.dart';
+import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
@@ -35,6 +37,156 @@ import 'openhand_snack_bar.dart';
 ///     不再因 `BoxFit.contain` 在固定容器内产生不均匀的上下 / 左右白边
 ///   - 音频走 Flutter 原生 UI 与跨平台音频插件，视频保留 webview_flutter 沙箱
 enum MediaPreviewKind { image, audio, video }
+
+const Map<String, String> _mediaExtensionsByMime = <String, String>{
+  'audio/aac': 'aac',
+  'audio/flac': 'flac',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/ogg': 'ogg',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'video/x-matroska': 'mkv',
+};
+final Set<String> _activeMediaPreviewTempPaths = <String>{};
+
+String _mediaTempPathKey(String path) => p.normalize(p.absolute(path));
+
+String _mediaFileExtension(MediaPreviewKind kind, String? rawMimeType) {
+  final mimeType = rawMimeType?.split(';').first.trim().toLowerCase();
+  return _mediaExtensionsByMime[mimeType] ??
+      (kind == MediaPreviewKind.video ? 'mp4' : 'mp3');
+}
+
+Future<void> _writeTempBytesBounded(
+  File file,
+  Uint8List bytes, {
+  required Duration timeout,
+}) async {
+  final write = file.writeAsBytes(bytes, flush: true);
+  try {
+    await write.timeout(timeout);
+  } on TimeoutException {
+    unawaited(
+      write.then<void>(
+        (_) => _deleteTempFile(file),
+        onError: (Object _, StackTrace _) {},
+      ),
+    );
+    rethrow;
+  } catch (_) {
+    await _deleteTempFile(file);
+    rethrow;
+  }
+}
+
+Future<void> _writeTempTextBounded(
+  File file,
+  String text, {
+  required Duration timeout,
+}) async {
+  final write = file.writeAsString(text, flush: true);
+  try {
+    await write.timeout(timeout);
+  } on TimeoutException {
+    unawaited(
+      write.then<void>(
+        (_) => _deleteTempFile(file),
+        onError: (Object _, StackTrace _) {},
+      ),
+    );
+    rethrow;
+  } catch (_) {
+    await _deleteTempFile(file);
+    rethrow;
+  }
+}
+
+Future<void> _deleteTempFile(
+  File file, {
+  Duration timeout = const Duration(seconds: 2),
+}) async {
+  if (timeout <= Duration.zero) return;
+  final stopwatch = Stopwatch()..start();
+  Duration remaining() {
+    final remainingMicroseconds =
+        timeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+    if (remainingMicroseconds <= 0) {
+      throw TimeoutException('删除媒体临时文件超时。', timeout);
+    }
+    return Duration(microseconds: remainingMicroseconds);
+  }
+
+  try {
+    if (await file.exists().timeout(remaining())) {
+      await file.delete().timeout(remaining());
+    }
+  } catch (error, stack) {
+    silentLog('media_preview_dialog', '删除媒体临时文件', error, stack);
+  } finally {
+    stopwatch.stop();
+  }
+}
+
+Future<void> _pruneMediaTempFiles(
+  Directory directory, {
+  required String filePrefix,
+  required int maxRetainedFiles,
+  required Duration maxAge,
+  required Duration timeout,
+  int scanLimit = 256,
+}) async {
+  final stopwatch = Stopwatch()..start();
+  try {
+    final listing = await listDirectoryBounded(
+      directory,
+      maxEntries: scanLimit,
+      idleTimeout: timeout,
+      totalTimeout: timeout,
+    );
+    final files =
+        listing.entries
+            .whereType<File>()
+            .where((file) => p.basename(file.path).startsWith(filePrefix))
+            .toList(growable: false)
+          ..sort(
+            (left, right) =>
+                p.basename(right.path).compareTo(p.basename(left.path)),
+          );
+    final oldestAllowed = DateTime.now()
+        .subtract(maxAge)
+        .microsecondsSinceEpoch;
+    for (var index = 0; index < files.length; index++) {
+      if (_activeMediaPreviewTempPaths.contains(
+        _mediaTempPathKey(files[index].path),
+      )) {
+        continue;
+      }
+      final name = p.basename(files[index].path);
+      final stampEnd = name.indexOf('-', filePrefix.length);
+      final stamp = stampEnd <= filePrefix.length
+          ? null
+          : int.tryParse(name.substring(filePrefix.length, stampEnd));
+      if (index < maxRetainedFiles && stamp != null && stamp >= oldestAllowed) {
+        continue;
+      }
+      final remainingMicroseconds =
+          timeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) break;
+      await _deleteTempFile(
+        files[index],
+        timeout: Duration(microseconds: remainingMicroseconds),
+      );
+    }
+  } catch (error, stack) {
+    silentLog('media_preview_dialog', '清理媒体临时文件', error, stack);
+  } finally {
+    stopwatch.stop();
+  }
+}
 
 class MediaPreviewDialog extends StatefulWidget {
   const MediaPreviewDialog._({
@@ -107,7 +259,13 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   static const double _kFallbackSide = 320.0;
   static const Duration _kClipboardTimeout = Duration(seconds: 15);
   static const Duration _kNetworkTimeout = Duration(seconds: 25);
+  static const Duration _kClipboardTempMaxAge = Duration(days: 1);
+  static const Duration _kClipboardTempCleanupTimeout = Duration(seconds: 2);
   static const int _kClipboardMaxBytes = 64 * kBytesPerMiB;
+  static const int _kClipboardTempMaxFiles = 32;
+  static const String _kClipboardTempDirectoryName = 'openhand-media-clipboard';
+  static const String _kClipboardTempFilePrefix = 'media-';
+  static int _clipboardTempSerial = 0;
 
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
@@ -416,19 +574,15 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   Future<bool> _copyImageSource() async {
     final bytes = widget.bytes;
     if (bytes != null) {
+      if (bytes.length > _kClipboardMaxBytes) {
+        throw const FileSystemException('图片数据超过剪贴板容量上限。');
+      }
       await Pasteboard.writeImage(bytes).timeout(_kClipboardTimeout);
       return true;
     }
     final filePath = widget.filePath;
     if (filePath != null) {
       final file = File(filePath);
-      final stat = await file.stat().timeout(_kClipboardTimeout);
-      if (stat.size > _kClipboardMaxBytes) {
-        throw FileSystemException(
-          'Image is too large for clipboard.',
-          filePath,
-        );
-      }
       try {
         await Pasteboard.writeImage(
           await readBoundedFileBytes(
@@ -474,35 +628,18 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     Uri uri, {
     String? expectedPrimaryType,
   }) async {
-    final scheme = uri.scheme.toLowerCase();
-    if (scheme != 'http' && scheme != 'https') {
-      throw FileSystemException(
-        'Unsupported URI scheme: ${uri.scheme}',
-        '$uri',
-      );
-    }
-    final client = HttpClient()..connectionTimeout = _kNetworkTimeout;
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: _kNetworkTimeout,
+    );
     try {
-      final request = await client.getUrl(uri).timeout(_kNetworkTimeout);
-      final response = await request.close().timeout(_kNetworkTimeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException('HTTP ${response.statusCode}', uri: uri);
-      }
-      final contentType = response.headers.contentType;
-      if (expectedPrimaryType != null &&
-          contentType != null &&
-          contentType.primaryType != expectedPrimaryType &&
-          contentType.mimeType != 'application/octet-stream') {
-        throw HttpException(
-          'Unexpected content type: ${contentType.mimeType}',
-          uri: uri,
-        );
-      }
-      return readBoundedHttpResponseBytes(
-        response,
+      return fetchBoundedHttpBytes(
+        client: client,
+        uri: uri,
         maxBytes: _kClipboardMaxBytes,
+        openTimeout: _kNetworkTimeout,
         idleTimeout: _kNetworkTimeout,
         totalTimeout: _kNetworkTimeout,
+        expectedPrimaryType: expectedPrimaryType,
       );
     } finally {
       client.close(force: true);
@@ -510,12 +647,27 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   }
 
   Future<String> _writeBytesToClipboardTempFile(Uint8List bytes) async {
-    final dir = Directory.systemTemp;
-    final ext = widget.kind == MediaPreviewKind.video ? 'mp4' : 'mp3';
-    final file = File(
-      '${dir.path}/oh-media-copy-${DateTime.now().microsecondsSinceEpoch}.$ext',
+    if (bytes.length > _kClipboardMaxBytes) {
+      throw const FileSystemException('媒体数据超过剪贴板容量上限。');
+    }
+    final dir = Directory(
+      p.join(Directory.systemTemp.path, _kClipboardTempDirectoryName),
     );
-    await file.writeAsBytes(bytes, flush: true).timeout(_kClipboardTimeout);
+    await dir.create(recursive: true).timeout(_kClipboardTimeout);
+    await _pruneMediaTempFiles(
+      dir,
+      filePrefix: _kClipboardTempFilePrefix,
+      maxRetainedFiles: _kClipboardTempMaxFiles - 1,
+      maxAge: _kClipboardTempMaxAge,
+      timeout: _kClipboardTempCleanupTimeout,
+    );
+    final ext = _mediaFileExtension(widget.kind, widget.mimeType);
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final serial = _clipboardTempSerial++;
+    final file = File(
+      p.join(dir.path, '$_kClipboardTempFilePrefix$stamp-$pid-$serial.$ext'),
+    );
+    await _writeTempBytesBounded(file, bytes, timeout: _kClipboardTimeout);
     return file.path;
   }
 
@@ -615,7 +767,15 @@ class _MediaPlayerSurface extends StatefulWidget {
 
 class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   static const int _kInlineDataUrlMaxBytes = 8 * kBytesPerMiB;
+  static const int _kTempMediaMaxBytes = 256 * kBytesPerMiB;
   static const int _kControlsAutoHideMs = 2600;
+  static const int _kPreviewTempMaxFiles = 32;
+  static const Duration _kBootstrapOperationTimeout = Duration(seconds: 15);
+  static const Duration _kPreviewTempMaxAge = Duration(days: 1);
+  static const Duration _kPreviewTempCleanupTimeout = Duration(seconds: 2);
+  static const String _kPreviewTempDirectoryName = 'openhand-media-preview';
+  static const String _kPreviewTempFilePrefix = 'preview-';
+  static int _previewTempSerial = 0;
 
   WebViewController? _controller;
   String? _tempHtmlPath;
@@ -631,8 +791,40 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   }
 
   Future<void> _bootstrapVideo() async {
+    final bootstrapStopwatch = Stopwatch()..start();
+    Duration nextBootstrapTimeout() {
+      final remainingMicroseconds =
+          _kBootstrapOperationTimeout.inMicroseconds -
+          bootstrapStopwatch.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) {
+        throw TimeoutException('视频预览初始化超时。', _kBootstrapOperationTimeout);
+      }
+      return Duration(microseconds: remainingMicroseconds);
+    }
+
     try {
-      final mime = (widget.mimeType ?? 'video/mp4').toLowerCase();
+      final normalizedMime = widget.mimeType
+          ?.split(';')
+          .first
+          .trim()
+          .toLowerCase();
+      final mime = normalizedMime == null || normalizedMime.isEmpty
+          ? 'video/mp4'
+          : normalizedMime;
+      final tempDirectory = Directory(
+        p.join(Directory.systemTemp.path, _kPreviewTempDirectoryName),
+      );
+      await tempDirectory
+          .create(recursive: true)
+          .timeout(nextBootstrapTimeout());
+      await _pruneMediaTempFiles(
+        tempDirectory,
+        filePrefix: _kPreviewTempFilePrefix,
+        maxRetainedFiles: _kPreviewTempMaxFiles - 2,
+        maxAge: _kPreviewTempMaxAge,
+        timeout: _kPreviewTempCleanupTimeout,
+      );
+      if (!mounted) return;
       String src;
       if (widget.networkUrl != null) {
         src = widget.networkUrl!;
@@ -642,13 +834,25 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         if (widget.bytes!.lengthInBytes <= _kInlineDataUrlMaxBytes) {
           src = 'data:$mime;base64,${base64Encode(widget.bytes!)}';
         } else {
-          final dir = Directory.systemTemp;
-          final f = File(
-            '${dir.path}/oh-media-${DateTime.now().microsecondsSinceEpoch}.mp4',
+          if (widget.bytes!.lengthInBytes > _kTempMediaMaxBytes) {
+            throw const FileSystemException('视频数据超过预览容量上限。');
+          }
+          final mediaFile = _newPreviewTempFile(
+            tempDirectory,
+            _mediaFileExtension(widget.kind, widget.mimeType),
           );
-          await f.writeAsBytes(widget.bytes!, flush: true);
-          _tempMediaPath = f.path;
-          src = Uri.file(f.path).toString();
+          await _writeTempBytesBounded(
+            mediaFile,
+            widget.bytes!,
+            timeout: nextBootstrapTimeout(),
+          );
+          _tempMediaPath = mediaFile.path;
+          _activeMediaPreviewTempPaths.add(_mediaTempPathKey(mediaFile.path));
+          if (!mounted) {
+            await _cleanupTempFiles();
+            return;
+          }
+          src = Uri.file(mediaFile.path).toString();
         }
       } else {
         if (!mounted) return;
@@ -658,27 +862,85 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         return;
       }
       final html = _buildVideoPlayerHtml(src: src);
-      final dir = Directory.systemTemp;
-      final f = File(
-        '${dir.path}/oh-media-host-${DateTime.now().microsecondsSinceEpoch}.html',
+      final htmlFile = _newPreviewTempFile(tempDirectory, 'html');
+      await _writeTempTextBounded(
+        htmlFile,
+        html,
+        timeout: nextBootstrapTimeout(),
       );
-      await f.writeAsString(html);
-      _tempHtmlPath = f.path;
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(const Color(0xFF0F0F10))
-        ..addJavaScriptChannel(
-          'OpenHandMediaPreview',
-          onMessageReceived: (_) => _requestDialogClose(),
-        )
-        ..loadFile(f.path);
-      if (!mounted) return;
+      _tempHtmlPath = htmlFile.path;
+      _activeMediaPreviewTempPaths.add(_mediaTempPathKey(htmlFile.path));
+      if (!mounted) {
+        await _cleanupTempFiles();
+        return;
+      }
+      final controller = WebViewController();
+      await controller
+          .setJavaScriptMode(JavaScriptMode.unrestricted)
+          .timeout(nextBootstrapTimeout());
+      if (!mounted) {
+        await _cleanupTempFiles();
+        return;
+      }
+      await controller
+          .setBackgroundColor(const Color(0xFF0F0F10))
+          .timeout(nextBootstrapTimeout());
+      if (!mounted) {
+        await _cleanupTempFiles();
+        return;
+      }
+      await controller
+          .addJavaScriptChannel(
+            'OpenHandMediaPreview',
+            onMessageReceived: (_) => _requestDialogClose(),
+          )
+          .timeout(nextBootstrapTimeout());
+      if (!mounted) {
+        await _cleanupTempFiles();
+        return;
+      }
+      await controller.loadFile(htmlFile.path).timeout(nextBootstrapTimeout());
+      if (!mounted) {
+        await _cleanupTempFiles();
+        return;
+      }
       setState(() => _controller = controller);
     } catch (error, stack) {
-      silentLog('media_preview', 'bootstrap video webview host', error, stack);
+      await _cleanupTempFiles();
+      silentLog('media_preview', '初始化视频预览 WebView', error, stack);
       if (!mounted) return;
       setState(() => _error = '$error');
+    } finally {
+      bootstrapStopwatch.stop();
     }
+  }
+
+  File _newPreviewTempFile(Directory directory, String extension) {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final serial = _previewTempSerial++;
+    return File(
+      p.join(
+        directory.path,
+        '$_kPreviewTempFilePrefix$stamp-$pid-$serial.$extension',
+      ),
+    );
+  }
+
+  Future<void> _cleanupTempFiles() async {
+    final htmlPath = _tempHtmlPath;
+    final mediaPath = _tempMediaPath;
+    _tempHtmlPath = null;
+    _tempMediaPath = null;
+    if (htmlPath != null) {
+      _activeMediaPreviewTempPaths.remove(_mediaTempPathKey(htmlPath));
+    }
+    if (mediaPath != null) {
+      _activeMediaPreviewTempPaths.remove(_mediaTempPathKey(mediaPath));
+    }
+    await Future.wait<void>(<Future<void>>[
+      if (htmlPath != null) _deleteTempFile(File(htmlPath)),
+      if (mediaPath != null) _deleteTempFile(File(mediaPath)),
+    ]);
   }
 
   void _requestDialogClose() {
@@ -931,14 +1193,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
 
   @override
   void dispose() {
-    final p = _tempHtmlPath;
-    if (p != null) {
-      unawaited(File(p).delete().catchError((_) => File(p)));
-    }
-    final m = _tempMediaPath;
-    if (m != null) {
-      unawaited(File(m).delete().catchError((_) => File(m)));
-    }
+    unawaited(_cleanupTempFiles());
     super.dispose();
   }
 

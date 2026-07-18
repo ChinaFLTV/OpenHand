@@ -15,6 +15,35 @@ import '../runtime/ai_tool_execution_registry.dart';
 import '../sandbox/ai_sandbox_service.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
+const String _capturedOutputTruncatedMarker = '\n...[输出已截断]';
+
+void _appendCapturedOutput(
+  StringBuffer buffer,
+  String chunk,
+  int maxCapturedCharacters,
+) {
+  if (maxCapturedCharacters <= buffer.length) return;
+  final remaining = maxCapturedCharacters - buffer.length;
+  if (chunk.length <= remaining) {
+    buffer.write(chunk);
+    return;
+  }
+  final markerLength = _capturedOutputTruncatedMarker.length < remaining
+      ? _capturedOutputTruncatedMarker.length
+      : remaining;
+  var contentLength = remaining - markerLength;
+  if (contentLength > 0 &&
+      contentLength < chunk.length &&
+      _isHighSurrogate(chunk.codeUnitAt(contentLength - 1))) {
+    contentLength -= 1;
+  }
+  if (contentLength > 0) {
+    buffer.write(chunk.substring(0, contentLength));
+  }
+  buffer.write(_capturedOutputTruncatedMarker.substring(0, markerLength));
+}
+
+bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
 
 enum BashToolExecutionStatus {
   success('success'),
@@ -372,10 +401,8 @@ class _PersistentBashExecution {
 
   void _appendStdoutLineSegment(String segment, int maxCapturedCharacters) {
     if (segment.isEmpty || _stdoutLineTruncated) return;
-    // Protocol markers are short, but they must remain parseable even when
-    // output capture is disabled or configured unusually low. The line
-    // accumulator itself is always bounded so a command that emits an
-    // endless line cannot grow memory or trigger quadratic string copies.
+    // 协议标记很短，但即使关闭输出捕获或上限异常偏小，也必须保持可解析。
+    // 单行缓冲始终有界，避免无换行输出持续占用内存或触发平方级字符串复制。
     const minimumProtocolLineCharacters = 512;
     final lineLimit = maxCapturedCharacters > minimumProtocolLineCharacters
         ? maxCapturedCharacters
@@ -403,9 +430,9 @@ class _PersistentBashExecution {
     _stdoutLineTruncated = false;
     _handleStdoutLine(includeNewline ? '$line\n' : line, maxCapturedCharacters);
     if (wasTruncated) {
-      _appendChunk(
+      _appendCapturedOutput(
         stdoutBuffer,
-        '\n...[line truncated]\n',
+        '\n...[单行输出已截断]\n',
         maxCapturedCharacters,
       );
       emitUpdate(phase: BashToolExecutionPhase.running);
@@ -417,7 +444,7 @@ class _PersistentBashExecution {
       _lastOutputAtMs = stopwatch.elapsedMilliseconds;
       _stallWarningEmitted = false;
     }
-    _appendChunk(stderrBuffer, chunk, maxCapturedCharacters);
+    _appendCapturedOutput(stderrBuffer, chunk, maxCapturedCharacters);
     emitUpdate(phase: BashToolExecutionPhase.running);
   }
 
@@ -457,7 +484,11 @@ class _PersistentBashExecution {
     if (!outcome.isCompleted) {
       final message = '$error'.trim();
       if (message.isNotEmpty) {
-        _appendChunk(stderrBuffer, '$message\n', maxCapturedCharacters);
+        _appendCapturedOutput(
+          stderrBuffer,
+          '$message\n',
+          maxCapturedCharacters,
+        );
       }
       outcome.complete(
         _PersistentBashCommandOutcome(
@@ -501,29 +532,8 @@ class _PersistentBashExecution {
       }
       return;
     }
-    _appendChunk(stdoutBuffer, line, maxCapturedCharacters);
+    _appendCapturedOutput(stdoutBuffer, line, maxCapturedCharacters);
     emitUpdate(phase: BashToolExecutionPhase.running);
-  }
-
-  static void _appendChunk(
-    StringBuffer buffer,
-    String chunk,
-    int maxCapturedCharacters,
-  ) {
-    if (maxCapturedCharacters <= 0) {
-      return;
-    }
-    if (buffer.length >= maxCapturedCharacters) {
-      return;
-    }
-    final allowed = maxCapturedCharacters - buffer.length;
-    if (chunk.length <= allowed) {
-      buffer.write(chunk);
-      return;
-    }
-    buffer
-      ..write(chunk.substring(0, allowed))
-      ..write('\n...[output truncated]');
   }
 }
 
@@ -1020,7 +1030,7 @@ class AiBashToolService {
             lastOutputAtMs = stopwatch.elapsedMilliseconds;
             stallWarningEmitted = false;
           }
-          _appendChunk(stdoutBuffer, chunk);
+          _appendCapturedOutput(stdoutBuffer, chunk, maxCapturedCharacters);
           emitUpdate(phase: BashToolExecutionPhase.running);
         });
     final stderrSubscription = process.stderr
@@ -1030,7 +1040,7 @@ class AiBashToolService {
             lastOutputAtMs = stopwatch.elapsedMilliseconds;
             stallWarningEmitted = false;
           }
-          _appendChunk(stderrBuffer, chunk);
+          _appendCapturedOutput(stderrBuffer, chunk, maxCapturedCharacters);
           emitUpdate(phase: BashToolExecutionPhase.running);
         });
 
@@ -1945,20 +1955,6 @@ class AiBashToolService {
 
   String _resolveShellExecutable() {
     return preferredPosixShellExecutable();
-  }
-
-  void _appendChunk(StringBuffer buffer, String chunk) {
-    if (buffer.length >= maxCapturedCharacters) {
-      return;
-    }
-    final allowed = maxCapturedCharacters - buffer.length;
-    if (chunk.length <= allowed) {
-      buffer.write(chunk);
-      return;
-    }
-    buffer
-      ..write(chunk.substring(0, allowed))
-      ..write('\n...[output truncated]');
   }
 
   BashWriteAnalysis analyzeWriteCommand(String command) {

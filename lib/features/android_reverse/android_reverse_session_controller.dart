@@ -8,6 +8,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
@@ -158,8 +159,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   DateTime? _networkCaptureStartedAt;
 
-  final StringBuffer _networkCaptureStdout = StringBuffer();
-  final StringBuffer _networkCaptureStderr = StringBuffer();
+  final BoundedLogBuffer _networkCaptureStdout = BoundedLogBuffer(
+    maxCharacters: _kNetworkCaptureTranscriptMaxChars,
+  );
+  final BoundedLogBuffer _networkCaptureStderr = BoundedLogBuffer(
+    maxCharacters: _kNetworkCaptureTranscriptMaxChars,
+  );
 
   String get networkCaptureTranscript {
     final buffer = StringBuffer();
@@ -173,8 +178,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
     } else {
       buffer.writeln('mitmdump_pid=-');
     }
-    final stdoutText = _networkCaptureStdout.toString().trim();
-    final stderrText = _networkCaptureStderr.toString().trim();
+    final stdoutText = _networkCaptureStdout.snapshot().join().trim();
+    final stderrText = _networkCaptureStderr.snapshot().join().trim();
     if (stdoutText.isNotEmpty) {
       buffer
         ..writeln()
@@ -236,8 +241,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// Stops timers, stream subscriptions, and the tracked mitmdump process.
-  /// Repeated calls share one bounded cleanup future.
+  /// 停止计时器、流订阅和已登记的 mitmdump 进程。
+  /// 重复调用共享同一个有界清理任务。
   Future<void> shutdown() {
     final active = _shutdownFuture;
     if (active != null) return active;
@@ -1675,30 +1680,27 @@ class AndroidReverseSessionController extends ChangeNotifier {
     if (_disposed || !identical(_networkCaptureProcess, process)) return;
     _networkCaptureStdoutSub = process.stdout
         .transform(utf8.decoder)
-        .transform(const LineSplitter())
         .listen(
-          (line) => _appendNetworkCaptureLine(_networkCaptureStdout, line),
+          _networkCaptureStdout.add,
           onError: (Object error, StackTrace stack) {
-            silentLog(_kTag, 'mitmdump stdout stream', error, stack);
+            silentLog(_kTag, 'mitmdump 标准输出流', error, stack);
           },
           cancelOnError: true,
         );
     _networkCaptureStderrSub = process.stderr
         .transform(utf8.decoder)
-        .transform(const LineSplitter())
         .listen(
-          (line) => _appendNetworkCaptureLine(_networkCaptureStderr, line),
+          _networkCaptureStderr.add,
           onError: (Object error, StackTrace stack) {
-            silentLog(_kTag, 'mitmdump stderr stream', error, stack);
+            silentLog(_kTag, 'mitmdump 标准错误流', error, stack);
           },
           cancelOnError: true,
         );
     unawaited(
       process.exitCode.then<void>(
         (exitCode) {
-          _appendNetworkCaptureLine(
-            exitCode == 0 ? _networkCaptureStdout : _networkCaptureStderr,
-            'mitmdump exited with code $exitCode',
+          (exitCode == 0 ? _networkCaptureStdout : _networkCaptureStderr).add(
+            '\nmitmdump 已退出，退出码：$exitCode\n',
           );
           if (_networkCaptureProcess?.pid == process.pid) {
             _networkCaptureProcess = null;
@@ -1707,7 +1709,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           }
         },
         onError: (Object error, StackTrace stack) {
-          silentLog(_kTag, 'mitmdump exit', error, stack);
+          silentLog(_kTag, '监听 mitmdump 退出状态', error, stack);
         },
       ),
     );
@@ -1761,15 +1763,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
             silentLog(_kTag, 'cancel mitmdump stderr', error, stack),
       ),
     ]);
-  }
-
-  void _appendNetworkCaptureLine(StringBuffer buffer, String line) {
-    buffer.writeln(line);
-    final text = buffer.toString();
-    if (text.length <= _kNetworkCaptureTranscriptMaxChars) return;
-    buffer
-      ..clear()
-      ..write(text.substring(text.length - _kNetworkCaptureTranscriptMaxChars));
   }
 
   Future<String> _writeMcpLinkageArtifacts({required bool updateError}) async {

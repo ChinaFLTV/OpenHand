@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart' as http_io;
-
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
+import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_cdp_http.dart';
@@ -46,16 +45,11 @@ class WebReverseBrowserLauncher {
   static const int _firstCdpPort = 9222;
   static const int _lastCdpPortExclusive = 9322;
   static const Duration _handshakeTimeout = Duration(seconds: 30);
+  static const Duration _handshakeProbeTimeout = Duration(seconds: 2);
   static const Duration _portProbeTimeout = Duration(milliseconds: 400);
   static const Duration _streamCleanupTimeout = Duration(seconds: 1);
-
-  /// 创建一个**强制绕过任何系统/用户级代理**的 HTTP 客户端。
-  /// CDP 探测目标是 127.0.0.1，如果走 HTTP/SOCKS 代理会被路由到外网拒绝
-  /// 或卡死，所以这里用空 findProxy 直连。同样设置短连接超时避免悬挂。
-  static http.Client _newDirectClient() {
-    final inner = createWebReverseCdpHttpClient();
-    return http_io.IOClient(inner);
-  }
+  static const int _maxHandshakeResponseBytes = 64 * 1024;
+  static const int _maxStartupStderrCharacters = 32 * 1024;
 
   /// 在 [9222, 9322) 区间挑一个空闲端口，支持多会话并发。
   ///
@@ -65,38 +59,34 @@ class WebReverseBrowserLauncher {
   /// 2. 再 ServerSocket.bind 一次确认本进程能 listen，避免操作系统级保留。
   /// 这两步组合能避开"用户已开 Chrome 占 9222"的常见冲突。
   Future<int?> _pickFreePort() async {
-    final probeClient = _newDirectClient();
-    try {
-      for (var port = _firstCdpPort; port < _lastCdpPortExclusive; port++) {
-        // 1) 是否已被 CDP 占用？
-        try {
-          final resp = await probeClient
-              .get(webReverseCdpHttpUri(port, '/json/version'))
-              .timeout(_portProbeTimeout);
-          if (resp.statusCode >= 200 && resp.statusCode < 500) {
-            // 端口活着且响应——大概率是别的浏览器实例占用，跳过。
-            continue;
-          }
-        } catch (_) {
-          // refused / timeout 都是好事，继续走 bind 探测。
-        }
-        // 2) 本进程能否 bind？
-        try {
-          final server = await bindServerSocketBounded(
-            InternetAddress.loopbackIPv4,
-            port,
-            timeout: _portProbeTimeout,
-          );
-          await server.close();
-          return port;
-        } on SocketException {
+    for (var port = _firstCdpPort; port < _lastCdpPortExclusive; port++) {
+      // 1) 是否已被 CDP 占用？每次探测独立持有客户端，超时后强制释放连接。
+      try {
+        final response = await _requestCdpEndpoint(
+          webReverseCdpHttpUri(port, '/json/version'),
+          timeout: _portProbeTimeout,
+          readBody: false,
+        );
+        if (response.statusCode >= 200 && response.statusCode < 500) {
           continue;
         }
+      } catch (_) {
+        // 拒绝连接或超时后继续执行本地绑定确认。
       }
-      return null;
-    } finally {
-      probeClient.close();
+      // 2) 本进程能否 bind？
+      try {
+        final server = await bindServerSocketBounded(
+          InternetAddress.loopbackIPv4,
+          port,
+          timeout: _portProbeTimeout,
+        );
+        await server.close();
+        return port;
+      } on SocketException {
+        continue;
+      }
     }
+    return null;
   }
 
   /// 启动浏览器并轮询 `/json/version` 直到拿到 webSocketDebuggerUrl。
@@ -167,7 +157,7 @@ class WebReverseBrowserLauncher {
     } catch (error, stack) {
       silentLog(
         'web_reverse_browser_launcher',
-        'spawn $executablePath',
+        '启动浏览器：$executablePath',
         error,
         stack,
       );
@@ -176,89 +166,102 @@ class WebReverseBrowserLauncher {
         '$executablePath 启动失败：$error',
       );
     }
-    // 收集 stderr 前 32KB，握手失败时把这段打到错误信息里，方便定位
+    // 保留 stderr 最新 32KB，握手失败时把这段打到错误信息里，方便定位
     // "Profile 锁占用 / SUID sandbox / GPU init crash" 等真实根因。
     // 管道关闭可在握手阶段快速识别浏览器提前退出；进程本身由
     // safe_subprocess 登记并尽量放入独立进程组，应用退出时可整树终止。
-    final stderrBuf = StringBuffer();
+    final stderrBuffer = BoundedLogBuffer(
+      maxCharacters: _maxStartupStderrCharacters,
+    );
     var processExited = false;
+    unawaited(
+      process.exitCode.then<void>(
+        (_) => processExited = true,
+        onError: (Object error, StackTrace stack) {
+          silentLog('web_reverse_browser_launcher', '监听浏览器退出状态', error, stack);
+        },
+      ),
+    );
     StreamSubscription<String>? errSub;
     try {
       errSub = process.stderr
           .transform(systemEncoding.decoder)
           .listen(
-            (chunk) {
-              if (stderrBuf.length < 32 * 1024) stderrBuf.write(chunk);
-            },
-            onDone: () {
-              processExited = true;
+            stderrBuffer.add,
+            onError: (Object error, StackTrace stack) {
+              silentLog(
+                'web_reverse_browser_launcher',
+                '读取浏览器标准错误流',
+                error,
+                stack,
+              );
             },
           );
     } catch (error, stack) {
-      silentLog('web_reverse_browser_launcher', 'listen stderr', error, stack);
+      silentLog('web_reverse_browser_launcher', '订阅浏览器标准错误流', error, stack);
     }
     // drain stdout 防止管道堵塞导致浏览器进程阻塞写入。
     StreamSubscription<List<int>>? outSub;
     try {
       outSub = process.stdout.listen(
         (_) {},
-        onDone: () {
-          processExited = true;
+        onError: (Object error, StackTrace stack) {
+          silentLog('web_reverse_browser_launcher', '读取浏览器标准输出流', error, stack);
         },
       );
     } catch (error, stack) {
-      silentLog('web_reverse_browser_launcher', 'drain stdout', error, stack);
+      silentLog('web_reverse_browser_launcher', '订阅浏览器标准输出流', error, stack);
     }
     // 轮询 /json/version 拿 webSocketDebuggerUrl。
     // 退避策略：前 2s 用 150ms 间隔（macOS 上 chrome 通常 800ms 就能起 CDP），
     // 之后切到 400ms 间隔，减少对系统的压力但仍能在 30s 内多次命中。
-    final client = _newDirectClient();
-    final start = DateTime.now();
-    final deadline = start.add(_handshakeTimeout);
+    final handshakeStopwatch = Stopwatch()..start();
     String? wsUrl;
     String version = browserKind.displayName;
     var lastHttpError = '';
     int attempts = 0;
-    try {
-      while (DateTime.now().isBefore(deadline)) {
-        if (processExited) break;
-        attempts++;
-        try {
-          final resp = await client
-              .get(webReverseCdpHttpUri(port, '/json/version'))
-              .timeout(const Duration(seconds: 2));
-          if (resp.statusCode == 200) {
-            final data = decodeStringKeyedJsonMap(resp.body);
-            if (data == null) {
-              lastHttpError = 'invalid /json/version response';
-            } else {
-              final nextWsUrl = data['webSocketDebuggerUrl'];
-              final nextVersion = data['Browser'];
-              wsUrl = nextWsUrl is String ? nullIfBlank(nextWsUrl) : null;
-              final normalizedVersion = nextVersion is String
-                  ? nullIfBlank(nextVersion)
-                  : null;
-              if (normalizedVersion != null) {
-                version = normalizedVersion;
-              }
-              if (wsUrl != null) break;
-            }
-          } else {
-            lastHttpError = 'HTTP ${resp.statusCode}';
-          }
-        } catch (e) {
-          lastHttpError = '$e';
-        }
-        final elapsed = DateTime.now().difference(start);
-        await Future<void>.delayed(
-          elapsed < const Duration(seconds: 2)
-              ? const Duration(milliseconds: 150)
-              : const Duration(milliseconds: 400),
+    while (handshakeStopwatch.elapsed < _handshakeTimeout) {
+      if (processExited) break;
+      attempts++;
+      try {
+        final requestBudget = _remainingHandshakeBudget(handshakeStopwatch);
+        final resp = await _requestCdpEndpoint(
+          webReverseCdpHttpUri(port, '/json/version'),
+          timeout: requestBudget < _handshakeProbeTimeout
+              ? requestBudget
+              : _handshakeProbeTimeout,
         );
+        if (resp.statusCode == 200) {
+          final data = decodeStringKeyedJsonMap(resp.body);
+          if (data == null) {
+            lastHttpError = '/json/version 响应格式无效';
+          } else {
+            final nextWsUrl = data['webSocketDebuggerUrl'];
+            final nextVersion = data['Browser'];
+            wsUrl = nextWsUrl is String ? nullIfBlank(nextWsUrl) : null;
+            final normalizedVersion = nextVersion is String
+                ? nullIfBlank(nextVersion)
+                : null;
+            if (normalizedVersion != null) {
+              version = normalizedVersion;
+            }
+            if (wsUrl != null) break;
+          }
+        } else {
+          lastHttpError = 'HTTP ${resp.statusCode}';
+        }
+      } catch (e) {
+        lastHttpError = '$e';
       }
-    } finally {
-      client.close();
+      final remaining = _remainingHandshakeBudget(handshakeStopwatch);
+      final retryDelay = handshakeStopwatch.elapsed < const Duration(seconds: 2)
+          ? const Duration(milliseconds: 150)
+          : const Duration(milliseconds: 400);
+      await Future<void>.delayed(
+        remaining < retryDelay ? remaining : retryDelay,
+      );
     }
+    handshakeStopwatch.stop();
     if (wsUrl == null) {
       await runAsyncCleanupBounded(
         () => terminateTrackedProcessTree(
@@ -267,33 +270,27 @@ class WebReverseBrowserLauncher {
         ),
         onError: (error, stack) => silentLog(
           'web_reverse_browser_launcher',
-          'kill failed launch',
+          '终止启动失败的浏览器',
           error,
           stack,
         ),
       );
-      // 确认子进程退出，避免悬挂；最多等 1.5s。detached 模式无法
-      // await exitCode，改为等任一 stdio 管道 done 即认为已退出。
+      // 确认子进程输出管道结束，避免悬挂，最多等待 1.5 秒。
       try {
         await Future.any<void>(<Future<void>>[
           if (errSub != null) errSub.asFuture<void>(),
           if (outSub != null) outSub.asFuture<void>(),
         ]).timeout(const Duration(milliseconds: 1500));
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_browser_launcher',
-          'wait failed launch exit',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_browser_launcher', '等待启动失败的浏览器退出', error, stack);
       }
       await _cancelProcessOutputSubscriptions(errSub, outSub);
-      final err = stderrBuf.toString().trim();
+      final err = stderrBuffer.snapshot().join().trim();
       final hint = err.isEmpty
           ? ''
-          : '\n浏览器 stderr 摘要：\n${err.length > 1024 ? "${err.substring(err.length - 1024)} (truncated)" : err}';
+          : '\n浏览器 stderr 摘要：\n${err.length > 1024 ? "${err.substring(err.length - 1024)}（已截断）" : err}';
       final exitedHint = processExited
-          ? '\n浏览器进程已提前退出（stdout/stderr 已关闭），常见为 user-data-dir 被另一实例锁定。'
+          ? '\n浏览器进程已提前退出，常见原因是 user-data-dir 被另一实例锁定。'
           : '';
       throw WebReverseLaunchException(
         WebReverseLaunchFailure.cdpHandshakeFailed,
@@ -315,6 +312,56 @@ class WebReverseBrowserLauncher {
     );
   }
 
+  Future<({int statusCode, String body})> _requestCdpEndpoint(
+    Uri uri, {
+    required Duration timeout,
+    bool readBody = true,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    Duration remaining() {
+      final remainingMicroseconds =
+          timeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) {
+        throw TimeoutException('CDP HTTP 探测超时。', timeout);
+      }
+      return Duration(microseconds: remainingMicroseconds);
+    }
+
+    final client = createWebReverseCdpHttpClient(
+      connectionTimeout: timeout,
+      idleTimeout: timeout,
+    );
+    try {
+      final request = await client.getUrl(uri).timeout(remaining());
+      request
+        ..followRedirects = false
+        ..persistentConnection = false;
+      final response = await request.close().timeout(remaining());
+      if (!readBody) {
+        return (statusCode: response.statusCode, body: '');
+      }
+      final body = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _maxHandshakeResponseBytes,
+        idleTimeout: remaining(),
+        totalTimeout: remaining(),
+        allowMalformed: true,
+      );
+      return (statusCode: response.statusCode, body: body);
+    } finally {
+      stopwatch.stop();
+      client.close(force: true);
+    }
+  }
+
+  Duration _remainingHandshakeBudget(Stopwatch stopwatch) {
+    final remainingMicroseconds =
+        _handshakeTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+    return remainingMicroseconds > 0
+        ? Duration(microseconds: remainingMicroseconds)
+        : Duration.zero;
+  }
+
   Future<void> _cancelProcessOutputSubscriptions(
     StreamSubscription<String>? stderrSubscription,
     StreamSubscription<List<int>>? stdoutSubscription,
@@ -325,7 +372,7 @@ class WebReverseBrowserLauncher {
         timeout: _streamCleanupTimeout,
         onError: (error, stack) => silentLog(
           'web_reverse_browser_launcher',
-          'cancel stderr subscription',
+          '取消浏览器标准错误流订阅',
           error,
           stack,
         ),
@@ -335,7 +382,7 @@ class WebReverseBrowserLauncher {
         timeout: _streamCleanupTimeout,
         onError: (error, stack) => silentLog(
           'web_reverse_browser_launcher',
-          'cancel stdout subscription',
+          '取消浏览器标准输出流订阅',
           error,
           stack,
         ),
