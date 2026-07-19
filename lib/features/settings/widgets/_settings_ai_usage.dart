@@ -17,8 +17,10 @@ const double _kAiUsageOverviewFourColumnMinWidth = 1040;
 const double _kAiUsageOverviewTwoColumnMinWidth = 560;
 const double _kAiUsageDistributionTwoColumnMinWidth = 860;
 const double _kAiUsageOverviewMetricHeight = 150;
-const double _kAiUsageDistributionHeight = 320;
-const int _kAiUsageDistributionMaxItems = 6;
+const double _kAiUsageDistributionRowHeight = 52;
+const double _kAiUsageDistributionBodyMaxHeight = 312;
+const double _kAiUsageDistributionEmptyBodyHeight = 72;
+const double _kAiUsageDistributionChromeHeight = 74;
 
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
@@ -938,6 +940,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
               if (constraints.maxWidth >=
                   _kAiUsageDistributionTwoColumnMinWidth) {
                 return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: modelDistribution),
                     const SizedBox(width: 12),
@@ -1127,7 +1130,7 @@ class _AiUsageSparklinePainter extends CustomPainter {
   }
 }
 
-class _AiUsageDistributionCard extends StatelessWidget {
+class _AiUsageDistributionCard extends StatefulWidget {
   const _AiUsageDistributionCard({
     required this.title,
     required this.items,
@@ -1147,171 +1150,191 @@ class _AiUsageDistributionCard extends StatelessWidget {
   final double Function(AiUsageBreakdown item) progressValue;
 
   @override
+  State<_AiUsageDistributionCard> createState() =>
+      _AiUsageDistributionCardState();
+}
+
+class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visibleItems = items
-        .take(_kAiUsageDistributionMaxItems)
-        .toList(growable: false);
-    return SizedBox(
-      height: _kAiUsageDistributionHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
+    final contentHeight = widget.items.isEmpty
+        ? _kAiUsageDistributionEmptyBodyHeight
+        : widget.items.length * _kAiUsageDistributionRowHeight;
+    final bodyHeight = math.min(
+      contentHeight,
+      _kAiUsageDistributionBodyMaxHeight,
+    );
+    final scrollable = contentHeight > _kAiUsageDistributionBodyMaxHeight;
+    return AnimatedSize(
+      alignment: Alignment.topCenter,
+      duration: _settingsMotionDuration(
+        context,
+        const Duration(milliseconds: 280),
+      ),
+      curve: Curves.easeOutCubic,
+      child: SizedBox(
+        height: _kAiUsageDistributionChromeHeight + bodyHeight,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (widget.items.isNotEmpty)
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '${widget.items.length} 项',
+                          en: '${widget.items.length} ${widget.items.length == 1 ? 'item' : 'items'}',
+                        ),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: bodyHeight,
+                  child: widget.items.isEmpty
+                      ? Center(
+                          child: Text(
+                            widget.emptyMessage,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : OpenHandSafeScrollbar(
+                          controller: _scrollController,
+                          thumbVisibility: scrollable,
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.only(
+                              right: scrollable ? 10 : 0,
+                            ),
+                            itemCount: widget.items.length,
+                            itemExtent: _kAiUsageDistributionRowHeight,
+                            itemBuilder: (context, index) =>
+                                _buildItem(context, widget.items[index]),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
+      ),
+    );
+  }
+
+  Widget _buildItem(BuildContext context, AiUsageBreakdown item) {
+    final theme = Theme.of(context);
+    final secondaryStyle = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Row(
+      children: [
+        SizedBox(
+          width: 126,
+          child: Tooltip(
+            message: item.label,
+            child: Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                      widget.leadingValue(item),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: secondaryStyle,
                     ),
                   ),
-                  if (items.length > _kAiUsageDistributionMaxItems)
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '前 ${visibleItems.length}',
-                        en: 'Top ${visibleItems.length}',
-                      ),
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      widget.trailingValue(item),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: secondaryStyle,
                     ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 14),
-              if (visibleItems.isEmpty)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      emptyMessage,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+              const SizedBox(height: 5),
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: 0,
+                  end: widget.progressValue(item).clamp(0, 1),
+                ),
+                duration: _settingsMotionDuration(
+                  context,
+                  const Duration(milliseconds: 420),
+                ),
+                curve: Curves.easeOutCubic,
+                builder: (context, progress, _) => ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: SizedBox(
+                    height: 6,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ColoredBox(color: widget.color.withValues(alpha: 0.1)),
+                        FractionallySizedBox(
+                          widthFactor: progress,
+                          alignment: Alignment.centerLeft,
+                          child: ColoredBox(color: widget.color),
+                        ),
+                      ],
                     ),
                   ),
-                )
-              else
-                Expanded(
-                  child: Column(
-                    children: [
-                      for (final item in visibleItems)
-                        Expanded(
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 126,
-                                child: Tooltip(
-                                  message: item.label,
-                                  child: Text(
-                                    item.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          leadingValue(item),
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          trailingValue(item),
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                                fontFeatures: const [
-                                                  FontFeature.tabularFigures(),
-                                                ],
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 5),
-                                    TweenAnimationBuilder<double>(
-                                      tween: Tween<double>(
-                                        begin: 0,
-                                        end: progressValue(item).clamp(0, 1),
-                                      ),
-                                      duration: _settingsMotionDuration(
-                                        context,
-                                        const Duration(milliseconds: 420),
-                                      ),
-                                      curve: Curves.easeOutCubic,
-                                      builder: (context, progress, _) =>
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
-                                            child: SizedBox(
-                                              height: 6,
-                                              child: Stack(
-                                                fit: StackFit.expand,
-                                                children: [
-                                                  ColoredBox(
-                                                    color: color.withValues(
-                                                      alpha: 0.1,
-                                                    ),
-                                                  ),
-                                                  FractionallySizedBox(
-                                                    widthFactor: progress,
-                                                    alignment:
-                                                        Alignment.centerLeft,
-                                                    child: ColoredBox(
-                                                      color: color,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      for (
-                        var index = visibleItems.length;
-                        index < _kAiUsageDistributionMaxItems;
-                        index++
-                      )
-                        const Expanded(child: SizedBox.shrink()),
-                    ],
-                  ),
                 ),
+              ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
