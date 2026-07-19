@@ -7,6 +7,7 @@ const double _kAiUsageBreakdownTableMinWidth = 860;
 const double _kAiUsageBreakdownHeaderHeight = 46;
 const double _kAiUsageBreakdownRowHeight = 58;
 const double _kAiUsageBreakdownBodyMaxHeight = 348;
+const double _kAiUsageToolbarControlHeight = 40;
 
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
@@ -227,6 +228,15 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
               ),
             OutlinedButton.icon(
               onPressed: _snapshot == null ? null : _showFilterDialog,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, _kAiUsageToolbarControlHeight),
+                maximumSize: const Size(
+                  double.infinity,
+                  _kAiUsageToolbarControlHeight,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: Badge(
                 isLabelVisible: _activeFilterCount > 0,
                 label: Text('$_activeFilterCount'),
