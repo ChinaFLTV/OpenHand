@@ -2863,6 +2863,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
             side: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 20, 14, 16),
@@ -2916,7 +2917,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                 ),
               ),
               Divider(height: 1, color: theme.colorScheme.outlineVariant),
-              Expanded(
+              Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(22),
                   child: Column(
