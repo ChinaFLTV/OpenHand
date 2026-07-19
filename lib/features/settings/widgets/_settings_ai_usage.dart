@@ -8,6 +8,8 @@ const double _kAiUsageBreakdownHeaderHeight = 46;
 const double _kAiUsageBreakdownRowHeight = 58;
 const double _kAiUsageBreakdownBodyMaxHeight = 348;
 const double _kAiUsageToolbarControlHeight = 40;
+const double _kAiUsageFilterChipMinWidth = 96;
+const double _kAiUsageFilterChipIconSlotWidth = 26;
 const double _kAiUsageRequestTableMinWidth = 1360;
 const double _kAiUsageRequestHeaderHeight = 48;
 const double _kAiUsageRequestRowHeight = 74;
@@ -3021,36 +3023,120 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
     required ValueChanged<String?> onSelected,
     bool sourceLabels = false,
   }) {
+    final theme = Theme.of(context);
+    final selectionDuration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 180),
+    );
+    final options = <({String label, String? value})>[
+      (label: openHandLocalizedText(context, zh: '全部', en: 'All'), value: null),
+      for (final facet in facets)
+        (
+          label: sourceLabels
+              ? _usageSourceLabel(context, facet.label)
+              : facet.label,
+          value: facet.value,
+        ),
+    ];
+    final baseLabelStyle = theme.textTheme.labelLarge ?? const TextStyle();
+    final labelStyles = <TextStyle>[
+      baseLabelStyle.merge(theme.chipTheme.labelStyle),
+      baseLabelStyle.merge(theme.chipTheme.secondaryLabelStyle),
+    ];
+    final textDirection = Directionality.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    double measureLabel(String label) {
+      var labelWidth = 0.0;
+      for (final style in labelStyles) {
+        labelWidth = math.max(
+          labelWidth,
+          TextPainter.computeWidth(
+            text: TextSpan(text: label, style: style),
+            textDirection: textDirection,
+            textScaler: textScaler,
+            maxLines: 1,
+          ),
+        );
+      }
+      return labelWidth;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilterChip(
-              selected: selected == null,
-              label: Text(openHandLocalizedText(context, zh: '全部', en: 'All')),
-              onSelected: (_) => onSelected(null),
-            ),
-            for (final facet in facets)
-              FilterChip(
-                selected: selected == facet.value,
-                label: Text(
-                  sourceLabels
-                      ? _usageSourceLabel(context, facet.label)
-                      : facet.label,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            Widget chip(({String label, String? value}) option) {
+              final isSelected = selected == option.value;
+              final chipWidth = math.min(
+                math.max(
+                  _kAiUsageFilterChipMinWidth,
+                  measureLabel(option.label) +
+                      _kAiUsageFilterChipIconSlotWidth * 2,
                 ),
-                onSelected: (_) => onSelected(facet.value),
-              ),
-          ],
+                constraints.maxWidth,
+              );
+              return FilterChip(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                labelPadding: EdgeInsets.zero,
+                showCheckmark: false,
+                selected: isSelected,
+                label: SizedBox(
+                  width: chipWidth,
+                  height: _kAiUsageToolbarControlHeight,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: _kAiUsageFilterChipIconSlotWidth,
+                        child: AnimatedScale(
+                          scale: isSelected ? 1 : 0.72,
+                          duration: selectionDuration,
+                          curve: isSelected
+                              ? Curves.easeOutBack
+                              : Curves.easeInCubic,
+                          child: AnimatedOpacity(
+                            opacity: isSelected ? 1 : 0,
+                            duration: selectionDuration,
+                            child: Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color:
+                                  theme.chipTheme.checkmarkColor ??
+                                  theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          option.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: _kAiUsageFilterChipIconSlotWidth),
+                    ],
+                  ),
+                ),
+                onSelected: (_) => onSelected(option.value),
+              );
+            }
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [for (final option in options) chip(option)],
+            );
+          },
         ),
       ],
     );
