@@ -47,6 +47,7 @@ import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
 import 'model/ai_auto_title_fetch_mode.dart';
 import 'model/ai_builtin_tool_config.dart' show AiBuiltinToolKindAgentMetadata;
+import 'model/ai_context_usage.dart';
 import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
 import 'model/ai_input_cache_policy.dart';
@@ -8149,6 +8150,18 @@ class AiSessionController extends ChangeNotifier {
         executionApprovedForSend: planModeExecutionApprovedForSend,
         recoveryInspectionRequired: planModeRecoveryInspectionRequired,
       );
+      final contextUsage = AiContextUsageBreakdown.fromMetadata(
+        runtimePromptMetadata,
+      );
+      final providerPromptTokens = _currentPromptContextTokens(
+        effectiveUsage,
+        model,
+      );
+      if (contextUsage != null && providerPromptTokens != null) {
+        runtimePromptMetadata[aiContextUsageMetadataKey] = contextUsage
+            .withProviderTokenTotal(providerPromptTokens)
+            .toJson();
+      }
       streamedSession = _rebuildSession(
         rebasedSession.copyWith(
           messages: streamedSession.messages,
@@ -12399,6 +12412,20 @@ $tail''';
       webSearchToolUsage: statistics.webSearchToolUsage,
       webSearchPageUsage: statistics.webSearchPageUsage,
     );
+  }
+
+  int? _currentPromptContextTokens(AiTokenUsage? usage, AiModelConfig model) {
+    if (usage == null) return null;
+    final promptTokens = usage.promptTokens;
+    final cacheReadTokens = usage.cacheReadTokens ?? 0;
+    final cacheWriteTokens = usage.cacheCreationTokens ?? 0;
+    if (promptTokens == null && cacheReadTokens == 0 && cacheWriteTokens == 0) {
+      return null;
+    }
+    if (model.protocolType == AiProtocolType.claude) {
+      return (promptTokens ?? 0) + cacheReadTokens + cacheWriteTokens;
+    }
+    return promptTokens ?? cacheReadTokens + cacheWriteTokens;
   }
 
   bool _hasVisibleMessageAfter(AiSession session, int index) {

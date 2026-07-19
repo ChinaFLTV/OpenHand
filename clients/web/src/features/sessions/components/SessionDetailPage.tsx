@@ -8830,6 +8830,88 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
   );
 }
 
+type ContextUsageCategory =
+  | 'system_prompt'
+  | 'builtin_tools'
+  | 'mcp'
+  | 'instructions'
+  | 'memory'
+  | 'skills'
+  | 'hooks'
+  | 'conversation'
+  | 'runtime';
+
+interface ContextUsageItem {
+  category: ContextUsageCategory;
+  characterCount: number;
+  tokenCount: number;
+}
+
+interface ContextUsageBreakdown {
+  items: ContextUsageItem[];
+  totalCharacters: number;
+  totalTokens: number;
+  measured: boolean;
+}
+
+const CONTEXT_USAGE_CATEGORIES: ContextUsageCategory[] = [
+  'system_prompt',
+  'builtin_tools',
+  'mcp',
+  'instructions',
+  'memory',
+  'skills',
+  'hooks',
+  'conversation',
+  'runtime',
+];
+
+const CONTEXT_USAGE_PRESENTATION: Record<ContextUsageCategory, { key: string; fallback: string; color: string }> = {
+  system_prompt: { key: 'tokenPopup.context.systemPrompt', fallback: '系统 Prompt', color: 'var(--m3-primary)' },
+  builtin_tools: { key: 'tokenPopup.context.builtinTools', fallback: '内建 Tool', color: 'var(--m3-secondary)' },
+  mcp: { key: 'tokenPopup.context.mcp', fallback: 'MCP', color: 'var(--m3-tertiary)' },
+  instructions: { key: 'tokenPopup.context.instructions', fallback: '指令', color: 'color-mix(in srgb, var(--m3-primary) 58%, var(--m3-tertiary))' },
+  memory: { key: 'tokenPopup.context.memory', fallback: '记忆', color: 'color-mix(in srgb, var(--m3-error) 42%, var(--m3-tertiary))' },
+  skills: { key: 'tokenPopup.context.skills', fallback: '技能', color: 'color-mix(in srgb, var(--m3-secondary) 48%, var(--m3-tertiary))' },
+  hooks: { key: 'tokenPopup.context.hooks', fallback: 'Hooks', color: 'color-mix(in srgb, var(--m3-error) 44%, var(--m3-primary))' },
+  conversation: { key: 'tokenPopup.context.conversation', fallback: '会话', color: 'color-mix(in srgb, var(--m3-primary) 42%, var(--m3-secondary))' },
+  runtime: { key: 'tokenPopup.context.runtime', fallback: '运行时', color: 'var(--m3-outline)' },
+};
+
+function parseContextUsage(session: SessionSummary): ContextUsageBreakdown | null {
+  const metadata = recordFromUnknown(session.last_prompt_metadata);
+  const raw = recordFromUnknown(metadata['context_usage_breakdown']);
+  const rawItems = arrayFromUnknown(raw['items']);
+  if (rawItems.length === 0) return null;
+  const byCategory = new Map<ContextUsageCategory, ContextUsageItem>();
+  for (const rawItem of rawItems) {
+    const item = recordFromUnknown(rawItem);
+    const category = strictStringFromUnknown(item['category']) as ContextUsageCategory;
+    if (!CONTEXT_USAGE_CATEGORIES.includes(category)) continue;
+    byCategory.set(category, {
+      category,
+      characterCount: nonNegativeIntegerFromUnknown(item['character_count']),
+      tokenCount: nonNegativeIntegerFromUnknown(item['token_count']),
+    });
+  }
+  const items = CONTEXT_USAGE_CATEGORIES.map((category) => byCategory.get(category) ?? {
+    category,
+    characterCount: 0,
+    tokenCount: 0,
+  });
+  const totalCharacters = items.reduce((sum, item) => sum + item.characterCount, 0);
+  const distributedTokens = items.reduce((sum, item) => sum + item.tokenCount, 0);
+  const declaredTokens = nonNegativeIntegerFromUnknown(raw['total_tokens']);
+  const totalTokens = distributedTokens > 0 ? distributedTokens : declaredTokens;
+  if (totalCharacters <= 0 || totalTokens <= 0) return null;
+  return {
+    items,
+    totalCharacters,
+    totalTokens,
+    measured: strictStringFromUnknown(raw['token_source']) === 'provider',
+  };
+}
+
 interface SessionTokenStatsViewModel {
   promptTokens: number;
   completionTokens: number;
@@ -8844,6 +8926,7 @@ interface SessionTokenStatsViewModel {
   promptBuildCount: number;
   totalPromptCharacters: number;
   cacheHit: SessionCacheHitDisplay;
+  contextUsage: ContextUsageBreakdown | null;
 }
 
 function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenStatsViewModel {
@@ -8862,6 +8945,7 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
+  const contextUsage = parseContextUsage(session);
   // WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
   // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
@@ -8880,7 +8964,99 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
     promptBuildCount,
     totalPromptCharacters,
     cacheHit,
+    contextUsage,
   };
+}
+
+function contextUsagePercent(tokens: number, totalTokens: number): string {
+  if (tokens <= 0 || totalTokens <= 0) return '0%';
+  const value = tokens / totalTokens * 100;
+  if (value < 0.1) return '<0.1%';
+  return value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
+}
+
+function ContextUsageOverview({ usage }: { usage: ContextUsageBreakdown | null }) {
+  const activeItems = usage?.items.filter((item) => item.tokenCount > 0) ?? [];
+  return (
+    <section
+      class="rounded-m3-md p-3"
+      style={{
+        background: 'var(--m3-surface-container-low)',
+        border: '1px solid var(--m3-outline-variant)',
+      }}
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h3 class="text-xs font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+            {t('tokenPopup.context.title', '上下文数据概览')}
+          </h3>
+          <p class="mt-0.5 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {usage
+              ? usage.measured
+                ? t('tokenPopup.context.measured', '总量实测 · 分类折算')
+                : t('tokenPopup.context.estimated', '按请求内容估算')
+              : t('tokenPopup.context.empty', '发送下一条消息后生成概览')}
+          </p>
+        </div>
+        {usage ? (
+          <div class="shrink-0 text-right">
+            <strong class="block text-sm tabular-nums" style={{ color: 'var(--m3-primary)' }}>
+              {usage.totalTokens.toLocaleString()}
+            </strong>
+            <span class="text-[10px] font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>Token</span>
+          </div>
+        ) : null}
+      </div>
+      {usage ? (
+        <>
+          <div class="mt-3 flex h-[7px] overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-container-highest)' }}>
+            {activeItems.map((item) => (
+              <span
+                key={item.category}
+                style={{
+                  background: CONTEXT_USAGE_PRESENTATION[item.category].color,
+                  flexGrow: Math.max(0.001, item.tokenCount / usage.totalTokens),
+                  flexBasis: 0,
+                  transition: 'flex-grow var(--oh-dialog-duration) var(--oh-dialog-curve)',
+                }}
+              />
+            ))}
+          </div>
+          <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {usage.items.map((item) => {
+              const presentation = CONTEXT_USAGE_PRESENTATION[item.category];
+              const active = item.tokenCount > 0;
+              return (
+                <div
+                  key={item.category}
+                  class="min-w-0 rounded-m3-sm px-2.5 py-2"
+                  style={{
+                    background: `color-mix(in srgb, ${presentation.color} ${active ? '9%' : '3.5%'}, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${presentation.color} ${active ? '24%' : '10%'}, transparent)`,
+                  }}
+                >
+                  <div class="flex min-w-0 items-center gap-1.5">
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: presentation.color }} />
+                    <span class="truncate text-[10px] font-bold" style={{ color: active ? 'var(--m3-on-surface)' : 'var(--m3-on-surface-variant)' }}>
+                      {t(presentation.key, presentation.fallback)}
+                    </span>
+                  </div>
+                  <div class="mt-1 flex items-end justify-between gap-1">
+                    <strong class="min-w-0 truncate text-xs tabular-nums" style={{ color: 'var(--m3-on-surface)' }}>
+                      {item.tokenCount.toLocaleString()}
+                    </strong>
+                    <span class="shrink-0 text-[10px] font-bold tabular-nums" style={{ color: presentation.color }}>
+                      {contextUsagePercent(item.tokenCount, usage.totalTokens)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
 }
 
 function SessionTokenStatsContent({
@@ -8908,6 +9084,7 @@ function SessionTokenStatsContent({
     promptBuildCount,
     totalPromptCharacters,
     cacheHit,
+    contextUsage,
   } = stats;
   const {
     cacheReadTokens,
@@ -8977,14 +9154,13 @@ function SessionTokenStatsContent({
           <>
             <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={activeCacheHitRatio} suffix="%" tone="accent" />
             <CacheHitBar readWeight={activeReadWeight} writeWeight={activeWriteWeight} missWeight={activeMissWeight} />
-            {trendData && trendData.points.length > 0 ? (
-              <div style={{ marginTop: '8px' }}>
-                <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} onPointSelected={onPointSelected} t={t} />
-              </div>
-            ) : null}
           </>
         ) : null}
       </div>
+      <ContextUsageOverview usage={contextUsage} />
+      {trendData && trendData.points.length > 0 ? (
+        <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} onPointSelected={onPointSelected} t={t} />
+      ) : null}
       <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
         <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
         <TokenStatsRow label={t('tokenPopup.promptBuilds', '提示词构建')} value={promptBuildCount} />

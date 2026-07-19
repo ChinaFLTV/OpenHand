@@ -7122,6 +7122,84 @@ abstract class AppLocalizations {
   /// **'缓存命中率'**
   String get tokenPopupCacheHit;
 
+  /// No description provided for @tokenPopupContextOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下文数据概览'**
+  String get tokenPopupContextOverview;
+
+  /// No description provided for @tokenPopupContextMeasured.
+  ///
+  /// In zh, this message translates to:
+  /// **'总量实测 · 分类折算'**
+  String get tokenPopupContextMeasured;
+
+  /// No description provided for @tokenPopupContextEstimated.
+  ///
+  /// In zh, this message translates to:
+  /// **'按请求内容估算'**
+  String get tokenPopupContextEstimated;
+
+  /// No description provided for @tokenPopupContextEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送下一条消息后生成概览'**
+  String get tokenPopupContextEmpty;
+
+  /// No description provided for @tokenPopupContextSystemPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统 Prompt'**
+  String get tokenPopupContextSystemPrompt;
+
+  /// No description provided for @tokenPopupContextBuiltinTools.
+  ///
+  /// In zh, this message translates to:
+  /// **'内建 Tool'**
+  String get tokenPopupContextBuiltinTools;
+
+  /// No description provided for @tokenPopupContextMcp.
+  ///
+  /// In zh, this message translates to:
+  /// **'MCP'**
+  String get tokenPopupContextMcp;
+
+  /// No description provided for @tokenPopupContextInstructions.
+  ///
+  /// In zh, this message translates to:
+  /// **'指令'**
+  String get tokenPopupContextInstructions;
+
+  /// No description provided for @tokenPopupContextMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆'**
+  String get tokenPopupContextMemory;
+
+  /// No description provided for @tokenPopupContextSkills.
+  ///
+  /// In zh, this message translates to:
+  /// **'技能'**
+  String get tokenPopupContextSkills;
+
+  /// No description provided for @tokenPopupContextHooks.
+  ///
+  /// In zh, this message translates to:
+  /// **'Hooks'**
+  String get tokenPopupContextHooks;
+
+  /// No description provided for @tokenPopupContextConversation.
+  ///
+  /// In zh, this message translates to:
+  /// **'会话'**
+  String get tokenPopupContextConversation;
+
+  /// No description provided for @tokenPopupContextRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行时'**
+  String get tokenPopupContextRuntime;
+
   /// No description provided for @tokenPopupSessionHeading.
   ///
   /// In zh, this message translates to:

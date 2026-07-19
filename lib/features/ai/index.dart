@@ -16,6 +16,7 @@ export 'model/ai_attachment.dart';
 export 'model/ai_auto_title_fetch_mode.dart';
 export 'model/ai_builtin_tool_config.dart';
 export 'model/ai_command_rule.dart';
+export 'model/ai_context_usage.dart';
 export 'model/ai_cost_breakdown.dart';
 export 'model/ai_creation_mode.dart';
 export 'model/ai_deny_command_rule.dart';

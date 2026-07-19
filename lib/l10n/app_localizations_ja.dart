@@ -3930,6 +3930,45 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupCacheHit => 'キャッシュ命中率';
 
   @override
+  String get tokenPopupContextOverview => 'コンテキストデータ概要';
+
+  @override
+  String get tokenPopupContextMeasured => '合計は実測 · 分類は按分';
+
+  @override
+  String get tokenPopupContextEstimated => 'リクエスト内容から推定';
+
+  @override
+  String get tokenPopupContextEmpty => '次のメッセージ送信後に概要を生成します';
+
+  @override
+  String get tokenPopupContextSystemPrompt => 'システムプロンプト';
+
+  @override
+  String get tokenPopupContextBuiltinTools => '組み込みツール';
+
+  @override
+  String get tokenPopupContextMcp => 'MCP';
+
+  @override
+  String get tokenPopupContextInstructions => '指示';
+
+  @override
+  String get tokenPopupContextMemory => 'メモリ';
+
+  @override
+  String get tokenPopupContextSkills => 'スキル';
+
+  @override
+  String get tokenPopupContextHooks => 'Hooks';
+
+  @override
+  String get tokenPopupContextConversation => '会話';
+
+  @override
+  String get tokenPopupContextRuntime => 'ランタイム';
+
+  @override
   String get tokenPopupSessionHeading => 'セッション';
 
   @override

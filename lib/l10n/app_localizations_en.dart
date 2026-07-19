@@ -4014,6 +4014,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tokenPopupCacheHit => 'Cache Hit';
 
   @override
+  String get tokenPopupContextOverview => 'Context overview';
+
+  @override
+  String get tokenPopupContextMeasured =>
+      'Measured total · apportioned categories';
+
+  @override
+  String get tokenPopupContextEstimated => 'Estimated from request content';
+
+  @override
+  String get tokenPopupContextEmpty =>
+      'Send the next message to generate this overview';
+
+  @override
+  String get tokenPopupContextSystemPrompt => 'System prompt';
+
+  @override
+  String get tokenPopupContextBuiltinTools => 'Built-in tools';
+
+  @override
+  String get tokenPopupContextMcp => 'MCP';
+
+  @override
+  String get tokenPopupContextInstructions => 'Instructions';
+
+  @override
+  String get tokenPopupContextMemory => 'Memory';
+
+  @override
+  String get tokenPopupContextSkills => 'Skills';
+
+  @override
+  String get tokenPopupContextHooks => 'Hooks';
+
+  @override
+  String get tokenPopupContextConversation => 'Conversation';
+
+  @override
+  String get tokenPopupContextRuntime => 'Runtime';
+
+  @override
   String get tokenPopupSessionHeading => 'Session';
 
   @override

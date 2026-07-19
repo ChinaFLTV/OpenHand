@@ -4066,6 +4066,47 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupCacheHit => 'Taux de succès du cache';
 
   @override
+  String get tokenPopupContextOverview => 'Vue d’ensemble du contexte';
+
+  @override
+  String get tokenPopupContextMeasured => 'Total mesuré · catégories réparties';
+
+  @override
+  String get tokenPopupContextEstimated =>
+      'Estimé selon le contenu de la requête';
+
+  @override
+  String get tokenPopupContextEmpty =>
+      'Envoyez le prochain message pour générer cette vue';
+
+  @override
+  String get tokenPopupContextSystemPrompt => 'Prompt système';
+
+  @override
+  String get tokenPopupContextBuiltinTools => 'Outils intégrés';
+
+  @override
+  String get tokenPopupContextMcp => 'MCP';
+
+  @override
+  String get tokenPopupContextInstructions => 'Instructions';
+
+  @override
+  String get tokenPopupContextMemory => 'Mémoire';
+
+  @override
+  String get tokenPopupContextSkills => 'Compétences';
+
+  @override
+  String get tokenPopupContextHooks => 'Hooks';
+
+  @override
+  String get tokenPopupContextConversation => 'Conversation';
+
+  @override
+  String get tokenPopupContextRuntime => 'Exécution';
+
+  @override
   String get tokenPopupSessionHeading => 'Session';
 
   @override

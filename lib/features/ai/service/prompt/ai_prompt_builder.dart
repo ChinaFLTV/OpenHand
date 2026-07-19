@@ -20,6 +20,7 @@ import '../../../skills/index.dart';
 import '../../model/ai_allow_command_rule.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
+import '../../model/ai_context_usage.dart';
 import '../../model/ai_input_cache_policy.dart';
 import '../../model/ai_message_content_format.dart';
 import '../../model/ai_model_config.dart';
@@ -518,10 +519,11 @@ class AiPromptBuilder {
     );
 
     final memoryResourceIds = <String>{};
+    final workspaceInstructions = _renderWorkspaceInstructions(runtimeContext);
     final stablePrefixTurns = <AiChatTurn>[
       _systemSectionTurn(
         AiPromptSectionHeaders.systemInstructions,
-        '${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
+        '${templateBundle.systemInstructions}$workspaceInstructions',
       ),
       _systemSectionTurn(
         AiPromptSectionHeaders.developerInstructions,
@@ -676,6 +678,31 @@ class AiPromptBuilder {
       0,
       (sum, item) => sum + item.promptCharacterCount,
     );
+    final contextUsageCharacters = _buildContextUsageCharacterCounts(
+      stablePrefixTurns: stablePrefixTurns,
+      runtimePrefixTurns: runtimePrefixTurns,
+      historyTurns: historyTurns,
+      latestUserTurns: latestUserNonSystemTurns,
+      volatileTailTurns: runtimeTailTurns,
+      promptCatalogTools: promptCatalogTools,
+      nativeTools: useDsmlToolCalls
+          ? const <AiToolDefinition>[]
+          : availableTools,
+      resolvedToolsByName: resolvedToolsByName,
+      model: model,
+      workspaceInstructionCharacters: workspaceInstructions.length,
+    );
+    final estimatedContextTokens = math.max(
+      1,
+      (contextUsageCharacters.values.fold<int>(0, (a, b) => a + b) /
+              math.max(1, runtimeContext.estimatedCharactersPerToken))
+          .ceil(),
+    );
+    metadata[aiContextUsageMetadataKey] =
+        AiContextUsageBreakdown.fromCharacterCounts(
+          contextUsageCharacters,
+          totalTokens: estimatedContextTokens,
+        ).toJson();
     final stablePrefixMessageCount = stablePrefixTurns.length;
     final runtimePrefixMessageCount = runtimePrefixTurns.length;
     final historyMessageCount = historyTurns.length;
@@ -871,6 +898,180 @@ class AiPromptBuilder {
   String _sectionText(String header, String content) {
     final body = content.trimRight();
     return body.isEmpty ? header : '$header\n\n$body';
+  }
+
+  Map<AiContextUsageCategory, int> _buildContextUsageCharacterCounts({
+    required List<AiChatTurn> stablePrefixTurns,
+    required List<AiChatTurn> runtimePrefixTurns,
+    required List<AiChatTurn> historyTurns,
+    required List<AiChatTurn> latestUserTurns,
+    required List<AiChatTurn> volatileTailTurns,
+    required List<AiToolDefinition> promptCatalogTools,
+    required List<AiToolDefinition> nativeTools,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+    required AiModelConfig model,
+    required int workspaceInstructionCharacters,
+  }) {
+    final counts = <AiContextUsageCategory, int>{
+      for (final category in AiContextUsageCategory.values) category: 0,
+    };
+    void add(AiContextUsageCategory category, int characters) {
+      if (characters > 0) {
+        counts[category] = (counts[category] ?? 0) + characters;
+      }
+    }
+
+    for (final turn in stablePrefixTurns) {
+      if (turn.content.startsWith(AiPromptSectionHeaders.systemInstructions)) {
+        final instructionCharacters = math.min(
+          workspaceInstructionCharacters,
+          turn.promptCharacterCount,
+        );
+        add(AiContextUsageCategory.instructions, instructionCharacters);
+        add(
+          AiContextUsageCategory.systemPrompt,
+          turn.promptCharacterCount - instructionCharacters,
+        );
+        continue;
+      }
+      add(_contextUsageCategoryForTurn(turn), turn.promptCharacterCount);
+    }
+    for (final turn in runtimePrefixTurns) {
+      _addToolContextCharacters(
+        counts,
+        characters: turn.promptCharacterCount,
+        tools: promptCatalogTools,
+        resolvedToolsByName: resolvedToolsByName,
+        model: model,
+      );
+    }
+    add(
+      AiContextUsageCategory.conversation,
+      historyTurns.fold<int>(0, (sum, turn) => sum + turn.promptCharacterCount),
+    );
+    add(
+      AiContextUsageCategory.conversation,
+      latestUserTurns.fold<int>(
+        0,
+        (sum, turn) => sum + turn.promptCharacterCount,
+      ),
+    );
+    for (final turn in volatileTailTurns) {
+      add(_contextUsageCategoryForTurn(turn), turn.promptCharacterCount);
+    }
+    if (nativeTools.isNotEmpty) {
+      final serialized = nativeTools
+          .map((tool) => _toolDefinitionJson(tool, model))
+          .toList(growable: false);
+      _addToolContextCharacters(
+        counts,
+        characters: jsonEncode(serialized).length,
+        tools: nativeTools,
+        resolvedToolsByName: resolvedToolsByName,
+        model: model,
+      );
+    }
+    return counts;
+  }
+
+  AiContextUsageCategory _contextUsageCategoryForTurn(AiChatTurn turn) {
+    final content = turn.content;
+    if (content.contains(AiPromptSectionHeaders.userMemory)) {
+      return AiContextUsageCategory.memory;
+    }
+    if (content.contains(AiPromptSectionHeaders.userInstructions) ||
+        content.contains(AiPromptSectionHeaders.workspaceInstructions)) {
+      return AiContextUsageCategory.instructions;
+    }
+    if (content.contains(AiPromptSectionHeaders.restoredSkillContext)) {
+      return AiContextUsageCategory.skills;
+    }
+    if (content.contains(AiPromptSectionHeaders.restoredMcpContext)) {
+      return AiContextUsageCategory.mcp;
+    }
+    if (content.contains(
+          AiPromptSectionHeaders.restoredSessionStartHookContext,
+        ) ||
+        content.contains(AiPromptSectionHeaders.systemReminder)) {
+      return AiContextUsageCategory.hooks;
+    }
+    if (content.contains(AiPromptSectionHeaders.conversationContext) ||
+        content.contains(AiPromptSectionHeaders.focusContext) ||
+        content.contains(AiPromptSectionHeaders.restoredFileContext) ||
+        content.contains(AiPromptSectionHeaders.restoredAgentResultContext)) {
+      return AiContextUsageCategory.conversation;
+    }
+    if (content.contains(AiPromptSectionHeaders.staticSessionState) ||
+        content.contains(AiPromptSectionHeaders.dynamicSessionState) ||
+        content.contains(AiPromptSectionHeaders.planModeReminder) ||
+        content.contains(AiPromptSectionHeaders.restoredPlanContext) ||
+        content.contains(AiPromptSectionHeaders.restoredToolAndAgentListing)) {
+      return AiContextUsageCategory.runtime;
+    }
+    return AiContextUsageCategory.systemPrompt;
+  }
+
+  void _addToolContextCharacters(
+    Map<AiContextUsageCategory, int> counts, {
+    required int characters,
+    required List<AiToolDefinition> tools,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+    required AiModelConfig model,
+  }) {
+    if (characters <= 0) return;
+    if (tools.isEmpty) {
+      counts[AiContextUsageCategory.runtime] =
+          (counts[AiContextUsageCategory.runtime] ?? 0) + characters;
+      return;
+    }
+    final sourceByName = <String, AiRuntimeToolSource>{};
+    for (final resolved in resolvedToolsByName.values) {
+      sourceByName[resolved.name] = resolved.source;
+      sourceByName[resolved.definition.name] = resolved.source;
+    }
+    final weights = <AiContextUsageCategory, int>{};
+    for (final tool in tools) {
+      final source =
+          sourceByName[tool.name] ??
+          (tool.name.startsWith('mcp__')
+              ? AiRuntimeToolSource.mcp
+              : tool.name.startsWith('skill__')
+              ? AiRuntimeToolSource.skill
+              : AiRuntimeToolSource.builtin);
+      final category = switch (source) {
+        AiRuntimeToolSource.builtin => AiContextUsageCategory.builtinTools,
+        AiRuntimeToolSource.mcp => AiContextUsageCategory.mcp,
+        AiRuntimeToolSource.skill => AiContextUsageCategory.skills,
+      };
+      weights[category] =
+          (weights[category] ?? 0) +
+          jsonEncode(_toolDefinitionJson(tool, model)).length;
+    }
+    final totalWeight = weights.values.fold<int>(0, (a, b) => a + b);
+    if (totalWeight <= 0) {
+      counts[AiContextUsageCategory.runtime] =
+          (counts[AiContextUsageCategory.runtime] ?? 0) + characters;
+      return;
+    }
+    final ranked = weights.entries.toList(growable: false);
+    var allocated = 0;
+    for (var index = 0; index < ranked.length; index += 1) {
+      final entry = ranked[index];
+      final value = index == ranked.length - 1
+          ? characters - allocated
+          : characters * entry.value ~/ totalWeight;
+      counts[entry.key] = (counts[entry.key] ?? 0) + value;
+      allocated += value;
+    }
+  }
+
+  Map<String, Object?> _toolDefinitionJson(
+    AiToolDefinition tool,
+    AiModelConfig model,
+  ) {
+    return model.protocolType == AiProtocolType.claude
+        ? tool.toClaudeJson()
+        : tool.toOpenAiJson();
   }
 
   bool _shouldIncludeDynamicSessionState(

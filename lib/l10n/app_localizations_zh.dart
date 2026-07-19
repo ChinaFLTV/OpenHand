@@ -3883,6 +3883,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupCacheHit => '缓存命中率';
 
   @override
+  String get tokenPopupContextOverview => '上下文数据概览';
+
+  @override
+  String get tokenPopupContextMeasured => '总量实测 · 分类折算';
+
+  @override
+  String get tokenPopupContextEstimated => '按请求内容估算';
+
+  @override
+  String get tokenPopupContextEmpty => '发送下一条消息后生成概览';
+
+  @override
+  String get tokenPopupContextSystemPrompt => '系统 Prompt';
+
+  @override
+  String get tokenPopupContextBuiltinTools => '内建 Tool';
+
+  @override
+  String get tokenPopupContextMcp => 'MCP';
+
+  @override
+  String get tokenPopupContextInstructions => '指令';
+
+  @override
+  String get tokenPopupContextMemory => '记忆';
+
+  @override
+  String get tokenPopupContextSkills => '技能';
+
+  @override
+  String get tokenPopupContextHooks => 'Hooks';
+
+  @override
+  String get tokenPopupContextConversation => '会话';
+
+  @override
+  String get tokenPopupContextRuntime => '运行时';
+
+  @override
   String get tokenPopupSessionHeading => '会话累计';
 
   @override
@@ -14501,6 +14540,45 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupCacheHit => '快取命中率';
+
+  @override
+  String get tokenPopupContextOverview => '上下文資料概覽';
+
+  @override
+  String get tokenPopupContextMeasured => '總量實測 · 分類換算';
+
+  @override
+  String get tokenPopupContextEstimated => '依請求內容估算';
+
+  @override
+  String get tokenPopupContextEmpty => '傳送下一則訊息後產生概覽';
+
+  @override
+  String get tokenPopupContextSystemPrompt => '系統 Prompt';
+
+  @override
+  String get tokenPopupContextBuiltinTools => '內建 Tool';
+
+  @override
+  String get tokenPopupContextMcp => 'MCP';
+
+  @override
+  String get tokenPopupContextInstructions => '指令';
+
+  @override
+  String get tokenPopupContextMemory => '記憶';
+
+  @override
+  String get tokenPopupContextSkills => '技能';
+
+  @override
+  String get tokenPopupContextHooks => 'Hooks';
+
+  @override
+  String get tokenPopupContextConversation => '會話';
+
+  @override
+  String get tokenPopupContextRuntime => '執行階段';
 
   @override
   String get tokenPopupSessionHeading => '會話累計';

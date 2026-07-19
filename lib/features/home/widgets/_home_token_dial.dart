@@ -633,6 +633,9 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final webSearchCalls = widget.statistics.webSearchToolUsage ?? 0;
     final webSearchPages = widget.statistics.webSearchPageUsage ?? 0;
     final total = widget.statistics.totalTokens ?? 0;
+    final contextUsage = AiContextUsageBreakdown.fromMetadata(
+      widget.session.lastPromptMetadata,
+    );
     final trend = _trend;
     final displayData = trend.displayData(_displayMode);
     final cacheHitRatio = trend.points.isEmpty
@@ -792,6 +795,8 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             prompt: cacheBarPromptTokens,
           ),
         ],
+        const SizedBox(height: 10),
+        _ContextUsageOverview(usage: contextUsage),
         if (trend.points.isNotEmpty) ...[
           const SizedBox(height: 10),
           TokenPopupCacheHitTrendChart(
@@ -967,6 +972,295 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       ],
     ];
   }
+}
+
+class _ContextUsageOverview extends StatelessWidget {
+  const _ContextUsageOverview({required this.usage});
+
+  final AiContextUsageBreakdown? usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final hasData = usage?.hasData ?? false;
+    final items = hasData ? usage!.items : const <AiContextUsageItem>[];
+    final activeItems = items
+        .where((item) => item.tokenCount > 0)
+        .toList(growable: false);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.tokenPopupContextOverview,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasData
+                          ? usage!.tokenSource == AiContextTokenSource.provider
+                                ? l10n.tokenPopupContextMeasured
+                                : l10n.tokenPopupContextEstimated
+                          : l10n.tokenPopupContextEmpty,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (hasData) ...[
+                const SizedBox(width: 12),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: _formatThousands(usage!.totalTokens),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: colorScheme.primary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' ${l10n.tokenDialUnit}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.end,
+                ),
+              ],
+            ],
+          ),
+          if (hasData) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: _borderRadius999,
+              child: SizedBox(
+                height: 7,
+                child: Row(
+                  children: activeItems
+                      .map(
+                        (item) => Expanded(
+                          flex: _contextUsageFlex(
+                            item.tokenCount,
+                            usage!.totalTokens,
+                          ),
+                          child: ColoredBox(
+                            color: _contextUsageColor(
+                              colorScheme,
+                              item.category,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 360 ? 3 : 2;
+                const gap = 8.0;
+                final itemWidth =
+                    (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: items
+                      .map(
+                        (item) => SizedBox(
+                          width: itemWidth,
+                          child: _ContextUsageTile(
+                            item: item,
+                            totalTokens: usage!.totalTokens,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ContextUsageTile extends StatelessWidget {
+  const _ContextUsageTile({required this.item, required this.totalTokens});
+
+  final AiContextUsageItem item;
+  final int totalTokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final color = _contextUsageColor(colorScheme, item.category);
+    final active = item.tokenCount > 0;
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: active ? 0.09 : 0.035),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withValues(alpha: active ? 0.24 : 0.10),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _contextUsageLabel(
+                    AppLocalizations.of(context)!,
+                    item.category,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: active
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  _formatThousands(item.tokenCount),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: colorScheme.onSurface,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _contextUsagePercent(item.tokenCount, totalTokens),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+int _contextUsageFlex(int tokens, int totalTokens) {
+  if (tokens <= 0 || totalTokens <= 0) return 1;
+  return (tokens / totalTokens * 1000).round().clamp(1, 1000).toInt();
+}
+
+String _contextUsagePercent(int tokens, int totalTokens) {
+  if (tokens <= 0 || totalTokens <= 0) return '0%';
+  final value = tokens / totalTokens * 100;
+  if (value < 0.1) return '<0.1%';
+  return value >= 10 ? '${value.round()}%' : '${value.toStringAsFixed(1)}%';
+}
+
+String _contextUsageLabel(
+  AppLocalizations l10n,
+  AiContextUsageCategory category,
+) {
+  return switch (category) {
+    AiContextUsageCategory.systemPrompt => l10n.tokenPopupContextSystemPrompt,
+    AiContextUsageCategory.builtinTools => l10n.tokenPopupContextBuiltinTools,
+    AiContextUsageCategory.mcp => l10n.tokenPopupContextMcp,
+    AiContextUsageCategory.instructions => l10n.tokenPopupContextInstructions,
+    AiContextUsageCategory.memory => l10n.tokenPopupContextMemory,
+    AiContextUsageCategory.skills => l10n.tokenPopupContextSkills,
+    AiContextUsageCategory.hooks => l10n.tokenPopupContextHooks,
+    AiContextUsageCategory.conversation => l10n.tokenPopupContextConversation,
+    AiContextUsageCategory.runtime => l10n.tokenPopupContextRuntime,
+  };
+}
+
+Color _contextUsageColor(
+  ColorScheme colorScheme,
+  AiContextUsageCategory category,
+) {
+  return switch (category) {
+    AiContextUsageCategory.systemPrompt => colorScheme.primary,
+    AiContextUsageCategory.builtinTools => colorScheme.secondary,
+    AiContextUsageCategory.mcp => colorScheme.tertiary,
+    AiContextUsageCategory.instructions => Color.lerp(
+      colorScheme.primary,
+      colorScheme.tertiary,
+      0.42,
+    )!,
+    AiContextUsageCategory.memory => Color.lerp(
+      colorScheme.error,
+      colorScheme.tertiary,
+      0.58,
+    )!,
+    AiContextUsageCategory.skills => Color.lerp(
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      0.55,
+    )!,
+    AiContextUsageCategory.hooks => Color.lerp(
+      colorScheme.error,
+      colorScheme.primary,
+      0.44,
+    )!,
+    AiContextUsageCategory.conversation => Color.lerp(
+      colorScheme.primary,
+      colorScheme.secondary,
+      0.58,
+    )!,
+    AiContextUsageCategory.runtime => colorScheme.outline,
+  };
 }
 
 /// 单价行专用：USD 格式化展示（最高精度 4 位小数；总计/小数据时切到更密）。

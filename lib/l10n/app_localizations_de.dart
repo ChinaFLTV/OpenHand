@@ -4054,6 +4054,47 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupCacheHit => 'Zwischenspeicher-Trefferquote';
 
   @override
+  String get tokenPopupContextOverview => 'Kontextübersicht';
+
+  @override
+  String get tokenPopupContextMeasured =>
+      'Gesamtsumme gemessen · Kategorien verteilt';
+
+  @override
+  String get tokenPopupContextEstimated => 'Aus Anfrageinhalt geschätzt';
+
+  @override
+  String get tokenPopupContextEmpty =>
+      'Nächste Nachricht senden, um die Übersicht zu erstellen';
+
+  @override
+  String get tokenPopupContextSystemPrompt => 'System-Prompt';
+
+  @override
+  String get tokenPopupContextBuiltinTools => 'Integrierte Tools';
+
+  @override
+  String get tokenPopupContextMcp => 'MCP';
+
+  @override
+  String get tokenPopupContextInstructions => 'Anweisungen';
+
+  @override
+  String get tokenPopupContextMemory => 'Speicher';
+
+  @override
+  String get tokenPopupContextSkills => 'Skills';
+
+  @override
+  String get tokenPopupContextHooks => 'Hooks';
+
+  @override
+  String get tokenPopupContextConversation => 'Unterhaltung';
+
+  @override
+  String get tokenPopupContextRuntime => 'Laufzeit';
+
+  @override
   String get tokenPopupSessionHeading => 'Sitzung';
 
   @override
