@@ -41,17 +41,7 @@ import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/structured_error_text.dart';
 
 Future<void> main() async {
-  // Use a guarded zone so uncaught async errors (including stray
-  // FormatExceptions from third-party markdown/highlight rendering) cannot
-  // crash the engine or flood the console during message rendering.
-  // The `print` override is critical: the `highlight` package swallows
-  // FormatExceptions inside its keyword compiler and emits them via bare
-  // `print(err)` (see package:highlight/src/highlight.dart). Those lines
-  // can't be intercepted by FlutterError.onError or the zone error handler,
-  // only by intercepting `print` at the zone level. Left unchecked, each
-  // `print` call synchronously writes to the platform log from the UI
-  // isolate, which is a measurable contributor to first-paint jank when a
-  // conversation contains many code blocks.
+  // 用 Zone 统一兜住异步异常，并拦截 highlight 内部裸 print 产生的可恢复噪声。
   await runZonedGuarded<Future<void>>(
     _bootstrap,
     _handleUncaughtZoneError,
@@ -90,14 +80,14 @@ Future<void> _bootstrap() async {
           try {
             await killAllTrackedChildren();
           } catch (error, stack) {
-            silentLog('main', 'kill tracked children on signal', error, stack);
+            silentLog('main', '信号触发后清理子进程', error, stack);
           }
           exit(0);
         });
         signalSubscriptions.add(subscription);
       } catch (error, stack) {
-        // 某些 sandbox / test 环境不允许装信号 handler，忽略。
-        silentLog('main', 'install signal handler', error, stack);
+        // 某些沙箱 / 测试环境不允许安装信号处理器，忽略。
+        silentLog('main', '安装信号处理器', error, stack);
       }
     }
   }
@@ -133,8 +123,7 @@ Future<void> _bootstrap() async {
     }
   };
 
-  // Absorb async errors reported through the platform dispatcher so a single
-  // stray FormatException cannot cascade into repeated frame rebuilds.
+  // 吃掉平台分发器上报的可恢复异步异常，避免单次渲染噪声触发连续重建。
   PlatformDispatcher.instance.onError = (error, stack) {
     if (_shouldSilenceRenderingError(error)) {
       return true;
@@ -152,7 +141,7 @@ Future<void> _bootstrap() async {
     return false;
   };
 
-  // Initialize database before creating any controllers that depend on it.
+  // 先初始化数据库，再创建依赖数据库的控制器。
   try {
     await DatabaseService.initialize();
   } catch (error, stackTrace) {
@@ -200,11 +189,7 @@ Future<void> _bootstrap() async {
     return;
   }
 
-  // Defer best-effort cleanup of stale temp artifacts until AFTER the first
-  // frame is painted: although `unawaited`, both helpers issue filesystem
-  // syscalls (Directory.list + stat + delete) on the same isolate event
-  // loop that the 7 controller initializers are competing for, and they
-  // are not on the critical path for showing the UI.
+  // 过期临时文件清理放到首帧后，避免与启动期控制器初始化争用同一 isolate。
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
   final cronsModuleFuture = CronsModule.bootstrap();
@@ -215,22 +200,17 @@ Future<void> _bootstrap() async {
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
-  _runMainBackgroundTask(
-    AiOutputFormatPrompts.ensureLoaded(),
-    'load output format prompts',
-  );
-  // kick off system-proxy detection in parallel with the
-  // controllers — internal HTTP clients (WebSearch / WebFetch) consult
-  // SystemProxyResolver lazily, so this is purely best-effort.
+  _runMainBackgroundTask(AiOutputFormatPrompts.ensureLoaded(), '加载输出格式 Prompt');
+  // 系统代理检测与控制器并行启动；内部 HTTP 客户端会按需读取结果。
   final systemProxyFuture = SystemProxyResolver.instance.initialize();
 
   developer.Timeline.startSync('openhand.boot.await_settings_hooks');
   final settingsController = await settingsControllerFuture;
   final hooks = await hooksModuleFuture;
   developer.Timeline.finishSync();
-  // 启动阶段先写入一次；统一 listener 会在所有运行时依赖就绪后注册。
+  // 启动阶段先写入一次；统一监听器会在所有运行时依赖就绪后注册。
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
-  // 用 top-level 变量把 stdio MCP 镜像源模式同步给 discovery service。
+  // 用顶层变量把 stdio MCP 镜像源模式同步给发现服务。
   mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
   // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
@@ -259,25 +239,22 @@ Future<void> _bootstrap() async {
     autoProbeConcurrency: settingsController.mcpAutoProbeConcurrency,
   );
   final skills = await skillsModuleFuture;
-  _runMainBackgroundTask(skills.controller.refresh(), 'refresh skills');
+  _runMainBackgroundTask(skills.controller.refresh(), '刷新技能');
   final mcp = await mcpModuleFuture;
   _runMainBackgroundTask(mcp.controller.ensureRuntimeReady(), '恢复 MCP 运行时');
   // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
-  _runMainBackgroundTask(memory.controller.refresh(), 'refresh memory');
+  _runMainBackgroundTask(memory.controller.refresh(), '刷新记忆');
   final agents = await agentsModuleFuture;
   agentsControllerHandle = agents.controller;
-  _runMainBackgroundTask(agents.controller.refresh(), 'refresh agents');
-  // CronsController 先注册 agent handler，再把数据库加载和调度器启动放到后台。
+  _runMainBackgroundTask(agents.controller.refresh(), '刷新智能体');
+  // CronsController 先注册 agent 处理器，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
   // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;
   instructionsControllerHandle = instructions.controller;
-  _runMainBackgroundTask(
-    instructions.controller.refresh(),
-    'refresh instructions',
-  );
+  _runMainBackgroundTask(instructions.controller.refresh(), '刷新指令');
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo, appLocale: settingsController.locale);
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
@@ -285,9 +262,8 @@ Future<void> _bootstrap() async {
   final ai = await aiModuleFuture;
   final aiSessionController = ai.controller;
   developer.Timeline.finishSync();
-  // Make sure system-proxy detection has resolved before the user can
-  // hit WebSearch/WebFetch. Best-effort — failures fall back to DIRECT.
-  _runMainBackgroundTask(systemProxyFuture, 'initialize system proxy');
+  // WebSearch/WebFetch 可用前尽量完成系统代理检测，失败则继续直连。
+  _runMainBackgroundTask(systemProxyFuture, '初始化系统代理');
 
   // 自学习调度器只暴露 Memory / SkillManager 工具，并把流式过程写入自学习卡片。
   final selfLearningChatClient = AiChatService();
@@ -310,8 +286,8 @@ Future<void> _bootstrap() async {
     if (entry.tags.contains(CronsController.hermesTalkerTag)) {
       final result = await selfLearningScheduler.tick();
       final stdout =
-          'ok: scanned=${result.scanned} triggered=${result.triggered} '
-          'skipped=${result.skipped} errors=${result.errors}';
+          '完成：扫描=${result.scanned} 触发=${result.triggered} '
+          '跳过=${result.skipped} 错误=${result.errors}';
       final appContext = <String, String>{};
       try {
         appContext[CronsController.hermesTalkerStatsKey] =
@@ -329,8 +305,8 @@ Future<void> _bootstrap() async {
           );
         }
       } catch (error, stack) {
-        // JSON 编码失败时降级为纯 stdout，保留诊断线索但不影响调度链路。
-        silentLog('main', 'encode hermes talker context', error, stack);
+        // JSON 编码失败时降级为纯标准输出，保留诊断线索但不影响调度链路。
+        silentLog('main', '编码 Hermes Talker 上下文', error, stack);
       }
       return AgentHandlerResult(stdout: stdout, appContext: appContext);
     }
@@ -341,19 +317,17 @@ Future<void> _bootstrap() async {
         final result = await mcp.controller.buildKeywordIndex();
         return AgentHandlerResult(
           stdout:
-              'ok: servers=${result.index.totalServers} '
-              'tools=${result.index.totalTools} '
-              'skipped=${result.skippedServers} '
-              'duration_ms=${result.index.durationMs}',
+              '完成：服务=${result.index.totalServers} '
+              '工具=${result.index.totalTools} '
+              '跳过服务=${result.skippedServers} '
+              '耗时毫秒=${result.index.durationMs}',
         );
       } catch (error, stack) {
-        silentLog('main', 'mcp keyword index rebuild', error, stack);
-        return AgentHandlerResult(stdout: 'error: $error');
+        silentLog('main', '重建 MCP 关键词索引', error, stack);
+        return AgentHandlerResult(stdout: '错误：$error');
       }
     }
-    return AgentHandlerResult(
-      stdout: 'noop: unknown agent tag (${entry.tags.join(",")})',
-    );
+    return AgentHandlerResult(stdout: '未处理：未知智能体标签（${entry.tags.join(",")}）');
   });
   void syncRuntimeSettings() {
     SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
@@ -381,18 +355,18 @@ Future<void> _bootstrap() async {
         scheduledTimeOfDay:
             settingsController.mcpKeywordIndexScheduledTimeOfDay,
       ),
-      'update MCP keyword index schedule',
+      '更新 MCP 关键词索引计划',
     );
   }
 
   settingsController.addListener(syncRuntimeSettings);
-  // 启动期同步一次，避免首次 listener 触发前的 race。
+  // 启动期同步一次，避免首次监听器触发前出现竞态。
   SelfLearningRunner.streamFlushIntervalMs =
       settingsController.selfLearningStreamFlushIntervalMs;
   AiUsageTracker.instance.updateEstimatedCharactersPerToken(
     settingsController.aiEstimatedCharactersPerToken,
   );
-  // agent handler 注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
+  // agent 处理器注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
   _runMainBackgroundTask(() async {
     await cronsController.initialize();
     await cronsController.updateMcpKeywordIndexSchedule(
@@ -401,7 +375,7 @@ Future<void> _bootstrap() async {
       intervalUnit: settingsController.mcpKeywordIndexIntervalUnit,
       scheduledTimeOfDay: settingsController.mcpKeywordIndexScheduledTimeOfDay,
     );
-  }(), 'initialize crons');
+  }(), '初始化定时任务');
 
   final knowledgeBase = await knowledgeBaseModuleFuture;
   knowledgeBaseControllerHandle = knowledgeBase.controller;
@@ -433,16 +407,10 @@ Future<void> _bootstrap() async {
     machineTerminalService: machineTerminalService,
     appInfo: appInfo,
   );
-  _runMainBackgroundTask(
-    messageGateway.controller.initialize(),
-    'initialize message gateway',
-  );
+  _runMainBackgroundTask(messageGateway.controller.initialize(), '初始化消息网关');
 
   final pluginService = await pluginServiceModuleFuture;
-  _runMainBackgroundTask(
-    pluginService.controller.initialize(),
-    'initialize plugin service',
-  );
+  _runMainBackgroundTask(pluginService.controller.initialize(), '初始化插件服务');
   agents.controller.setRuntimeAvailabilityProvider(
     () => AgentRuntimeAvailability.fromHermesPlugin(
       pluginService.controller.pluginById(PluginCatalogIds.hermesAgent),
@@ -453,10 +421,7 @@ Future<void> _bootstrap() async {
       agents.controller.notifyRuntimeAvailabilityChanged;
   pluginService.controller.addListener(pluginAvailabilityListener);
   messageGateway.controller.pluginServiceController = pluginService.controller;
-  _runMainBackgroundTask(
-    knowledgeBase.controller.initialize(),
-    'initialize knowledge base',
-  );
+  _runMainBackgroundTask(knowledgeBase.controller.initialize(), '初始化知识库');
 
   // 冷启动后异步触发一次 cron 历史清理，不干扰 UI 启动。
   _runMainBackgroundTask(
@@ -464,79 +429,67 @@ Future<void> _bootstrap() async {
       settings: settingsController,
       crons: cronsController,
     ),
-    'clean cron history',
+    '清理定时任务历史',
   );
 
   // 2026-05 — WebSearch 缓存预热 / 自愈：扫描 ~/.openhand/cache/web_search/
-  // 删除已过期、孤儿 entry 与孤儿 .txt，重建 index.json。fire-and-forget,
-  // 全部失败 silentLog；不阻塞 UI 启动。
+  // 删除已过期、孤儿条目与孤儿 .txt，重建 index.json；失败只写 silentLog。
   _runMainBackgroundTask(
     WebSearchCacheStore.instance.prewarm(),
-    'prewarm WebSearch cache',
+    '预热 WebSearch 缓存',
   );
   _runMainBackgroundTask(
     WebFetchCacheStore.instance.prewarm(),
-    'prewarm WebFetch cache',
+    '预热 WebFetch 缓存',
   );
-  _runMainBackgroundTask(
-    MediaCacheService.instance.prewarm(),
-    'prewarm media cache',
-  );
+  _runMainBackgroundTask(MediaCacheService.instance.prewarm(), '预热媒体缓存');
   final templateRuntimeLinkageController = TemplateRuntimeLinkageController();
   final throttleAutoSyncService = ThrottleAutoSyncService(
     settingsController: settingsController,
   )..start();
 
-  // These instances are created outside Provider, so `.value` providers do
-  // not own them. Register base dependencies first and tear them down in the
-  // reverse order when the root app exits.
+  // 这些实例由 Provider 外部创建，退出时按反向顺序统一释放。
   runtimeCleanup
-    ..register('database', DatabaseService.instance.close)
+    ..register('数据库', DatabaseService.instance.close)
     ..register('AI 使用统计', AiUsageTracker.instance.flush)
-    ..register('settings controller', settingsController.dispose)
-    ..register('hooks controller', hooks.controller.dispose)
-    ..register('skills controller', skills.controller.dispose)
-    ..register('memory controller', memory.controller.dispose)
-    ..register('agents controller', agents.controller.dispose)
-    ..register('instructions controller', instructions.controller.dispose)
-    ..register(
-      'template runtime linkage controller',
-      templateRuntimeLinkageController.dispose,
-    )
-    ..register('plugin service controller', pluginService.controller.dispose)
-    ..register('knowledge base controller', knowledgeBase.controller.dispose)
-    ..register('MCP controller', mcp.controller.dispose)
-    ..register('self-learning chat client', selfLearningChatClient.dispose)
-    ..register('AI session controller', aiSessionController.dispose)
-    ..register('AI LSP sessions', AiLspClientService.instance.disposeAll)
-    ..register('media cache', MediaCacheService.instance.shutdown)
-    ..register('machine terminal service', () async {
+    ..register('设置控制器', settingsController.dispose)
+    ..register('Hooks 控制器', hooks.controller.dispose)
+    ..register('技能控制器', skills.controller.dispose)
+    ..register('记忆控制器', memory.controller.dispose)
+    ..register('智能体控制器', agents.controller.dispose)
+    ..register('指令控制器', instructions.controller.dispose)
+    ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
+    ..register('插件服务控制器', pluginService.controller.dispose)
+    ..register('知识库控制器', knowledgeBase.controller.dispose)
+    ..register('MCP 控制器', mcp.controller.dispose)
+    ..register('自学习聊天客户端', selfLearningChatClient.dispose)
+    ..register('AI 会话控制器', aiSessionController.dispose)
+    ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
+    ..register('媒体缓存', MediaCacheService.instance.shutdown)
+    ..register('机器终端服务', () async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();
     })
-    ..register('crons controller', cronsController.dispose)
-    ..register('message gateway controller', () async {
+    ..register('定时任务控制器', cronsController.dispose)
+    ..register('消息网关控制器', () async {
       messageGateway.controller.pluginServiceController = null;
       await messageGateway.controller.shutdown();
     })
-    ..register('FPS monitor', OpenHandFpsMonitor.instance.stop);
+    ..register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
   for (final subscription in signalSubscriptions) {
-    runtimeCleanup.register('process signal subscription', subscription.cancel);
+    runtimeCleanup.register('进程信号订阅', subscription.cancel);
   }
   runtimeCleanup
+    ..register('定时任务智能体处理器', () => cronsController.registerAgentHandler(null))
     ..register(
-      'cron agent handler',
-      () => cronsController.registerAgentHandler(null),
-    )
-    ..register(
-      'plugin availability listener',
+      '插件可用性监听器',
       () => pluginService.controller.removeListener(pluginAvailabilityListener),
     )
     ..register(
-      'runtime settings listener',
+      '运行时设置监听器',
       () => settingsController.removeListener(syncRuntimeSettings),
     )
-    ..register('throttle auto sync', throttleAutoSyncService.dispose);
+    ..register('节流自动同步服务', throttleAutoSyncService.dispose);
 
   runApp(
     MultiProvider(
@@ -568,17 +521,12 @@ Future<void> _bootstrap() async {
   );
   developer.Timeline.instantSync('openhand.boot.runApp_called');
 
-  // Best-effort cleanup of stale temp artifacts — deferred until after the
-  // first frame is painted so it never competes with controller init or
-  // first-paint work for the event loop.
+  // 首帧后再清理过期临时文件，避免干扰启动期关键路径。
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    _runMainBackgroundTask(
-      HooksExecutor.pruneStaleTempFiles(),
-      'prune hook temp files',
-    );
+    _runMainBackgroundTask(HooksExecutor.pruneStaleTempFiles(), '清理 Hook 临时文件');
     _runMainBackgroundTask(
       ai_protocol_adapter.pruneInlineMediaCache(),
-      'prune inline media cache',
+      '清理内联媒体缓存',
     );
   });
 }
@@ -599,17 +547,12 @@ Future<AppInfo> _loadAppInfo() async {
     final packageInfo = await PackageInfo.fromPlatform();
     return AppInfo.fromPackageInfo(packageInfo);
   } catch (error, stack) {
-    silentLog('main', 'load AppInfo', error, stack);
+    silentLog('main', '加载 AppInfo', error, stack);
     return AppInfo.fallback();
   }
 }
 
-/// Returns `true` when an error looks like the benign kind we want to keep
-/// out of the console. Primarily this targets [FormatException]s that leak
-/// out of third-party markdown / syntax highlighting internals during
-/// rendering — they are fully recoverable and we always fall back to plain
-/// text, so presenting them as an error overlay only contributes to UI jank
-/// on first paint of a long conversation.
+/// 判断是否为渲染链路中可恢复、无需展示给用户的格式化异常。
 bool _shouldSilenceRenderingError(Object error) {
   if (error is FormatException) {
     return true;
@@ -619,10 +562,7 @@ bool _shouldSilenceRenderingError(Object error) {
       message.contains('FormatException: Invalid radix-10 number');
 }
 
-/// Filter out the noisy, recoverable format-exception lines that the
-/// `highlight` package emits via bare `print(err)` calls. These lines
-/// originate inside keyword-table compilation and do not indicate a real
-/// error — the highlight fallback still renders plain text correctly.
+/// 过滤 highlight 通过裸 print 打出的可恢复格式化异常，避免刷屏和首屏卡顿。
 bool _shouldSilencePrintLine(String line) {
   return line.contains('FormatException: Invalid number') ||
       line.contains('FormatException: Invalid radix-10 number') ||
@@ -630,7 +570,7 @@ bool _shouldSilencePrintLine(String line) {
 }
 
 /// Flutter 3.41 的浮层 / 弹窗子树在关闭、滚动或路由切换的同一帧里，
-/// 偶发先被 MouseTracker / Gesture hit test 扫到，随后才完成或移除布局。
+/// 偶发先被 MouseTracker / Gesture 命中测试扫到，随后才完成或移除布局。
 /// 它只影响这一个指针包，不代表业务 RenderBox 约束错误；普通布局错误
 /// 仍继续上报。
 bool _isRecoverableOverlayPortalHitTestRace(Object error, StackTrace? stack) {
@@ -678,7 +618,7 @@ void _triggerComposerImeSoftRecovery() {
   try {
     InputRepairService.instance.triggerSoftRecovery();
   } catch (error, stack) {
-    silentLog('main', 'trigger composer ime soft recovery', error, stack);
+    silentLog('main', '触发 composer IME 软恢复', error, stack);
   }
 }
 

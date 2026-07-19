@@ -43,7 +43,7 @@ interface PopMenuProps {
   panelClassName?: string;
   /** 触发器；调用方控制其外观。 */
   trigger: (props: { open: boolean; toggle: () => void }) => ComponentChildren;
-  /** Optional class for callers that need layout control over the trigger wrap. */
+  /** 触发器外层样式钩子。 */
   wrapperClassName?: string;
   /** 默认 'right'，菜单从触发器右上角弹出。 */
   align?: 'left' | 'right';
@@ -150,7 +150,7 @@ export function PopMenu({
   }, [menuVisible, recompute, recomputeNow, scheduleRecompute, cancelRecompute]);
 
   // 第一次渲染拿到菜单实际尺寸后再校准一次，确保上方锚定不会因
-  // fallback 高度与真实高度不同而压住触发器。
+  // 兜底高度与真实高度不同而压住触发器。
   useLayoutEffect(() => {
     if (!menuVisible || !pos || !menuRef.current) return;
     recomputeNow();

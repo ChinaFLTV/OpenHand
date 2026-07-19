@@ -76,7 +76,6 @@ function applyParticleElement(
   element.style.height = `${particle.size}px`;
 }
 
-/** Radial fireworks from the max-tier thumb — burst on enter + soft embers. */
 function ThumbSparkField({ active }: { active: boolean }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const reducedMotion = useReducedMotion();
@@ -158,7 +157,7 @@ function ThumbSparkField({ active }: { active: boolean }) {
         spark.speed *= drag;
         spark.angle += (Math.random() - 0.5) * delta * 1.4;
         const lifeT = Math.max(0, Math.min(1, spark.life / spark.maxLife));
-        const fade = 1 - (1 - lifeT) * (1 - lifeT); // easeOut-ish
+        const fade = 1 - (1 - lifeT) * (1 - lifeT);
         const x = Math.cos(spark.angle) * spark.dist;
         const y = Math.sin(spark.angle) * spark.dist;
         const trail = spark.size * (2.2 + spark.streak * 3.5) * fade;
@@ -345,10 +344,9 @@ function ReasoningEffortPanel({
   const selected = options[clampIndex(draftIndex, options)]!;
   const progress = options.length <= 1 ? 1 : draftIndex / maxIndex;
   const energy = progress >= 0.96 ? 'max' : progress >= 0.7 ? 'high' : progress >= 0.38 ? 'balanced' : 'fast';
-  // Soft ease into max capsule palette — continuous, no hard energy snap.
   const rawMaxBlend = Math.max(0, Math.min(1, (progress - 0.72) / 0.28));
   const capsuleBlend =
-    rawMaxBlend * rawMaxBlend * (3 - 2 * rawMaxBlend); // easeInOutCubic
+    rawMaxBlend * rawMaxBlend * (3 - 2 * rawMaxBlend);
   const thumbInset = 22 - 44 * progress;
   const thumbPosition = `calc(${progress * 100}% + ${thumbInset}px)`;
   const fillPosition = progress <= 0 ? '0%' : progress >= 1 ? '100%' : thumbPosition;
@@ -371,8 +369,7 @@ function ReasoningEffortPanel({
           try {
             saved = await onSelect(queued);
           } catch {
-            // The caller owns user-facing error reporting; keep this control
-            // mounted and roll back to the last persisted value.
+            // 错误展示由调用方负责，这里只回退到上次已保存值。
           }
           if (saved) {
             persistedValueRef.current = queued;
@@ -416,12 +413,10 @@ function ReasoningEffortPanel({
             active={energy === 'high' || energy === 'max'}
             maximum={energy === 'max'}
           />
-          {/* Intermediate ticks only — skip head/tail for clean capsule caps (Codex). */}
           {options.length > 2 &&
             options.slice(1, -1).map((option, midIndex) => {
               const index = midIndex + 1;
               const tickProgress = index / maxIndex;
-              // Match thumb travel path: inset from rounded ends.
               const thumbInset = 22 - 44 * tickProgress;
               return (
                 <span
@@ -477,7 +472,6 @@ function ReasoningEffortPanel({
       </div>
       <div class="oh-reasoning-effort-current" aria-live="polite">
         <span class="oh-reasoning-effort-capsule">
-          {/* Dual-layer crossfade: theme base ↔ max aurora (smooth, no snap). */}
           <i class="oh-cap-fill oh-cap-fill-base" aria-hidden="true" />
           <i class="oh-cap-fill oh-cap-fill-max" aria-hidden="true" />
           <span key={selected.value} class="oh-cap-label oh-soft-replace">

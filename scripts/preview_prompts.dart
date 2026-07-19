@@ -1,10 +1,8 @@
 // ignore_for_file: avoid_print
 //
-// Standalone Dart CLI to preview the assembled prompt-template bundles for
-// all current thread templates, exactly as OpenHand resolves them at runtime.
-//
-// Usage: `dart run scripts/preview_prompts.dart`
-// Output: build/preview/<template_id>/{system,developer,compression_summary}.md
+// 预览当前所有线程模板在运行时拼装后的 Prompt 文件。
+// 用法：`dart run scripts/preview_prompts.dart`
+// 输出：build/preview/<template_id>/{system,developer,compression_summary}.md
 
 import 'dart:io';
 
@@ -88,10 +86,10 @@ void main() {
 
     if (system.isEmpty || developer.isEmpty || compression.isEmpty) {
       print(
-        '⚠️  ${policy.templateId}: missing one or more prompt files in '
+        '警告：${policy.templateId} 缺少 Prompt 文件：'
         '${policy.promptAssetDirectory} '
-        '(system=${system.isNotEmpty}, dev=${developer.isNotEmpty}, '
-        'compression=${compression.isNotEmpty})',
+        '（system=${system.isNotEmpty}，developer=${developer.isNotEmpty}，'
+        'compression=${compression.isNotEmpty}）',
       );
       continue;
     }
@@ -117,26 +115,22 @@ void main() {
       '${outDir.path}/compression_summary_instructions.md',
     ).writeAsStringSync(compression);
 
-    print('• ${policy.templateId}');
+    print('- ${policy.templateId}');
     print(
-      '    raw chars     : sys=${system.length} dev=${developer.length} '
-      'comp=${compression.length}',
+      '    原始字符数：system=${system.length} developer=${developer.length} '
+      '压缩摘要=${compression.length}',
     );
     print(
-      '    assembled sys : ${assembled.length} chars '
+      '    拼装后 system：${assembled.length} 字符 '
       '(+${assembled.length - system.length})',
     );
     print(
-      '    cjk ratio     : ${cjkRatio.toStringAsFixed(1)}% '
-      '(→ ${aiPromptInstructionsLooksLikeChinese(system) ? "zh" : "en"} discipline)',
+      '    CJK 占比：${cjkRatio.toStringAsFixed(1)}% '
+      '(→ ${aiPromptInstructionsLooksLikeChinese(system) ? "中文" : "英文"}规范)',
     );
-    print(
-      '    v4 marker     : ${v4Marker ? "PRESENT (skip append)" : "absent (append)"}',
-    );
-    print(
-      '    tone marker   : ${tonePolicyMarker ? "PRESENT (skip append)" : "absent (append)"}',
-    );
-    print('    out dir       : ${outDir.path}');
+    print('    v4 标记：${v4Marker ? "已存在，跳过追加" : "不存在，将追加"}');
+    print('    语气标记：${tonePolicyMarker ? "已存在，跳过追加" : "不存在，将追加"}');
+    print('    输出目录：${outDir.path}');
     print('');
   }
 

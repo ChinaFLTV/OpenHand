@@ -1,7 +1,7 @@
-// 单会话页专用 TopBar (1:1 对齐 OpenHand App 端 home page 顶部条):
+// 单会话页专用顶部栏，对齐 OpenHand App 端首页顶部条：
 // - 标题区: 返回按钮 + 可点击重命名的标题 + 模板/计数副标题
 // - 工具区: 仅接收上层按 App 端顺序构造好的胶囊；会话模式 / 权限不在 TopBar 重复展示。
-// - More 菜单 (重命名 / 删除 / 导出 / 复制 ID)。
+// - 更多菜单：重命名 / 删除 / 导出 / 复制 ID。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
@@ -28,10 +28,7 @@ export interface SessionToolbarCapsule {
   label: string;
   title?: string;
   tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'muted';
-  /** Optional permanent badge rendered on the right side of the capsule. Used
-   * by the token capsule to surface "cache savings %" without requiring a
-   * hover. Shape mirrors the parent capsule's tone so badges read as a
-   * natural extension of the chip rather than a stuck-on alert. */
+  /** 胶囊右侧常驻徽标，用于展示缓存节省比例等紧凑状态。 */
   badge?: {
     text: string;
     title?: string;
