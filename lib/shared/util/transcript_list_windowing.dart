@@ -115,10 +115,18 @@ abstract final class TranscriptListWindowing {
   }) {
     final previousCount = math.max(0, previousMessageCount);
     final nextCount = math.max(0, messageCount);
+    final maxRows = math.max(1, maxMaterialized);
+    final shortWindowLimit = math.min(defaultWindowingThreshold, maxRows);
+    if (nextCount <= shortWindowLimit) {
+      return 0;
+    }
+    if (previousWindowStart <= 0 && previousCount <= maxRows) {
+      return math.max(0, nextCount - maxRows);
+    }
     final previousRange = boundedRange(
       preferredStart: previousWindowStart,
       messageCount: previousCount,
-      maxMaterialized: maxMaterialized,
+      maxMaterialized: maxRows,
     );
     if (nextCount > previousCount && previousRange.end >= previousCount) {
       final previousWindowLength = math.max(
