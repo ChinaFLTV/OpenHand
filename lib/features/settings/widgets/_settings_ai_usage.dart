@@ -8,6 +8,7 @@ const double _kAiUsageBreakdownHeaderHeight = 46;
 const double _kAiUsageBreakdownRowHeight = 58;
 const double _kAiUsageBreakdownBodyMaxHeight = 348;
 const double _kAiUsageToolbarControlHeight = 40;
+const double _kAiUsageBreakdownDimensionWidth = 108;
 
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
@@ -1513,7 +1514,7 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
   Widget build(BuildContext context) {
     final options = <(String, String)>[
       ('source', openHandLocalizedText(context, zh: '来源', en: 'Source')),
-      ('provider', 'Provider'),
+      ('provider', openHandLocalizedText(context, zh: '供应商', en: 'Provider')),
       ('model', openHandLocalizedText(context, zh: '模型', en: 'Model')),
       ('surface', openHandLocalizedText(context, zh: '端侧', en: 'Surface')),
       ('template', openHandLocalizedText(context, zh: '模板', en: 'Template')),
@@ -1535,7 +1536,7 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
       ),
       subtitle: openHandLocalizedText(
         context,
-        zh: '按来源、APP/WEB 端侧、Provider、模型、线程模板与内部操作拆解',
+        zh: '按来源、APP/WEB 端侧、供应商、模型、线程模板与内部操作拆解',
         en: 'Break down usage by source, APP/WEB surface, provider, model, thread template, and operation',
       ),
       child: Column(
@@ -1546,12 +1547,17 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
             runSpacing: 8,
             children: [
               for (final option in options)
-                ChoiceChip(
-                  selected: _dimension == option.$1,
-                  label: Text(option.$2),
-                  onSelected: (selected) {
-                    if (selected) setState(() => _dimension = option.$1);
-                  },
+                SizedBox(
+                  width: _kAiUsageBreakdownDimensionWidth,
+                  height: _kAiUsageToolbarControlHeight,
+                  child: ChoiceChip(
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    selected: _dimension == option.$1,
+                    label: Text(option.$2),
+                    onSelected: (selected) {
+                      if (selected) setState(() => _dimension = option.$1);
+                    },
+                  ),
                 ),
             ],
           ),
@@ -2108,7 +2114,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           Text(
                             openHandLocalizedText(
                               context,
-                              zh: '按 Provider、模型和来源组合过滤',
+                              zh: '按供应商、模型和来源组合过滤',
                               en: 'Combine provider, model, and source filters',
                             ),
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -2134,7 +2140,11 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                     children: [
                       _buildFacet(
                         context,
-                        title: 'Provider',
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '供应商',
+                          en: 'Provider',
+                        ),
                         facets: widget.providerFacets,
                         selected: _filter.providerConfigId,
                         onSelected: (value) => setState(
@@ -2531,7 +2541,7 @@ IconData _usageDimensionIcon(String dimension) {
 
 String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
   return switch (dimension) {
-    'provider' => 'Provider',
+    'provider' => openHandLocalizedText(context, zh: '供应商', en: 'Provider'),
     'model' => openHandLocalizedText(context, zh: '模型', en: 'Model'),
     'template' => openHandLocalizedText(context, zh: '模板', en: 'Template'),
     'surface' => openHandLocalizedText(context, zh: '端侧', en: 'Surface'),
