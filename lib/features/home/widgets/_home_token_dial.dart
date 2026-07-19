@@ -636,6 +636,10 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final contextUsage = AiContextUsageBreakdown.fromMetadata(
       widget.session.lastPromptMetadata,
     );
+    final sectionMotionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.menu,
+    );
     final trend = _trend;
     final displayData = trend.displayData(_displayMode);
     final cacheHitRatio = trend.points.isEmpty
@@ -795,31 +799,61 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             prompt: cacheBarPromptTokens,
           ),
         ],
-        const SizedBox(height: 10),
-        _ContextUsageOverview(usage: contextUsage),
-        if (trend.points.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          TokenPopupCacheHitTrendChart(
-            trend: trend,
-            displayMode: _displayMode,
-            onDisplayModeChanged: (mode) {
-              if (_displayMode == mode) return;
-              setState(() {
-                _displayMode = mode;
-              });
-            },
-            onPointSelected: widget.onCacheHitTrendPointSelected,
-            height: widget.compact ? 176 : 220,
+        _TokenPopupAnimatedSection(
+          present: contextUsage?.hasData ?? false,
+          settings: sectionMotionSettings,
+          child: _ContextUsageOverview(usage: contextUsage),
+        ),
+        _TokenPopupAnimatedSection(
+          present: trend.points.isNotEmpty || cacheRead > 0,
+          settings: sectionMotionSettings,
+          child: AnimatedSize(
+            alignment: Alignment.topCenter,
+            duration: sectionMotionSettings.entranceDuration,
+            reverseDuration: sectionMotionSettings.exitDuration,
+            curve: trend.points.isNotEmpty
+                ? sectionMotionSettings.curve.curve
+                : sectionMotionSettings.curve.reverseCurve,
+            child: AnimatedSwitcher(
+              duration: sectionMotionSettings.entranceDuration,
+              reverseDuration: sectionMotionSettings.exitDuration,
+              transitionBuilder: (child, animation) =>
+                  buildAnimationStyleTransition(
+                    animation: animation,
+                    settings: sectionMotionSettings,
+                    child: child,
+                  ),
+              layoutBuilder: (currentChild, previousChildren) =>
+                  buildCollisionSafeAnimatedSwitcherLayout(
+                    currentChild,
+                    previousChildren,
+                    alignment: Alignment.topCenter,
+                    sizeToCurrentChild: true,
+                  ),
+              child: trend.points.isNotEmpty
+                  ? TokenPopupCacheHitTrendChart(
+                      key: const ValueKey<bool>(true),
+                      trend: trend,
+                      displayMode: _displayMode,
+                      onDisplayModeChanged: (mode) {
+                        if (_displayMode == mode) return;
+                        setState(() {
+                          _displayMode = mode;
+                        });
+                      },
+                      onPointSelected: widget.onCacheHitTrendPointSelected,
+                      height: widget.compact ? 176 : 220,
+                    )
+                  : _CompactCacheHitSparkline(
+                      key: const ValueKey<bool>(false),
+                      cacheHitRatio: cacheHitRatio,
+                      cacheRead: cacheRead,
+                      cacheWrite: cacheWrite,
+                      promptTokens: cacheBarPromptTokens,
+                    ),
+            ),
           ),
-        ] else if (cacheRead > 0) ...[
-          const SizedBox(height: 10),
-          _CompactCacheHitSparkline(
-            cacheHitRatio: cacheHitRatio,
-            cacheRead: cacheRead,
-            cacheWrite: cacheWrite,
-            promptTokens: cacheBarPromptTokens,
-          ),
-        ],
+        ),
         const SizedBox(height: 10),
         Text(
           AppLocalizations.of(context)!.tokenPopupSessionHeading.toUpperCase(),
@@ -971,6 +1005,58 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
         ),
       ],
     ];
+  }
+}
+
+/// 统一承接 Token 浮窗板块的进退场与高度折叠，隐藏期间保留退场内容。
+class _TokenPopupAnimatedSection extends StatefulWidget {
+  const _TokenPopupAnimatedSection({
+    required this.present,
+    required this.settings,
+    required this.child,
+  });
+
+  final bool present;
+  final DialogAnimationSettings settings;
+  final Widget child;
+
+  @override
+  State<_TokenPopupAnimatedSection> createState() =>
+      _TokenPopupAnimatedSectionState();
+}
+
+class _TokenPopupAnimatedSectionState
+    extends State<_TokenPopupAnimatedSection> {
+  Widget? _retainedChild;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.present) _retainedChild = widget.child;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TokenPopupAnimatedSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.present) _retainedChild = widget.child;
+  }
+
+  void _releaseHiddenChild() {
+    if (widget.present || _retainedChild == null) return;
+    setState(() => _retainedChild = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedAppearance(
+      present: widget.present,
+      settings: widget.settings,
+      onDismissed: _releaseHiddenChild,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: _retainedChild ?? const SizedBox.shrink(),
+      ),
+    );
   }
 }
 
@@ -1577,6 +1663,7 @@ class _PopupRowState extends State<_PopupRow> {
 /// 用作浮窗内缓存可视化的兜底展示，避免缓存区完全空白。
 class _CompactCacheHitSparkline extends StatelessWidget {
   const _CompactCacheHitSparkline({
+    super.key,
     required this.cacheHitRatio,
     required this.cacheRead,
     required this.cacheWrite,

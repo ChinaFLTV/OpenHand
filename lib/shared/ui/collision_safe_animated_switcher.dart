@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 
-/// Builds an [AnimatedSwitcher] stack without mounting duplicate keyed
-/// transitions. Rapid cyclic changes such as A → B → A can otherwise leave an
-/// outgoing A alive when the new A enters, which violates Flutter's sibling-key
-/// invariant and crashes in debug builds.
+/// 构建不会挂载重复 Key 过渡节点的 [AnimatedSwitcher] 布局。
+/// 快速执行 A → B → A 时，避免尚未退场的 A 与新 A 触发同级 Key 冲突。
 Widget buildCollisionSafeAnimatedSwitcherLayout(
   Widget? currentChild,
-  List<Widget> previousChildren,
-) {
+  List<Widget> previousChildren, {
+  AlignmentGeometry alignment = Alignment.center,
+  bool sizeToCurrentChild = false,
+}) {
   final usedKeys = <Key>{};
   final currentKey = currentChild?.key;
   if (currentKey != null) usedKeys.add(currentKey);
@@ -21,9 +21,14 @@ Widget buildCollisionSafeAnimatedSwitcherLayout(
   }
 
   return Stack(
-    alignment: Alignment.center,
+    alignment: alignment,
+    clipBehavior: sizeToCurrentChild ? Clip.none : Clip.hardEdge,
     children: <Widget>[
-      ...uniquePreviousReversed.reversed,
+      if (sizeToCurrentChild)
+        for (final child in uniquePreviousReversed.reversed)
+          Positioned(top: 0, left: 0, right: 0, child: child)
+      else
+        ...uniquePreviousReversed.reversed,
       if (currentChild != null) currentChild,
     ],
   );
