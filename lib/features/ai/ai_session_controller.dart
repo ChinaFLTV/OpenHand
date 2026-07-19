@@ -83,6 +83,7 @@ import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
 import 'service/runtime/ai_tool_usage_promotion_store.dart';
 import 'service/session_io/ai_token_usage_parser.dart';
+import 'service/usage/ai_usage_tracker.dart';
 import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
 import 'tools/planning/ai_task_tool.dart';
 import 'tools/search/ai_tool_search_tool.dart';
@@ -674,10 +675,14 @@ class AiSessionController extends ChangeNotifier {
       final requestModel = requestModels[attemptIndex];
       final isLastAttempt = attemptIndex == requestModels.length - 1;
       try {
-        final completion = await _backgroundChatClient.sendMessage(
-          model: requestModel,
-          messages: promptMessages,
-          timeout: _autoTitleRequestTimeout,
+        final completion = await AiUsageTraceContext.runDerived(
+          source: AiUsageSource.thread,
+          operation: 'auto_title',
+          body: () => _backgroundChatClient.sendMessage(
+            model: requestModel,
+            messages: promptMessages,
+            timeout: _autoTitleRequestTimeout,
+          ),
         );
         final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
         if (_isMeaningfulAutoTitle(generatedTitle)) {
@@ -746,11 +751,16 @@ class AiSessionController extends ChangeNotifier {
       final requestModel = requestModels[attemptIndex];
       final isLastAttempt = attemptIndex == requestModels.length - 1;
       try {
-        final completion = await _backgroundChatClient.sendMessage(
-          model: requestModel,
-          messages: promptMessages,
-          timeout: _autoTitleRequestTimeout,
-          cancelSignal: cancelSignal,
+        final completion = await AiUsageTraceContext.runDerived(
+          source: AiUsageSource.thread,
+          operation: 'manual_title',
+          sessionId: sessionId,
+          body: () => _backgroundChatClient.sendMessage(
+            model: requestModel,
+            messages: promptMessages,
+            timeout: _autoTitleRequestTimeout,
+            cancelSignal: cancelSignal,
+          ),
         );
         final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
         if (_isMeaningfulAutoTitle(generatedTitle)) {
@@ -5572,11 +5582,17 @@ class AiSessionController extends ChangeNotifier {
 
     AiSessionGoalEvaluationRecord evaluation;
     try {
-      final completion = await _backgroundChatClient.sendMessage(
-        model: evaluatorModel,
-        messages: evaluationTurns,
-        timeout: _goalEvaluationTimeout,
-        cancelSignal: _stopSignalForSession(workingSession.id),
+      final completion = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.thread,
+        operation: 'goal_evaluation',
+        sessionId: workingSession.id,
+        threadTemplateId: workingSession.templateId,
+        body: () => _backgroundChatClient.sendMessage(
+          model: evaluatorModel,
+          messages: evaluationTurns,
+          timeout: _goalEvaluationTimeout,
+          cancelSignal: _stopSignalForSession(workingSession.id),
+        ),
       );
       if (_isStopRequestedForSession(workingSession.id)) {
         final latest = _sessionById(workingSession.id) ?? workingSession;
@@ -6016,6 +6032,74 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<bool> sendMessage({
+    String? sessionId,
+    required String content,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+    Map<String, int> callerPreflightTimingsMs = const <String, int>{},
+    List<String> attachmentFilePaths = const <String>[],
+    List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
+    List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
+    bool requireWriteCommandConfirmation = true,
+    WriteCommandConfirmationCallback? confirmWriteCommand,
+    List<String> additionalSystemReminders = const <String>[],
+    Map<String, Object?>? selectedSkillMetadata,
+    Map<String, Object?>? userMessageMetadata,
+    bool revealUserMessageBeforePreflight = false,
+    AiSessionGoalStartOptions? goalStartOptions,
+    bool allowGoalContinuation = false,
+    bool allowQueuedGoalInterruption = false,
+  }) {
+    final resolvedSessionId = sessionId ?? _currentSessionId;
+    final session = resolvedSessionId == null
+        ? null
+        : _sessionById(resolvedSessionId);
+    final parentTrace = AiUsageTraceContext.current;
+    final sentVia = '${userMessageMetadata?['sent_via'] ?? ''}'.trim();
+    final operation = goalStartOptions != null || allowGoalContinuation
+        ? 'goal_turn'
+        : creationRequest.isActive
+        ? 'media_generation'
+        : 'conversation_round';
+    return AiUsageTraceContext.run(
+      AiUsageTraceContext(
+        traceId: parentTrace?.traceId,
+        surface: sentVia == 'web_api' ? 'web' : parentTrace?.surface ?? 'app',
+        source: AiUsageSource.thread,
+        operation: operation,
+        sessionId: resolvedSessionId,
+        threadTemplateId: session?.templateId,
+        metadata: <String, Object?>{
+          ...?parentTrace?.metadata,
+          'creation_mode': creationRequest.mode.name,
+          if (session?.mode != null) 'session_mode': session!.mode.name,
+        },
+      ),
+      () => _sendMessage(
+        sessionId: sessionId,
+        content: content,
+        model: model,
+        runtimeContext: runtimeContext,
+        callerPreflightTimingsMs: callerPreflightTimingsMs,
+        attachmentFilePaths: attachmentFilePaths,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+        denyCommandRules: denyCommandRules,
+        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+        confirmWriteCommand: confirmWriteCommand,
+        additionalSystemReminders: additionalSystemReminders,
+        selectedSkillMetadata: selectedSkillMetadata,
+        userMessageMetadata: userMessageMetadata,
+        revealUserMessageBeforePreflight: revealUserMessageBeforePreflight,
+        goalStartOptions: goalStartOptions,
+        allowGoalContinuation: allowGoalContinuation,
+        allowQueuedGoalInterruption: allowQueuedGoalInterruption,
+      ),
+    );
+  }
+
+  Future<bool> _sendMessage({
     String? sessionId,
     required String content,
     required AiModelConfig model,
@@ -10461,11 +10545,17 @@ class AiSessionController extends ChangeNotifier {
           previousCompressionPoint: previousCompressionPoint,
         );
         try {
-          completion = await _chatClient.sendMessage(
-            model: model,
-            messages: compressionPrompt,
-            timeout: Duration(seconds: runtimeContext.responseTimeoutSeconds),
-            cancelSignal: _stopSignalForSession(session.id),
+          completion = await AiUsageTraceContext.runDerived(
+            source: AiUsageSource.thread,
+            operation: 'context_compression',
+            sessionId: session.id,
+            threadTemplateId: session.templateId,
+            body: () => _chatClient.sendMessage(
+              model: model,
+              messages: compressionPrompt,
+              timeout: Duration(seconds: runtimeContext.responseTimeoutSeconds),
+              cancelSignal: _stopSignalForSession(session.id),
+            ),
           );
           break;
         } catch (error) {
@@ -11001,10 +11091,16 @@ $tail''';
       final requestModel = requestModels[attemptIndex];
       final isLastAttempt = attemptIndex == requestModels.length - 1;
       try {
-        final completion = await _backgroundChatClient.sendMessage(
-          model: requestModel,
-          messages: promptMessages,
-          timeout: _autoTitleRequestTimeout,
+        final completion = await AiUsageTraceContext.runDerived(
+          source: AiUsageSource.thread,
+          operation: 'auto_title',
+          sessionId: sessionId,
+          threadTemplateId: session.templateId,
+          body: () => _backgroundChatClient.sendMessage(
+            model: requestModel,
+            messages: promptMessages,
+            timeout: _autoTitleRequestTimeout,
+          ),
         );
         if (_isDisposed) return;
         final generatedTitle = _sanitizeGeneratedTitle(completion.reply);

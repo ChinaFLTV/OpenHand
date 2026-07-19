@@ -11,6 +11,7 @@ import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/chat/ai_transport_diagnostic_messages.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/usage/ai_usage_tracker.dart';
 import '../../service/web_engine/web_engine_health_alert_tracker.dart';
 import '../../service/web_engine/web_engine_quality.dart';
 import '../../service/web_search/web_search_cache_store.dart';
@@ -329,13 +330,18 @@ class AiWebSearchTool extends AiTool {
     late final AiChatCompletion completion;
     try {
       final maybe = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
-        _backgroundChatClient.sendMessage(
-          model: summaryModel,
-          messages: <AiChatTurn>[
-            AiChatTurn(role: AiChatRole.system, content: prompt.system),
-            AiChatTurn(role: AiChatRole.user, content: prompt.user),
-          ],
-          cancelSignal: context.cancelSignal,
+        AiUsageTraceContext.runDerived(
+          source: AiUsageSource.webSearch,
+          operation: 'result_summary',
+          metadata: <String, Object?>{'result_count': merged.length},
+          body: () => _backgroundChatClient.sendMessage(
+            model: summaryModel,
+            messages: <AiChatTurn>[
+              AiChatTurn(role: AiChatRole.system, content: prompt.system),
+              AiChatTurn(role: AiChatRole.user, content: prompt.user),
+            ],
+            cancelSignal: context.cancelSignal,
+          ),
         ),
         cancelSignal: context.cancelSignal,
       );

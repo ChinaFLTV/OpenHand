@@ -28,6 +28,7 @@ import '../model_registry/ai_model_scanner.dart';
 import '../operations/ai_responses_service.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
+import '../usage/ai_usage_tracker.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_sse_data_parser.dart';
 import 'ai_transport_diagnostic_messages.dart';
@@ -667,6 +668,77 @@ class AiChatService implements AiChatClient {
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
+    final startedAt = DateTime.now().toUtc();
+    try {
+      final completion = await _sendMessage(
+        model: model,
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+        inputCacheConfig: inputCacheConfig,
+        onRequestStarted: onRequestStarted,
+      );
+      final endedAt = DateTime.now().toUtc();
+      AiUsageTracker.instance.recordSuccess(
+        model: model,
+        apiFamily: _usageApiFamily(
+          model: model,
+          messages: messages,
+          tools: tools,
+          responseModalities: responseModalities,
+          request: creationRequest,
+          requestFallbacks: completion.requestFallbacks,
+        ),
+        startedAt: startedAt,
+        endedAt: endedAt,
+        inputCharacters: _requestCharacterCount(messages, tools),
+        outputCharacters: _completionCharacterCount(completion),
+        usage: completion.usage,
+        metadata: <String, Object?>{
+          'streaming': false,
+          'request_fallback_count': completion.requestFallbacks.length,
+        },
+      );
+      return completion;
+    } catch (error) {
+      AiUsageTracker.instance.recordFailure(
+        model: model,
+        apiFamily: _usageApiFamily(
+          model: model,
+          messages: messages,
+          tools: tools,
+          responseModalities: responseModalities,
+          request: creationRequest,
+          requestFallbacks: error is AiChatException
+              ? error.telemetry?.requestFallbacks ?? const <String>[]
+              : const <String>[],
+        ),
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        error: error,
+        cancelled:
+            error is AiChatCancelledException ||
+            error is http.RequestAbortedException,
+        metadata: const <String, Object?>{'streaming': false},
+      );
+      rethrow;
+    }
+  }
+
+  Future<AiChatCompletion> _sendMessage({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
+    Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+  }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     final canUseResponses = _canUseResponsesFamily(
       model: model,
@@ -993,6 +1065,146 @@ class AiChatService implements AiChatClient {
 
   @override
   Future<AiChatStreamingResponse> sendMessageStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
+    Duration timeout = const Duration(seconds: 60),
+    Duration streamIdleTimeout = const Duration(seconds: 120),
+    Future<void>? cancelSignal,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+    void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+  }) async {
+    final startedAt = DateTime.now().toUtc();
+    AiChatStreamingResponse response;
+    try {
+      response = await _sendMessageStream(
+        model: model,
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+        timeout: timeout,
+        streamIdleTimeout: streamIdleTimeout,
+        cancelSignal: cancelSignal,
+        inputCacheConfig: inputCacheConfig,
+        onRequestStarted: onRequestStarted,
+      );
+    } catch (error) {
+      AiUsageTracker.instance.recordFailure(
+        model: model,
+        apiFamily: _usageApiFamily(
+          model: model,
+          messages: messages,
+          tools: tools,
+          responseModalities: responseModalities,
+          request: creationRequest,
+          requestFallbacks: error is AiChatException
+              ? error.telemetry?.requestFallbacks ?? const <String>[]
+              : const <String>[],
+        ),
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        error: error,
+        cancelled:
+            error is AiChatCancelledException ||
+            error is http.RequestAbortedException,
+        metadata: const <String, Object?>{'streaming': true},
+      );
+      rethrow;
+    }
+    int? firstTokenMs;
+    final events = response.events.map((event) {
+      if (firstTokenMs == null &&
+          (event.type == AiChatStreamEventType.textDelta ||
+              event.type == AiChatStreamEventType.reasoningDelta ||
+              event.type == AiChatStreamEventType.toolCallDelta)) {
+        firstTokenMs = DateTime.now()
+            .toUtc()
+            .difference(startedAt)
+            .inMilliseconds;
+      }
+      return event;
+    });
+    final result = response.result.then<AiChatStreamResult>(
+      (value) {
+        final endedAt = DateTime.now().toUtc();
+        if (value.wasCancelled) {
+          AiUsageTracker.instance.recordFailure(
+            model: model,
+            apiFamily: _usageApiFamily(
+              model: model,
+              messages: messages,
+              tools: tools,
+              responseModalities: responseModalities,
+              request: creationRequest,
+              requestFallbacks: value.requestFallbacks,
+            ),
+            startedAt: startedAt,
+            endedAt: endedAt,
+            error: StateError('流式请求已取消'),
+            cancelled: true,
+            metadata: const <String, Object?>{'streaming': true},
+          );
+        } else {
+          AiUsageTracker.instance.recordSuccess(
+            model: model,
+            apiFamily: _usageApiFamily(
+              model: model,
+              messages: messages,
+              tools: tools,
+              responseModalities: responseModalities,
+              request: creationRequest,
+              requestFallbacks: value.requestFallbacks,
+            ),
+            startedAt: startedAt,
+            endedAt: endedAt,
+            firstTokenMs: firstTokenMs,
+            inputCharacters: _requestCharacterCount(messages, tools),
+            outputCharacters: _streamResultCharacterCount(value),
+            usage: value.usage,
+            metadata: <String, Object?>{
+              'streaming': true,
+              'finish_reason': value.finishReason,
+              'request_fallback_count': value.requestFallbacks.length,
+            },
+          );
+        }
+        return value;
+      },
+      onError: (Object error, StackTrace stack) {
+        AiUsageTracker.instance.recordFailure(
+          model: model,
+          apiFamily: _usageApiFamily(
+            model: model,
+            messages: messages,
+            tools: tools,
+            responseModalities: responseModalities,
+            request: creationRequest,
+            requestFallbacks: error is AiChatException
+                ? error.telemetry?.requestFallbacks ?? const <String>[]
+                : const <String>[],
+          ),
+          startedAt: startedAt,
+          endedAt: DateTime.now().toUtc(),
+          error: error,
+          cancelled:
+              error is AiChatCancelledException ||
+              error is http.RequestAbortedException,
+          metadata: const <String, Object?>{'streaming': true},
+        );
+        Error.throwWithStackTrace(error, stack);
+      },
+    );
+    return AiChatStreamingResponse(
+      events: events,
+      result: result,
+      cancel: response.cancel,
+    );
+  }
+
+  Future<AiChatStreamingResponse> _sendMessageStream({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
@@ -2260,7 +2472,7 @@ class AiChatService implements AiChatClient {
             cancelSignal: effectiveCancelSignal,
           );
         } else {
-          completionFuture = sendMessage(
+          completionFuture = _sendMessage(
             model: model,
             messages: messages,
             tools: tools,
@@ -2367,6 +2579,81 @@ class AiChatService implements AiChatClient {
     return firstResult as T;
   }
 
+  String _usageApiFamily({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    required List<AiToolDefinition> tools,
+    required List<String> responseModalities,
+    required AiCreationRequest request,
+    required List<String> requestFallbacks,
+  }) {
+    if (request.isActive) return 'media_${request.mode.name}';
+    var responsesSelected = false;
+    try {
+      responsesSelected = _canUseResponsesFamily(
+        model: model,
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: request,
+      );
+    } catch (_) {}
+    if (responsesSelected &&
+        !requestFallbacks.contains(aiChatRequestFallbackResponsesUnsupported)) {
+      return AiApiFamily.responses.storageValue;
+    }
+    return switch (model.protocolType) {
+      AiProtocolType.claude => AiApiFamily.messages.storageValue,
+      AiProtocolType.gemini => 'generate_content',
+      _ => AiApiFamily.chatCompletions.storageValue,
+    };
+  }
+
+  int _requestCharacterCount(
+    List<AiChatTurn> messages,
+    List<AiToolDefinition> tools,
+  ) {
+    var total = messages.fold<int>(
+      0,
+      (sum, message) =>
+          sum +
+          message.promptCharacterCount +
+          (message.reasoningContent?.length ?? 0) +
+          message.toolCalls.fold<int>(
+            0,
+            (toolSum, call) =>
+                toolSum + call.name.length + call.arguments.length,
+          ),
+    );
+    for (final tool in tools) {
+      total += tool.name.length + tool.description.length;
+      try {
+        total += jsonEncode(tool.parameters).length;
+      } catch (_) {
+        total += tool.parameters.toString().length;
+      }
+    }
+    return total;
+  }
+
+  int _completionCharacterCount(AiChatCompletion completion) {
+    return completion.reply.length +
+        (completion.reasoningContent?.length ?? 0) +
+        completion.toolCalls.fold<int>(
+          0,
+          (sum, call) => sum + call.name.length + call.arguments.length,
+        );
+  }
+
+  int _streamResultCharacterCount(AiChatStreamResult result) {
+    return result.reply.length +
+        result.reasoning.length +
+        result.toolCalls.fold<int>(
+          0,
+          (sum, call) => sum + call.name.length + call.arguments.length,
+        );
+  }
+
   @override
   Future<String> testModel(AiModelConfig model) async {
     if (model.normalizedBaseUrl.isEmpty) {
@@ -2381,12 +2668,19 @@ class AiChatService implements AiChatClient {
       clearTemperature: true,
     );
     try {
-      final reply = await sendMessage(
-        model: probeModel,
-        messages: const <AiChatTurn>[
-          AiChatTurn(role: AiChatRole.user, content: _availabilityProbePrompt),
-        ],
-        timeout: const Duration(seconds: 20),
+      final reply = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.modelTest,
+        operation: 'availability_probe',
+        body: () => sendMessage(
+          model: probeModel,
+          messages: const <AiChatTurn>[
+            AiChatTurn(
+              role: AiChatRole.user,
+              content: _availabilityProbePrompt,
+            ),
+          ],
+          timeout: const Duration(seconds: 20),
+        ),
       );
       final normalizedReply = nullIfBlank(reply.reply);
       if (normalizedReply == null) {

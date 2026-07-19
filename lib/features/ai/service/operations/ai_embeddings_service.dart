@@ -6,8 +6,11 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_token_usage.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
+import '../session_io/ai_token_usage_parser.dart';
+import '../usage/ai_usage_tracker.dart';
 import 'ai_operation_http.dart';
 
 class AiEmbeddingResult {
@@ -96,19 +99,50 @@ class AiEmbeddingsService {
     String? user,
   }) async {
     if (input is List && input.isEmpty) return _emptyResult;
-    final plan = _buildRequestPlan(
-      model: model,
-      input: input,
-      dimensions: dimensions,
-      encodingFormat: encodingFormat,
-      inputType: inputType,
-      taskType: taskType,
-      title: title,
-      outputDType: outputDType,
-      truncation: truncation,
-      user: user,
-    );
-    return _sendPlan(model: model, plan: plan, timeout: timeout);
+    final startedAt = DateTime.now().toUtc();
+    try {
+      final plan = _buildRequestPlan(
+        model: model,
+        input: input,
+        dimensions: dimensions,
+        encodingFormat: encodingFormat,
+        inputType: inputType,
+        taskType: taskType,
+        title: title,
+        outputDType: outputDType,
+        truncation: truncation,
+        user: user,
+      );
+      final result = await _sendPlan(
+        model: model,
+        plan: plan,
+        timeout: timeout,
+      );
+      AiUsageTracker.instance.recordSuccess(
+        model: model,
+        apiFamily: AiApiFamily.embeddings.storageValue,
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        inputCharacters: _inputCharacterCount(input),
+        outputCharacters: 0,
+        usage: _usageFromPayload(result.payload),
+        metadata: <String, Object?>{
+          'input_count': input is List ? input.length : 1,
+          'vector_count': result.vectors.length,
+          'dimensions': result.vectors.firstOrNull?.length,
+        },
+      );
+      return result;
+    } catch (error) {
+      AiUsageTracker.instance.recordFailure(
+        model: model,
+        apiFamily: AiApiFamily.embeddings.storageValue,
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        error: error,
+      );
+      rethrow;
+    }
   }
 
   Future<AiEmbeddingResult> _sendPlan({
@@ -235,6 +269,41 @@ class AiEmbeddingsService {
 
     collect(payload);
     return vectors;
+  }
+
+  AiTokenUsage? _usageFromPayload(Map<String, Object?> payload) {
+    final rawUsage = payload['usage'];
+    if (rawUsage is Map) {
+      final parsed = AiTokenUsageParser.parseOpenAi(
+        stringKeyedMapFromValue(rawUsage),
+      );
+      if (parsed != null) return parsed;
+    }
+    final usageMetadata = payload['usageMetadata'];
+    if (usageMetadata is Map) {
+      return AiTokenUsageParser.parseGemini(
+        stringKeyedMapFromValue(usageMetadata),
+      );
+    }
+    return null;
+  }
+
+  int _inputCharacterCount(Object input) {
+    if (input is String) return input.length;
+    if (input is List) {
+      return input.fold<int>(
+        0,
+        (sum, item) => sum + _inputCharacterCount(item),
+      );
+    }
+    if (input is Map) {
+      return input.entries.fold<int>(
+        0,
+        (sum, entry) =>
+            sum + '${entry.key}'.length + _inputCharacterCount(entry.value),
+      );
+    }
+    return '$input'.length;
   }
 
   List<List<double>> _parseKnownVectorContainers(

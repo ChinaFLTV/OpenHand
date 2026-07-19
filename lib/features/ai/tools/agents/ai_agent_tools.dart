@@ -21,6 +21,7 @@ import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/usage/ai_usage_tracker.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
@@ -2030,15 +2031,24 @@ class AiAgentTool extends AiTool {
             ? remaining
             : _agentWorkerTurnTimeout;
         final completion = await AiToolUtils.awaitWithCancellation(
-          _backgroundChatClient!
-              .sendMessage(
-                model: workerModel,
-                messages: turns,
-                tools: workerCatalog.definitions,
-                timeout: turnTimeout,
-                cancelSignal: context.cancelSignal,
-              )
-              .timeout(turnTimeout),
+          AiUsageTraceContext.runDerived(
+            source: AiUsageSource.agent,
+            operation: 'agent_worker_round',
+            metadata: <String, Object?>{
+              'agent_id': agent.id,
+              'task_id': task.id,
+              'round': round + 1,
+            },
+            body: () => _backgroundChatClient!
+                .sendMessage(
+                  model: workerModel,
+                  messages: turns,
+                  tools: workerCatalog.definitions,
+                  timeout: turnTimeout,
+                  cancelSignal: context.cancelSignal,
+                )
+                .timeout(turnTimeout),
+          ),
           cancelSignal: context.cancelSignal,
         );
         if (completion == null) {

@@ -311,15 +311,20 @@ class KnowledgeRetrievalService {
     }
     final stopwatch = Stopwatch()..start();
     try {
-      final result = await _rerankService.rerank(
-        model: rerankModel,
-        query: query,
-        documents: candidates
-            .map<Object>(_rerankDocumentText)
-            .toList(growable: false),
-        topN: candidateLimit,
-        returnDocuments: false,
-        timeout: Duration(seconds: settings.rerankTimeoutSeconds),
+      final result = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.knowledgeBase,
+        operation: 'retrieval_rerank',
+        metadata: <String, Object?>{'candidate_count': candidates.length},
+        body: () => _rerankService.rerank(
+          model: rerankModel,
+          query: query,
+          documents: candidates
+              .map<Object>(_rerankDocumentText)
+              .toList(growable: false),
+          topN: candidateLimit,
+          returnDocuments: false,
+          timeout: Duration(seconds: settings.rerankTimeoutSeconds),
+        ),
       );
       stopwatch.stop();
       if (result.items.isEmpty) {

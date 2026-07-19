@@ -12,6 +12,7 @@ import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/chat/ai_transport_diagnostic_messages.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/usage/ai_usage_tracker.dart';
 import '../../service/web_engine/web_engine_health_alert_tracker.dart';
 import '../../service/web_fetch/web_fetch_cache_store.dart';
 import '../../service/web_fetch/web_fetch_orchestrator.dart';
@@ -311,30 +312,35 @@ class AiWebFetchTool extends AiTool {
     late final AiChatCompletion? completion;
     try {
       completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
-        _backgroundChatClient.sendMessage(
-          model: context.model,
-          messages: <AiChatTurn>[
-            const AiChatTurn(
-              role: AiChatRole.system,
-              content:
-                  'Answer the prompt using only the fetched page content. '
-                  'Prefer concrete facts and quote short supporting phrases '
-                  'when useful. If the fetched content is insufficient, say '
-                  'what is missing instead of guessing.',
-            ),
-            AiChatTurn(
-              role: AiChatRole.user,
-              content:
-                  'Requested URL: $rawUrl\n'
-                  'Final URL: ${winner.url}\n'
-                  'Winning engine: ${orchestrationResult.winningKind?.name ?? "unknown"}\n'
-                  'HTTP status: ${winner.statusCode ?? "unknown"}\n'
-                  'Content type: ${winner.contentType ?? "unknown"}\n'
-                  'Prompt: $prompt\n\n'
-                  'Fetched content:\n${winner.content}',
-            ),
-          ],
-          cancelSignal: context.cancelSignal,
+        AiUsageTraceContext.runDerived(
+          source: AiUsageSource.webFetch,
+          operation: 'content_summary',
+          metadata: <String, Object?>{'content_chars': winner.content.length},
+          body: () => _backgroundChatClient.sendMessage(
+            model: context.model,
+            messages: <AiChatTurn>[
+              const AiChatTurn(
+                role: AiChatRole.system,
+                content:
+                    'Answer the prompt using only the fetched page content. '
+                    'Prefer concrete facts and quote short supporting phrases '
+                    'when useful. If the fetched content is insufficient, say '
+                    'what is missing instead of guessing.',
+              ),
+              AiChatTurn(
+                role: AiChatRole.user,
+                content:
+                    'Requested URL: $rawUrl\n'
+                    'Final URL: ${winner.url}\n'
+                    'Winning engine: ${orchestrationResult.winningKind?.name ?? "unknown"}\n'
+                    'HTTP status: ${winner.statusCode ?? "unknown"}\n'
+                    'Content type: ${winner.contentType ?? "unknown"}\n'
+                    'Prompt: $prompt\n\n'
+                    'Fetched content:\n${winner.content}',
+              ),
+            ],
+            cancelSignal: context.cancelSignal,
+          ),
         ),
         cancelSignal: context.cancelSignal,
       );

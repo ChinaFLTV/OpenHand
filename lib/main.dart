@@ -370,6 +370,9 @@ Future<void> _bootstrap() async {
     );
     SelfLearningRunner.streamFlushIntervalMs =
         settingsController.selfLearningStreamFlushIntervalMs;
+    AiUsageTracker.instance.updateEstimatedCharactersPerToken(
+      settingsController.aiEstimatedCharactersPerToken,
+    );
     _runMainBackgroundTask(
       cronsController.updateMcpKeywordIndexSchedule(
         mode: settingsController.mcpKeywordIndexUpdateMode,
@@ -386,6 +389,9 @@ Future<void> _bootstrap() async {
   // 启动期同步一次，避免首次 listener 触发前的 race。
   SelfLearningRunner.streamFlushIntervalMs =
       settingsController.selfLearningStreamFlushIntervalMs;
+  AiUsageTracker.instance.updateEstimatedCharactersPerToken(
+    settingsController.aiEstimatedCharactersPerToken,
+  );
   // agent handler 注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
   _runMainBackgroundTask(() async {
     await cronsController.initialize();
@@ -486,6 +492,7 @@ Future<void> _bootstrap() async {
   // reverse order when the root app exits.
   runtimeCleanup
     ..register('database', DatabaseService.instance.close)
+    ..register('AI 使用统计', AiUsageTracker.instance.flush)
     ..register('settings controller', settingsController.dispose)
     ..register('hooks controller', hooks.controller.dispose)
     ..register('skills controller', skills.controller.dispose)

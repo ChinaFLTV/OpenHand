@@ -18,7 +18,7 @@ class DatabaseService {
   Database? _database;
   RandomAccessFile? _instanceLock;
 
-  static const int schemaVersion = 9;
+  static const int schemaVersion = 10;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -334,6 +334,7 @@ class DatabaseService {
     batch.execute(_createUserInstructionsTableSql);
     batch.execute(_createUserInstructionsSortIndexSql);
     _createKnowledgeBaseSchema(batch);
+    _createAiUsageSchema(batch);
 
     await batch.commit(noResult: true);
   }
@@ -443,6 +444,76 @@ class DatabaseService {
     );
   }
 
+  static void _createAiUsageSchema(Batch batch) {
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS ai_usage_records (
+        id TEXT PRIMARY KEY,
+        trace_id TEXT NOT NULL DEFAULT '',
+        started_at TEXT NOT NULL,
+        ended_at TEXT NOT NULL,
+        local_date TEXT NOT NULL,
+        local_hour TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        first_token_ms INTEGER,
+        status TEXT NOT NULL DEFAULT 'success',
+        error_type TEXT,
+        surface TEXT NOT NULL DEFAULT 'app',
+        source TEXT NOT NULL DEFAULT 'other',
+        operation TEXT NOT NULL DEFAULT 'chat',
+        session_id TEXT,
+        thread_template_id TEXT,
+        knowledge_base_id TEXT,
+        provider_config_id TEXT NOT NULL DEFAULT '',
+        provider_name TEXT NOT NULL DEFAULT '',
+        protocol TEXT NOT NULL DEFAULT '',
+        model_id TEXT NOT NULL DEFAULT '',
+        api_family TEXT NOT NULL DEFAULT 'chat',
+        prompt_tokens INTEGER NOT NULL DEFAULT 0,
+        completion_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+        audio_input_tokens INTEGER NOT NULL DEFAULT 0,
+        image_input_tokens INTEGER NOT NULL DEFAULT 0,
+        video_input_tokens INTEGER NOT NULL DEFAULT 0,
+        web_search_tool_usage INTEGER NOT NULL DEFAULT 0,
+        web_search_page_usage INTEGER NOT NULL DEFAULT 0,
+        total_tokens INTEGER NOT NULL DEFAULT 0,
+        usage_estimated INTEGER NOT NULL DEFAULT 0,
+        input_cost_usd REAL,
+        output_cost_usd REAL,
+        cache_read_cost_usd REAL,
+        cache_write_cost_usd REAL,
+        total_cost_usd REAL,
+        metadata_json TEXT NOT NULL DEFAULT '{}'
+      )
+    ''');
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_started_at '
+      'ON ai_usage_records(started_at)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_local_date '
+      'ON ai_usage_records(local_date)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_provider_model '
+      'ON ai_usage_records(provider_config_id, model_id, started_at)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_source '
+      'ON ai_usage_records(source, started_at)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_session '
+      'ON ai_usage_records(session_id, started_at)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_template '
+      'ON ai_usage_records(thread_template_id, started_at)',
+    );
+  }
+
   static Future<void> _onUpgrade(
     Database db,
     int oldVersion,
@@ -525,6 +596,11 @@ class DatabaseService {
     }
     if (oldVersion < 9) {
       await _migrateHarnessNaming(db);
+    }
+    if (oldVersion < 10) {
+      final batch = db.batch();
+      _createAiUsageSchema(batch);
+      await batch.commit(noResult: true);
     }
   }
 

@@ -4,8 +4,11 @@ import 'dart:convert';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_token_usage.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
+import '../session_io/ai_token_usage_parser.dart';
+import '../usage/ai_usage_tracker.dart';
 import 'ai_operation_http.dart';
 
 class AiRerankItem {
@@ -73,24 +76,52 @@ class AiRerankService {
     bool? truncation,
   }) async {
     if (documents.isEmpty) return _emptyResult;
-    final plan = _buildRequestPlan(
-      model: model,
-      query: query,
-      documents: documents,
-      topN: topN,
-      returnDocuments: returnDocuments,
-      maxChunksPerDoc: maxChunksPerDoc,
-      maxTokensPerDoc: maxTokensPerDoc,
-      priority: priority,
-      instruction: instruction,
-      truncation: truncation,
-    );
-    return _sendPlan(
-      model: model,
-      documents: documents,
-      plan: plan,
-      timeout: timeout,
-    );
+    final startedAt = DateTime.now().toUtc();
+    try {
+      final plan = _buildRequestPlan(
+        model: model,
+        query: query,
+        documents: documents,
+        topN: topN,
+        returnDocuments: returnDocuments,
+        maxChunksPerDoc: maxChunksPerDoc,
+        maxTokensPerDoc: maxTokensPerDoc,
+        priority: priority,
+        instruction: instruction,
+        truncation: truncation,
+      );
+      final result = await _sendPlan(
+        model: model,
+        documents: documents,
+        plan: plan,
+        timeout: timeout,
+      );
+      AiUsageTracker.instance.recordSuccess(
+        model: model,
+        apiFamily: AiApiFamily.rerank.storageValue,
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        inputCharacters:
+            query.length +
+            documents.fold<int>(0, (sum, item) => sum + '$item'.length),
+        outputCharacters: 0,
+        usage: _usageFromPayload(result.payload),
+        metadata: <String, Object?>{
+          'document_count': documents.length,
+          'result_count': result.items.length,
+        },
+      );
+      return result;
+    } catch (error) {
+      AiUsageTracker.instance.recordFailure(
+        model: model,
+        apiFamily: AiApiFamily.rerank.storageValue,
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        error: error,
+      );
+      rethrow;
+    }
   }
 
   Future<AiRerankResult> _sendPlan({
@@ -191,6 +222,24 @@ class AiRerankService {
       );
     }
     return items;
+  }
+
+  AiTokenUsage? _usageFromPayload(Map<String, Object?> payload) {
+    final rawUsage = payload['usage'];
+    if (rawUsage is Map) {
+      return AiTokenUsageParser.parseOpenAi(stringKeyedMapFromValue(rawUsage));
+    }
+    final meta = payload['meta'];
+    if (meta is Map) {
+      final metaMap = stringKeyedMapFromValue(meta);
+      final billedUnits = metaMap['billed_units'];
+      if (billedUnits is Map) {
+        return AiTokenUsageParser.parseOpenAi(
+          stringKeyedMapFromValue(billedUnits),
+        );
+      }
+    }
+    return null;
   }
 
   void dispose() {

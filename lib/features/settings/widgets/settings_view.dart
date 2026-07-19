@@ -96,6 +96,7 @@ part '_settings_data_cleanup.dart';
 part '_settings_system_proxy.dart';
 part '_settings_proxy_test_dialog.dart';
 part '_settings_active_tool_calls.dart';
+part '_settings_ai_usage.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
@@ -2273,6 +2274,8 @@ class _SettingsViewState extends State<SettingsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _AiUsageSettingsSection(),
+        const SizedBox(height: 16),
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsSessionSettings,
           description: AppLocalizations.of(

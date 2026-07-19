@@ -1,0 +1,2345 @@
+part of 'settings_view.dart';
+
+class _AiUsageSettingsSection extends StatefulWidget {
+  const _AiUsageSettingsSection();
+
+  @override
+  State<_AiUsageSettingsSection> createState() =>
+      _AiUsageSettingsSectionState();
+}
+
+class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
+  AiUsageFilter _filter = const AiUsageFilter();
+  AiUsageSnapshot? _snapshot;
+  Object? _error;
+  bool _loading = true;
+  int _loadGeneration = 0;
+  Timer? _refreshDebounce;
+
+  AiUsageTracker get _tracker => AiUsageTracker.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker.changes.addListener(_scheduleRefresh);
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    _tracker.changes.removeListener(_scheduleRefresh);
+    super.dispose();
+  }
+
+  void _scheduleRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) unawaited(_load(quiet: true));
+    });
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    final generation = ++_loadGeneration;
+    if (!quiet && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final snapshot = await _tracker.loadSnapshot(_filter);
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _snapshot = snapshot;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error, stack) {
+      silentLog('settings_ai_usage', '加载 AI 使用统计', error, stack);
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _loading = false;
+        _error = error;
+      });
+    }
+  }
+
+  Future<void> _showFilterDialog() async {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+    final next = await showAnimatedDialog<AiUsageFilter>(
+      context: context,
+      builder: (dialogContext) => _AiUsageFilterDialog(
+        initial: _filter,
+        providerFacets: snapshot.providerFacets,
+        modelFacets: snapshot.modelFacets,
+        sourceFacets: snapshot.sourceFacets,
+      ),
+    );
+    if (!mounted || next == null) return;
+    setState(() => _filter = next);
+    await _load();
+  }
+
+  Future<void> _clearStatistics() async {
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '清空 AI 使用统计？',
+        en: 'Clear AI usage analytics?',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '会永久删除本机保存的 Token、成本与请求统计，不影响会话消息和知识库内容。',
+        en: 'This permanently removes local token, cost, and request analytics. Sessions and knowledge content are not affected.',
+      ),
+      cancelLabel: openHandCancelLabel(context),
+      confirmLabel: openHandLocalizedText(context, zh: '确认清空', en: 'Clear'),
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    await _tracker.clear();
+    if (!mounted) return;
+    await _load();
+    if (!mounted) return;
+    showOpenHandSuccessSnack(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '使用统计已清空',
+        en: 'Usage analytics cleared',
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsSubsectionCard(
+      title: openHandLocalizedText(context, zh: '使用统计', en: 'Usage Analytics'),
+      description: openHandLocalizedText(
+        context,
+        zh: '查看线程、知识库、智能体与辅助 AI 请求的 Token 消耗、成本、缓存效率和性能追踪。',
+        en: 'Inspect token usage, cost, cache efficiency, and performance traces across threads, knowledge, agents, and supporting AI requests.',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildToolbar(context),
+          if (_loading && _snapshot == null) ...[
+            const SizedBox(height: 24),
+            const LinearProgressIndicator(minHeight: 3),
+            const SizedBox(height: 18),
+            _AiUsageLoadingState(),
+          ] else if (_error != null && _snapshot == null) ...[
+            const SizedBox(height: 20),
+            Column(
+              children: [
+                _SettingsStateBox(
+                  icon: Icons.query_stats_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '使用统计加载失败',
+                    en: 'Usage analytics could not be loaded',
+                  ),
+                  body: '$_error',
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(
+                    openHandLocalizedText(context, zh: '重新加载', en: 'Retry'),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (_snapshot case final snapshot?) ...[
+            const SizedBox(height: 20),
+            AnimatedSwitcher(
+              duration: _settingsMotionDuration(
+                context,
+                const Duration(milliseconds: 360),
+              ),
+              reverseDuration: _settingsMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.992, end: 1).animate(animation),
+                  alignment: Alignment.topCenter,
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey<int>(snapshot.generatedAt.microsecondsSinceEpoch),
+                child: snapshot.summary.requestCount == 0
+                    ? _AiUsageEmptyState(hasFilters: _activeFilterCount > 0)
+                    : _buildAnalytics(context, snapshot),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final range in AiUsageRange.values)
+              ChoiceChip(
+                label: Text(_usageRangeLabel(context, range)),
+                selected: _filter.range == range,
+                avatar: _filter.range == range
+                    ? const Icon(Icons.check_rounded, size: 16)
+                    : null,
+                onSelected: (selected) {
+                  if (!selected || _filter.range == range) return;
+                  setState(() => _filter = _filter.copyWith(range: range));
+                  unawaited(_load());
+                },
+              ),
+            OutlinedButton.icon(
+              onPressed: _snapshot == null ? null : _showFilterDialog,
+              icon: Badge(
+                isLabelVisible: _activeFilterCount > 0,
+                label: Text('$_activeFilterCount'),
+                child: const Icon(Icons.tune_rounded, size: 19),
+              ),
+              label: Text(
+                openHandLocalizedText(context, zh: '多维筛选', en: 'Filters'),
+              ),
+            ),
+            IconButton.outlined(
+              onPressed: _loading ? null : _load,
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '刷新统计',
+                en: 'Refresh analytics',
+              ),
+              icon: AnimatedRotation(
+                turns: _loading ? 1 : 0,
+                duration: _settingsMotionDuration(
+                  context,
+                  const Duration(milliseconds: 520),
+                ),
+                curve: Curves.easeOutCubic,
+                child: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            IconButton.outlined(
+              onPressed: _snapshot?.summary.requestCount == 0
+                  ? null
+                  : _clearStatistics,
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '清空统计',
+                en: 'Clear analytics',
+              ),
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int get _activeFilterCount =>
+      (_filter.providerConfigId == null ? 0 : 1) +
+      (_filter.modelId == null ? 0 : 1) +
+      (_filter.source == null ? 0 : 1);
+
+  Widget _buildAnalytics(BuildContext context, AiUsageSnapshot snapshot) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AiUsageHero(summary: snapshot.summary),
+        const SizedBox(height: 14),
+        _AiUsageMetricGrid(summary: snapshot.summary),
+        const SizedBox(height: 14),
+        _AiUsagePanel(
+          title: openHandLocalizedText(context, zh: '使用趋势', en: 'Usage Trend'),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '输入、输出、缓存与成本随时间的变化',
+            en: 'Input, output, cache, and cost over time',
+          ),
+          trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
+          child: _AiUsageTrendChart(buckets: snapshot.trend),
+        ),
+        const SizedBox(height: 14),
+        _AiUsagePanel(
+          title: openHandLocalizedText(
+            context,
+            zh: '每日 Token 热力图',
+            en: 'Daily Token Heatmap',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '最近一年每日消耗，颜色越深表示 Token 越多',
+            en: 'Daily consumption over the last year; darker cells mean more tokens',
+          ),
+          child: _AiUsageHeatmap(buckets: snapshot.heatmap),
+        ),
+        const SizedBox(height: 14),
+        _AiUsageBreakdownPanel(snapshot: snapshot),
+        const SizedBox(height: 14),
+        _AiUsageRecentPanel(records: snapshot.recentRequests),
+      ],
+    );
+  }
+}
+
+class _AiUsageHero extends StatelessWidget {
+  const _AiUsageHero({required this.summary});
+
+  final AiUsageSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primaryContainer.withValues(alpha: 0.78),
+            colorScheme.tertiaryContainer.withValues(alpha: 0.44),
+            colorScheme.surfaceContainerLow,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+          final primary = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Icon(Icons.bolt_rounded, color: colorScheme.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '真实消耗 Tokens',
+                      en: 'Consumed Tokens',
+                    ),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                _usageCompactNumber(summary.totalTokens, decimals: 2),
+                style: theme.textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1.3,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '${_usageInteger(summary.totalTokens)} 个 Token',
+                  en: '${_usageInteger(summary.totalTokens)} tokens',
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          );
+          final side = Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _AiUsageHeroPill(
+                label: openHandLocalizedText(context, zh: '请求', en: 'Requests'),
+                value: _usageInteger(summary.requestCount),
+                icon: Icons.monitor_heart_outlined,
+                color: colorScheme.primary,
+              ),
+              _AiUsageHeroPill(
+                label: openHandLocalizedText(
+                  context,
+                  zh: '总成本',
+                  en: 'Total Cost',
+                ),
+                value: summary.pricedRequestCount == 0
+                    ? '—'
+                    : summary.hasCompletePricing
+                    ? _usageMoney(summary.totalCostUsd)
+                    : '≥${_usageMoney(summary.totalCostUsd)}',
+                icon: Icons.payments_outlined,
+                color: colorScheme.tertiary,
+              ),
+              _AiUsageHeroPill(
+                label: openHandLocalizedText(context, zh: '成功率', en: 'Success'),
+                value: _usagePercent(summary.successRate),
+                icon: Icons.verified_outlined,
+                color: OpenHandStatusColors.success,
+              ),
+            ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [primary, const SizedBox(height: 20), side],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(child: primary),
+              const SizedBox(width: 24),
+              Flexible(child: side),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AiUsageHeroPill extends StatelessWidget {
+  const _AiUsageHeroPill({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 9),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageMetricGrid extends StatelessWidget {
+  const _AiUsageMetricGrid({required this.summary});
+
+  final AiUsageSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final metrics = <_AiUsageMetricData>[
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '输入 Token', en: 'Input'),
+        value: _usageCompactNumber(summary.promptTokens),
+        detail: openHandLocalizedText(
+          context,
+          zh: '发送给模型的上下文',
+          en: 'Context sent to models',
+        ),
+        icon: Icons.south_rounded,
+        color: colorScheme.primary,
+      ),
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '输出 Token', en: 'Output'),
+        value: _usageCompactNumber(summary.completionTokens),
+        detail: openHandLocalizedText(
+          context,
+          zh: '模型生成内容',
+          en: 'Model-generated content',
+        ),
+        icon: Icons.north_rounded,
+        color: colorScheme.tertiary,
+      ),
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '缓存读取', en: 'Cache Read'),
+        value: _usageCompactNumber(summary.cacheReadTokens),
+        detail: openHandLocalizedText(
+          context,
+          zh: '命中率 ${_usagePercent(summary.cacheHitRate)}',
+          en: '${_usagePercent(summary.cacheHitRate)} hit rate',
+        ),
+        icon: Icons.bolt_outlined,
+        color: OpenHandStatusColors.success,
+        progress: summary.cacheHitRate,
+      ),
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '缓存创建', en: 'Cache Write'),
+        value: _usageCompactNumber(summary.cacheCreationTokens),
+        detail: openHandLocalizedText(
+          context,
+          zh: '可供后续请求复用',
+          en: 'Reusable by later requests',
+        ),
+        icon: Icons.storage_rounded,
+        color: colorScheme.secondary,
+      ),
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '推理 Token', en: 'Reasoning'),
+        value: _usageCompactNumber(summary.reasoningTokens),
+        detail: openHandLocalizedText(
+          context,
+          zh: '包含在模型输出中',
+          en: 'Included in model output',
+        ),
+        icon: Icons.psychology_alt_outlined,
+        color: colorScheme.error,
+      ),
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '平均响应', en: 'Avg. Response'),
+        value: _usageDuration(summary.averageDurationMs),
+        detail: summary.firstTokenSampleCount == 0
+            ? openHandLocalizedText(
+                context,
+                zh: '暂无首字延迟样本',
+                en: 'No first-token samples',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '首字 ${_usageDuration(summary.averageFirstTokenMs)}',
+                en: 'First token ${_usageDuration(summary.averageFirstTokenMs)}',
+              ),
+        icon: Icons.speed_rounded,
+        color: colorScheme.primary,
+      ),
+    ];
+    final multimodalTokens =
+        summary.audioInputTokens +
+        summary.imageInputTokens +
+        summary.videoInputTokens;
+    if (multimodalTokens > 0) {
+      metrics.add(
+        _AiUsageMetricData(
+          label: openHandLocalizedText(
+            context,
+            zh: '多模态输入',
+            en: 'Multimodal Input',
+          ),
+          value: _usageCompactNumber(multimodalTokens),
+          detail:
+              'Audio ${_usageCompactNumber(summary.audioInputTokens)} · '
+              'Image ${_usageCompactNumber(summary.imageInputTokens)} · '
+              'Video ${_usageCompactNumber(summary.videoInputTokens)}',
+          icon: Icons.perm_media_outlined,
+          color: colorScheme.secondary,
+        ),
+      );
+    }
+    metrics.add(
+      _AiUsageMetricData(
+        label: openHandLocalizedText(context, zh: '数据覆盖', en: 'Data Coverage'),
+        value:
+            '${summary.requestCount - summary.estimatedCount}/${summary.requestCount}',
+        detail: openHandLocalizedText(
+          context,
+          zh: '真实 Token · ${summary.pricedRequestCount} 次具备价格',
+          en: 'Exact token records · ${summary.pricedRequestCount} priced',
+        ),
+        icon: Icons.fact_check_outlined,
+        color: OpenHandStatusColors.info,
+        progress: summary.requestCount == 0
+            ? 0
+            : (summary.requestCount - summary.estimatedCount) /
+                  summary.requestCount,
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1080
+            ? 3
+            : constraints.maxWidth >= 620
+            ? 2
+            : 1;
+        final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final metric in metrics)
+              SizedBox(
+                width: width,
+                child: _AiUsageMetricCard(data: metric),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AiUsageMetricData {
+  const _AiUsageMetricData({
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.icon,
+    required this.color,
+    this.progress,
+  });
+
+  final String label;
+  final String value;
+  final String detail;
+  final IconData icon;
+  final Color color;
+  final double? progress;
+}
+
+class _AiUsageMetricCard extends StatelessWidget {
+  const _AiUsageMetricCard({required this.data});
+
+  final _AiUsageMetricData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: data.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(data.icon, size: 19, color: data.color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  data.label,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            data.value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            data.detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (data.progress case final progress?) ...[
+            const SizedBox(height: 11),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0, 1),
+                minHeight: 5,
+                color: data.color,
+                backgroundColor: data.color.withValues(alpha: 0.12),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsagePanel extends StatelessWidget {
+  const _AiUsagePanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 12),
+                DefaultTextStyle(
+                  style: theme.textTheme.labelLarge!.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  child: trailing!,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageTrendChart extends StatefulWidget {
+  const _AiUsageTrendChart({required this.buckets});
+
+  final List<AiUsageBucket> buckets;
+
+  @override
+  State<_AiUsageTrendChart> createState() => _AiUsageTrendChartState();
+}
+
+class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
+  int? _selectedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final buckets = widget.buckets;
+    if (buckets.isEmpty) {
+      return SizedBox(
+        height: 180,
+        child: Center(
+          child: Text(
+            openHandLocalizedText(
+              context,
+              zh: '当前范围暂无趋势数据',
+              en: 'No trend data in this range',
+            ),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        Wrap(
+          spacing: 16,
+          runSpacing: 7,
+          children: [
+            _AiUsageLegendDot(
+              color: theme.colorScheme.primary,
+              label: openHandLocalizedText(context, zh: '输入', en: 'Input'),
+            ),
+            _AiUsageLegendDot(
+              color: theme.colorScheme.tertiary,
+              label: openHandLocalizedText(context, zh: '输出', en: 'Output'),
+            ),
+            _AiUsageLegendDot(
+              color: OpenHandStatusColors.success,
+              label: openHandLocalizedText(
+                context,
+                zh: '缓存命中',
+                en: 'Cache Read',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const height = 220.0;
+            final width = constraints.maxWidth;
+            return MouseRegion(
+              onExit: (_) => setState(() => _selectedIndex = null),
+              onHover: (event) => _selectBucket(event.localPosition.dx, width),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (details) =>
+                    _selectBucket(details.localPosition.dx, width),
+                child: SizedBox(
+                  height: height,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: _AiUsageTrendPainter(
+                              buckets: buckets,
+                              colorScheme: theme.colorScheme,
+                              selectedIndex: _selectedIndex,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_selectedIndex case final index?)
+                        _buildTooltip(context, index, width),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _selectBucket(double dx, double width) {
+    if (widget.buckets.isEmpty || width <= 0) return;
+    final index = (dx / width * widget.buckets.length).floor().clamp(
+      0,
+      widget.buckets.length - 1,
+    );
+    if (_selectedIndex == index) return;
+    setState(() => _selectedIndex = index);
+  }
+
+  Widget _buildTooltip(BuildContext context, int index, double width) {
+    final theme = Theme.of(context);
+    final bucket = widget.buckets[index];
+    const tooltipWidth = 210.0;
+    final center = (index + 0.5) * width / widget.buckets.length;
+    final left = (center - tooltipWidth / 2).clamp(0.0, width - tooltipWidth);
+    return Positioned(
+      left: left,
+      top: 8,
+      width: tooltipWidth,
+      child: IgnorePointer(
+        child: Material(
+          elevation: 8,
+          color: theme.colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: DefaultTextStyle(
+              style: theme.textTheme.bodySmall!.copyWith(
+                color: theme.colorScheme.onInverseSurface,
+                height: 1.5,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _usageBucketLabel(bucket.key),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onInverseSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text('Token  ${_usageInteger(bucket.totalTokens)}'),
+                  Text(
+                    '${openHandLocalizedText(context, zh: '输入', en: 'Input')}  ${_usageInteger(bucket.promptTokens)}  ·  '
+                    '${openHandLocalizedText(context, zh: '输出', en: 'Output')}  ${_usageInteger(bucket.completionTokens)}',
+                  ),
+                  Text(
+                    '${openHandLocalizedText(context, zh: '成本', en: 'Cost')}  ${bucket.pricedRequestCount == 0
+                        ? '—'
+                        : bucket.pricedRequestCount < bucket.requestCount
+                        ? '≥${_usageMoney(bucket.totalCostUsd)}'
+                        : _usageMoney(bucket.totalCostUsd)}',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiUsageTrendPainter extends CustomPainter {
+  const _AiUsageTrendPainter({
+    required this.buckets,
+    required this.colorScheme,
+    required this.selectedIndex,
+  });
+
+  final List<AiUsageBucket> buckets;
+  final ColorScheme colorScheme;
+  final int? selectedIndex;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const top = 12.0;
+    const bottom = 28.0;
+    final chartHeight = size.height - top - bottom;
+    final gridPaint = Paint()
+      ..color = colorScheme.outlineVariant.withValues(alpha: 0.55)
+      ..strokeWidth = 1;
+    for (var index = 0; index <= 4; index++) {
+      final y = top + chartHeight * index / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+    final maxTokens = buckets.fold<int>(
+      1,
+      (maxValue, bucket) => math.max(
+        maxValue,
+        math.max(
+          bucket.promptTokens,
+          math.max(bucket.completionTokens, bucket.cacheReadTokens),
+        ),
+      ),
+    );
+    final step = buckets.length <= 1
+        ? size.width
+        : size.width / (buckets.length - 1);
+    Path pathFor(int Function(AiUsageBucket) valueOf) {
+      final path = Path();
+      for (var index = 0; index < buckets.length; index++) {
+        final x = buckets.length <= 1 ? size.width / 2 : index * step;
+        final value = valueOf(buckets[index]);
+        final y = top + chartHeight * (1 - value / maxTokens);
+        if (index == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      return path;
+    }
+
+    final inputPath = pathFor((bucket) => bucket.promptTokens);
+    final areaPath = Path.from(inputPath)
+      ..lineTo(size.width, top + chartHeight)
+      ..lineTo(0, top + chartHeight)
+      ..close();
+    canvas.drawPath(
+      areaPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            colorScheme.primary.withValues(alpha: 0.2),
+            colorScheme.primary.withValues(alpha: 0.015),
+          ],
+        ).createShader(Rect.fromLTWH(0, top, size.width, chartHeight)),
+    );
+    void drawSeries(Path path, Color color, double width) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..strokeWidth = width,
+      );
+    }
+
+    drawSeries(inputPath, colorScheme.primary, 2.6);
+    drawSeries(
+      pathFor((bucket) => bucket.completionTokens),
+      colorScheme.tertiary,
+      2.2,
+    );
+    drawSeries(
+      pathFor((bucket) => bucket.cacheReadTokens),
+      OpenHandStatusColors.success,
+      2.2,
+    );
+    final selected = selectedIndex;
+    if (selected != null) {
+      final x = buckets.length <= 1 ? size.width / 2 : selected * step;
+      canvas.drawLine(
+        Offset(x, top),
+        Offset(x, top + chartHeight),
+        Paint()
+          ..color = colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
+          ..strokeWidth = 1,
+      );
+    }
+    final labelStyle = TextStyle(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 11,
+    );
+    _paintText(
+      canvas,
+      _usageBucketLabel(buckets.first.key),
+      Offset(0, size.height - 17),
+      labelStyle,
+    );
+    final lastLabel = _usageBucketLabel(buckets.last.key);
+    final lastPainter = TextPainter(
+      text: TextSpan(text: lastLabel, style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    lastPainter.paint(
+      canvas,
+      Offset(size.width - lastPainter.width, size.height - 17),
+    );
+  }
+
+  void _paintText(Canvas canvas, String text, Offset offset, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AiUsageTrendPainter oldDelegate) {
+    return oldDelegate.buckets != buckets ||
+        oldDelegate.colorScheme != colorScheme ||
+        oldDelegate.selectedIndex != selectedIndex;
+  }
+}
+
+class _AiUsageLegendDot extends StatelessWidget {
+  const _AiUsageLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AiUsageHeatmap extends StatelessWidget {
+  const _AiUsageHeatmap({required this.buckets});
+
+  final List<AiUsageBucket> buckets;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final byDate = <String, AiUsageBucket>{
+      for (final bucket in buckets) bucket.key: bucket,
+    };
+    final today = DateTime.now();
+    final localToday = DateTime(today.year, today.month, today.day);
+    final currentWeekSunday = localToday.subtract(
+      Duration(days: localToday.weekday % 7),
+    );
+    final start = currentWeekSunday.subtract(const Duration(days: 52 * 7));
+    final maxTokens = buckets.fold<int>(
+      0,
+      (value, bucket) => math.max(value, bucket.totalTokens),
+    );
+    final activeDays = buckets.where((bucket) => bucket.totalTokens > 0).length;
+    final annualTokens = buckets.fold<int>(
+      0,
+      (sum, bucket) => sum + bucket.totalTokens,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 16,
+          runSpacing: 6,
+          children: [
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '过去一年 ${_usageCompactNumber(annualTokens)} Token',
+                en: '${_usageCompactNumber(annualTokens)} tokens in the last year',
+              ),
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '$activeDays 个活跃日',
+                en: '$activeDays active days',
+              ),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Scrollbar(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 21, right: 8),
+                  child: Column(
+                    children: [
+                      for (var day = 0; day < 7; day++)
+                        SizedBox(
+                          height: 15,
+                          child: Text(
+                            switch (day) {
+                              1 => openHandLocalizedText(
+                                context,
+                                zh: '一',
+                                en: 'Mon',
+                              ),
+                              3 => openHandLocalizedText(
+                                context,
+                                zh: '三',
+                                en: 'Wed',
+                              ),
+                              5 => openHandLocalizedText(
+                                context,
+                                zh: '五',
+                                en: 'Fri',
+                              ),
+                              _ => '',
+                            },
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 9,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                for (var week = 0; week < 53; week++)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 3),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 20,
+                          width: 12,
+                          child:
+                              week == 0 ||
+                                  start.add(Duration(days: week * 7)).month !=
+                                      start
+                                          .add(Duration(days: (week - 1) * 7))
+                                          .month
+                              ? OverflowBox(
+                                  maxWidth: 44,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _usageMonthLabel(
+                                      context,
+                                      start.add(Duration(days: week * 7)),
+                                    ),
+                                    softWrap: false,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        for (var day = 0; day < 7; day++)
+                          _AiUsageHeatmapCell(
+                            date: start.add(Duration(days: week * 7 + day)),
+                            today: localToday,
+                            bucket:
+                                byDate[_usageDateKey(
+                                  start.add(Duration(days: week * 7 + day)),
+                                )],
+                            maxTokens: maxTokens,
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                openHandLocalizedText(context, zh: '少', en: 'Less'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 6),
+              for (var level = 0; level < 5; level++) ...[
+                Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    color: _usageHeatColor(theme.colorScheme, level / 4),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 3),
+              ],
+              const SizedBox(width: 3),
+              Text(
+                openHandLocalizedText(context, zh: '多', en: 'More'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AiUsageHeatmapCell extends StatelessWidget {
+  const _AiUsageHeatmapCell({
+    required this.date,
+    required this.today,
+    required this.bucket,
+    required this.maxTokens,
+  });
+
+  final DateTime date;
+  final DateTime today;
+  final AiUsageBucket? bucket;
+  final int maxTokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final future = date.isAfter(today);
+    final tokens = bucket?.totalTokens ?? 0;
+    final intensity = tokens <= 0 || maxTokens <= 0
+        ? 0.0
+        : math.log(tokens + 1) / math.log(maxTokens + 1);
+    final cell = Container(
+      width: 12,
+      height: 12,
+      margin: const EdgeInsets.only(bottom: 3),
+      decoration: BoxDecoration(
+        color: future
+            ? Colors.transparent
+            : _usageHeatColor(Theme.of(context).colorScheme, intensity),
+        borderRadius: BorderRadius.circular(3),
+        border: future
+            ? null
+            : Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.34),
+                width: 0.5,
+              ),
+      ),
+    );
+    if (future) return cell;
+    return Tooltip(
+      message:
+          '${_usageDateDisplay(date)}\n'
+          '${_usageInteger(tokens)} Token · ${bucket?.requestCount ?? 0} '
+          '${openHandLocalizedText(context, zh: '次请求', en: 'requests')}\n'
+          '${openHandLocalizedText(context, zh: '成本', en: 'Cost')} ${bucket == null || bucket!.pricedRequestCount == 0
+              ? '—'
+              : bucket!.pricedRequestCount < bucket!.requestCount
+              ? '≥${_usageMoney(bucket!.totalCostUsd)}'
+              : _usageMoney(bucket!.totalCostUsd)}',
+      child: cell,
+    );
+  }
+}
+
+class _AiUsageBreakdownPanel extends StatefulWidget {
+  const _AiUsageBreakdownPanel({required this.snapshot});
+
+  final AiUsageSnapshot snapshot;
+
+  @override
+  State<_AiUsageBreakdownPanel> createState() => _AiUsageBreakdownPanelState();
+}
+
+class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
+  String _dimension = 'source';
+
+  @override
+  Widget build(BuildContext context) {
+    final options = <(String, String)>[
+      ('source', openHandLocalizedText(context, zh: '来源', en: 'Source')),
+      ('provider', 'Provider'),
+      ('model', openHandLocalizedText(context, zh: '模型', en: 'Model')),
+      ('surface', openHandLocalizedText(context, zh: '端侧', en: 'Surface')),
+      ('template', openHandLocalizedText(context, zh: '模板', en: 'Template')),
+      ('operation', openHandLocalizedText(context, zh: '操作', en: 'Operation')),
+    ];
+    final items = switch (_dimension) {
+      'provider' => widget.snapshot.providers,
+      'model' => widget.snapshot.models,
+      'surface' => widget.snapshot.surfaces,
+      'template' => widget.snapshot.templates,
+      'operation' => widget.snapshot.operations,
+      _ => widget.snapshot.sources,
+    };
+    return _AiUsagePanel(
+      title: openHandLocalizedText(
+        context,
+        zh: '多维用量分析',
+        en: 'Multidimensional Analysis',
+      ),
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '按来源、APP/WEB 端侧、Provider、模型、线程模板与内部操作拆解',
+        en: 'Break down usage by source, APP/WEB surface, provider, model, thread template, and operation',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoiceChip(
+                  selected: _dimension == option.$1,
+                  label: Text(option.$2),
+                  onSelected: (selected) {
+                    if (selected) setState(() => _dimension = option.$1);
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          AnimatedSwitcher(
+            duration: _settingsMotionDuration(
+              context,
+              const Duration(milliseconds: 280),
+            ),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: items.isEmpty
+                ? SizedBox(
+                    key: ValueKey<String>('$_dimension-empty'),
+                    height: 110,
+                    child: Center(
+                      child: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '该维度暂无数据',
+                          en: 'No data for this dimension',
+                        ),
+                      ),
+                    ),
+                  )
+                : Column(
+                    key: ValueKey<String>(_dimension),
+                    children: [
+                      for (final item in items.take(10))
+                        _AiUsageBreakdownRow(
+                          item: item,
+                          maxTokens: items.first.totalTokens,
+                          dimension: _dimension,
+                        ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageBreakdownRow extends StatelessWidget {
+  const _AiUsageBreakdownRow({
+    required this.item,
+    required this.maxTokens,
+    required this.dimension,
+  });
+
+  final AiUsageBreakdown item;
+  final int maxTokens;
+  final String dimension;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final label = switch (dimension) {
+      'source' => _usageSourceLabel(context, item.label),
+      'operation' => _usageOperationLabel(context, item.label),
+      'surface' => item.label.toUpperCase(),
+      _ => item.label,
+    };
+    final progress = maxTokens == 0 ? 0.0 : item.totalTokens / maxTokens;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  _usageDimensionIcon(dimension),
+                  size: 17,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _usageCompactNumber(item.totalTokens),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 74,
+                child: Text(
+                  item.pricedRequestCount == 0
+                      ? '—'
+                      : item.pricedRequestCount < item.requestCount
+                      ? '≥${_usageMoney(item.totalCostUsd)}'
+                      : _usageMoney(item.totalCostUsd),
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 68,
+                child: Text(
+                  '${item.successCount}/${item.requestCount}',
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0, 1),
+              minHeight: 5,
+              color: colorScheme.primary,
+              backgroundColor: colorScheme.primary.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageRecentPanel extends StatelessWidget {
+  const _AiUsageRecentPanel({required this.records});
+
+  final List<AiUsageRequestRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AiUsagePanel(
+      title: openHandLocalizedText(context, zh: '请求追踪', en: 'Request Traces'),
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '最近请求的模型、来源、Token、成本、耗时与状态，不保存 Prompt 正文',
+        en: 'Recent model, source, token, cost, latency, and status data; prompt bodies are never stored',
+      ),
+      child: Column(
+        children: [
+          for (final record in records.take(16))
+            _AiUsageRequestRow(record: record),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageRequestRow extends StatelessWidget {
+  const _AiUsageRequestRow({required this.record});
+
+  final AiUsageRequestRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final success = record.status == 'success';
+    final statusColor = success
+        ? OpenHandStatusColors.success
+        : record.status == 'cancelled'
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.error;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 760;
+          final identity = Row(
+            children: [
+              Tooltip(
+                message:
+                    '${openHandLocalizedText(context, zh: '状态', en: 'Status')}: ${record.status}'
+                    '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
+                    '\nTrace: ${record.traceId}',
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.34),
+                        blurRadius: 7,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${record.providerName} · ${record.modelId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_usageDateTime(record.startedAt)} · '
+                      '${_usageSourceLabel(context, record.source)} / '
+                      '${_usageOperationLabel(context, record.operation)} · '
+                      '${record.apiFamily} · ${record.surface.toUpperCase()}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+          final metrics = Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.end,
+            children: [
+              _AiUsageInlineMetric(
+                icon: Icons.bolt_rounded,
+                value:
+                    '${_usageCompactNumber(record.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
+              ),
+              _AiUsageInlineMetric(
+                icon: Icons.swap_vert_rounded,
+                value:
+                    '${_usageCompactNumber(record.usage.promptTokens ?? 0)} / '
+                    '${_usageCompactNumber(record.usage.completionTokens ?? 0)}',
+              ),
+              if ((record.usage.cacheReadTokens ?? 0) > 0)
+                _AiUsageInlineMetric(
+                  icon: Icons.cached_rounded,
+                  value: _usageCompactNumber(record.usage.cacheReadTokens ?? 0),
+                ),
+              _AiUsageInlineMetric(
+                icon: Icons.payments_outlined,
+                value: record.totalCostUsd == null
+                    ? '—'
+                    : _usageMoney(record.totalCostUsd!),
+              ),
+              _AiUsageInlineMetric(
+                icon: Icons.timer_outlined,
+                value: _usageDuration(record.durationMs.toDouble()),
+              ),
+              if (record.firstTokenMs case final firstTokenMs?)
+                _AiUsageInlineMetric(
+                  icon: Icons.first_page_rounded,
+                  value: _usageDuration(firstTokenMs.toDouble()),
+                ),
+            ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [identity, const SizedBox(height: 9), metrics],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: identity),
+              const SizedBox(width: 16),
+              metrics,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AiUsageInlineMetric extends StatelessWidget {
+  const _AiUsageInlineMetric({required this.icon, required this.value});
+
+  final IconData icon;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AiUsageFilterDialog extends StatefulWidget {
+  const _AiUsageFilterDialog({
+    required this.initial,
+    required this.providerFacets,
+    required this.modelFacets,
+    required this.sourceFacets,
+  });
+
+  final AiUsageFilter initial;
+  final List<AiUsageFacet> providerFacets;
+  final List<AiUsageFacet> modelFacets;
+  final List<AiUsageFacet> sourceFacets;
+
+  @override
+  State<_AiUsageFilterDialog> createState() => _AiUsageFilterDialogState();
+}
+
+class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
+  late AiUsageFilter _filter = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final size = MediaQuery.sizeOf(context);
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 760,
+          maxHeight: math.min(760, size.height * 0.88),
+        ),
+        child: Material(
+          color: theme.colorScheme.surface,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 20, 14, 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(
+                        Icons.tune_rounded,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '多维筛选',
+                              en: 'Usage Filters',
+                            ),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '按 Provider、模型和来源组合过滤',
+                              en: 'Combine provider, model, and source filters',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFacet(
+                        context,
+                        title: 'Provider',
+                        facets: widget.providerFacets,
+                        selected: _filter.providerConfigId,
+                        onSelected: (value) => setState(
+                          () => _filter = value == null
+                              ? _filter.copyWith(clearProvider: true)
+                              : _filter.copyWith(providerConfigId: value),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      _buildFacet(
+                        context,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '模型',
+                          en: 'Model',
+                        ),
+                        facets: widget.modelFacets,
+                        selected: _filter.modelId,
+                        onSelected: (value) => setState(
+                          () => _filter = value == null
+                              ? _filter.copyWith(clearModel: true)
+                              : _filter.copyWith(modelId: value),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      _buildFacet(
+                        context,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '来源',
+                          en: 'Source',
+                        ),
+                        facets: widget.sourceFacets,
+                        selected: _filter.source,
+                        sourceLabels: true,
+                        onSelected: (value) => setState(
+                          () => _filter = value == null
+                              ? _filter.copyWith(clearSource: true)
+                              : _filter.copyWith(source: value),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => setState(
+                        () => _filter = AiUsageFilter(range: _filter.range),
+                      ),
+                      icon: const Icon(Icons.restart_alt_rounded),
+                      label: Text(
+                        openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.of(context).pop(_filter),
+                      icon: const Icon(Icons.check_rounded),
+                      label: Text(
+                        openHandLocalizedText(context, zh: '应用筛选', en: 'Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFacet(
+    BuildContext context, {
+    required String title,
+    required List<AiUsageFacet> facets,
+    required String? selected,
+    required ValueChanged<String?> onSelected,
+    bool sourceLabels = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilterChip(
+              selected: selected == null,
+              label: Text(openHandLocalizedText(context, zh: '全部', en: 'All')),
+              onSelected: (_) => onSelected(null),
+            ),
+            for (final facet in facets)
+              FilterChip(
+                selected: selected == facet.value,
+                label: Text(
+                  sourceLabels
+                      ? _usageSourceLabel(context, facet.label)
+                      : facet.label,
+                ),
+                onSelected: (_) => onSelected(facet.value),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AiUsageEmptyState extends StatelessWidget {
+  const _AiUsageEmptyState({required this.hasFilters});
+
+  final bool hasFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Icon(
+              hasFilters
+                  ? Icons.filter_alt_off_rounded
+                  : Icons.insights_rounded,
+              size: 32,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            hasFilters
+                ? openHandLocalizedText(
+                    context,
+                    zh: '当前筛选范围暂无数据',
+                    en: 'No data matches the current filters',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '等待首条 AI 使用记录',
+                    en: 'Waiting for the first AI usage record',
+                  ),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            openHandLocalizedText(
+              context,
+              zh: '发起线程对话、知识库索引、翻译或智能体任务后，这里会自动更新。',
+              en: 'Start a thread, knowledge indexing, translation, or agent task and analytics will update automatically.',
+            ),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageLoadingState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Column(
+      children: [
+        Container(
+          height: 150,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (var index = 0; index < 3; index++) ...[
+              Expanded(
+                child: Container(
+                  height: 112,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+              ),
+              if (index < 2) const SizedBox(width: 10),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+String _usageRangeLabel(BuildContext context, AiUsageRange range) {
+  return switch (range) {
+    AiUsageRange.today => openHandLocalizedText(context, zh: '今天', en: 'Today'),
+    AiUsageRange.sevenDays => openHandLocalizedText(
+      context,
+      zh: '7 天',
+      en: '7 Days',
+    ),
+    AiUsageRange.thirtyDays => openHandLocalizedText(
+      context,
+      zh: '30 天',
+      en: '30 Days',
+    ),
+    AiUsageRange.year => openHandLocalizedText(context, zh: '一年', en: 'Year'),
+    AiUsageRange.all => openHandLocalizedText(context, zh: '全部', en: 'All'),
+  };
+}
+
+String _usageSourceLabel(BuildContext context, String source) {
+  return switch (source) {
+    AiUsageSource.thread => openHandLocalizedText(
+      context,
+      zh: '线程会话',
+      en: 'Thread',
+    ),
+    AiUsageSource.knowledgeBase => openHandLocalizedText(
+      context,
+      zh: '知识库',
+      en: 'Knowledge Base',
+    ),
+    AiUsageSource.harness => 'Harness Engineering',
+    AiUsageSource.translation => openHandLocalizedText(
+      context,
+      zh: '翻译',
+      en: 'Translation',
+    ),
+    AiUsageSource.textToSpeech => openHandLocalizedText(
+      context,
+      zh: '文本转语音',
+      en: 'Text to Speech',
+    ),
+    AiUsageSource.selfLearning => openHandLocalizedText(
+      context,
+      zh: '自学习',
+      en: 'Self Learning',
+    ),
+    AiUsageSource.agent => openHandLocalizedText(
+      context,
+      zh: '智能体',
+      en: 'Agent',
+    ),
+    AiUsageSource.webSearch => 'WebSearch',
+    AiUsageSource.webFetch => 'WebFetch',
+    AiUsageSource.modelTest => openHandLocalizedText(
+      context,
+      zh: '模型测试',
+      en: 'Model Test',
+    ),
+    _ => openHandLocalizedText(context, zh: '其他', en: 'Other'),
+  };
+}
+
+String _usageOperationLabel(BuildContext context, String operation) {
+  return switch (operation) {
+    'conversation_round' => openHandLocalizedText(
+      context,
+      zh: '会话回复',
+      en: 'Conversation',
+    ),
+    'goal_turn' => openHandLocalizedText(context, zh: '目标执行', en: 'Goal Turn'),
+    'goal_evaluation' => openHandLocalizedText(
+      context,
+      zh: '目标评估',
+      en: 'Goal Evaluation',
+    ),
+    'auto_title' => openHandLocalizedText(
+      context,
+      zh: '自动标题',
+      en: 'Auto Title',
+    ),
+    'manual_title' => openHandLocalizedText(
+      context,
+      zh: '手动标题',
+      en: 'Manual Title',
+    ),
+    'context_compression' => openHandLocalizedText(
+      context,
+      zh: '上下文压缩',
+      en: 'Context Compression',
+    ),
+    'document_embedding' => openHandLocalizedText(
+      context,
+      zh: '文档向量化',
+      en: 'Document Embedding',
+    ),
+    'query_embedding' => openHandLocalizedText(
+      context,
+      zh: '查询向量化',
+      en: 'Query Embedding',
+    ),
+    'retrieval_rerank' => openHandLocalizedText(
+      context,
+      zh: '检索重排',
+      en: 'Retrieval Rerank',
+    ),
+    'reader_conversion' => openHandLocalizedText(
+      context,
+      zh: '文档读取转换',
+      en: 'Reader Conversion',
+    ),
+    'text_translation' => openHandLocalizedText(
+      context,
+      zh: '文本翻译',
+      en: 'Text Translation',
+    ),
+    'speech_synthesis' => openHandLocalizedText(
+      context,
+      zh: '语音合成',
+      en: 'Speech Synthesis',
+    ),
+    'self_learning_round' => openHandLocalizedText(
+      context,
+      zh: '自学习轮次',
+      en: 'Self-learning Round',
+    ),
+    'phase_execution' => openHandLocalizedText(
+      context,
+      zh: '阶段执行',
+      en: 'Phase Execution',
+    ),
+    'context_handoff' => openHandLocalizedText(
+      context,
+      zh: '上下文交接',
+      en: 'Context Handoff',
+    ),
+    'result_summary' || 'content_summary' => openHandLocalizedText(
+      context,
+      zh: '结果总结',
+      en: 'Result Summary',
+    ),
+    'subagent_round' || 'agent_worker_round' => openHandLocalizedText(
+      context,
+      zh: '智能体轮次',
+      en: 'Agent Round',
+    ),
+    'availability_probe' => openHandLocalizedText(
+      context,
+      zh: '可用性测试',
+      en: 'Availability Probe',
+    ),
+    'media_generation' => openHandLocalizedText(
+      context,
+      zh: '媒体生成',
+      en: 'Media Generation',
+    ),
+    _ => operation.replaceAll('_', ' '),
+  };
+}
+
+IconData _usageDimensionIcon(String dimension) {
+  return switch (dimension) {
+    'provider' => Icons.hub_outlined,
+    'model' => Icons.smart_toy_outlined,
+    'template' => Icons.dashboard_customize_outlined,
+    'surface' => Icons.devices_rounded,
+    'operation' => Icons.account_tree_outlined,
+    _ => Icons.layers_outlined,
+  };
+}
+
+Color _usageHeatColor(ColorScheme colors, double intensity) {
+  final safe = intensity.clamp(0.0, 1.0);
+  if (safe <= 0) return colors.surfaceContainerHighest;
+  return Color.lerp(colors.primaryContainer, colors.primary, 0.2 + safe * 0.8)!;
+}
+
+String _usageCompactNumber(int value, {int decimals = 1}) {
+  final abs = value.abs();
+  if (abs >= 100000000) {
+    return '${(value / 100000000).toStringAsFixed(decimals)}亿';
+  }
+  if (abs >= 10000) {
+    return '${(value / 10000).toStringAsFixed(decimals)}万';
+  }
+  if (abs >= 1000) {
+    return '${(value / 1000).toStringAsFixed(decimals)}k';
+  }
+  return '$value';
+}
+
+String _usageInteger(int value) {
+  final text = value.abs().toString();
+  final buffer = StringBuffer(value < 0 ? '-' : '');
+  for (var index = 0; index < text.length; index++) {
+    if (index > 0 && (text.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(text[index]);
+  }
+  return buffer.toString();
+}
+
+String _usageMoney(double value) {
+  if (value == 0) return r'$0.0000';
+  if (value.abs() < 0.0001) return r'<$0.0001';
+  return '\$${value.toStringAsFixed(value.abs() < 1 ? 4 : 2)}';
+}
+
+String _usagePercent(double value) => '${(value * 100).toStringAsFixed(1)}%';
+
+String _usageDuration(double milliseconds) {
+  if (milliseconds < 1000) return '${milliseconds.round()}ms';
+  if (milliseconds < 60000) {
+    return '${(milliseconds / 1000).toStringAsFixed(1)}s';
+  }
+  return '${(milliseconds / 60000).toStringAsFixed(1)}m';
+}
+
+String _usageBucketLabel(String key) {
+  if (key.length >= 13 && key[10] == 'T') {
+    return '${key.substring(5, 10)} ${key.substring(11, 13)}:00';
+  }
+  if (key.length >= 10) return key.substring(5, 10);
+  return key;
+}
+
+String _usageMonthLabel(BuildContext context, DateTime date) {
+  final english = Localizations.localeOf(context).languageCode != 'zh';
+  if (!english) return '${date.month}月';
+  return const <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ][date.month - 1];
+}
+
+String _usageDateKey(DateTime date) {
+  return '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+}
+
+String _usageDateDisplay(DateTime date) =>
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
+String _usageDateTime(DateTime date) =>
+    '${date.month.toString().padLeft(2, '0')}/'
+    '${date.day.toString().padLeft(2, '0')} '
+    '${date.hour.toString().padLeft(2, '0')}:'
+    '${date.minute.toString().padLeft(2, '0')}';

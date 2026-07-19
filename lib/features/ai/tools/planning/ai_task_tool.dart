@@ -8,6 +8,7 @@ import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/hook/ai_claude_hook_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/usage/ai_usage_tracker.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
@@ -239,11 +240,19 @@ class AiTaskTool extends AiTool {
       final AiChatCompletion? completion;
       try {
         completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
-          _backgroundChatClient.sendMessage(
-            model: context.model,
-            messages: turns,
-            tools: subagentCatalog.definitions,
-            cancelSignal: context.cancelSignal,
+          AiUsageTraceContext.runDerived(
+            source: AiUsageSource.agent,
+            operation: 'subagent_round',
+            metadata: <String, Object?>{
+              'subagent_type': canonicalSubagentType,
+              'round': round + 1,
+            },
+            body: () => _backgroundChatClient.sendMessage(
+              model: context.model,
+              messages: turns,
+              tools: subagentCatalog.definitions,
+              cancelSignal: context.cancelSignal,
+            ),
           ),
           cancelSignal: context.cancelSignal,
         );

@@ -25,6 +25,27 @@ class KnowledgeEmbeddingService {
     required List<String> inputs,
     required bool isQuery,
     KnowledgeIndexingCancelToken? cancelToken,
+  }) {
+    return AiUsageTraceContext.runDerived(
+      source: AiUsageSource.knowledgeBase,
+      operation: isQuery ? 'query_embedding' : 'document_embedding',
+      metadata: <String, Object?>{'input_count': inputs.length},
+      body: () => _embedBatch(
+        settings: settings,
+        model: model,
+        inputs: inputs,
+        isQuery: isQuery,
+        cancelToken: cancelToken,
+      ),
+    );
+  }
+
+  Future<List<List<double>>> _embedBatch({
+    required KnowledgeBaseSettings settings,
+    required AiModelConfig model,
+    required List<String> inputs,
+    required bool isQuery,
+    KnowledgeIndexingCancelToken? cancelToken,
   }) async {
     if (inputs.isEmpty) return const <List<double>>[];
     cancelToken?.throwIfCancelled();

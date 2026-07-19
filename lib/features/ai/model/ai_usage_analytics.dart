@@ -1,0 +1,241 @@
+import 'ai_token_usage.dart';
+
+enum AiUsageRange {
+  today,
+  sevenDays,
+  thirtyDays,
+  year,
+  all;
+
+  DateTime? startAt(DateTime now) {
+    final localNow = now.toLocal();
+    final today = DateTime(localNow.year, localNow.month, localNow.day);
+    return switch (this) {
+      AiUsageRange.today => today,
+      AiUsageRange.sevenDays => today.subtract(const Duration(days: 6)),
+      AiUsageRange.thirtyDays => today.subtract(const Duration(days: 29)),
+      AiUsageRange.year => today.subtract(const Duration(days: 364)),
+      AiUsageRange.all => null,
+    };
+  }
+}
+
+class AiUsageFilter {
+  const AiUsageFilter({
+    this.range = AiUsageRange.thirtyDays,
+    this.providerConfigId,
+    this.modelId,
+    this.source,
+  });
+
+  final AiUsageRange range;
+  final String? providerConfigId;
+  final String? modelId;
+  final String? source;
+
+  AiUsageFilter copyWith({
+    AiUsageRange? range,
+    String? providerConfigId,
+    bool clearProvider = false,
+    String? modelId,
+    bool clearModel = false,
+    String? source,
+    bool clearSource = false,
+  }) {
+    return AiUsageFilter(
+      range: range ?? this.range,
+      providerConfigId: clearProvider
+          ? null
+          : providerConfigId ?? this.providerConfigId,
+      modelId: clearModel ? null : modelId ?? this.modelId,
+      source: clearSource ? null : source ?? this.source,
+    );
+  }
+}
+
+class AiUsageFacet {
+  const AiUsageFacet({required this.value, required this.label});
+
+  final String value;
+  final String label;
+}
+
+class AiUsageSummary {
+  const AiUsageSummary({
+    this.requestCount = 0,
+    this.successCount = 0,
+    this.failureCount = 0,
+    this.estimatedCount = 0,
+    this.pricedRequestCount = 0,
+    this.promptTokens = 0,
+    this.completionTokens = 0,
+    this.cacheCreationTokens = 0,
+    this.cacheReadTokens = 0,
+    this.reasoningTokens = 0,
+    this.audioInputTokens = 0,
+    this.imageInputTokens = 0,
+    this.videoInputTokens = 0,
+    this.totalTokens = 0,
+    this.totalCostUsd = 0,
+    this.totalDurationMs = 0,
+    this.firstTokenDurationMs = 0,
+    this.firstTokenSampleCount = 0,
+  });
+
+  final int requestCount;
+  final int successCount;
+  final int failureCount;
+  final int estimatedCount;
+  final int pricedRequestCount;
+  final int promptTokens;
+  final int completionTokens;
+  final int cacheCreationTokens;
+  final int cacheReadTokens;
+  final int reasoningTokens;
+  final int audioInputTokens;
+  final int imageInputTokens;
+  final int videoInputTokens;
+  final int totalTokens;
+  final double totalCostUsd;
+  final int totalDurationMs;
+  final int firstTokenDurationMs;
+  final int firstTokenSampleCount;
+
+  double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
+  double get cacheHitRate {
+    final cacheBase = promptTokens + cacheReadTokens;
+    return cacheBase == 0 ? 0 : cacheReadTokens / cacheBase;
+  }
+
+  double get averageDurationMs =>
+      requestCount == 0 ? 0 : totalDurationMs / requestCount;
+  double get averageFirstTokenMs => firstTokenSampleCount == 0
+      ? 0
+      : firstTokenDurationMs / firstTokenSampleCount;
+  bool get hasCompletePricing =>
+      requestCount > 0 && pricedRequestCount == requestCount;
+}
+
+class AiUsageBucket {
+  const AiUsageBucket({
+    required this.key,
+    required this.requestCount,
+    required this.totalTokens,
+    required this.totalCostUsd,
+    this.pricedRequestCount = 0,
+    this.promptTokens = 0,
+    this.completionTokens = 0,
+    this.cacheCreationTokens = 0,
+    this.cacheReadTokens = 0,
+  });
+
+  final String key;
+  final int requestCount;
+  final int totalTokens;
+  final double totalCostUsd;
+  final int pricedRequestCount;
+  final int promptTokens;
+  final int completionTokens;
+  final int cacheCreationTokens;
+  final int cacheReadTokens;
+}
+
+class AiUsageBreakdown {
+  const AiUsageBreakdown({
+    required this.key,
+    required this.label,
+    required this.requestCount,
+    required this.successCount,
+    required this.totalTokens,
+    required this.totalCostUsd,
+    required this.pricedRequestCount,
+    required this.averageDurationMs,
+  });
+
+  final String key;
+  final String label;
+  final int requestCount;
+  final int successCount;
+  final int totalTokens;
+  final double totalCostUsd;
+  final int pricedRequestCount;
+  final double averageDurationMs;
+}
+
+class AiUsageRequestRecord {
+  const AiUsageRequestRecord({
+    required this.id,
+    required this.traceId,
+    required this.startedAt,
+    required this.durationMs,
+    required this.status,
+    required this.surface,
+    required this.source,
+    required this.operation,
+    required this.providerName,
+    required this.modelId,
+    required this.apiFamily,
+    required this.usage,
+    required this.totalCostUsd,
+    required this.usageEstimated,
+    this.sessionId,
+    this.threadTemplateId,
+    this.firstTokenMs,
+    this.errorType,
+  });
+
+  final String id;
+  final String traceId;
+  final DateTime startedAt;
+  final int durationMs;
+  final String status;
+  final String surface;
+  final String source;
+  final String operation;
+  final String providerName;
+  final String modelId;
+  final String apiFamily;
+  final AiTokenUsage usage;
+  final double? totalCostUsd;
+  final bool usageEstimated;
+  final String? sessionId;
+  final String? threadTemplateId;
+  final int? firstTokenMs;
+  final String? errorType;
+}
+
+class AiUsageSnapshot {
+  const AiUsageSnapshot({
+    required this.generatedAt,
+    required this.filter,
+    required this.summary,
+    required this.trend,
+    required this.heatmap,
+    required this.providers,
+    required this.models,
+    required this.sources,
+    required this.surfaces,
+    required this.operations,
+    required this.templates,
+    required this.recentRequests,
+    required this.providerFacets,
+    required this.modelFacets,
+    required this.sourceFacets,
+  });
+
+  final DateTime generatedAt;
+  final AiUsageFilter filter;
+  final AiUsageSummary summary;
+  final List<AiUsageBucket> trend;
+  final List<AiUsageBucket> heatmap;
+  final List<AiUsageBreakdown> providers;
+  final List<AiUsageBreakdown> models;
+  final List<AiUsageBreakdown> sources;
+  final List<AiUsageBreakdown> surfaces;
+  final List<AiUsageBreakdown> operations;
+  final List<AiUsageBreakdown> templates;
+  final List<AiUsageRequestRecord> recentRequests;
+  final List<AiUsageFacet> providerFacets;
+  final List<AiUsageFacet> modelFacets;
+  final List<AiUsageFacet> sourceFacets;
+}

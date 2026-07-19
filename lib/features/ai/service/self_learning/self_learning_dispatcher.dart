@@ -14,6 +14,7 @@ import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_tool_runtime_service.dart';
+import '../usage/ai_usage_tracker.dart';
 import 'self_learning_runner.dart';
 
 const int _selfLearningSummaryPreviewMaxChars = 120;
@@ -267,11 +268,16 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
     for (var round = 0; round < maxToolCallRounds; round++) {
       roundsRun = round + 1;
-      final streaming = await chatClient.sendMessageStream(
-        model: selected,
-        messages: List<AiChatTurn>.unmodifiable(turns),
-        tools: toolDefinitions,
-        timeout: responseTimeout,
+      final streaming = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.selfLearning,
+        operation: 'self_learning_round',
+        metadata: <String, Object?>{'round': roundsRun},
+        body: () => chatClient.sendMessageStream(
+          model: selected,
+          messages: List<AiChatTurn>.unmodifiable(turns),
+          tools: toolDefinitions,
+          timeout: responseTimeout,
+        ),
       );
 
       final roundResponse = StringBuffer();

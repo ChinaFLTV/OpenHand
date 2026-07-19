@@ -473,14 +473,20 @@ class HarnessApiPhaseRunner {
         // Send API request.
         final AiChatCompletion completion;
         try {
-          completion = await _chatClient.sendMessage(
-            model: model,
-            messages: conversation,
-            tools: supportsNativeToolCalls
-                ? phaseToolCatalog.definitions
-                : const <AiToolDefinition>[],
-            timeout: const Duration(minutes: 10),
-            cancelSignal: cancelSignal,
+          completion = await AiUsageTraceContext.runDerived(
+            source: AiUsageSource.harness,
+            operation: 'phase_execution',
+            threadTemplateId: 'harness_engineering',
+            metadata: <String, Object?>{'phase': phase.name},
+            body: () => _chatClient.sendMessage(
+              model: model,
+              messages: conversation,
+              tools: supportsNativeToolCalls
+                  ? phaseToolCatalog.definitions
+                  : const <AiToolDefinition>[],
+              timeout: const Duration(minutes: 10),
+              cancelSignal: cancelSignal,
+            ),
           );
         } catch (e) {
           final safeError = _sanitizeError('$e', model);
@@ -934,12 +940,18 @@ class HarnessApiPhaseRunner {
 
     String handoffDocContent;
     try {
-      final completion = await _chatClient.sendMessage(
-        model: model,
-        messages: handoffConversation,
-        tools: const <AiToolDefinition>[],
-        timeout: const Duration(minutes: 5),
-        cancelSignal: cancelSignal,
+      final completion = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.harness,
+        operation: 'context_handoff',
+        threadTemplateId: 'harness_engineering',
+        metadata: <String, Object?>{'phase': phase.name},
+        body: () => _chatClient.sendMessage(
+          model: model,
+          messages: handoffConversation,
+          tools: const <AiToolDefinition>[],
+          timeout: const Duration(minutes: 5),
+          cancelSignal: cancelSignal,
+        ),
       );
       handoffDocContent = completion.reply.trim();
     } catch (e) {

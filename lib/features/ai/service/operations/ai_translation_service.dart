@@ -19,6 +19,7 @@ import '../../model/ai_translation_settings.dart';
 import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_transport_client.dart';
+import '../usage/ai_usage_tracker.dart';
 
 final RegExp _aiTranslationFencePattern = RegExp(
   r'^```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```$',
@@ -286,21 +287,25 @@ class AiTranslationService {
             },
           )
         : model;
-    final completion = await _chatClient.sendMessage(
-      model: translationModel,
-      messages: <AiChatTurn>[
-        AiChatTurn(role: AiChatRole.system, content: systemPrompt),
-        AiChatTurn(
-          role: AiChatRole.user,
-          content: _buildAiUserPrompt(
-            text: text,
-            sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage,
+    final completion = await AiUsageTraceContext.runDerived(
+      source: AiUsageSource.translation,
+      operation: 'text_translation',
+      body: () => _chatClient.sendMessage(
+        model: translationModel,
+        messages: <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.system, content: systemPrompt),
+          AiChatTurn(
+            role: AiChatRole.user,
+            content: _buildAiUserPrompt(
+              text: text,
+              sourceLanguage: settings.sourceLanguage,
+              targetLanguage: settings.targetLanguage,
+            ),
           ),
-        ),
-      ],
-      creationRequest: AiCreationRequest.none,
-      timeout: timeout,
+        ],
+        creationRequest: AiCreationRequest.none,
+        timeout: timeout,
+      ),
     );
     return _cleanAiTranslationOutput(completion.reply);
   }

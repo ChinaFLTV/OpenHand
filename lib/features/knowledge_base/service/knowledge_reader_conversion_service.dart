@@ -48,6 +48,20 @@ class KnowledgeReaderConversionService {
 
   Future<KnowledgeReaderConversionResult> convert(
     KnowledgeReaderConversionRequest request,
+  ) {
+    return AiUsageTraceContext.runDerived(
+      source: AiUsageSource.knowledgeBase,
+      operation: 'reader_conversion',
+      metadata: <String, Object?>{
+        'source_type': request.sourceType,
+        'target_type': request.targetType,
+      },
+      body: () => _convert(request),
+    );
+  }
+
+  Future<KnowledgeReaderConversionResult> _convert(
+    KnowledgeReaderConversionRequest request,
   ) async {
     final sourceType = ReaderFileType.normalize(request.sourceType);
     final targetType = ReaderFileType.normalize(request.targetType);

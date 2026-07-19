@@ -24,12 +24,14 @@ import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/xml_escape.dart';
+import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_tts_provider_catalog.dart';
 import '../../model/ai_tts_settings.dart';
 import '../media/ai_image_generation_service.dart';
 import '../runtime/ai_transport_client.dart';
+import '../usage/ai_usage_tracker.dart';
 
 typedef AiTtsTransportFactory = AiTransportClient Function();
 
@@ -478,51 +480,79 @@ class AiTtsPlaybackService {
       protocol: model.protocolType,
       modelId: model.modelId,
     );
-    final result = await _mediaGenerationService.generateAudio(
-      model: model,
-      prompt: text,
-      options: AiCreationOptions(
-        voice: nullIfBlank(voice),
-        speed: settings.speed,
-        volume: settings.volume,
-        pitch: settings.pitch,
-        outputFormat: outputFormat,
-        sampleRate: _extraInt(
-          settings,
-          'sample_rate',
-          fallback: _defaultAiTtsSampleRate,
-        ),
-        bitrate: _extraInt(
-          settings,
-          'bit_rate',
-          fallback: _defaultAiTtsBitRate,
-        ),
-        languageBoost: _extraString(settings, 'language_boost'),
-        emotion: _extraString(settings, 'emotion'),
-        textNormalization: _extraBool(settings, 'text_normalization'),
-        latexRead: _extraBool(settings, 'latex_read'),
-        channel: _extraInt(settings, 'channel', fallback: 1),
-        forceCbr: _extraBool(settings, 'force_cbr'),
-        subtitleEnable: _extraBool(settings, 'subtitle_enable'),
-        subtitleType: _extraString(
-          settings,
-          'subtitle_type',
-          fallback: 'sentence',
-        ),
-        pronunciationTone: stringListFromListValue(
-          settings.extra['pronunciation_tone'],
-        ),
-        timbreWeights: settings.extra['timbre_weights'] is List
-            ? (settings.extra['timbre_weights'] as List)
-                  .whereType<Map>()
-                  .map(stringKeyedMapFromValue)
-                  .toList(growable: false)
-            : const <Map<String, Object?>>[],
-        voiceModify: settings.extra['voice_modify'] is Map
-            ? stringKeyedMapFromValue(settings.extra['voice_modify'])
-            : const <String, Object?>{},
-      ),
-      timeout: operation.remainingSynthesisTime(),
+    final result = await AiUsageTraceContext.runDerived(
+      source: AiUsageSource.textToSpeech,
+      operation: 'speech_synthesis',
+      body: () async {
+        final startedAt = DateTime.now().toUtc();
+        try {
+          final generated = await _mediaGenerationService.generateAudio(
+            model: model,
+            prompt: text,
+            options: AiCreationOptions(
+              voice: nullIfBlank(voice),
+              speed: settings.speed,
+              volume: settings.volume,
+              pitch: settings.pitch,
+              outputFormat: outputFormat,
+              sampleRate: _extraInt(
+                settings,
+                'sample_rate',
+                fallback: _defaultAiTtsSampleRate,
+              ),
+              bitrate: _extraInt(
+                settings,
+                'bit_rate',
+                fallback: _defaultAiTtsBitRate,
+              ),
+              languageBoost: _extraString(settings, 'language_boost'),
+              emotion: _extraString(settings, 'emotion'),
+              textNormalization: _extraBool(settings, 'text_normalization'),
+              latexRead: _extraBool(settings, 'latex_read'),
+              channel: _extraInt(settings, 'channel', fallback: 1),
+              forceCbr: _extraBool(settings, 'force_cbr'),
+              subtitleEnable: _extraBool(settings, 'subtitle_enable'),
+              subtitleType: _extraString(
+                settings,
+                'subtitle_type',
+                fallback: 'sentence',
+              ),
+              pronunciationTone: stringListFromListValue(
+                settings.extra['pronunciation_tone'],
+              ),
+              timbreWeights: settings.extra['timbre_weights'] is List
+                  ? (settings.extra['timbre_weights'] as List)
+                        .whereType<Map>()
+                        .map(stringKeyedMapFromValue)
+                        .toList(growable: false)
+                  : const <Map<String, Object?>>[],
+              voiceModify: settings.extra['voice_modify'] is Map
+                  ? stringKeyedMapFromValue(settings.extra['voice_modify'])
+                  : const <String, Object?>{},
+            ),
+            timeout: operation.remainingSynthesisTime(),
+          );
+          AiUsageTracker.instance.recordSuccess(
+            model: model,
+            apiFamily: AiApiFamily.audioSpeech.storageValue,
+            startedAt: startedAt,
+            endedAt: DateTime.now().toUtc(),
+            inputCharacters: text.length,
+            outputCharacters: 0,
+            usage: generated.usage,
+          );
+          return generated;
+        } catch (error) {
+          AiUsageTracker.instance.recordFailure(
+            model: model,
+            apiFamily: AiApiFamily.audioSpeech.storageValue,
+            startedAt: startedAt,
+            endedAt: DateTime.now().toUtc(),
+            error: error,
+          );
+          rethrow;
+        }
+      },
     );
     operation.throwIfCancelled();
     final audioReference = _firstMediaReference(result.markdown);
