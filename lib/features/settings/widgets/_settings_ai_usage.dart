@@ -398,6 +398,7 @@ class _AiUsageHero extends StatelessWidget {
             ],
           );
           final side = Wrap(
+            alignment: WrapAlignment.end,
             spacing: 10,
             runSpacing: 10,
             children: [
@@ -429,10 +430,14 @@ class _AiUsageHero extends StatelessWidget {
               ),
             ],
           );
+          final alignedSide = Align(
+            alignment: AlignmentDirectional.bottomEnd,
+            child: side,
+          );
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [primary, const SizedBox(height: 20), side],
+              children: [primary, const SizedBox(height: 20), alignedSide],
             );
           }
           return Row(
@@ -440,7 +445,7 @@ class _AiUsageHero extends StatelessWidget {
             children: [
               Expanded(child: primary),
               const SizedBox(width: 24),
-              Flexible(child: side),
+              Flexible(child: alignedSide),
             ],
           );
         },
