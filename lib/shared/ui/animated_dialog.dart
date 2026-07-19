@@ -51,9 +51,10 @@ double resolveOpenHandResponsiveDialogExtent({
 }) {
   final safeMax = _validDialogDimension(maxExtent);
   final safeMin = _validDialogDimension(minAvailableExtent) ?? 0;
+  final safeMargin = viewportMargin.isFinite ? math.max(0, viewportMargin) : 0;
   final safeFraction = _validDialogViewportFraction(viewportFraction);
   final marginBoundedExtent = viewportExtent.isFinite
-      ? math.max(safeMin, viewportExtent - viewportMargin)
+      ? math.max(safeMin, viewportExtent - safeMargin)
       : (safeMax ?? safeMin);
   final available = viewportExtent.isFinite && safeFraction != null
       ? math.min(

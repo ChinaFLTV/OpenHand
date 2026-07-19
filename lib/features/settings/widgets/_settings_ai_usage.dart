@@ -2861,168 +2861,156 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = MediaQuery.sizeOf(context);
-    return Dialog(
+    return buildOpenHandDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 760,
-          maxHeight: math.min(760, size.height * 0.88),
-        ),
-        child: Material(
-          color: theme.colorScheme.surface,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 20, 14, 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Icon(
-                        Icons.tune_rounded,
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '多维筛选',
-                              en: 'Usage Filters',
-                            ),
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '按供应商、模型和来源组合过滤',
-                              en: 'Combine provider, model, and source filters',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+      backgroundColor: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      maxWidth: 760,
+      maxHeight: math.min(760, size.height * 0.88),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 20, 14, 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Icon(
+                    Icons.tune_rounded,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
                 ),
-              ),
-              Divider(height: 1, color: theme.colorScheme.outlineVariant),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(22),
+                const SizedBox(width: 13),
+                Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFacet(
-                        context,
-                        title: openHandLocalizedText(
+                      Text(
+                        openHandLocalizedText(
                           context,
-                          zh: '供应商',
-                          en: 'Provider',
+                          zh: '多维筛选',
+                          en: 'Usage Filters',
                         ),
-                        facets: widget.providerFacets,
-                        selected: _filter.providerConfigId,
-                        onSelected: (value) => setState(
-                          () => _filter = value == null
-                              ? _filter.copyWith(clearProvider: true)
-                              : _filter.copyWith(providerConfigId: value),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 22),
-                      _buildFacet(
-                        context,
-                        title: openHandLocalizedText(
+                      Text(
+                        openHandLocalizedText(
                           context,
-                          zh: '模型',
-                          en: 'Model',
+                          zh: '按供应商、模型和来源组合过滤',
+                          en: 'Combine provider, model, and source filters',
                         ),
-                        facets: widget.modelFacets,
-                        selected: _filter.modelId,
-                        onSelected: (value) => setState(
-                          () => _filter = value == null
-                              ? _filter.copyWith(clearModel: true)
-                              : _filter.copyWith(modelId: value),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      _buildFacet(
-                        context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '来源',
-                          en: 'Source',
-                        ),
-                        facets: widget.sourceFacets,
-                        selected: _filter.source,
-                        sourceLabels: true,
-                        onSelected: (value) => setState(
-                          () => _filter = value == null
-                              ? _filter.copyWith(clearSource: true)
-                              : _filter.copyWith(source: value),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              Divider(height: 1, color: theme.colorScheme.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: () => setState(
-                        () => _filter = AiUsageFilter(range: _filter.range),
-                      ),
-                      icon: Icons.restart_alt_rounded,
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '重置',
-                        en: 'Reset',
-                      ),
-                    ),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: () => Navigator.of(context).pop(_filter),
-                      icon: Icons.check_rounded,
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '应用筛选',
-                        en: 'Apply',
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildFacet(
+                    context,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '供应商',
+                      en: 'Provider',
+                    ),
+                    facets: widget.providerFacets,
+                    selected: _filter.providerConfigId,
+                    onSelected: (value) => setState(
+                      () => _filter = value == null
+                          ? _filter.copyWith(clearProvider: true)
+                          : _filter.copyWith(providerConfigId: value),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  _buildFacet(
+                    context,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '模型',
+                      en: 'Model',
+                    ),
+                    facets: widget.modelFacets,
+                    selected: _filter.modelId,
+                    onSelected: (value) => setState(
+                      () => _filter = value == null
+                          ? _filter.copyWith(clearModel: true)
+                          : _filter.copyWith(modelId: value),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  _buildFacet(
+                    context,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '来源',
+                      en: 'Source',
+                    ),
+                    facets: widget.sourceFacets,
+                    selected: _filter.source,
+                    sourceLabels: true,
+                    onSelected: (value) => setState(
+                      () => _filter = value == null
+                          ? _filter.copyWith(clearSource: true)
+                          : _filter.copyWith(source: value),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => setState(
+                    () => _filter = AiUsageFilter(range: _filter.range),
+                  ),
+                  icon: Icons.restart_alt_rounded,
+                  label: openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                ),
+                OpenHandDialogActionButton.primary(
+                  onPressed: () => Navigator.of(context).pop(_filter),
+                  icon: Icons.check_rounded,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '应用筛选',
+                    en: 'Apply',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -130,39 +130,34 @@ class _ResourceUsageStatisticsDialogState
     final mediaSize = MediaQuery.sizeOf(context);
     final maxHeight = math.min(840.0, mediaSize.height * 0.9);
     final kindLabel = resourceUsageKindLabel(context, widget.kind);
-    return Dialog(
+    return buildOpenHandDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 1120, maxHeight: maxHeight),
-        child: Material(
-          color: colorScheme.surface,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
-          child: ValueListenableBuilder<int>(
-            valueListenable: widget.store.changes,
-            builder: (context, _, _) {
-              final snapshot = widget.store.snapshot(
-                kind: widget.kind,
-                preferredSessionId: widget.preferredSessionId,
-              );
-              return Column(
-                children: [
-                  _buildHeader(context, kindLabel, snapshot.generatedAt),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
-                      child: _buildBody(context, snapshot),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      maxWidth: 1120,
+      maxHeight: maxHeight,
+      child: ValueListenableBuilder<int>(
+        valueListenable: widget.store.changes,
+        builder: (context, _, _) {
+          final snapshot = widget.store.snapshot(
+            kind: widget.kind,
+            preferredSessionId: widget.preferredSessionId,
+          );
+          return Column(
+            children: [
+              _buildHeader(context, kindLabel, snapshot.generatedAt),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+                  child: _buildBody(context, snapshot),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { classNames } from '../shared/util/class_names';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DialogActionButton,
   DialogFrame,
   createStandardDialogFrameAppearance,
@@ -100,8 +101,10 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       onRequestClose={requestDismiss}
       closeOnBackdrop={!busy && !closing && !disableBackdropClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName:
-          'oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4',
+        overlayClassName: classNames(
+          'oh-confirm-dialog-overlay',
+          DIALOG_OVERLAY_CENTER_CLASS,
+        ),
         panelClassName: classNames(
           'oh-confirm-dialog w-full rounded-m3-xl p-5',
           wide && 'is-wide',

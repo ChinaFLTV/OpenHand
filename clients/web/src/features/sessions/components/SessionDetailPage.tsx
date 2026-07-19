@@ -154,6 +154,7 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_LOW_Z_INDEX,
   DialogActionButton,
   DialogFrame,
@@ -10988,8 +10989,7 @@ function SessionThrottleDialog({
       onRequestClose={requestClose}
       closeOnBackdrop={!busy && !closing}
       {...createStandardDialogFrameAppearance({
-        overlayClassName:
-          'oh-dialog-backdrop fixed inset-0 flex items-center justify-center p-4',
+        overlayClassName: `oh-dialog-backdrop ${DIALOG_OVERLAY_CENTER_CLASS}`,
         overlayTone: 'intense',
         panelClassName: 'rounded-m3-md p-5 w-full max-w-md',
         panelBorder: 'none',

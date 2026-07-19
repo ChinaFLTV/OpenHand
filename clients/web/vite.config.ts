@@ -1,6 +1,73 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 
+const MERMAID_VENDOR_PATTERNS = [
+  'mermaid',
+  '@mermaid-js',
+  '@braintree/sanitize-url',
+  'cytoscape',
+  'd3',
+  'dagre-d3',
+  'dayjs',
+  'es-toolkit',
+  'khroma',
+  'roughjs',
+  'stylis',
+  'ts-dedent',
+  '@iconify/utils',
+  '@upsetjs/venn',
+  'langium',
+  'chevrotain',
+] as const;
+
+const MARKDOWN_VENDOR_PATTERNS = [
+  'highlight',
+  'lowlight',
+  'katex',
+  'marked',
+  'markdown',
+  'remark',
+  'rehype',
+  'micromark',
+  'mdast',
+  'hast',
+  'unified',
+  'vfile',
+  'bail',
+  'trough',
+  'zwitch',
+  'ccount',
+  'character-entities',
+  'decode-named-character',
+  'property-information',
+  'space-separated-tokens',
+  'comma-separated-tokens',
+  'is-plain-obj',
+  'html-url-attributes',
+  'longest-streak',
+  'escape-string-regexp',
+  'estree-util-is-identifier-name',
+] as const;
+
+const FEATURE_CHUNK_RULES = [
+  ['/features/sessions/', 'feature-sessions'],
+  ['/features/logs/', 'feature-logs'],
+  ['/features/ops/', 'feature-ops'],
+  ['/features/harness/', 'feature-harness'],
+  ['/features/toolbox/', 'feature-toolbox'],
+  ['/features/files/', 'feature-files'],
+  ['/features/plugins/', 'feature-plugins'],
+  ['/features/settings/', 'feature-settings'],
+] as const;
+
+function includesAnyPattern(id: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) => id.includes(pattern));
+}
+
+function featureChunkNameFor(id: string): string | undefined {
+  return FEATURE_CHUNK_RULES.find(([pattern]) => id.includes(pattern))?.[1];
+}
+
 // 产物输出到 ../../assets/web/，由 scripts/build_web.sh 调用 `pnpm build` 后
 // Flutter rootBundle 直接拉取。入口 app.js / app.css 固定文件名便于服务端白名单
 // 暴露；拆分 chunk 与派生 assets 使用内容 hash，避免旧 Service Worker / 浏览器缓存
@@ -29,72 +96,26 @@ export default defineConfig({
         // 按 vendor 与重 feature 拆 chunk，把 app.js 主块缩小。
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('preact') || id.includes('@preact')) return 'vendor-preact';
+            if (id.includes('preact') || id.includes('@preact')) {
+              return 'vendor-preact';
+            }
             // mermaid 体积巨大（>2 MB）且自成体系，单独拆包避免撑大 vendor。
-            // 必须把 mermaid 的 transitive 依赖（d3、cytoscape、roughjs 等）
+            // 必须把 mermaid 的间接依赖（d3、cytoscape、roughjs 等）
             // 一并归入本 chunk，否则它们会落到 vendor 中，导致 vendor-mermaid
             // 仍需拉取 vendor，失去独立缓存意义，且可能引入循环引用。
-            if (
-              id.includes('mermaid')
-              || id.includes('@mermaid-js')
-              || id.includes('@braintree/sanitize-url')
-              || id.includes('cytoscape')
-              || id.includes('d3')
-              || id.includes('dagre-d3')
-              || id.includes('dayjs')
-              || id.includes('es-toolkit')
-              || id.includes('khroma')
-              || id.includes('roughjs')
-              || id.includes('stylis')
-              || id.includes('ts-dedent')
-              || id.includes('@iconify/utils')
-              || id.includes('@upsetjs/venn')
-              || id.includes('langium')
-              || id.includes('chevrotain')
-            ) return 'vendor-mermaid';
+            if (includesAnyPattern(id, MERMAID_VENDOR_PATTERNS)) {
+              return 'vendor-mermaid';
+            }
             // Markdown 生态统一桶：包含 highlight.js / lowlight / rehype-highlight
             // 及 react-markdown / remark / rehype / KaTeX / micromark / unified 等全部
-            // transitive 依赖。把 highlight 合并进来，消除 vendor-markdown
+            // 间接依赖。把 highlight 合并进来，消除 vendor-markdown
             // -> vendor-highlight 循环。
-            if (
-              id.includes('highlight')
-              || id.includes('lowlight')
-              || id.includes('katex')
-              || id.includes('marked')
-              || id.includes('markdown')
-              || id.includes('remark')
-              || id.includes('rehype')
-              || id.includes('micromark')
-              || id.includes('mdast')
-              || id.includes('hast')
-              || id.includes('unified')
-              || id.includes('vfile')
-              || id.includes('bail')
-              || id.includes('trough')
-              || id.includes('zwitch')
-              || id.includes('ccount')
-              || id.includes('character-entities')
-              || id.includes('decode-named-character')
-              || id.includes('property-information')
-              || id.includes('space-separated-tokens')
-              || id.includes('comma-separated-tokens')
-              || id.includes('is-plain-obj')
-              || id.includes('html-url-attributes')
-              || id.includes('longest-streak')
-              || id.includes('escape-string-regexp')
-              || id.includes('estree-util-is-identifier-name')
-            ) return 'vendor-markdown';
+            if (includesAnyPattern(id, MARKDOWN_VENDOR_PATTERNS)) {
+              return 'vendor-markdown';
+            }
             return 'vendor';
           }
-          if (id.includes('/features/sessions/')) return 'feature-sessions';
-          if (id.includes('/features/logs/')) return 'feature-logs';
-          if (id.includes('/features/ops/')) return 'feature-ops';
-          if (id.includes('/features/harness/')) return 'feature-harness';
-          if (id.includes('/features/toolbox/')) return 'feature-toolbox';
-          if (id.includes('/features/files/')) return 'feature-files';
-          if (id.includes('/features/plugins/')) return 'feature-plugins';
-          if (id.includes('/features/settings/')) return 'feature-settings';
-          return undefined;
+          return featureChunkNameFor(id);
         },
       },
     },

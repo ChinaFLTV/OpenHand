@@ -33,7 +33,7 @@ const DIALOG_OVERLAY_DEFAULT_BLUR_PX = 2;
 const DIALOG_OVERLAY_MAX_BLUR_PX = 12;
 const DIALOG_OVERLAY_INVERSE_BACKGROUND =
   'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)';
-const DIALOG_OVERLAY_CENTER_CLASS =
+export const DIALOG_OVERLAY_CENTER_CLASS =
   'fixed inset-0 flex items-center justify-center p-4';
 export const DIALOG_OVERLAY_CENTER_FLUSH_CLASS =
   'fixed inset-0 flex items-center justify-center';

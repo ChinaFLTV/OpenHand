@@ -13,6 +13,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import { describeApiError } from '../utils/api_error';
 import {
+  DIALOG_OVERLAY_CENTER_CLASS,
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
@@ -119,7 +120,7 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: 'fixed inset-0 flex items-center justify-center p-4',
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlayTone: 'strong',
         overlayBlurPx: 5,
         panelClassName: 'oh-resource-usage-dialog',
