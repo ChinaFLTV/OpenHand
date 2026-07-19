@@ -2593,6 +2593,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
       zh: '追踪 ID',
       en: 'Trace ID',
     );
+    final protocolLabel = record?.apiFamily.replaceAll('_', ' ') ?? '';
 
     Widget cell({
       required int flex,
@@ -2698,12 +2699,12 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                   ),
           ),
           cell(
-            flex: 12,
+            flex: 18,
             child: header
                 ? value(
                     openHandLocalizedText(context, zh: '协议', en: 'Protocol'),
                   )
-                : value(record!.apiFamily.replaceAll('_', ' ')),
+                : Tooltip(message: protocolLabel, child: value(protocolLabel)),
           ),
           cell(
             flex: 23,
