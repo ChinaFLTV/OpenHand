@@ -1,5 +1,13 @@
 part of 'settings_view.dart';
 
+const double _kAiUsageMetricThreeColumnMinWidth = 660;
+const double _kAiUsageMetricTwoColumnMinWidth = 440;
+const double _kAiUsageHeatmapMinWidth = 820;
+const double _kAiUsageBreakdownTableMinWidth = 860;
+const double _kAiUsageBreakdownHeaderHeight = 46;
+const double _kAiUsageBreakdownRowHeight = 58;
+const double _kAiUsageBreakdownBodyMaxHeight = 348;
+
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
 
@@ -321,15 +329,7 @@ class _AiUsageHero extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primaryContainer.withValues(alpha: 0.78),
-            colorScheme.tertiaryContainer.withValues(alpha: 0.44),
-            colorScheme.surfaceContainerLow,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
@@ -459,7 +459,7 @@ class _AiUsageHeroPill extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 132),
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.72),
+        color: theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
@@ -617,9 +617,10 @@ class _AiUsageMetricGrid extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1080
+        final columns =
+            constraints.maxWidth >= _kAiUsageMetricThreeColumnMinWidth
             ? 3
-            : constraints.maxWidth >= 620
+            : constraints.maxWidth >= _kAiUsageMetricTwoColumnMinWidth
             ? 2
             : 1;
         final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
@@ -814,6 +815,8 @@ class _AiUsageTrendChart extends StatefulWidget {
 
 class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
   int? _selectedIndex;
+  int? _tooltipIndex;
+  bool _tooltipVisible = false;
 
   @override
   Widget build(BuildContext context) {
@@ -866,7 +869,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
             const height = 220.0;
             final width = constraints.maxWidth;
             return MouseRegion(
-              onExit: (_) => setState(() => _selectedIndex = null),
+              onExit: (_) => _hideTooltip(),
               onHover: (event) => _selectBucket(event.localPosition.dx, width),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -888,7 +891,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                           ),
                         ),
                       ),
-                      if (_selectedIndex case final index?)
+                      if (_tooltipIndex case final index?)
                         _buildTooltip(context, index, width),
                     ],
                   ),
@@ -903,60 +906,101 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
 
   void _selectBucket(double dx, double width) {
     if (widget.buckets.isEmpty || width <= 0) return;
-    final index = (dx / width * widget.buckets.length).floor().clamp(
-      0,
-      widget.buckets.length - 1,
-    );
-    if (_selectedIndex == index) return;
-    setState(() => _selectedIndex = index);
+    final index = widget.buckets.length == 1
+        ? 0
+        : (dx / width * (widget.buckets.length - 1)).round().clamp(
+            0,
+            widget.buckets.length - 1,
+          );
+    if (_selectedIndex == index && _tooltipVisible) return;
+    setState(() {
+      _selectedIndex = index;
+      _tooltipIndex = index;
+      _tooltipVisible = true;
+    });
+  }
+
+  void _hideTooltip() {
+    if (!_tooltipVisible && _selectedIndex == null) return;
+    setState(() {
+      _selectedIndex = null;
+      _tooltipVisible = false;
+    });
   }
 
   Widget _buildTooltip(BuildContext context, int index, double width) {
     final theme = Theme.of(context);
     final bucket = widget.buckets[index];
-    const tooltipWidth = 210.0;
-    final center = (index + 0.5) * width / widget.buckets.length;
+    final tooltipWidth = math.min(width, 210.0);
+    final center = widget.buckets.length == 1
+        ? width / 2
+        : index * width / (widget.buckets.length - 1);
     final left = (center - tooltipWidth / 2).clamp(0.0, width - tooltipWidth);
-    return Positioned(
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 220),
+    );
+    return AnimatedPositioned(
       left: left,
       top: 8,
       width: tooltipWidth,
+      duration: _settingsMotionDuration(
+        context,
+        const Duration(milliseconds: 170),
+      ),
+      curve: Curves.easeOutCubic,
       child: IgnorePointer(
-        child: Material(
-          elevation: 8,
-          color: theme.colorScheme.inverseSurface,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: DefaultTextStyle(
-              style: theme.textTheme.bodySmall!.copyWith(
-                color: theme.colorScheme.onInverseSurface,
-                height: 1.5,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _usageBucketLabel(bucket.key),
-                    style: theme.textTheme.labelLarge?.copyWith(
+        child: AnimatedOpacity(
+          opacity: _tooltipVisible ? 1 : 0,
+          duration: duration,
+          curve: _tooltipVisible ? Curves.easeOutCubic : Curves.easeInCubic,
+          child: AnimatedSlide(
+            offset: _tooltipVisible ? Offset.zero : const Offset(0, 0.08),
+            duration: duration,
+            curve: _tooltipVisible ? Curves.easeOutBack : Curves.easeInCubic,
+            child: AnimatedScale(
+              scale: _tooltipVisible ? 1 : 0.9,
+              duration: duration,
+              curve: _tooltipVisible ? Curves.easeOutBack : Curves.easeInCubic,
+              alignment: Alignment.topCenter,
+              child: Material(
+                elevation: 8,
+                color: theme.colorScheme.inverseSurface,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: DefaultTextStyle(
+                    style: theme.textTheme.bodySmall!.copyWith(
                       color: theme.colorScheme.onInverseSurface,
-                      fontWeight: FontWeight.w800,
+                      height: 1.5,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _usageBucketLabel(bucket.key),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onInverseSurface,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text('Token  ${_usageInteger(bucket.totalTokens)}'),
+                        Text(
+                          '${openHandLocalizedText(context, zh: '输入', en: 'Input')}  ${_usageInteger(bucket.promptTokens)}  ·  '
+                          '${openHandLocalizedText(context, zh: '输出', en: 'Output')}  ${_usageInteger(bucket.completionTokens)}',
+                        ),
+                        Text(
+                          '${openHandLocalizedText(context, zh: '成本', en: 'Cost')}  ${bucket.pricedRequestCount == 0
+                              ? '—'
+                              : bucket.pricedRequestCount < bucket.requestCount
+                              ? '≥${_usageMoney(bucket.totalCostUsd)}'
+                              : _usageMoney(bucket.totalCostUsd)}',
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Text('Token  ${_usageInteger(bucket.totalTokens)}'),
-                  Text(
-                    '${openHandLocalizedText(context, zh: '输入', en: 'Input')}  ${_usageInteger(bucket.promptTokens)}  ·  '
-                    '${openHandLocalizedText(context, zh: '输出', en: 'Output')}  ${_usageInteger(bucket.completionTokens)}',
-                  ),
-                  Text(
-                    '${openHandLocalizedText(context, zh: '成本', en: 'Cost')}  ${bucket.pricedRequestCount == 0
-                        ? '—'
-                        : bucket.pricedRequestCount < bucket.requestCount
-                        ? '≥${_usageMoney(bucket.totalCostUsd)}'
-                        : _usageMoney(bucket.totalCostUsd)}',
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -999,40 +1043,65 @@ class _AiUsageTrendPainter extends CustomPainter {
         ),
       ),
     );
-    final step = buckets.length <= 1
-        ? size.width
-        : size.width / (buckets.length - 1);
-    Path pathFor(int Function(AiUsageBucket) valueOf) {
-      final path = Path();
-      for (var index = 0; index < buckets.length; index++) {
-        final x = buckets.length <= 1 ? size.width / 2 : index * step;
-        final value = valueOf(buckets[index]);
+    final step = buckets.length <= 1 ? 0.0 : size.width / (buckets.length - 1);
+    List<Offset> pointsFor(int Function(AiUsageBucket) valueOf) {
+      if (buckets.length == 1) {
+        final value = valueOf(buckets.first);
         final y = top + chartHeight * (1 - value / maxTokens);
-        if (index == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
+        return <Offset>[Offset(0, y), Offset(size.width, y)];
+      }
+      return <Offset>[
+        for (var index = 0; index < buckets.length; index++)
+          Offset(
+            index * step,
+            top + chartHeight * (1 - valueOf(buckets[index]) / maxTokens),
+          ),
+      ];
+    }
+
+    Path smoothPath(List<Offset> points) {
+      final path = Path();
+      if (points.isEmpty) return path;
+      path.moveTo(points.first.dx, points.first.dy);
+      for (var index = 0; index < points.length - 1; index++) {
+        final before = index == 0 ? points[index] : points[index - 1];
+        final current = points[index];
+        final next = points[index + 1];
+        final after = index + 2 < points.length ? points[index + 2] : next;
+        final control1 = Offset(
+          current.dx + (next.dx - before.dx) / 6,
+          (current.dy + (next.dy - before.dy) / 6).clamp(
+            top,
+            top + chartHeight,
+          ),
+        );
+        final control2 = Offset(
+          next.dx - (after.dx - current.dx) / 6,
+          (next.dy - (after.dy - current.dy) / 6).clamp(top, top + chartHeight),
+        );
+        path.cubicTo(
+          control1.dx,
+          control1.dy,
+          control2.dx,
+          control2.dy,
+          next.dx,
+          next.dy,
+        );
       }
       return path;
     }
 
-    final inputPath = pathFor((bucket) => bucket.promptTokens);
+    final inputPoints = pointsFor((bucket) => bucket.promptTokens);
+    final outputPoints = pointsFor((bucket) => bucket.completionTokens);
+    final cachePoints = pointsFor((bucket) => bucket.cacheReadTokens);
+    final inputPath = smoothPath(inputPoints);
     final areaPath = Path.from(inputPath)
       ..lineTo(size.width, top + chartHeight)
       ..lineTo(0, top + chartHeight)
       ..close();
     canvas.drawPath(
       areaPath,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colorScheme.primary.withValues(alpha: 0.2),
-            colorScheme.primary.withValues(alpha: 0.015),
-          ],
-        ).createShader(Rect.fromLTWH(0, top, size.width, chartHeight)),
+      Paint()..color = colorScheme.primary.withValues(alpha: 0.08),
     );
     void drawSeries(Path path, Color color, double width) {
       canvas.drawPath(
@@ -1047,16 +1116,8 @@ class _AiUsageTrendPainter extends CustomPainter {
     }
 
     drawSeries(inputPath, colorScheme.primary, 2.6);
-    drawSeries(
-      pathFor((bucket) => bucket.completionTokens),
-      colorScheme.tertiary,
-      2.2,
-    );
-    drawSeries(
-      pathFor((bucket) => bucket.cacheReadTokens),
-      OpenHandStatusColors.success,
-      2.2,
-    );
+    drawSeries(smoothPath(outputPoints), colorScheme.tertiary, 2.2);
+    drawSeries(smoothPath(cachePoints), OpenHandStatusColors.success, 2.2);
     final selected = selectedIndex;
     if (selected != null) {
       final x = buckets.length <= 1 ? size.width / 2 : selected * step;
@@ -1067,6 +1128,21 @@ class _AiUsageTrendPainter extends CustomPainter {
           ..color = colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
           ..strokeWidth = 1,
       );
+      void drawPoint(List<Offset> points, Color color) {
+        final point = buckets.length == 1
+            ? Offset(size.width / 2, points.first.dy)
+            : points[selected];
+        canvas.drawCircle(
+          point,
+          5,
+          Paint()..color = colorScheme.surfaceContainerLow,
+        );
+        canvas.drawCircle(point, 3.2, Paint()..color = color);
+      }
+
+      drawPoint(inputPoints, colorScheme.primary);
+      drawPoint(outputPoints, colorScheme.tertiary);
+      drawPoint(cachePoints, OpenHandStatusColors.success);
     }
     final labelStyle = TextStyle(
       color: colorScheme.onSurfaceVariant,
@@ -1189,99 +1265,132 @@ class _AiUsageHeatmap extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        Scrollbar(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 21, right: 8),
-                  child: Column(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final contentWidth = math.max(
+              constraints.maxWidth,
+              _kAiUsageHeatmapMinWidth,
+            );
+            return Scrollbar(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(bottom: 14),
+                child: SizedBox(
+                  width: contentWidth,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (var day = 0; day < 7; day++)
-                        SizedBox(
-                          height: 15,
-                          child: Text(
-                            switch (day) {
-                              1 => openHandLocalizedText(
-                                context,
-                                zh: '一',
-                                en: 'Mon',
+                      Padding(
+                        padding: const EdgeInsets.only(top: 21, right: 8),
+                        child: Column(
+                          children: [
+                            for (var day = 0; day < 7; day++)
+                              SizedBox(
+                                height: 15,
+                                child: Text(
+                                  switch (day) {
+                                    1 => openHandLocalizedText(
+                                      context,
+                                      zh: '一',
+                                      en: 'Mon',
+                                    ),
+                                    3 => openHandLocalizedText(
+                                      context,
+                                      zh: '三',
+                                      en: 'Wed',
+                                    ),
+                                    5 => openHandLocalizedText(
+                                      context,
+                                      zh: '五',
+                                      en: 'Fri',
+                                    ),
+                                    _ => '',
+                                  },
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 9,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                               ),
-                              3 => openHandLocalizedText(
-                                context,
-                                zh: '三',
-                                en: 'Wed',
-                              ),
-                              5 => openHandLocalizedText(
-                                context,
-                                zh: '五',
-                                en: 'Fri',
-                              ),
-                              _ => '',
-                            },
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 9,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                          ],
                         ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (var week = 0; week < 53; week++)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 12,
+                                    child:
+                                        week == 0 ||
+                                            start
+                                                    .add(
+                                                      Duration(days: week * 7),
+                                                    )
+                                                    .month !=
+                                                start
+                                                    .add(
+                                                      Duration(
+                                                        days: (week - 1) * 7,
+                                                      ),
+                                                    )
+                                                    .month
+                                        ? OverflowBox(
+                                            maxWidth: 44,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              _usageMonthLabel(
+                                                context,
+                                                start.add(
+                                                  Duration(days: week * 7),
+                                                ),
+                                              ),
+                                              softWrap: false,
+                                              style: theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    color: theme
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  for (var day = 0; day < 7; day++)
+                                    _AiUsageHeatmapCell(
+                                      date: start.add(
+                                        Duration(days: week * 7 + day),
+                                      ),
+                                      today: localToday,
+                                      bucket:
+                                          byDate[_usageDateKey(
+                                            start.add(
+                                              Duration(days: week * 7 + day),
+                                            ),
+                                          )],
+                                      maxTokens: maxTokens,
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                for (var week = 0; week < 53; week++)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 3),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          height: 20,
-                          width: 12,
-                          child:
-                              week == 0 ||
-                                  start.add(Duration(days: week * 7)).month !=
-                                      start
-                                          .add(Duration(days: (week - 1) * 7))
-                                          .month
-                              ? OverflowBox(
-                                  maxWidth: 44,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    _usageMonthLabel(
-                                      context,
-                                      start.add(Duration(days: week * 7)),
-                                    ),
-                                    softWrap: false,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        for (var day = 0; day < 7; day++)
-                          _AiUsageHeatmapCell(
-                            date: start.add(Duration(days: week * 7 + day)),
-                            today: localToday,
-                            bucket:
-                                byDate[_usageDateKey(
-                                  start.add(Duration(days: week * 7 + day)),
-                                )],
-                            maxTokens: maxTokens,
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Align(
-          alignment: Alignment.centerRight,
+          alignment: Alignment.centerLeft,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1437,8 +1546,20 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
               context,
               const Duration(milliseconds: 280),
             ),
-            switchInCurve: Curves.easeOutCubic,
+            reverseDuration: _settingsMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
+            switchInCurve: Curves.easeOutBack,
             switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.985, end: 1).animate(animation),
+                alignment: Alignment.topCenter,
+                child: child,
+              ),
+            ),
             child: items.isEmpty
                 ? SizedBox(
                     key: ValueKey<String>('$_dimension-empty'),
@@ -1453,16 +1574,10 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
                       ),
                     ),
                   )
-                : Column(
+                : _AiUsageBreakdownTable(
                     key: ValueKey<String>(_dimension),
-                    children: [
-                      for (final item in items.take(10))
-                        _AiUsageBreakdownRow(
-                          item: item,
-                          maxTokens: items.first.totalTokens,
-                          dimension: _dimension,
-                        ),
-                    ],
+                    items: items,
+                    dimension: _dimension,
                   ),
           ),
         ],
@@ -1471,101 +1586,245 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
   }
 }
 
-class _AiUsageBreakdownRow extends StatelessWidget {
-  const _AiUsageBreakdownRow({
-    required this.item,
-    required this.maxTokens,
+class _AiUsageBreakdownTable extends StatefulWidget {
+  const _AiUsageBreakdownTable({
+    super.key,
+    required this.items,
     required this.dimension,
   });
 
-  final AiUsageBreakdown item;
-  final int maxTokens;
+  final List<AiUsageBreakdown> items;
   final String dimension;
+
+  @override
+  State<_AiUsageBreakdownTable> createState() => _AiUsageBreakdownTableState();
+}
+
+class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
+  final ScrollController _horizontalController = ScrollController();
+  final ScrollController _verticalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    _verticalController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final label = switch (dimension) {
-      'source' => _usageSourceLabel(context, item.label),
-      'operation' => _usageOperationLabel(context, item.label),
-      'surface' => item.label.toUpperCase(),
-      _ => item.label,
-    };
-    final progress = maxTokens == 0 ? 0.0 : item.totalTokens / maxTokens;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 13),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  _usageDimensionIcon(dimension),
-                  size: 17,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+    final bodyHeight = math.min(
+      _kAiUsageBreakdownBodyMaxHeight,
+      widget.items.length * _kAiUsageBreakdownRowHeight,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = math.max(
+          constraints.maxWidth,
+          _kAiUsageBreakdownTableMinWidth,
+        );
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLowest,
+              border: Border.all(color: colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: OpenHandSafeScrollbar(
+              controller: _horizontalController,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: tableWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        height: _kAiUsageBreakdownHeaderHeight,
+                        color: colorScheme.surfaceContainerHighest,
+                        child: _buildRow(context, header: true),
+                      ),
+                      SizedBox(
+                        height: bodyHeight,
+                        child: OpenHandSafeScrollbar(
+                          controller: _verticalController,
+                          thumbVisibility:
+                              widget.items.length *
+                                  _kAiUsageBreakdownRowHeight >
+                              _kAiUsageBreakdownBodyMaxHeight,
+                          child: ListView.builder(
+                            controller: _verticalController,
+                            padding: EdgeInsets.zero,
+                            itemCount: widget.items.length,
+                            itemExtent: _kAiUsageBreakdownRowHeight,
+                            itemBuilder: (context, index) => Container(
+                              color: index.isEven
+                                  ? colorScheme.surfaceContainerLowest
+                                  : colorScheme.surfaceContainerLow,
+                              child: _buildRow(
+                                context,
+                                item: widget.items[index],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                _usageCompactNumber(item.totalTokens),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 74,
-                child: Text(
-                  item.pricedRequestCount == 0
-                      ? '—'
-                      : item.pricedRequestCount < item.requestCount
-                      ? '≥${_usageMoney(item.totalCostUsd)}'
-                      : _usageMoney(item.totalCostUsd),
-                  textAlign: TextAlign.right,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 68,
-                child: Text(
-                  '${item.successCount}/${item.requestCount}',
-                  textAlign: TextAlign.right,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 7),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0, 1),
-              minHeight: 5,
-              color: colorScheme.primary,
-              backgroundColor: colorScheme.primary.withValues(alpha: 0.08),
+        );
+      },
+    );
+  }
+
+  Widget _buildRow(
+    BuildContext context, {
+    bool header = false,
+    AiUsageBreakdown? item,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final headerStyle = theme.textTheme.labelMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w800,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final label = item == null
+        ? ''
+        : switch (widget.dimension) {
+            'source' => _usageSourceLabel(context, item.label),
+            'operation' => _usageOperationLabel(context, item.label),
+            'surface' => item.label.toUpperCase(),
+            _ => item.label,
+          };
+    final successRate = item == null || item.requestCount == 0
+        ? 0.0
+        : item.successCount / item.requestCount;
+    Widget cell({
+      required int flex,
+      required Widget child,
+      Alignment alignment = Alignment.centerRight,
+    }) {
+      return Expanded(
+        flex: flex,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Align(alignment: alignment, child: child),
+        ),
+      );
+    }
+
+    Text value(String text, {TextAlign align = TextAlign.right}) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: align,
+        style: header ? headerStyle : valueStyle,
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.7),
+        ),
+      ),
+      child: Row(
+        children: [
+          cell(
+            flex: 28,
+            alignment: Alignment.centerLeft,
+            child: header
+                ? value(
+                    _usageBreakdownDimensionLabel(context, widget.dimension),
+                    align: TextAlign.left,
+                  )
+                : Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Icon(
+                          _usageDimensionIcon(widget.dimension),
+                          size: 16,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Tooltip(
+                          message: label,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: valueStyle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          cell(
+            flex: 16,
+            child: value(
+              header ? 'Token' : _usageInteger(item?.totalTokens ?? 0),
+            ),
+          ),
+          cell(
+            flex: 11,
+            child: value(
+              header
+                  ? openHandLocalizedText(context, zh: '请求', en: 'Requests')
+                  : '${item?.requestCount ?? 0}',
+            ),
+          ),
+          cell(
+            flex: 13,
+            child: value(
+              header
+                  ? openHandLocalizedText(context, zh: '成功率', en: 'Success')
+                  : _usagePercent(successRate),
+            ),
+          ),
+          cell(
+            flex: 16,
+            child: value(
+              header
+                  ? openHandLocalizedText(context, zh: '成本', en: 'Cost')
+                  : item!.pricedRequestCount == 0
+                  ? '—'
+                  : item.pricedRequestCount < item.requestCount
+                  ? '≥${_usageMoney(item.totalCostUsd)}'
+                  : _usageMoney(item.totalCostUsd),
+            ),
+          ),
+          cell(
+            flex: 16,
+            child: value(
+              header
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '平均耗时',
+                      en: 'Avg. Latency',
+                    )
+                  : _usageDuration(item?.averageDurationMs ?? 0),
             ),
           ),
         ],
@@ -2252,6 +2511,17 @@ IconData _usageDimensionIcon(String dimension) {
     'surface' => Icons.devices_rounded,
     'operation' => Icons.account_tree_outlined,
     _ => Icons.layers_outlined,
+  };
+}
+
+String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
+  return switch (dimension) {
+    'provider' => 'Provider',
+    'model' => openHandLocalizedText(context, zh: '模型', en: 'Model'),
+    'template' => openHandLocalizedText(context, zh: '模板', en: 'Template'),
+    'surface' => openHandLocalizedText(context, zh: '端侧', en: 'Surface'),
+    'operation' => openHandLocalizedText(context, zh: '操作', en: 'Operation'),
+    _ => openHandLocalizedText(context, zh: '来源', en: 'Source'),
   };
 }
 
