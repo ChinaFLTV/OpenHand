@@ -93,11 +93,23 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
     if (snapshot == null) return;
     final next = await showAnimatedDialog<AiUsageFilter>(
       context: context,
-      builder: (dialogContext) => _AiUsageFilterDialog(
-        initial: _filter,
-        providerFacets: snapshot.providerFacets,
-        modelFacets: snapshot.modelFacets,
-        sourceFacets: snapshot.sourceFacets,
+      dismissOnEscape: false,
+      builder: (dialogContext) => Focus(
+        autofocus: true,
+        onKeyEvent: (_, event) {
+          if (event is! KeyDownEvent ||
+              event.logicalKey != LogicalKeyboardKey.escape) {
+            return KeyEventResult.ignored;
+          }
+          unawaited(Navigator.of(dialogContext).maybePop());
+          return KeyEventResult.handled;
+        },
+        child: _AiUsageFilterDialog(
+          initial: _filter,
+          providerFacets: snapshot.providerFacets,
+          modelFacets: snapshot.modelFacets,
+          sourceFacets: snapshot.sourceFacets,
+        ),
       ),
     );
     if (!mounted || next == null) return;
