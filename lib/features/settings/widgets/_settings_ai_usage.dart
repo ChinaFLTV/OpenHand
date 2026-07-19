@@ -2922,7 +2922,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(22),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildFacet(
                         context,
@@ -2979,23 +2979,29 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
               Divider(height: 1, color: theme.colorScheme.outlineVariant),
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    TextButton.icon(
+                    OpenHandDialogActionButton.secondary(
                       onPressed: () => setState(
                         () => _filter = AiUsageFilter(range: _filter.range),
                       ),
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      label: Text(
-                        openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                      icon: Icons.restart_alt_rounded,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '重置',
+                        en: 'Reset',
                       ),
                     ),
-                    const Spacer(),
-                    FilledButton.icon(
+                    OpenHandDialogActionButton.primary(
                       onPressed: () => Navigator.of(context).pop(_filter),
-                      icon: const Icon(Icons.check_rounded),
-                      label: Text(
-                        openHandLocalizedText(context, zh: '应用筛选', en: 'Apply'),
+                      icon: Icons.check_rounded,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '应用筛选',
+                        en: 'Apply',
                       ),
                     ),
                   ],
