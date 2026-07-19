@@ -9,6 +9,10 @@ const double _kAiUsageBreakdownRowHeight = 58;
 const double _kAiUsageBreakdownBodyMaxHeight = 348;
 const double _kAiUsageToolbarControlHeight = 40;
 const double _kAiUsageBreakdownDimensionWidth = 108;
+const double _kAiUsageRequestTableMinWidth = 1360;
+const double _kAiUsageRequestHeaderHeight = 48;
+const double _kAiUsageRequestRowHeight = 74;
+const double _kAiUsageRequestBodyMaxHeight = 444;
 
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
@@ -1868,173 +1872,369 @@ class _AiUsageRecentPanel extends StatelessWidget {
         zh: '最近请求的模型、来源、Token、成本、耗时与状态，不保存 Prompt 正文',
         en: 'Recent model, source, token, cost, latency, and status data; prompt bodies are never stored',
       ),
-      child: Column(
-        children: [
-          for (final record in records.take(16))
-            _AiUsageRequestRow(record: record),
-        ],
-      ),
+      child: records.isEmpty
+          ? SizedBox(
+              height: 110,
+              child: Center(
+                child: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '当前范围暂无请求记录',
+                    en: 'No request records in this range',
+                  ),
+                ),
+              ),
+            )
+          : _AiUsageRequestTable(records: records),
     );
   }
 }
 
-class _AiUsageRequestRow extends StatelessWidget {
-  const _AiUsageRequestRow({required this.record});
+class _AiUsageRequestTable extends StatefulWidget {
+  const _AiUsageRequestTable({required this.records});
 
-  final AiUsageRequestRecord record;
+  final List<AiUsageRequestRecord> records;
+
+  @override
+  State<_AiUsageRequestTable> createState() => _AiUsageRequestTableState();
+}
+
+class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
+  final ScrollController _horizontalController = ScrollController();
+  final ScrollController _verticalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    _verticalController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final success = record.status == 'success';
-    final statusColor = success
-        ? OpenHandStatusColors.success
-        : record.status == 'cancelled'
-        ? colorScheme.onSurfaceVariant
-        : colorScheme.error;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 760;
-          final identity = Row(
-            children: [
-              Tooltip(
-                message:
-                    '${openHandLocalizedText(context, zh: '状态', en: 'Status')}: ${record.status}'
-                    '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
-                    '\nTrace: ${record.traceId}',
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.34),
-                        blurRadius: 7,
+    final bodyHeight = math.min(
+      _kAiUsageRequestBodyMaxHeight,
+      widget.records.length * _kAiUsageRequestRowHeight,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = math.max(
+          constraints.maxWidth,
+          _kAiUsageRequestTableMinWidth,
+        );
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLowest,
+              border: Border.all(color: colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: OpenHandSafeScrollbar(
+              controller: _horizontalController,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: tableWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        height: _kAiUsageRequestHeaderHeight,
+                        color: colorScheme.surfaceContainerHighest,
+                        child: _buildRow(context, header: true),
+                      ),
+                      SizedBox(
+                        height: bodyHeight,
+                        child: OpenHandSafeScrollbar(
+                          controller: _verticalController,
+                          thumbVisibility:
+                              widget.records.length *
+                                  _kAiUsageRequestRowHeight >
+                              _kAiUsageRequestBodyMaxHeight,
+                          child: ListView.builder(
+                            controller: _verticalController,
+                            padding: EdgeInsets.zero,
+                            itemCount: widget.records.length,
+                            itemExtent: _kAiUsageRequestRowHeight,
+                            itemBuilder: (context, index) => ColoredBox(
+                              color: index.isEven
+                                  ? colorScheme.surfaceContainerLowest
+                                  : colorScheme.surfaceContainerLow,
+                              child: _buildRow(
+                                context,
+                                record: widget.records[index],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${record.providerName} · ${record.modelId}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_usageDateTime(record.startedAt)} · '
-                      '${_usageSourceLabel(context, record.source)} / '
-                      '${_usageOperationLabel(context, record.operation)} · '
-                      '${record.apiFamily} · ${record.surface.toUpperCase()}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-          final metrics = Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            alignment: WrapAlignment.end,
-            children: [
-              _AiUsageInlineMetric(
-                icon: Icons.bolt_rounded,
-                value:
-                    '${_usageCompactNumber(record.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
-              ),
-              _AiUsageInlineMetric(
-                icon: Icons.swap_vert_rounded,
-                value:
-                    '${_usageCompactNumber(record.usage.promptTokens ?? 0)} / '
-                    '${_usageCompactNumber(record.usage.completionTokens ?? 0)}',
-              ),
-              if ((record.usage.cacheReadTokens ?? 0) > 0)
-                _AiUsageInlineMetric(
-                  icon: Icons.cached_rounded,
-                  value: _usageCompactNumber(record.usage.cacheReadTokens ?? 0),
-                ),
-              _AiUsageInlineMetric(
-                icon: Icons.payments_outlined,
-                value: record.totalCostUsd == null
-                    ? '—'
-                    : _usageMoney(record.totalCostUsd!),
-              ),
-              _AiUsageInlineMetric(
-                icon: Icons.timer_outlined,
-                value: _usageDuration(record.durationMs.toDouble()),
-              ),
-              if (record.firstTokenMs case final firstTokenMs?)
-                _AiUsageInlineMetric(
-                  icon: Icons.first_page_rounded,
-                  value: _usageDuration(firstTokenMs.toDouble()),
-                ),
-            ],
-          );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [identity, const SizedBox(height: 9), metrics],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: identity),
-              const SizedBox(width: 16),
-              metrics,
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
-}
 
-class _AiUsageInlineMetric extends StatelessWidget {
-  const _AiUsageInlineMetric({required this.icon, required this.value});
+  Widget _buildRow(
+    BuildContext context, {
+    bool header = false,
+    AiUsageRequestRecord? record,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final headerStyle = theme.textTheme.labelMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w800,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final secondaryStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final traceLabel = openHandLocalizedText(
+      context,
+      zh: '追踪 ID',
+      en: 'Trace ID',
+    );
 
-  final IconData icon;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-          ),
+    Widget cell({
+      required int flex,
+      required Widget child,
+      Alignment alignment = Alignment.centerLeft,
+    }) {
+      return Expanded(
+        flex: flex,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Align(alignment: alignment, child: child),
         ),
-      ],
+      );
+    }
+
+    Text value(String text, {TextAlign align = TextAlign.left}) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: align,
+        style: header ? headerStyle : valueStyle,
+      );
+    }
+
+    Widget details(String primary, String secondary, {bool alignEnd = false}) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: alignEnd
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          value(primary, align: alignEnd ? TextAlign.right : TextAlign.left),
+          const SizedBox(height: 3),
+          Text(
+            secondary,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+            style: secondaryStyle,
+          ),
+        ],
+      );
+    }
+
+    Widget tokenPart(String marker, int amount, Color color) {
+      return Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$marker ',
+              style: secondaryStyle?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            TextSpan(text: _usageCompactNumber(amount), style: secondaryStyle),
+          ],
+        ),
+        maxLines: 1,
+      );
+    }
+
+    final promptTokens = record?.usage.promptTokens ?? 0;
+    final completionTokens = record?.usage.completionTokens ?? 0;
+    final cacheReadTokens = record?.usage.cacheReadTokens ?? 0;
+    final statusColor = record?.status == 'success'
+        ? OpenHandStatusColors.success
+        : record?.status == 'cancelled'
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.error;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.7),
+        ),
+      ),
+      child: Row(
+        children: [
+          cell(
+            flex: 15,
+            child: header
+                ? value(openHandLocalizedText(context, zh: '请求时间', en: 'Time'))
+                : Tooltip(
+                    message: '$traceLabel: ${record!.traceId}',
+                    child: value(_usageDateTime(record.startedAt)),
+                  ),
+          ),
+          cell(
+            flex: 20,
+            child: header
+                ? value(openHandLocalizedText(context, zh: '模型', en: 'Model'))
+                : details(record!.modelId, record.providerName),
+          ),
+          cell(
+            flex: 20,
+            child: header
+                ? value(openHandLocalizedText(context, zh: '来源', en: 'Source'))
+                : details(
+                    _usageSourceLabel(context, record!.source),
+                    '${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
+                  ),
+          ),
+          cell(
+            flex: 12,
+            child: header
+                ? value(
+                    openHandLocalizedText(context, zh: '协议', en: 'Protocol'),
+                  )
+                : value(record!.apiFamily.replaceAll('_', ' ')),
+          ),
+          cell(
+            flex: 23,
+            alignment: Alignment.centerRight,
+            child: header
+                ? value('Token', align: TextAlign.right)
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      value(
+                        '${_usageInteger(record!.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
+                        align: TextAlign.right,
+                      ),
+                      const SizedBox(height: 3),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 2,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          tokenPart('↑', promptTokens, colorScheme.primary),
+                          tokenPart(
+                            '↓',
+                            completionTokens,
+                            colorScheme.tertiary,
+                          ),
+                          if (cacheReadTokens > 0)
+                            tokenPart(
+                              '↻',
+                              cacheReadTokens,
+                              OpenHandStatusColors.success,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+          cell(
+            flex: 12,
+            alignment: Alignment.centerRight,
+            child: value(
+              header
+                  ? openHandLocalizedText(context, zh: '成本', en: 'Cost')
+                  : record!.totalCostUsd == null
+                  ? '—'
+                  : _usageMoney(record.totalCostUsd!),
+              align: TextAlign.right,
+            ),
+          ),
+          cell(
+            flex: 12,
+            alignment: Alignment.centerRight,
+            child: header
+                ? value(
+                    openHandLocalizedText(context, zh: '耗时', en: 'Latency'),
+                    align: TextAlign.right,
+                  )
+                : details(
+                    _usageDuration(record!.durationMs.toDouble()),
+                    '${openHandLocalizedText(context, zh: '首字', en: 'First')} '
+                    '${record.firstTokenMs == null ? '—' : _usageDuration(record.firstTokenMs!.toDouble())}',
+                    alignEnd: true,
+                  ),
+          ),
+          cell(
+            flex: 12,
+            alignment: Alignment.center,
+            child: header
+                ? value(
+                    openHandLocalizedText(context, zh: '状态', en: 'Status'),
+                    align: TextAlign.center,
+                  )
+                : Tooltip(
+                    message:
+                        '${openHandLocalizedText(context, zh: '状态', en: 'Status')}: ${_usageRequestStatusLabel(context, record!.status)}'
+                        '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
+                        '\n$traceLabel: ${record.traceId}',
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _usageRequestStatusLabel(context, record.status),
+                            maxLines: 1,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: statusColor,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2547,6 +2747,18 @@ String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
     'surface' => openHandLocalizedText(context, zh: '端侧', en: 'Surface'),
     'operation' => openHandLocalizedText(context, zh: '操作', en: 'Operation'),
     _ => openHandLocalizedText(context, zh: '来源', en: 'Source'),
+  };
+}
+
+String _usageRequestStatusLabel(BuildContext context, String status) {
+  return switch (status) {
+    'success' => openHandLocalizedText(context, zh: '成功', en: 'Success'),
+    'cancelled' => openHandLocalizedText(context, zh: '已取消', en: 'Cancelled'),
+    'failed' => openHandLocalizedText(context, zh: '失败', en: 'Failed'),
+    _ =>
+      status.isEmpty
+          ? openHandLocalizedText(context, zh: '未知', en: 'Unknown')
+          : status,
   };
 }
 
