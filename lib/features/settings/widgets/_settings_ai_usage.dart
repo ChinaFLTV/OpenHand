@@ -13,6 +13,12 @@ const double _kAiUsageRequestTableMinWidth = 1360;
 const double _kAiUsageRequestHeaderHeight = 48;
 const double _kAiUsageRequestRowHeight = 74;
 const double _kAiUsageRequestBodyMaxHeight = 444;
+const double _kAiUsageOverviewFourColumnMinWidth = 1040;
+const double _kAiUsageOverviewTwoColumnMinWidth = 560;
+const double _kAiUsageDistributionTwoColumnMinWidth = 860;
+const double _kAiUsageOverviewMetricHeight = 150;
+const double _kAiUsageDistributionHeight = 320;
+const int _kAiUsageDistributionMaxItems = 6;
 
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
@@ -295,6 +301,8 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _AiUsageHero(summary: snapshot.summary),
+        const SizedBox(height: 14),
+        _AiUsageOverviewPanel(snapshot: snapshot),
         const SizedBox(height: 14),
         _AiUsageMetricGrid(summary: snapshot.summary),
         const SizedBox(height: 14),
@@ -749,6 +757,560 @@ class _AiUsageMetricCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _AiUsageOverviewPanel extends StatelessWidget {
+  const _AiUsageOverviewPanel({required this.snapshot});
+
+  final AiUsageSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final summary = snapshot.summary;
+    final pricingCoverage = summary.requestCount == 0
+        ? 0.0
+        : summary.pricedRequestCount / summary.requestCount;
+    final metrics = <_AiUsageOverviewMetricData>[
+      _AiUsageOverviewMetricData(
+        label: openHandLocalizedText(context, zh: '请求花费', en: 'Request Cost'),
+        value: summary.pricedRequestCount == 0
+            ? '—'
+            : summary.hasCompletePricing
+            ? _usageMoney(summary.totalCostUsd)
+            : '≥${_usageMoney(summary.totalCostUsd)}',
+        detail: openHandLocalizedText(
+          context,
+          zh: '${summary.pricedRequestCount}/${summary.requestCount} 次请求具备价格',
+          en: '${summary.pricedRequestCount}/${summary.requestCount} requests priced',
+        ),
+        values: [for (final bucket in snapshot.trend) bucket.totalCostUsd],
+        color: OpenHandStatusColors.success,
+      ),
+      _AiUsageOverviewMetricData(
+        label: openHandLocalizedText(
+          context,
+          zh: '计费覆盖',
+          en: 'Pricing Coverage',
+        ),
+        value: _usagePercent(pricingCoverage),
+        detail: openHandLocalizedText(
+          context,
+          zh: '${summary.requestCount - summary.pricedRequestCount} 次请求暂无价格',
+          en: '${summary.requestCount - summary.pricedRequestCount} requests unpriced',
+        ),
+        values: [
+          for (final bucket in snapshot.trend)
+            bucket.requestCount == 0
+                ? 0
+                : bucket.pricedRequestCount / bucket.requestCount,
+        ],
+        color: colorScheme.secondary,
+      ),
+      _AiUsageOverviewMetricData(
+        label: openHandLocalizedText(context, zh: '请求数', en: 'Requests'),
+        value: _usageCompactNumber(summary.requestCount),
+        detail: openHandLocalizedText(
+          context,
+          zh: '${summary.successCount} 次成功 · ${summary.failureCount} 次未成功',
+          en: '${summary.successCount} succeeded · ${summary.failureCount} unsuccessful',
+        ),
+        values: [
+          for (final bucket in snapshot.trend) bucket.requestCount.toDouble(),
+        ],
+        color: colorScheme.primary,
+      ),
+      _AiUsageOverviewMetricData(
+        label: 'Tokens',
+        value: _usageCompactNumber(summary.totalTokens, decimals: 2),
+        detail: openHandLocalizedText(
+          context,
+          zh: '含推理 ${_usageCompactNumber(summary.reasoningTokens)} Token',
+          en: 'Includes ${_usageCompactNumber(summary.reasoningTokens)} reasoning tokens',
+        ),
+        values: [
+          for (final bucket in snapshot.trend) bucket.totalTokens.toDouble(),
+        ],
+        color: colorScheme.tertiary,
+      ),
+    ];
+    final modelMaxTokens = snapshot.models.fold<int>(
+      1,
+      (value, item) => math.max(value, item.totalTokens),
+    );
+    final pricedProviders =
+        snapshot.providers.where((item) => item.pricedRequestCount > 0).toList()
+          ..sort(
+            (left, right) => right.totalCostUsd.compareTo(left.totalCostUsd),
+          );
+    final providerMaxCost = pricedProviders.fold<double>(
+      0,
+      (value, item) => math.max(value, item.totalCostUsd),
+    );
+    final modelDistribution = _AiUsageDistributionCard(
+      title: openHandLocalizedText(
+        context,
+        zh: '模型使用分布',
+        en: 'Model Usage Distribution',
+      ),
+      items: snapshot.models,
+      color: colorScheme.primary,
+      emptyMessage: openHandLocalizedText(
+        context,
+        zh: '当前范围暂无模型用量',
+        en: 'No model usage in this range',
+      ),
+      leadingValue: (item) => openHandLocalizedText(
+        context,
+        zh: '${_usageCompactNumber(item.requestCount)} 次',
+        en: '${_usageCompactNumber(item.requestCount)} requests',
+      ),
+      trailingValue: (item) => '${_usageCompactNumber(item.totalTokens)} Token',
+      progressValue: (item) => item.totalTokens / modelMaxTokens,
+    );
+    final providerDistribution = _AiUsageDistributionCard(
+      title: openHandLocalizedText(
+        context,
+        zh: '供应商计费分布',
+        en: 'Provider Cost Distribution',
+      ),
+      items: pricedProviders,
+      color: colorScheme.tertiary,
+      emptyMessage: openHandLocalizedText(
+        context,
+        zh: '当前范围暂无计价数据',
+        en: 'No priced usage in this range',
+      ),
+      leadingValue: (item) => openHandLocalizedText(
+        context,
+        zh: '${item.pricedRequestCount} 次计费',
+        en: '${item.pricedRequestCount} priced',
+      ),
+      trailingValue: (item) =>
+          '${_usageMoney(item.totalCostUsd)} · '
+          '${_usagePercent(summary.totalCostUsd <= 0 ? 0 : item.totalCostUsd / summary.totalCostUsd)}',
+      progressValue: (item) =>
+          providerMaxCost <= 0 ? 0 : item.totalCostUsd / providerMaxCost,
+    );
+    return _AiUsagePanel(
+      title: openHandLocalizedText(
+        context,
+        zh: '费用与用量概览',
+        en: 'Cost & Usage Overview',
+      ),
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '请求费用、计费覆盖、请求与 Token 趋势，以及模型和供应商分布',
+        en: 'Request cost, pricing coverage, request and token trends, plus model and provider distribution',
+      ),
+      child: Column(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns =
+                  constraints.maxWidth >= _kAiUsageOverviewFourColumnMinWidth
+                  ? 4
+                  : constraints.maxWidth >= _kAiUsageOverviewTwoColumnMinWidth
+                  ? 2
+                  : 1;
+              final width =
+                  (constraints.maxWidth - (columns - 1) * 12) / columns;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final metric in metrics)
+                    SizedBox(
+                      width: width,
+                      height: _kAiUsageOverviewMetricHeight,
+                      child: _AiUsageOverviewMetricCard(data: metric),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth >=
+                  _kAiUsageDistributionTwoColumnMinWidth) {
+                return Row(
+                  children: [
+                    Expanded(child: modelDistribution),
+                    const SizedBox(width: 12),
+                    Expanded(child: providerDistribution),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  modelDistribution,
+                  const SizedBox(height: 12),
+                  providerDistribution,
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageOverviewMetricData {
+  const _AiUsageOverviewMetricData({
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.values,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final String detail;
+  final List<double> values;
+  final Color color;
+}
+
+class _AiUsageOverviewMetricCard extends StatelessWidget {
+  const _AiUsageOverviewMetricCard({required this.data});
+
+  final _AiUsageOverviewMetricData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      data.value,
+                      maxLines: 1,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              data.detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              height: 52,
+              width: double.infinity,
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _AiUsageSparklinePainter(
+                    values: data.values,
+                    color: data.color,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AiUsageSparklinePainter extends CustomPainter {
+  const _AiUsageSparklinePainter({required this.values, required this.color});
+
+  final List<double> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty || size.isEmpty) return;
+    const inset = 3.0;
+    final minValue = values.reduce(math.min);
+    final maxValue = values.reduce(math.max);
+    final span = maxValue - minValue;
+    final step = values.length <= 1 ? 0.0 : size.width / (values.length - 1);
+    final points = <Offset>[
+      for (var index = 0; index < values.length; index++)
+        Offset(
+          values.length == 1 ? size.width / 2 : index * step,
+          span == 0
+              ? maxValue == 0
+                    ? size.height - inset
+                    : size.height / 2
+              : inset +
+                    (size.height - inset * 2) *
+                        (1 - (values[index] - minValue) / span),
+        ),
+    ];
+    if (points.length == 1) {
+      points
+        ..insert(0, Offset(0, points.first.dy))
+        ..add(Offset(size.width, points.last.dy));
+    }
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var index = 0; index < points.length - 1; index++) {
+      final before = index == 0 ? points[index] : points[index - 1];
+      final current = points[index];
+      final next = points[index + 1];
+      final after = index + 2 < points.length ? points[index + 2] : next;
+      final control1Y = (current.dy + (next.dy - before.dy) / 6).clamp(
+        inset,
+        size.height - inset,
+      );
+      final control2Y = (next.dy - (after.dy - current.dy) / 6).clamp(
+        inset,
+        size.height - inset,
+      );
+      path.cubicTo(
+        current.dx + (next.dx - before.dx) / 6,
+        control1Y,
+        next.dx - (after.dx - current.dx) / 6,
+        control2Y,
+        next.dx,
+        next.dy,
+      );
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawCircle(points.last, 3.1, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AiUsageSparklinePainter oldDelegate) {
+    return oldDelegate.values != values || oldDelegate.color != color;
+  }
+}
+
+class _AiUsageDistributionCard extends StatelessWidget {
+  const _AiUsageDistributionCard({
+    required this.title,
+    required this.items,
+    required this.color,
+    required this.emptyMessage,
+    required this.leadingValue,
+    required this.trailingValue,
+    required this.progressValue,
+  });
+
+  final String title;
+  final List<AiUsageBreakdown> items;
+  final Color color;
+  final String emptyMessage;
+  final String Function(AiUsageBreakdown item) leadingValue;
+  final String Function(AiUsageBreakdown item) trailingValue;
+  final double Function(AiUsageBreakdown item) progressValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visibleItems = items
+        .take(_kAiUsageDistributionMaxItems)
+        .toList(growable: false);
+    return SizedBox(
+      height: _kAiUsageDistributionHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (items.length > _kAiUsageDistributionMaxItems)
+                    Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '前 ${visibleItems.length}',
+                        en: 'Top ${visibleItems.length}',
+                      ),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (visibleItems.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      emptyMessage,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: Column(
+                    children: [
+                      for (final item in visibleItems)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 126,
+                                child: Tooltip(
+                                  message: item.label,
+                                  child: Text(
+                                    item.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          leadingValue(item),
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          trailingValue(item),
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 5),
+                                    TweenAnimationBuilder<double>(
+                                      tween: Tween<double>(
+                                        begin: 0,
+                                        end: progressValue(item).clamp(0, 1),
+                                      ),
+                                      duration: _settingsMotionDuration(
+                                        context,
+                                        const Duration(milliseconds: 420),
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      builder: (context, progress, _) =>
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                            child: SizedBox(
+                                              height: 6,
+                                              child: Stack(
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  ColoredBox(
+                                                    color: color.withValues(
+                                                      alpha: 0.1,
+                                                    ),
+                                                  ),
+                                                  FractionallySizedBox(
+                                                    widthFactor: progress,
+                                                    alignment:
+                                                        Alignment.centerLeft,
+                                                    child: ColoredBox(
+                                                      color: color,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      for (
+                        var index = visibleItems.length;
+                        index < _kAiUsageDistributionMaxItems;
+                        index++
+                      )
+                        const Expanded(child: SizedBox.shrink()),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
