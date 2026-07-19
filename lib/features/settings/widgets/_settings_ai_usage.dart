@@ -8,7 +8,6 @@ const double _kAiUsageBreakdownHeaderHeight = 46;
 const double _kAiUsageBreakdownRowHeight = 58;
 const double _kAiUsageBreakdownBodyMaxHeight = 348;
 const double _kAiUsageToolbarControlHeight = 40;
-const double _kAiUsageBreakdownDimensionWidth = 108;
 const double _kAiUsageRequestTableMinWidth = 1360;
 const double _kAiUsageRequestHeaderHeight = 48;
 const double _kAiUsageRequestRowHeight = 74;
@@ -2137,7 +2136,6 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
             children: [
               for (final option in options)
                 SizedBox(
-                  width: _kAiUsageBreakdownDimensionWidth,
                   height: _kAiUsageToolbarControlHeight,
                   child: ChoiceChip(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
