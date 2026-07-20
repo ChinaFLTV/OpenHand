@@ -122,8 +122,7 @@ final RegExp _markdownStructuralPattern = RegExp(
 );
 final RegExp _trailingNewlineCodeBlockPattern = RegExp(r'\n$');
 
-// Pre-compiled RegExp patterns used in render-path utility functions.
-// Hoisted from inline allocations to avoid re-compilation per call.
+// 渲染路径共用的预编译正则，避免每次调用重复创建。
 final RegExp _planTimelineStepPrefixPattern = RegExp(
   r'^(?:[-*+•]\s+(?:\[[ xX]\]\s*)?|\d+[\.\):、]\s+|步骤\s*\d+\s*[:：.\-、)]\s+)',
 );
@@ -134,40 +133,52 @@ final RegExp _tomlSectionPattern = RegExp(r'^\[[^\]]+\]$');
 final RegExp _tomlKeyValuePattern = RegExp(r'^[A-Za-z0-9_.-]+\s*=');
 final RegExp _tomlBareKeyPattern = RegExp(r'^[A-Za-z0-9_.-]+$');
 
-// Shared BorderRadius constants — avoid allocating new instances on every build.
+// 共用圆角常量，避免每次构建重复分配对象。
 const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 // 外层 clip 容器专用：比 _borderRadius18 大 1px，补偿 Border.all 的
 // 外溢像素，防止 flutter_markdown_plus 的 Clip.hardEdge 裁掉圆角边框。
 const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
 
-/// Tiny frame-budgeted task queue used by transcript render warmups.
+/// 会话渲染预热使用的逐帧有界任务队列。
 ///
-/// Markdown parsing, syntax highlighting and platform-view mounting are all
-/// UI-thread work.  Keeping their schedulers on one implementation avoids
-/// each feature accidentally draining several tasks in the same frame.
+/// Markdown 解析、语法高亮和平台视图挂载均占用 UI 线程，统一调度可防止单帧
+/// 执行过多任务；等待量超限时优先淘汰普通旧任务。
 class _FrameTaskScheduler {
-  _FrameTaskScheduler({required this.maxPerFrame});
+  _FrameTaskScheduler({required int maxPerFrame, int maxPending = 2048})
+    : maxPerFrame = maxPerFrame.clamp(1, 64).toInt(),
+      maxPending = maxPending.clamp(1, 8192).toInt();
 
   final int maxPerFrame;
+  final int maxPending;
   final Queue<_FrameTask> _priorityPending = Queue<_FrameTask>();
   final Queue<_FrameTask> _pending = Queue<_FrameTask>();
   bool _draining = false;
   int _generation = 0;
 
-  void schedule(
+  bool schedule(
     VoidCallback task, {
     bool priority = false,
     bool Function()? isValid,
+    VoidCallback? onDropped,
   }) {
-    final entry = _FrameTask(task, isValid);
-    (priority ? _priorityPending : _pending).add(entry);
+    final entry = _FrameTask(task, isValid, onDropped);
+    if (_priorityPending.length + _pending.length >= maxPending) {
+      if (_pending.isNotEmpty) {
+        _pending.removeFirst().onDropped?.call();
+      } else {
+        onDropped?.call();
+        return false;
+      }
+    }
+    (priority ? _priorityPending : _pending).addLast(entry);
     if (_draining) {
-      return;
+      return true;
     }
     _draining = true;
     final generation = _generation;
     _scheduleDrain(generation);
+    return true;
   }
 
   void _scheduleDrain(int generation) {
@@ -178,10 +189,14 @@ class _FrameTaskScheduler {
   }
 
   void clear() {
+    final dropped = <_FrameTask>[..._priorityPending, ..._pending];
     _priorityPending.clear();
     _pending.clear();
     _draining = false;
     _generation += 1;
+    for (final entry in dropped) {
+      entry.onDropped?.call();
+    }
   }
 
   void _drain(Duration _, int generation) {
@@ -196,24 +211,30 @@ class _FrameTaskScheduler {
       _scheduleDrain(generation);
       return;
     }
-    var completed = 0;
-    final batchSize = math.max(1, maxPerFrame);
-    while (completed < batchSize &&
-        (_priorityPending.isNotEmpty || _pending.isNotEmpty)) {
-      final entry = _priorityPending.isNotEmpty
-          ? _priorityPending.removeFirst()
-          : _pending.removeFirst();
-      if (!(entry.isValid?.call() ?? true)) {
-        continue;
+    var processed = 0;
+    final batchSize = maxPerFrame;
+    try {
+      while (processed < batchSize &&
+          (_priorityPending.isNotEmpty || _pending.isNotEmpty)) {
+        final entry = _priorityPending.isNotEmpty
+            ? _priorityPending.removeFirst()
+            : _pending.removeFirst();
+        processed += 1;
+        if (!(entry.isValid?.call() ?? true)) {
+          entry.onDropped?.call();
+          continue;
+        }
+        entry.task();
       }
-      entry.task();
-      completed += 1;
+    } finally {
+      if (generation == _generation) {
+        if (_priorityPending.isEmpty && _pending.isEmpty) {
+          _draining = false;
+        } else {
+          _scheduleDrain(generation);
+        }
+      }
     }
-    if (_priorityPending.isEmpty && _pending.isEmpty) {
-      _draining = false;
-      return;
-    }
-    _scheduleDrain(generation);
   }
 
   bool _transcriptScrollActive() {
@@ -226,10 +247,11 @@ class _FrameTaskScheduler {
 }
 
 class _FrameTask {
-  const _FrameTask(this.task, this.isValid);
+  const _FrameTask(this.task, this.isValid, this.onDropped);
 
   final VoidCallback task;
   final bool Function()? isValid;
+  final VoidCallback? onDropped;
 }
 
 Widget _buildWorkspaceSidebarTransition({

@@ -5,6 +5,7 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 
@@ -15,6 +16,7 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_clipboard.dart';
@@ -22,11 +24,17 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 // 进程级缓冲，跨弹窗保留。每次 controller 切换不清空——刻意保留多会话证据。
-final List<_IssueEntry> _issueBuffer = <_IssueEntry>[];
+final ListQueue<_IssueEntry> _issueBuffer = ListQueue<_IssueEntry>();
 StreamSubscription<CdpEvent>? _issueGlobalSub;
 String? _issueBindingKey;
 bool _issueDomainEnabled = false;
 const Duration _issueEnableTimeout = Duration(seconds: 5);
+const int _maxIssueEntries = 500;
+const int _maxIssueBufferCharacters = 8 * 1024 * 1024;
+const int _maxIssueCodeCharacters = 256;
+const int _maxIssueBriefCharacters = 2048;
+const int _maxIssueJsonPreviewCharacters = 64 * 1024;
+int _issueBufferCharacters = 0;
 
 Future<void> showWebReverseIssuesDialog(
   BuildContext context, {
@@ -58,10 +66,7 @@ Future<void> _bindIssueStream(WebReverseSessionController controller) async {
   final bindingKey =
       '${identityHashCode(controller)}:${controller.artifactsRootDir}:${controller.cdpConnectionGeneration}';
   if (_issueBindingKey != bindingKey) {
-    await _cancelIssueSubscription(
-      _issueGlobalSub,
-      'replace global issue subscription',
-    );
+    await _cancelIssueSubscription(_issueGlobalSub, '替换全局页面问题订阅');
     _issueGlobalSub = null;
     _issueBindingKey = bindingKey;
     _issueDomainEnabled = false;
@@ -70,7 +75,7 @@ Future<void> _bindIssueStream(WebReverseSessionController controller) async {
     _handleIssueEvent,
     onDone: () => _resetIssueBinding(bindingKey),
     onError: (Object error, StackTrace stack) {
-      silentLog('web_reverse_issues_dialog', 'raw issue stream', error, stack);
+      silentLog('web_reverse_issues_dialog', '读取页面问题事件流', error, stack);
       _resetIssueBinding(bindingKey);
     },
     cancelOnError: true,
@@ -83,7 +88,7 @@ void _resetIssueBinding(String bindingKey) {
   _issueGlobalSub = null;
   _issueBindingKey = null;
   _issueDomainEnabled = false;
-  unawaited(_cancelIssueSubscription(sub, 'reset global issue subscription'));
+  unawaited(_cancelIssueSubscription(sub, '重置全局页面问题订阅'));
 }
 
 Future<void> _cancelIssueSubscription(
@@ -99,31 +104,76 @@ Future<void> _cancelIssueSubscription(
 
 void _handleIssueEvent(CdpEvent ev) {
   if (ev.method != 'Audits.issueAdded') return;
-  final issue = (ev.params['issue'] as Map?)?.cast<String, Object?>();
-  if (issue == null) return;
-  final code = issue['code']?.toString() ?? 'Unknown';
-  final details =
-      (issue['details'] as Map?)?.cast<String, Object?>() ?? const {};
-  _issueBuffer.insert(
-    0,
-    _IssueEntry(ts: DateTime.now(), code: code, details: details, raw: issue),
-  );
-  if (_issueBuffer.length > 500) {
-    _issueBuffer.removeRange(500, _issueBuffer.length);
+  try {
+    final issue = optionalStringKeyedMapFromValue(ev.params['issue']);
+    if (issue == null) return;
+    final code = clipText(
+      stringFromValue(issue['code'], fallback: 'Unknown'),
+      _maxIssueCodeCharacters,
+      suffix: '',
+    );
+    final brief = clipText(
+      _issueBrief(stringKeyedMapFromValue(issue['details'])),
+      _maxIssueBriefCharacters,
+      suffix: '',
+    );
+    final rawJson = _retainedIssueJson(issue);
+    final entry = _IssueEntry(
+      ts: DateTime.now(),
+      code: code,
+      brief: brief,
+      rawJson: rawJson,
+    );
+    _issueBuffer.addFirst(entry);
+    _issueBufferCharacters += entry.retainedCharacters;
+    while (_issueBuffer.length > _maxIssueEntries ||
+        _issueBufferCharacters > _maxIssueBufferCharacters) {
+      _issueBufferCharacters -= _issueBuffer.removeLast().retainedCharacters;
+    }
+  } catch (error, stack) {
+    silentLog('web_reverse_issues_dialog', '归一化页面问题事件', error, stack);
   }
+}
+
+String _retainedIssueJson(Map<String, Object?> issue) {
+  final encoded = prettyPrintJson(issue);
+  if (encoded.length <= _maxIssueJsonPreviewCharacters) return encoded;
+  return prettyPrintJson(<String, Object?>{
+    '已截断': true,
+    '原始字符数': encoded.length,
+    '预览': clipText(encoded, _maxIssueJsonPreviewCharacters, suffix: ''),
+  });
+}
+
+String _issueBrief(Map<String, Object?> details) {
+  for (final detail in details.values) {
+    if (detail is! Map) continue;
+    final detailMap = stringKeyedMapFromValue(detail);
+    final request = stringKeyedMapFromValue(detailMap['request']);
+    final frame = stringKeyedMapFromValue(detailMap['frame']);
+    final url = optionalStringFromValue(
+      detailMap['url'] ?? request['url'] ?? frame['url'],
+    );
+    if (url != null) return url;
+    final description = optionalStringFromValue(detailMap['description']);
+    if (description != null) return description;
+  }
+  return '';
 }
 
 class _IssueEntry {
   _IssueEntry({
     required this.ts,
     required this.code,
-    required this.details,
-    required this.raw,
+    required this.brief,
+    required this.rawJson,
   });
   final DateTime ts;
   final String code;
-  final Map<String, Object?> details;
-  final Map<String, Object?> raw;
+  final String brief;
+  final String rawJson;
+
+  int get retainedCharacters => code.length + brief.length + rawJson.length;
 }
 
 class _IssuesDialog extends StatefulWidget {
@@ -166,7 +216,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
           if (_focusedCode != null && e.code != _focusedCode) return false;
           if (lowered.isEmpty) return true;
           if (e.code.toLowerCase().contains(lowered)) return true;
-          return _briefOf(e).toLowerCase().contains(lowered);
+          return e.brief.toLowerCase().contains(lowered);
         })
         .toList(growable: false);
   }
@@ -177,23 +227,6 @@ class _IssuesDialogState extends State<_IssuesDialog> {
       m[e.code] = (m[e.code] ?? 0) + 1;
     }
     return m;
-  }
-
-  String _briefOf(_IssueEntry e) {
-    // 给每类 issue 抽一条人类可读摘要：URL / domain / element 三选一。
-    final details = e.details;
-    for (final detail in details.values) {
-      if (detail is Map) {
-        final url =
-            detail['url'] ??
-            detail['request']?['url'] ??
-            detail['frame']?['url'];
-        if (url is String && url.isNotEmpty) return url;
-        final desc = detail['description'];
-        if (desc is String && desc.isNotEmpty) return desc;
-      }
-    }
-    return '';
   }
 
   Color _colorOf(String code, ColorScheme cs) {
@@ -214,7 +247,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
   Future<void> _copyJson(_IssueEntry e) async {
     await copyWebReverseTextToClipboard(
       context: context,
-      text: prettyPrintJson(e.raw),
+      text: e.rawJson,
       successBase:
           AppLocalizations.of(context)?.webReverseIssuesCopied ??
           'Issue JSON copied',
@@ -224,6 +257,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
 
   void _clear() {
     _issueBuffer.clear();
+    _issueBufferCharacters = 0;
     _focusedCode = null;
     _expandedIndex = -1;
     setState(() {});
@@ -372,7 +406,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                     separatorBuilder: (_, _) => const SizedBox(height: 6),
                     itemBuilder: (_, i) {
                       final e = visible[i];
-                      final brief = _briefOf(e);
+                      final brief = e.brief;
                       final color = _colorOf(e.code, cs);
                       final expanded = _expandedIndex == i;
                       return AnimatedContainer(
@@ -462,7 +496,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: SelectableText(
-                                  prettyPrintJson(e.raw),
+                                  e.rawJson,
                                   style: tt.bodySmall?.copyWith(
                                     fontFamily: 'monospace',
                                     fontSize: 11.5,

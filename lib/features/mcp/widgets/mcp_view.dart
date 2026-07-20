@@ -84,7 +84,6 @@ const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
 );
-const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
 const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
 const int _mcpNpxCacheCleanupMaxEntries = 20000;
 const BoundedDeletePolicy _mcpNpxCacheDeletePolicy = BoundedDeletePolicy(
@@ -12328,15 +12327,9 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                   onPressed: hasWork
                                       ? null
                                       : () {
-                                          // 强制触发：先 deactivate 再 activate 以重置状态
+                                          // 同步重置；控制器自带延迟调度，停止操作可可靠取消。
                                           controller.setPageActive(false);
-                                          Future.delayed(
-                                            _mcpForceProbeResetDelay,
-                                            () {
-                                              if (!context.mounted) return;
-                                              controller.setPageActive(true);
-                                            },
-                                          );
+                                          controller.setPageActive(true);
                                         },
                                   icon: const Icon(
                                     Icons.play_arrow_rounded,

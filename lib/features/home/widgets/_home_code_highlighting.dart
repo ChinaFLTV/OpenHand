@@ -51,11 +51,17 @@ class _HighlightFrameScheduler {
   /// 配合 [_HighlightSpanCache] 第二次展开/滚回时仍能瞬时拉起。
   static const int _maxPerFrame = 1;
 
-  void schedule(
+  bool schedule(
     VoidCallback task, {
     bool priority = false,
     bool Function()? isValid,
-  }) => _scheduler.schedule(task, priority: priority, isValid: isValid);
+    VoidCallback? onDropped,
+  }) => _scheduler.schedule(
+    task,
+    priority: priority,
+    isValid: isValid,
+    onDropped: onDropped,
+  );
 }
 
 class _HighlightSpanCache {
@@ -201,7 +207,10 @@ void _warmHighlightedCodeSpan({
   }
 
   if (content.length > _highlightDeferThresholdChars) {
-    _HighlightFrameScheduler.instance.schedule(warmup);
+    _HighlightFrameScheduler.instance.schedule(
+      warmup,
+      onDropped: () => _pendingHighlightWarmups.remove(signature),
+    );
     return;
   }
   warmup();
@@ -1357,6 +1366,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       },
       priority: true,
       isValid: () => mounted,
+      onDropped: () {
+        _highlightScheduled = false;
+        _highlightPendingAfterScroll = false;
+        _highlightIsPlaceholder = false;
+      },
     );
   }
 

@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -41,6 +42,7 @@ const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _windowsTaskkillTimeout = Duration(seconds: 2);
 const Duration _processExecutableProbeTimeout = Duration(milliseconds: 500);
 const int _maxDescendantProcesses = 256;
+const int _maxCapturedProcessBytesPerStream = 16 * 1024 * 1024;
 
 bool _isMissingExecutableProcessException(Object error) {
   if (error is! ProcessException) return false;
@@ -705,8 +707,12 @@ Future<ProcessResult?> runProcessWithTimeout(
   final stdoutBytes = BytesBuilder(copy: false);
   final stderrBytes = BytesBuilder(copy: false);
   final normalizedToolCallId = nullIfBlank(toolCallId);
-  final stdoutLimit = maxStdoutBytes < 0 ? 0 : maxStdoutBytes;
-  final stderrLimit = maxStderrBytes < 0 ? 0 : maxStderrBytes;
+  final stdoutLimit = maxStdoutBytes
+      .clamp(0, _maxCapturedProcessBytesPerStream)
+      .toInt();
+  final stderrLimit = maxStderrBytes
+      .clamp(0, _maxCapturedProcessBytesPerStream)
+      .toInt();
   final executionStopwatch = Stopwatch()..start();
 
   void completeStream(Completer<void> completer) {
@@ -965,6 +971,10 @@ Future<ProcessResult> runTrackedProcessOrFailed(
 
 typedef ProcessLogLineHandler = void Function(String line);
 
+const int _maxCapturedProcessLinesPerStream = 4096;
+const int _maxCapturedProcessCharactersPerStream = 4 * 1024 * 1024;
+const int _maxProcessLineCharacters = 64 * 1024;
+
 class TrackedProcessLineLogResult {
   const TrackedProcessLineLogResult({
     required this.pid,
@@ -983,20 +993,20 @@ class TrackedProcessLineLogResult {
 
 class _BoundedProcessLineCapture {
   _BoundedProcessLineCapture({required int maxLines})
-    : _maxLines = maxLines < 0 ? 0 : maxLines;
+    : _buffer = maxLines < 1
+          ? null
+          : BoundedLogBuffer(
+              maxLines: maxLines
+                  .clamp(1, _maxCapturedProcessLinesPerStream)
+                  .toInt(),
+              maxCharacters: _maxCapturedProcessCharactersPerStream,
+            );
 
-  final int _maxLines;
-  final ListQueue<String> _lines = ListQueue<String>();
+  final BoundedLogBuffer? _buffer;
 
-  void add(String line) {
-    if (_maxLines == 0) return;
-    if (_lines.length >= _maxLines) {
-      _lines.removeFirst();
-    }
-    _lines.add(line);
-  }
+  void add(String line) => _buffer?.add(line);
 
-  String get text => _lines.join('\n');
+  String get text => _buffer?.snapshot().join('\n') ?? '';
 }
 
 class _BoundedProcessLineDecoder {
@@ -1046,19 +1056,12 @@ class _BoundedProcessLineDecoder {
   }
 }
 
-/// Starts a tracked process, streams stdout/stderr as decoded text lines, and
-/// kills the process when [timeout] expires.
+/// 启动受跟踪进程，按文本行转发 stdout/stderr，并在 [timeout] 到期时终止进程。
 ///
-/// This is intended for UI install/update flows that need live logs without
-/// duplicating stdout/stderr subscription, timeout, and cleanup code. Stream
-/// errors are logged and do not fail the process run; spawn/exit failures still
-/// propagate to the caller. By default the command starts in a dedicated POSIX
-/// process group, so a timeout terminates the complete command tree instead of
-/// leaving npm/pip/shell descendants behind. [onProcessStarted] runs after both
-/// output subscriptions are installed so interactive callers can retain a safe
-/// cancellation handle without reimplementing stream ownership. An optional
-/// [processStartTimeout] can cap only the launch phase while [timeout] remains
-/// the total wall-clock deadline.
+/// 用于需要实时日志的安装、更新流程，统一管理输出订阅、超时和清理。流读取异常只
+/// 记录日志，启动和退出异常仍交给调用方。默认使用独立 POSIX 进程组，超时时会
+/// 终止整棵进程树。[onProcessStarted] 在输出订阅完成后调用；
+/// [processStartTimeout] 仅限制启动阶段，[timeout] 限制完整执行时长。
 Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   String executable,
   List<String> arguments, {
@@ -1081,6 +1084,9 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   int maxCapturedLinesPerStream = 0,
   int maxLineCharacters = 4000,
 }) async {
+  final effectiveMaxLineCharacters = maxLineCharacters
+      .clamp(1, _maxProcessLineCharacters)
+      .toInt();
   final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
   final configuredStartTimeout = processStartTimeout;
   final effectiveStartTimeout = configuredStartTimeout == null
@@ -1125,10 +1131,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     String line,
   ) {
     if (nullIfBlank(line) == null) return;
-    final boundedLine = clipTextWithEllipsis(
-      line,
-      maxLineCharacters < 1 ? 1 : maxLineCharacters,
-    );
+    final boundedLine = clipTextWithEllipsis(line, effectiveMaxLineCharacters);
     capture.add(boundedLine);
     if (handler == null) return;
     try {
@@ -1148,7 +1151,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   }) {
     late final _BoundedProcessLineDecoder decoder;
     decoder = _BoundedProcessLineDecoder(
-      maxCharacters: maxLineCharacters,
+      maxCharacters: effectiveMaxLineCharacters,
       onLine: (line) =>
           handleLine(handler, capture, trimLine ? line.trim() : line),
     );

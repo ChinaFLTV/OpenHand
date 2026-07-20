@@ -1877,7 +1877,10 @@ void _warmMarkdownAst({
   }
 
   if (data.length > _markdownDeferredParseThresholdChars) {
-    _MarkdownFrameScheduler.instance.schedule(warmup);
+    _MarkdownFrameScheduler.instance.schedule(
+      warmup,
+      onDropped: () => _pendingMarkdownWarmups.remove(astCacheKey),
+    );
     return;
   }
   warmup();
@@ -1972,11 +1975,17 @@ class _MarkdownFrameScheduler {
   /// 单条带多代码块的长消息把帧预算撑爆触发 jank/ANR。
   static const int _maxPerFrame = 1;
 
-  void schedule(
+  bool schedule(
     VoidCallback task, {
     bool priority = false,
     bool Function()? isValid,
-  }) => _scheduler.schedule(task, priority: priority, isValid: isValid);
+    VoidCallback? onDropped,
+  }) => _scheduler.schedule(
+    task,
+    priority: priority,
+    isValid: isValid,
+    onDropped: onDropped,
+  );
 }
 
 class _MarkdownStabilizingPlaceholder extends StatelessWidget {
@@ -2277,6 +2286,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       },
       priority: true,
       isValid: () => mounted,
+      onDropped: () {
+        _deferredParseScheduled = false;
+        _deferredParsePendingAfterScroll = false;
+      },
     );
   }
 
@@ -4439,7 +4452,7 @@ class _HtmlWebViewFrameScheduler {
     maxPerFrame: _maxPerFrame,
   );
 
-  void schedule(VoidCallback task, {bool Function()? isValid}) =>
+  bool schedule(VoidCallback task, {bool Function()? isValid}) =>
       _scheduler.schedule(task, priority: true, isValid: isValid);
 }
 
@@ -4600,7 +4613,7 @@ class _DeferredHtmlBubbleWebViewState
       return;
     }
     final generation = ++_generation;
-    _HtmlWebViewFrameScheduler.instance.schedule(() {
+    final scheduled = _HtmlWebViewFrameScheduler.instance.schedule(() {
       if (!mounted || generation != _generation || _mountWebView) {
         return;
       }
@@ -4610,6 +4623,7 @@ class _DeferredHtmlBubbleWebViewState
       }
       _tryMountWebView(generation);
     }, isValid: () => mounted && generation == _generation && !_mountWebView);
+    if (!scheduled) _handleWebViewFallback();
   }
 
   void _tryMountWebView(int generation) {
@@ -4660,6 +4674,10 @@ class _DeferredHtmlBubbleWebViewState
       },
     );
     _activePermit = permit;
+    if (permit.released) {
+      _handleWebViewFallback();
+      return;
+    }
     if (permit.granted) {
       _pendingMountAfterScroll = false;
       _cancelPermitWaitTimer();
@@ -4690,6 +4708,10 @@ class _DeferredHtmlBubbleWebViewState
       _mountGrantedWebView(generation);
     }, priority: _hasWarmWebViewMetrics());
     _bootstrapPermit = permit;
+    if (permit.released) {
+      _handleWebViewFallback();
+      return;
+    }
     if (permit.granted) _mountGrantedWebView(generation);
   }
 

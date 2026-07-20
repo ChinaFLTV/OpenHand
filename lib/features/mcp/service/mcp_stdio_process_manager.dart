@@ -226,7 +226,6 @@ class McpStdioProcessManager extends ChangeNotifier {
       final responseRouter = _ManagedResponseRouter(
         maxBufferedChars: _responseBufferLimit,
       );
-      final handshakeCompleter = Completer<bool>();
       final managed = _ManagedProcess(
         generation: generation,
         configFingerprint: fingerprint,
@@ -238,7 +237,6 @@ class McpStdioProcessManager extends ChangeNotifier {
         ),
         process: process,
         responseRouter: responseRouter,
-        handshakeCompleter: handshakeCompleter,
       );
       _processes[name] = managed;
       notifyListeners();
@@ -256,12 +254,6 @@ class McpStdioProcessManager extends ChangeNotifier {
                 isStderr: false,
                 expectedGeneration: generation,
               );
-              // 检测 MCP initialize 响应
-              if (!handshakeCompleter.isCompleted &&
-                  (data.contains('"result"') ||
-                      data.contains('"protocolVersion"'))) {
-                handshakeCompleter.complete(true);
-              }
               // 如果路由成功但日志已记录，不影响功能
               if (routed) return;
             },
@@ -282,9 +274,6 @@ class McpStdioProcessManager extends ChangeNotifier {
                 isStderr: false,
                 expectedGeneration: generation,
               );
-              if (!handshakeCompleter.isCompleted) {
-                handshakeCompleter.complete(false);
-              }
             },
           );
 
@@ -357,21 +346,12 @@ class McpStdioProcessManager extends ChangeNotifier {
             );
             notifyListeners();
           }
-          if (!handshakeCompleter.isCompleted) {
-            handshakeCompleter.complete(false);
-          }
         }),
       );
 
       // 启动后自动执行 MCP 协议握手
       unawaited(
-        _initializeMcpProtocol(
-          name,
-          generation,
-          process,
-          responseRouter,
-          handshakeCompleter,
-        ),
+        _initializeMcpProtocol(name, generation, process, responseRouter),
       );
     } catch (e) {
       if (process != null) {
@@ -593,10 +573,6 @@ class McpStdioProcessManager extends ChangeNotifier {
 
     try {
       managed.responseRouter?.rejectNewWrites(_stoppingException(serverName));
-      final handshakeCompleter = managed.handshakeCompleter;
-      if (handshakeCompleter != null && !handshakeCompleter.isCompleted) {
-        handshakeCompleter.complete(false);
-      }
       await _waitForBorrowedSessions(serverName, generation);
       await managed.responseRouter?.drainWrites(_stdinCloseTimeout);
       await closeMcpStdioSinkQuietly(
@@ -942,7 +918,6 @@ class McpStdioProcessManager extends ChangeNotifier {
     int generation,
     Process process,
     _ManagedResponseRouter responseRouter,
-    Completer<bool> responseCompleter,
   ) async {
     _appendLog(
       serverName,
@@ -950,6 +925,8 @@ class McpStdioProcessManager extends ChangeNotifier {
       isStderr: false,
       expectedGeneration: generation,
     );
+    final requestId = 'openhand-initialize-$generation';
+    final responseCompleter = Completer<Map<String, Object?>?>();
     try {
       // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
       await Future.delayed(_initializeStartupDelay);
@@ -963,9 +940,10 @@ class McpStdioProcessManager extends ChangeNotifier {
         return;
       }
 
+      responseRouter.register(requestId, responseCompleter);
       await responseRouter.writeMessage(process.stdin, {
         'jsonrpc': '2.0',
-        'id': 1,
+        'id': requestId,
         'method': 'initialize',
         'params': {
           'protocolVersion': '2025-11-25',
@@ -974,11 +952,14 @@ class McpStdioProcessManager extends ChangeNotifier {
         },
       });
 
-      // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
-      final gotResponse = await responseCompleter.future.timeout(
+      // 通过 JSON-RPC ID 路由完整响应，兼容 stdout 分片并避免无关响应误判。
+      final response = await responseCompleter.future.timeout(
         _initializeResponseTimeout,
-        onTimeout: () => false,
       );
+      final gotResponse =
+          response != null &&
+          response['error'] == null &&
+          response['result'] is Map;
 
       if (gotResponse) {
         _appendLog(
@@ -1020,13 +1001,21 @@ class McpStdioProcessManager extends ChangeNotifier {
           _processes[serverName] = current.copyWith(handshakeCompleted: true);
         }
       } else {
+        final detail = response?['error'] ?? '响应缺少 result 字段';
         _appendLog(
           serverName,
-          '[${_timestamp()}] ⚠ 握手超时或进程已退出',
-          isStderr: false,
+          '[${_timestamp()}] ⚠ MCP 握手失败：$detail',
+          isStderr: true,
           expectedGeneration: generation,
         );
       }
+    } on TimeoutException {
+      _appendLog(
+        serverName,
+        '[${_timestamp()}] ⚠ 握手超时或进程已退出',
+        isStderr: false,
+        expectedGeneration: generation,
+      );
     } catch (e) {
       _appendLog(
         serverName,
@@ -1034,6 +1023,8 @@ class McpStdioProcessManager extends ChangeNotifier {
         isStderr: false,
         expectedGeneration: generation,
       );
+    } finally {
+      responseRouter.unregister(requestId);
     }
   }
 
@@ -1406,7 +1397,6 @@ class _ManagedProcess {
     this.process,
     this.handshakeCompleted = false,
     this.responseRouter,
-    this.handshakeCompleter,
     this.stdoutSubscription,
     this.stderrSubscription,
   });
@@ -1417,7 +1407,6 @@ class _ManagedProcess {
   final Process? process;
   final bool handshakeCompleted;
   final _ManagedResponseRouter? responseRouter;
-  final Completer<bool>? handshakeCompleter;
   final StreamSubscription<String>? stdoutSubscription;
   final StreamSubscription<String>? stderrSubscription;
 
@@ -1426,7 +1415,6 @@ class _ManagedProcess {
     Process? process,
     bool? handshakeCompleted,
     _ManagedResponseRouter? responseRouter,
-    Completer<bool>? handshakeCompleter,
     StreamSubscription<String>? stdoutSubscription,
     StreamSubscription<String>? stderrSubscription,
     bool clearProcess = false,
@@ -1438,7 +1426,6 @@ class _ManagedProcess {
       process: clearProcess ? null : (process ?? this.process),
       handshakeCompleted: handshakeCompleted ?? this.handshakeCompleted,
       responseRouter: responseRouter ?? this.responseRouter,
-      handshakeCompleter: handshakeCompleter ?? this.handshakeCompleter,
       stdoutSubscription: stdoutSubscription ?? this.stdoutSubscription,
       stderrSubscription: stderrSubscription ?? this.stderrSubscription,
     );

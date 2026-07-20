@@ -129,6 +129,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
   static const Duration _maxTraceDuration = Duration(minutes: 5);
   static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
+  static const int maxRawCdpMethodChars = 256;
   static const int _maxRawCdpParamsJsonChars = 2 * 1024 * 1024;
   static const int maxReplExpressionChars = 2 * 1024 * 1024;
   static const int _maxReplHistoryExpressionChars = 64 * 1024;
@@ -4093,8 +4094,9 @@ class WebReverseSessionController extends ChangeNotifier {
     if (cdp == null) return null;
     final trimmedMethod = method.trim();
     if (trimmedMethod.isEmpty ||
+        trimmedMethod.length > maxRawCdpMethodChars ||
         !_rawCdpMethodPattern.hasMatch(trimmedMethod)) {
-      return <String, Object?>{'error': 'invalid CDP method name'};
+      return <String, Object?>{'error': 'CDP 方法名无效。'};
     }
     Map<String, Object?>? params;
     final rawParamsJson = paramsJson?.trim();
@@ -4102,17 +4104,17 @@ class WebReverseSessionController extends ChangeNotifier {
       if (rawParamsJson.length > _maxRawCdpParamsJsonChars) {
         return <String, Object?>{
           'error':
-              'params JSON too large: ${rawParamsJson.length} chars, limit $_maxRawCdpParamsJsonChars',
+              '参数 JSON 过大：${rawParamsJson.length} 个字符，上限为 $_maxRawCdpParamsJsonChars。',
         };
       }
       try {
         final decoded = jsonDecode(rawParamsJson);
         if (decoded is! Map) {
-          return <String, Object?>{'error': 'params JSON must be an object'};
+          return <String, Object?>{'error': '参数 JSON 必须是对象。'};
         }
         params = stringKeyedMapFromValue(decoded);
       } catch (e) {
-        return <String, Object?>{'error': 'invalid params JSON: $e'};
+        return <String, Object?>{'error': '参数 JSON 无效：$e'};
       }
     }
     try {

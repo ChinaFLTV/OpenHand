@@ -1,21 +1,24 @@
 import 'dart:collection';
-import 'dart:math' as math;
 
-/// Concurrency gate for expensive HTML WebView platform views.
+/// 限制高开销 HTML WebView 平台视图的并发挂载量。
 ///
-/// Only a bounded number of HTML cards may mount at once; waiters are
-/// granted on release with an optional post-frame schedule hook so the
-/// drain never re-enters layout/build synchronously.
+/// 等待队列同样有界；超限请求会返回已释放许可，由调用方回退到轻量渲染。
 class HtmlWebViewMountLimiter {
   HtmlWebViewMountLimiter({
     int maxMounted = defaultMaxMounted,
+    int maxWaiting = defaultMaxWaiting,
     void Function(void Function() task)? scheduleGranted,
-  }) : maxMounted = math.max(1, maxMounted),
+  }) : maxMounted = maxMounted.clamp(1, maxAllowedMounted).toInt(),
+       maxWaiting = maxWaiting.clamp(0, maxAllowedWaiting).toInt(),
        _scheduleGranted = scheduleGranted;
 
   static const int defaultMaxMounted = 2;
+  static const int defaultMaxWaiting = 64;
+  static const int maxAllowedMounted = 16;
+  static const int maxAllowedWaiting = 4096;
 
   final int maxMounted;
+  final int maxWaiting;
   final void Function(void Function() task)? _scheduleGranted;
   final LinkedHashMap<int, HtmlWebViewMountPermit> _active =
       LinkedHashMap<int, HtmlWebViewMountPermit>();
@@ -37,6 +40,10 @@ class HtmlWebViewMountLimiter {
     if (_active.length < maxMounted) {
       _active[permit.id] = permit;
       permit._granted = true;
+      return permit;
+    }
+    if (_waiting.length >= maxWaiting) {
+      permit._released = true;
       return permit;
     }
     if (priority) {
@@ -71,11 +78,19 @@ class HtmlWebViewMountLimiter {
   }
 
   void clear() {
+    final activePermits = _active.values.toList(growable: false);
+    for (final permit in activePermits) {
+      permit._granted = false;
+      permit._released = true;
+    }
     for (final permit in _waiting) {
       permit._released = true;
     }
     _waiting.clear();
     _active.clear();
+    for (final permit in activePermits) {
+      permit._onRevoked?.call();
+    }
   }
 
   void _drain() {

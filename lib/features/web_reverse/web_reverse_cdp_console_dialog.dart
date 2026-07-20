@@ -4,6 +4,7 @@
 /// 历史保存在静态列表里，应用生命周期内跨次打开保留。
 library;
 
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -33,12 +35,23 @@ class _CdpHistoryEntry {
   final DateTime timestamp;
   String? error;
   String? resultJson;
+
+  int get retainedCharacters =>
+      method.length +
+      paramsJson.length +
+      (error?.length ?? 0) +
+      (resultJson?.length ?? 0);
 }
 
-final List<_CdpHistoryEntry> _cdpConsoleHistory = <_CdpHistoryEntry>[];
+final ListQueue<_CdpHistoryEntry> _cdpConsoleHistory =
+    ListQueue<_CdpHistoryEntry>();
 const int _kCdpConsoleMaxParamsJsonChars = 2 * 1024 * 1024;
 const int _kCdpConsoleHistoryParamsChars = 64 * 1024;
 const int _kCdpConsoleHistoryResultChars = 512 * 1024;
+const int _kCdpConsoleHistoryErrorChars = 64 * 1024;
+const int _kCdpConsoleHistoryMaxEntries = 100;
+const int _kCdpConsoleHistoryMaxCharacters = 8 * 1024 * 1024;
+int _cdpConsoleHistoryCharacters = 0;
 
 Future<void> showWebReverseCdpConsoleDialog(
   BuildContext context, {
@@ -103,7 +116,11 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     }
     setState(() => _busy = true);
     final entry = _CdpHistoryEntry(
-      method: method,
+      method: clipText(
+        method,
+        WebReverseSessionController.maxRawCdpMethodChars,
+        suffix: '',
+      ),
       paramsJson: _capCdpConsoleHistoryText(
         paramsJson ?? '',
         _kCdpConsoleHistoryParamsChars,
@@ -121,7 +138,10 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       if (r == null) {
         entry.error = loc?.webReverseCdpSendFailed ?? 'Send failed';
       } else if (r['error'] != null) {
-        entry.error = '${r['error']}';
+        entry.error = _capCdpConsoleHistoryText(
+          '${r['error']}',
+          _kCdpConsoleHistoryErrorChars,
+        );
       } else {
         entry.resultJson = _capCdpConsoleHistoryText(
           prettyPrintJson(r),
@@ -129,12 +149,19 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
         );
       }
     } catch (err, st) {
-      silentLog('web_reverse_cdp_console_dialog', 'cdp-console.send', err, st);
-      entry.error = '$err';
+      silentLog('web_reverse_cdp_console_dialog', '发送 CDP 控制台命令', err, st);
+      entry.error = _capCdpConsoleHistoryText(
+        '$err',
+        _kCdpConsoleHistoryErrorChars,
+      );
     }
-    _cdpConsoleHistory.insert(0, entry);
-    if (_cdpConsoleHistory.length > 100) {
-      _cdpConsoleHistory.removeRange(100, _cdpConsoleHistory.length);
+    _cdpConsoleHistory.addFirst(entry);
+    _cdpConsoleHistoryCharacters += entry.retainedCharacters;
+    while (_cdpConsoleHistory.length > _kCdpConsoleHistoryMaxEntries ||
+        _cdpConsoleHistoryCharacters > _kCdpConsoleHistoryMaxCharacters) {
+      _cdpConsoleHistoryCharacters -= _cdpConsoleHistory
+          .removeLast()
+          .retainedCharacters;
     }
     if (!mounted) return;
     setState(() {
@@ -145,7 +172,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
 
   void _loadHistoryAt(int idx) {
     if (idx < 0 || idx >= _cdpConsoleHistory.length) return;
-    final h = _cdpConsoleHistory[idx];
+    final h = _cdpConsoleHistory.elementAt(idx);
     setState(() {
       _historyCursor = idx;
       _methodCtl.text = h.method;
@@ -207,7 +234,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       successBase:
           AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
       logTag: 'web_reverse_cdp_console_dialog',
-      logAction: 'cdp-console.copy',
+      logAction: '复制 CDP 控制台内容',
     );
   }
 
@@ -238,7 +265,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Left: input + history list ──
+                  // 左侧：输入区与历史列表。
                   SizedBox(
                     width: 320,
                     child: Column(
@@ -319,7 +346,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                               : ListView.builder(
                                   itemCount: _cdpConsoleHistory.length,
                                   itemBuilder: (_, i) {
-                                    final h = _cdpConsoleHistory[i];
+                                    final h = _cdpConsoleHistory.elementAt(i);
                                     final picked = i == _historyCursor;
                                     return InkWell(
                                       onTap: () => _loadHistoryAt(i),
@@ -385,7 +412,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                     ),
                   ),
                   VerticalDivider(width: 1, color: cs.outlineVariant),
-                  // ── Right: detail of last/selected ──
+                  // 右侧：最近或当前选中记录的详情。
                   Expanded(
                     child: _historyCursor < 0 || _cdpConsoleHistory.isEmpty
                         ? Center(
@@ -397,7 +424,9 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                               ),
                             ),
                           )
-                        : _detailFor(_cdpConsoleHistory[_historyCursor]),
+                        : _detailFor(
+                            _cdpConsoleHistory.elementAt(_historyCursor),
+                          ),
                   ),
                 ],
               ),
@@ -503,5 +532,5 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
 String _capCdpConsoleHistoryText(String text, int maxChars) {
   if (text.length <= maxChars) return text;
   final omitted = text.length - maxChars;
-  return '${text.substring(0, maxChars)}\n\n[OpenHand clipped CDP console history: $omitted chars omitted]';
+  return '${text.substring(0, maxChars)}\n\n[OpenHand 已截断 CDP 控制台历史，省略 $omitted 个字符]';
 }
