@@ -6906,6 +6906,8 @@ class AiSessionController extends ChangeNotifier {
 
     var toolCatalog = applyRuntimeLazyLoading();
     var activeLatestUserMessageId = latestUserMessageId;
+    // 提示锚点贯穿整个工具链；遥测锚点会随工具结果前移，二者不可共用。
+    var promptUserMessageId = latestUserMessageId;
     var activeRoundAnchorMessageId = latestUserMessageId;
     // 阶段⑰：累积当前轮次（非 AI 侧消息：用户显式消息或
     // OpenHand 程序侧工具结果/MCP/Skill 结果 + 后续 AI 响应）内全部
@@ -7001,7 +7003,7 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         memoryEntries: runtimeContext.memoryEntries,
         sessionMessages: sessionMessagesForPrompt,
-        latestUserMessageId: activeLatestUserMessageId,
+        latestUserMessageId: promptUserMessageId,
         runtimeContextAnchorMessageId: activeRoundAnchorMessageId,
         availableTools: toolsForRound,
         resolvedToolsByName: toolCatalogForRound.toolsByName,
@@ -8470,6 +8472,7 @@ class AiSessionController extends ChangeNotifier {
           if (goalDecision.shouldContinue &&
               goalDecision.nextUserMessageId != null) {
             activeLatestUserMessageId = goalDecision.nextUserMessageId;
+            promptUserMessageId = goalDecision.nextUserMessageId;
             activeRoundAnchorMessageId = goalDecision.nextUserMessageId;
             roundToolCallIds.clear();
             roundToolCallSeen.clear();
