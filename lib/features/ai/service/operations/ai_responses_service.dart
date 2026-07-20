@@ -319,8 +319,12 @@ class AiResponsesService {
     );
     cacheAffinity.applyToHeaders(headers);
     final body = AiPromptCacheAffinity.withConversationInputLast(
-      cacheAffinity.applyToBody(
-        AiOperationHttp.mergeBodyExtras(model, family, baseBody),
+      AiPromptCacheRetentionPolicy.applyToBody(
+        model: model,
+        inputCacheConfig: inputCacheConfig,
+        body: cacheAffinity.applyToBody(
+          AiOperationHttp.mergeBodyExtras(model, family, baseBody),
+        ),
       ),
     );
     if (mimo) _normalizeMimoRequestBody(body);
@@ -512,6 +516,12 @@ class AiResponsesService {
   }) async {
     final startedAt = DateTime.now().toUtc();
     final requestFallbacks = <String>[];
+    if (AiPromptCacheRetentionPolicy.wasRecentlyRejected(
+      requestUrl: request.url,
+      requestBody: request.body,
+    )) {
+      request = _withoutCacheRetentionMarker(request);
+    }
 
     Future<http.Response> send() async {
       onRequestStarted?.call(request);
@@ -526,6 +536,23 @@ class AiResponsesService {
     }
 
     var response = await send();
+    if (isHttpFailureStatus(response.statusCode) &&
+        AiPromptCacheRetentionPolicy.shouldRetryWithoutMarker(
+          statusCode: response.statusCode,
+          errorBody: response.body,
+          requestBody: request.body,
+        )) {
+      AiPromptCacheRetentionPolicy.rememberRejection(
+        requestUrl: request.url,
+        requestBody: request.body,
+      );
+      _addRequestFallback(
+        requestFallbacks,
+        aiChatRequestFallbackCacheRetentionRejected,
+      );
+      request = _withoutCacheRetentionMarker(request);
+      response = await send();
+    }
     if (isHttpFailureStatus(response.statusCode) &&
         AiPromptCacheAffinity.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
@@ -820,6 +847,17 @@ class AiResponsesService {
       method: request.method,
       headers: AiPromptCacheAffinity.withoutHeaderMarkers(request.headers),
       body: AiPromptCacheAffinity.withoutBodyMarkers(request.body),
+    );
+  }
+
+  AiResponsesRequestBlueprint _withoutCacheRetentionMarker(
+    AiResponsesRequestBlueprint request,
+  ) {
+    return AiResponsesRequestBlueprint(
+      url: request.url,
+      method: request.method,
+      headers: request.headers,
+      body: AiPromptCacheRetentionPolicy.withoutMarker(request.body),
     );
   }
 

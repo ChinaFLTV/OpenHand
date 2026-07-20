@@ -7116,7 +7116,7 @@ class AiSessionController extends ChangeNotifier {
           ),
           cancelSignal: _stopSignalForSession(workingSession.id),
           inputCacheConfig: AiInputCacheRuntimeConfig(
-            enabled: inputCachePolicy.stablePromptPrefixEnabled,
+            enabled: inputCachePolicy.emitsProtocolCacheHints,
             mode: runtimeContext.aiInputCacheUpdateMode,
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
@@ -13528,6 +13528,9 @@ $tail''';
         'cache_affinity_degraded': result.requestFallbacks.contains(
           aiChatRequestFallbackCacheAffinityRejected,
         ),
+        'cache_retention_degraded': result.requestFallbacks.contains(
+          aiChatRequestFallbackCacheRetentionRejected,
+        ),
         'thinking_markers_degraded': result.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
         ),
@@ -13595,6 +13598,9 @@ $tail''';
         'request_fallbacks': telemetry.requestFallbacks,
         'cache_affinity_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackCacheAffinityRejected,
+        ),
+        'cache_retention_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackCacheRetentionRejected,
         ),
         'thinking_markers_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
@@ -13850,6 +13856,9 @@ $tail''';
         'request_fallbacks': telemetry.requestFallbacks,
         'cache_affinity_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackCacheAffinityRejected,
+        ),
+        'cache_retention_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackCacheRetentionRejected,
         ),
         'thinking_markers_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
@@ -14123,6 +14132,9 @@ $tail''';
       'request_cache_control_marker_count': paths.length,
       if (paths.isNotEmpty)
         'request_cache_control_marker_paths': paths.take(8).toList(),
+      if (body.containsKey(AiPromptCacheRetentionPolicy.bodyField))
+        'request_prompt_cache_retention':
+            '${body[AiPromptCacheRetentionPolicy.bodyField] ?? ''}',
     };
   }
 
@@ -14259,9 +14271,11 @@ $tail''';
       'request_cache_affinity_marker_paths',
       'request_fallbacks',
       'cache_affinity_degraded',
+      'cache_retention_degraded',
       'thinking_markers_degraded',
       'request_cache_control_marker_count',
       'request_cache_control_marker_paths',
+      'request_prompt_cache_retention',
       'request_payload_lcp_chars',
       'request_payload_lcp_previous_ratio',
       'request_payload_prefix_continuity',

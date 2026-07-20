@@ -72,5 +72,8 @@ class AiInputCachePolicy {
   bool get usesAutomaticProviderCache =>
       strategy == AiInputCacheControlStrategy.automaticProviderCache;
 
+  bool get emitsProtocolCacheHints =>
+      injectsExplicitCacheControl || usesAutomaticProviderCache;
+
   bool get defersBackgroundRequests => false;
 }

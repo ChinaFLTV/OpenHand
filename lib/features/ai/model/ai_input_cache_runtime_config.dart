@@ -3,7 +3,8 @@
 /// 由 [AiSessionController] 在每轮请求开始时根据 SettingsController 与
 /// [AiSessionRuntimeContext] 装配，向下传递到 [AiChatClient.sendMessageStream]
 /// 与 [AiProtocolAdapter.buildBody]。协议适配器可将其翻译为 Claude native
-/// `cache_control` 标记，或 OpenAI-compatible provider 的会话亲和键。
+/// `cache_control` 标记，或 OpenAI-compatible provider 的缓存保留提示与
+/// 会话亲和键。
 ///
 /// `enabled=false` 时，所有适配器应表现为完全无行为变化（空操作）。
 class AiInputCacheRuntimeConfig {

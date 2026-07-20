@@ -706,8 +706,6 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     primaryMetadata['request_payload_prefix_probe_complete'],
     relatedMetadata['request_payload_prefix_probe_complete'],
   ]);
-  final requestPrefixStable =
-      !requestPrefixProbeComplete || requestPrefixContinuity;
   final ttlSuspected = _isExpiredCacheMissByValues(
     idleGapSeconds: idleGapSeconds,
     hitRatio: hitRatio,
@@ -718,7 +716,6 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
       !ttlSuspected &&
       stablePrefixUnchanged &&
       toolCatalogStable &&
-      requestPrefixStable &&
       idleGapSeconds != null &&
       idleGapSeconds >= kAutomaticProviderCacheMissMinGapSeconds &&
       hitRatio < kAutomaticProviderCacheMissHitRatioThreshold;

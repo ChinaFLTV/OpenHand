@@ -9,14 +9,17 @@ import 'ai_tool_runtime_service.dart';
 class AiBuiltinToolLazyLoadingApplier {
   const AiBuiltinToolLazyLoadingApplier();
 
-  static const int defaultAutoThresholdTokens = 16000;
+  static const int defaultAutoThresholdTokens = 8000;
   static const int minAutoThresholdTokens = 1000;
 
   static int effectiveAutoThresholdTokens(int configuredThresholdTokens) {
     if (configuredThresholdTokens <= 0) {
       return defaultAutoThresholdTokens;
     }
-    return math.max(minAutoThresholdTokens, configuredThresholdTokens);
+    return math.min(
+      defaultAutoThresholdTokens,
+      math.max(minAutoThresholdTokens, configuredThresholdTokens),
+    );
   }
 
   static bool hasDeferredCandidates({

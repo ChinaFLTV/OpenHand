@@ -399,13 +399,13 @@ class AppSettingsSnapshot {
   /// 成本控制：是否启用输入缓存优化。开启后，Prompt
   /// Builder 统一保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
   /// 前置；Anthropic native 注入 cache_control 断点，OpenAI-compatible
-  /// 请求注入稳定的会话/Prompt 亲和键并保持 messages 位于请求体末尾，
-  /// 同时在用户首条消息发出后锁定服务商/模型选择，降低跨轮缓存击穿概率。
+  /// 请求注入统一缓存保留提示、稳定会话/Prompt 亲和键并保持 messages
+  /// 位于请求体末尾；同时锁定服务商/模型选择，降低跨轮缓存击穿概率。
   ///
   /// 默认为 `true`。Claude 协议会在对应 provider 开关开启时注入
   /// `cache_control: {type: ephemeral}` 断点；OpenAI-compatible 协议会使用
-  /// 稳定亲和键与请求体顺序优化。少数场景需要关闭时再在"输入缓存"设置里
-  /// 手动关闭。
+  /// 缓存保留提示、稳定亲和键与请求体顺序优化。少数场景需要关闭时再在
+  /// "输入缓存"设置里手动关闭。
   static const bool defaultAiInputCacheEnabled = true;
 
   /// 缓存断点更新模式：allMessages | userMessages | tokens。

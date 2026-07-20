@@ -897,7 +897,7 @@ class AiPromptCacheAffinity {
     switch (kind) {
       case AiPromptCacheAffinityKind.openRouterSession:
         if (id.isEmpty) return body;
-        return _putBodyFieldBeforeConversationInput(
+        return putBodyFieldBeforeConversationInput(
           body,
           openRouterSessionBodyField,
           id,
@@ -907,7 +907,7 @@ class AiPromptCacheAffinity {
       case AiPromptCacheAffinityKind.grokCompatibleGateway:
         final bodyKey = _bodyPromptCacheKey;
         if (bodyKey.isEmpty) return body;
-        return _putBodyFieldBeforeConversationInput(
+        return putBodyFieldBeforeConversationInput(
           body,
           openAiPromptCacheKeyBodyField,
           bodyKey,
@@ -1063,7 +1063,7 @@ class AiPromptCacheAffinity {
     return updated;
   }
 
-  static Map<String, Object?> _putBodyFieldBeforeConversationInput(
+  static Map<String, Object?> putBodyFieldBeforeConversationInput(
     Map<String, Object?> body,
     String field,
     String value,
@@ -1186,6 +1186,103 @@ class AiPromptCacheAffinity {
   }
 }
 
+/// OpenAI-compatible 缓存保留提示。策略只按协议能力统一启用，不读取线程
+/// 模板、模型名称或用户问题；不创建显式缓存断点。
+abstract final class AiPromptCacheRetentionPolicy {
+  static const String bodyField = 'prompt_cache_retention';
+  static const String extendedRetention = '24h';
+  static const Duration rejectionCacheTtl = Duration(hours: 1);
+  static const int rejectionCacheLimit = 64;
+  static final Map<String, DateTime> _rejectedRequests = <String, DateTime>{};
+
+  static Map<String, Object?> applyToBody({
+    required AiModelConfig model,
+    required AiInputCacheRuntimeConfig? inputCacheConfig,
+    required Map<String, Object?> body,
+  }) {
+    final affinityKind = AiPromptCacheAffinity.kindForModel(model);
+    if (model.apiDialect != AiApiDialect.openAiCompat ||
+        !AiPromptCacheAffinity.kindUsesBodyAffinityMarker(affinityKind) ||
+        inputCacheConfig == null ||
+        !inputCacheConfig.isEffectivelyEnabled ||
+        body.containsKey(bodyField)) {
+      return body;
+    }
+    return AiPromptCacheAffinity.putBodyFieldBeforeConversationInput(
+      body,
+      bodyField,
+      extendedRetention,
+    );
+  }
+
+  static bool shouldRetryWithoutMarker({
+    required int statusCode,
+    required String errorBody,
+    required Map<String, Object?> requestBody,
+  }) {
+    if ((statusCode != 400 && statusCode != 422) ||
+        !requestBody.containsKey(bodyField)) {
+      return false;
+    }
+    final normalized = errorBody.toLowerCase();
+    if (!normalized.contains(bodyField) &&
+        !normalized.contains('prompt cache retention')) {
+      return false;
+    }
+    return normalized.contains('unknown') ||
+        normalized.contains('unrecognized') ||
+        normalized.contains('unsupported') ||
+        normalized.contains('unexpected') ||
+        normalized.contains('not allowed') ||
+        normalized.contains('additional') ||
+        normalized.contains('invalid');
+  }
+
+  static Map<String, Object?> withoutMarker(Map<String, Object?> body) {
+    if (!body.containsKey(bodyField)) return body;
+    return Map<String, Object?>.from(body)..remove(bodyField);
+  }
+
+  static bool wasRecentlyRejected({
+    required String requestUrl,
+    required Map<String, Object?> requestBody,
+  }) {
+    final key = _rejectionKey(requestUrl, requestBody);
+    if (key.isEmpty) return false;
+    final now = DateTime.now().toUtc();
+    final expiresAt = _rejectedRequests[key];
+    if (expiresAt == null) return false;
+    if (expiresAt.isAfter(now)) return true;
+    _rejectedRequests.remove(key);
+    return false;
+  }
+
+  static void rememberRejection({
+    required String requestUrl,
+    required Map<String, Object?> requestBody,
+  }) {
+    final key = _rejectionKey(requestUrl, requestBody);
+    if (key.isEmpty) return;
+    final now = DateTime.now().toUtc();
+    _rejectedRequests.removeWhere((_, expiresAt) => !expiresAt.isAfter(now));
+    while (_rejectedRequests.length >= rejectionCacheLimit) {
+      _rejectedRequests.remove(_rejectedRequests.keys.first);
+    }
+    _rejectedRequests[key] = now.add(rejectionCacheTtl);
+  }
+
+  static String _rejectionKey(
+    String requestUrl,
+    Map<String, Object?> requestBody,
+  ) {
+    final uri = Uri.tryParse(requestUrl);
+    final modelId = '${requestBody['model'] ?? ''}'.trim().toLowerCase();
+    if (uri == null || uri.host.isEmpty || modelId.isEmpty) return '';
+    return '${uri.scheme.toLowerCase()}://${uri.host.toLowerCase()}'
+        ':${uri.port}${uri.path}|$modelId';
+  }
+}
+
 abstract class AiProtocolAdapter {
   const AiProtocolAdapter();
 
@@ -1245,7 +1342,11 @@ abstract class AiProtocolAdapter {
     cacheAffinity.applyToHeaders(headers);
     final bodyWithExtras = AiOperationHttp.mergeBodyExtras(model, family, body);
     final cacheAwareBody = AiPromptCacheAffinity.withConversationInputLast(
-      cacheAffinity.applyToBody(bodyWithExtras),
+      AiPromptCacheRetentionPolicy.applyToBody(
+        model: model,
+        inputCacheConfig: inputCacheConfig,
+        body: cacheAffinity.applyToBody(bodyWithExtras),
+      ),
     );
     return AiRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
