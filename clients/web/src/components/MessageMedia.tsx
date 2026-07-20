@@ -1560,6 +1560,35 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
         >
           {effectiveEntries.map(({ item, url, key }) => {
             const label = attachmentLabel(item);
+            if (item.kind === 'image') {
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openPreview(item, url);
+                  }}
+                  class="oh-user-attachment-thumbnail oh-tap-press"
+                  title={`${item.name} · ${label}`}
+                  aria-label={`${item.name} · ${label}`}
+                >
+                  <span class="oh-user-attachment-thumbnail-fallback" aria-hidden>
+                    <MediaKindIcon kind="image" size={26} />
+                  </span>
+                  <img
+                    src={url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    onError={(event) => {
+                      event.currentTarget.hidden = true;
+                    }}
+                  />
+                </button>
+              );
+            }
             const content = (
               <>
                 <span class="oh-user-attachment-leading" aria-hidden>
@@ -1573,7 +1602,10 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
               <button
                 key={key}
                 type="button"
-                onClick={() => openPreview(item, url)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openPreview(item, url);
+                }}
                 class="oh-user-attachment-pill oh-tap-press"
                 title={`${item.name} · ${label}`}
               >

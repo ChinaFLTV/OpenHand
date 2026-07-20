@@ -2035,7 +2035,48 @@ button.oh-message-context-capsule {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  margin: -1px 0 10px;
+  width: fit-content;
+  max-width: min(100%, 760px);
+  margin: -1px 0 10px auto;
+  color: var(--m3-on-surface);
+}
+.oh-user-attachment-thumbnail {
+  position: relative;
+  width: clamp(116px, 18vw, 156px);
+  aspect-ratio: 1;
+  flex: none;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  background: var(--m3-surface-container-highest);
+  color: var(--m3-on-surface-variant);
+  box-shadow: 0 10px 28px -22px color-mix(in srgb, black 72%, transparent);
+  transition:
+    border-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring);
+}
+.oh-user-attachment-thumbnail:hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 54%, var(--m3-outline-variant));
+  box-shadow: 0 14px 34px -22px color-mix(in srgb, black 82%, transparent);
+}
+.oh-user-attachment-thumbnail img,
+.oh-user-attachment-thumbnail-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.oh-user-attachment-thumbnail img {
+  z-index: 1;
+  display: block;
+  object-fit: cover;
+}
+.oh-user-attachment-thumbnail-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--m3-surface-container-highest);
 }
 .oh-user-attachment-pill {
   max-width: min(100%, 340px);

@@ -190,9 +190,6 @@ type MessageIconName =
   | 'video'
   | 'audio'
   | 'deepResearch'
-  | 'attachmentText'
-  | 'attachmentSpreadsheet'
-  | 'attachmentPdf'
   | 'attachmentFile'
   | 'reasoning'
   | 'toolCall'
@@ -261,12 +258,6 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M9 18V6l10-2v12" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="16" r="2" /></svg>;
     case 'deepResearch':
       return <svg {...common}><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /><path d="M8.5 11h5M11 8.5v5" /></svg>;
-    case 'attachmentText':
-      return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /><path d="M9.5 12h5M9.5 16h4" /></svg>;
-    case 'attachmentSpreadsheet':
-      return <svg {...common}><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M5 10h14M5 15h14M10 4v16M15 4v16" /></svg>;
-    case 'attachmentPdf':
-      return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /><path d="M9.5 16h5" /><path d="M9.5 12h1.5a1.5 1.5 0 0 1 0 3H9.5z" /></svg>;
     case 'attachmentFile':
       return <svg {...common}><path d="M7 3h7l3 3v15H7z" /><path d="M14 3v4h4" /></svg>;
     case 'reasoning':
@@ -886,7 +877,6 @@ function messageContextChips(message: SessionMessage): MessageContextChip[] {
     ...expertRequestChips,
     ...(message.role === 'user' ? creationModeChips(meta) : []),
     ...(message.role === 'user' ? skillChips(meta) : []),
-    ...(message.role === 'user' ? attachmentChips(meta) : []),
   ];
 }
 
@@ -1545,78 +1535,6 @@ function skillChips(meta: Record<string, unknown>): MessageContextChip[] {
     emoji: emoji || undefined,
     label: `${t('message.context.skill', '技能')} · ${name}`,
   }];
-}
-
-type AttachmentKind = 'image' | 'text' | 'spreadsheet' | 'pdf' | 'binary';
-
-function attachmentChips(meta: Record<string, unknown>): MessageContextChip[] {
-  const counts = new Map<AttachmentKind, number>();
-  const attachments = meta['attachments'];
-  if (Array.isArray(attachments)) {
-    for (const item of attachments) {
-      const kind = attachmentKindFor(item);
-      counts.set(kind, (counts.get(kind) ?? 0) + 1);
-    }
-  }
-  if (counts.size === 0) {
-    const count = strictPositiveIntegerFromUnknown(meta['attachment_count']);
-    if (count != null) counts.set('binary', count);
-  }
-  const order: AttachmentKind[] = ['image', 'text', 'spreadsheet', 'pdf', 'binary'];
-  return order.flatMap((kind) => {
-    const count = counts.get(kind) ?? 0;
-    if (count <= 0) return [];
-    const data = attachmentKindData(kind);
-    const attachmentPrefix = t('message.context.kind.attachment', '附件');
-    const label = `${attachmentPrefix} · ${data.label}`;
-    return [{
-      key: `attachment:${kind}`,
-      icon: data.icon,
-      label: count > 1 ? `${label} · x${count}` : label,
-    }];
-  });
-}
-
-function attachmentKindFor(item: unknown): AttachmentKind {
-  const record = recordOrNullFromUnknown(item);
-  if (!record) return attachmentKindFromPath(nonEmptyString(item));
-  const rawKind = nonEmptyString(record['kind'] ?? record['type']).toLowerCase();
-  if (rawKind === 'image' || rawKind === 'text' || rawKind === 'spreadsheet' || rawKind === 'pdf') return rawKind;
-  const mime = nonEmptyString(record['mime_type'] ?? record['mime']).toLowerCase();
-  if (mime.startsWith('image/')) return 'image';
-  if (mime.includes('pdf')) return 'pdf';
-  if (mime.includes('spreadsheet') || mime.includes('excel') || mime.includes('csv')) return 'spreadsheet';
-  if (mime.startsWith('text/') || mime.includes('json') || mime.includes('xml') || mime.includes('yaml')) return 'text';
-  return attachmentKindFromPath(
-    nonEmptyString(record['name']) ||
-    nonEmptyString(record['storage_path']) ||
-    nonEmptyString(record['path']) ||
-    nonEmptyString(record['file_path']),
-  );
-}
-
-function attachmentKindFromPath(path: string): AttachmentKind {
-  const lower = path.toLowerCase();
-  if (/\.(png|jpe?g|gif|webp|bmp|heic|svg)$/.test(lower)) return 'image';
-  if (/\.(pdf)$/.test(lower)) return 'pdf';
-  if (/\.(csv|tsv|xls|xlsx|ods)$/.test(lower)) return 'spreadsheet';
-  if (/\.(txt|md|markdown|json|ya?ml|toml|xml|log|sql|dart|go|jsx?|tsx?|py|sh|rs|java|kt|swift|c|cc|cpp|h|hpp|css|html)$/.test(lower)) return 'text';
-  return 'binary';
-}
-
-function attachmentKindData(kind: AttachmentKind): { icon: MessageIconName; label: string } {
-  switch (kind) {
-    case 'image':
-      return { icon: 'image', label: t('message.context.attachment.image', '图片附件') };
-    case 'text':
-      return { icon: 'attachmentText', label: t('message.context.attachment.text', '文本附件') };
-    case 'spreadsheet':
-      return { icon: 'attachmentSpreadsheet', label: t('message.context.attachment.spreadsheet', '表格附件') };
-    case 'pdf':
-      return { icon: 'attachmentPdf', label: t('message.context.attachment.pdf', 'PDF 附件') };
-    case 'binary':
-      return { icon: 'attachmentFile', label: t('message.context.attachment.file', '文件附件') };
-  }
 }
 
 function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
@@ -2907,6 +2825,7 @@ function MessageCardImpl({
           class="oh-message-card-body-motion"
           style={{ transformOrigin: isUserBubble ? 'right top' : 'left top' }}
         >
+          {isUserBubble ? media : null}
           <article
             class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${isExpertRequestCard ? 'is-expert-request' : ''} ${isMachineExpertRequestCard ? 'is-machine-request' : ''} ${isWebReverseRequestCard ? 'is-web-reverse-request' : ''} ${isAndroidReverseRequestCard ? 'is-android-reverse-request' : ''} ${visuallyStreamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
             style={{
@@ -3101,7 +3020,6 @@ function MessageCardImpl({
         </div>
       ) : null}
       <MessageToolMeta message={message} />
-      {isUserBubble ? media : null}
       <ReasoningCollapsibleBody
         collapsed={badgeBodyCollapsed}
         scrollableCollapsed={scrollableCollapsedBody}

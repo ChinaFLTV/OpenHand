@@ -1261,7 +1261,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
       animateEntrance: widget.animateActionPanelEntrance,
       onEntranceConsumed: widget.onActionPanelEntranceConsumed,
       message: message,
-      attachments: attachments,
       harnessAnnotation: heAnnotation,
       textColor: textColor,
       showModelLabel: !isUser,
@@ -1449,7 +1448,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
       children: [
         _withLayoutChangeTracking(
           enabled: shouldTrackLayoutChanges,
-          child: bubbleShell,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isUser && attachments.isNotEmpty)
+                _UserMessageAttachmentRail(attachments: attachments),
+              bubbleShell,
+            ],
+          ),
         ),
         selectedActionPanel,
       ],
@@ -1575,6 +1582,10 @@ const double _responseVariantChipHeight = 26;
 const double _responseVariantArrowWidth = 20;
 const double _responseVariantLabelMinWidth = 28;
 const double _messageActionIconSize = 16;
+const double _userAttachmentThumbnailExtent = 156;
+const double _userAttachmentGap = 8;
+const double _userAttachmentBottomSpacing = 10;
+const double _userAttachmentPillMaxWidth = 340;
 
 ButtonStyle _messageActionChipStyle(BuildContext context) {
   final theme = Theme.of(context);
@@ -1618,7 +1629,6 @@ class _SelectedMessageActionPanelSlot extends StatefulWidget {
     required this.onEntranceConsumed,
     required this.actions,
     required this.message,
-    required this.attachments,
     required this.harnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
@@ -1633,7 +1643,6 @@ class _SelectedMessageActionPanelSlot extends StatefulWidget {
   final ValueChanged<int> onEntranceConsumed;
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
-  final List<AiMessageAttachment> attachments;
   final _HeAnnotation? harnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
@@ -1764,7 +1773,6 @@ class _SelectedMessageActionPanelSlotState
         alignEnd: widget.alignEnd,
         actions: widget.actions,
         message: widget.message,
-        attachments: widget.attachments,
         harnessAnnotation: widget.harnessAnnotation,
         textColor: widget.textColor,
         showModelLabel: widget.showModelLabel,
@@ -1803,7 +1811,6 @@ class _SelectedMessageActionPanel extends StatelessWidget {
     required this.alignEnd,
     required this.actions,
     required this.message,
-    required this.attachments,
     required this.harnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
@@ -1814,7 +1821,6 @@ class _SelectedMessageActionPanel extends StatelessWidget {
   final bool alignEnd;
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
-  final List<AiMessageAttachment> attachments;
   final _HeAnnotation? harnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
@@ -1848,7 +1854,6 @@ class _SelectedMessageActionPanel extends StatelessWidget {
           const SizedBox(height: 6),
           _SelectedMessageContextRow(
             message: message,
-            attachments: attachments,
             harnessAnnotation: harnessAnnotation,
             textColor: textColor,
             alignEnd: alignEnd,
@@ -7323,7 +7328,6 @@ class _KnowledgeCitationChip extends StatelessWidget {
 class _SelectedMessageContextRow extends StatelessWidget {
   const _SelectedMessageContextRow({
     required this.message,
-    required this.attachments,
     required this.harnessAnnotation,
     required this.textColor,
     required this.alignEnd,
@@ -7333,7 +7337,6 @@ class _SelectedMessageContextRow extends StatelessWidget {
   });
 
   final AiSessionMessage message;
-  final List<AiMessageAttachment> attachments;
   final _HeAnnotation? harnessAnnotation;
   final Color textColor;
   final bool alignEnd;
@@ -7432,11 +7435,6 @@ class _SelectedMessageContextRow extends StatelessWidget {
         ..._HarnessAnnotationContextCapsules.build(
           context,
           annotation: harnessAnnotation!,
-          textColor: textColor,
-        ),
-      for (final attachment in attachments)
-        _AttachmentReferenceCapsule(
-          attachment: attachment,
           textColor: textColor,
         ),
       if (showModelLabel &&
@@ -7917,6 +7915,169 @@ class _MessageContextCapsule extends StatelessWidget {
   }
 }
 
+class _UserMessageAttachmentRail extends StatelessWidget {
+  const _UserMessageAttachmentRail({required this.attachments});
+
+  final List<AiMessageAttachment> attachments;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: _MessageBubbleState._messageBubbleMaxWidth,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: _userAttachmentBottomSpacing),
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: _userAttachmentGap,
+            runSpacing: _userAttachmentGap,
+            children: [
+              for (final attachment in attachments)
+                _UserMessageAttachmentTile(attachment: attachment),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UserMessageAttachmentTile extends StatelessWidget {
+  const _UserMessageAttachmentTile({required this.attachment});
+
+  final AiMessageAttachment attachment;
+
+  void _open(BuildContext context) {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    unawaited(_openAttachment(context, attachment));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final rawName = attachment.name.trim();
+    final name = rawName.isEmpty
+        ? openHandLocalizedText(context, zh: '附件', en: 'Attachment')
+        : rawName;
+    final tooltip = '$name · ${aiFormatBytes(attachment.sizeBytes)}';
+    final borderRadius = BorderRadius.circular(attachment.isImage ? 16 : 999);
+
+    final child = attachment.isImage
+        ? SizedBox.square(
+            dimension: _userAttachmentThumbnailExtent,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: colorScheme.surfaceContainerHighest,
+                  child: Center(
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 30,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.72,
+                      ),
+                    ),
+                  ),
+                ),
+                Image.file(
+                  File(attachment.storagePath),
+                  cacheWidth: 320,
+                  cacheHeight: 320,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  excludeFromSemantics: true,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _open(context),
+                    splashColor: colorScheme.primary.withValues(alpha: 0.12),
+                    highlightColor: colorScheme.primary.withValues(alpha: 0.08),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: _userAttachmentPillMaxWidth,
+              minHeight: 38,
+            ),
+            child: Material(
+              color: colorScheme.surfaceContainerHighest,
+              child: InkWell(
+                onTap: () => _open(context),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: colorScheme.onSurface.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          _iconForAttachmentKind(attachment.kind),
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+
+    return Tooltip(
+      message: tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Semantics(
+          button: true,
+          label: name,
+          child: MicroPressFeedback(
+            scale: 0.96,
+            child: Material(
+              color: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: borderRadius,
+                side: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _KnowledgeBaseContextCapsule extends StatelessWidget {
   const _KnowledgeBaseContextCapsule({
     required this.label,
@@ -7936,30 +8097,6 @@ class _KnowledgeBaseContextCapsule extends StatelessWidget {
       textColor: textColor,
       maxLabelWidth: 280,
       onPressed: onPressed,
-    );
-  }
-}
-
-class _AttachmentReferenceCapsule extends StatelessWidget {
-  const _AttachmentReferenceCapsule({
-    required this.attachment,
-    required this.textColor,
-  });
-
-  final AiMessageAttachment attachment;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return _MessageContextCapsule(
-      icon: _iconForAttachmentKind(attachment.kind),
-      label:
-          '${attachment.name.trim().isNotEmpty ? attachment.name.trim() : openHandLocalizedText(context, zh: '附件', en: 'Attachment')} · ${aiFormatBytes(attachment.sizeBytes)}',
-      textColor: textColor,
-      maxLabelWidth: 280,
-      onPressed: () {
-        unawaited(_openAttachment(context, attachment));
-      },
     );
   }
 }
