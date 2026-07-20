@@ -7,6 +7,8 @@
 
 part of 'web_reverse_dashboard_dialog.dart';
 
+const Duration _kElementsHighlightDuration = Duration(milliseconds: 1500);
+
 class _ElementsBody extends StatefulWidget {
   const _ElementsBody({required this.controller, required this.reduceMotion});
   final WebReverseSessionController controller;
@@ -22,6 +24,8 @@ class _ElementsBodyState extends State<_ElementsBody> {
   String? _loadError;
   int _documentSerial = 0;
   int _selectionSerial = 0;
+  int _highlightSerial = 0;
+  Timer? _highlightHideTimer;
 
   /// nodeId -> 是否已展开。
   final Map<int, bool> _expanded = <int, bool>{};
@@ -50,13 +54,38 @@ class _ElementsBodyState extends State<_ElementsBody> {
   void dispose() {
     _documentSerial++;
     _selectionSerial++;
-    unawaited(widget.controller.domHideHighlight());
+    _clearHighlight();
     super.dispose();
+  }
+
+  void _clearHighlight() {
+    _highlightSerial++;
+    _highlightHideTimer?.cancel();
+    _highlightHideTimer = null;
+    unawaited(widget.controller.domHideHighlight());
+  }
+
+  Future<void> _highlightTemporarily(int nodeId) async {
+    final serial = ++_highlightSerial;
+    final controller = widget.controller;
+    final targetId = controller.currentPageTargetId;
+    _highlightHideTimer?.cancel();
+    _highlightHideTimer = null;
+    await controller.domHighlightNode(nodeId);
+    if (!mounted || serial != _highlightSerial) return;
+    if (controller.currentPageTargetId != targetId) return;
+    _highlightHideTimer = startSafeTimer(_kElementsHighlightDuration, () async {
+      _highlightHideTimer = null;
+      if (!mounted || serial != _highlightSerial) return;
+      if (controller.currentPageTargetId != targetId) return;
+      await controller.domHideHighlight();
+    });
   }
 
   Future<void> _loadDocument() async {
     final serial = ++_documentSerial;
     _selectionSerial++;
+    _clearHighlight();
     final controller = widget.controller;
     final targetId = controller.currentPageTargetId;
     setState(() {
@@ -162,13 +191,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
       _listeners = listeners;
       _loadingDetails = false;
     });
-    // 视觉反馈：在页面里画高亮框（1.5s 自动隐藏）。
-    await controller.domHighlightNode(nodeId);
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
-    if (!mounted || serial != _selectionSerial) return;
-    if (controller.currentPageTargetId == targetId) {
-      await controller.domHideHighlight();
-    }
+    await _highlightTemporarily(nodeId);
   }
 
   Future<void> _copySelector() async {
@@ -222,11 +245,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
   Future<void> _scrollIntoView() async {
     final id = _selectedNodeId;
     if (id == null) return;
+    final serial = _selectionSerial;
     await widget.controller.domScrollIntoView(id);
-    await widget.controller.domHighlightNode(id);
-    Future<void>.delayed(const Duration(milliseconds: 1500), () {
-      widget.controller.domHideHighlight();
-    });
+    if (!mounted || serial != _selectionSerial || id != _selectedNodeId) return;
+    await _highlightTemporarily(id);
   }
 
   @override

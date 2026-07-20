@@ -3177,8 +3177,7 @@ class _HoverElevateBoxState extends State<_HoverElevateBox> {
 }
 
 /// 在 [delay] 之前显示透明占位（保持高度通过 child build），
-/// 之后再用 AppearOnce 包裹 child 实现 staggered fade-in。这里通过
-/// FutureBuilder + KeyedSubtree 让每个分组卡的 enter 动画错峰。
+/// 之后再用 AppearOnce 包裹 child 实现错峰入场。
 class _DelayedAppear extends StatefulWidget {
   const _DelayedAppear({required this.delay, required this.child});
   final Duration delay;
@@ -3190,18 +3189,38 @@ class _DelayedAppear extends StatefulWidget {
 
 class _DelayedAppearState extends State<_DelayedAppear> {
   bool _show = false;
+  Timer? _delayTimer;
 
   @override
   void initState() {
     super.initState();
+    _scheduleShow();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DelayedAppear oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_show && oldWidget.delay != widget.delay) _scheduleShow();
+  }
+
+  @override
+  void dispose() {
+    _delayTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleShow() {
+    _delayTimer?.cancel();
+    _delayTimer = null;
     if (widget.delay <= Duration.zero) {
       _show = true;
-    } else {
-      Future<void>.delayed(widget.delay, () {
-        if (!mounted) return;
-        setState(() => _show = true);
-      });
+      return;
     }
+    _delayTimer = startSafeTimer(widget.delay, () {
+      _delayTimer = null;
+      if (!mounted) return;
+      setState(() => _show = true);
+    });
   }
 
   @override

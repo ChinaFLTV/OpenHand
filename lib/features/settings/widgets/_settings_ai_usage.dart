@@ -22,6 +22,7 @@ const double _kAiUsageDistributionRowHeight = 52;
 const double _kAiUsageDistributionBodyMaxHeight = 312;
 const double _kAiUsageDistributionEmptyBodyHeight = 72;
 const double _kAiUsageDistributionChromeHeight = 74;
+const Duration _kAiUsageRefreshDebounce = Duration(milliseconds: 600);
 const OpenHandAnimationTransitionProfile _kAiUsagePanelTransitionProfile =
     OpenHandAnimationTransitionProfile(
       alignment: Alignment.topCenter,
@@ -107,8 +108,10 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
 
   void _scheduleRefresh() {
     _refreshDebounce?.cancel();
-    _refreshDebounce = Timer(const Duration(milliseconds: 600), () {
-      if (mounted) unawaited(_load(quiet: true));
+    _refreshDebounce = startSafeTimer(_kAiUsageRefreshDebounce, () async {
+      _refreshDebounce = null;
+      if (!mounted) return;
+      await _load(quiet: true);
     });
   }
 
