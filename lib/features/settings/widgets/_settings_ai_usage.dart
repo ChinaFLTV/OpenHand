@@ -22,6 +22,56 @@ const double _kAiUsageDistributionRowHeight = 52;
 const double _kAiUsageDistributionBodyMaxHeight = 312;
 const double _kAiUsageDistributionEmptyBodyHeight = 72;
 const double _kAiUsageDistributionChromeHeight = 74;
+const OpenHandAnimationTransitionProfile _kAiUsagePanelTransitionProfile =
+    OpenHandAnimationTransitionProfile(
+      alignment: Alignment.topCenter,
+      fadeScaleBegin: 0.985,
+      expandScaleBegin: 0.97,
+      rotateScaleBegin: 0.985,
+      elasticScaleBegin: 0.985,
+      springScaleBegin: 0.985,
+      slideUpOffset: Offset(0, 0.035),
+      slideDownOffset: Offset(0, -0.035),
+      slideLeftOffset: Offset(-0.035, 0),
+      slideRightOffset: Offset(0.035, 0),
+    );
+
+Widget _buildAiUsageAnimatedSwap(BuildContext context, Widget child) {
+  final settings = openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.panel,
+  );
+  if (settings.disablesAnimation || settings.duration <= Duration.zero) {
+    return child;
+  }
+  return ClipRect(
+    child: AnimatedSize(
+      duration: settings.entranceDuration,
+      reverseDuration: settings.exitDuration,
+      curve: Curves.easeInOutCubicEmphasized,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: settings.entranceDuration,
+        reverseDuration: settings.exitDuration,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
+        transitionBuilder: (animatedChild, animation) =>
+            buildAnimationStyleTransition(
+              animation: animation,
+              settings: settings,
+              profile: _kAiUsagePanelTransitionProfile,
+              child: RepaintBoundary(child: animatedChild),
+            ),
+        child: child,
+      ),
+    ),
+  );
+}
 
 class _AiUsageSettingsSection extends StatefulWidget {
   const _AiUsageSettingsSection();
@@ -192,26 +242,9 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
             ),
           ] else if (_snapshot case final snapshot?) ...[
             const SizedBox(height: 20),
-            AnimatedSwitcher(
-              duration: _settingsMotionDuration(
-                context,
-                const Duration(milliseconds: 360),
-              ),
-              reverseDuration: _settingsMotionDuration(
-                context,
-                const Duration(milliseconds: 220),
-              ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.992, end: 1).animate(animation),
-                  alignment: Alignment.topCenter,
-                  child: child,
-                ),
-              ),
-              child: KeyedSubtree(
+            _buildAiUsageAnimatedSwap(
+              context,
+              KeyedSubtree(
                 key: ValueKey<int>(snapshot.generatedAt.microsecondsSinceEpoch),
                 child: snapshot.summary.requestCount == 0
                     ? _AiUsageEmptyState(hasFilters: _activeFilterCount > 0)
@@ -672,9 +705,12 @@ class _AiUsageMetricGrid extends StatelessWidget {
           runSpacing: 10,
           children: [
             for (final metric in metrics)
-              SizedBox(
-                width: width,
-                child: _AiUsageMetricCard(data: metric),
+              SettingsAwareAppearOnce(
+                key: ValueKey<String>('usage-metric-${metric.label}'),
+                child: SizedBox(
+                  width: width,
+                  child: _AiUsageMetricCard(data: metric),
+                ),
               ),
           ],
         );
@@ -938,10 +974,13 @@ class _AiUsageOverviewPanel extends StatelessWidget {
                 runSpacing: 12,
                 children: [
                   for (final metric in metrics)
-                    SizedBox(
-                      width: width,
-                      height: _kAiUsageOverviewMetricHeight,
-                      child: _AiUsageOverviewMetricCard(data: metric),
+                    SettingsAwareAppearOnce(
+                      key: ValueKey<String>('usage-overview-${metric.label}'),
+                      child: SizedBox(
+                        width: width,
+                        height: _kAiUsageOverviewMetricHeight,
+                        child: _AiUsageOverviewMetricCard(data: metric),
+                      ),
                     ),
                 ],
               );
@@ -1296,8 +1335,15 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                             ),
                             itemCount: widget.items.length,
                             itemExtent: _kAiUsageDistributionRowHeight,
-                            itemBuilder: (context, index) =>
-                                _buildItem(context, widget.items[index]),
+                            itemBuilder: (context, index) {
+                              final item = widget.items[index];
+                              return SettingsAwareAppearOnce(
+                                key: ValueKey<String>(
+                                  'usage-distribution-${item.key}',
+                                ),
+                                child: _buildItem(context, item),
+                              );
+                            },
                           ),
                         ),
                 ),
@@ -2206,28 +2252,13 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
             ],
           ),
           const SizedBox(height: 18),
-          AnimatedSwitcher(
-            duration: _settingsMotionDuration(
-              context,
-              const Duration(milliseconds: 280),
-            ),
-            reverseDuration: _settingsMotionDuration(
-              context,
-              const Duration(milliseconds: 180),
-            ),
-            switchInCurve: Curves.easeOutBack,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.985, end: 1).animate(animation),
-                alignment: Alignment.topCenter,
-                child: child,
-              ),
-            ),
-            child: items.isEmpty
+          _buildAiUsageAnimatedSwap(
+            context,
+            items.isEmpty
                 ? SizedBox(
-                    key: ValueKey<String>('$_dimension-empty'),
+                    key: ValueKey<String>(
+                      '$_dimension-empty-${widget.snapshot.generatedAt.microsecondsSinceEpoch}',
+                    ),
                     height: 110,
                     child: Center(
                       child: Text(
@@ -2240,7 +2271,9 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
                     ),
                   )
                 : _AiUsageBreakdownTable(
-                    key: ValueKey<String>(_dimension),
+                    key: ValueKey<String>(
+                      '$_dimension-${widget.snapshot.generatedAt.microsecondsSinceEpoch}',
+                    ),
                     items: items,
                     dimension: _dimension,
                   ),
@@ -2327,15 +2360,20 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
                             padding: EdgeInsets.zero,
                             itemCount: widget.items.length,
                             itemExtent: _kAiUsageBreakdownRowHeight,
-                            itemBuilder: (context, index) => Container(
-                              color: index.isEven
-                                  ? colorScheme.surfaceContainerLowest
-                                  : colorScheme.surfaceContainerLow,
-                              child: _buildRow(
-                                context,
-                                item: widget.items[index],
-                              ),
-                            ),
+                            itemBuilder: (context, index) {
+                              final item = widget.items[index];
+                              return SettingsAwareAppearOnce(
+                                key: ValueKey<String>(
+                                  '${widget.dimension}-${item.key}',
+                                ),
+                                child: Container(
+                                  color: index.isEven
+                                      ? colorScheme.surfaceContainerLowest
+                                      : colorScheme.surfaceContainerLow,
+                                  child: _buildRow(context, item: item),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -2601,15 +2639,18 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                             padding: EdgeInsets.zero,
                             itemCount: widget.records.length,
                             itemExtent: _kAiUsageRequestRowHeight,
-                            itemBuilder: (context, index) => ColoredBox(
-                              color: index.isEven
-                                  ? colorScheme.surfaceContainerLowest
-                                  : colorScheme.surfaceContainerLow,
-                              child: _buildRow(
-                                context,
-                                record: widget.records[index],
-                              ),
-                            ),
+                            itemBuilder: (context, index) {
+                              final record = widget.records[index];
+                              return SettingsAwareAppearOnce(
+                                key: ValueKey<String>(record.id),
+                                child: ColoredBox(
+                                  color: index.isEven
+                                      ? colorScheme.surfaceContainerLowest
+                                      : colorScheme.surfaceContainerLow,
+                                  child: _buildRow(context, record: record),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
