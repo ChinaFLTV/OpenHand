@@ -6506,9 +6506,9 @@ export function SessionDetailPage() {
 
   function openImageEditor(input: ImageEditorInput): Promise<ImageEditorResult | null> {
     imageEditorResolverRef.current?.(null);
-    setImageEditorInput(input);
     return new Promise((resolve) => {
       imageEditorResolverRef.current = resolve;
+      setImageEditorInput(input);
     });
   }
 

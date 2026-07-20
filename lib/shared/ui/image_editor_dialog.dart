@@ -226,7 +226,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     _actionPulse.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
-    _dismissProcessingOverlay();
+    unawaited(_dismissProcessingOverlay());
     super.dispose();
   }
 
@@ -1267,7 +1267,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         );
       }
     } finally {
-      _dismissProcessingOverlay();
+      await _dismissProcessingOverlay();
       if (mounted) setState(() => _isProcessing = false);
     }
   }
@@ -1373,10 +1373,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
-  void _dismissProcessingOverlay() {
+  Future<void> _dismissProcessingOverlay() async {
     final session = _processingDialogSession;
-    if (session == null || session.isDismissRequested) return;
-    unawaited(session.dismiss(logTag: 'image_editor', logAction: '关闭处理弹窗'));
+    if (session == null || session.isClosed || session.isDismissRequested) {
+      return;
+    }
+    await session.dismiss(logTag: 'image_editor', logAction: '关闭处理弹窗');
   }
 
   /// 是否存在尚未应用的编辑。
@@ -1533,7 +1535,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
       }
     } finally {
-      _dismissProcessingOverlay();
+      await _dismissProcessingOverlay();
       if (mounted) setState(() => _isProcessing = false);
     }
   }
@@ -2220,7 +2222,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
       return null;
     } finally {
-      _dismissProcessingOverlay();
+      await _dismissProcessingOverlay();
       if (mounted) setState(() => _isSaving = false);
     }
   }

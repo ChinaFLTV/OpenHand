@@ -160,6 +160,8 @@ const ASPECTS: { key: CropAspect; label: string }[] = [
   { key: 'circle', label: '圆形' },
 ];
 
+const IMAGE_ENCODE_TIMEOUT_MS = 15_000;
+
 export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -236,6 +238,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   }
 
   async function makeResult(download = false): Promise<ImageEditorResult> {
+    await yieldToBrowser();
     const image = imageRef.current;
     if (!image) throw new Error(t('imageEditor.loadFailed', '无法加载所选图片'));
     const outputRatio = aspectRatio(settings.aspect, naturalSize);
@@ -243,9 +246,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     const canvas = document.createElement('canvas');
     renderToCanvas(canvas, image, settings, { width: out.width, height: out.height, preview: false });
     const mime = settings.aspect === 'circle' ? 'image/png' : 'image/jpeg';
-    const dataUrl = canvas.toDataURL(mime, 0.92);
-    const dataBase64 = dataUrl.split('base64,')[1] ?? '';
-    const size = Math.ceil((dataBase64.length * 3) / 4);
+    const { dataUrl, dataBase64, size } = await encodeCanvas(canvas, mime, 0.92);
     const ext = mime === 'image/png' ? 'png' : 'jpg';
     const name = replaceExtension(input.name, ext);
     if (download) {
@@ -661,6 +662,88 @@ function applyOverlays(ctx: CanvasRenderingContext2D, width: number, height: num
 function replaceExtension(name: string, ext: string): string {
   const clean = name.trim() || 'image';
   return clean.replace(/\.[^.]+$/, '') + `.${ext}`;
+}
+
+async function encodeCanvas(
+  canvas: HTMLCanvasElement,
+  mime: string,
+  quality: number,
+): Promise<{ dataUrl: string; dataBase64: string; size: number }> {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    let settled = false;
+    const finish = (value: Blob | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(null), IMAGE_ENCODE_TIMEOUT_MS);
+    try {
+      canvas.toBlob(finish, mime, quality);
+    } catch {
+      finish(null);
+    }
+  });
+  if (blob == null) {
+    const dataUrl = canvas.toDataURL(mime, quality);
+    const dataBase64 = dataUrl.split('base64,')[1] ?? '';
+    if (!dataBase64) throw new Error('图片编码失败');
+    return {
+      dataUrl,
+      dataBase64,
+      size: Math.ceil((dataBase64.length * 3) / 4),
+    };
+  }
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    let settled = false;
+    let timer = 0;
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      reader.onload = null;
+      reader.onerror = null;
+      reader.onabort = null;
+    };
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        settled = true;
+        cleanup();
+        resolve(result);
+      } else {
+        fail(new Error('图片编码失败'));
+      }
+    };
+    reader.onerror = () => fail(reader.error ?? new Error('图片编码失败'));
+    reader.onabort = () => fail(new Error('图片编码超时'));
+    timer = window.setTimeout(() => {
+      fail(new Error('图片编码超时'));
+      try {
+        reader.abort();
+      } catch {
+        // 已结束，无需处理。
+      }
+    }, IMAGE_ENCODE_TIMEOUT_MS);
+    try {
+      reader.readAsDataURL(blob);
+    } catch (error: unknown) {
+      fail(error instanceof Error ? error : new Error('图片编码失败'));
+    }
+  });
+  const dataBase64 = dataUrl.split('base64,')[1] ?? '';
+  if (!dataBase64) throw new Error('图片编码失败');
+  return { dataUrl, dataBase64, size: blob.size };
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 
 function clamp255(value: number): number {
