@@ -107,6 +107,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Timer? _aliveWatchdog;
+  int _aliveWatchdogFailureCount = 0;
 
   /// CDP 端口（已分配；可能与 config.cdpPort 不同——后者是 desired）。
   int? get cdpPort => _launchResult?.cdpPort;
@@ -133,6 +134,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxReplHistoryExpressionChars = 64 * 1024;
   static const int _maxReplPreviewChars = 2048;
   static const int _maxConsoleTextChars = 64 * 1024;
+  static const int _aliveWatchdogFailureThreshold = 3;
   static const int _maxNetworkHeaderEntries = 256;
   static const int _maxNetworkHeadersChars = 2 * kBytesPerMiB;
   static const int _maxNetworkRequestBodyChars = 512 * kBytesPerKiB;
@@ -3103,9 +3105,8 @@ class WebReverseSessionController extends ChangeNotifier {
     _appendConsole(level, text);
   }
 
-  /// 2 秒一跳的浏览器存活探针：HTTP GET `/json/version`。任一探测失败立刻
-  /// 把 `_browserCdp` 标记为已关闭并触发 `__cdp_dead__` 事件，让 UI 走到
-  /// "重启浏览器" 占位。WebSocket 自身的 onDone 会更早触发，这里是兜底。
+  /// 2 秒一跳的浏览器存活探针。WebSocket 断开会优先触发重连；这里只在
+  /// 连续失败达到阈值后兜底关闭 CDP，避免浏览器短暂繁忙时误判离线。
   void _startAliveWatchdog() {
     _stopAliveWatchdog();
     _aliveWatchdog = startNonOverlappingPeriodicTimer(
@@ -3116,31 +3117,32 @@ class WebReverseSessionController extends ChangeNotifier {
         if (port == null) return;
         final cdp = _browserCdp;
         if (cdp == null || cdp.isClosed) return;
-        final client = createWebReverseCdpHttpClient(
-          connectionTimeout: const Duration(seconds: 1),
-          idleTimeout: const Duration(seconds: 1),
-        );
         try {
-          final req = await client
-              .getUrl(webReverseCdpHttpUri(port, '/json/version'))
-              .timeout(const Duration(seconds: 1));
-          final res = await req.close().timeout(const Duration(seconds: 1));
-          await res.drain<void>().timeout(const Duration(seconds: 1));
-        } catch (error, stack) {
-          silentLog(
-            'web_reverse_session_controller',
-            'alive watchdog probe',
-            error,
-            stack,
+          await withWebReverseCdpHttpClient<void>(
+            connectionTimeout: const Duration(seconds: 1),
+            idleTimeout: const Duration(seconds: 1),
+            action: (client) async {
+              final req = await client
+                  .getUrl(webReverseCdpHttpUri(port, '/json/version'))
+                  .timeout(const Duration(seconds: 1));
+              final res = await req.close().timeout(const Duration(seconds: 1));
+              await res.drain<void>().timeout(const Duration(seconds: 1));
+            },
           );
-          // 浏览器已死：主动关 CDP 触发 __cdp_dead__ 事件路径。
+          _aliveWatchdogFailureCount = 0;
+        } catch (error, stack) {
+          _aliveWatchdogFailureCount += 1;
+          silentLog('web_reverse_session_controller', '浏览器存活探测', error, stack);
+          if (_aliveWatchdogFailureCount < _aliveWatchdogFailureThreshold) {
+            return;
+          }
           _stopAliveWatchdog();
           try {
             await _browserCdp?.close();
           } catch (closeError, closeStack) {
             silentLog(
               'web_reverse_session_controller',
-              'close dead browser cdp',
+              '关闭失联浏览器 CDP',
               closeError,
               closeStack,
             );
@@ -3148,13 +3150,11 @@ class WebReverseSessionController extends ChangeNotifier {
           _resetScreencastRuntimeState(resetRefCount: false);
           _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
           _safeNotify();
-        } finally {
-          client.close(force: true);
         }
       },
       onError: (error, stack) => silentLog(
         'web_reverse_session_controller',
-        'alive watchdog',
+        '浏览器存活定时探测',
         error,
         stack,
       ),
@@ -3164,6 +3164,7 @@ class WebReverseSessionController extends ChangeNotifier {
   void _stopAliveWatchdog() {
     _aliveWatchdog?.cancel();
     _aliveWatchdog = null;
+    _aliveWatchdogFailureCount = 0;
   }
 
   /// CDP 重连成功后调用：把 Page / Network / Runtime / Log 等 domain 重新 enable，

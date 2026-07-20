@@ -1,7 +1,10 @@
 import type { M3ThemeTokens } from '../theme/tokens';
 import { tFmt } from '../i18n';
 import type { ApiDialogAnimationSettings } from '../hooks/useDialogMotionSettings';
-import { apiRequest } from './client';
+import { recordOrNullFromUnknown } from '../shared/util/value';
+import { ApiError, apiRequest } from './client';
+
+const API_META_REQUEST_TIMEOUT_MS = 30_000;
 
 interface ApiMetaService {
   listen_host?: string;
@@ -165,11 +168,22 @@ export interface ApiMetaResponse {
 }
 
 export async function fetchApiMeta(signal?: AbortSignal): Promise<ApiMetaResponse> {
-  const res = await fetch('/api/meta', { signal });
-  if (!res.ok) {
-    throw new Error(tFmt('error.meta.failed', { status: res.status }));
+  try {
+    const value = await apiRequest<unknown>('/api/meta', {
+      anonymous: true,
+      signal,
+      timeoutMs: API_META_REQUEST_TIMEOUT_MS,
+    });
+    if (recordOrNullFromUnknown(value) == null) {
+      throw new Error(tFmt('error.meta.failed', { status: 'invalid_response' }));
+    }
+    return value as ApiMetaResponse;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw new Error(tFmt('error.meta.failed', { status: error.status }));
+    }
+    throw error;
   }
-  return (await res.json()) as ApiMetaResponse;
 }
 
 export function updateModelReasoningEffort(

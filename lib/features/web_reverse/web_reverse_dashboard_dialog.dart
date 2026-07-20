@@ -1574,47 +1574,44 @@ Future<void> _openOfficialDevToolsForController(
   if (port == null) return;
   String? frontendUrl;
   try {
-    final client = createWebReverseCdpHttpClient(
+    frontendUrl = await withWebReverseCdpHttpClient<String?>(
       connectionTimeout: _kDevToolsDiscoveryTimeout,
       idleTimeout: _kDevToolsDiscoveryTimeout,
-    );
-    try {
-      final req = await client
-          .getUrl(webReverseCdpHttpUri(port, '/json/list'))
-          .timeout(_kDevToolsDiscoveryTimeout);
-      final res = await req.close().timeout(_kDevToolsDiscoveryTimeout);
-      final body = await readBoundedHttpResponseText(
-        res,
-        maxBytes: _kDevToolsDiscoveryMaxResponseBytes,
-        idleTimeout: _kDevToolsDiscoveryTimeout,
-        totalTimeout: _kDevToolsDiscoveryTimeout,
-      );
-      final list = jsonDecode(body);
-      if (list is List) {
-        Map<String, Object?>? best;
-        final targets = stringKeyedMapListFromValue(list);
-        for (final m in targets) {
-          final type = '${m['type'] ?? ''}';
-          final url = '${m['url'] ?? ''}';
-          if (type == 'page' && !url.startsWith('about:')) {
-            best = m;
-            break;
+      action: (client) async {
+        final req = await client
+            .getUrl(webReverseCdpHttpUri(port, '/json/list'))
+            .timeout(_kDevToolsDiscoveryTimeout);
+        final res = await req.close().timeout(_kDevToolsDiscoveryTimeout);
+        final body = await readBoundedHttpResponseText(
+          res,
+          maxBytes: _kDevToolsDiscoveryMaxResponseBytes,
+          idleTimeout: _kDevToolsDiscoveryTimeout,
+          totalTimeout: _kDevToolsDiscoveryTimeout,
+        );
+        final list = jsonDecode(body);
+        if (list is List) {
+          Map<String, Object?>? best;
+          final targets = stringKeyedMapListFromValue(list);
+          for (final m in targets) {
+            final type = '${m['type'] ?? ''}';
+            final url = '${m['url'] ?? ''}';
+            if (type == 'page' && !url.startsWith('about:')) {
+              best = m;
+              break;
+            }
+          }
+          best ??= targets.where((m) => m['type'] == 'page').firstOrNull;
+          best ??= targets.firstOrNull;
+          final fe = best?['devtoolsFrontendUrl'] as String?;
+          if (fe != null && fe.isNotEmpty) {
+            return fe.startsWith('http') ? fe : 'http://127.0.0.1:$port$fe';
           }
         }
-        best ??= targets.where((m) => m['type'] == 'page').firstOrNull;
-        best ??= targets.firstOrNull;
-        final fe = best?['devtoolsFrontendUrl'] as String?;
-        if (fe != null && fe.isNotEmpty) {
-          frontendUrl = fe.startsWith('http')
-              ? fe
-              : 'http://127.0.0.1:$port$fe';
-        }
-      }
-    } finally {
-      client.close(force: true);
-    }
+        return null;
+      },
+    );
   } catch (error, stack) {
-    silentLog('web_reverse_dashboard_dialog', 'fetch /json/list', error, stack);
+    silentLog('web_reverse_dashboard_dialog', '读取 DevTools 目标列表', error, stack);
   }
   final url =
       frontendUrl ?? webReverseCdpHttpUri(port, '/json/list').toString();

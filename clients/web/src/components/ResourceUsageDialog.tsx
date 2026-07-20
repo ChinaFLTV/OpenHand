@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import {
   getResourceUsage,
   type ResourceUsageKind,
@@ -9,6 +9,7 @@ import {
   type ResourceUsageResourceSnapshot,
   type ResourceUsageSnapshot,
 } from '../api/toolbox';
+import { useAsyncPolling } from '../hooks/useAsyncPolling';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import { describeApiError } from '../utils/api_error';
@@ -78,37 +79,23 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
   const [levelKey, setLevelKey] = useState<ResourceUsageLevel>('day');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let disposed = false;
-    let inFlight = false;
-    let controller: AbortController | null = null;
-    const refresh = async () => {
-      if (disposed || inFlight) return;
-      inFlight = true;
-      controller = new AbortController();
-      try {
-        const value = await getResourceUsage(kind, {
-          signal: controller.signal,
-          timeoutMs: RESOURCE_USAGE_REQUEST_TIMEOUT_MS,
-        });
-        if (!disposed) {
-          setSnapshot(value);
-          setError('');
-        }
-      } catch (reason) {
-        if (!disposed && !controller.signal.aborted) setError(describeApiError(reason));
-      } finally {
-        inFlight = false;
-      }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), LIVE_REFRESH_INTERVAL_MS);
-    return () => {
-      disposed = true;
-      window.clearInterval(timer);
-      controller?.abort();
-    };
-  }, [kind]);
+  useAsyncPolling(
+    async (isActive, signal) => {
+      const value = await getResourceUsage(kind, {
+        signal,
+        timeoutMs: RESOURCE_USAGE_REQUEST_TIMEOUT_MS,
+      });
+      if (!isActive()) return;
+      setSnapshot(value);
+      setError('');
+    },
+    {
+      enabled: !closing,
+      intervalMs: LIVE_REFRESH_INTERVAL_MS,
+      taskTimeoutMs: RESOURCE_USAGE_REQUEST_TIMEOUT_MS,
+      onError: (reason) => setError(describeApiError(reason)),
+    },
+  );
 
   const level = snapshot?.levels?.[levelKey] ?? null;
   const entries = useMemo(() => level ? sortedEntries(level) : [], [level]);

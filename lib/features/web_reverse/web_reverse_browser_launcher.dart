@@ -327,30 +327,31 @@ class WebReverseBrowserLauncher {
       return Duration(microseconds: remainingMicroseconds);
     }
 
-    final client = createWebReverseCdpHttpClient(
-      connectionTimeout: timeout,
-      idleTimeout: timeout,
-    );
     try {
-      final request = await client.getUrl(uri).timeout(remaining());
-      request
-        ..followRedirects = false
-        ..persistentConnection = false;
-      final response = await request.close().timeout(remaining());
-      if (!readBody) {
-        return (statusCode: response.statusCode, body: '');
-      }
-      final body = await readBoundedHttpResponseText(
-        response,
-        maxBytes: _maxHandshakeResponseBytes,
-        idleTimeout: remaining(),
-        totalTimeout: remaining(),
-        allowMalformed: true,
+      return await withWebReverseCdpHttpClient<({int statusCode, String body})>(
+        connectionTimeout: timeout,
+        idleTimeout: timeout,
+        action: (client) async {
+          final request = await client.getUrl(uri).timeout(remaining());
+          request
+            ..followRedirects = false
+            ..persistentConnection = false;
+          final response = await request.close().timeout(remaining());
+          if (!readBody) {
+            return (statusCode: response.statusCode, body: '');
+          }
+          final body = await readBoundedHttpResponseText(
+            response,
+            maxBytes: _maxHandshakeResponseBytes,
+            idleTimeout: remaining(),
+            totalTimeout: remaining(),
+            allowMalformed: true,
+          );
+          return (statusCode: response.statusCode, body: body);
+        },
       );
-      return (statusCode: response.statusCode, body: body);
     } finally {
       stopwatch.stop();
-      client.close(force: true);
     }
   }
 
