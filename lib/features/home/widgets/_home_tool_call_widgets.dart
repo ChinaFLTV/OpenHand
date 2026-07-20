@@ -268,51 +268,44 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                     icon: toolCall.presentation.icon,
                     label: toolCall.primaryChipLabel,
                   ),
-                  // Badge cross-fades on phase boundaries instead of
-                  // popping in/out, so constructing→submitting→running
-                  // feels like a single fluid morph.
-                  AnimatedSwitcher(
-                    duration: openHandMotionDuration(
-                      context,
-                      _kToolPhaseSwitchDuration,
-                    ),
-                    switchInCurve: _kToolCardMotionCurve,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(
-                          begin: 0.92,
-                          end: 1.0,
-                        ).animate(animation),
-                        child: child,
+                  // 构造与提交阶段平滑切换；执行后移除子项，避免空组件产生双倍间距。
+                  if (isPreExecution)
+                    AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        _kToolPhaseSwitchDuration,
+                      ),
+                      switchInCurve: _kToolCardMotionCurve,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.92,
+                            end: 1.0,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: _ToolConstructingBadge(
+                        key: ValueKey<String>(
+                          isSubmitting ? 'submitting' : 'constructing',
+                        ),
+                        label: isSubmitting
+                            ? AppLocalizations.of(context)!.tlCallSubmitting
+                            : AppLocalizations.of(
+                                context,
+                              )!.tlCallArgumentsConstructing,
+                        hint: isSubmitting
+                            ? AppLocalizations.of(context)!.tlCallSubmittingHint
+                            : AppLocalizations.of(
+                                context,
+                              )!.tlCallArgumentsConstructingHint,
+                        tone: isSubmitting
+                            ? _ToolConstructingTone.submitting
+                            : _ToolConstructingTone.constructing,
                       ),
                     ),
-                    child: isPreExecution
-                        ? _ToolConstructingBadge(
-                            key: ValueKey<String>(
-                              isSubmitting ? 'submitting' : 'constructing',
-                            ),
-                            label: isSubmitting
-                                ? AppLocalizations.of(context)!.tlCallSubmitting
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.tlCallArgumentsConstructing,
-                            hint: isSubmitting
-                                ? AppLocalizations.of(
-                                    context,
-                                  )!.tlCallSubmittingHint
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.tlCallArgumentsConstructingHint,
-                            tone: isSubmitting
-                                ? _ToolConstructingTone.submitting
-                                : _ToolConstructingTone.constructing,
-                          )
-                        : const SizedBox.shrink(
-                            key: ValueKey<String>('no-badge'),
-                          ),
-                  ),
                   if (toolCall.workingDirectory.isNotEmpty)
                     _ToolExecutionChip(
                       icon: Icons.folder_outlined,
