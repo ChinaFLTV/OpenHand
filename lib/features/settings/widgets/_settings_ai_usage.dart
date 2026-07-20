@@ -1000,6 +1000,10 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final valueColor = Color.alphaBlend(
+      data.color.withValues(alpha: 0.34),
+      theme.colorScheme.onSurface,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
@@ -1014,6 +1018,7 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
+                  flex: 5,
                   child: Text(
                     data.label,
                     maxLines: 1,
@@ -1025,16 +1030,36 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      data.value,
-                      maxLines: 1,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                Expanded(
+                  flex: 6,
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: data.color.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: data.color.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          data.value,
+                          maxLines: 1,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: valueColor,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                            letterSpacing: -0.7,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1218,15 +1243,33 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                       ),
                     ),
                     if (widget.items.isNotEmpty)
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '${widget.items.length} 项',
-                          en: '${widget.items.length} ${widget.items.length == 1 ? 'item' : 'items'}',
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
                         ),
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                        decoration: BoxDecoration(
+                          color: widget.color.withValues(alpha: 0.09),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: widget.color.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '${widget.items.length} 项',
+                            en: '${widget.items.length} ${widget.items.length == 1 ? 'item' : 'items'}',
+                          ),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: Color.alphaBlend(
+                              widget.color.withValues(alpha: 0.34),
+                              theme.colorScheme.onSurface,
+                            ),
+                            fontWeight: FontWeight.w700,
+                            height: 1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                   ],
@@ -2687,7 +2730,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
       child: Row(
         children: [
           cell(
-            flex: 15,
+            flex: 20,
             child: header
                 ? value(openHandLocalizedText(context, zh: '请求时间', en: 'Time'))
                 : Tooltip(
@@ -3518,12 +3561,10 @@ String _usageDateKey(DateTime date) {
       '${date.day.toString().padLeft(2, '0')}';
 }
 
-String _usageDateDisplay(DateTime date) =>
-    '${date.year}-${date.month.toString().padLeft(2, '0')}-'
-    '${date.day.toString().padLeft(2, '0')}';
+String _usageDateDisplay(DateTime date) => _usageDateKey(date);
 
 String _usageDateTime(DateTime date) =>
-    '${date.month.toString().padLeft(2, '0')}/'
-    '${date.day.toString().padLeft(2, '0')} '
+    '${_usageDateKey(date)} '
     '${date.hour.toString().padLeft(2, '0')}:'
-    '${date.minute.toString().padLeft(2, '0')}';
+    '${date.minute.toString().padLeft(2, '0')}:'
+    '${date.second.toString().padLeft(2, '0')}';

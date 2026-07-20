@@ -146,7 +146,7 @@ class _CollapsedPreviewScrollCoordinator {
 
 Widget _buildCollapsedPreviewScrollableFrame({
   required BuildContext context,
-  required double height,
+  required double maxHeight,
   required bool hasOverflow,
   required bool showFade,
   required ScrollController controller,
@@ -160,12 +160,15 @@ Widget _buildCollapsedPreviewScrollableFrame({
       final constrainedWidth = constraints.maxWidth.isFinite
           ? constraints.maxWidth
           : MediaQuery.sizeOf(context).width;
+      // 仅限制最大高度，不预占最大高度；短内容首帧直接收缩，避免异步测量后
+      // 再触发外层 AnimatedSize 回缩，造成线程切换时消息列表抖动。
       return SizedBox(
-        height: height,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRect(
+        width: constrainedWidth,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Stack(
+            children: [
+              ClipRect(
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(
                     context,
@@ -189,13 +192,13 @@ Widget _buildCollapsedPreviewScrollableFrame({
                   ),
                 ),
               ),
-            ),
-            _CollapsedPreviewFade(
-              visible: showFade,
-              fadeColor: fadeColor,
-              animate: animateFade,
-            ),
-          ],
+              _CollapsedPreviewFade(
+                visible: showFade,
+                fadeColor: fadeColor,
+                animate: animateFade,
+              ),
+            ],
+          ),
         ),
       );
     },
@@ -674,14 +677,11 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
     final measuredHeight = _contentHeight;
     final hasOverflow =
         measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
-    final effectiveHeight = measuredHeight == null
-        ? widget.maxHeight
-        : math.min(measuredHeight, widget.maxHeight);
     final showFade = hasOverflow && !_atBottom;
 
     return _buildCollapsedPreviewScrollableFrame(
       context: context,
-      height: effectiveHeight,
+      maxHeight: widget.maxHeight,
       hasOverflow: hasOverflow,
       showFade: showFade,
       controller: _scrollController,
@@ -1147,14 +1147,11 @@ class _CollapsedFullMarkdownBodyState
     final measuredHeight = _contentHeight;
     final hasOverflow =
         measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
-    final effectiveHeight = measuredHeight == null
-        ? widget.maxHeight
-        : math.min(measuredHeight, widget.maxHeight);
     final showFade = hasOverflow && !_atBottom;
 
     return _buildCollapsedPreviewScrollableFrame(
       context: context,
-      height: effectiveHeight,
+      maxHeight: widget.maxHeight,
       hasOverflow: hasOverflow,
       showFade: showFade,
       controller: _scrollController,
@@ -1349,13 +1346,10 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     final measuredHeight = _contentHeight;
     final hasOverflow =
         measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
-    final effectiveHeight = measuredHeight == null
-        ? widget.maxHeight
-        : math.min(measuredHeight, widget.maxHeight);
     final showFade = hasOverflow && !_atBottom;
     return _buildCollapsedPreviewScrollableFrame(
       context: context,
-      height: effectiveHeight,
+      maxHeight: widget.maxHeight,
       hasOverflow: hasOverflow,
       showFade: showFade,
       controller: _scrollController,
