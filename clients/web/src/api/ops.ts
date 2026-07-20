@@ -45,7 +45,7 @@ interface OpsRecentSlowRequest {
   at: string | null;
 }
 
-export interface OpsTrafficSample {
+interface OpsTrafficSample {
   minute: string;
   success: number;
   blocked: number;

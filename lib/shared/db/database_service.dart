@@ -5,10 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../app/support/openhand_paths.dart';
 
-/// Central database service providing SQLite-backed persistence for the app.
-///
-/// Initialize once at startup via [DatabaseService.initialize], then access
-/// the singleton through [DatabaseService.instance].
+/// 应用级 SQLite 持久化服务。
 class DatabaseService {
   DatabaseService._();
 
@@ -63,7 +60,7 @@ class DatabaseService {
   static final String _legacyHarnessConfigMetadataKey =
       '${_legacyHarnessPrefix}_config';
 
-  /// Returns the singleton instance.  Must call [initialize] first.
+  /// 获取已初始化的单例。
   static DatabaseService get instance {
     final inst = _instance;
     if (inst == null) {
@@ -72,10 +69,10 @@ class DatabaseService {
     return inst;
   }
 
-  /// Whether the service has been initialized.
+  /// 是否已完成初始化。
   static bool get isInitialized => _instance != null;
 
-  /// The underlying database handle.
+  /// 底层数据库句柄。
   Database get database {
     final db = _database;
     if (db == null) {
@@ -84,7 +81,7 @@ class DatabaseService {
     return db;
   }
 
-  /// Full path to the database file.
+  /// 数据库文件绝对路径。
   static String defaultDatabasePath() {
     return p.join(
       OpenHandPaths.homeDirectoryPath(),
@@ -93,7 +90,7 @@ class DatabaseService {
     );
   }
 
-  /// Initialize the database service.  Safe to call multiple times (idempotent).
+  /// 幂等初始化数据库服务。
   static Future<DatabaseService> initialize({
     String? databasePath,
     bool useNoIsolateFactory = false,
@@ -125,7 +122,7 @@ class DatabaseService {
   }) async {
     if (_instance != null) return _instance!;
 
-    // Initialize FFI for desktop platforms.
+    // 桌面平台使用 FFI 数据库工厂。
     sqfliteFfiInit();
     final effectiveFactory = useNoIsolateFactory
         ? databaseFactoryFfiNoIsolate
@@ -157,7 +154,7 @@ class DatabaseService {
       try {
         await lock.close();
       } catch (_) {
-        // Preserve the initialization error.
+        // 保留首次初始化异常，避免后续调用误判成功。
       }
       if (service._instanceLock == null && error is FileSystemException) {
         throw StateError(
@@ -168,7 +165,7 @@ class DatabaseService {
     }
   }
 
-  /// Close the database and release the singleton.
+  /// 关闭数据库并释放单例。
   Future<void> close() {
     if (!identical(_instance, this)) return Future<void>.value();
     final pending = _closingFuture;
@@ -205,18 +202,15 @@ class DatabaseService {
     }
   }
 
-  // Schema
   static Future<void> _onConfigure(Database db) async {
-    // Enable foreign key enforcement.
     await db.execute('PRAGMA foreign_keys = ON');
-    // WAL mode for better concurrent read/write performance.
     await db.execute('PRAGMA journal_mode = WAL');
   }
 
   static Future<void> _onCreate(Database db, int version) async {
     final batch = db.batch();
 
-    // ----- Sessions (metadata only, messages in separate table) -----
+    // 会话元数据；消息单独存表。
     batch.execute('''
       CREATE TABLE sessions (
         id                                        TEXT PRIMARY KEY,
@@ -263,7 +257,7 @@ class DatabaseService {
     batch.execute('CREATE INDEX idx_sessions_pinned ON sessions(pinned)');
     batch.execute('CREATE INDEX idx_sessions_archived ON sessions(archived)');
 
-    // ----- Messages (one per row, linked to session) -----
+    // 会话消息。
     batch.execute('''
       CREATE TABLE messages (
         id              TEXT PRIMARY KEY,
@@ -289,7 +283,7 @@ class DatabaseService {
       'CREATE INDEX idx_messages_session_order ON messages(session_id, sort_order)',
     );
 
-    // ----- User memory entries -----
+    // 用户记忆。
     batch.execute('''
       CREATE TABLE memories (
         id          TEXT PRIMARY KEY,
@@ -304,7 +298,7 @@ class DatabaseService {
       'CREATE INDEX idx_memories_created_at ON memories(created_at)',
     );
 
-    // ----- App settings (key-value store) -----
+    // 应用键值设置。
     batch.execute('''
       CREATE TABLE app_settings (
         key   TEXT PRIMARY KEY,
@@ -312,7 +306,7 @@ class DatabaseService {
       )
     ''');
 
-    // ----- Harness engineering session (single record) -----
+    // Harness Engineering 会话。
     batch.execute('''
       CREATE TABLE $_harnessSessionsTable (
         id        TEXT PRIMARY KEY,
@@ -320,7 +314,7 @@ class DatabaseService {
       )
     ''');
 
-    // ----- Migration metadata -----
+    // 数据迁移状态。
     batch.execute('''
       CREATE TABLE migration_meta (
         key   TEXT PRIMARY KEY,
@@ -519,26 +513,18 @@ class DatabaseService {
     int oldVersion,
     int newVersion,
   ) async {
-    // schema v2 — add `title` column to memories so the AI
-    // self-learning sub-agent can keep a separate, readable title alongside
-    // each memory's full content. Existing rows default to an empty title;
-    // UI falls back to deriving a preview from `content` when title is
-    // empty, preserving backward compatibility.
+    // v2：为记忆增加独立标题，旧数据使用空标题并由界面回退展示正文摘要。
     if (oldVersion < 2) {
       await db.execute(
         "ALTER TABLE memories ADD COLUMN title TEXT NOT NULL DEFAULT ''",
       );
     }
-    // schema v3 — introduce the user_instructions table for the
-    // 【指令】 module. Old installs simply gain an empty table.
+    // v3：增加用户指令表及排序索引。
     if (oldVersion < 3) {
       await db.execute(_createUserInstructionsTableSql);
       await db.execute(_createUserInstructionsSortIndexSql);
     }
-    // schema v4 — add display_order to sessions for the
-    // 'Thread Session Management' dialog's drag-reorder feature. Null
-    // means "no manual order"; sessions sort by updated_at DESC for
-    // those rows. Manual rows sort by display_order ASC first.
+    // v4：增加会话手动排序字段；空值继续按更新时间倒序排列。
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE sessions ADD COLUMN display_order INTEGER');
       await db.execute(
@@ -546,11 +532,7 @@ class DatabaseService {
         'ON sessions(display_order)',
       );
     }
-    // 2026-05-XX: schema v5 — pinned/archived columns for the Thread
-    // Session Management dialog. Pinned sessions are forced to the top
-    // (above any manual display_order); archived sessions are hidden by
-    // default in both the sidebar and the manager unless explicitly
-    // requested via includeArchived.
+    // v5：增加置顶与归档状态及其索引。
     if (oldVersion < 5) {
       await db.execute(
         'ALTER TABLE sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
@@ -567,10 +549,7 @@ class DatabaseService {
         'ON sessions(archived)',
       );
     }
-    // schema v6 — persist semantic Bash action categories
-    // collected by ExitPlanMode.allowed_prompts for the currently pending
-    // plan. This records implementation intent only; runtime permissions and
-    // write-command confirmation remain authoritative.
+    // v6：持久化待执行计划声明的 Bash 操作类别，不改变运行时权限判定。
     if (oldVersion < 6) {
       await db.execute(
         "ALTER TABLE sessions ADD COLUMN pending_plan_allowed_prompts_json TEXT NOT NULL DEFAULT '[]'",

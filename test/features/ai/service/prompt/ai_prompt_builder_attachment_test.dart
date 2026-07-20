@@ -14,17 +14,13 @@ import 'package:path/path.dart' as p;
 
 void main() {
   late Directory root;
+  late String attachmentPath;
   late List<AiSessionMessage> messages;
   late AiSession session;
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('openhand_prompt_test_');
-    final attachmentPath = p.join(
-      root.path,
-      _sessionId,
-      'attachments',
-      'ticket.jpg',
-    );
+    attachmentPath = p.join(root.path, _sessionId, 'attachments', 'ticket.jpg');
     await Directory(p.dirname(attachmentPath)).create(recursive: true);
     await File(
       attachmentPath,
@@ -36,12 +32,6 @@ void main() {
   tearDown(() => root.delete(recursive: true));
 
   test('工具续写轮继续内联本轮图片附件', () async {
-    final attachmentPath = p.join(
-      root.path,
-      _sessionId,
-      'attachments',
-      'ticket.jpg',
-    );
     final result = await const AiPromptBuilder().buildSessionPrompt(
       templateBundle: _templateBundle,
       session: session,

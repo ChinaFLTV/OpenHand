@@ -432,8 +432,7 @@ Future<void> _bootstrap() async {
     '清理定时任务历史',
   );
 
-  // 2026-05 — WebSearch 缓存预热 / 自愈：扫描 ~/.openhand/cache/web_search/
-  // 删除已过期、孤儿条目与孤儿 .txt，重建 index.json；失败只写 silentLog。
+  // 首帧前启动缓存预热与自愈，后台清理过期或孤立条目。
   _runMainBackgroundTask(
     WebSearchCacheStore.instance.prewarm(),
     '预热 WebSearch 缓存',

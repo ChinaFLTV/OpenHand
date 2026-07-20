@@ -37,7 +37,7 @@ export interface SessionEventSnapshot {
   last_error: string | null;
   can_stop: boolean;
   pending_write_approval?: PendingWriteApproval | null;
-  /// 2026-05-17 — 当前会话生效的字符 / 卡片节流速率。chars_per_second
+  /// 当前会话生效的字符 / 卡片节流速率。chars_per_second
   /// 或 cards_per_second 为 0 表示对应方向的节流被关闭，前端会在 TopBar
   /// 用灰色标记；has_session_override 为 true 时光标侧附加 "session"
   /// 标识便于用户区分覆盖来源。duration_expired 为 true 时表示当前轮次
@@ -47,13 +47,11 @@ export interface SessionEventSnapshot {
     cards_per_second: number;
     has_session_override: boolean;
     duration_expired?: boolean;
-    /// 2026-05-19 — 启用态：会话级覆盖 > 全局。前端据此渲染 Switch 与
-    /// 灰色胶囊。
+    /// 启用态：会话级覆盖优先于全局设置。
     enabled?: boolean;
-    /// 2026-05-19 — 会话历史上是否曾节流。胶囊可见性所需。
+    /// 会话历史上是否曾启用节流。
     was_initially_throttled?: boolean;
-    /// 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹窗
-    /// 渲染和 App 端一致的柱状图。非流式时回填全 0。
+    /// 字符吞吐 30 秒桶，桶 0 为当前秒；非流式时回填 0。
     throughput_buckets?: number[];
   };
   served_at: string;

@@ -17,7 +17,7 @@ final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
 const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
 const int _harnessCliProbeConcurrency = 4;
 
-/// Describes a known AI CLI client usable in Harness Engineering.
+/// Harness Engineering 支持的 AI CLI 定义。
 class HarnessCli {
   const HarnessCli({
     required this.name,
@@ -40,72 +40,61 @@ class HarnessCli {
   final String executable;
   final List<String> knownModels;
 
-  /// Install command+args. null = no auto-install support (e.g. GUI apps).
+  /// 安装命令及参数；为空表示不支持自动安装。
   final List<String>? installCommand;
 
-  /// URL to installation documentation.
+  /// 安装文档地址。
   final String? installDocUrl;
 
-  /// Whether this CLI supports non-interactive headless invocation.
-  /// GUI IDE launchers (Cursor, Windsurf, Kiro) set this to false.
+  /// 是否支持无交互的无头调用。
   final bool supportsHeadless;
 
-  /// Args to pass to the executable to probe login state.
-  /// null = no reliable check available (e.g. API-key–only tools like Aider).
-  /// Exit code 0 → logged in; non-zero → not logged in.
+  /// 登录状态探测参数；为空表示没有可靠探测方式。
   final List<String>? loginCheckArgs;
 
-  /// Optional substring that must appear (case-insensitive) in combined
-  /// stdout+stderr for the login check to be considered successful.
-  /// When null, exit code 0 alone is sufficient.
+  /// 登录探测成功时输出中必须包含的文本；为空时仅判断退出码。
   final String? loginCheckOutputHint;
 
-  /// Strategy used to determine whether the CLI is authenticated.
+  /// 登录状态探测方式。
   final HarnessCliAuthProbeMode loginCheckMode;
 
-  /// Home-relative state file used by [HarnessCliAuthProbeMode.localStateFile].
+  /// 相对用户目录的登录状态文件。
   final String? localAuthStateFilePath;
 
-  /// JSON key inside [localAuthStateFilePath] whose non-empty value means the
-  /// CLI is logged in.
+  /// 登录状态文件中表示已登录的非空 JSON 字段。
   final String? localAuthStateJsonKey;
 
-  /// Args to pass to the executable to trigger an interactive login flow.
-  /// null = no login command available for this CLI.
-  /// An empty list means "launch the CLI with no extra args".
+  /// 交互式登录参数；为空值表示不支持，空列表表示直接启动 CLI。
   final List<String>? loginArgs;
 
-  /// Args to pass to the executable to trigger a logout flow.
-  /// null = no CLI-based logout command available.
+  /// 注销参数；为空表示没有 CLI 注销命令。
   final List<String>? logoutArgs;
 
-  /// Home-relative file paths to delete for local-state-based logout
-  /// (e.g. Gemini CLI which stores auth in local JSON files).
-  /// null = logout is handled via [logoutArgs] command instead.
+  /// 基于本地状态注销时需要删除的用户目录相对路径。
   final List<String>? logoutLocalStateFilePaths;
 
   bool get isAutoInstallable => installCommand != null;
 
-  /// Whether this CLI supports login-state probing.
+  /// 是否支持登录状态探测。
   bool get hasLoginCheck =>
       loginCheckArgs != null ||
       loginCheckMode == HarnessCliAuthProbeMode.localStateFile;
 
-  /// Whether this CLI supports a guided interactive login flow.
+  /// 是否支持交互式登录。
   bool get hasLoginTrigger => loginArgs != null;
 
-  /// Whether this CLI supports a logout flow (command-based or file-based).
+  /// 是否支持命令或本地状态注销。
   bool get hasLogoutTrigger =>
       logoutArgs != null || logoutLocalStateFilePaths != null;
 }
 
-/// Result of probing a single CLI installation (and optionally login state).
+/// 单个 CLI 的安装与登录探测结果。
 typedef CliScanEntry = ({
   HarnessCli cli,
   bool installed,
   String? resolvedPath,
 
-  /// null = not yet checked, or no login check defined for this CLI.
+  /// 空值表示尚未探测或无法可靠判断。
   bool? isLoggedIn,
 });
 
@@ -117,23 +106,17 @@ const List<HarnessCli> kHarnessCliCatalog = [
     name: 'Claude Code',
     executable: 'claude',
     knownModels: [
-      // 4.6 series
       'claude-opus-4-6',
       'claude-sonnet-4-6',
       'claude-haiku-4-6',
-      // 4.5 series
       'claude-opus-4-5',
       'claude-sonnet-4-5',
       'claude-haiku-4-5',
-      // 4 series
       'claude-opus-4',
       'claude-sonnet-4',
-      // 3.7 series
       'claude-3-7-sonnet-20250219',
-      // 3.5 series
       'claude-3-5-sonnet-20241022',
       'claude-3-5-haiku-20241022',
-      // 3 series
       'claude-3-opus-20240229',
     ],
     installCommand: ['npm', 'install', '-g', '@anthropic-ai/claude-code'],
@@ -148,13 +131,11 @@ const List<HarnessCli> kHarnessCliCatalog = [
     name: 'OpenAI Codex CLI',
     executable: 'codex',
     knownModels: [
-      // GPT-5.x Codex variants
       'gpt-5.4-codex',
       'gpt-5.3-codex',
       'gpt-5.2-codex',
       'gpt-5.1-codex',
       'gpt-5-codex',
-      // GPT-5.x base
       'gpt-5.4',
       'gpt-5.4-mini',
       'gpt-5.3',
@@ -165,11 +146,9 @@ const List<HarnessCli> kHarnessCliCatalog = [
       'gpt-5.1-mini',
       'gpt-5',
       'gpt-5-mini',
-      // GPT-4.x Codex variants
       'gpt-4.5-codex',
       'gpt-4.1-codex',
       'gpt-4o-codex',
-      // GPT-4.x base
       'gpt-4.5',
       'gpt-4.5-mini',
       'gpt-4.1',
@@ -177,11 +156,9 @@ const List<HarnessCli> kHarnessCliCatalog = [
       'gpt-4.1-nano',
       'gpt-4o',
       'gpt-4o-mini',
-      // o-series Codex variants
       'o4-codex',
       'o4-mini-codex',
       'o3-codex',
-      // o-series base
       'o4',
       'o4-mini',
       'o3',
@@ -191,14 +168,12 @@ const List<HarnessCli> kHarnessCliCatalog = [
       'o1-mini',
       'o1-pro',
       'o1-preview',
-      // Codex-native models
       'codex-mini-latest',
       'codex-davinci-002',
     ],
     installCommand: ['npm', 'install', '-g', '@openai/codex'],
     installDocUrl: 'https://github.com/openai/codex',
-    // Codex CLI uses browser-based OAuth; no dedicated auth-status probe.
-    // loginArgs triggers `codex login` to guide the user through the flow.
+    // Codex 使用浏览器 OAuth，没有独立的登录状态探测命令。
     loginArgs: ['login'],
     logoutArgs: ['logout'],
   ),
@@ -208,29 +183,24 @@ const List<HarnessCli> kHarnessCliCatalog = [
     name: 'Gemini CLI',
     executable: 'gemini',
     knownModels: [
-      // CLI-managed default is the safest option against model drift.
+      // CLI 托管默认模型，避免固定模型标识随版本失效。
       kHarnessGeminiDefaultModelId,
       'gemini-flash-latest',
       'gemini-3-flash-preview',
-      // Stable generally available models
       'gemini-2.5-flash',
       'gemini-2.5-pro',
       'gemini-2.5-flash-lite',
-      // Preview / rolling aliases
       'gemini-3.1-pro-preview',
       'gemini-3.1-flash-lite-preview',
     ],
     installCommand: ['npm', 'install', '-g', '@google/gemini-cli'],
     installDocUrl: 'https://github.com/google-gemini/gemini-cli',
-    // Gemini CLI does not expose a stable `auth status` subcommand.
-    // It persists the active Google account in ~/.gemini/google_accounts.json,
-    // so probe that local state instead of launching an interactive session.
+    // Gemini 没有稳定的登录状态命令，直接读取其本地账号状态。
     loginCheckMode: HarnessCliAuthProbeMode.localStateFile,
     localAuthStateFilePath: '.gemini/google_accounts.json',
     localAuthStateJsonKey: 'active',
-    // Launching bare `gemini` starts the interactive auth flow when needed.
     loginArgs: <String>[],
-    // Gemini CLI has no dedicated logout command; clear local auth state files.
+    // Gemini 没有独立注销命令，通过清理本地认证状态完成注销。
     logoutLocalStateFilePaths: [
       '.gemini/google_accounts.json',
       '.gemini/oauth_creds.json',
@@ -242,13 +212,11 @@ const List<HarnessCli> kHarnessCliCatalog = [
     name: 'Aider',
     executable: 'aider',
     knownModels: [
-      // Anthropic (litellm prefix optional)
       'claude-opus-4-6',
       'claude-sonnet-4-6',
       'claude-haiku-4-6',
       'claude-opus-4-5',
       'claude-sonnet-4-5',
-      // OpenAI
       'gpt-5.4',
       'gpt-5.3',
       'gpt-5.2',
@@ -259,19 +227,15 @@ const List<HarnessCli> kHarnessCliCatalog = [
       'o4-mini',
       'o3',
       'o3-mini',
-      // Google Gemini (litellm prefix required)
       'gemini/gemini-2.5-pro',
       'gemini/gemini-2.5-flash',
       'gemini/gemini-2.5-flash-lite',
       'gemini/gemini-3.1-pro-preview',
       'gemini/gemini-3-flash-preview',
-      // DeepSeek
       'deepseek/deepseek-chat',
       'deepseek/deepseek-coder',
-      // Groq
       'groq/llama-3.3-70b-versatile',
       'groq/mixtral-8x22b-32768',
-      // Ollama (local)
       'ollama/llama3.1',
       'ollama/codestral',
       'ollama/deepseek-coder-v2',
@@ -287,20 +251,16 @@ const List<HarnessCli> kHarnessCliCatalog = [
     executable: 'windsurf',
     supportsHeadless: false,
     knownModels: [
-      // Windsurf-native SWE models
       'SWE-1',
       'SWE-1.5',
       'SWE-1-mini',
-      // Claude via Windsurf
       'claude-opus-4-6',
       'claude-sonnet-4-6',
       'claude-sonnet-4-5',
-      // OpenAI via Windsurf
       'gpt-5.4',
       'gpt-5.3',
       'gpt-5',
       'gpt-4.1',
-      // Gemini via Windsurf
       'gemini-2.5-pro',
     ],
     installDocUrl: 'https://windsurf.ai/download',
@@ -312,11 +272,9 @@ const List<HarnessCli> kHarnessCliCatalog = [
     executable: 'kiro',
     supportsHeadless: false,
     knownModels: [
-      // Claude via Amazon Bedrock
       'claude-sonnet-4-6',
       'claude-sonnet-4-5',
       'claude-opus-4-5',
-      // Amazon Nova
       'amazon-nova-pro',
       'amazon-nova-lite',
       'amazon-nova-micro',
@@ -429,14 +387,6 @@ const List<HarnessCli> kHarnessCliCatalog = [
 const String kHarnessGeminiModelsDocUrl =
     'https://ai.google.dev/gemini-api/docs/models';
 
-HarnessCli? findHarnessCliByName(String cliName) {
-  final normalized = cliName.trim();
-  if (normalized.isEmpty) {
-    return null;
-  }
-  return kHarnessCliCatalog.where((cli) => cli.name == normalized).firstOrNull;
-}
-
 bool isHarnessCliDefaultModel(HarnessCli cli, String modelId) {
   final normalizedModel = modelId.trim();
   return cli.executable == 'gemini' &&
@@ -497,17 +447,13 @@ List<String> suggestedHarnessCliModels(HarnessCli cli, {int max = 3}) {
   return cli.knownModels.take(max).toList(growable: false);
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
-/// Scans known CLIs with bounded parallelism. Installed headless-capable CLIs
-/// appear first; uninstalled ones last.
+/// 有界并发扫描 CLI；已安装的无头 CLI 优先，未安装项置后。
 Future<List<CliScanEntry>> scanInstalledClis() async {
   final results = await runOrderedWithConcurrencyLimit<CliScanEntry>(
     itemCount: kHarnessCliCatalog.length,
     maxConcurrency: _harnessCliProbeConcurrency,
     task: (index) => probeCliInstallation(kHarnessCliCatalog[index]),
   );
-  // Installed & headless first; uninstalled last.
   final installedHeadless = results
       .where((r) => r.installed && r.cli.supportsHeadless)
       .toList();
@@ -526,11 +472,8 @@ Future<List<bool?>> probeCliAuthBatch(List<CliScanEntry> entries) {
   );
 }
 
-/// Probes a single CLI installation.
-/// Uses login-shell execution for accuracy (matches the environment the
-/// orchestrator actually uses), then falls back to static file probing.
+/// 在与编排器一致的登录 Shell 环境中探测 CLI。
 Future<CliScanEntry> probeCliInstallation(HarnessCli cli) async {
-  // Strategy 1 (most reliable): login-shell `which`.
   final whichResult = await _tryLoginShellWhich(cli.executable);
   if (whichResult != null) {
     return (
@@ -541,7 +484,6 @@ Future<CliScanEntry> probeCliInstallation(HarnessCli cli) async {
     );
   }
 
-  // Strategy 2: login-shell direct execution.
   final execResult = await _tryLoginShellExec(cli.executable);
   if (execResult != null) {
     return (
@@ -552,24 +494,11 @@ Future<CliScanEntry> probeCliInstallation(HarnessCli cli) async {
     );
   }
 
-  // NOTE: npm-prefix (Strategy 3) and static-filesystem (Strategy 4) probes
-  // were intentionally removed. They only verify file existence, not shell
-  // reachability. A concrete example of the false-positive they cause:
-  // /usr/local/bin/codex exists on macOS as Apple's system CodeX tool, so
-  // the OpenAI Codex CLI appears "installed" even when it is not. At runtime
-  // the orchestrator runs all CLIs via the same login-shell context as
-  // Strategies 1 & 2, so those two are the sole source of truth.
+  // 只以登录 Shell 可执行性为准，避免把同名系统程序误判为目标 CLI。
   return (cli: cli, installed: false, resolvedPath: null, isLoggedIn: null);
 }
 
-// ── Auth probing ──────────────────────────────────────────────────────────────
-
-/// Probes whether an installed CLI is authenticated / logged in.
-///
-/// Returns:
-///   `true`  — confirmed logged in
-///   `false` — confirmed NOT logged in
-///   `null`  — unknown (no check defined, timeout, or execution error)
+/// 返回 CLI 登录状态；空值表示无法判断。
 Future<bool?> probeCliAuth(CliScanEntry entry) async {
   if (!entry.installed) return null;
   final cli = entry.cli;
@@ -605,7 +534,6 @@ Future<bool?> probeCliAuth(CliScanEntry entry) async {
 
     if (r.exitCode != 0) return false;
 
-    // If an output hint is configured, verify it appears in combined output.
     if (cli.loginCheckOutputHint != null) {
       final out = '${r.stdout}${r.stderr}'.toLowerCase();
       return out.contains(cli.loginCheckOutputHint!.toLowerCase());
@@ -613,7 +541,6 @@ Future<bool?> probeCliAuth(CliScanEntry entry) async {
 
     return true;
   } catch (_) {
-    // Timeout or process error — login state unknown.
     return null;
   }
 }
@@ -665,13 +592,7 @@ Future<bool?> _probeCliAuthFromLocalState(HarnessCli cli) async {
   }
 }
 
-// ── Logout ────────────────────────────────────────────────────────────────────
-
-/// Performs a CLI logout operation.
-///
-/// Returns a record with:
-///   `success` — whether the logout completed without errors
-///   `message` — human-readable status message (stdout/stderr or error detail)
+/// 执行 CLI 注销并返回结果与可读说明。
 Future<({bool success, String message})> performCliLogout(
   CliScanEntry entry,
 ) async {
@@ -686,12 +607,10 @@ Future<({bool success, String message})> performCliLogout(
     return (success: false, message: '${cli.name} is not installed.');
   }
 
-  // Strategy 1: Local state file deletion (e.g. Gemini CLI).
   if (cli.logoutLocalStateFilePaths != null) {
     return _performLocalStateLogout(cli);
   }
 
-  // Strategy 2: CLI command-based logout.
   if (cli.logoutArgs != null) {
     return _performCommandLogout(entry);
   }
@@ -813,10 +732,7 @@ Future<ProcessResult> runHarnessCliShellCommand(
   String command, {
   Duration timeout = const Duration(seconds: 7),
 }) async {
-  // Route through the safe wrapper so a hung CLI tool gets SIGKILL'd instead
-  // of leaking as an orphaned login-shell.  Null return (timeout / spawn
-  // failure) is surfaced as TimeoutException to preserve the original
-  // contract callers rely on.
+  // 统一使用有界进程封装，超时或启动失败时维持 TimeoutException 契约。
   final result = await runProcessWithTimeout(
     resolveHarnessCliShellExecutable(),
     buildHarnessCliShellArgs(command),
@@ -906,12 +822,7 @@ Future<Process> startHarnessCliInteractiveProcess({
     );
   }
 
-  // Direct shell execution instead of `script` PTY wrapper.
-  // `script -q /dev/null <shell> …` silently hangs when spawned from Dart's
-  // Process.start() on macOS: Dart creates pipes for stdio and macOS's
-  // `script` fails on tcgetattr() for non-TTY stdin, producing zero output
-  // and never exiting.  Direct shell with `-i -l` still loads nvm / pyenv
-  // paths from .zshrc / .bashrc, which is the critical requirement.
+  // 直接使用交互式登录 Shell；macOS 的 script PTY 封装在管道输入下可能挂起。
   final shell = resolveHarnessCliShellExecutable();
   final shellFragments = <String>[
     if (normalizedWorkingDirectory != null &&
@@ -923,9 +834,7 @@ Future<Process> startHarnessCliInteractiveProcess({
     shell,
     buildHarnessCliShellArgs(shellFragments.join(' && ')),
     environment: <String, String>{
-      // Hint to CLIs that colour / interactive output is acceptable even
-      // though stdout is not a real PTY.  Many Node-based tools (Ink, chalk)
-      // check FORCE_COLOR before falling back to isatty().
+      // 非真实 PTY 下仍允许 CLI 输出颜色与交互提示。
       'FORCE_COLOR': '1',
       // 内置 CLI 经常需要触网（登录 / 同步 / 拉取包列表等），与全局代理
       // 保持一致可避免企业代理环境下的连接失败。
@@ -942,13 +851,8 @@ String stripHarnessCliTerminalSequences(String text) {
   return text.replaceAll(_terminalEscapePattern, '');
 }
 
-// ── Strategy 1: login-shell which ────────────────────────────────────────────
-// Runs `command -v` inside an interactive login shell so nvm / pyenv
-// entries are visible, matching the environment the orchestrator uses.
-
 Future<String?> _tryLoginShellWhich(String executable) async {
   if (Platform.isWindows) {
-    // Windows: plain `where`
     final r = await runProcessWithTimeout(
       'where',
       <String>[executable],
@@ -969,14 +873,10 @@ Future<String?> _tryLoginShellWhich(String executable) async {
       return p.isNotEmpty ? p : null;
     }
   } catch (error, stack) {
-    silentLog('harness_cli_catalog', 'command -v probe (POSIX)', error, stack);
+    silentLog('harness_cli_catalog', '探测 POSIX 命令路径', error, stack);
   }
   return null;
 }
-
-// ── Strategy 2: login-shell direct execution ──────────────────────────────────
-// Tries running `executable --version` in a login shell. Catches cases where
-// the binary is callable but `which` doesn't return a path (e.g. shell funcs).
 
 Future<String?> _tryLoginShellExec(String executable) async {
   if (Platform.isWindows) {
@@ -993,7 +893,7 @@ Future<String?> _tryLoginShellExec(String executable) async {
   try {
     final quoted = _q(executable);
     final r = await runHarnessCliShellCommand('$quoted --version');
-    // Accept exit 0 or 1 — some tools (aider) exit 1 for --version.
+    // 部分工具执行 --version 时以 1 退出，但仍会输出有效版本信息。
     if (r.exitCode == 0 || r.exitCode == 1) {
       final out = '${r.stdout}${r.stderr}';
       if (out.isNotEmpty) return executable;
@@ -1001,7 +901,7 @@ Future<String?> _tryLoginShellExec(String executable) async {
   } catch (error, stack) {
     silentLog(
       'harness_cli_catalog',
-      '$executable --version probe (POSIX)',
+      '探测 POSIX CLI 版本：$executable',
       error,
       stack,
     );
@@ -1009,19 +909,12 @@ Future<String?> _tryLoginShellExec(String executable) async {
   return null;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Strips ANSI/VT escape sequences from terminal output.
-///
-/// Covers:
-///   • CSI sequences  (ESC [ … final-byte)
-///   • OSC sequences  (ESC ] … ST)  — used by Ink / hyperlinks
-///   • Simple two-byte escapes  (ESC followed by a single char 0x40–0x5F)
+/// 移除终端输出中的 CSI、OSC 与双字节 ANSI/VT 转义序列。
 final RegExp _terminalEscapePattern = RegExp(
   r'\x1B(?:'
-  r'\[[0-?]*[ -/]*[@-~]' // CSI: ESC [ params intermediates final
-  r'|\][^\x07\x1B]*(?:\x07|\x1B\\)' // OSC: ESC ] … BEL or ESC ] … ST
-  r'|[@-Z\\-_]' // Two-byte: ESC + single 0x40–0x5F char
+  r'\[[0-?]*[ -/]*[@-~]' // CSI 控制序列
+  r'|\][^\x07\x1B]*(?:\x07|\x1B\\)' // OSC 控制序列
+  r'|[@-Z\\-_]' // 双字节转义
   r')',
 );
 
@@ -1091,5 +984,5 @@ String _resolveHomeRelativePath(String homeDirectory, String relativePath) {
   ].join(Platform.pathSeparator);
 }
 
-/// POSIX single-quote an executable name for embedding in shell -c strings.
+/// 使用 POSIX 单引号转义 Shell 参数。
 String _q(String s) => "'${s.replaceAll("'", "'\\''")}'";

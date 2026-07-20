@@ -571,8 +571,6 @@ class AiBashToolService {
   static const int _maxPersistentSessions = 8;
   static const Duration _persistentSessionIdleTimeout = Duration(minutes: 5);
   static const Duration _persistentShutdownTimeout = Duration(seconds: 5);
-  // 2026-05 — `bashOutputMaxBytes` 设置项：从 SettingsController 注入。
-  // 旧默认 32000；放宽到 200_000，与 snapshot.defaultBashOutputMaxBytes 对齐。
   int maxCapturedCharacters = 200000;
   int writeConfirmationTimeoutMs = 300000;
   int fastPathWriteAnalysisThreshold = 512;
@@ -719,12 +717,11 @@ class AiBashToolService {
     }
     if ((requireWriteConfirmation || forceWriteConfirmation) &&
         isWriteCommand) {
-      if (launchSpec.applied &&
+      final canSkipConfirmation =
+          launchSpec.applied &&
           sandboxService.settings.autoAllowBashIfSandboxed &&
-          !forceWriteConfirmation) {
-        // The OS sandbox is active and the user explicitly allowed sandboxed
-        // Bash to bypass the write-confirmation prompt.
-      } else {
+          !forceWriteConfirmation;
+      if (!canSkipConfirmation) {
         late final _WriteConfirmationOutcome outcome;
         final missingConfirmationCallback = confirmWriteCommand == null;
         try {
@@ -900,15 +897,13 @@ class AiBashToolService {
         toolCallId: toolCallId,
       );
       if (persistentResult != null) {
-        // If the persistent session died unexpectedly, retry with a one-shot
-        // subprocess so the user doesn't see a bare "bad state" error.
-        if (persistentResult.exitCode == -1 &&
+        final sessionExitedUnexpectedly =
+            persistentResult.exitCode == -1 &&
             persistentResult.status == BashToolExecutionStatus.failed &&
             persistentResult.stderr.contains(
               'persistent bash session exited unexpectedly',
-            )) {
-          // Fall through to the one-shot execution below.
-        } else {
+            );
+        if (!sessionExitedUnexpectedly) {
           return persistentResult;
         }
       }
@@ -1056,7 +1051,7 @@ class AiBashToolService {
           try {
             await process.exitCode.timeout(const Duration(seconds: 2));
           } catch (_) {
-            // Ignore cleanup failures after forcing termination.
+            // 强制终止后的清理失败不覆盖原始结果。
           }
           return -1;
         },
@@ -1068,7 +1063,7 @@ class AiBashToolService {
           try {
             await process.exitCode.timeout(const Duration(seconds: 2));
           } catch (_) {
-            // Ignore cleanup failures after forcing termination.
+            // 强制终止后的清理失败不覆盖原始结果。
           }
           return -2;
         }
@@ -1275,9 +1270,7 @@ class AiBashToolService {
         ),
       );
       session.process.stdin.write('\n');
-      // Flush the IOSink so the shell receives the script immediately.
-      // Without an explicit flush the OS buffers may delay delivery under
-      // low-throughput conditions, causing spurious marker timeouts.
+      // 立即刷新输入流，避免低吞吐时系统缓冲导致标记误超时。
       await session.process.stdin.flush();
       final waitForCompletion = execution.outcome.future.timeout(
         Duration(milliseconds: timeoutMs),
@@ -1605,14 +1598,12 @@ class AiBashToolService {
           'AiBashToolService was disposed during shell startup.',
         );
       }
-      // For Unix shells, disable glob expansion so commands containing shell
-      // metacharacters do not fail before the per-command wrapper runs.
+      // Unix Shell 禁用 glob，避免命令在包装器执行前被元字符展开破坏。
       if (!Platform.isWindows) {
         process.stdin.write(
           'set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n',
         );
-        // A failed flush means the shell transport is already unusable; treat
-        // it as a startup failure so the half-initialized process is recycled.
+        // 刷新失败说明 Shell 传输不可用，按启动失败回收半初始化进程。
         await process.stdin.flush();
       }
 
@@ -1659,7 +1650,7 @@ class AiBashToolService {
             maxCapturedCharacters,
           );
         }
-        // Also terminate any descendants that inherited the shell's pipes.
+        // 同时终止继承 Shell 管道的子孙进程。
         unawaited(_disposePersistentSession(session));
         if (identical(_persistentSessions[sessionId], session)) {
           _persistentSessions.remove(sessionId);
@@ -1693,11 +1684,7 @@ class AiBashToolService {
     final startMarker = _quoteShellString('__OPENHAND_CMD_START__$markerToken');
     final exitMarker = _quoteShellString('__OPENHAND_EXIT__$markerToken');
     final pwdEndMarker = _quoteShellString('__OPENHAND_PWD_END__$markerToken');
-    // Determine if the command needs special wrapping to avoid shell
-    // mis-interpretation.  Commands that embed AppleScript, multi-line
-    // strings, or heavy quoting are routed through a temporary script file
-    // or eval-based wrapper so that zsh/bash doesn't choke on glob
-    // patterns, unmatched quotes, or nested shell expansions.
+    // 多行、复杂引号或 AppleScript 命令改用临时脚本，避免 Shell 误解析。
     final needsSafeWrap = _commandNeedsSafeWrap(command);
     final buffer = StringBuffer()
       ..writeln("printf '%s\\n' $startMarker")
@@ -1729,7 +1716,7 @@ class AiBashToolService {
     return buffer.toString().trimRight();
   }
 
-  /// Build the Windows-specific persistent command script using cmd markers.
+  /// 使用 cmd 标记构建 Windows 持久命令脚本。
   String _buildWindowsPersistentCommandScript({
     required String command,
     required String markerToken,
@@ -1738,8 +1725,7 @@ class AiBashToolService {
     final buffer = StringBuffer()
       ..writeln('echo __OPENHAND_CMD_START__$markerToken');
     if (workingDirectory.trim().isNotEmpty) {
-      // Double-quote the path to prevent injection via shell metacharacters
-      // (&, |, etc.) that may appear in directory names.
+      // 路径使用双引号，避免目录名中的 Shell 元字符注入。
       final escapedWorkDir = workingDirectory.replaceAll('"', '""');
       buffer
         ..writeln('cd /d "$escapedWorkDir" && (')
@@ -1758,51 +1744,33 @@ class AiBashToolService {
     return buffer.toString().trimRight();
   }
 
-  /// Returns `true` if the command contains patterns that are likely to
-  /// confuse the shell when injected directly into a persistent session
-  /// stdin stream.  Such commands are routed through a temporary script
-  /// file so that the shell processes them atomically.
+  /// 判断命令是否需要通过临时脚本原子执行。
   bool _commandNeedsSafeWrap(String command) {
-    // Multi-line commands (embedded newlines beyond trailing)
+    // 多行命令。
     final trimmed = command.trimRight();
     if (trimmed.contains('\n')) {
       return true;
     }
-    // Commands containing heavy quoting that is likely to interact badly
-    // with the outer shell wrapper.  The parentheses around the second
-    // clause make the grouping explicit — relying on `&&`-binds-tighter-
-    // than-`||` precedence has tripped reviewers in the past and is easy
-    // to break with a future refactor.
+    // 复杂引号可能与外层 Shell 包装冲突。
     if (command.contains("'\\'") ||
         (command.contains("'") && command.contains('"'))) {
-      // Nested quoting patterns common in osascript invocations.
+      // osascript 常见嵌套引号。
       return true;
     }
-    // Commands starting with osascript, which commonly contain AppleScript
-    // strings with special characters ([, ], *, ?).
+    // osascript 常携带包含特殊字符的 AppleScript。
     if (RegExp(r'^\s*(osascript|automator)\b').hasMatch(command)) {
       return true;
     }
     return false;
   }
 
-  /// Writes a safely-wrapped version of [command] into [buffer].
-  /// Uses a temporary script file approach: writes the command to a temp
-  /// file, executes it with the appropriate shell, then removes the file.
+  /// 将命令写入临时脚本执行，并在完成后删除脚本。
   void _writeSafeWrappedCommand(
     StringBuffer buffer,
     String command,
     String markerToken,
   ) {
-    // Use a heredoc with a single-quoted delimiter to write the command into
-    // a temp script file.  The single-quoted heredoc tag ensures the shell
-    // performs zero expansion on the script body, preserving all special
-    // characters, quotes, variables, and glob patterns literally.
-    // To prevent heredoc injection (where the command body itself contains
-    // the heredoc delimiter), we generate a unique tag that is guaranteed
-    // not to appear in the command.  If by some chance the base tag exists
-    // in the command, we append an incrementing suffix until a collision-
-    // free tag is found.
+    // 使用命令正文中不存在的单引号 heredoc 标记，阻止展开与分隔符注入。
     var heredocTag = '__OPENHAND_SCRIPT_${markerToken}__';
     var tagSuffix = 0;
     while (command.contains(heredocTag)) {
@@ -1818,17 +1786,14 @@ class AiBashToolService {
       ..writeln(command)
       ..writeln(heredocTag)
       ..writeln('chmod +x $quotedTmp')
-      // Install a best-effort trap so the temp script is removed even when
-      // the wrapper shell receives a signal before it reaches the explicit
-      // `rm -f` below. The trap is local to the current shell context.
+      // 当前 Shell 收到信号时尽力删除临时脚本。
       ..writeln('trap "rm -f $quotedTmp" EXIT INT TERM HUP')
-      // Run the script and immediately capture its exit code before any
-      // cleanup commands can overwrite it.
+      // 清理前立即保存原始退出码。
       ..writeln('${_resolveShellExecutable()} $quotedTmp')
       ..writeln(r'__OPENHAND_WRAP_RC=$?')
       ..writeln('rm -f $quotedTmp')
       ..writeln('trap - EXIT INT TERM HUP')
-      // Propagate the original exit code via a sub-shell exit.
+      // 透传原始退出码。
       ..writeln(r'(exit $__OPENHAND_WRAP_RC)');
   }
 
@@ -2041,18 +2006,7 @@ class AiBashToolService {
     );
   }
 
-  /// Kill a process in a platform-safe way.
-  ///
-  /// On Windows, [ProcessSignal.sigkill] is not supported, so we fall back to
-  /// the default [Process.kill] which calls `TerminateProcess`.
-  ///
-  /// On POSIX, prefer a graceful shutdown: send SIGTERM first to give the
-  /// shell a chance to clean up its own children (importantly, GUI helpers
-  /// like `osascript` that own input-method state — see
-  /// `lib/app/support/safe_subprocess.dart` for the long story). After a
-  /// short grace period, escalate to SIGKILL if the process is still alive.
-  /// Both signals are best-effort; failures are intentionally swallowed
-  /// because the process may already have exited.
+  /// 跨平台终止进程：Windows 使用默认终止，POSIX 先 SIGTERM 后 SIGKILL。
   static void _killProcess(Process process) {
     unawaited(terminateTrackedProcessTree(process));
   }
@@ -2177,22 +2131,11 @@ class _ShellWriteCommandAnalyzer {
     'false',
     'sleep',
     'history',
-    // macOS terminal automation commands – these talk to terminal apps but
-    // don't mutate the local filesystem.  Machine-expert workflows rely on
-    // osascript heavily for sending keystrokes and reading screen buffers.
-    // SECURITY FIX: `osascript` is NOT listed here because it can
-    // execute arbitrary shell commands via `do shell script`, inject commands
-    // into other terminal applications via `write text` / `do script` /
-    // `keystroke`, and otherwise produce side effects indistinguishable from
-    // running the wrapped command directly.  Treating it as a blanket
-    // read-only verb lets machine-expert flows (and any other osascript
-    // invocation) bypass the write-command confirmation gate.  osascript is
-    // now handled separately in `_osascriptWriteAnalysis` below, which marks
-    // any AppleScript body that contains write-like verbs as a write command.
+    // osascript 不属于只读命令，必须由专用分析器检查脚本正文。
     'pbpaste',
     'say',
     'afplay',
-    // System inspection utilities commonly used by machine-expert tasks.
+    // 系统检查工具。
     'sysctl',
     'sw_vers',
     'system_profiler',
@@ -2234,7 +2177,7 @@ class _ShellWriteCommandAnalyzer {
     'hostname',
     'dmesg',
     'journalctl',
-    // Windows system inspection commands (when run through cmd /c).
+    // 通过 cmd /c 执行的 Windows 系统检查命令。
     'systeminfo',
     'wmic',
     'ipconfig',
@@ -2542,43 +2485,33 @@ class _ShellWriteCommandAnalyzer {
     if (_readOnlyCommands.contains(commandName)) {
       return BashWriteAnalysis.readOnly('read-only command $commandName');
     }
-    // macOS clipboard write and screenshot are safe-side-effect commands
-    // (they write to clipboard/tmp, not to user files).
+    // 剪贴板写入与截图不会修改用户文件。
     if (commandName == 'pbcopy' || commandName == 'screencapture') {
       return BashWriteAnalysis.readOnly(
         'safe side-effect command $commandName',
       );
     }
-    // `open` on macOS only launches apps / URLs — it doesn't mutate files
-    // by itself.
+    // macOS open 仅启动应用或打开 URL。
     if (commandName == 'open' && Platform.isMacOS) {
       return BashWriteAnalysis.readOnly('macOS open command $commandName');
     }
-    // `defaults read` is read-only; `defaults write/delete` mutates.
+    // defaults 仅在 read 子命令下只读。
     if (commandName == 'defaults') {
       return _analyzeDefaultsInvocation(invocation);
     }
-    // osascript / osacompile are powerful and can execute arbitrary
-    // shell commands (`do shell script`), inject keystrokes into other apps
-    // (`keystroke`, `key code`, `key down/up`), or drive terminal emulators
-    // (`write text`, `do script`).  Treating every osascript invocation as a
-    // write would nag the user for simple read-only `get` queries used for
-    // locating windows, so we inspect the AppleScript body and only classify
-    // as write when a known write-like verb appears.
+    // AppleScript 可执行命令或注入输入，需检查正文中的写操作动词。
     if (commandName == 'osascript' || commandName == 'osacompile') {
       return _analyzeOsascriptInvocation(invocation);
     }
-    // Remote/cross-host execution commands effectively run arbitrary
-    // instructions on another system — treat as write by default.
+    // 远程执行可产生任意副作用，默认按写操作处理。
     if (commandName == 'ssh' || commandName == 'doas') {
       return BashWriteAnalysis.write('remote execution command $commandName');
     }
-    // Cross-terminal injection via tmux/screen send-keys is a write operation
-    // on another session, even though the local process itself is innocent.
+    // tmux/screen 可向其他会话注入输入。
     if (commandName == 'tmux' || commandName == 'screen') {
       return _analyzeMultiplexerInvocation(commandName, invocation);
     }
-    // X11 / Wayland input injection tools drive arbitrary key/mouse events.
+    // X11 / Wayland 输入注入工具默认按写操作处理。
     if (commandName == 'xdotool' ||
         commandName == 'ydotool' ||
         commandName == 'wtype') {
@@ -2594,14 +2527,9 @@ class _ShellWriteCommandAnalyzer {
     );
   }
 
-  /// Analyze an `osascript` / `osacompile` invocation.  Flags any AppleScript
-  /// body that contains write-like verbs (arbitrary shell execution, keystroke
-  /// injection, terminal command dispatch, process/file mutation, app quit,
-  /// property assignment) as a write command.
+  /// 分析 AppleScript 正文是否包含命令执行、输入注入或状态修改。
   BashWriteAnalysis _analyzeOsascriptInvocation(List<_ShellToken> invocation) {
-    // Concatenate every non-flag argument into a single buffer so we can look
-    // for write-like verbs regardless of how the script is chunked across
-    // multiple `-e` flags, inline script files, or here-strings.
+    // 合并非参数标记内容，统一匹配写操作动词。
     final bodyBuffer = StringBuffer();
     var dynamicScript = false;
     for (final token in invocation.skip(1)) {
@@ -2609,8 +2537,7 @@ class _ShellWriteCommandAnalyzer {
         dynamicScript = true;
       }
       final text = token.text;
-      // Skip short flag names themselves (like `-e`, `-s`, `-l`) but include
-      // their VALUES, which are appended as separate tokens by the tokenizer.
+      // 跳过短参数名，保留分词器拆出的参数值。
       if (text.startsWith('-') && text.length <= 3) {
         continue;
       }
@@ -2619,8 +2546,7 @@ class _ShellWriteCommandAnalyzer {
         ..write('\n');
     }
     final body = bodyBuffer.toString();
-    // If the AppleScript body is being assembled dynamically (e.g. via command
-    // substitution `$(…)`), we can't inspect it safely — treat as write.
+    // 动态拼装的脚本无法可靠检查，按写操作处理。
     if (dynamicScript) {
       return const BashWriteAnalysis.write(
         'osascript with dynamically-composed script body',
@@ -2672,9 +2598,7 @@ class _ShellWriteCommandAnalyzer {
     );
   }
 
-  /// Analyze `tmux`/`screen` invocations.  Subcommands that send keys, paste
-  /// buffers, kill sessions, source new configs, or rename objects mutate
-  /// the target session and must be confirmed.
+  /// 分析 tmux/screen 是否会修改目标会话。
   BashWriteAnalysis _analyzeMultiplexerInvocation(
     String commandName,
     List<_ShellToken> invocation,
@@ -2714,15 +2638,13 @@ class _ShellWriteCommandAnalyzer {
       }
       break;
     }
-    // Bare `tmux` / `screen` or read-only subcommands (list-sessions,
-    // capture-pane, show-options, …) are safe.
+    // 未命中写子命令时按只读处理。
     return BashWriteAnalysis.readOnly(
       '$commandName invocation appears read-only',
     );
   }
 
-  /// Treat any invocation of an input-injection tool as a write operation —
-  /// these drive arbitrary keyboard/mouse events on the host.
+  /// 分析输入注入工具；未知子命令按写操作处理。
   BashWriteAnalysis _analyzeInputInjectionInvocation(
     String commandName,
     List<_ShellToken> invocation,
@@ -2759,9 +2681,9 @@ class _ShellWriteCommandAnalyzer {
           value == 'import') {
         return BashWriteAnalysis.write('defaults $value mutates preferences');
       }
-      // Skip options/flags
+      // 跳过选项。
       if (value.startsWith('-')) continue;
-      // First non-option non-subcommand argument – fall back to write.
+      // 首个未知位置参数按写操作处理。
       break;
     }
     return const BashWriteAnalysis.write('defaults with unclear subcommand');

@@ -99,7 +99,7 @@ export function virtualMessageTotalHeight(
   return prefix[count]! + Math.max(0, count - 1) * gapPx;
 }
 
-export function firstVirtualMessageIntersecting(
+function firstVirtualMessageIntersecting(
   prefix: number[],
   heights: number[],
   targetY: number,
@@ -118,7 +118,7 @@ export function firstVirtualMessageIntersecting(
   return Math.min(lo, heights.length);
 }
 
-export function firstVirtualMessageAfter(
+function firstVirtualMessageAfter(
   prefix: number[],
   heights: number[],
   targetY: number,

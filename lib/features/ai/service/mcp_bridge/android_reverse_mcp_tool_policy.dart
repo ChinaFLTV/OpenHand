@@ -5,21 +5,10 @@ class AndroidReverseMcpToolPolicy {
   const AndroidReverseMcpToolPolicy._();
 
   static Set<String> forceVisibleToolNames(AiResolvedToolCatalog catalog) {
-    return forceVisibleMcpToolNames(
-      catalog,
-      (tool, catalogName) =>
-          _shouldForceVisibleTool(tool, catalogName: catalogName),
-    );
+    return forceVisibleMcpToolNames(catalog, _shouldForceVisibleTool);
   }
 
-  static bool _shouldForceVisibleTool(
-    AiResolvedTool tool, {
-    required String catalogName,
-  }) {
-    if (tool.source != AiRuntimeToolSource.mcp) return false;
-
-    final text = mcpReverseToolSearchText(tool, catalogName: catalogName);
-
+  static bool _shouldForceVisibleTool(McpReverseToolSearchText text) {
     if (_hasStrongLaunchSignal(text.launchIdentity)) return true;
     if (_hasAndroidReverseSignal(text.identity) &&
         _hasOperationSignal(text.identity)) {

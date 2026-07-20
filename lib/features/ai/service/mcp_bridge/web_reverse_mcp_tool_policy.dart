@@ -9,20 +9,10 @@ class WebReverseMcpToolPolicy {
   );
 
   static Set<String> forceVisibleToolNames(AiResolvedToolCatalog catalog) {
-    return forceVisibleMcpToolNames(
-      catalog,
-      (tool, catalogName) =>
-          _shouldForceVisibleTool(tool, catalogName: catalogName),
-    );
+    return forceVisibleMcpToolNames(catalog, _shouldForceVisibleTool);
   }
 
-  static bool _shouldForceVisibleTool(
-    AiResolvedTool tool, {
-    required String catalogName,
-  }) {
-    if (tool.source != AiRuntimeToolSource.mcp) return false;
-
-    final text = mcpReverseToolSearchText(tool, catalogName: catalogName);
+  static bool _shouldForceVisibleTool(McpReverseToolSearchText text) {
     final identity = text.identity;
 
     final chromeDevtoolsByIdentity = _hasChromeDevtoolsSignal(identity);

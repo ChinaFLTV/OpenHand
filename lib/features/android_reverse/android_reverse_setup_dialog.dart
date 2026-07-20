@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -225,7 +225,7 @@ class _AndroidReverseSetupDialogState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: '逆向目标 *',
                       en: 'Objective *',
@@ -268,7 +268,7 @@ class _AndroidReverseSetupDialogState
                     },
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: '目标包名（可选）',
                       en: 'Package name (optional)',
@@ -288,7 +288,7 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: 'APK 路径（可选，仅用于静态分析）',
                       en: 'APK path (optional)',
@@ -308,7 +308,7 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: 'ADB 设备序列号（可选，留空自动选唯一在线设备）',
                       en: 'Device serial (optional)',
@@ -328,7 +328,7 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: '分析模式',
                       en: 'Analysis mode',
@@ -394,7 +394,7 @@ class _AndroidReverseSetupDialogState
                     },
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _requiresAuthorizationScope
                         ? _text(
                             zh: '授权范围 *',
@@ -443,7 +443,7 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _McpOptInTile(
+                  OpenHandAnimatedSwitchTile(
                     icon: Icons.usb_rounded,
                     title: _text(
                       zh: 'ADB MCP（可选）',
@@ -461,11 +461,11 @@ class _AndroidReverseSetupDialogState
                       de: 'Standardmäßig aus. Erst in den globalen MCP-Einstellungen installieren/aktivieren; danach nutzt adb zuerst ADB MCP.',
                       ja: 'デフォルトはオフです。先にグローバル MCP 設定でインストール/有効化してください。有効化後は adb で ADB MCP を優先します。',
                     ),
-                    enabled: _adbMcpEnabled,
+                    value: _adbMcpEnabled,
                     onChanged: (v) => setState(() => _adbMcpEnabled = v),
                   ),
                   const SizedBox(height: 10),
-                  _McpOptInTile(
+                  OpenHandAnimatedSwitchTile(
                     icon: Icons.bug_report_rounded,
                     title: _text(
                       zh: 'Frida MCP（可选）',
@@ -483,11 +483,11 @@ class _AndroidReverseSetupDialogState
                       de: 'Standardmäßig aus. Erst in den globalen MCP-Einstellungen installieren/aktivieren; danach nutzt Frida-Injektion zuerst Frida MCP.',
                       ja: 'デフォルトはオフです。先にグローバル MCP 設定でインストール/有効化してください。有効化後は Frida 注入で Frida MCP を優先します。',
                     ),
-                    enabled: _fridaMcpEnabled,
+                    value: _fridaMcpEnabled,
                     onChanged: (v) => setState(() => _fridaMcpEnabled = v),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: '关键字（可选，逗号分隔）',
                       en: 'Keywords (optional, comma-separated)',
@@ -507,7 +507,7 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     _text(
                       zh: '备注（可选）',
                       en: 'Notes (optional)',
@@ -560,97 +560,6 @@ class _AndroidReverseSetupDialogState
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _McpOptInTile extends StatelessWidget {
-  const _McpOptInTile({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return AnimatedContainer(
-      duration: openHandMotionDuration(
-        context,
-        const Duration(milliseconds: 220),
-      ),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: enabled
-            ? cs.primaryContainer.withValues(alpha: 0.42)
-            : cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: enabled
-              ? cs.primary.withValues(alpha: 0.46)
-              : cs.outlineVariant,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            enabled ? icon : icon,
-            size: 18,
-            color: enabled ? cs.primary : cs.onSurfaceVariant,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(value: enabled, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _LabelText extends StatelessWidget {
-  const _LabelText(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Text(
-      text,
-      style: theme.textTheme.labelLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: theme.colorScheme.onSurfaceVariant,
       ),
     );
   }

@@ -1,10 +1,4 @@
-// 「脚本注入库 (Snippet Pad)」面板。
-// 左侧列表 = 已保存的 snippet（按更新时间倒排）；右侧 = 名称 + 多行代码
-// 编辑器 + Run/Save/Delete 工具栏。Run 走 [WebReverseSessionController
-// .runSnippet]，结果写到 Console 面板（已有的 _appendConsole）。Save 触发
-// dashboard 持久化到 session metadata，刷新/重连后自动恢复。
-// 风格保持与其它面板一致：圆角胶囊按钮、220ms easeOutCubic 切换、Q弹
-// AnimatedSwitcher / AnimatedSize；遵守 MediaQuery.disableAnimationsOf。
+// 管理并执行持久化的页面脚本片段。
 
 part of 'web_reverse_dashboard_dialog.dart';
 
@@ -46,7 +40,6 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
 
   void _onControllerChanged() {
     if (!mounted) return;
-    // 仅在 snippets 列表本身变化时刷新；其它 controller 通知不打扰编辑器。
     setState(() {});
     _syncSelectionFromController();
   }
@@ -62,7 +55,6 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
       _dirty = false;
       return;
     }
-    // 找当前选中；若已被删除，回退到第一项。
     final found = list.firstWhere(
       (e) => e.id == _selectedId,
       orElse: () => list.first,
@@ -212,7 +204,6 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 左侧：列表 + 新建按钮
           SizedBox(
             width: 260,
             child: Container(
@@ -282,7 +273,6 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
             ),
           ),
           const SizedBox(width: 12),
-          // 右侧：编辑器
           Expanded(
             child: AnimatedContainer(
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,

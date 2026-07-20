@@ -15,11 +15,14 @@ class McpReverseToolSearchText {
 
 Set<String> forceVisibleMcpToolNames(
   AiResolvedToolCatalog catalog,
-  bool Function(AiResolvedTool tool, String catalogName) shouldInclude,
+  bool Function(McpReverseToolSearchText text) shouldInclude,
 ) {
   final names = <String>{};
   for (final entry in catalog.toolsByName.entries) {
-    if (shouldInclude(entry.value, entry.key)) names.add(entry.key);
+    final tool = entry.value;
+    if (tool.source != AiRuntimeToolSource.mcp) continue;
+    final text = mcpReverseToolSearchText(tool, catalogName: entry.key);
+    if (shouldInclude(text)) names.add(entry.key);
   }
   return names;
 }

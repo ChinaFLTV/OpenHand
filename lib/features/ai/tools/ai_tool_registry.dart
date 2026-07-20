@@ -128,25 +128,21 @@ class AiToolRegistry {
       ),
     );
 
-    // SkillManager — 需要 skills directory provider (Hermes Talker builtin).
-    // Only registered when a provider is wired; sessions where the user has
-    // not configured a skills directory will surface a friendly error at
-    // runtime via the provider returning an empty string.
+    // SkillManager 仅在接入目录提供器后注册，空目录由工具在运行时提示。
     if (skillsDirProvider != null) {
       registry.register(
         AiSkillManagerTool(skillsDirProvider: skillsDirProvider),
       );
     }
 
-    // Memory — Hermes Talker self-learning sub-agent writes here.
+    // Memory 用于保存 Hermes Talker 子智能体的自学习内容。
     if (memoryControllerProvider != null) {
       registry.register(
         AiMemoryTool(memoryControllerProvider: memoryControllerProvider),
       );
     }
 
-    // Agent digital employees — wired late so the AI runtime can start before
-    // the Agents module has finished loading persisted profiles.
+    // 延迟接入智能体工具，避免持久化配置加载阻塞 AI 运行时启动。
     if (agentsControllerProvider != null) {
       final agentTools = AiAgentTool.all(
         agentsControllerProvider: agentsControllerProvider,
@@ -155,48 +151,17 @@ class AiToolRegistry {
         instructionsControllerProvider: instructionsControllerProvider,
       );
       for (final tool in agentTools) {
-        tool.withExecutor((parentContext, subContext) async {
-          final resolvedTool = subContext.catalog.find(
-            subContext.toolCall.name,
-          );
-          if (resolvedTool?.builtinKind == null) {
-            return AiToolExecutionResult(
-              status: BashToolExecutionStatus.invalidArguments,
-              command: subContext.toolCall.name,
-              workingDirectory: '',
-              stdout: '',
-              stderr:
-                  'Unsupported agent worker tool: ${subContext.toolCall.name}',
-              durationMs: 0,
-              resultText:
-                  'status: invalid_arguments\nerror: Unsupported agent worker tool: ${subContext.toolCall.name}',
-            );
-          }
-          final result = await registry.tryExecute(
+        tool.withExecutor(
+          (parentContext, subContext) => registry._executeSubTool(
+            parentContext,
             subContext,
-            resolvedTool!.builtinKind!,
-          );
-          if (result != null) {
-            await _notifySubToolExecuted(
-              subToolExecutionObserver,
-              parentContext,
-              subContext,
-              result,
-            );
-            return result;
-          }
-          return AiToolExecutionResult(
-            status: BashToolExecutionStatus.invalidArguments,
-            command: subContext.toolCall.name,
-            workingDirectory: '',
-            stdout: '',
-            stderr:
+            observer: subToolExecutionObserver,
+            unsupportedError:
+                'Unsupported agent worker tool: ${subContext.toolCall.name}',
+            unavailableError:
                 'Agent worker tool unavailable: ${subContext.toolCall.name}',
-            durationMs: 0,
-            resultText:
-                'status: invalid_arguments\nerror: Agent worker tool unavailable: ${subContext.toolCall.name}',
-          );
-        });
+          ),
+        );
         registry.register(tool);
       }
     }
@@ -232,48 +197,16 @@ class AiToolRegistry {
       backgroundChatClient: backgroundChatClient,
       hookService: hookService,
     );
-    // 注入 sub-tool executor：将子工具调用委托回 registry 本身
-    taskTool.withExecutor((parentContext, subContext) async {
-      final resolvedTool = subContext.catalog.find(subContext.toolCall.name);
-      if (resolvedTool?.builtinKind == null) {
-        return AiToolExecutionResult(
-          status: BashToolExecutionStatus.invalidArguments,
-          command: subContext.toolCall.name,
-          workingDirectory: subContext.catalog.toolsByName.isEmpty
-              ? ''
-              : subContext.catalog.toolsByName.values.first.definition.name,
-          stdout: '',
-          stderr: 'Unsupported sub-tool: ${subContext.toolCall.name}',
-          durationMs: 0,
-          resultText:
-              'status: invalid_arguments\nerror: Unsupported sub-tool: ${subContext.toolCall.name}',
-        );
-      }
-      final result = await registry.tryExecute(
+    taskTool.withExecutor(
+      (parentContext, subContext) => registry._executeSubTool(
+        parentContext,
         subContext,
-        resolvedTool!.builtinKind!,
-      );
-      if (result != null) {
-        await _notifySubToolExecuted(
-          subToolExecutionObserver,
-          parentContext,
-          subContext,
-          result,
-        );
-        return result;
-      }
-      return AiToolExecutionResult(
-        status: BashToolExecutionStatus.invalidArguments,
-        command: subContext.toolCall.name,
-        workingDirectory: '',
-        stdout: '',
-        stderr:
+        observer: subToolExecutionObserver,
+        unsupportedError: 'Unsupported sub-tool: ${subContext.toolCall.name}',
+        unavailableError:
             'Sub-tool not available in subagent context: ${subContext.toolCall.name}',
-        durationMs: 0,
-        resultText:
-            'status: invalid_arguments\nerror: Sub-tool not available in subagent context: ${subContext.toolCall.name}',
-      );
-    });
+      ),
+    );
     registry.register(taskTool);
 
     return registry;
@@ -332,6 +265,35 @@ class AiToolRegistry {
       return _permissionDeniedResult(context.toolCall.name, denied.reason);
     }
     return tool.execute(context);
+  }
+
+  Future<AiToolExecutionResult> _executeSubTool(
+    AiToolExecutionContext parentContext,
+    AiToolExecutionContext subContext, {
+    required AiSubToolExecutionObserver? observer,
+    required String unsupportedError,
+    required String unavailableError,
+  }) async {
+    AiToolExecutionResult invalidResult(String error) {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.invalidArguments,
+        command: subContext.toolCall.name,
+        workingDirectory: '',
+        stdout: '',
+        stderr: error,
+        durationMs: 0,
+        resultText: 'status: invalid_arguments\nerror: $error',
+      );
+    }
+
+    final kind = subContext.catalog.find(subContext.toolCall.name)?.builtinKind;
+    if (kind == null) return invalidResult(unsupportedError);
+
+    final result = await tryExecute(subContext, kind);
+    if (result == null) return invalidResult(unavailableError);
+
+    await _notifySubToolExecuted(observer, parentContext, subContext, result);
+    return result;
   }
 
   /// 构造权限拒绝的 [AiToolExecutionResult]。

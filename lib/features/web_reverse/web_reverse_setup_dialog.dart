@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_settings_snapshot.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -266,7 +266,9 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _LabelText(loc?.webReverseSetupTargetUrl ?? 'Target URL *'),
+                  OpenHandFormLabel(
+                    loc?.webReverseSetupTargetUrl ?? 'Target URL *',
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _urlCtrl,
@@ -278,7 +280,9 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(loc?.webReverseSetupObjective ?? 'Objective *'),
+                  OpenHandFormLabel(
+                    loc?.webReverseSetupObjective ?? 'Objective *',
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _objectiveCtrl,
@@ -307,7 +311,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     },
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     loc?.webReverseSetupTriggerActions ??
                         'Trigger actions (optional)',
                   ),
@@ -324,7 +328,9 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(loc?.webReverseSetupLoginMode ?? 'Login mode'),
+                  OpenHandFormLabel(
+                    loc?.webReverseSetupLoginMode ?? 'Login mode',
+                  ),
                   const SizedBox(height: 4),
                   SegmentedButton<WebReverseLoginMode>(
                     segments: WebReverseLoginMode.values
@@ -340,7 +346,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                         setState(() => _loginMode = s.first),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     loc?.webReverseSetupBrowser ?? 'Browser (detected)',
                   ),
                   const SizedBox(height: 4),
@@ -374,13 +380,36 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _CdpMcpOptInTile(
-                    enabled: _cdpMcpEnabled,
+                  OpenHandAnimatedSwitchTile(
+                    icon: Icons.hub_rounded,
+                    disabledIcon: Icons.hub_outlined,
+                    title: openHandLocalizedText(
+                      context,
+                      zh: 'AI 侧 CDP MCP（可选）',
+                      zhHant: 'AI 側 CDP MCP（可選）',
+                      en: 'AI-side CDP MCP (optional)',
+                      fr: 'CDP MCP côté IA (facultatif)',
+                      de: 'AI-seitiges CDP MCP (optional)',
+                      ja: 'AI側 CDP MCP（任意）',
+                    ),
+                    description: openHandLocalizedText(
+                      context,
+                      zh: '默认关闭。开启后仅本会话会通过 npx 准备 chrome-devtools-mcp，用于 AI 直接调用 CDP 工具。',
+                      zhHant:
+                          '預設關閉。開啟後僅本會話會透過 npx 準備 chrome-devtools-mcp，用於 AI 直接呼叫 CDP 工具。',
+                      en: 'Off by default. When enabled, only this session prepares chrome-devtools-mcp through npx for AI CDP tools.',
+                      fr: 'Désactivé par défaut. Une fois activé, seule cette session prépare chrome-devtools-mcp via npx pour les outils CDP de l’IA.',
+                      de: 'Standardmäßig deaktiviert. Wenn aktiviert, bereitet nur diese Sitzung chrome-devtools-mcp über npx für AI-CDP-Tools vor.',
+                      ja: '既定ではオフです。有効にすると、このセッションだけが npx 経由で chrome-devtools-mcp を準備し、AI が CDP ツールを直接呼び出せます。',
+                    ),
+                    value: _cdpMcpEnabled,
                     onChanged: (value) =>
                         setState(() => _cdpMcpEnabled = value),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(loc?.webReverseSetupProxy ?? 'Proxy (optional)'),
+                  OpenHandFormLabel(
+                    loc?.webReverseSetupProxy ?? 'Proxy (optional)',
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _proxyCtrl,
@@ -391,7 +420,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(
+                  OpenHandFormLabel(
                     loc?.webReverseSetupKeywords ??
                         'Keywords (optional, comma-separated)',
                   ),
@@ -459,105 +488,6 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
         ja: '保存済み状態',
       ),
     };
-  }
-}
-
-class _CdpMcpOptInTile extends StatelessWidget {
-  const _CdpMcpOptInTile({required this.enabled, required this.onChanged});
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return AnimatedContainer(
-      duration: openHandMotionDuration(
-        context,
-        const Duration(milliseconds: 220),
-      ),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: enabled
-            ? cs.primaryContainer.withValues(alpha: 0.42)
-            : cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: enabled
-              ? cs.primary.withValues(alpha: 0.46)
-              : cs.outlineVariant,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            enabled ? Icons.hub_rounded : Icons.hub_outlined,
-            size: 18,
-            color: enabled ? cs.primary : cs.onSurfaceVariant,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: 'AI 侧 CDP MCP（可选）',
-                    zhHant: 'AI 側 CDP MCP（可選）',
-                    en: 'AI-side CDP MCP (optional)',
-                    fr: 'CDP MCP côté IA (facultatif)',
-                    de: 'AI-seitiges CDP MCP (optional)',
-                    ja: 'AI側 CDP MCP（任意）',
-                  ),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '默认关闭。开启后仅本会话会通过 npx 准备 chrome-devtools-mcp，用于 AI 直接调用 CDP 工具。',
-                    zhHant:
-                        '預設關閉。開啟後僅本會話會透過 npx 準備 chrome-devtools-mcp，用於 AI 直接呼叫 CDP 工具。',
-                    en: 'Off by default. When enabled, only this session prepares chrome-devtools-mcp through npx for AI CDP tools.',
-                    fr: 'Désactivé par défaut. Une fois activé, seule cette session prépare chrome-devtools-mcp via npx pour les outils CDP de l’IA.',
-                    de: 'Standardmäßig deaktiviert. Wenn aktiviert, bereitet nur diese Sitzung chrome-devtools-mcp über npx für AI-CDP-Tools vor.',
-                    ja: '既定ではオフです。有効にすると、このセッションだけが npx 経由で chrome-devtools-mcp を準備し、AI が CDP ツールを直接呼び出せます。',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(value: enabled, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _LabelText extends StatelessWidget {
-  const _LabelText(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Text(
-      text,
-      style: theme.textTheme.labelLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
   }
 }
 

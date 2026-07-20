@@ -1,9 +1,4 @@
-// 「定时任务 Crons」面板。
-// 左侧：cron 列表（开关 + 名称 + 周期 + 上次执行）；右侧：名称 + 周期秒数
-// + 多行编辑器 + Save / Run-now / Delete。每条 cron 通过控制器内部安全周期定时器
-// 持续运行；切换 dashboard tab 不停。删除 / 关闭 = cancel Timer。
-// 风格：与 Snippets / Hooks 保持一致 — 圆角胶囊、220ms easeOutCubic Q弹动画、
-// 遵守 MediaQuery.disableAnimationsOf。
+// 管理由控制器安全调度的周期脚本任务。
 
 part of 'web_reverse_dashboard_dialog.dart';
 

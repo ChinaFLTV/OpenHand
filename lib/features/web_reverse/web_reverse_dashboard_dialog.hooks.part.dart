@@ -1,11 +1,4 @@
-// 「JS Hook 库」面板。
-// 左侧：已保存的 hook 列表，每条带启用/禁用开关；右侧：名称 + 多行编辑器
-// + 装载状态。Hook 通过 Page.addScriptToEvaluateOnNewDocument 在每个文档
-// 加载前注入，可用于 patch window.fetch / 装载调试钩子 / 旁路反爬。
-// 切换 target / 重新连接时由 controller 自动重装。enabled 切换 = 即时
-// 装/卸；编辑保存 = 重装；删除 = 卸载并移除。
-// 风格与 Snippet Pad 完全一致：圆角胶囊、220ms easeOutCubic 切换、Q弹
-// AnimatedSwitcher / AnimatedSize；遵守 MediaQuery.disableAnimationsOf。
+// 管理在文档加载前注入的 JS Hook。
 
 part of 'web_reverse_dashboard_dialog.dart';
 

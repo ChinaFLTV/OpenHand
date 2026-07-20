@@ -105,7 +105,7 @@ export interface AgentSummary {
 export type ResourceUsageKind = 'tool' | 'skill' | 'hook' | 'knowledge' | 'agent' | 'memory' | 'mcp';
 export type ResourceUsageLevel = 'session' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 
-export interface ResourceUsageTrendPoint {
+interface ResourceUsageTrendPoint {
   bucket: string;
   total: number;
   successes: number;
