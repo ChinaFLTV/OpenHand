@@ -1,6 +1,6 @@
 part of '../openhand_home_page.dart';
 
-/// Result returned by the programming expert configuration dialog.
+/// 编程专家配置结果。
 class _ProgrammingExpertConfig {
   const _ProgrammingExpertConfig({
     required this.projectRoot,
@@ -11,8 +11,7 @@ class _ProgrammingExpertConfig {
 
   final String projectRoot;
 
-  /// Language identifier: 'dart', 'python', 'go', 'java', 'javascript',
-  /// 'typescript', 'rust', 'cpp', 'swift', 'kotlin', 'mixed', etc.
+  /// 项目语言标识，如 dart、python、mixed。
   final String language;
   final String sdkPath;
   final String lspPath;
@@ -32,7 +31,7 @@ class _ProgrammingExpertRecentPathCache {
   final Map<String, List<String>> lspPathsByLanguage;
 }
 
-/// Supported project language options.
+/// 支持的项目语言。
 const List<({String id, String labelZh, String labelEn})>
 _programmingLanguageOptions = [
   (id: 'dart', labelZh: 'Dart / Flutter', labelEn: 'Dart / Flutter'),
@@ -103,9 +102,7 @@ String _programmingLanguageOptionLabel(
   );
 }
 
-/// Dialog shown after selecting the "编程专家" template.
-/// Lets the user configure project root path, primary language, SDK path,
-/// and project-level LSP path overrides.
+/// 编程专家项目配置弹窗。
 class _ProgrammingExpertProjectDialog extends StatefulWidget {
   const _ProgrammingExpertProjectDialog({
     required this.settingsController,
@@ -1006,7 +1003,7 @@ class _ProgrammingExpertProjectDialogState
                 ),
               ),
               const SizedBox(height: 18),
-              _ProgrammingExpertDirectoryField(
+              OpenHandDirectoryField(
                 controller: _pathController,
                 label: text(
                   zh: '项目根目录',
@@ -1414,7 +1411,7 @@ class _ProgrammingExpertProjectDialogState
                 ),
               ] else ...[
                 const SizedBox(height: 18),
-                _ProgrammingExpertDirectoryField(
+                OpenHandDirectoryField(
                   controller: _sdkController,
                   label: text(
                     zh: 'SDK 路径',
@@ -1468,7 +1465,7 @@ class _ProgrammingExpertProjectDialogState
                   ),
                 ],
                 const SizedBox(height: 18),
-                _ProgrammingExpertDirectoryField(
+                OpenHandDirectoryField(
                   controller: _lspController,
                   label: text(
                     zh: 'LSP 路径',
@@ -1709,67 +1706,6 @@ class _ProgrammingExpertProjectDialogState
               ),
             );
           },
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgrammingExpertDirectoryField extends StatelessWidget {
-  const _ProgrammingExpertDirectoryField({
-    required this.controller,
-    required this.label,
-    required this.hintText,
-    required this.helperText,
-    required this.browseTooltip,
-    required this.onBrowse,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hintText;
-  final String helperText;
-  final String browseTooltip;
-  final VoidCallback onBrowse;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hintText,
-              helperText: helperText,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: browseTooltip,
-          child: SizedBox(
-            height: 52,
-            width: 44,
-            child: OutlinedButton(
-              onPressed: onBrowse,
-              style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                side: BorderSide(
-                  color: colorScheme.outline.withValues(alpha: 0.6),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                foregroundColor: colorScheme.onSurfaceVariant,
-              ),
-              child: const Icon(Icons.folder_open_rounded, size: 18),
-            ),
-          ),
         ),
       ],
     );

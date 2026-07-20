@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
@@ -92,14 +93,8 @@ class McpController extends ChangeNotifier {
        ),
        _isLoading = isLoading;
 
-  /// Constructs an [McpController] synchronously without performing the
-  /// initial server-list load. Reports `isLoading == true` until the caller
-  /// invokes [refresh] (typically as `unawaited(controller.refresh())`).
-  ///
-  /// Used by `main.dart` to keep the MCP servers file load off the boot
-  /// critical path — home reads `servers` only inside the workspace-selected
-  /// branch and tool-catalog preview, both of which surface naturally once
-  /// the background refresh fires `notifyListeners()`.
+  /// 同步创建控制器但不加载服务器列表。调用 [refresh] 前保持加载状态，
+  /// 用于避免 MCP 文件读取阻塞应用启动。
   factory McpController.uninitialized({
     required String initialFilePath,
     McpStore? store,
@@ -280,11 +275,9 @@ class McpController extends ChangeNotifier {
   Timer? _opsSnapshotNotifyTimer;
   final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
 
-  /// Increments after each successful `_store.save`. UI may listen via
-  /// `HighlightPulse` to flash on commit.
+  /// 每次成功保存后递增，供界面触发保存反馈动画。
   ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
-  // ----- Keyword inverted index -----------------------------------------
   McpKeywordIndex? _keywordIndex;
   Future<void>? _keywordIndexLoadFuture;
   Future<void>? _toolCatalogCacheLoadFuture;
@@ -886,7 +879,7 @@ class McpController extends ChangeNotifier {
       _opsSnapshot = _opsSnapshot.copyWith(
         trafficSeries: _opsSnapshot.trafficSeries
             .where((sample) {
-              return !_mcpOpsTimestampInRange(
+              return !isDateTimeInUtcRange(
                 sample.minute,
                 startUtc: startUtc,
                 endUtc: endUtc,
@@ -898,7 +891,7 @@ class McpController extends ChangeNotifier {
     _opsAuditEntries.removeWhere(
       (entry) => clearsAll
           ? true
-          : _mcpOpsTimestampInRange(
+          : isDateTimeInUtcRange(
               entry.timestamp,
               startUtc: startUtc,
               endUtc: endUtc,
@@ -2404,19 +2397,6 @@ class McpController extends ChangeNotifier {
         health.lastSuccessAt == null &&
         health.recentProbes.isEmpty;
   }
-}
-
-bool _mcpOpsTimestampInRange(
-  DateTime value, {
-  required DateTime? startUtc,
-  required DateTime? endUtc,
-}) {
-  final utc = value.toUtc();
-  final start = startUtc?.toUtc();
-  final end = endUtc?.toUtc();
-  if (start != null && utc.isBefore(start)) return false;
-  if (end != null && utc.isAfter(end)) return false;
-  return true;
 }
 
 bool _mcpOpsRuntimeSnapshotHasData(McpOpsRuntimeSnapshot snapshot) {

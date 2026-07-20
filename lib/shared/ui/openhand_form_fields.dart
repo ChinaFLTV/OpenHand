@@ -20,6 +20,70 @@ class OpenHandFormLabel extends StatelessWidget {
   }
 }
 
+class OpenHandDirectoryField extends StatelessWidget {
+  const OpenHandDirectoryField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.hintText,
+    required this.browseTooltip,
+    required this.onBrowse,
+    this.helperText,
+    this.crossAxisAlignment = CrossAxisAlignment.start,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hintText;
+  final String browseTooltip;
+  final VoidCallback onBrowse;
+  final String? helperText;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hintText,
+              helperText: helperText,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: browseTooltip,
+          child: SizedBox(
+            width: 44,
+            height: 52,
+            child: OutlinedButton(
+              onPressed: onBrowse,
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                side: BorderSide(
+                  color: colorScheme.outline.withValues(alpha: 0.6),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                foregroundColor: colorScheme.onSurfaceVariant,
+              ),
+              child: const Icon(Icons.folder_open_rounded, size: 18),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class OpenHandAnimatedSwitchTile extends StatelessWidget {
   const OpenHandAnimatedSwitchTile({
     super.key,

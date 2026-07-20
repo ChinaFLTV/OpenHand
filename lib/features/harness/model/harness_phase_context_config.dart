@@ -1,23 +1,18 @@
-// Harness Engineering phase context configuration.
-// This module defines which context elements (architecture, conventions,
-// plan, feedback, lessons, handoff) should be included in each phase's
-// prompt, enabling context-aware loading to reduce token overhead.
-
 import 'harness_phase.dart';
 
-/// Controls how experience lessons are included in a phase prompt.
+/// 阶段提示词包含经验教训的方式。
 enum HarnessLessonInclusionMode {
-  /// Do not include lessons.
+  /// 不包含。
   none,
 
-  /// Include a compressed summary of lessons (top 3-5 most relevant points).
+  /// 仅包含摘要。
   summary,
 
-  /// Include all lessons in full.
+  /// 包含完整内容。
   full,
 }
 
-/// Configuration for what context elements to include in a phase prompt.
+/// 阶段提示词的上下文配置。
 class HarnessPhaseContextConfig {
   const HarnessPhaseContextConfig({
     this.includeArchitecture = true,
@@ -28,61 +23,48 @@ class HarnessPhaseContextConfig {
     this.includeHandoff = true,
   });
 
-  /// Whether to include architecture.md content.
+  /// 是否包含 architecture.md。
   final bool includeArchitecture;
 
-  /// Whether to include conventions.md content.
+  /// 是否包含 conventions.md。
   final bool includeConventions;
 
-  /// Whether to include the latest execution plan.
+  /// 是否包含最新执行计划。
   final bool includePlan;
 
-  /// Whether to include the latest reviewer feedback.
+  /// 是否包含最新复核反馈。
   final bool includeFeedback;
 
-  /// How to include experience lessons.
+  /// 经验教训的包含方式。
   final HarnessLessonInclusionMode lessonsMode;
 
-  /// Whether to include the latest handoff document.
+  /// 是否包含最新交接文档。
   final bool includeHandoff;
 }
 
-/// Maps each phase to its context configuration.
-///
-/// This follows the context dependency matrix from the refactoring proposal:
-/// - metaCollection: minimal context (scanning fresh project)
-/// - reading: architecture + conventions + lessons + handoff
-/// - planning: architecture + conventions + lessons + handoff
-/// - implementing: full context except handoff (uses plan + feedback)
-/// - reviewing: architecture + conventions + plan (verifying implementation)
-const Map<HarnessPhase, HarnessPhaseContextConfig> kHarnessPhaseContextConfigs =
-    {
-      HarnessPhase.metaCollection: HarnessPhaseContextConfig(
-        includeArchitecture: false,
-        includeConventions: false,
-        includeHandoff: false,
-      ),
-      HarnessPhase.reading: HarnessPhaseContextConfig(
-        lessonsMode: HarnessLessonInclusionMode.summary,
-      ),
-      HarnessPhase.planning: HarnessPhaseContextConfig(
-        includeFeedback: true, // Include feedback during retry cycles
-        lessonsMode: HarnessLessonInclusionMode.summary,
-      ),
-      HarnessPhase.implementing: HarnessPhaseContextConfig(
-        includePlan: true,
-        includeFeedback: true,
-        lessonsMode: HarnessLessonInclusionMode.summary,
-        includeHandoff: false,
-      ),
-      HarnessPhase.reviewing: HarnessPhaseContextConfig(
-        includePlan: true,
-        includeHandoff: false,
-      ),
-    };
-
-/// Gets the context config for a phase.
 HarnessPhaseContextConfig getPhaseContextConfig(HarnessPhase phase) {
-  return kHarnessPhaseContextConfigs[phase] ??
-      const HarnessPhaseContextConfig();
+  return switch (phase) {
+    HarnessPhase.metaCollection => const HarnessPhaseContextConfig(
+      includeArchitecture: false,
+      includeConventions: false,
+      includeHandoff: false,
+    ),
+    HarnessPhase.reading => const HarnessPhaseContextConfig(
+      lessonsMode: HarnessLessonInclusionMode.summary,
+    ),
+    HarnessPhase.planning => const HarnessPhaseContextConfig(
+      includeFeedback: true,
+      lessonsMode: HarnessLessonInclusionMode.summary,
+    ),
+    HarnessPhase.implementing => const HarnessPhaseContextConfig(
+      includePlan: true,
+      includeFeedback: true,
+      lessonsMode: HarnessLessonInclusionMode.summary,
+      includeHandoff: false,
+    ),
+    HarnessPhase.reviewing => const HarnessPhaseContextConfig(
+      includePlan: true,
+      includeHandoff: false,
+    ),
+  };
 }

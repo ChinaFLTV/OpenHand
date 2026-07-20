@@ -560,7 +560,7 @@ class WebMessagePlatformService {
       final next = WebGatewayOpsHistoryData(
         snapshots: _persistedSnapshots
             .where(
-              (record) => !_webGatewayOpsTimestampInRange(
+              (record) => !isDateTimeInUtcRange(
                 record.timestamp,
                 startUtc: startUtc,
                 endUtc: endUtc,
@@ -569,7 +569,7 @@ class WebMessagePlatformService {
             .toList(growable: false),
         logs: _memoryLogs
             .where(
-              (entry) => !_webGatewayOpsTimestampInRange(
+              (entry) => !isDateTimeInUtcRange(
                 entry.timestamp,
                 startUtc: startUtc,
                 endUtc: endUtc,
@@ -578,7 +578,7 @@ class WebMessagePlatformService {
             .toList(growable: false),
         cleanupHistory: _cleanupHistory
             .where(
-              (entry) => !_webGatewayOpsTimestampInRange(
+              (entry) => !isDateTimeInUtcRange(
                 entry.timestamp,
                 startUtc: startUtc,
                 endUtc: endUtc,
@@ -588,21 +588,21 @@ class WebMessagePlatformService {
       );
       await _persistOpsHistoryData(next);
       _persistedSnapshots.removeWhere(
-        (record) => _webGatewayOpsTimestampInRange(
+        (record) => isDateTimeInUtcRange(
           record.timestamp,
           startUtc: startUtc,
           endUtc: endUtc,
         ),
       );
       _memoryLogs.removeWhere(
-        (entry) => _webGatewayOpsTimestampInRange(
+        (entry) => isDateTimeInUtcRange(
           entry.timestamp,
           startUtc: startUtc,
           endUtc: endUtc,
         ),
       );
       _cleanupHistory.removeWhere(
-        (entry) => _webGatewayOpsTimestampInRange(
+        (entry) => isDateTimeInUtcRange(
           entry.timestamp,
           startUtc: startUtc,
           endUtc: endUtc,
@@ -8835,7 +8835,7 @@ class WebMessagePlatformService {
       final decoded = jsonDecode(utf8.decode(chunks.takeBytes()));
       if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } on FormatException {
-      // Normalized to the same client-facing error below.
+      // 统一映射为下方的客户端错误。
     }
     throw const _WebGatewayRequestException(
       HttpStatus.badRequest,
@@ -9603,19 +9603,6 @@ List<WebGatewayCleanupResult> _trimCleanupHistory(
   return List<WebGatewayCleanupResult>.unmodifiable(
     items.skip(items.length - webGatewayOpsMaxCleanupHistory),
   );
-}
-
-bool _webGatewayOpsTimestampInRange(
-  DateTime value, {
-  required DateTime? startUtc,
-  required DateTime? endUtc,
-}) {
-  final utc = value.toUtc();
-  final start = startUtc?.toUtc();
-  final end = endUtc?.toUtc();
-  if (start != null && utc.isBefore(start)) return false;
-  if (end != null && utc.isAfter(end)) return false;
-  return true;
 }
 
 String _safeFileName(String value) {

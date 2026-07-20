@@ -11,6 +11,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
@@ -272,9 +273,7 @@ class McpServerOpsRuntime {
   final Map<String, int> _requestDistribution = <String, int>{};
   final Map<String, int> _protocolDistribution = <String, int>{};
   final Set<String> _sessionIds = <String>{};
-  // Minute-aligned traffic rollup keyed by UTC bucket start, feeding the
-  // dashboard trend/latency charts from every request rather than audited
-  // tool calls alone.
+  // 按 UTC 分钟汇总所有请求，为趋势和延迟图提供完整数据。
   final Map<DateTime, _McpOpsMinuteBucket> _trafficBuckets =
       <DateTime, _McpOpsMinuteBucket>{};
 
@@ -335,13 +334,13 @@ class McpServerOpsRuntime {
     }
     _trafficBuckets.removeWhere(
       (minute, _) =>
-          _mcpOpsTimeInRange(minute, startUtc: startUtc, endUtc: endUtc),
+          isDateTimeInUtcRange(minute, startUtc: startUtc, endUtc: endUtc),
     );
     _setSnapshot(
       _snapshot.copyWith(
         trafficSeries: _trafficSnapshot()
             .where((sample) {
-              return !_mcpOpsTimeInRange(
+              return !isDateTimeInUtcRange(
                 sample.minute,
                 startUtc: startUtc,
                 endUtc: endUtc,
@@ -373,12 +372,8 @@ class McpServerOpsRuntime {
       ),
     );
     try {
-      // Streamable HTTP multiplexes POST (JSON-RPC), GET (SSE stream) and
-      // DELETE (session end) onto a single endpoint URL. Clients disagree on
-      // whether that URL carries a path (`/mcp`, `/mcp/`) or is the bare root,
-      // so every non-health request is funneled through one method dispatcher
-      // to avoid 404s from exact-path mismatches (e.g. Cursor's "Failed to open
-      // SSE stream: Not Found").
+      // 流式 HTTP 在同一端点承载 JSON-RPC、SSE 和会话关闭请求。
+      // 统一分发根路径、/mcp 与 /mcp/，避免客户端路径差异导致 404。
       final router = Router(notFoundHandler: _dispatchMcp)
         ..get('/health', _health);
       final handler = const shelf.Pipeline()
@@ -496,7 +491,7 @@ class McpServerOpsRuntime {
       final server = await serverFuture;
       await server.close(force: true).timeout(_shutdownTimeout);
     } catch (_) {
-      // The startup caller has already received its primary timeout failure.
+      // 启动调用方已收到超时结果。
     }
   }
 
@@ -513,9 +508,7 @@ class McpServerOpsRuntime {
       return result;
     }
     final host = mcpOpsClientHost(_snapshot.boundHost ?? _config.listenHost);
-    // Exercise the real Streamable HTTP endpoint with an `initialize` handshake
-    // so the test mirrors what external clients (Cursor, etc.) actually do,
-    // rather than only probing /health.
+    // 通过 initialize 握手探测真实流式端点，而非仅检查健康接口。
     final uri = Uri(scheme: 'http', host: host, port: port, path: '/mcp');
     final client = HttpClient()..connectionTimeout = _connectivityTimeout;
     try {
@@ -667,8 +660,7 @@ class McpServerOpsRuntime {
     return shelf.Response(HttpStatus.noContent, headers: _responseHeaders);
   }
 
-  /// Single entrypoint for the Streamable HTTP endpoint, dispatching by method
-  /// regardless of the request path so `/`, `/mcp` and `/mcp/` behave alike.
+  /// 流式 HTTP 统一入口，使 `/`、`/mcp` 和 `/mcp/` 行为一致。
   FutureOr<shelf.Response> _dispatchMcp(shelf.Request request) {
     if (_isBrowserInitiatedRequest(request)) {
       _recordBlocked(
@@ -775,8 +767,7 @@ class McpServerOpsRuntime {
         },
       );
     }
-    // Enforce the stream cap before counting a success so a rejected stream is
-    // audited as blocked, never double-counted as both success and blocked.
+    // 成功计数前先执行流上限，避免拒绝请求被重复计为成功和阻止。
     if (_activeSseStreams >= _maxSseStreams) {
       _recordBlocked(
         request,
@@ -1012,8 +1003,7 @@ class McpServerOpsRuntime {
       return _jsonRpcError(id, -32003, 'Request blocked by OpenHand policy');
     }
     if (method.startsWith('notifications/')) {
-      // Notifications carry no id and expect no response; still audit them so
-      // the console shows client-side lifecycle signals (initialized, etc.).
+      // 通知没有 id 和响应，但仍记录审计，以展示客户端生命周期信号。
       _recordLifecycle(
         request,
         method: method,
@@ -1197,9 +1187,7 @@ class McpServerOpsRuntime {
         );
         return _jsonRpcError(id, -32005, 'Write call requires approval');
       }
-      // Approval can remain open long enough for a workspace directory to be
-      // replaced by a symlink. Re-resolve immediately before invocation so an
-      // approved path cannot inherit a different physical target.
+      // 审批期间目录可能被替换为符号链接，调用前重新解析物理路径。
       if (!await _argumentsWithinWorkspaceBeforeDeadline(
         arguments,
         processingDeadline,
@@ -1538,8 +1526,7 @@ class McpServerOpsRuntime {
     _increment(_clientDistribution, _clientName(request));
     _increment(_requestDistribution, toolName ?? method);
     _increment(_protocolDistribution, _protocol(request));
-    // tools/call resolves its terminal outcome later in _handleToolCall; every
-    // other allowed method is a completed success at this point.
+    // tools/call 由 _handleToolCall 记录最终结果，其余允许的方法此时均已成功。
     if (method != 'tools/call') {
       _recordTrafficOutcome('success');
     }
@@ -1592,9 +1579,7 @@ class McpServerOpsRuntime {
     String errorMessage = '',
   }) {
     final now = DateTime.now().toUtc();
-    // When payload capture is off we still emit the audit trail (stage, timing,
-    // peer, byte counts) but drop request/response bodies and their token
-    // estimates so no tool payload is retained at rest.
+    // 关闭载荷采集时仍记录阶段、耗时、对端和字节数，但不持久化正文与令牌估算。
     final capture = _config.capturePayload;
     final argumentText = capture ? mcpOpsClipAuditText(arguments) : '';
     final responseText = capture ? mcpOpsClipAuditText(responsePreview) : '';
@@ -1640,10 +1625,7 @@ class McpServerOpsRuntime {
     );
   }
 
-  /// Audits protocol-stage traffic (handshake / heartbeat / discovery / stream
-  /// / session / notification) that isn't a `tools/call`, so the audit console
-  /// reflects the full request lifecycle instead of only tool invocations.
-  /// Also bumps the request counters via [_markRequest].
+  /// 审计工具调用之外的协议流量，并通过 [_markRequest] 更新请求计数。
   void _recordLifecycle(
     shelf.Request request, {
     required String method,
@@ -1915,8 +1897,7 @@ class McpServerOpsRuntime {
     map[_metricOverflowKey] = (map[_metricOverflowKey] ?? 0) + 1;
   }
 
-  /// Tallies a request outcome into the current minute bucket, pruning buckets
-  /// older than the retained trend window.
+  /// 将请求结果计入当前分钟，并清理趋势窗口外的数据桶。
   void _recordTrafficOutcome(String outcome) {
     final bucket = _currentTrafficBucket();
     switch (outcome) {
@@ -1950,8 +1931,7 @@ class McpServerOpsRuntime {
     return bucket;
   }
 
-  /// Emits the last [mcpOpsTrafficWindowMinutes] minute buckets in chronological
-  /// order, padding gaps with empty samples so charts render a continuous axis.
+  /// 按时间输出最近的分钟桶，并用空样本补齐间隔。
   List<McpOpsTrafficSample> _trafficSnapshot() {
     final now = DateTime.now().toUtc();
     final latest = DateTime.utc(
@@ -1987,7 +1967,7 @@ class _McpOpsPeerAddress {
   }
 }
 
-/// Mutable accumulator for a single UTC minute of MCP traffic.
+/// 单个 UTC 分钟内的 MCP 流量累加器。
 class _McpOpsMinuteBucket {
   _McpOpsMinuteBucket(this.minute);
 
@@ -2035,17 +2015,4 @@ class _McpOpsMinuteBucket {
 DateTime _minuteStart(DateTime value) {
   final utc = value.toUtc();
   return DateTime.utc(utc.year, utc.month, utc.day, utc.hour, utc.minute);
-}
-
-bool _mcpOpsTimeInRange(
-  DateTime value, {
-  required DateTime? startUtc,
-  required DateTime? endUtc,
-}) {
-  final utc = value.toUtc();
-  final start = startUtc?.toUtc();
-  final end = endUtc?.toUtc();
-  if (start != null && utc.isBefore(start)) return false;
-  if (end != null && utc.isAfter(end)) return false;
-  return true;
 }

@@ -88,6 +88,19 @@ String formatYearMonthDayHms(DateTime value) {
   return '${formatYearMonthDay(value)} ${formatHourMinuteSecond(value)}';
 }
 
+bool isDateTimeInUtcRange(
+  DateTime value, {
+  required DateTime? startUtc,
+  required DateTime? endUtc,
+}) {
+  final utc = value.toUtc();
+  final start = startUtc?.toUtc();
+  final end = endUtc?.toUtc();
+  if (start != null && utc.isBefore(start)) return false;
+  if (end != null && utc.isAfter(end)) return false;
+  return true;
+}
+
 String formatCompactDuration(Duration value) {
   final duration = value.isNegative ? Duration.zero : value;
   if (duration.inHours > 0) {

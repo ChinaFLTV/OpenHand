@@ -114,7 +114,6 @@ extension on _SettingsViewState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Word Wrap Toggle
         _SettingsSubsectionCard(
           title: openHandLocalizedText(context, zh: '文本布局', en: 'Text Layout'),
           description: openHandLocalizedText(
@@ -177,7 +176,6 @@ extension on _SettingsViewState {
           ),
         ),
         const SizedBox(height: 16),
-        // Code Theme
         _SettingsSubsectionCard(
           title: openHandLocalizedText(context, zh: '代码主题', en: 'Code Theme'),
           description: openHandLocalizedText(
@@ -226,7 +224,6 @@ extension on _SettingsViewState {
         const SizedBox(height: 16),
         _buildEditorShortcutBindingsSection(context, settingsController),
         const SizedBox(height: 16),
-        // Language Server Mappings
         _SettingsSubsectionCard(
           title: openHandLocalizedText(
             context,
@@ -926,67 +923,6 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _EditorLspDirectoryField extends StatelessWidget {
-  const _EditorLspDirectoryField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.browseTooltip,
-    required this.onBrowse,
-    this.helperText,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final String browseTooltip;
-  final String? helperText;
-  final VoidCallback onBrowse;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hint,
-              helperText: helperText,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: browseTooltip,
-          child: SizedBox(
-            height: 52,
-            width: 44,
-            child: OutlinedButton(
-              onPressed: onBrowse,
-              style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                side: BorderSide(
-                  color: colorScheme.outline.withValues(alpha: 0.6),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                foregroundColor: colorScheme.onSurfaceVariant,
-              ),
-              child: const Icon(Icons.folder_open_rounded, size: 18),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1890,7 +1826,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 },
               ),
               const SizedBox(height: 14),
-              _EditorLspDirectoryField(
+              OpenHandDirectoryField(
                 controller: _sdkController,
                 label: openHandLocalizedText(
                   context,
@@ -1901,7 +1837,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'SDK-Ordner',
                   ja: 'SDK ディレクトリ',
                 ),
-                hint: openHandLocalizedText(
+                hintText: openHandLocalizedText(
                   context,
                   zh: '可选，不配置则沿用系统默认',
                   zhHant: '可選，不設定則沿用系統預設',
@@ -1965,7 +1901,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 ),
               ),
               const SizedBox(height: 14),
-              _EditorLspDirectoryField(
+              OpenHandDirectoryField(
                 controller: _pathController,
                 label: openHandLocalizedText(
                   context,
@@ -1976,7 +1912,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'LSP-Wurzelpfad',
                   ja: 'LSP ルートパス',
                 ),
-                hint: defaultRootLabel,
+                hintText: defaultRootLabel,
                 helperText: openHandLocalizedText(
                   context,
                   zh: '为空时继续从 PATH 自动探测；点击“下载并安装”时会自动回落到默认安装目录。',

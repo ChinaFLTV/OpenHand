@@ -1955,10 +1955,6 @@ button.oh-message-context-capsule {
   color: var(--m3-primary);
 }
 
-.oh-message-selected-info-row {
-  gap: 6px;
-}
-
 .oh-message-selected-panel .oh-message-action-button {
   flex: 0 0 auto;
   min-height: 24px;
@@ -5449,6 +5445,7 @@ button.oh-message-context-capsule {
   transform: translate3d(0, 0, 0) scale(1);
   width: max-content;
   max-width: 100%;
+  max-height: none;
   align-self: center;
   padding: 0 !important;
   border-radius: 999px !important;
@@ -7996,12 +7993,6 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-composer-footer-action.is-waiting {
     display: none;
   }
-  .oh-session-capsule {
-    max-width: min(46vw, 220px);
-  }
-  .oh-session-title-block {
-    width: auto;
-  }
 }
 
 @media (max-width: 360px) {
@@ -8230,13 +8221,6 @@ button.oh-composer-pill:not(:disabled):hover {
     min-height: 38px;
     padding-block: 7px;
   }
-}
-
-.oh-session-composer[data-collapsed='true'] {
-  max-height: none;
-  overflow: visible;
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 /* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */

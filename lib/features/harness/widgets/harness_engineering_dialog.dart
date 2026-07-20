@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../model/harness_agent_role.dart';
@@ -76,7 +77,7 @@ String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
 class HarnessEngineeringDialog extends StatefulWidget {
   const HarnessEngineeringDialog({super.key, this.settingsController});
 
-  /// Optional settings controller to access configured AI model lists.
+  /// 可选的设置控制器，用于读取已配置的 AI 模型。
   final SettingsController? settingsController;
 
   @override
@@ -97,7 +98,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
   final Map<HarnessAgentRole, String?> _selectedAiModelConfigId = {};
   final Map<HarnessAgentRole, String?> _selectedUrlModeModelId = {};
 
-  // Quick-apply bar state
   HarnessExecutionMode _quickExecutionMode = HarnessExecutionMode.cli;
   String? _quickCli;
   String? _quickModel;
@@ -139,7 +139,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
       _isCheckingAuth = false;
     });
 
-    // Phase 1 — fast install probe (bounded parallelism)
+    // 第一阶段：限并发探测 CLI 安装状态。
     final results = await scanInstalledClis();
     if (!mounted || requestId != _scanRequestId) return;
     final hasCheckable = results.any((e) => e.installed && e.cli.hasLoginCheck);
@@ -151,7 +151,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
     if (!hasCheckable) return;
 
-    // Phase 2 — auth probe for installed CLIs (bounded parallelism, slower)
+    // 第二阶段：限并发探测已安装 CLI 的认证状态。
     final authResults = await probeCliAuthBatch(results);
     if (!mounted || requestId != _scanRequestId) return;
     setState(() {
@@ -392,7 +392,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
       final roleLabel = _heEngineeringRoleLabel(context, role);
       final roleConfig = _roleConfig(role);
 
-      // URL-mode roles don't invoke Gemini CLI — skip.
+      // URL 模式不调用 Gemini CLI。
       if (roleConfig.isUrlMode) continue;
 
       final cliName = roleConfig.cliName.trim();
@@ -552,7 +552,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     }
   }
 
-  /// Opens an in-app interactive login dialog for the selected CLI.
   Future<void> _launchCliLogin(CliScanEntry entry) async {
     final cli = entry.cli;
     if (!cli.hasLoginTrigger) return;
@@ -568,7 +567,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     }
   }
 
-  /// Performs a CLI logout after user confirmation.
   Future<void> _launchCliLogout(CliScanEntry entry) async {
     final cli = entry.cli;
     if (!cli.hasLogoutTrigger) return;
@@ -659,7 +657,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     );
   }
 
-  /// Applies the quick-apply config to every role at once.
   void _applyQuickConfig() {
     setState(() {
       if (_quickExecutionMode == HarnessExecutionMode.url) {
@@ -740,7 +737,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         ),
                         const SizedBox(height: 24),
 
-                        // ── Task input ─────────────────────────────────────────
                         TextField(
                           controller: _taskController,
                           autofocus: true,
@@ -771,8 +767,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         ),
                         const SizedBox(height: 20),
 
-                        // ── Working directory ──────────────────────────────────
-                        _DirectoryField(
+                        OpenHandDirectoryField(
                           controller: _workingDirController,
                           label: openHandLocalizedText(
                             context,
@@ -783,7 +778,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Arbeitsverzeichnis',
                             ja: '作業ディレクトリ',
                           ),
-                          hint: openHandLocalizedText(
+                          hintText: openHandLocalizedText(
                             context,
                             zh: '输入或选择项目根目录路径',
                             zhHant: '輸入或選擇專案根目錄路徑',
@@ -802,11 +797,11 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             ja: 'フォルダーを参照',
                           ),
                           onBrowse: () => _pickDirectory(_workingDirController),
+                          crossAxisAlignment: CrossAxisAlignment.center,
                         ),
                         const SizedBox(height: 14),
 
-                        // ── Persistence directory ──────────────────────────────
-                        _DirectoryField(
+                        OpenHandDirectoryField(
                           controller: _persistenceDirController,
                           label: openHandLocalizedText(
                             context,
@@ -817,7 +812,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Persistenzwurzel (steering-Verzeichnis)',
                             ja: '永続化ルート（steering データディレクトリ）',
                           ),
-                          hint: openHandLocalizedText(
+                          hintText: openHandLocalizedText(
                             context,
                             zh: '输入或选择持久化根目录路径',
                             zhHant: '輸入或選擇持久化根目錄路徑',
@@ -837,10 +832,10 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           ),
                           onBrowse: () =>
                               _pickDirectory(_persistenceDirController),
+                          crossAxisAlignment: CrossAxisAlignment.center,
                         ),
                         const SizedBox(height: 28),
 
-                        // ── Role CLI config header ─────────────────────────────
                         Row(
                           children: [
                             Text(
@@ -908,7 +903,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // ── Compact CLI scan summary ───────────────────────────
                         if (!_isScanning) ...[
                           _CliScanSummary(
                             scanResults: _scanResults,
@@ -917,7 +911,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           const SizedBox(height: 12),
                         ],
 
-                        // ── Quick-apply bar ────────────────────────────────────
                         _QuickApplyBar(
                           scanResults: _scanResults,
                           isScanning: _isScanning,
@@ -1255,7 +1248,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           ),
                         ],
 
-                        // Env hint
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Row(
@@ -1406,71 +1398,6 @@ String? _harnessResolvedDropdownModelValue(
       : null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Directory field: text input + folder browse icon button
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DirectoryField extends StatelessWidget {
-  const _DirectoryField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.browseTooltip,
-    required this.onBrowse,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final String browseTooltip;
-  final VoidCallback onBrowse;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hint,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message: browseTooltip,
-          child: SizedBox(
-            height: 52,
-            width: 44,
-            child: OutlinedButton(
-              onPressed: onBrowse,
-              style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                side: BorderSide(
-                  color: colorScheme.outline.withValues(alpha: 0.6),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                foregroundColor: colorScheme.onSurfaceVariant,
-              ),
-              child: const Icon(Icons.folder_open_rounded, size: 18),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Role config row with CLI/model dropdowns and optional install button
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _RoleConfigRow extends StatelessWidget {
   const _RoleConfigRow({
     super.key,
@@ -1522,7 +1449,6 @@ class _RoleConfigRow extends StatelessWidget {
   final VoidCallback? onLogin;
   final VoidCallback? onLogout;
 
-  // Returns the CliScanEntry for the currently selected CLI (if any).
   CliScanEntry? get _selectedEntry => selectedCli == null
       ? null
       : scanResults.where((r) => r.cli.name == selectedCli).firstOrNull;
@@ -1532,7 +1458,6 @@ class _RoleConfigRow extends StatelessWidget {
     return scanResults
         .where((e) => e.cli.supportsHeadless)
         .map((entry) {
-          // Build trailing login-state indicator for installed CLIs.
           Widget? loginIcon;
           if (entry.installed && entry.cli.hasLoginCheck) {
             if (isCheckingAuth) {
@@ -1624,7 +1549,6 @@ class _RoleConfigRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // Execution mode toggle.
               SizedBox(
                 width: _kHarnessModeDropdownWidth,
                 child: _CompactDropdown<HarnessExecutionMode>(
@@ -1653,7 +1577,6 @@ class _RoleConfigRow extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               if (isUrlMode) ...[
-                // URL mode: show API model config dropdown.
                 Expanded(
                   flex: 2,
                   child: _SearchableModelSelector(
@@ -1695,7 +1618,6 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ],
               ] else ...[
-                // CLI mode: show CLI + Model dropdowns and action buttons.
                 Expanded(
                   child: _CompactDropdown<String>(
                     label: openHandLocalizedText(
@@ -1813,7 +1735,6 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ],
               ],
-              // Auth checking indicator (CLI mode only)
               if (!isUrlMode &&
                   isCheckingAuth &&
                   selectedCli != null &&
@@ -1840,7 +1761,6 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
               ],
-              // Logged-in confirmation badge (CLI mode only)
               if (!isUrlMode &&
                   !isCheckingAuth &&
                   selectedCli != null &&
@@ -1864,7 +1784,6 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
               ],
-              // Login button for confirmed-not-logged-in state (CLI mode only)
               if (!isUrlMode && showLoginButton) ...[
                 const SizedBox(width: 8),
                 Tooltip(
@@ -1906,7 +1825,6 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
               ],
-              // Logout button for confirmed-logged-in state (CLI mode only)
               if (!isUrlMode && showLogoutButton) ...[
                 const SizedBox(width: 6),
                 Tooltip(
@@ -1948,7 +1866,6 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
               ],
-              // GUI-only warning (CLI mode only)
               if (!isUrlMode &&
                   selectedCli != null &&
                   _selectedEntry?.cli.supportsHeadless == false) ...[
@@ -1977,10 +1894,6 @@ class _RoleConfigRow extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Reusable compact dropdown
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _CompactDropdown<T> extends StatelessWidget {
   const _CompactDropdown({
@@ -2022,10 +1935,6 @@ class _CompactDropdown<T> extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Quick-apply bar: pick mode + model and apply to all roles at once
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _QuickApplyBar extends StatelessWidget {
   const _QuickApplyBar({
@@ -2142,9 +2051,7 @@ class _QuickApplyBar extends StatelessWidget {
               })
               .toList(growable: false);
 
-    // Pre-compute CLI model dropdown data outside the widget tree to avoid
-    // the IIFE anti-pattern (which creates new widget instances every build
-    // and confuses Flutter's element reconciliation / MouseTracker).
+    // 提前构建下拉数据，避免在组件树内重复创建临时组件。
     final cliModels = isUrlMode ? const <String>[] : modelsForCli(selectedCli);
     final cliModelItems = isUrlMode
         ? const <DropdownMenuItem<String>>[]
@@ -2185,7 +2092,6 @@ class _QuickApplyBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Execution mode toggle
             SizedBox(
               width: _kHarnessModeDropdownWidth,
               child: _CompactDropdown<HarnessExecutionMode>(
@@ -2214,7 +2120,6 @@ class _QuickApplyBar extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             if (isUrlMode) ...[
-              // URL mode: API model config dropdown
               Expanded(
                 flex: 2,
                 child: _SearchableModelSelector(
@@ -2235,7 +2140,6 @@ class _QuickApplyBar extends StatelessWidget {
                 ),
               ),
             ] else ...[
-              // CLI mode: CLI + model dropdowns
               Expanded(
                 child: _CompactDropdown<String>(
                   label: openHandLocalizedText(
@@ -2302,10 +2206,6 @@ class _QuickApplyBar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Compact CLI scan summary: replaces the large install/auth panels
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _CliScanSummary extends StatelessWidget {
   const _CliScanSummary({
     required this.scanResults,
@@ -2326,7 +2226,6 @@ class _CliScanSummary extends StatelessWidget {
     final installed = headless.where((r) => r.installed).toList();
     final notInstalled = headless.where((r) => !r.installed).toList();
 
-    // Build compact status chips.
     final chips = <Widget>[];
 
     for (final entry in installed) {
@@ -2427,10 +2326,6 @@ class _ScanChip extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Searchable model selector (consistent with composer model selector)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _SearchableModelSelector extends StatefulWidget {
   const _SearchableModelSelector({
