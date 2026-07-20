@@ -80,6 +80,7 @@ import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_sweep_shimmer.dart';
+import '../../shared/ui/openhand_video_player_web_styles.dart';
 import '../../shared/ui/reasoning_effort_selector.dart';
 import '../../shared/ui/rolling_text.dart';
 import '../../shared/ui/section_placeholder.dart';
@@ -2535,25 +2536,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final explicitUserScrollStart =
         notification is ScrollStartNotification &&
         notification.dragDetails != null;
-    final explicitUserScrollUpdate =
-        notification is ScrollUpdateNotification &&
-        notification.dragDetails != null;
-    final explicitUserOverscroll =
-        notification is OverscrollNotification &&
-        notification.dragDetails != null;
-    final explicitUserDirectionChange =
-        notification is UserScrollNotification &&
-        notification.direction != ScrollDirection.idle &&
-        !programmaticScroll;
-    final explicitUserScroll =
-        explicitUserScrollStart ||
-        explicitUserScrollUpdate ||
-        explicitUserOverscroll ||
-        explicitUserDirectionChange;
-    final userScrollEnded =
-        notification is ScrollEndNotification ||
-        (notification is UserScrollNotification &&
-            notification.direction == ScrollDirection.idle);
+    final explicitUserScroll = isExplicitUserScrollNotification(
+      notification,
+      programmaticScroll: programmaticScroll,
+    );
+    final userScrollEnded = isUserScrollEndNotification(notification);
     // 只有 Listener 真实捕获到 PointerScrollEvent 后，才把
     // 无 dragDetails 的 start/update/overscroll 归类为鼠标滚轮 / 触控板
     // 滚动。流式内容增高、Sliver 几何修正同样会产生无 dragDetails 的

@@ -94,7 +94,12 @@ class _HooksBodyState extends State<_HooksBody> {
 
   void _select(WebReverseHook h) {
     if (_dirty && _selectedId != null && _selectedId != h.id) {
-      _confirmDiscard(() => _doSelect(h));
+      unawaited(
+        confirmWebReverseDiscardChanges(
+          context: context,
+          onConfirmed: () => _doSelect(h),
+        ),
+      );
       return;
     }
     _doSelect(h);
@@ -111,7 +116,10 @@ class _HooksBodyState extends State<_HooksBody> {
 
   Future<void> _newHook() async {
     if (_dirty) {
-      _confirmDiscard(_doNew);
+      await confirmWebReverseDiscardChanges(
+        context: context,
+        onConfirmed: _doNew,
+      );
       return;
     }
     await _doNew();
@@ -180,19 +188,6 @@ class _HooksBodyState extends State<_HooksBody> {
     await widget.controller.removeHook(id);
     if (!mounted) return;
     widget.onPersist();
-  }
-
-  Future<void> _confirmDiscard(VoidCallback onConfirm) async {
-    final loc = AppLocalizations.of(context);
-    final confirmed = await showOpenHandConfirmDialog(
-      context: context,
-      title: loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
-      cancelLabel: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
-      confirmLabel: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
-      destructive: true,
-    );
-    if (!confirmed || !mounted) return;
-    onConfirm();
   }
 
   @override

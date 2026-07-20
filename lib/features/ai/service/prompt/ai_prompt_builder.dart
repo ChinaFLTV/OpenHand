@@ -35,6 +35,7 @@ import '../chat/ai_protocol_adapter.dart';
 import '../hook/ai_claude_hook_service.dart';
 import '../mcp_bridge/android_reverse_mcp_tool_policy.dart';
 import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
+import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_plan_mode_guidance.dart';
 import '../runtime/ai_plan_mode_tool_gate.dart';
 import '../runtime/ai_tool_runtime_service.dart';
@@ -334,17 +335,6 @@ class AiPromptBuilder {
       recoveryInspectionRequired: effectivePlanModeRecoveryInspectionRequired,
     );
     final goalModeReminder = _buildGoalModeReminder(session);
-    // metadata 中删除「纯遥测」字段：
-    //   * session_updated_at：UI 元数据，模型无消费但会每轮变。
-    //   * session_total_token_count / session_prompt_token_count /
-    //     session_completion_token_count / session_message_counts：纯统计每轮
-    //     抖动，模型不需要也用不到。
-    //   * current_prompt_history_message_count /
-    //     current_prompt_latest_user_message_id /
-    //     current_prompt_memory_entry_count：每轮变的轮次自描述，模型直接看
-    //     history / [4] 块即可。
-    //   * post_compact_rehydration：仅在真实压缩点存在时才进，由
-    //     _buildPostCompactRehydrationSnapshot 在源头保证（无压缩点返回空 map）。
     final metadata = <String, Object?>{
       'session_created_at': session.createdAt.toUtc().toIso8601String(),
       'session_id': session.id,
@@ -362,10 +352,10 @@ class AiPromptBuilder {
           .toList(growable: false),
       'failed_todo_count': failedTodos.length,
       'failed_todos': failedTodos,
-      'recent_plan_tool_failure': _hasRecentPlanToolFailure(session),
+      'recent_plan_tool_failure': AiPlanApprovalDetector.hasRecentToolFailure(
+        session,
+      ),
       'plan_recovery_required': planRecoveryRequired,
-      // todo_write_recommended / todo_write_reason 移除：
-      // 与独立的 "# System Reminder" 块内容重复，且每轮变动会污染 [3d]。
       'tool_catalog_authoritative': true,
       'current_tool_count': availableToolNames.length,
       'current_tool_names': availableToolNames,
@@ -6817,28 +6807,6 @@ $content
 
   bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
     return AiSessionTodoState.allCompleted(todoItems);
-  }
-
-  bool _hasRecentPlanToolFailure(AiSession session) {
-    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-      final message = session.messages[index];
-      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
-        continue;
-      }
-      final status = '${message.metadata['tool_execution_status'] ?? ''}'
-          .trim()
-          .toLowerCase();
-      if (status.isEmpty || status == 'running') {
-        continue;
-      }
-      return status == 'failed' ||
-          status == 'cancelled' ||
-          status == 'denied' ||
-          status == 'rejected' ||
-          status == 'timed_out' ||
-          status == 'invalid_arguments';
-    }
-    return false;
   }
 }
 

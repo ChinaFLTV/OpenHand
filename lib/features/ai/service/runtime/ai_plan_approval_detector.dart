@@ -1,29 +1,15 @@
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../model/ai_session.dart';
+import '../../model/ai_session_message.dart';
 
-/// Centralised heuristics for detecting when a user message endorses a
-/// pending Plan-mode proposal.
+/// 集中管理 Plan 模式的批准、继续、恢复与失败状态判定。
 ///
-/// Both [AiSessionController] and [AiPromptBuilder] need to make this
-/// judgement in subtly different code paths. Keeping the truth-table in a
-/// single file prevents the two copies from drifting (a known regression
-/// vector — bare "继续" was missing from the controller copy on
-/// , which left the next turn's tool catalog empty and made the
-/// model hallucinate `Write` / `TodoWrite` calls).
+/// 控制器与提示词构建器共用同一规则，避免不同调用路径的判定漂移。
 abstract final class AiPlanApprovalDetector {
-  /// Returns `true` when the trimmed [content] should be interpreted as the
-  /// user explicitly approving the most recent ExitPlanMode proposal.
+  /// 判断 [content] 是否明确批准最近一次 ExitPlanMode 计划。
   ///
-  /// Detection happens in two stages:
-  ///  1. Strip whitespace + common ASCII/CJK punctuation → `compactReply`.
-  ///     If that exact token matches a known short standalone approval
-  ///     ("继续", "好", "OK", "yes", …), return `true`. Exact matching is
-  ///     critical here — `contains` would let "继续观察" or "OK 但是…" be
-  ///     misclassified as approval.
-  ///  2. Reject explicit negation / wait instructions before phrase matching.
-  ///     This keeps "do not approve" / "先别执行" from opening execution tools.
-  ///  3. Otherwise scan for any longer phrase ("do it", "去写吧", …) via
-  ///     `contains`, where the surrounding context is unambiguous enough to
-  ///     tolerate substring matching.
+  /// 判定顺序：先标准化内容，再排除否定指令，最后匹配完整短回复或明确长短语。
+  /// 短回复必须完整匹配，避免把“继续观察”“OK 但是”等内容误判为批准。
   static bool looksLikePlanApproval(String content) {
     final normalized = lowercaseStringFromValue(content);
     if (normalized.isEmpty) {
@@ -70,8 +56,23 @@ abstract final class AiPlanApprovalDetector {
         _executionContinuationPhrases.any(normalized.contains);
   }
 
-  /// Returns `true` when assistant/tool text is asking the user to approve a
-  /// plan outside the dedicated ExitPlanMode approval gate.
+  /// 判断最近一个已结束的工具调用是否为计划恢复所关注的失败状态。
+  static bool hasRecentToolFailure(AiSession session) {
+    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+        continue;
+      }
+      final status = '${message.metadata['tool_execution_status'] ?? ''}'
+          .trim()
+          .toLowerCase();
+      if (status.isEmpty || status == 'running') continue;
+      return _failedToolStatuses.contains(status);
+    }
+    return false;
+  }
+
+  /// 判断助手或工具文本是否绕过 ExitPlanMode 审批入口请求用户批准计划。
   static bool looksLikePlanApprovalRequest(String content) {
     final normalized = lowercaseStringFromValue(content);
     if (normalized.isEmpty) {
@@ -86,6 +87,14 @@ abstract final class AiPlanApprovalDetector {
   }
 
   static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
+  static const Set<String> _failedToolStatuses = <String>{
+    'failed',
+    'cancelled',
+    'denied',
+    'rejected',
+    'timed_out',
+    'invalid_arguments',
+  };
 
   static bool _containsNegativePlanAction(
     String normalized,
@@ -153,7 +162,7 @@ abstract final class AiPlanApprovalDetector {
     '取消执行',
   ];
 
-  /// Bare-equality approvals. Must match the FULL compact reply.
+  /// 必须完整匹配的短批准回复。
   static const Set<String> _standaloneApprovalReplies = <String>{
     '确认',
     '继续',
@@ -183,8 +192,7 @@ abstract final class AiPlanApprovalDetector {
     'proceed',
   };
 
-  /// Substring approvals — phrases long enough that incidental occurrence
-  /// in a non-approval message is vanishingly unlikely.
+  /// 可安全按子串匹配的明确批准短语。
   static const List<String> _approvalPhrases = <String>[
     'approve',
     'approved',

@@ -9721,7 +9721,7 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     return _hasFailedTodoItems(session.todoItems) ||
-        _hasRecentPlanToolFailure(session);
+        AiPlanApprovalDetector.hasRecentToolFailure(session);
   }
 
   bool _shouldFailEmptyPlanContinuationReply({
@@ -10407,28 +10407,6 @@ class AiSessionController extends ChangeNotifier {
       }
     }
     return true;
-  }
-
-  bool _hasRecentPlanToolFailure(AiSession session) {
-    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-      final message = session.messages[index];
-      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
-        continue;
-      }
-      final status = '${message.metadata['tool_execution_status'] ?? ''}'
-          .trim()
-          .toLowerCase();
-      if (status.isEmpty || status == 'running') {
-        continue;
-      }
-      return status == 'failed' ||
-          status == 'cancelled' ||
-          status == 'denied' ||
-          status == 'rejected' ||
-          status == 'timed_out' ||
-          status == 'invalid_arguments';
-    }
-    return false;
   }
 
   bool _looksLikePlanExecutionContinuation(String content) {

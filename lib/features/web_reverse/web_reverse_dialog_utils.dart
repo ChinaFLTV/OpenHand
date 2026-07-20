@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/motion_preference.dart';
@@ -26,11 +29,10 @@ const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
       slideRightOffset: Offset(0.18, 0),
     );
 
-/// Shows a Web Reverse tool dialog with one feature-level motion profile.
+/// 使用 Web 逆向模块统一的动效参数显示工具弹窗。
 ///
-/// The route still reads the global dialog animation settings through
-/// [showAnimatedDialog]; this helper only centralizes the Web Reverse
-/// transition geometry so all tool dialogs can be tuned in one place.
+/// 路由仍通过 [showAnimatedDialog] 读取全局弹窗设置；这里只统一模块内的
+/// 过渡几何参数。
 Future<T?> showWebReverseToolDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -56,6 +58,22 @@ Future<T?> showWebReverseToolDialog<T>({
     alignment: alignment,
     builder: builder,
   );
+}
+
+Future<void> confirmWebReverseDiscardChanges({
+  required BuildContext context,
+  required FutureOr<void> Function() onConfirmed,
+}) async {
+  final l10n = AppLocalizations.of(context);
+  final confirmed = await showOpenHandConfirmDialog(
+    context: context,
+    title: l10n?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
+    cancelLabel: l10n?.webReverseHooksKeepEditing ?? 'Keep editing',
+    confirmLabel: l10n?.webReverseHooksDiscardConfirm ?? 'Discard',
+    destructive: true,
+  );
+  if (!confirmed || !context.mounted) return;
+  await onConfirmed();
 }
 
 void showWebReverseSuccessSnack(

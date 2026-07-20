@@ -8,6 +8,27 @@ const Duration kAutoFollowPointerSignalActivityWindow = Duration(
   milliseconds: 900,
 );
 
+bool isExplicitUserScrollNotification(
+  ScrollNotification notification, {
+  required bool programmaticScroll,
+}) {
+  return notification is ScrollStartNotification &&
+          notification.dragDetails != null ||
+      notification is ScrollUpdateNotification &&
+          notification.dragDetails != null ||
+      notification is OverscrollNotification &&
+          notification.dragDetails != null ||
+      notification is UserScrollNotification &&
+          notification.direction != ScrollDirection.idle &&
+          !programmaticScroll;
+}
+
+bool isUserScrollEndNotification(ScrollNotification notification) {
+  return notification is ScrollEndNotification ||
+      notification is UserScrollNotification &&
+          notification.direction == ScrollDirection.idle;
+}
+
 class AutoFollowProgrammaticScrollWindow {
   AutoFollowProgrammaticScrollWindow({
     this.settleDuration = kAutoFollowProgrammaticSettleDuration,
@@ -52,18 +73,10 @@ class AutoFollowProgrammaticScrollWindow {
   }
 }
 
-/// Lightweight helper for log-style auto-follow lists where new content
-/// continuously appends and the view should pin to the bottom — UNLESS the
-/// user is actively dragging.
+/// 管理持续追加内容列表的自动贴底，用户主动滚动期间暂停跟随。
 ///
-/// Drop-in usage: wrap the scroll view in `AutoFollowScrollGuard`. From the
-/// owning state, replace any direct `controller.jumpTo(maxScrollExtent)` /
-/// `animateTo(maxScrollExtent)` with `guard.followToBottom(controller, ...)`.
-/// The guard records gestures via a `NotificationListener<ScrollNotification>`
-/// and short-circuits programmatic scroll requests for as long as the user
-/// is dragging, eliminating the "tractor pull" / 抽搐 / 鬼畜 feel that surfaces
-/// when streaming-driven `jumpTo` fights touch / wheel events on the same
-/// `ScrollPosition`.
+/// 通过 [handleNotification] 记录用户手势，并由 [followToBottom] 统一执行
+/// 跳转或动画，避免流式更新与用户滚动争抢同一 ScrollPosition。
 class AutoFollowScrollGuard {
   AutoFollowScrollGuard();
 
@@ -71,26 +84,18 @@ class AutoFollowScrollGuard {
   final AutoFollowProgrammaticScrollWindow _programmaticScroll =
       AutoFollowProgrammaticScrollWindow();
 
-  /// True while the user holds an active scroll gesture.
+  /// 用户滚动手势是否仍在进行。
   bool get isUserScrolling => _userScrolling;
 
-  /// Wire this into a `NotificationListener<ScrollNotification>.onNotification`.
-  /// Returns `false` so other listeners can still process the notification.
+  /// 接入 NotificationListener.onNotification；固定返回 false 以继续冒泡。
   bool handleNotification(ScrollNotification notification) {
-    final explicitUserScroll =
-        (notification is ScrollStartNotification &&
-            notification.dragDetails != null) ||
-        (notification is ScrollUpdateNotification &&
-            notification.dragDetails != null) ||
-        (notification is OverscrollNotification &&
-            notification.dragDetails != null) ||
-        (notification is UserScrollNotification &&
-            notification.direction != ScrollDirection.idle);
-    final userScrollEnded =
-        notification is ScrollEndNotification ||
-        (notification is UserScrollNotification &&
-            notification.direction == ScrollDirection.idle);
-    if (_programmaticScroll.active && !explicitUserScroll) {
+    final programmaticScroll = _programmaticScroll.active;
+    final explicitUserScroll = isExplicitUserScrollNotification(
+      notification,
+      programmaticScroll: programmaticScroll,
+    );
+    final userScrollEnded = isUserScrollEndNotification(notification);
+    if (programmaticScroll && !explicitUserScroll) {
       return false;
     }
     if (explicitUserScroll) {
@@ -104,14 +109,9 @@ class AutoFollowScrollGuard {
     return false;
   }
 
-  /// Best-effort jump / animate to the bottom of [controller]. Skipped when
-  /// the user is currently dragging — once the drag ends, the next streaming
-  /// append (or any caller-driven follow request) will succeed normally.
+  /// 尝试把 [controller] 移到底部；用户滚动期间直接跳过。
   ///
-  /// When [animated] is `true`, an animated easeOutCubic glide is used; the
-  /// short default duration keeps log lists "ticking" without feeling
-  /// sluggish. When `false` (typical for huge log dumps), `jumpTo` is used
-  /// for zero-cost catch-up.
+  /// [animated] 为 true 时使用短动画，否则直接 jumpTo。
   void followToBottom(
     ScrollController controller, {
     bool animated = false,

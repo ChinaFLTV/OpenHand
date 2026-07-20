@@ -112,7 +112,12 @@ class _CronsBodyState extends State<_CronsBody> {
 
   void _select(WebReverseCron c) {
     if (_dirty && _selectedId != null && _selectedId != c.id) {
-      _confirmDiscard(() => _doSelect(c));
+      unawaited(
+        confirmWebReverseDiscardChanges(
+          context: context,
+          onConfirmed: () => _doSelect(c),
+        ),
+      );
       return;
     }
     _doSelect(c);
@@ -131,7 +136,10 @@ class _CronsBodyState extends State<_CronsBody> {
 
   Future<void> _newCron() async {
     if (_dirty) {
-      _confirmDiscard(_doNew);
+      await confirmWebReverseDiscardChanges(
+        context: context,
+        onConfirmed: _doNew,
+      );
       return;
     }
     await _doNew();
@@ -273,39 +281,6 @@ class _CronsBodyState extends State<_CronsBody> {
     await widget.controller.removeCron(id);
     if (!mounted) return;
     widget.onPersist();
-  }
-
-  Future<void> _confirmDiscard(VoidCallback onConfirm) async {
-    final confirmed = await showOpenHandConfirmDialog(
-      context: context,
-      title: _text(
-        zh: '丢弃未保存改动？',
-        zhHant: '捨棄未儲存變更？',
-        en: 'Discard unsaved changes?',
-        fr: 'Ignorer les modifications ?',
-        de: 'Ungespeicherte Änderungen verwerfen?',
-        ja: '未保存の変更を破棄しますか？',
-      ),
-      cancelLabel: _text(
-        zh: '继续编辑',
-        zhHant: '繼續編輯',
-        en: 'Keep editing',
-        fr: 'Continuer',
-        de: 'Weiter bearbeiten',
-        ja: '編集を続ける',
-      ),
-      confirmLabel: _text(
-        zh: '丢弃',
-        zhHant: '捨棄',
-        en: 'Discard',
-        fr: 'Ignorer',
-        de: 'Verwerfen',
-        ja: '破棄',
-      ),
-      destructive: true,
-    );
-    if (!confirmed || !mounted) return;
-    onConfirm();
   }
 
   String _formatAgo(DateTime? t) {

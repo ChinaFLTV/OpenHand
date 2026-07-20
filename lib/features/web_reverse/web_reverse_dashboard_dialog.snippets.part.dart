@@ -95,7 +95,12 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
 
   void _select(WebReverseSnippet snip) {
     if (_dirty && _selectedId != null && _selectedId != snip.id) {
-      _confirmDiscard(() => _doSelect(snip));
+      unawaited(
+        confirmWebReverseDiscardChanges(
+          context: context,
+          onConfirmed: () => _doSelect(snip),
+        ),
+      );
       return;
     }
     _doSelect(snip);
@@ -113,7 +118,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
 
   void _newSnippet() {
     if (_dirty) {
-      _confirmDiscard(_doNew);
+      unawaited(
+        confirmWebReverseDiscardChanges(context: context, onConfirmed: _doNew),
+      );
       return;
     }
     _doNew();
@@ -187,19 +194,6 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     if (!confirmed || !mounted) return;
     widget.controller.removeSnippet(id);
     widget.onPersist();
-  }
-
-  Future<void> _confirmDiscard(VoidCallback onConfirm) async {
-    final loc = AppLocalizations.of(context);
-    final confirmed = await showOpenHandConfirmDialog(
-      context: context,
-      title: loc?.webReverseHooksDiscardTitle ?? 'Discard unsaved changes?',
-      cancelLabel: loc?.webReverseHooksKeepEditing ?? 'Keep editing',
-      confirmLabel: loc?.webReverseHooksDiscardConfirm ?? 'Discard',
-      destructive: true,
-    );
-    if (!confirmed || !mounted) return;
-    onConfirm();
   }
 
   @override
