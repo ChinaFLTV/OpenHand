@@ -4,15 +4,12 @@ import 'package:flutter/foundation.dart';
 
 import '../util/serial_task_queue.dart';
 
-/// Lightweight controller foundation for feature notifiers that need:
-/// - dispose-safe [notifyListeners]
-/// - serialized async mutations / refreshes
-/// - tiny success pulse signals for transient UI feedback
+/// 为功能控制器统一提供安全通知、串行异步操作和轻量成功信号。
 abstract class ManagedChangeNotifier extends ChangeNotifier {
   bool _isDisposed = false;
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
 
-  StateError get _disposedError => StateError('$runtimeType is disposed');
+  StateError get _disposedError => StateError('$runtimeType 已释放');
 
   @override
   void notifyListeners() {
@@ -38,6 +35,9 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
       return result;
     });
   }
+
+  @protected
+  Future<void> get operationsIdle => _operationQueue.idle;
 
   @override
   @mustCallSuper

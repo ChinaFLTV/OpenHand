@@ -323,7 +323,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     bool forceRuntimeApply = false,
   }) async {
     if (!await _ensureTrustedSnapshotLocked()) {
-      throw StateError('Message gateway configuration is not available.');
+      throw StateError('消息网关配置当前不可用。');
     }
     _isSaving = true;
     _hasTrustedSnapshot = false;
@@ -391,7 +391,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   Future<void> _restartServiceLocked() async {
     if (!await _ensureTrustedSnapshotLocked(forceReload: true)) {
-      throw StateError('Message gateway configuration is not available.');
+      throw StateError('消息网关配置当前不可用。');
     }
     if (!_config.enabled) {
       await _saveConfigLocked(
@@ -411,7 +411,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   Future<void> _reloadConfigLocked() async {
     if (!await _ensureTrustedSnapshotLocked(forceReload: true)) {
-      throw StateError('Message gateway configuration is not available.');
+      throw StateError('消息网关配置当前不可用。');
     }
     await _service.reloadConfig(_config);
     _hasPendingRuntimeConfig = false;
@@ -608,8 +608,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _service.pluginServiceController = controller;
   }
 
-  /// Disposes the notifier and performs a bounded best-effort shutdown of the
-  /// HTTP server, subscriptions, and owned media services. Safe to repeat.
+  /// 释放通知器并有界关闭 HTTP 服务、订阅和自有媒体资源，可重复调用。
   Future<void> shutdown() {
     if (!_disposed) dispose();
     return _shutdownFuture ?? Future<void>.value();
@@ -622,17 +621,23 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _logNotifyDebouncer.dispose();
     _saveSuccessPulse.dispose();
     _shutdownFuture = () async {
+      await runAsyncCleanupBounded(
+        () => operationsIdle,
+        timeout: _shutdownTimeout,
+        onError: (error, stack) =>
+            silentLog('message_gateway', '等待控制器操作结束', error, stack),
+      );
       await Future.wait<bool>(<Future<bool>>[
         cancelStreamSubscriptionBounded<WebGatewayLogEntry>(
           _logSub,
           onError: (error, stack) =>
-              silentLog('message_gateway', 'cancel log stream', error, stack),
+              silentLog('message_gateway', '取消日志订阅', error, stack),
         ),
         runAsyncCleanupBounded(
           _service.dispose,
           timeout: _shutdownTimeout,
           onError: (error, stack) =>
-              silentLog('message_gateway', 'dispose service', error, stack),
+              silentLog('message_gateway', '关闭消息网关服务', error, stack),
         ),
       ]);
     }();

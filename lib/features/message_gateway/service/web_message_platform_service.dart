@@ -271,6 +271,10 @@ class WebMessagePlatformService {
   int _nextWriteApprovalId = 1;
 
   HttpServer? _server;
+  final SerialTaskQueue _lifecycleQueue = SerialTaskQueue();
+  Future<void>? _disposeFuture;
+  Future<void>? _startupCleanupFuture;
+  bool _disposed = false;
   WebGatewayRuntimeState _state = WebGatewayRuntimeState.stopped;
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   WebGatewayThemeSnapshot _theme = const WebGatewayThemeSnapshot();
@@ -1001,15 +1005,32 @@ class WebMessagePlatformService {
     _theme = theme;
   }
 
-  Future<void> start(WebMessagePlatformConfig config) async {
+  Future<T> _enqueueLifecycle<T>(Future<T> Function() operation) {
+    if (_disposed) return Future<T>.error(_disposedError);
+    return _lifecycleQueue.enqueue(() {
+      _throwIfDisposed();
+      return operation();
+    });
+  }
+
+  StateError get _disposedError => StateError('Web 消息网关服务已关闭。');
+
+  void _throwIfDisposed() {
+    if (_disposed) throw _disposedError;
+  }
+
+  Future<void> start(WebMessagePlatformConfig config) =>
+      _enqueueLifecycle(() => _start(config));
+
+  Future<void> _start(WebMessagePlatformConfig config) async {
     await ensurePersistedOpsDataLoaded();
+    _throwIfDisposed();
     if (_server != null) {
-      await stop();
+      await _stop();
+      _throwIfDisposed();
       if (_server != null) {
         _state = WebGatewayRuntimeState.crashed;
-        throw StateError(
-          'The existing Web message gateway could not be stopped safely.',
-        );
+        throw StateError('现有 Web 消息网关未能安全停止。');
       }
     }
     _config = config;
@@ -1034,8 +1055,12 @@ class WebMessagePlatformService {
         config: config,
       );
       final server = bindResult.server;
-      server.serverHeader = 'OpenHand-WebGateway/1.0';
       _server = server;
+      server.serverHeader = 'OpenHand-WebGateway/1.0';
+      if (_disposed) {
+        await _closeServer(server, logAction: '关闭迟到绑定的 HTTP 服务');
+        throw _disposedError;
+      }
       _startedAt = DateTime.now().toUtc();
       _lastError = '';
       _lastErrorAt = null;
@@ -1044,6 +1069,7 @@ class WebMessagePlatformService {
       // 启动后立刻探测一次主机 IP 列表，使 BOOT 日志可同时打出 LAN URL；
       // 枚举有显式超时，异常系统服务不会无限阻塞启动。
       await refreshAccessibleUrls(force: true);
+      _throwIfDisposed();
       final urls = accessibleUrls;
       if (bindResult.usedFallbackPort) {
         _log(
@@ -1069,35 +1095,16 @@ class WebMessagePlatformService {
         <String, Object?>{'bound_url': boundUrl, 'accessible_urls': urls},
       );
       _logPublicAccessWarningIfNeeded(config, urls);
-      // 启动后顺手做一次过期清理；失败不应阻塞 boot 流程，但要走 silentLog
-      // 防止 Future error 被 unawaited 静默吞掉。
-      unawaited(() async {
-        try {
-          await cleanupArtifacts(logs: true, uploads: true, expiredOnly: true);
-        } catch (error, stack) {
-          silentLog(
-            'web_message_platform_service',
-            'start cleanupArtifacts',
-            error,
-            stack,
-          );
-        }
-      }());
+      _scheduleStartupCleanup();
     } catch (error, stack) {
       final failedServer = _server;
       if (failedServer != null) {
-        final released = await runAsyncCleanupBounded(
-          () => failedServer.close(force: true),
-          onError: (closeError, closeStack) => silentLog(
-            'web_message_platform_service',
-            'close server after failed start',
-            closeError,
-            closeStack,
-          ),
-        );
-        if (released && identical(_server, failedServer)) {
-          _server = null;
-        }
+        await _closeServer(failedServer, logAction: '关闭启动失败后的 HTTP 服务');
+      }
+      if (_disposed) {
+        _state = WebGatewayRuntimeState.stopped;
+        _clearStoppedRuntimeState();
+        rethrow;
       }
       _state = WebGatewayRuntimeState.crashed;
       _crashCount++;
@@ -1107,21 +1114,79 @@ class WebMessagePlatformService {
         'port': config.listenPort,
       });
       if (!_isAddressAlreadyInUse(error)) {
-        silentLog('web_message_platform_service', 'start', error, stack);
+        silentLog('web_message_platform_service', '启动服务', error, stack);
       }
       rethrow;
     }
   }
 
-  Future<void> stop() async {
+  void _scheduleStartupCleanup() {
+    if (_disposed || _startupCleanupFuture != null) return;
+    late final Future<void> cleanup;
+    cleanup =
+        () async {
+          try {
+            await cleanupArtifacts(
+              logs: true,
+              uploads: true,
+              expiredOnly: true,
+            );
+          } catch (error, stack) {
+            silentLog(
+              'web_message_platform_service',
+              '清理启动后的过期产物',
+              error,
+              stack,
+            );
+          }
+        }().whenComplete(() {
+          if (identical(_startupCleanupFuture, cleanup)) {
+            _startupCleanupFuture = null;
+          }
+        });
+    _startupCleanupFuture = cleanup;
+    unawaited(cleanup);
+  }
+
+  Future<bool> _closeServer(
+    HttpServer server, {
+    required String logAction,
+    void Function(Object error)? onError,
+  }) {
+    final close = Future<void>.sync(() async {
+      await server.close(force: true);
+      if (identical(_server, server)) {
+        _server = null;
+      }
+    });
+    return runAsyncCleanupBounded(
+      () => close,
+      onError: (error, stack) {
+        onError?.call(error);
+        silentLog('web_message_platform_service', logAction, error, stack);
+      },
+    );
+  }
+
+  Future<void> stop() => _enqueueLifecycle(_stop);
+
+  Future<void> _stop() async {
     _resolvePendingWriteApprovals(
       decision: BashCommandApprovalDecision.cancelled,
       source: 'service_stop',
     );
-    await ensurePersistedOpsDataLoaded();
-    await _ttsPlaybackService.stop();
+    await runAsyncCleanupBounded(
+      _ttsPlaybackService.stop,
+      timeout: const Duration(seconds: 8),
+      onError: (error, stack) =>
+          silentLog('web_message_platform_service', '停止语音播放', error, stack),
+    );
     for (final dispose in List<void Function()>.from(_activeSseDisposers)) {
-      dispose();
+      try {
+        dispose();
+      } catch (error, stack) {
+        silentLog('web_message_platform_service', '关闭 SSE 订阅', error, stack);
+      }
     }
     _activeSseDisposers.clear();
     _activeSseSubscriptions = 0;
@@ -1136,17 +1201,12 @@ class WebMessagePlatformService {
     _state = WebGatewayRuntimeState.stopping;
     _log(WebGatewayLogLevel.warn, 'OPS', '正在停止 Web 服务');
     Object? closeError;
-    final closed = await runAsyncCleanupBounded(
-      () => server.close(force: true),
-      onError: (error, stack) {
-        closeError = error;
-        silentLog('web_message_platform_service', 'stop', error, stack);
-      },
+    final closed = await _closeServer(
+      server,
+      logAction: '停止 HTTP 服务',
+      onError: (error) => closeError = error,
     );
     if (closed) {
-      if (identical(_server, server)) {
-        _server = null;
-      }
       _state = WebGatewayRuntimeState.stopped;
       _clearStoppedRuntimeState();
       _log(WebGatewayLogLevel.success, 'OPS', 'Web 服务已停止');
@@ -1154,19 +1214,26 @@ class WebMessagePlatformService {
     }
     _state = WebGatewayRuntimeState.crashed;
     _crashCount++;
-    _lastError = '${closeError ?? 'HTTP server shutdown timed out'}';
+    _lastError = '${closeError ?? 'HTTP 服务关闭超时'}';
     _log(WebGatewayLogLevel.error, 'OPS', '停止 Web 服务失败: $_lastError');
   }
 
-  Future<void> restart(WebMessagePlatformConfig config) async {
-    await ensurePersistedOpsDataLoaded();
+  Future<void> restart(WebMessagePlatformConfig config) =>
+      _enqueueLifecycle(() => _restart(config));
+
+  Future<void> _restart(WebMessagePlatformConfig config) async {
     _restartCount++;
-    await stop();
-    await start(config);
+    await _stop();
+    _throwIfDisposed();
+    await _start(config);
   }
 
-  Future<void> reloadConfig(WebMessagePlatformConfig config) async {
+  Future<void> reloadConfig(WebMessagePlatformConfig config) =>
+      _enqueueLifecycle(() => _reloadConfig(config));
+
+  Future<void> _reloadConfig(WebMessagePlatformConfig config) async {
     await ensurePersistedOpsDataLoaded();
+    _throwIfDisposed();
     final needsRestart =
         config.enabled != _config.enabled ||
         config.listenHost != _config.listenHost ||
@@ -1176,7 +1243,7 @@ class WebMessagePlatformService {
         config.username != _config.username ||
         config.password != _config.password;
     if (needsRestart) {
-      await restart(config);
+      await _restart(config);
     } else {
       _config = config;
       if (authChanged) {
@@ -1187,18 +1254,59 @@ class WebMessagePlatformService {
     _log(WebGatewayLogLevel.info, 'OPS', '配置已重新加载');
   }
 
-  Future<void> dispose() async {
-    await stop();
+  Future<void> dispose() {
+    final active = _disposeFuture;
+    if (active != null) return active;
+    _disposed = true;
+    final disposal = _lifecycleQueue.idle.then((_) => _disposeLocked());
+    _disposeFuture = disposal;
+    return disposal;
+  }
+
+  Future<void> _disposeLocked() async {
+    Future<bool> cleanup(
+      String action,
+      FutureOr<void> Function() operation, {
+      Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
+    }) {
+      return runAsyncCleanupBounded(
+        operation,
+        timeout: timeout,
+        onError: (error, stack) =>
+            silentLog('web_message_platform_service', action, error, stack),
+      );
+    }
+
+    await cleanup('停止消息网关服务', _stop, timeout: const Duration(seconds: 10));
+    final startupCleanup = _startupCleanupFuture;
+    if (startupCleanup != null) {
+      await cleanup('等待启动清理任务结束', () => startupCleanup);
+    }
     _opsPersistDebouncer.dispose();
-    await _persistOpsHistory();
-    _sessionController.removeGoalContinuationYieldPredicate(
-      _hasQueuedGoalInterruption,
+    await cleanup('持久化运维记录', _persistOpsHistory);
+    await cleanup(
+      '移除目标续跑判断器',
+      () => _sessionController.removeGoalContinuationYieldPredicate(
+        _hasQueuedGoalInterruption,
+      ),
     );
-    await _fileLogger.close();
-    _translationService.dispose();
-    await _ttsPlaybackService.dispose();
-    await _logStreamController.close();
-    await _pendingWriteApprovalStreamController.close();
+    await Future.wait<bool>(<Future<bool>>[
+      cleanup('关闭文件日志器', _fileLogger.close),
+      cleanup('关闭翻译服务', _translationService.dispose),
+      cleanup(
+        '关闭语音播放服务',
+        _ttsPlaybackService.dispose,
+        timeout: const Duration(seconds: 8),
+      ),
+    ]);
+    await Future.wait<bool>(<Future<bool>>[
+      cleanup('关闭日志事件流', _logStreamController.close),
+      cleanup('关闭写操作审批事件流', _pendingWriteApprovalStreamController.close),
+    ]);
+    if (_server == null) {
+      _state = WebGatewayRuntimeState.stopped;
+      _clearStoppedRuntimeState();
+    }
   }
 
   void _clearStoppedRuntimeState() {
