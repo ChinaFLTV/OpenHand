@@ -23,13 +23,7 @@ import '../../ai/index.dart';
 
 const Duration _kReorderPersistDebounceDelay = Duration(milliseconds: 400);
 
-Duration _threadSessionMotionDuration(BuildContext context, Duration duration) {
-  return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
-}
-
-/// Shows the Thread Session Management dialog. Honors the global dialog
-/// animation settings (entrance/exit are picked from the nearest
-/// `SettingsController` automatically by [showAnimatedDialog]).
+/// 打开线程会话管理弹窗，进退场动效由 [showAnimatedDialog] 统一读取全局设置。
 Future<void> showThreadSessionManagementDialog(BuildContext context) {
   return showAnimatedDialog<void>(
     context: context,
@@ -47,10 +41,7 @@ class _ThreadSessionManagementDialog extends StatefulWidget {
 
 class _ThreadSessionManagementDialogState
     extends State<_ThreadSessionManagementDialog> {
-  // Per-dialog overlay of the controller's `sessions` list. We mirror the
-  // controller order on first build, then take ownership locally so drag
-  // reordering feels instant — persistence happens on Save / on auto-flush
-  // for safety (auto-save is debounced via [_scheduleReorderPersist]).
+  // 弹窗首次构建时复制控制器顺序，拖动阶段在本地即时重排并防抖持久化。
   List<AiSession>? _localOrder;
   Set<String> _selectedIds = <String>{};
   bool _isSelectionMode = false;
@@ -58,25 +49,19 @@ class _ThreadSessionManagementDialogState
     delay: _kReorderPersistDebounceDelay,
   );
 
-  // Precise on-disk byte footprint per session, refreshed asynchronously
-  // after the dialog opens / sessions change. Falls back to the
-  // statistics-based estimate while loading.
+  // 异步加载会话实际磁盘占用，加载期间使用统计数据估算值。
   Map<String, int> _diskBytes = const <String, int>{};
   bool _diskBytesLoading = false;
 
-  // Pin/Archive flags loaded from the DB. The AiSession model does not
-  // carry these so we keep them in a side-map and refresh after every
-  // pin/archive toggle.
+  // 置顶与归档标记不属于 AiSession，单独从数据库加载并维护。
   Map<String, ({bool pinned, bool archived})> _flags =
       const <String, ({bool pinned, bool archived})>{};
   int _flagsRefreshGeneration = 0;
 
-  // Sessions flagged as `archived`. The controller's `sessions` list
-  // already excludes them (sidebar default), so the dialog loads them
-  // separately and merges only when [_showArchived] is on.
+  // 侧栏默认排除归档会话，仅在用户开启显示时单独加载并合并。
   List<AiSession> _archivedSessions = const <AiSession>[];
 
-  // View controls.
+  // 视图控制状态。
   _SortMode _sortMode = _SortMode.manual;
   String _searchQuery = '';
   late final TextEditingController _searchController;
@@ -84,10 +69,7 @@ class _ThreadSessionManagementDialogState
   bool _denseMode = false;
   bool _showArchived = false;
 
-  // IDs whose row is currently animating out (delete collapse + fade).
-  // Rows present in this set render with height 0 so the surrounding
-  // list rows slide up smoothly via AnimatedSize before the actual
-  // controller delete fires.
+  // 正在执行删除退场动画的会话编号。
   final Set<String> _animatingOutIds = <String>{};
 
   // 右侧抽屉按需加载完整消息，避免阻塞弹窗打开。
@@ -95,9 +77,7 @@ class _ThreadSessionManagementDialogState
   bool _previewLoading = false;
   int _previewGeneration = 0;
 
-  // Outcome pulse signals — drive a green/red HighlightPulse bar at the
-  // top of the dialog when a high-value action (export, batch export,
-  // pin/archive toggle, delete) settles.
+  // 导出、置顶、归档与删除结果对应的成功/失败脉冲信号。
   final ValueNotifier<int> _outcomeSuccessSignal = ValueNotifier<int>(0);
   final ValueNotifier<int> _outcomeErrorSignal = ValueNotifier<int>(0);
 
@@ -268,20 +248,25 @@ class _ThreadSessionManagementDialogState
   }
 
   Future<void> _deleteIds(Set<String> ids) async {
-    // Start row collapse before deleting data so neighbouring rows slide up smoothly.
-    if (mounted) {
-      setState(() {
-        _animatingOutIds.addAll(ids);
-        // 删除当前预览会话时同步关闭抽屉并使未完成加载失效。
-        if (_previewSession != null && ids.contains(_previewSession!.id)) {
-          _previewGeneration++;
-          _previewSession = null;
-          _previewLoading = false;
-        }
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 240));
-      if (!mounted) return;
+    if (!mounted || ids.isEmpty) return;
+    final collapseDuration = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.listItem,
+    ).exitDuration;
+    // 先播放行收起动画，再删除实际数据。
+    setState(() {
+      _animatingOutIds.addAll(ids);
+      // 删除当前预览会话时同步关闭抽屉并使未完成加载失效。
+      if (_previewSession != null && ids.contains(_previewSession!.id)) {
+        _previewGeneration++;
+        _previewSession = null;
+        _previewLoading = false;
+      }
+    });
+    if (collapseDuration > Duration.zero) {
+      await Future<void>.delayed(collapseDuration);
     }
+    if (!mounted) return;
     final controller = context.read<AiSessionController>();
     var failed = 0;
     for (final id in ids) {
@@ -904,6 +889,10 @@ class _ThreadSessionManagementDialogState
         );
     }
     final theme = Theme.of(context);
+    final panelMotion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.panel,
+    );
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
@@ -935,11 +924,9 @@ class _ThreadSessionManagementDialogState
                           : _buildList(visible),
                     ),
                     AnimatedSize(
-                      duration: _threadSessionMotionDuration(
-                        context,
-                        const Duration(milliseconds: 220),
-                      ),
-                      curve: Curves.easeOutCubic,
+                      duration: panelMotion.entranceDuration,
+                      reverseDuration: panelMotion.exitDuration,
+                      curve: panelMotion.curve.curve,
                       alignment: Alignment.centerLeft,
                       child: _previewSession == null
                           ? const SizedBox(width: 0)
@@ -1237,6 +1224,10 @@ class _ThreadSessionManagementDialogState
         _sortMode == _SortMode.manual &&
         _searchQuery.trim().isEmpty &&
         _templateFilter.isEmpty;
+    final exitMotion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.listItem,
+    );
 
     Widget rowFor(int index) {
       final session = sessions[index];
@@ -1277,17 +1268,12 @@ class _ThreadSessionManagementDialogState
       return KeyedSubtree(
         key: ValueKey<String>('row-wrapper-${session.id}'),
         child: AnimatedSize(
-          duration: _threadSessionMotionDuration(
-            context,
-            const Duration(milliseconds: 240),
-          ),
-          curve: Curves.easeOutCubic,
+          duration: exitMotion.exitDuration,
+          curve: exitMotion.curve.reverseCurve,
           alignment: Alignment.topCenter,
           child: AnimatedOpacity(
-            duration: _threadSessionMotionDuration(
-              context,
-              const Duration(milliseconds: 200),
-            ),
+            duration: exitMotion.exitDuration,
+            curve: exitMotion.curve.reverseCurve,
             opacity: isAnimatingOut ? 0.0 : 1.0,
             child: isAnimatingOut
                 ? const SizedBox(width: double.infinity, height: 0)

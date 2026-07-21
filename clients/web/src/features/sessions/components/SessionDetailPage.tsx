@@ -79,6 +79,10 @@ import {
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { ignoreError, isAbortError } from '../../../shared/util/errors';
 import {
+  formatLocalDateTimeSecond,
+  formatLocalTimeSecond,
+} from '../../../shared/util/date_time';
+import {
   PAGE_SHELL_CLASS,
   SESSION_DETAIL_SHELL_CLASS,
 } from '../../../shared/ui/layout';
@@ -1804,7 +1808,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
 
         <div class="oh-machine-terminal-meta">
           <span class="truncate">{active?.working_directory || '-'}</span>
-          <span>{active ? formatTerminalTime(active.updated_at) : '-'}</span>
+          <span>{active ? formatLocalTimeSecond(active.updated_at) : '-'}</span>
         </div>
       </aside>
       {historyOpen && workspace ? (
@@ -1982,8 +1986,8 @@ function MachineTerminalHistoryDialog({
                       <td class="tabular-nums">{terminal.columns}x{terminal.rows}</td>
                       <td class="tabular-nums">{terminalCommandCount(terminal)}</td>
                       <td>{formatTerminalHistorySize(terminalHistoryOutputCharacters(terminal))}</td>
-                      <td class="oh-machine-terminal-history-time tabular-nums">{formatTerminalHistoryDate(terminal.started_at)}</td>
-                      <td class="oh-machine-terminal-history-time tabular-nums">{formatTerminalHistoryDate(terminal.updated_at)}</td>
+                      <td class="oh-machine-terminal-history-time tabular-nums">{formatLocalDateTimeSecond(terminal.started_at)}</td>
+                      <td class="oh-machine-terminal-history-time tabular-nums">{formatLocalDateTimeSecond(terminal.updated_at)}</td>
                       <td>
                         <div class="oh-machine-terminal-history-actions">
                           <button
@@ -2387,21 +2391,6 @@ function terminalStatusLabel(status: string): string {
   if (status === 'stopped') return t('terminal.status.stopped', '已停止');
   if (status === 'failed') return t('terminal.status.failed', '异常');
   return t('terminal.status.idle', '待机');
-}
-
-function formatTerminalTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
-function formatTerminalHistoryDate(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 /// Web composer 用户指令胶囊条（与 App 端 _ComposerInstructionsStrip 1:1 对齐）。
