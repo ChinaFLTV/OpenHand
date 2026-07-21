@@ -131,13 +131,14 @@ export function useDialogExitMotion<Reason extends string = string>(
     closeReasonRef.current = reason;
     try {
       onBeforeCloseRef.current?.(reason);
-    } catch {
-      // Closing should remain best-effort even if caller cleanup fails.
+    } finally {
+      closingRef.current = true;
+      setClosing(true);
+      const durationMs = reduceMotion
+        ? 0
+        : normalizeDialogExitDurationMs(exitMs);
+      scheduleTimer(finishClose, durationMs);
     }
-    closingRef.current = true;
-    setClosing(true);
-    const durationMs = reduceMotion ? 0 : normalizeDialogExitDurationMs(exitMs);
-    scheduleTimer(finishClose, durationMs);
   }, [exitMs, finishClose, reduceMotion, scheduleTimer]);
 
   useEffect(() => {

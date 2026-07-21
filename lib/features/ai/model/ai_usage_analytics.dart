@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_token_usage.dart';
 
 abstract final class AiUsageRequestStatus {
@@ -83,6 +84,7 @@ class AiUsageSummary {
     this.completionTokens = 0,
     this.cacheCreationTokens = 0,
     this.cacheReadTokens = 0,
+    this.cacheInputTokens = 0,
     this.reasoningTokens = 0,
     this.audioInputTokens = 0,
     this.imageInputTokens = 0,
@@ -109,6 +111,7 @@ class AiUsageSummary {
   final int completionTokens;
   final int cacheCreationTokens;
   final int cacheReadTokens;
+  final int cacheInputTokens;
   final int reasoningTokens;
   final int audioInputTokens;
   final int imageInputTokens;
@@ -123,8 +126,7 @@ class AiUsageSummary {
 
   double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
   double get cacheHitRate {
-    final cacheBase = promptTokens + cacheReadTokens;
-    return cacheBase == 0 ? 0 : cacheReadTokens / cacheBase;
+    return unitRatio(cacheReadTokens, cacheInputTokens);
   }
 
   double get averageDurationMs =>

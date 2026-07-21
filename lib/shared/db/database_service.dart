@@ -15,7 +15,7 @@ class DatabaseService {
   Database? _database;
   RandomAccessFile? _instanceLock;
 
-  static const int schemaVersion = 11;
+  static const int schemaVersion = 12;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -470,6 +470,7 @@ class DatabaseService {
         completion_tokens INTEGER NOT NULL DEFAULT 0,
         cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
         cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_input_tokens INTEGER NOT NULL DEFAULT 0,
         reasoning_tokens INTEGER NOT NULL DEFAULT 0,
         audio_input_tokens INTEGER NOT NULL DEFAULT 0,
         image_input_tokens INTEGER NOT NULL DEFAULT 0,
@@ -598,6 +599,26 @@ class DatabaseService {
       await db.execute(
         'ALTER TABLE ai_usage_records ADD COLUMN timeout_phase TEXT',
       );
+    }
+    if (oldVersion >= 10 && oldVersion < 12) {
+      await db.execute(
+        'ALTER TABLE ai_usage_records ADD COLUMN cache_input_tokens '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute('''
+        UPDATE ai_usage_records
+        SET cache_input_tokens = CASE
+          WHEN protocol = 'claude' THEN
+            MAX(0, prompt_tokens) +
+            MAX(0, cache_read_tokens) +
+            MAX(0, cache_creation_tokens)
+          ELSE MAX(
+            0,
+            prompt_tokens,
+            cache_read_tokens + cache_creation_tokens
+          )
+        END
+      ''');
     }
   }
 

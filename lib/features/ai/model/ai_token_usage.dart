@@ -1,5 +1,69 @@
 import '../../../shared/util/input_value_parsing.dart';
 
+int computeCacheHitDenominatorTokens({
+  required int promptTokens,
+  required int cacheReadTokens,
+  required bool claudeStyle,
+  int cacheWriteTokens = 0,
+}) {
+  final safePromptTokens = _nonNegativeTokenCount(promptTokens);
+  final safeCacheReadTokens = _nonNegativeTokenCount(cacheReadTokens);
+  final safeCacheWriteTokens = _nonNegativeTokenCount(cacheWriteTokens);
+  if (claudeStyle) {
+    return safePromptTokens + safeCacheReadTokens + safeCacheWriteTokens;
+  }
+  return safePromptTokens > safeCacheReadTokens + safeCacheWriteTokens
+      ? safePromptTokens
+      : safeCacheReadTokens + safeCacheWriteTokens;
+}
+
+int computeUncachedPromptTokens({
+  required int promptTokens,
+  required int cacheReadTokens,
+  required bool claudeStyle,
+  int cacheWriteTokens = 0,
+}) {
+  final safePromptTokens = _nonNegativeTokenCount(promptTokens);
+  if (claudeStyle) return safePromptTokens;
+  return nonNegativeRemaining(
+    nonNegativeRemaining(
+      safePromptTokens,
+      _nonNegativeTokenCount(cacheReadTokens),
+    ),
+    _nonNegativeTokenCount(cacheWriteTokens),
+  );
+}
+
+double computeCacheHitRatio({
+  required int promptTokens,
+  required int cacheReadTokens,
+  required bool claudeStyle,
+  int cacheWriteTokens = 0,
+}) {
+  return unitRatio(
+    cacheReadTokens,
+    computeCacheHitDenominatorTokens(
+      promptTokens: promptTokens,
+      cacheReadTokens: cacheReadTokens,
+      claudeStyle: claudeStyle,
+      cacheWriteTokens: cacheWriteTokens,
+    ),
+  );
+}
+
+int? resolveAiTotalTokens({
+  required int? promptTokens,
+  required int? completionTokens,
+  int? totalTokens,
+}) {
+  final validTotal = _nonNegativeNullableTokenCount(totalTokens);
+  if (validTotal != null) return validTotal;
+  final validPrompt = _nonNegativeNullableTokenCount(promptTokens);
+  final validCompletion = _nonNegativeNullableTokenCount(completionTokens);
+  if (validPrompt == null && validCompletion == null) return null;
+  return (validPrompt ?? 0) + (validCompletion ?? 0);
+}
+
 int estimateAiTokensFromCharacters(
   int characterCount, {
   required int charactersPerToken,
@@ -81,11 +145,17 @@ class AiTokenUsage {
   final int? imageInputTokens;
   final int? videoInputTokens;
 
-  /// Provider-native Web Search API invocations for this response.
+  /// 供应商原生网页搜索 API 在本次响应中的调用次数。
   final int? webSearchToolUsage;
 
-  /// Web pages returned by the provider-native Web Search API.
+  /// 供应商原生网页搜索 API 在本次响应中返回的页面数。
   final int? webSearchPageUsage;
+
+  int? get resolvedTotalTokens => resolveAiTotalTokens(
+    promptTokens: promptTokens,
+    completionTokens: completionTokens,
+    totalTokens: totalTokens,
+  );
 
   bool get isEmpty =>
       promptTokens == null &&
@@ -120,7 +190,7 @@ class AiTokenUsage {
     return AiTokenUsage(
       promptTokens: _sumNullable(promptTokens, other.promptTokens),
       completionTokens: _sumNullable(completionTokens, other.completionTokens),
-      totalTokens: _sumNullable(totalTokens, other.totalTokens),
+      totalTokens: _sumNullable(resolvedTotalTokens, other.resolvedTotalTokens),
       cacheCreationTokens: _sumNullable(
         cacheCreationTokens,
         other.cacheCreationTokens,
@@ -151,4 +221,10 @@ class AiTokenUsage {
     }
     return (left ?? 0) + (right ?? 0);
   }
+}
+
+int _nonNegativeTokenCount(int value) => value < 0 ? 0 : value;
+
+int? _nonNegativeNullableTokenCount(int? value) {
+  return value == null || value < 0 ? null : value;
 }

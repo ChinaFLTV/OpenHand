@@ -207,11 +207,11 @@ class AiTokenUsageParser {
     return AiTokenUsage(
       promptTokens: promptTokens,
       completionTokens: completionTokens,
-      totalTokens:
-          totalTokens ??
-          ((promptTokens ?? 0) + (completionTokens ?? 0) > 0
-              ? (promptTokens ?? 0) + (completionTokens ?? 0)
-              : null),
+      totalTokens: resolveAiTotalTokens(
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+        totalTokens: totalTokens,
+      ),
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheWrite,
       reasoningTokens: reasoning,
@@ -231,28 +231,32 @@ class AiTokenUsageParser {
   ///   ephemeral_1h_input_tokens（与上面 cache_creation_input_tokens 等价的
   ///   细分；某些版本只下发其一）。
   static AiTokenUsage? parseClaude(Map<String, Object?> usageMap) {
-    final promptTokens = optionalIntegralIntFromValue(usageMap['input_tokens']);
-    final completionTokens = optionalIntegralIntFromValue(
+    final promptTokens = optionalNonNegativeIntegralIntFromValue(
+      usageMap['input_tokens'],
+    );
+    final completionTokens = optionalNonNegativeIntegralIntFromValue(
       usageMap['output_tokens'],
     );
-    final totalTokens = optionalIntegralIntFromValue(usageMap['total_tokens']);
+    final totalTokens = optionalNonNegativeIntegralIntFromValue(
+      usageMap['total_tokens'],
+    );
 
-    int? cacheCreation = optionalIntegralIntFromValue(
+    int? cacheCreation = optionalNonNegativeIntegralIntFromValue(
       usageMap['cache_creation_input_tokens'],
     );
     final creationDetails = _readMap(usageMap['cache_creation']);
     if (creationDetails != null) {
-      final ephemeral5m = optionalIntegralIntFromValue(
+      final ephemeral5m = optionalNonNegativeIntegralIntFromValue(
         creationDetails['ephemeral_5m_input_tokens'],
       );
-      final ephemeral1h = optionalIntegralIntFromValue(
+      final ephemeral1h = optionalNonNegativeIntegralIntFromValue(
         creationDetails['ephemeral_1h_input_tokens'],
       );
       final detailedSum = (ephemeral5m ?? 0) + (ephemeral1h ?? 0);
       // 优先使用平铺 cache_creation_input_tokens；缺失时退到子对象之和。
       cacheCreation ??= detailedSum > 0 ? detailedSum : null;
     }
-    final cacheRead = optionalIntegralIntFromValue(
+    final cacheRead = optionalNonNegativeIntegralIntFromValue(
       usageMap['cache_read_input_tokens'],
     );
 
@@ -267,11 +271,11 @@ class AiTokenUsageParser {
     return AiTokenUsage(
       promptTokens: promptTokens,
       completionTokens: completionTokens,
-      totalTokens:
-          totalTokens ??
-          ((promptTokens ?? 0) + (completionTokens ?? 0) > 0
-              ? (promptTokens ?? 0) + (completionTokens ?? 0)
-              : null),
+      totalTokens: resolveAiTotalTokens(
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+        totalTokens: totalTokens,
+      ),
       cacheCreationTokens: cacheCreation,
       cacheReadTokens: cacheRead,
     );
@@ -284,22 +288,22 @@ class AiTokenUsageParser {
   /// - Gemini 不暴露独立的 cache write 字段——隐式缓存对调用方免费，
   ///   显式缓存的写入计入 promptTokenCount，与此处无关。
   static AiTokenUsage? parseGemini(Map<String, Object?> usageMap) {
-    final promptTokens = optionalIntegralIntFromValue(
+    final promptTokens = optionalNonNegativeIntegralIntFromValue(
       usageMap['promptTokenCount'],
     );
-    final completionTokens = optionalIntegralIntFromValue(
+    final completionTokens = optionalNonNegativeIntegralIntFromValue(
       usageMap['candidatesTokenCount'],
     );
-    final totalTokens = optionalIntegralIntFromValue(
+    final totalTokens = optionalNonNegativeIntegralIntFromValue(
       usageMap['totalTokenCount'],
     );
     // Gemini 2.5 Pro / Flash 思考模型：thoughtsTokenCount 包含在
     // candidatesTokenCount 之内。
-    final reasoning = optionalIntegralIntFromValue(
+    final reasoning = optionalNonNegativeIntegralIntFromValue(
       usageMap['thoughtsTokenCount'],
     );
 
-    int? cacheRead = optionalIntegralIntFromValue(
+    int? cacheRead = optionalNonNegativeIntegralIntFromValue(
       usageMap['cachedContentTokenCount'],
     );
     if (cacheRead == null) {
@@ -309,7 +313,9 @@ class AiTokenUsageParser {
         var anyMatched = false;
         for (final entry in details) {
           if (entry is! Map) continue;
-          final value = optionalIntegralIntFromValue(entry['tokenCount']);
+          final value = optionalNonNegativeIntegralIntFromValue(
+            entry['tokenCount'],
+          );
           if (value != null) {
             sum += value;
             anyMatched = true;
@@ -330,7 +336,11 @@ class AiTokenUsageParser {
     return AiTokenUsage(
       promptTokens: promptTokens,
       completionTokens: completionTokens,
-      totalTokens: totalTokens,
+      totalTokens: resolveAiTotalTokens(
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+        totalTokens: totalTokens,
+      ),
       cacheReadTokens: cacheRead,
       reasoningTokens: reasoning,
     );
@@ -392,7 +402,7 @@ class AiTokenUsageParser {
 
 int? _firstInt(List<Object?> candidates) {
   for (final candidate in candidates) {
-    final value = optionalIntegralIntFromValue(candidate);
+    final value = optionalNonNegativeIntegralIntFromValue(candidate);
     if (value != null) return value;
   }
   return null;

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/data/ai_usage_store.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
@@ -8,9 +11,27 @@ import 'package:openhand/features/ai/service/chat/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/session_io/ai_token_usage_parser.dart';
 import 'package:openhand/features/home/model/session_cache_hit_trend.dart';
+import 'package:openhand/shared/db/database_service.dart';
 
 void main() {
-  group('多媒体 Token 统计', () {
+  late Directory temporaryDirectory;
+
+  setUpAll(() async {
+    temporaryDirectory = await Directory.systemTemp.createTemp(
+      'openhand-token-usage-test-',
+    );
+    await DatabaseService.initialize(
+      databasePath: '${temporaryDirectory.path}/openhand.db',
+      useNoIsolateFactory: true,
+    );
+  });
+
+  tearDownAll(() async {
+    await DatabaseService.instance.close();
+    await temporaryDirectory.delete(recursive: true);
+  });
+
+  group('AI Token 统计', () {
     test('字符估算统一向上取整', () {
       expect(
         estimateAiTokenUsage(
@@ -20,6 +41,99 @@ void main() {
         ).toJson(),
         containsPair('total_tokens', 5),
       );
+    });
+
+    test('缓存命中率按协议口径计算', () {
+      expect(
+        computeCacheHitRatio(
+          promptTokens: 100,
+          cacheReadTokens: 80,
+          cacheWriteTokens: 10,
+          claudeStyle: false,
+        ),
+        0.8,
+      );
+      expect(
+        computeCacheHitRatio(
+          promptTokens: 10,
+          cacheReadTokens: 80,
+          cacheWriteTokens: 10,
+          claudeStyle: true,
+        ),
+        0.8,
+      );
+    });
+
+    test('Token 合并会补全缺失总量', () {
+      const partial = AiTokenUsage(promptTokens: 20, completionTokens: 5);
+      const complete = AiTokenUsage(
+        promptTokens: 10,
+        completionTokens: 2,
+        totalTokens: 12,
+      );
+
+      expect(partial.resolvedTotalTokens, 25);
+      expect(partial.merge(complete).totalTokens, 37);
+    });
+
+    test('Token 解析忽略负数并补全 Gemini 总量', () {
+      final openAi = AiTokenUsageParser.parseOpenAi(<String, Object?>{
+        'prompt_tokens': -10,
+        'completion_tokens': 5,
+        'total_tokens': -5,
+      });
+      final gemini = AiTokenUsageParser.parseGemini(<String, Object?>{
+        'promptTokenCount': 12,
+        'candidatesTokenCount': 3,
+      });
+
+      expect(openAi?.promptTokens, isNull);
+      expect(openAi?.totalTokens, 5);
+      expect(gemini?.totalTokens, 15);
+    });
+
+    test('使用统计持久化跨协议缓存输入口径', () async {
+      const store = AiUsageStore();
+      await store.clear();
+      final startedAt = DateTime.utc(2026, 7, 22, 8);
+      await store.insert(
+        _usageRecord(
+          id: 'openai-usage',
+          startedAt: startedAt,
+          protocol: 'openai',
+          usage: const AiTokenUsage(
+            promptTokens: 100,
+            completionTokens: 20,
+            cacheReadTokens: 80,
+            cacheCreationTokens: 10,
+          ),
+          cacheInputTokens: 100,
+        ),
+      );
+      await store.insert(
+        _usageRecord(
+          id: 'claude-usage',
+          startedAt: startedAt.add(const Duration(seconds: 1)),
+          protocol: 'claude',
+          usage: const AiTokenUsage(
+            promptTokens: 10,
+            completionTokens: 5,
+            totalTokens: 15,
+            cacheReadTokens: 80,
+            cacheCreationTokens: 10,
+          ),
+          cacheInputTokens: 100,
+        ),
+      );
+
+      final summary = await store.loadSessionSummary(
+        sessionId: 'test-session',
+        source: 'thread',
+      );
+      expect(summary.requestCount, 2);
+      expect(summary.totalTokens, 135);
+      expect(summary.cacheInputTokens, 200);
+      expect(summary.cacheHitRate, 0.8);
     });
 
     test('解析异步响应中的嵌套 usage', () {
@@ -148,4 +262,35 @@ void main() {
       expect(trend.points.single.starterMessageId, 'user-1');
     });
   });
+}
+
+AiUsageStorageRecord _usageRecord({
+  required String id,
+  required DateTime startedAt,
+  required String protocol,
+  required AiTokenUsage usage,
+  required int cacheInputTokens,
+}) {
+  return AiUsageStorageRecord(
+    id: id,
+    traceId: 'trace-$id',
+    startedAt: startedAt,
+    endedAt: startedAt.add(const Duration(milliseconds: 100)),
+    localDate: '2026-07-22',
+    localHour: '2026-07-22T08',
+    durationMs: 100,
+    status: 'success',
+    surface: 'app',
+    source: 'thread',
+    operation: 'chat',
+    sessionId: 'test-session',
+    providerConfigId: protocol,
+    providerName: protocol,
+    protocol: protocol,
+    modelId: 'test-model',
+    apiFamily: 'chat',
+    usage: usage,
+    cacheInputTokens: cacheInputTokens,
+    usageEstimated: false,
+  );
 }

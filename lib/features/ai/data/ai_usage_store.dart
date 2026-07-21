@@ -27,6 +27,7 @@ class AiUsageStorageRecord {
     required this.modelId,
     required this.apiFamily,
     required this.usage,
+    required this.cacheInputTokens,
     required this.usageEstimated,
     this.sessionId,
     this.threadTemplateId,
@@ -71,6 +72,7 @@ class AiUsageStorageRecord {
   final String modelId;
   final String apiFamily;
   final AiTokenUsage usage;
+  final int cacheInputTokens;
   final bool usageEstimated;
   final double? inputCostUsd;
   final double? outputCostUsd;
@@ -109,15 +111,14 @@ class AiUsageStorageRecord {
     'completion_tokens': usage.completionTokens ?? 0,
     'cache_creation_tokens': usage.cacheCreationTokens ?? 0,
     'cache_read_tokens': usage.cacheReadTokens ?? 0,
+    'cache_input_tokens': cacheInputTokens,
     'reasoning_tokens': usage.reasoningTokens ?? 0,
     'audio_input_tokens': usage.audioInputTokens ?? 0,
     'image_input_tokens': usage.imageInputTokens ?? 0,
     'video_input_tokens': usage.videoInputTokens ?? 0,
     'web_search_tool_usage': usage.webSearchToolUsage ?? 0,
     'web_search_page_usage': usage.webSearchPageUsage ?? 0,
-    'total_tokens':
-        usage.totalTokens ??
-        (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0),
+    'total_tokens': usage.resolvedTotalTokens ?? 0,
     'usage_estimated': usageEstimated ? 1 : 0,
     'input_cost_usd': inputCostUsd,
     'output_cost_usd': outputCostUsd,
@@ -272,6 +273,7 @@ class AiUsageStore {
         SUM(completion_tokens) AS completion_tokens,
         SUM(cache_creation_tokens) AS cache_creation_tokens,
         SUM(cache_read_tokens) AS cache_read_tokens,
+        SUM(cache_input_tokens) AS cache_input_tokens,
         SUM(reasoning_tokens) AS reasoning_tokens,
         SUM(audio_input_tokens) AS audio_input_tokens,
         SUM(image_input_tokens) AS image_input_tokens,
@@ -308,6 +310,7 @@ class AiUsageStore {
       completionTokens: _int(row['completion_tokens']),
       cacheCreationTokens: _int(row['cache_creation_tokens']),
       cacheReadTokens: _int(row['cache_read_tokens']),
+      cacheInputTokens: _int(row['cache_input_tokens']),
       reasoningTokens: _int(row['reasoning_tokens']),
       audioInputTokens: _int(row['audio_input_tokens']),
       imageInputTokens: _int(row['image_input_tokens']),

@@ -1,6 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
-import 'cache_hit_ratio.dart';
 
 /// 过期异常判定：距离上一轮请求超过 30 分钟，且本轮缓存命中率不足 3%。
 const int kCacheHitExpiryIdleGapSeconds = 1800; // 30 分钟

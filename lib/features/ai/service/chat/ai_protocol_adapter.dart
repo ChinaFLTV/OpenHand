@@ -4031,10 +4031,12 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     try {
       final decoded = jsonDecode(rawResponse);
       if (decoded is! Map<String, Object?>) return null;
-      final promptEval = optionalIntegralIntFromValue(
+      final promptEval = optionalNonNegativeIntegralIntFromValue(
         decoded['prompt_eval_count'],
       );
-      final evalCount = optionalIntegralIntFromValue(decoded['eval_count']);
+      final evalCount = optionalNonNegativeIntegralIntFromValue(
+        decoded['eval_count'],
+      );
       if (promptEval == null && evalCount == null) return null;
       return AiTokenUsage(
         promptTokens: promptEval,

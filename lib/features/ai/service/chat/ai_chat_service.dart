@@ -2731,10 +2731,10 @@ class AiChatService implements AiChatClient {
         !requestFallbacks.contains(aiChatRequestFallbackResponsesUnsupported)) {
       return AiApiFamily.responses.storageValue;
     }
-    return switch (model.protocolType) {
-      AiProtocolType.claude => AiApiFamily.messages.storageValue,
-      AiProtocolType.gemini => 'generate_content',
-      _ => AiApiFamily.chatCompletions.storageValue,
+    return switch (model.apiDialect) {
+      AiApiDialect.anthropicNative => AiApiFamily.messages.storageValue,
+      AiApiDialect.geminiNative => 'generate_content',
+      AiApiDialect.openAiCompat => AiApiFamily.chatCompletions.storageValue,
     };
   }
 

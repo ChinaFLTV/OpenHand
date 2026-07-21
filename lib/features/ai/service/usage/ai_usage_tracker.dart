@@ -219,13 +219,12 @@ class AiUsageTracker {
     final trace = AiUsageTraceContext.current ?? AiUsageTraceContext();
     final localStartedAt = startedAt.toLocal();
     final profile = model.profileFor(model.modelId);
+    final claudeStyle = model.supportsExplicitPromptCacheControl;
     final cost = status == AiUsageRequestStatus.success
         ? AiCostBreakdown.compute(
             usage: usage,
             profile: profile,
-            claudeStyle:
-                model.protocolType == AiProtocolType.claude ||
-                model.apiDialect.storageValue.contains('anthropic'),
+            claudeStyle: claudeStyle,
           )
         : null;
     final record = AiUsageStorageRecord(
@@ -259,6 +258,12 @@ class AiUsageTracker {
       modelId: model.modelId,
       apiFamily: apiFamily,
       usage: usage,
+      cacheInputTokens: computeCacheHitDenominatorTokens(
+        promptTokens: usage.promptTokens ?? 0,
+        cacheReadTokens: usage.cacheReadTokens ?? 0,
+        cacheWriteTokens: usage.cacheCreationTokens ?? 0,
+        claudeStyle: claudeStyle,
+      ),
       usageEstimated: usageEstimated,
       inputCostUsd: cost?.inputUsd,
       outputCostUsd: cost?.outputUsd,
@@ -297,7 +302,7 @@ class AiUsageTracker {
     if (usage != null && !usage.isEmpty) {
       final prompt = usage.promptTokens;
       final completion = usage.completionTokens;
-      final total = usage.totalTokens ?? (prompt ?? 0) + (completion ?? 0);
+      final total = usage.resolvedTotalTokens ?? 0;
       return (
         usage: AiTokenUsage(
           promptTokens: prompt,
