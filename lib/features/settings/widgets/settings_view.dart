@@ -118,7 +118,7 @@ bool _settingsMotionEnabled(BuildContext context) {
 }
 
 Duration _settingsMotionDuration(BuildContext context, Duration duration) {
-  return _settingsMotionEnabled(context) ? duration : Duration.zero;
+  return openHandMotionDuration(context, duration);
 }
 
 DialogAnimationSettings _settingsListItemMotionSettings(

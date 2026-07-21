@@ -66,16 +66,16 @@ part 'harness_session_dashboard.file_hover.part.dart';
 part 'harness_session_dashboard.steering.part.dart';
 
 Duration _harnessMotionDuration(BuildContext context, Duration duration) {
-  return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
+  return openHandMotionDuration(context, duration);
 }
 
-// Pre-compiled regex for detecting log-level prefixes in output lines.
+// 预编译日志级别前缀正则，避免重复创建。
 final RegExp _logLevelPattern = RegExp(
   r'\b(ERROR|ERR|WARN|WARNING|INFO|DEBUG|TRACE)\b',
   caseSensitive: false,
 );
 
-// Matches terminal separator lines (any run of dashes/equals/underscores).
+// 匹配由横线、等号或下划线组成的终端分隔行。
 final RegExp _heSeparatorLinePattern = RegExp(r'^[-=_]{3,}$');
 
 // Matches <tool_calls>…</tool_calls> XML blocks that some models embed

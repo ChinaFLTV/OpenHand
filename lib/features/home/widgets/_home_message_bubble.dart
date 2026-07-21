@@ -4618,11 +4618,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
             },
           ),
         );
-      // `setBackgroundColor` on macOS bridges to `WKWebView.setOpaque`, which
-      // is unimplemented in the wkwebview plugin and throws
-      // `UnimplementedError: opaque is not implemented on macOS`. Skip the
-      // call there — the dialog already uses a transparent overlay so the
-      // default WKWebView background is acceptable.
+      // macOS 插件未实现 WKWebView 透明背景接口，直接保留默认背景。
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
@@ -4672,21 +4668,11 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
         "try{var m=window.media||document.getElementById('media');if(m){if(m.paused){var p=m.play();if(p&&p.catch)p.catch(function(){});}else{m.pause();}}}catch(_){}",
       );
     } catch (error, stack) {
-      silentLog(
-        'home_message_bubble',
-        'media preview: toggle play/pause failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_bubble', '媒体预览：切换播放状态失败', error, stack);
     }
   }
 
-  // For local `file://` media we must write the HTML wrapper next to the
-  // video so WKWebView can grant `file://` read access to the parent
-  // directory via `loadFileURL:allowingReadAccessToURL:`. Loading the same
-  // HTML via `loadHtmlString` works on Android/iOS Safari but WKWebView on
-  // macOS silently refuses to fetch the `<source src="file://...">` entry,
-  // resulting in the existing 18s timeout fallback.
+  // 本地媒体需把 HTML 写到同目录，确保 WKWebView 获得父目录读取权限。
   Future<void> _bootstrapMediaPage() async {
     final controller = _controller;
     if (controller == null) return;
@@ -4706,14 +4692,8 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
         await controller.loadFile(tempFile.path);
         return;
       } catch (error, stack) {
-        silentLog(
-          'home_message_bubble',
-          'media preview: loadFile fallback failed',
-          error,
-          stack,
-        );
-        // Fall through to loadHtmlString — worst case the user still sees
-        // the timeout fallback and can use the system player button.
+        silentLog('home_message_bubble', '媒体预览：本地文件加载失败，回退内嵌页面', error, stack);
+        // 继续回退到内嵌页面，失败时仍可使用系统播放器。
       }
     }
     if (!mounted) return;
@@ -4731,31 +4711,23 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     _saveCancel = null;
     final controller = _controller;
     if (controller != null) {
-      // Stop video playback so closing the dialog never leaves residual
-      // media while the WebView tears down.
+      // 关闭弹窗前停止播放并释放媒体资源。
       unawaited(
         controller
-            .runJavaScript(
-              "try{var m=document.getElementById('media');if(m){try{m.pause();}catch(_){};try{m.muted=true;}catch(_){};try{m.removeAttribute('src');}catch(_){};try{while(m.firstChild)m.removeChild(m.firstChild);}catch(_){};try{m.load();}catch(_){};}}catch(_){}",
-            )
+            .runJavaScript(openHandVideoPlayerReleaseJavaScript)
             .catchError((_) {}),
       );
     }
     _dialogFocus.dispose();
     final tempPath = _tempHtmlPath;
     if (tempPath != null) {
-      // Best-effort cleanup; ignore failures (file may already be gone).
+      // 临时文件可能已被系统清理，此处仅尽力删除。
       Future<void>(() async {
         try {
           final f = File(tempPath);
           if (await f.exists()) await f.delete();
         } catch (error, stack) {
-          silentLog(
-            'home_message_bubble',
-            'media preview: temp html cleanup failed',
-            error,
-            stack,
-          );
+          silentLog('home_message_bubble', '媒体预览：清理临时页面失败', error, stack);
         }
       });
     }
@@ -4858,40 +4830,13 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInse
 <body>
 <div id="shell" class="media-shell controls-visible$motionClass" tabindex="0">
   <video id="media" playsinline preload="metadata" disableRemotePlayback><source src="$source" type="$escapedMime"></video>
-  <div class="scrim"></div>
-  <div class="control-bar" id="controls">
-    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
-    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
-    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
-    <span id="current" class="time">00:00</span>
-    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
-    <span id="duration" class="time">00:00</span>
-    <div class="volume-group" id="volumeGroup">
-      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
-      <div class="volume-popover">
-        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
-      </div>
-    </div>
-    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
-    <button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen" title="Fullscreen"></button>
-  </div>
+${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingActionLabel: 'Fullscreen')}
 </div>
 <script>
 (function() {
   const AUTO_HIDE_MS = $_kMediaPreviewControlAutoHideMs;
   const POINTER_LEAVE_HIDE_MS = $_kMediaPreviewPointerLeaveHideMs;
-  const media = document.getElementById('media');
-  const shell = document.getElementById('shell');
-  const play = document.getElementById('play');
-  const rewind = document.getElementById('rewind');
-  const forward = document.getElementById('forward');
-  const progress = document.getElementById('progress');
-  const current = document.getElementById('current');
-  const duration = document.getElementById('duration');
-  const volume = document.getElementById('volume');
-  const mute = document.getElementById('mute');
-  const volumeGroup = document.getElementById('volumeGroup');
-  const playMode = document.getElementById('playMode');
+  $openHandVideoPlayerElementBindingsJavaScript
   const fullscreen = document.getElementById('fullscreen');
   window.media = media;
   const post = (value) => {
@@ -4907,35 +4852,13 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInse
   let dragging = false;
   let volumeActive = false;
   let pointerInsideShell = true;
-  let loopPlayback = false;
+  let looping = false;
   let lastSent = -1;
-  const icon = {
-    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
-    pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
-    mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    volume: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    rewind: '<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
-    forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
-    loop: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    stopAfter: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  };
+  ${openHandVideoPlayerIconsJavaScript()}
   rewind.innerHTML = icon.rewind;
   forward.innerHTML = icon.forward;
   fullscreen.innerHTML = icon.fullscreen;
-  function formatTime(value) {
-    if (!Number.isFinite(value) || value < 0) return '00:00';
-    const total = Math.floor(value);
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = total % 60;
-    const pad = (n) => String(n).padStart(2, '0');
-    return hours > 0 ? hours + ':' + pad(minutes) + ':' + pad(seconds) : pad(minutes) + ':' + pad(seconds);
-  }
-  function setRangeFill(input, ratio) {
-    const value = Math.max(0, Math.min(100, ratio * 100));
-    input.style.setProperty('--value', value + '%');
-  }
+  $openHandVideoPlayerScriptUtilities
   function clearHideTimer() {
     if (hideTimer) window.clearTimeout(hideTimer);
     hideTimer = 0;
@@ -4968,36 +4891,7 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInse
     }
     scheduleHide();
   }
-  function updatePlayState() {
-    play.innerHTML = media.paused ? icon.play : icon.pause;
-    play.setAttribute('aria-label', media.paused ? 'Play' : 'Pause');
-    play.setAttribute('title', media.paused ? 'Play' : 'Pause');
-    if (media.paused || media.ended) showControls(true); else scheduleHide();
-  }
-  function updateTime() {
-    const dur = Number.isFinite(media.duration) ? media.duration : 0;
-    const cur = Number.isFinite(media.currentTime) ? media.currentTime : 0;
-    current.textContent = formatTime(cur);
-    duration.textContent = formatTime(dur);
-    const ratio = dur > 0 ? cur / dur : 0;
-    progress.value = String(Math.round(ratio * 1000));
-    setRangeFill(progress, ratio);
-  }
-  function updateVolume() {
-    const muted = media.muted || media.volume <= 0;
-    mute.innerHTML = muted ? icon.mute : icon.volume;
-    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
-    mute.setAttribute('title', muted ? 'Unmute' : 'Mute');
-    volume.value = String(media.muted ? 0 : media.volume);
-    setRangeFill(volume, media.muted ? 0 : media.volume);
-  }
-  function updatePlayMode() {
-    media.loop = loopPlayback;
-    playMode.innerHTML = loopPlayback ? icon.loop : icon.stopAfter;
-    playMode.classList.toggle('is-active', loopPlayback);
-    playMode.setAttribute('aria-label', loopPlayback ? 'Loop playback' : 'Stop after playback');
-    playMode.setAttribute('title', loopPlayback ? 'Loop playback' : 'Stop after playback');
-  }
+  $openHandVideoPlayerStateSyncJavaScript
   function sendTime() {
     const t = media.currentTime || 0;
     if (Math.abs(t - lastSent) >= 0.2) {
@@ -5089,7 +4983,7 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInse
     setVolumeActive(true);
   });
   playMode.addEventListener('click', () => {
-    loopPlayback = !loopPlayback;
+    looping = !looping;
     updatePlayMode();
     showControls(true);
   });
@@ -5536,12 +5430,7 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInse
           'try{if(window.media){window.media.pause();}}catch(_){}',
         );
       } catch (error, stack) {
-        silentLog(
-          'home_message_bubble',
-          'media preview: pause-on-fullscreen failed',
-          error,
-          stack,
-        );
+        silentLog('home_message_bubble', '媒体预览：进入全屏前暂停失败', error, stack);
       }
       if (!mounted) return;
       final returnedTime = await navigator.push<double>(
@@ -5575,12 +5464,7 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInse
             'try{if(window.media){window.media.currentTime=${returnedTime.toStringAsFixed(3)};}}catch(_){}',
           );
         } catch (error, stack) {
-          silentLog(
-            'home_message_bubble',
-            'media preview: resume-from-fullscreen seek failed',
-            error,
-            stack,
-          );
+          silentLog('home_message_bubble', '媒体预览：全屏返回后恢复进度失败', error, stack);
         }
       }
     } finally {
@@ -8682,12 +8566,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
         await _controller.loadFile(tempFile.path);
         return;
       } catch (error, stack) {
-        silentLog(
-          'home_message_bubble',
-          'fullscreen video: loadFile fallback failed',
-          error,
-          stack,
-        );
+        silentLog('home_message_bubble', '全屏视频：本地文件加载失败，回退内嵌页面', error, stack);
       }
     }
     if (!mounted) return;
@@ -8712,121 +8591,57 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     final motionClass = durationMs == 0 ? ' no-motion' : '';
     return '''
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>
-:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(18,18,20,.76);--oh-control-border:rgba(255,255,255,.14);--oh-track:rgba(255,255,255,.22);--oh-track-fill:#fff}
+:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(18,18,20,.76);--oh-control-border:rgba(255,255,255,.14);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.22);--oh-track-fill:#fff}
 html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 button,input{font:inherit}
 .media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;user-select:none;overflow:hidden;isolation:isolate}
-video{width:100vw;height:100vh;background:#000;object-fit:contain}
-.scrim{position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,rgba(0,0,0,.52),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
-.media-shell:not(.controls-visible) .scrim{opacity:0}
-.control-bar{position:absolute;left:50%;bottom:18px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 48px);max-width:900px;min-height:50px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
-.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(26px) scale(.94);filter:blur(4px)}
-.control-button{width:30px;height:30px;min-width:30px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
-.control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
-.control-button.is-active{background:rgba(255,255,255,.20)}
-.control-button:active{transform:scale(.92)}
-.control-button svg{width:18px;height:18px;display:block;fill:currentColor}
-.seek-button svg{width:21px;height:21px}
-.time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
-.progress{flex:1 1 220px;min-width:96px}
-.volume-group{position:relative;display:inline-flex;align-items:center;justify-content:center}
-.volume-popover{position:absolute;left:50%;bottom:40px;width:46px;height:136px;display:flex;align-items:center;justify-content:center;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(10px) scale(.88);opacity:0;pointer-events:none;filter:blur(3px);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
-.volume-open .volume-popover,.volume-group:focus-within .volume-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);filter:blur(0)}
-.volume.vertical{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center}
-input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
-input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
-.no-motion *{transition-duration:0ms!important;animation:none!important}
-@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
-@media (max-width:460px){.seek-button{display:none}.control-bar{width:calc(100% - 18px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
+${openHandVideoPlayerControlsCss(compactBreakpointPx: 460, compactHorizontalInsetPx: 18, fullscreen: true)}
 </style></head><body>
 <div id="shell" class="media-shell controls-visible$motionClass" tabindex="0">
   <video id="media" autoplay playsinline preload="auto" disableRemotePlayback><source src="$src" type="$mime"></video>
-  <div class="scrim"></div>
-  <div class="control-bar" id="controls">
-    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
-    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
-    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
-    <span id="current" class="time">00:00</span>
-    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
-    <span id="duration" class="time">00:00</span>
-    <div class="volume-group" id="volumeGroup">
-      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
-      <div class="volume-popover">
-        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
-      </div>
-    </div>
-    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
-    <button id="exit" class="control-button" type="button" aria-label="Exit fullscreen" title="Exit fullscreen"></button>
-  </div>
+${openHandVideoPlayerControlsHtml(trailingActionId: 'exit', trailingActionLabel: 'Exit fullscreen')}
 </div>
 <script>(function(){
 const AUTO_HIDE_MS=$_kMediaPreviewControlAutoHideMs;
 const POINTER_LEAVE_HIDE_MS=$_kMediaPreviewPointerLeaveHideMs;
-const shell=document.getElementById('shell');
-const v=document.getElementById('media');
-const play=document.getElementById('play');
-const rewind=document.getElementById('rewind');
-const forward=document.getElementById('forward');
-const progress=document.getElementById('progress');
-const current=document.getElementById('current');
-const duration=document.getElementById('duration');
-const volume=document.getElementById('volume');
-const mute=document.getElementById('mute');
-const volumeGroup=document.getElementById('volumeGroup');
-const playMode=document.getElementById('playMode');
+$openHandVideoPlayerElementBindingsJavaScript
 const exit=document.getElementById('exit');
-window.media=v;
+window.media=media;
 function post(m){try{if(window.OpenHandFs&&window.OpenHandFs.postMessage){window.OpenHandFs.postMessage(String(m));}}catch(_){}}
-if(!v){post('error:missing_video');return;}
+if(!media){post('error:missing_video');return;}
 let hideTimer=0;
 let dragging=false;
 let volumeActive=false;
 let pointerInsideShell=true;
-let playbackMode='stop';
-const icon={
-play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
-pause:'<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
-mute:'<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-volume:'<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-rewind:'<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
-forward:'<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
-loop:'<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-stopAfter:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-exit:'<svg viewBox="0 0 24 24"><path d="M9 5H5v4M15 5h4v4M19 15v4h-4M5 15v4h4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9l-5-5M15 9l5-5M15 15l5 5M9 15l-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>'
-};
+let looping=false;
+${openHandVideoPlayerIconsJavaScript(exitFullscreen: true)}
 rewind.innerHTML=icon.rewind;
 forward.innerHTML=icon.forward;
 exit.innerHTML=icon.exit;
-function fmt(value){if(!Number.isFinite(value)||value<0)return'00:00';const total=Math.floor(value);const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;const pad=(n)=>String(n).padStart(2,'0');return h>0?h+':'+pad(m)+':'+pad(s):pad(m)+':'+pad(s);}
-function setFill(input,ratio){const value=Math.max(0,Math.min(100,ratio*100));input.style.setProperty('--value',value+'%');}
+$openHandVideoPlayerScriptUtilities
 function clearHideTimer(){if(hideTimer)window.clearTimeout(hideTimer);hideTimer=0;}
-function scheduleHide(){clearHideTimer();if(v.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!v.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
+function scheduleHide(){clearHideTimer();if(media.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!media.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
 function hideControlsAfterPointerLeave(){clearHideTimer();if(dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},POINTER_LEAVE_HIDE_MS);}
 function showControls(sticky){shell.classList.add('controls-visible');if(sticky){clearHideTimer();return;}scheduleHide();}
-function updatePlay(){play.innerHTML=v.paused?icon.play:icon.pause;play.setAttribute('aria-label',v.paused?'Play':'Pause');play.setAttribute('title',v.paused?'Play':'Pause');if(v.paused||v.ended)showControls(true);else scheduleHide();}
-function updateTime(){const dur=Number.isFinite(v.duration)?v.duration:0;const cur=Number.isFinite(v.currentTime)?v.currentTime:0;current.textContent=fmt(cur);duration.textContent=fmt(dur);const ratio=dur>0?cur/dur:0;progress.value=String(Math.round(ratio*1000));setFill(progress,ratio);}
-function updateVolume(){const muted=v.muted||v.volume<=0;mute.innerHTML=muted?icon.mute:icon.volume;mute.setAttribute('aria-label',muted?'Unmute':'Mute');mute.setAttribute('title',muted?'Unmute':'Mute');volume.value=String(v.muted?0:v.volume);setFill(volume,v.muted?0:v.volume);}
-function updatePlayMode(){const looping=playbackMode==='loop';v.loop=looping;playMode.innerHTML=looping?icon.loop:icon.stopAfter;playMode.classList.toggle('is-active',looping);playMode.setAttribute('aria-label',looping?'Loop playback':'Stop after playback');playMode.setAttribute('title',looping?'Loop playback':'Stop after playback');}
+$openHandVideoPlayerStateSyncJavaScript
 function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else if(pointerInsideShell)scheduleHide();else hideControlsAfterPointerLeave();}
-function seekBy(delta){const dur=Number.isFinite(v.duration)?v.duration:0;v.currentTime=Math.max(0,Math.min(dur||Number.MAX_SAFE_INTEGER,v.currentTime+delta));updateTime();showControls(false);}
+function seekBy(delta){const dur=Number.isFinite(media.duration)?media.duration:0;media.currentTime=Math.max(0,Math.min(dur||Number.MAX_SAFE_INTEGER,media.currentTime+delta));updateTime();showControls(false);}
 function beginDrag(event){dragging=true;progress.setPointerCapture?.(event.pointerId);showControls(true);}
 function endDrag(event){if(!dragging)return;dragging=false;progress.releasePointerCapture?.(event.pointerId);if(pointerInsideShell)showControls(false);else hideControlsAfterPointerLeave();}
 let resumed=false;
-function resume(){if(resumed)return;resumed=true;try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(v.duration||Infinity)){v.currentTime=t;}}catch(_){}updateTime();var p=v.play();if(p&&p.catch)p.catch(function(){updatePlay();});}
-v.addEventListener('loadedmetadata',resume);
-v.addEventListener('canplay',resume);
-v.addEventListener('error',function(){post('error:video_load');});
+function resume(){if(resumed)return;resumed=true;try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(media.duration||Infinity)){media.currentTime=t;}}catch(_){}updateTime();var p=media.play();if(p&&p.catch)p.catch(function(){updatePlayState();});}
+media.addEventListener('loadedmetadata',resume);
+media.addEventListener('canplay',resume);
+media.addEventListener('error',function(){post('error:video_load');});
 var lastSent=-1;
-function sendTime(){var t=v.currentTime||0;if(Math.abs(t-lastSent)>=0.2){lastSent=t;post('time:'+t.toFixed(3));}}
-play.addEventListener('click',()=>{if(v.paused){v.play().catch(()=>showControls(true));}else{v.pause();}showControls(true);});
+function sendTime(){var t=media.currentTime||0;if(Math.abs(t-lastSent)>=0.2){lastSent=t;post('time:'+t.toFixed(3));}}
+play.addEventListener('click',()=>{if(media.paused){media.play().catch(()=>showControls(true));}else{media.pause();}showControls(true);});
 rewind.addEventListener('click',()=>seekBy(-15));
 forward.addEventListener('click',()=>seekBy(15));
 progress.addEventListener('pointerdown',beginDrag);
 progress.addEventListener('pointerup',endDrag);
 progress.addEventListener('pointercancel',endDrag);
-progress.addEventListener('input',()=>{const dur=Number.isFinite(v.duration)?v.duration:0;if(dur>0)v.currentTime=(Number(progress.value)/1000)*dur;updateTime();showControls(true);});
+progress.addEventListener('input',()=>{const dur=Number.isFinite(media.duration)?media.duration:0;if(dur>0)media.currentTime=(Number(progress.value)/1000)*dur;updateTime();showControls(true);});
 volumeGroup.addEventListener('pointerenter',()=>setVolumeActive(true));
 volumeGroup.addEventListener('pointerleave',()=>setVolumeActive(false));
 volumeGroup.addEventListener('pointerdown',()=>setVolumeActive(true));
@@ -8834,9 +8649,9 @@ volumeGroup.addEventListener('pointerup',()=>setVolumeActive(false));
 volumeGroup.addEventListener('pointercancel',()=>setVolumeActive(false));
 volumeGroup.addEventListener('focusin',()=>setVolumeActive(true));
 volumeGroup.addEventListener('focusout',(event)=>{if(!event.relatedTarget||!volumeGroup.contains(event.relatedTarget)){setVolumeActive(false);}});
-volume.addEventListener('input',()=>{const next=Math.max(0,Math.min(1,Number(volume.value)));v.volume=Number.isFinite(next)?next:1;v.muted=v.volume<=0;updateVolume();setVolumeActive(true);});
-mute.addEventListener('click',()=>{v.muted=!v.muted;if(!v.muted&&v.volume<=0)v.volume=0.6;updateVolume();setVolumeActive(true);});
-playMode.addEventListener('click',()=>{playbackMode=playbackMode==='loop'?'stop':'loop';updatePlayMode();showControls(true);});
+volume.addEventListener('input',()=>{const next=Math.max(0,Math.min(1,Number(volume.value)));media.volume=Number.isFinite(next)?next:1;media.muted=media.volume<=0;updateVolume();setVolumeActive(true);});
+mute.addEventListener('click',()=>{media.muted=!media.muted;if(!media.muted&&media.volume<=0)media.volume=0.6;updateVolume();setVolumeActive(true);});
+playMode.addEventListener('click',()=>{looping=!looping;updatePlayMode();showControls(true);});
 exit.addEventListener('click',()=>post('close'));
 shell.addEventListener('pointerenter',()=>{pointerInsideShell=true;});
 shell.addEventListener('pointermove',()=>{pointerInsideShell=true;showControls(false);});
@@ -8844,18 +8659,18 @@ shell.addEventListener('pointerdown',()=>showControls(false));
 shell.addEventListener('pointerleave',()=>{pointerInsideShell=false;hideControlsAfterPointerLeave();});
 shell.addEventListener('keydown',(event)=>{if(event.defaultPrevented)return;if(event.key===' '||event.key==='Enter'){event.preventDefault();play.click();}else if(event.key==='ArrowLeft'){event.preventDefault();seekBy(-5);}else if(event.key==='ArrowRight'){event.preventDefault();seekBy(5);}else if(event.key.toLowerCase()==='m'){event.preventDefault();mute.click();}});
 document.addEventListener('keydown',(event)=>{if(event.defaultPrevented||event.key!=='Escape')return;event.preventDefault();post('close');},true);
-v.addEventListener('timeupdate',sendTime);
-v.addEventListener('timeupdate',updateTime);
-v.addEventListener('pause',sendTime);
-v.addEventListener('pause',updatePlay);
-v.addEventListener('play',updatePlay);
-v.addEventListener('seeked',sendTime);
-v.addEventListener('seeked',updateTime);
-v.addEventListener('ended',()=>{sendTime();updatePlay();showControls(true);});
-v.addEventListener('volumechange',updateVolume);
+media.addEventListener('timeupdate',sendTime);
+media.addEventListener('timeupdate',updateTime);
+media.addEventListener('pause',sendTime);
+media.addEventListener('pause',updatePlayState);
+media.addEventListener('play',updatePlayState);
+media.addEventListener('seeked',sendTime);
+media.addEventListener('seeked',updateTime);
+media.addEventListener('ended',()=>{sendTime();updatePlayState();showControls(true);});
+media.addEventListener('volumechange',updateVolume);
 window.addEventListener('beforeunload',clearHideTimer);
 updatePlayMode();
-updatePlay();
+updatePlayState();
 updateTime();
 updateVolume();
 })();</script>
@@ -8867,9 +8682,7 @@ updateVolume();
     if (!mounted) return;
     if (_exiting) return;
     _exiting = true;
-    // Stop playback synchronously-as-possible so the user does not hear
-    // residual audio while the route pops. We fire the JS pause first,
-    // then pop — the controller is still attached at this point.
+    // 路由退出前先停止播放，避免残留音频。
     unawaited(_stopPlaybackBestEffort());
     Navigator.of(context).maybePop<double>(_currentTime);
   }
@@ -8880,40 +8693,22 @@ updateVolume();
         "try{var m=document.getElementById('media');if(m){if(m.paused){var p=m.play();if(p&&p.catch)p.catch(function(){});}else{m.pause();}}}catch(_){}",
       );
     } catch (error, stack) {
-      silentLog(
-        'home_message_bubble',
-        'fullscreen video: toggle play/pause failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_bubble', '全屏视频：切换播放状态失败', error, stack);
     }
   }
 
   Future<void> _stopPlaybackBestEffort() async {
     try {
-      // Pause + clear the source so WKWebView releases the decoder. Just
-      // calling pause() sometimes leaves a pending audio frame queued on
-      // macOS; removing the source forces a full teardown.
-      await _controller.runJavaScript(
-        "try{var m=document.getElementById('media');if(m){try{m.pause();}catch(_){};try{m.muted=true;}catch(_){};try{m.removeAttribute('src');}catch(_){};try{while(m.firstChild)m.removeChild(m.firstChild);}catch(_){};try{m.load();}catch(_){};}}catch(_){}",
-      );
+      // 暂停并清空媒体源，强制 WKWebView 释放解码器。
+      await _controller.runJavaScript(openHandVideoPlayerReleaseJavaScript);
     } catch (error, stack) {
-      silentLog(
-        'home_message_bubble',
-        'fullscreen video: stop playback failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_bubble', '全屏视频：停止播放失败', error, stack);
     }
   }
 
   @override
   void dispose() {
-    // Last-chance teardown in case the route was popped via a path that
-    // bypassed `_exit` (e.g. a system gesture or programmatic Navigator
-    // call). `runJavaScript` is fire-and-forget here; the controller may
-    // already be in the process of disposal but this still helps with
-    // the WKWebView audio-leak window observed on macOS.
+    // 兜底释放系统手势等非标准退出路径遗留的媒体资源。
     unawaited(_stopPlaybackBestEffort());
     _focusNode.dispose();
     final tmp = _tempHtmlPath;
@@ -8923,12 +8718,7 @@ updateVolume();
           final f = File(tmp);
           if (await f.exists()) await f.delete();
         } catch (error, stack) {
-          silentLog(
-            'home_message_bubble',
-            'fullscreen video: temp html cleanup failed',
-            error,
-            stack,
-          );
+          silentLog('home_message_bubble', '全屏视频：清理临时页面失败', error, stack);
         }
       });
     }

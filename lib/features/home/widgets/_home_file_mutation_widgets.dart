@@ -2883,13 +2883,9 @@ class _HistoryInspectorGroup extends StatelessWidget {
       ),
     );
   }
-
-  static String _formatTimestamp(DateTime dt) {
-    return formatYearMonthDayHms(dt.toLocal());
-  }
 }
 
-/// inspector 单条记录行——长按 / 右键弹「复制 record JSON」。
+/// 检查器单条记录，长按或右键可复制记录 JSON。
 class _InspectorEntryRow extends StatelessWidget {
   const _InspectorEntryRow({required this.view});
   final FileMutationView view;
@@ -2955,7 +2951,7 @@ class _InspectorEntryRow extends StatelessWidget {
       await copyHomeTextToClipboard(
         context: context,
         text: json,
-        logAction: 'copy file mutation record json',
+        logAction: '复制文件变更记录 JSON',
         successMessage: openHandLocalizedText(
           context,
           zh: '已复制 record JSON',
@@ -2970,7 +2966,7 @@ class _InspectorEntryRow extends StatelessWidget {
       await copyHomeTextToClipboard(
         context: context,
         text: view.record.recordId,
-        logAction: 'copy file mutation record id',
+        logAction: '复制文件变更记录 ID',
         successMessage: openHandLocalizedText(
           context,
           zh: '已复制 record ID',
@@ -3010,7 +3006,7 @@ class _InspectorEntryRow extends StatelessWidget {
               ),
             ),
             Text(
-              _HistoryInspectorGroup._formatTimestamp(view.record.createdAt),
+              formatYearMonthDayHms(view.record.createdAt.toLocal()),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontFeatures: const [FontFeature.tabularFigures()],

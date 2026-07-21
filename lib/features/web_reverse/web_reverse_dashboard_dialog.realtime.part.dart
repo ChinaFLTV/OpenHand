@@ -461,8 +461,6 @@ class _FrameTile extends StatelessWidget {
   final String label;
   final VoidCallback onCopy;
 
-  String _formatTime(DateTime t) => formatHourMinuteSecondMillis(t);
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -494,7 +492,7 @@ class _FrameTile extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                _formatTime(frame.timestamp),
+                formatHourMinuteSecondMillis(frame.timestamp),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),

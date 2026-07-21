@@ -570,7 +570,11 @@ class _EmbeddingRequestContext {
   Map<String, Object?> withProfileDefaults(Map<String, Object?> payload) {
     final defaults = profile.defaultParameters;
     if (defaults.isEmpty) return payload;
-    return _deepMergeObjectMaps(defaults, payload);
+    return AiOperationHttp.deepMergeObjectMaps(
+      defaults,
+      payload,
+      deepMergeKeys: _deepMergeableEmbeddingBodyKeys,
+    );
   }
 
   bool supportsParameter(String key) {
@@ -1300,28 +1304,6 @@ int? _embeddingResponseDimensions(Map<String, Object?> body) {
     body['embeddingConfig'],
   );
   return optionalPositiveIntFromValue(embeddingConfig['outputEmbeddingLength']);
-}
-
-Map<String, Object?> _deepMergeObjectMaps(
-  Map<String, Object?> defaults,
-  Map<String, Object?> overrides,
-) {
-  if (defaults.isEmpty) return overrides;
-  if (overrides.isEmpty) return Map<String, Object?>.from(defaults);
-  final merged = Map<String, Object?>.from(defaults);
-  for (final entry in overrides.entries) {
-    final defaultValue = merged[entry.key];
-    final defaultMap = AiOperationHttp.stringKeyedMap(defaultValue);
-    final overrideMap = AiOperationHttp.stringKeyedMap(entry.value);
-    if (_deepMergeableEmbeddingBodyKeys.contains(entry.key) &&
-        defaultMap.isNotEmpty &&
-        overrideMap.isNotEmpty) {
-      merged[entry.key] = _deepMergeObjectMaps(defaultMap, overrideMap);
-    } else {
-      merged[entry.key] = entry.value;
-    }
-  }
-  return merged;
 }
 
 const Set<String> _deepMergeableEmbeddingBodyKeys = <String>{

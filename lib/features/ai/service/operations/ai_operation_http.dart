@@ -178,6 +178,33 @@ final class AiOperationHttp {
     return const <String, Object?>{};
   }
 
+  /// 合并对象字段，并仅对指定键递归合并子对象。
+  static Map<String, Object?> deepMergeObjectMaps(
+    Map<String, Object?> defaults,
+    Map<String, Object?> overrides, {
+    required Set<String> deepMergeKeys,
+  }) {
+    if (defaults.isEmpty) return overrides;
+    if (overrides.isEmpty) return Map<String, Object?>.from(defaults);
+    final merged = Map<String, Object?>.from(defaults);
+    for (final entry in overrides.entries) {
+      final defaultMap = stringKeyedMap(merged[entry.key]);
+      final overrideMap = stringKeyedMap(entry.value);
+      if (deepMergeKeys.contains(entry.key) &&
+          defaultMap.isNotEmpty &&
+          overrideMap.isNotEmpty) {
+        merged[entry.key] = deepMergeObjectMaps(
+          defaultMap,
+          overrideMap,
+          deepMergeKeys: deepMergeKeys,
+        );
+      } else {
+        merged[entry.key] = entry.value;
+      }
+    }
+    return merged;
+  }
+
   static Map<String, String> stringMap(Object? raw) {
     final map = stringKeyedMap(raw);
     if (map.isEmpty) return const <String, String>{};

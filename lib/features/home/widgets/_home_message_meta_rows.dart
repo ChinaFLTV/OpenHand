@@ -379,15 +379,7 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
   @override
   void didUpdateWidget(covariant _ToolCallMetaRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.id != widget.message.id ||
-        _toolExecutionStatus(oldWidget.message) !=
-            _toolExecutionStatus(widget.message) ||
-        oldWidget.message.metadata['tool_execution_started_at'] !=
-            widget.message.metadata['tool_execution_started_at'] ||
-        oldWidget.message.metadata['tool_execution_elapsed_ms'] !=
-            widget.message.metadata['tool_execution_elapsed_ms'] ||
-        oldWidget.message.metadata['tool_execution_duration_ms'] !=
-            widget.message.metadata['tool_execution_duration_ms']) {
+    if (_toolExecutionTimingChanged(oldWidget.message, widget.message)) {
       syncElapsedTicker();
     }
   }

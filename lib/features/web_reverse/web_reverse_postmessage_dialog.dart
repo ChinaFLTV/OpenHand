@@ -480,7 +480,7 @@ class _PmDialogState extends State<_PmDialog> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    _fmtTime(r.at),
+                                    formatHourMinuteSecondMillis(r.at),
                                     style: const TextStyle(
                                       fontFamily: 'monospace',
                                       fontSize: 11,
@@ -535,6 +535,4 @@ class _PmDialogState extends State<_PmDialog> {
       ),
     );
   }
-
-  String _fmtTime(DateTime t) => formatHourMinuteSecondMillis(t);
 }

@@ -412,8 +412,6 @@ class _HeSteeringEntryTile extends StatelessWidget {
   final String? description;
   final VoidCallback onTap;
 
-  String _formatDate(DateTime dt) => formatYearMonthDayHm(dt);
-
   IconData get _icon {
     if (entry.isDirectory) return Icons.folder_rounded;
     final ext = p.extension(entry.name).toLowerCase();
@@ -489,7 +487,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
               if (entry.modified != null) ...[
                 const SizedBox(width: 12),
                 Text(
-                  _formatDate(entry.modified!),
+                  formatYearMonthDayHm(entry.modified!),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),

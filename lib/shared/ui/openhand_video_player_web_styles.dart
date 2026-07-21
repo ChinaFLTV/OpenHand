@@ -1,10 +1,104 @@
+/// 生成内嵌视频播放器共用的控制栏结构。
+String openHandVideoPlayerControlsHtml({
+  required String trailingActionId,
+  required String trailingActionLabel,
+}) {
+  return '''
+  <div class="scrim"></div>
+  <div class="control-bar" id="controls">
+    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
+    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
+    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
+    <span id="current" class="time">00:00</span>
+    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
+    <span id="duration" class="time">00:00</span>
+    <div class="volume-group" id="volumeGroup">
+      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
+      <div class="volume-popover">
+        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
+      </div>
+    </div>
+    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
+    <button id="$trailingActionId" class="control-button" type="button" aria-label="$trailingActionLabel" title="$trailingActionLabel"></button>
+  </div>
+''';
+}
+
+/// 生成播放器共用图标表；全屏页面使用退出图标，其余页面使用进入全屏图标。
+String openHandVideoPlayerIconsJavaScript({bool exitFullscreen = false}) {
+  final trailingIcon = exitFullscreen
+      ? '''exit:'<svg viewBox="0 0 24 24"><path d="M9 5H5v4M15 5h4v4M19 15v4h-4M5 15v4h4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9l-5-5M15 9l5-5M15 15l5 5M9 15l-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>','''
+      : '''fullscreen:'<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',''';
+  return '''
+const icon={
+play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+pause:'<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+mute:'<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+volume:'<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+rewind:'<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+forward:'<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
+loop:'<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+stopAfter:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+$trailingIcon
+};
+''';
+}
+
+/// 播放器共用的时间与范围进度格式化脚本。
+const String openHandVideoPlayerScriptUtilities = r'''
+function formatTime(value){if(!Number.isFinite(value)||value<0)return'00:00';const total=Math.floor(value);const hours=Math.floor(total/3600);const minutes=Math.floor((total%3600)/60);const seconds=total%60;const pad=(number)=>String(number).padStart(2,'0');return hours>0?hours+':'+pad(minutes)+':'+pad(seconds):pad(minutes)+':'+pad(seconds);}
+function setRangeFill(input,ratio){const value=Math.max(0,Math.min(100,ratio*100));input.style.setProperty('--value',value+'%');}
+''';
+
+/// 播放器共用的 DOM 元素绑定。
+const String openHandVideoPlayerElementBindingsJavaScript = r'''
+const shell=document.getElementById('shell');
+const media=document.getElementById('media');
+const play=document.getElementById('play');
+const rewind=document.getElementById('rewind');
+const forward=document.getElementById('forward');
+const progress=document.getElementById('progress');
+const current=document.getElementById('current');
+const duration=document.getElementById('duration');
+const volume=document.getElementById('volume');
+const mute=document.getElementById('mute');
+const volumeGroup=document.getElementById('volumeGroup');
+const playMode=document.getElementById('playMode');
+''';
+
+/// 播放器共用的播放、进度与音量状态同步逻辑。
+const String openHandVideoPlayerStateSyncJavaScript = r'''
+function updatePlayState(){play.innerHTML=media.paused?icon.play:icon.pause;play.setAttribute('aria-label',media.paused?'Play':'Pause');play.setAttribute('title',media.paused?'Play':'Pause');if(media.paused||media.ended)showControls(true);else scheduleHide();}
+function updateTime(){const mediaDuration=Number.isFinite(media.duration)?media.duration:0;const mediaTime=Number.isFinite(media.currentTime)?media.currentTime:0;current.textContent=formatTime(mediaTime);duration.textContent=formatTime(mediaDuration);const ratio=mediaDuration>0?mediaTime/mediaDuration:0;progress.value=String(Math.round(ratio*1000));setRangeFill(progress,ratio);}
+function updateVolume(){const muted=media.muted||media.volume<=0;mute.innerHTML=muted?icon.mute:icon.volume;mute.setAttribute('aria-label',muted?'Unmute':'Mute');mute.setAttribute('title',muted?'Unmute':'Mute');volume.value=String(media.muted?0:media.volume);setRangeFill(volume,media.muted?0:media.volume);}
+function updatePlayMode(){media.loop=looping;playMode.innerHTML=looping?icon.loop:icon.stopAfter;playMode.classList.toggle('is-active',looping);playMode.setAttribute('aria-label',looping?'Loop playback':'Stop after playback');playMode.setAttribute('title',looping?'Loop playback':'Stop after playback');}
+''';
+
+/// 停止播放并释放 WebView 媒体解码资源。
+const String openHandVideoPlayerReleaseJavaScript =
+    r'''try{var media=document.getElementById('media');if(media){try{media.pause();}catch(_){};try{media.muted=true;}catch(_){};try{media.removeAttribute('src');}catch(_){};try{while(media.firstChild)media.removeChild(media.firstChild);}catch(_){};try{media.load();}catch(_){};}}catch(_){}''';
+
 /// 生成内嵌视频播放器共用的控制栏样式。
 String openHandVideoPlayerControlsCss({
   required int compactBreakpointPx,
   required int compactHorizontalInsetPx,
+  bool fullscreen = false,
 }) {
+  final variantCss = fullscreen
+      ? '''
+.media-shell video{width:100vw;height:100vh;border-radius:0}
+.scrim{background:linear-gradient(to top,rgba(0,0,0,.52),transparent)}
+.control-bar{bottom:18px;width:calc(100% - 48px);max-width:900px;min-height:50px}
+.media-shell:not(.controls-visible) .control-bar{transform:translateX(-50%) translateY(26px) scale(.94)}
+.control-button{width:30px;height:30px;min-width:30px}
+.progress{flex-basis:220px}
+.volume-popover{bottom:40px}
+'''
+      : '';
   return '''
 $_openHandVideoPlayerControlsBaseCss
+$variantCss
+$_openHandVideoPlayerControlsResponsiveCss
 @media (max-width:${compactBreakpointPx}px){.seek-button{display:none}.control-bar{width:calc(100% - ${compactHorizontalInsetPx}px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
 ''';
 }
@@ -32,5 +126,8 @@ input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
 input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
 .no-motion *{transition-duration:0ms!important;animation:none!important}
+''';
+
+const String _openHandVideoPlayerControlsResponsiveCss = '''
 @media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
 ''';

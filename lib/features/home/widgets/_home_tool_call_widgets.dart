@@ -106,15 +106,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         _completionGlowCtrl.value = 1.0;
       }
     }
-    if (oldWidget.message.id != widget.message.id ||
-        _toolExecutionStatus(oldWidget.message) !=
-            _toolExecutionStatus(widget.message) ||
-        oldWidget.message.metadata['tool_execution_started_at'] !=
-            widget.message.metadata['tool_execution_started_at'] ||
-        oldWidget.message.metadata['tool_execution_elapsed_ms'] !=
-            widget.message.metadata['tool_execution_elapsed_ms'] ||
-        oldWidget.message.metadata['tool_execution_duration_ms'] !=
-            widget.message.metadata['tool_execution_duration_ms']) {
+    if (_toolExecutionTimingChanged(oldWidget.message, widget.message)) {
       syncElapsedTicker();
     }
   }
@@ -2571,6 +2563,20 @@ String _toolCallName(AiSessionMessage message) =>
 
 String _toolExecutionStatus(AiSessionMessage message) =>
     '${message.metadata['tool_execution_status'] ?? ''}'.trim();
+
+bool _toolExecutionTimingChanged(
+  AiSessionMessage previous,
+  AiSessionMessage current,
+) {
+  return previous.id != current.id ||
+      _toolExecutionStatus(previous) != _toolExecutionStatus(current) ||
+      previous.metadata['tool_execution_started_at'] !=
+          current.metadata['tool_execution_started_at'] ||
+      previous.metadata['tool_execution_elapsed_ms'] !=
+          current.metadata['tool_execution_elapsed_ms'] ||
+      previous.metadata['tool_execution_duration_ms'] !=
+          current.metadata['tool_execution_duration_ms'];
+}
 
 bool _shouldSweepToolStatus(String status) {
   return status.isEmpty || _isLiveToolExecutionStatus(status);

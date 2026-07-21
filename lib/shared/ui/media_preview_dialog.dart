@@ -968,39 +968,12 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 420, compactHorizontalInse
 </style></head><body>
 <div id="shell" class="media-shell controls-visible__NO_MOTION__" tabindex="0">
   <video id="media" preload="metadata" autoplay playsinline src="__SRC__"></video>
-  <div class="scrim"></div>
-  <div class="control-bar" id="controls">
-    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds"></button>
-    <button id="play" class="control-button" type="button" aria-label="Play"></button>
-    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds"></button>
-    <span id="current" class="time">00:00</span>
-    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
-    <span id="duration" class="time">00:00</span>
-    <div class="volume-group" id="volumeGroup">
-      <button id="mute" class="control-button" type="button" aria-label="Mute"></button>
-      <div class="volume-popover" id="volumePopover">
-        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
-      </div>
-    </div>
-    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback"></button>
-    <button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen"></button>
-  </div>
+${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingActionLabel: 'Fullscreen')}
 </div>
 <script>
 (() => {
   const AUTO_HIDE_MS = __AUTO_HIDE__;
-  const shell = document.getElementById('shell');
-  const media = document.getElementById('media');
-  const play = document.getElementById('play');
-  const rewind = document.getElementById('rewind');
-  const forward = document.getElementById('forward');
-  const progress = document.getElementById('progress');
-  const current = document.getElementById('current');
-  const duration = document.getElementById('duration');
-  const volume = document.getElementById('volume');
-  const mute = document.getElementById('mute');
-  const volumeGroup = document.getElementById('volumeGroup');
-  const playMode = document.getElementById('playMode');
+  $openHandVideoPlayerElementBindingsJavaScript
   const fullscreen = document.getElementById('fullscreen');
   if (!media || !play || !rewind || !forward || !progress || !current || !duration || !volume || !mute || !volumeGroup || !playMode) {
     requestClose();
@@ -1010,33 +983,12 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 420, compactHorizontalInse
   let dragging = false;
   let volumeActive = false;
   let looping = false;
-  const icon = {
-    play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
-    pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
-    mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9l4 4m0-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    volume: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8 8 0 010 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    rewind: '<svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5V7zm8 0l-6 5 6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
-    forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
-    loop: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    stopAfter: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  };
+  ${openHandVideoPlayerIconsJavaScript()}
   rewind.innerHTML = icon.rewind;
   forward.innerHTML = icon.forward;
   if (fullscreen) fullscreen.innerHTML = icon.fullscreen;
   function requestClose() { try { window.OpenHandMediaPreview?.postMessage('close'); } catch (_) {} }
-  function formatTime(value) {
-    if (!Number.isFinite(value) || value < 0) return '00:00';
-    const total = Math.floor(value);
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = total % 60;
-    const pad = (n) => String(n).padStart(2, '0');
-    return hours > 0 ? hours + ':' + pad(minutes) + ':' + pad(seconds) : pad(minutes) + ':' + pad(seconds);
-  }
-  function setRangeFill(input, ratio) {
-    input.style.setProperty('--value', Math.max(0, Math.min(100, ratio * 100)) + '%');
-  }
+  $openHandVideoPlayerScriptUtilities
   function clearHideTimer() { if (hideTimer) window.clearTimeout(hideTimer); hideTimer = 0; }
   function scheduleHide() {
     clearHideTimer();
@@ -1052,32 +1004,7 @@ ${openHandVideoPlayerControlsCss(compactBreakpointPx: 420, compactHorizontalInse
     shell.classList.add('controls-visible');
     if (sticky) clearHideTimer(); else scheduleHide();
   }
-  function updatePlayState() {
-    play.innerHTML = media.paused ? icon.play : icon.pause;
-    play.setAttribute('aria-label', media.paused ? 'Play' : 'Pause');
-    if (media.paused || media.ended) showControls(true); else scheduleHide();
-  }
-  function updateTime() {
-    const dur = Number.isFinite(media.duration) ? media.duration : 0;
-    const cur = Number.isFinite(media.currentTime) ? media.currentTime : 0;
-    current.textContent = formatTime(cur);
-    duration.textContent = formatTime(dur);
-    const ratio = dur > 0 ? cur / dur : 0;
-    progress.value = String(Math.round(ratio * 1000));
-    setRangeFill(progress, ratio);
-  }
-  function updateVolume() {
-    const muted = media.muted || media.volume <= 0;
-    mute.innerHTML = muted ? icon.mute : icon.volume;
-    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
-    volume.value = String(media.muted ? 0 : media.volume);
-    setRangeFill(volume, media.muted ? 0 : media.volume);
-  }
-  function updatePlayMode() {
-    media.loop = looping;
-    playMode.innerHTML = looping ? icon.loop : icon.stopAfter;
-    playMode.classList.toggle('is-active', looping);
-  }
+  $openHandVideoPlayerStateSyncJavaScript
   function seekBy(delta) {
     const dur = Number.isFinite(media.duration) ? media.duration : 0;
     media.currentTime = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
