@@ -219,26 +219,6 @@ class _SessionToolbar extends StatelessWidget {
                                 ),
                               ),
                             ],
-                            if (context
-                                .watch<SettingsController>()
-                                .telemetryDebugEnabled) ...[
-                              const SizedBox(width: 8),
-                              _ToolbarPill(
-                                icon: Icons.fact_check_outlined,
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.toolbarSessionAudit,
-                                onTap: () {
-                                  _showSessionAuditDialog(
-                                    context,
-                                    session: session,
-                                    controller: context
-                                        .read<AiSessionController>(),
-                                    claudeStyle: claudeStyle,
-                                  );
-                                },
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -1620,10 +1600,12 @@ Future<void> _showSessionMetadataDialog(
   AiModelProfile? activeProfile,
   bool claudeStyle = true,
 }) {
+  final controller = context.read<AiSessionController>();
   return showAnimatedDialog<void>(
     context: context,
-    builder: (dialogContext) => _SessionMetadataDialog(
+    builder: (dialogContext) => _SessionDetailsDialog(
       session: session,
+      controller: controller,
       liveRuntimeToolPreview: liveRuntimeToolPreview,
       activeProfile: activeProfile,
       claudeStyle: claudeStyle,

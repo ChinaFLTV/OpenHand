@@ -1440,14 +1440,17 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
 /// exposes CRUD controls for the title, metadata JSON and individual messages.
 class _SessionAuditDialog extends StatefulWidget {
   const _SessionAuditDialog({
+    super.key,
     required this.session,
     required this.controller,
     required this.claudeStyle,
+    required this.onViewChanged,
   });
 
   final AiSession session;
   final AiSessionController controller;
   final bool claudeStyle;
+  final ValueChanged<_SessionDetailsView> onViewChanged;
 
   @override
   State<_SessionAuditDialog> createState() => _SessionAuditDialogState();
@@ -1659,6 +1662,11 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                _SessionDetailsViewSwitcher(
+                  selected: _SessionDetailsView.audit,
+                  onChanged: widget.onViewChanged,
+                ),
+                const SizedBox(height: 16),
                 _AuditSectionCard(
                   icon: Icons.info_outline_rounded,
                   title: AppLocalizations.of(context)!.auditOverview,
@@ -2119,24 +2127,6 @@ Future<void> _showMessageAuditDialog(
     builder: (dialogContext) => _MessageAuditDialog(
       message: auditMessage,
       session: auditSession,
-      controller: controller,
-      claudeStyle: claudeStyle,
-    ),
-  );
-}
-
-/// Opens the session-level audit dialog with full CRUD capability wired to
-/// the provided [controller].
-Future<void> _showSessionAuditDialog(
-  BuildContext context, {
-  required AiSession session,
-  required AiSessionController controller,
-  required bool claudeStyle,
-}) {
-  return showAnimatedDialog<void>(
-    context: context,
-    builder: (dialogContext) => _SessionAuditDialog(
-      session: session,
       controller: controller,
       claudeStyle: claudeStyle,
     ),

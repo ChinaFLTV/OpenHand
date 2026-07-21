@@ -272,9 +272,10 @@ prepare_web_output() {
 }
 
 build_web_client() {
-  pushd "$WEB_DIR" >/dev/null
-  run_pnpm build
-  popd >/dev/null
+  (
+    cd "$WEB_DIR"
+    run_pnpm build
+  )
 }
 
 # ---- 工具链 -----------------------------------------------------------------

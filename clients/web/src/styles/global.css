@@ -5023,9 +5023,13 @@ button.oh-message-context-capsule {
   max-width: 100%;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  /* 不再对轨道做左侧 mask：否则最左胶囊（会话审计）会被洗成半透明。 */
+  /* 不对轨道做左侧 mask，避免最左胶囊被洗成半透明。 */
 }
 .oh-session-capsule-rail::-webkit-scrollbar { display: none; }
+
+.oh-session-details-view {
+  animation: oh-dialog-card-fade-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+}
 
 .oh-session-capsule-rail > div {
   margin-left: auto;

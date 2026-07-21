@@ -3514,7 +3514,6 @@ export function SessionDetailPage() {
 
   // 消息操作栏：审计弹窗 + 删除确认。
   const [auditMessage, setAuditMessage] = useState<SessionMessage | null>(null);
-  const [sessionAuditOpen, setSessionAuditOpen] = useState(false);
   const [pendingDeleteAction, setPendingDeleteAction] = useState<{
     message: SessionMessage;
     cascade: boolean;
@@ -3629,7 +3628,6 @@ export function SessionDetailPage() {
     setWriteApprovalBusy(false);
     setPendingWriteApproval(null);
     setSessionGone(false);
-    setSessionAuditOpen(false);
     setAuditMessage(null);
     resetSlashTriggerState();
     resetAtMentionTriggerState();
@@ -7058,30 +7056,21 @@ export function SessionDetailPage() {
           }
         : undefined;
     const capsules: SessionToolbarCapsule[] = [];
-    capsules.push(
-      {
-        key: 'audit',
-        icon: 'audit',
-        label: t('topbar.audit', '会话审计'),
-        tone: 'primary',
-        onClick: () => setSessionAuditOpen(true),
+    capsules.push({
+      key: 'tokens',
+      icon: 'tokens',
+      label: '',
+      title: `${t('topbar.tokens', 'Token 统计')} · ${t('tokenPopup.context.window', '上下文窗口')} ${contextWindowUsage.percent}%`,
+      badge: tokensBadge,
+      progress: {
+        ratio: contextWindowUsage.ratio,
+        title: `${t('tokenPopup.context.window', '上下文窗口')} ${contextWindowUsage.percent}%`,
       },
-      {
-        key: 'tokens',
-        icon: 'tokens',
-        label: '',
-        title: `${t('topbar.tokens', 'Token 统计')} · ${t('tokenPopup.context.window', '上下文窗口')} ${contextWindowUsage.percent}%`,
-        badge: tokensBadge,
-        progress: {
-          ratio: contextWindowUsage.ratio,
-          title: `${t('tokenPopup.context.window', '上下文窗口')} ${contextWindowUsage.percent}%`,
-        },
-        onClick: () => {
-          setTokenStatsOpen(true);
-          void hydrateCacheStatisticsOnDemand();
-        },
+      onClick: () => {
+        setTokenStatsOpen(true);
+        void hydrateCacheStatisticsOnDemand();
       },
-    );
+    });
     const goal = latestGoalRecord(session.goal_state);
     if (goal) {
       const active = isActiveGoalStatus(goal.status);
@@ -8117,7 +8106,6 @@ export function SessionDetailPage() {
       </div>
 
       {auditMessage ? <MessageAuditDialog message={auditMessage} onClose={() => setAuditMessage(null)} /> : null}
-      {sessionAuditOpen && detail ? <SessionAuditDialog detail={detail} messages={sortedMessages} onClose={() => setSessionAuditOpen(false)} /> : null}
       {sessionMetadataOpen && detail ? <SessionMetadataDialog detail={detail} messages={sortedMessages} onClose={() => setSessionMetadataOpen(false)} /> : null}
       {goalDetailsOpen && session ? <GoalDetailsDialog session={session} onClose={() => setGoalDetailsOpen(false)} /> : null}
       {tokenStatsOpen && detail ? (
@@ -9737,6 +9725,7 @@ function runtimeGateReasonLabel(reason: string): string {
 function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
   const session = detail.session;
   const [metadataTrendDisplayMode, setMetadataTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
+  const [detailsView, setDetailsView] = useState<'metadata' | 'audit'>('metadata');
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
   const stats = recordFromUnknown(session.statistics);
@@ -10297,6 +10286,23 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     null,
     2,
   );
+  const auditSnapshotJson = JSON.stringify(
+    {
+      session,
+      runtime: detail.runtime,
+      loaded_message_count: messages.length,
+      loaded_message_ids: messages.map((item) => item.id),
+    },
+    null,
+    2,
+  );
+  const auditSummary = [`${session.message_count} ${t('sessions.messageUnit', '条消息')}`, `${session.total_tokens ?? 0} tokens`, `${session.tool_message_count ?? 0} tool`, `${session.compression_point_count ?? 0} compress`];
+  const auditCacheRead = readStatNumber(stats['cache_read_tokens'], 0);
+  const auditCacheWrite = readStatNumber(stats['cache_creation_tokens'], 0);
+  const auditReasoning = readStatNumber(stats['reasoning_tokens'], 0);
+  if (auditCacheRead > 0) auditSummary.push(`cache read ${auditCacheRead.toLocaleString()}`);
+  if (auditCacheWrite > 0) auditSummary.push(`cache write ${auditCacheWrite.toLocaleString()}`);
+  if (auditReasoning > 0) auditSummary.push(`reasoning ${auditReasoning.toLocaleString()}`);
   const metadataActionButtonSurface = {
     background: 'var(--m3-surface-container-high)',
     border: '1px solid var(--m3-outline-variant)',
@@ -10314,38 +10320,82 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           maxHeight: '84vh',
         },
       })}
-      ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
+      ariaLabel={detailsView === 'metadata' ? t('metadata.currentTitle', '当前会话元数据') : t('topbar.audit', '会话审计')}
     >
       <header
         class="flex shrink-0 flex-wrap items-start justify-between gap-3 px-5 py-4"
         style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}
       >
         <div class="min-w-0 flex-1">
-          <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
+          <h2 class="text-2xl font-extrabold truncate">
+            {detailsView === 'metadata' ? t('metadata.currentTitle', '当前会话元数据') : t('topbar.audit', '会话审计')}
+          </h2>
           <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {session.title}
           </p>
         </div>
         <JsonDialogActions
-          json={metadataSnapshotJson}
+          json={detailsView === 'metadata' ? metadataSnapshotJson : auditSnapshotJson}
           requestClose={requestClose}
           surfaceStyle={metadataActionButtonSurface}
           closeTone="secondary"
         />
       </header>
       <div
+        class="flex shrink-0 gap-1.5 overflow-x-auto px-5 py-3"
+        role="tablist"
+        aria-label={t('metadata.views', '会话详情视图')}
+        style={{ borderBottom: '1px solid var(--m3-outline-variant)', scrollbarWidth: 'none' }}
+      >
+        {([
+          ['metadata', 'file', t('topbar.metadata', '会话元数据')],
+          ['audit', 'history', t('topbar.audit', '会话审计')],
+        ] as const).map(([view, icon, label]) => {
+          const selected = detailsView === view;
+          return (
+            <button
+              key={view}
+              id={`session-details-${view}-tab`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`session-details-${view}-panel`}
+              class="oh-tap-press inline-flex shrink-0 items-center gap-2 rounded-m3-sm px-3 py-2 text-sm font-bold"
+              style={{
+                color: selected ? 'var(--m3-on-secondary-container)' : 'var(--m3-on-surface-variant)',
+                background: selected ? 'var(--m3-secondary-container)' : 'transparent',
+                border: `1px solid ${selected ? 'color-mix(in srgb, var(--m3-secondary) 30%, transparent)' : 'transparent'}`,
+                transition: 'background-color var(--oh-dialog-duration) var(--oh-dialog-curve), color var(--oh-dialog-duration) var(--oh-dialog-curve), transform var(--oh-motion-duration-fast) var(--oh-motion-spring)',
+              }}
+              onClick={() => setDetailsView(view)}
+            >
+              <ComposerIcon name={icon} size={15} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div
         class="min-h-0 flex-1 overflow-auto px-5 py-4 pr-4"
         style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
       >
-      <div class="flex flex-wrap gap-3 mb-4">
-        <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
-        <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
-        <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
-        <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
-        <SummaryTile label="当前模式" value={runtimeModeLabel} />
-        <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
-      </div>
-      <div class="flex flex-col gap-4">
+        {detailsView === 'metadata' ? (
+          <div
+            key="metadata"
+            id="session-details-metadata-panel"
+            class="oh-session-details-view"
+            role="tabpanel"
+            aria-labelledby="session-details-metadata-tab"
+          >
+            <div class="flex flex-wrap gap-3 mb-4">
+              <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
+              <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
+              <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
+              <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
+              <SummaryTile label="当前模式" value={runtimeModeLabel} />
+              <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
+            </div>
+            <div class="flex flex-col gap-4">
           <Section title="会话概览">
             <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
             <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
@@ -10593,89 +10643,48 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           <Section title="Last Prompt Metadata">
             <JsonPanel content={lastPromptMetadata} />
           </Section>
-        </div>
-      </div>
-    </DialogFrame>
-  );
-}
-
-function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
-  const session = detail.session;
-  const { closing, requestClose } = useDialogExitMotion(onClose);
-  const json = JSON.stringify(
-    {
-      session,
-      runtime: detail.runtime,
-      loaded_message_count: messages.length,
-      loaded_message_ids: messages.map((item) => item.id),
-    },
-    null,
-    2,
-  );
-  const stats = [`${session.message_count} ${t('sessions.messageUnit', '条消息')}`, `${session.total_tokens ?? 0} tokens`, `${session.tool_message_count ?? 0} tool`, `${session.compression_point_count ?? 0} compress`];
-  const auditStats = recordFromUnknown(session.statistics);
-  const auditCacheRead = readStatNumber(auditStats['cache_read_tokens'], 0);
-  const auditCacheWrite = readStatNumber(auditStats['cache_creation_tokens'], 0);
-  const auditReasoning = readStatNumber(auditStats['reasoning_tokens'], 0);
-  if (auditCacheRead > 0) {
-    stats.push(`cache read ${auditCacheRead.toLocaleString()}`);
-  }
-  if (auditCacheWrite > 0) {
-    stats.push(`cache write ${auditCacheWrite.toLocaleString()}`);
-  }
-  if (auditReasoning > 0) {
-    stats.push(`reasoning ${auditReasoning.toLocaleString()}`);
-  }
-  return (
-    <DialogFrame
-      closing={closing}
-      onRequestClose={requestClose}
-      {...createStandardDialogFrameAppearance({
-        overlayTone: 'strong',
-        panelClassName: 'rounded-m3-md p-4 max-w-3xl w-full flex flex-col',
-        panelBorder: 'outline',
-        panelSurface: {
-          maxHeight: '84vh',
-        },
-      })}
-      ariaLabel={t('topbar.audit', '会话审计')}
-    >
-      <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div class="min-w-0">
-          <h2 class="text-base font-semibold truncate">
-            {t('topbar.audit', '会话审计')} · {session.title}
-          </h2>
-          <p class="text-xs mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {session.id}
-          </p>
-        </div>
-        <JsonDialogActions json={json} requestClose={requestClose} />
-      </header>
-      <div class="flex flex-wrap gap-2 mb-3">
-        {stats.map((item) => (
-          <span
-            key={item}
-            class="text-xs px-2 py-1 rounded-full"
+            </div>
+          </div>
+        ) : (
+          <section
+            key="audit"
+            id="session-details-audit-panel"
+            class="oh-session-details-view flex min-h-0 flex-col rounded-m3-md p-4"
+            role="tabpanel"
+            aria-labelledby="session-details-audit-tab"
             style={{
-              color: 'var(--m3-on-surface-variant)',
-              background: 'var(--m3-surface)',
-              border: '1px solid var(--m3-outline)',
+              background: 'var(--m3-surface-container-low)',
+              border: '1px solid var(--m3-outline-variant)',
             }}
           >
-            {item}
-          </span>
-        ))}
+            <div class="mb-4 flex flex-wrap gap-2">
+              {auditSummary.map((item) => (
+                <span
+                  key={item}
+                  class="rounded-full px-2.5 py-1.5 text-xs font-semibold"
+                  style={{
+                    color: 'var(--m3-on-surface-variant)',
+                    background: 'var(--m3-surface)',
+                    border: '1px solid var(--m3-outline-variant)',
+                  }}
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+            <pre
+              class="min-h-0 flex-1 overflow-auto rounded-m3-sm p-3 text-xs whitespace-pre-wrap select-text"
+              style={{
+                background: 'var(--m3-surface)',
+                border: '1px solid var(--m3-outline-variant)',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              }}
+            >
+              {auditSnapshotJson}
+            </pre>
+          </section>
+        )}
       </div>
-      <pre
-        class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
-        style={{
-          background: 'var(--m3-surface)',
-          border: '1px solid var(--m3-outline)',
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        }}
-      >
-        {json}
-      </pre>
     </DialogFrame>
   );
 }
