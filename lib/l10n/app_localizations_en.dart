@@ -4055,6 +4055,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tokenPopupContextRuntime => 'Runtime';
 
   @override
+  String get tokenPopupContextWindow => 'Context window';
+
+  @override
+  String get tokenPopupCompactNow => 'Compact now';
+
+  @override
+  String get tokenPopupCompacting => 'Compacting…';
+
+  @override
   String get tokenPopupSessionHeading => 'Session';
 
   @override

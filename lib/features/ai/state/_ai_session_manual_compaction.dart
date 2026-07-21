@@ -7,7 +7,7 @@ extension AiSessionControllerManualCompaction on AiSessionController {
   ///   * 走 [_enqueueOperation] 串行化以确保不会与 sendMessage / refresh 并发；
   ///   * 通过 [_lastManualCompactionAt] / [AiSessionController._manualCompactionDebounce]
   ///     做去抖；通过 [_manualCompactionInflight] 做并发互斥；
-  ///   * 占用过低（[AiSessionController._manualCompactionRefusePercentLeftAbove]）直接拒绝；
+  ///   * 上下文窗口占用不超过 20% 时直接拒绝；
   ///   * 触发熔断（[_compressionFailureCountsBySession] 已超阈值）也拒绝。
   ///
   /// 调用方典型流程：
@@ -62,14 +62,10 @@ extension AiSessionControllerManualCompaction on AiSessionController {
         message: 'circuit_breaker',
       );
     }
-    final meta = session.lastPromptMetadata;
-    final percentLeftRaw = meta['context_budget_percent_left'];
-    final percentLeft = percentLeftRaw is num
-        ? percentLeftRaw.toDouble()
-        : null;
-    if (percentLeft != null &&
-        percentLeft >
-            AiSessionController._manualCompactionRefusePercentLeftAbove) {
+    final contextUsage = AiContextWindowUsage.fromMetadata(
+      session.lastPromptMetadata,
+    );
+    if (!contextUsage.canManuallyCompact) {
       return const AiManualCompactionResult(
         status: AiManualCompactionStatus.notNeeded,
         message: 'usage_too_low',
@@ -85,6 +81,12 @@ extension AiSessionControllerManualCompaction on AiSessionController {
             status: AiManualCompactionStatus.noSession,
           );
         }
+        if (sendPhaseForSession(normalizedId) != AiSendPhase.idle) {
+          return const AiManualCompactionResult(
+            status: AiManualCompactionStatus.sessionBusy,
+            message: 'session_busy',
+          );
+        }
         if (!_shouldCompressSessionHistory(
           freshSession,
           runtimeContext,
@@ -95,23 +97,32 @@ extension AiSessionControllerManualCompaction on AiSessionController {
             message: 'nothing_to_compress',
           );
         }
-        _captureLatestRuntimeContext(runtimeContext);
-        final updated = await _compressIfNeeded(
-          session: freshSession,
-          model: model,
-          runtimeContext: runtimeContext,
-        );
-        if (identical(updated, freshSession)) {
-          return const AiManualCompactionResult(
-            status: AiManualCompactionStatus.failed,
-            message: 'no_change',
-          );
-        }
-        _lastManualCompactionAt[normalizedId] = DateTime.now();
+        _setSessionSendPhase(normalizedId, AiSendPhase.compressing);
         notifyListeners();
-        return const AiManualCompactionResult(
-          status: AiManualCompactionStatus.success,
-        );
+        try {
+          _captureLatestRuntimeContext(runtimeContext);
+          final previousCheckpointId =
+              freshSession.latestCompressionCheckpointMessageId;
+          final updated = await _compressIfNeeded(
+            session: freshSession,
+            model: model,
+            runtimeContext: runtimeContext,
+          );
+          if (updated.latestCompressionCheckpointMessageId ==
+              previousCheckpointId) {
+            return const AiManualCompactionResult(
+              status: AiManualCompactionStatus.failed,
+              message: 'no_change',
+            );
+          }
+          _lastManualCompactionAt[normalizedId] = DateTime.now();
+          return const AiManualCompactionResult(
+            status: AiManualCompactionStatus.success,
+          );
+        } finally {
+          _clearSessionSendPhase(normalizedId);
+          notifyListeners();
+        }
       });
     } finally {
       _manualCompactionInflight.remove(normalizedId);

@@ -4095,6 +4095,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupContextRuntime => 'Laufzeit';
 
   @override
+  String get tokenPopupContextWindow => 'Kontextfenster';
+
+  @override
+  String get tokenPopupCompactNow => 'Jetzt komprimieren';
+
+  @override
+  String get tokenPopupCompacting => 'Komprimierung…';
+
+  @override
   String get tokenPopupSessionHeading => 'Sitzung';
 
   @override

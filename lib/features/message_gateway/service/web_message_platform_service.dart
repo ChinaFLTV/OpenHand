@@ -5965,10 +5965,15 @@ class WebMessagePlatformService {
             final tokenStatsSig = stats == null
                 ? '0:0:0:0:0:0:0'
                 : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
+            final promptMetadata =
+                sessionPayload['last_prompt_metadata'] as Map<String, Object?>?;
+            final contextUsageSig = promptMetadata == null
+                ? '0:0:0'
+                : '${promptMetadata['context_budget_estimated_prompt_tokens'] ?? 0}:${promptMetadata['context_budget_effective_window_tokens'] ?? 0}:${promptMetadata['context_budget_usage_percent'] ?? 0}';
             final goalStateSig = jsonEncode(sessionPayload['goal_state']);
             final messagesPayload = snapshot['messages'] as List;
             final hash =
-                '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
+                '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|context=$contextUsageSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
             if (hash == lastSnapshotHash) return;
             lastSnapshotHash = hash;
             emit('snapshot', snapshot);

@@ -3969,6 +3969,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupContextRuntime => 'ランタイム';
 
   @override
+  String get tokenPopupContextWindow => 'コンテキストウィンドウ';
+
+  @override
+  String get tokenPopupCompactNow => '今すぐ圧縮';
+
+  @override
+  String get tokenPopupCompacting => '圧縮中…';
+
+  @override
   String get tokenPopupSessionHeading => 'セッション';
 
   @override

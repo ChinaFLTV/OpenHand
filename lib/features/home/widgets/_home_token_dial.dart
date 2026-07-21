@@ -15,9 +15,7 @@ class _TokenDial extends StatefulWidget {
   final bool claudeStyle;
   final ValueChanged<SessionCacheHitTurnPoint>? onCacheHitTrendPointSelected;
 
-  int get totalTokens => statistics.totalTokens ?? 0;
   int? get cacheReadTokens => statistics.cacheReadTokens;
-  int? get cacheCreationTokens => statistics.cacheCreationTokens;
 
   @override
   State<_TokenDial> createState() => _TokenDialState();
@@ -205,20 +203,14 @@ class _TokenDialState extends State<_TokenDial>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final numberStyle = theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.w800,
-      color: colorScheme.onSurface,
-    );
-    final labelStyle = theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.w700,
-      color: colorScheme.onSurfaceVariant,
-    );
+    final colorScheme = Theme.of(context).colorScheme;
     final hasCache = (widget.cacheReadTokens ?? 0) > 0;
     final cacheHitRatio = _tokenDialSummaryCacheHitRatio(
       widget.statistics,
       claudeStyle: widget.claudeStyle,
+    );
+    final contextWindowUsage = AiContextWindowUsage.fromMetadata(
+      widget.session.lastPromptMetadata,
     );
     return OverlayPortal(
       controller: _portalController,
@@ -301,14 +293,15 @@ class _TokenDialState extends State<_TokenDial>
                     color: colorScheme.outlineVariant,
                   ),
                 ],
-                RollingText(
-                  text: _formatThousands(widget.totalTokens),
-                  style: numberStyle ?? const TextStyle(),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  AppLocalizations.of(context)!.tokenDialUnit,
-                  style: labelStyle,
+                Tooltip(
+                  message:
+                      '${AppLocalizations.of(context)!.tokenPopupContextWindow} '
+                      '${contextWindowUsage.percent}%',
+                  child: _AnimatedContextUsageRing(
+                    ratio: contextWindowUsage.ratio,
+                    size: 18,
+                    strokeWidth: 2.6,
+                  ),
                 ),
               ],
             ),
@@ -568,6 +561,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
   SessionCacheHitDisplayMode _displayMode =
       SessionCacheHitDisplayMode.excludeExpiredMisses;
   late SessionCacheHitTrend _trend;
+  bool _compacting = false;
 
   @override
   void initState() {
@@ -599,8 +593,47 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     super.dispose();
   }
 
+  Future<void> _handleManualCompaction() async {
+    if (_compacting) return;
+    setState(() => _compacting = true);
+    try {
+      final result = await _requestSessionManualCompaction(
+        context,
+        widget.session.id,
+      );
+      if (!mounted) return;
+      final feedback = _manualCompactionFeedback(context, result);
+      showHomeInfoSnack(context, feedback.message, maxLines: 2);
+    } catch (error, stack) {
+      silentLog('Token统计', '主动压缩', error, stack);
+      if (!mounted) return;
+      showHomeInfoSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '压缩失败：$error',
+          en: 'Compaction failed: $error',
+        ),
+        maxLines: 2,
+      );
+    } finally {
+      if (mounted) setState(() => _compacting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final liveState = context
+        .select<
+          AiSessionController,
+          ({AiSession? session, AiSendPhase sendPhase})
+        >(
+          (controller) => (
+            session: controller.sessionById(widget.session.id),
+            sendPhase: controller.sendPhaseForSession(widget.session.id),
+          ),
+        );
+    final liveSession = liveState.session ?? widget.session;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final headStyle = theme.textTheme.labelSmall?.copyWith(
@@ -634,7 +667,10 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final webSearchPages = widget.statistics.webSearchPageUsage ?? 0;
     final total = widget.statistics.totalTokens ?? 0;
     final contextUsage = AiContextUsageBreakdown.fromMetadata(
-      widget.session.lastPromptMetadata,
+      liveSession.lastPromptMetadata,
+    );
+    final contextWindowUsage = AiContextWindowUsage.fromMetadata(
+      liveSession.lastPromptMetadata,
     );
     final sectionMotionSettings = openHandMotionSettingsOf(
       context,
@@ -802,7 +838,16 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
         _TokenPopupAnimatedSection(
           present: contextUsage?.hasData ?? false,
           settings: sectionMotionSettings,
-          child: _ContextUsageOverview(usage: contextUsage),
+          child: _ContextUsageOverview(
+            usage: contextUsage,
+            windowUsage: contextWindowUsage,
+            showCompact:
+                contextWindowUsage.canManuallyCompact &&
+                (liveState.sendPhase == AiSendPhase.idle || _compacting),
+            compacting: _compacting,
+            motionSettings: sectionMotionSettings,
+            onCompact: _handleManualCompaction,
+          ),
         ),
         _TokenPopupAnimatedSection(
           present: trend.points.isNotEmpty || cacheRead > 0,
@@ -1061,9 +1106,21 @@ class _TokenPopupAnimatedSectionState
 }
 
 class _ContextUsageOverview extends StatelessWidget {
-  const _ContextUsageOverview({required this.usage});
+  const _ContextUsageOverview({
+    required this.usage,
+    required this.windowUsage,
+    required this.showCompact,
+    required this.compacting,
+    required this.motionSettings,
+    required this.onCompact,
+  });
 
   final AiContextUsageBreakdown? usage;
+  final AiContextWindowUsage windowUsage;
+  final bool showCompact;
+  final bool compacting;
+  final DialogAnimationSettings motionSettings;
+  final VoidCallback onCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -1144,6 +1201,32 @@ class _ContextUsageOverview extends StatelessWidget {
           ),
           if (hasData) ...[
             const SizedBox(height: 12),
+            _ContextWindowUsageBar(usage: windowUsage),
+            AnimatedAppearance(
+              present: showCompact,
+              settings: motionSettings,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: compacting ? null : onCompact,
+                    icon: compacting
+                        ? const SizedBox.square(
+                            dimension: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.compress_rounded, size: 16),
+                    label: Text(
+                      compacting
+                          ? l10n.tokenPopupCompacting
+                          : l10n.tokenPopupCompactNow,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             ClipRRect(
               borderRadius: _borderRadius999,
               child: SizedBox(
@@ -1197,6 +1280,135 @@ class _ContextUsageOverview extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ContextWindowUsageBar extends StatelessWidget {
+  const _ContextWindowUsageBar({required this.usage});
+
+  final AiContextWindowUsage usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final color = _contextWindowUsageColor(colorScheme, usage.ratio);
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _AnimatedContextUsageRing(
+                ratio: usage.ratio,
+                size: 18,
+                strokeWidth: 2.6,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.tokenPopupContextWindow,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                '${usage.percent}%',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ClipRRect(
+            borderRadius: _borderRadius999,
+            child: ColoredBox(
+              color: colorScheme.surfaceContainerHighest,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: usage.ratio),
+                duration: openHandMotionDuration(
+                  context,
+                  const Duration(milliseconds: 680),
+                ),
+                curve: Curves.easeOutBack,
+                builder: (context, value, _) => Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 1,
+                  child: FractionallySizedBox(
+                    widthFactor: value.clamp(0.0, 1.0),
+                    child: SizedBox(height: 7, child: ColoredBox(color: color)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${_formatThousands(usage.usedTokens)} / '
+              '${_formatThousands(usage.windowTokens)} ${l10n.tokenDialUnit}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedContextUsageRing extends StatelessWidget {
+  const _AnimatedContextUsageRing({
+    required this.ratio,
+    required this.size,
+    required this.strokeWidth,
+  });
+
+  final double ratio;
+  final double size;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: ratio),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 680),
+      ),
+      curve: Curves.easeOutBack,
+      builder: (context, value, _) => SizedBox.square(
+        dimension: size,
+        child: CircularProgressIndicator(
+          value: value.clamp(0.0, 1.0),
+          strokeWidth: strokeWidth,
+          strokeCap: StrokeCap.round,
+          color: _contextWindowUsageColor(colorScheme, ratio),
+          backgroundColor: colorScheme.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+    );
+  }
+}
+
+Color _contextWindowUsageColor(ColorScheme colorScheme, double ratio) {
+  if (ratio >= 0.90) return colorScheme.error;
+  if (ratio >= 0.70) return colorScheme.tertiary;
+  return colorScheme.primary;
 }
 
 class _ContextUsageTile extends StatelessWidget {

@@ -2665,6 +2665,111 @@ Future<void> _showContextStatsDialog(BuildContext context, AiSession session) {
   );
 }
 
+Future<AiManualCompactionResult> _requestSessionManualCompaction(
+  BuildContext context,
+  String sessionId,
+) async {
+  final home = _OpenHandHomePageState._activeHomeState;
+  if (home == null || !home.mounted) {
+    throw StateError(
+      openHandLocalizedText(
+        context,
+        zh: '压缩入口暂不可用，请稍后再试。',
+        en: 'Compaction is unavailable right now.',
+      ),
+    );
+  }
+  final selectedModel = context.read<SettingsController>().selectedAiModel;
+  if (selectedModel == null) {
+    throw StateError(
+      openHandLocalizedText(
+        context,
+        zh: '请先选择有效的 AI 模型。',
+        en: 'Pick an AI model first.',
+      ),
+    );
+  }
+  return context.read<AiSessionController>().requestManualCompaction(
+    sessionId: sessionId,
+    model: selectedModel,
+    runtimeContext: await home._buildRuntimeContext(),
+  );
+}
+
+({String message, bool isError}) _manualCompactionFeedback(
+  BuildContext context,
+  AiManualCompactionResult result,
+) {
+  return switch (result.status) {
+    AiManualCompactionStatus.success => (
+      message: openHandLocalizedText(
+        context,
+        zh: '已生成压缩检查点。',
+        en: 'Compaction checkpoint added.',
+      ),
+      isError: false,
+    ),
+    AiManualCompactionStatus.cooldown => (
+      message: openHandLocalizedText(
+        context,
+        zh: '刚刚已经压缩过，约 ${result.retryAfter?.inSeconds ?? 30} 秒后再试。',
+        en:
+            'Just compacted; retry in about '
+            '${result.retryAfter?.inSeconds ?? 30} s.',
+      ),
+      isError: true,
+    ),
+    AiManualCompactionStatus.notNeeded => (
+      message: openHandLocalizedText(
+        context,
+        zh: '当前占用过低或没有可压缩的历史。',
+        en: 'Usage too low — nothing meaningful to compact.',
+      ),
+      isError: true,
+    ),
+    AiManualCompactionStatus.inflight => (
+      message: openHandLocalizedText(
+        context,
+        zh: '已有压缩任务在进行中。',
+        en: 'A compaction is already in flight.',
+      ),
+      isError: true,
+    ),
+    AiManualCompactionStatus.sessionBusy => (
+      message: openHandLocalizedText(
+        context,
+        zh: '当前会话正在响应，请等回复结束后再压缩。',
+        en: 'Session is busy. Wait for the current response to finish.',
+      ),
+      isError: true,
+    ),
+    AiManualCompactionStatus.circuitBreaker => (
+      message: openHandLocalizedText(
+        context,
+        zh: '连续压缩失败已熔断，稍后再试。',
+        en: 'Compaction circuit breaker tripped; retry later.',
+      ),
+      isError: true,
+    ),
+    AiManualCompactionStatus.failed => (
+      message: openHandLocalizedText(
+        context,
+        zh: '压缩未生效，请稍后重试。',
+        en: 'Compaction did not apply; please retry.',
+      ),
+      isError: true,
+    ),
+    AiManualCompactionStatus.noSession => (
+      message: openHandLocalizedText(
+        context,
+        zh: '会话不存在或已被删除。',
+        en: 'Session no longer exists.',
+      ),
+      isError: true,
+    ),
+  };
+}
+
 class _ContextStatsDialog extends StatefulWidget {
   const _ContextStatsDialog({required this.sessionId});
 
@@ -2681,130 +2786,21 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
 
   Future<void> _handleCompactPressed() async {
     if (_busy) return;
-    final home = _OpenHandHomePageState._activeHomeState;
-    if (home == null || !home.mounted) {
-      _showResult(
-        openHandLocalizedText(
-          context,
-          zh: '压缩入口暂不可用，请稍后再试。',
-          en: 'Compaction is unavailable right now.',
-        ),
-        isError: true,
-      );
-      return;
-    }
-    final settingsController = context.read<SettingsController>();
-    final controller = context.read<AiSessionController>();
-    final selectedModel = settingsController.selectedAiModel;
-    if (selectedModel == null) {
-      _showResult(
-        openHandLocalizedText(
-          context,
-          zh: '请先选择有效的 AI 模型。',
-          en: 'Pick an AI model first.',
-        ),
-        isError: true,
-      );
-      return;
-    }
     setState(() {
       _busy = true;
       _resultMessage = null;
       _resultIsError = false;
     });
     try {
-      final runtimeContext = await home._buildRuntimeContext();
-      final result = await controller.requestManualCompaction(
-        sessionId: widget.sessionId,
-        model: selectedModel,
-        runtimeContext: runtimeContext,
+      final result = await _requestSessionManualCompaction(
+        context,
+        widget.sessionId,
       );
       if (!mounted) return;
-      switch (result.status) {
-        case AiManualCompactionStatus.success:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '已生成压缩检查点。',
-              en: 'Compaction checkpoint added.',
-            ),
-            isError: false,
-          );
-          break;
-        case AiManualCompactionStatus.cooldown:
-          final secs = result.retryAfter?.inSeconds ?? 30;
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '刚刚已经压缩过，约 $secs 秒后再试。',
-              en: 'Just compacted; retry in about $secs s.',
-            ),
-            isError: true,
-          );
-          break;
-        case AiManualCompactionStatus.notNeeded:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '当前占用过低或没有可压缩的历史。',
-              en: 'Usage too low — nothing meaningful to compact.',
-            ),
-            isError: true,
-          );
-          break;
-        case AiManualCompactionStatus.inflight:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '已有压缩任务在进行中。',
-              en: 'A compaction is already in flight.',
-            ),
-            isError: true,
-          );
-          break;
-        case AiManualCompactionStatus.sessionBusy:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '当前会话正在响应，请等回复结束后再压缩。',
-              en: 'Session is busy. Wait for the current response to finish.',
-            ),
-            isError: true,
-          );
-          break;
-        case AiManualCompactionStatus.circuitBreaker:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '连续压缩失败已熔断，稍后再试。',
-              en: 'Compaction circuit breaker tripped; retry later.',
-            ),
-            isError: true,
-          );
-          break;
-        case AiManualCompactionStatus.failed:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '压缩未生效，请稍后重试。',
-              en: 'Compaction did not apply; please retry.',
-            ),
-            isError: true,
-          );
-          break;
-        case AiManualCompactionStatus.noSession:
-          _showResult(
-            openHandLocalizedText(
-              context,
-              zh: '会话不存在或已被删除。',
-              en: 'Session no longer exists.',
-            ),
-            isError: true,
-          );
-          break;
-      }
+      final feedback = _manualCompactionFeedback(context, result);
+      _showResult(feedback.message, isError: feedback.isError);
     } catch (error, stack) {
-      silentLog('context_stats', '_handleCompactPressed', error, stack);
+      silentLog('上下文统计', '主动压缩', error, stack);
       if (!mounted) return;
       _showResult(
         openHandLocalizedText(
@@ -2834,12 +2830,17 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final session = context.select<AiSessionController, AiSession?>((ctrl) {
-      for (final s in ctrl.sessions) {
-        if (s.id == widget.sessionId) return s;
-      }
-      return null;
-    });
+    final liveState = context
+        .select<
+          AiSessionController,
+          ({AiSession? session, AiSendPhase sendPhase})
+        >(
+          (controller) => (
+            session: controller.sessionById(widget.sessionId),
+            sendPhase: controller.sendPhaseForSession(widget.sessionId),
+          ),
+        );
+    final session = liveState.session;
     if (session == null) {
       return buildOpenHandAlertDialog(
         title: Text(
@@ -2885,10 +2886,10 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         stats.totalTokens ??
         (cumulativePromptTokens + cumulativeCompletionTokens);
 
-    final disableCompact =
-        estimatedTokens <= 0 ||
-        (percentLeft >= 0 && percentLeft > 85) ||
-        usagePercent < 10;
+    final contextWindowUsage = AiContextWindowUsage.fromMetadata(meta);
+    final showCompact =
+        contextWindowUsage.canManuallyCompact &&
+        (liveState.sendPhase == AiSendPhase.idle || _busy);
 
     Color statusColor;
     switch (status) {
@@ -3100,14 +3101,15 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           icon: Icons.close_rounded,
           label: openHandCloseLabel(context),
         ),
-        OpenHandDialogActionButton.primary(
-          onPressed: (_busy || disableCompact) ? null : _handleCompactPressed,
-          icon: Icons.compress_rounded,
-          busy: _busy,
-          label: _busy
-              ? openHandLocalizedText(context, zh: '正在压缩…', en: 'Compacting…')
-              : openHandLocalizedText(context, zh: '立即压缩', en: 'Compact now'),
-        ),
+        if (showCompact)
+          OpenHandDialogActionButton.primary(
+            onPressed: _busy ? null : _handleCompactPressed,
+            icon: Icons.compress_rounded,
+            busy: _busy,
+            label: _busy
+                ? openHandLocalizedText(context, zh: '正在压缩…', en: 'Compacting…')
+                : openHandLocalizedText(context, zh: '主动压缩', en: 'Compact now'),
+          ),
       ],
     );
   }

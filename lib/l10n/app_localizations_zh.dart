@@ -3922,6 +3922,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupContextRuntime => '运行时';
 
   @override
+  String get tokenPopupContextWindow => '上下文窗口';
+
+  @override
+  String get tokenPopupCompactNow => '主动压缩';
+
+  @override
+  String get tokenPopupCompacting => '正在压缩…';
+
+  @override
   String get tokenPopupSessionHeading => '会话累计';
 
   @override
@@ -14579,6 +14588,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupContextRuntime => '執行階段';
+
+  @override
+  String get tokenPopupContextWindow => '上下文視窗';
+
+  @override
+  String get tokenPopupCompactNow => '主動壓縮';
+
+  @override
+  String get tokenPopupCompacting => '正在壓縮…';
 
   @override
   String get tokenPopupSessionHeading => '會話累計';

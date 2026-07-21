@@ -1,6 +1,44 @@
 import '../../../shared/util/input_value_parsing.dart';
 
 const String aiContextUsageMetadataKey = 'context_usage_breakdown';
+const double aiManualCompactionMinContextUsageRatio = 0.20;
+
+class AiContextWindowUsage {
+  const AiContextWindowUsage({
+    required this.usedTokens,
+    required this.windowTokens,
+  });
+
+  factory AiContextWindowUsage.fromMetadata(Map<String, Object?> metadata) {
+    return AiContextWindowUsage(
+      usedTokens:
+          optionalNonNegativeIntegralIntFromValue(
+            metadata['context_budget_estimated_prompt_tokens'],
+          ) ??
+          0,
+      windowTokens:
+          optionalNonNegativeIntegralIntFromValue(
+            metadata['context_budget_effective_window_tokens'],
+          ) ??
+          0,
+    );
+  }
+
+  final int usedTokens;
+  final int windowTokens;
+
+  bool get hasData => usedTokens > 0 && windowTokens > 0;
+
+  double get ratio {
+    if (!hasData) return 0;
+    return (usedTokens / windowTokens).clamp(0.0, 1.0).toDouble();
+  }
+
+  int get percent => (ratio * 100).round();
+
+  bool get canManuallyCompact =>
+      hasData && ratio > aiManualCompactionMinContextUsageRatio;
+}
 
 enum AiContextUsageCategory {
   systemPrompt('system_prompt'),

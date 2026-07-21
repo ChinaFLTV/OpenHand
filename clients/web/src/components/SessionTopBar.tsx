@@ -34,6 +34,11 @@ export interface SessionToolbarCapsule {
     title?: string;
     tone?: 'success' | 'warning' | 'primary' | 'neutral';
   };
+  /** 右侧环形进度，值域 0~1。 */
+  progress?: {
+    ratio: number;
+    title?: string;
+  };
   onClick?: () => void;
 }
 
@@ -447,8 +452,9 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
       <span class="oh-session-capsule-icon" aria-hidden>
         <TopBarIcon name={capsule.icon} size={13.5} />
       </span>
-      <span class="truncate"><RollingText text={capsule.label} /></span>
+      {capsule.label ? <span class="truncate"><RollingText text={capsule.label} /></span> : null}
       {capsule.badge ? <CapsuleBadge badge={capsule.badge} /> : null}
+      {capsule.progress ? <CapsuleProgressRing progress={capsule.progress} /> : null}
     </>
   );
   if (!capsule.onClick) {
@@ -476,6 +482,57 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
     >
       {children}
     </button>
+  );
+}
+
+function CapsuleProgressRing({
+  progress,
+}: {
+  progress: NonNullable<SessionToolbarCapsule['progress']>;
+}) {
+  const ratio = Number.isFinite(progress.ratio)
+    ? Math.min(1, Math.max(0, progress.ratio))
+    : 0;
+  const color = ratio >= 0.9
+    ? 'var(--m3-error)'
+    : ratio >= 0.7
+      ? 'var(--m3-tertiary)'
+      : 'var(--m3-primary)';
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 20 20"
+      class="ml-0.5 shrink-0"
+      role="img"
+      aria-label={progress.title}
+    >
+      <circle
+        cx="10"
+        cy="10"
+        r="7.25"
+        fill="none"
+        stroke="var(--m3-outline-variant)"
+        stroke-width="2.6"
+        opacity="0.62"
+      />
+      <circle
+        cx="10"
+        cy="10"
+        r="7.25"
+        fill="none"
+        stroke={color}
+        stroke-width="2.6"
+        stroke-linecap="round"
+        pathLength="1"
+        stroke-dasharray="1"
+        stroke-dashoffset={1 - ratio}
+        transform="rotate(-90 10 10)"
+        style={{
+          transition: 'stroke-dashoffset 680ms cubic-bezier(.34, 1.56, .64, 1), stroke 240ms ease-out',
+        }}
+      />
+    </svg>
   );
 }
 

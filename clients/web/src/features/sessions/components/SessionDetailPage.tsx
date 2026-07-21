@@ -5395,7 +5395,9 @@ export function SessionDetailPage() {
         // 重复帧丢掉，导致 Token 弹窗不实时刷新。
         const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
         const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
-        const fingerprint = `${snapshotMessagesFingerprint(snap.messages)}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}`;
+        const promptMeta = recordFromUnknown(snap.session.last_prompt_metadata);
+        const contextSig = `${promptMeta['context_budget_estimated_prompt_tokens'] ?? 0}:${promptMeta['context_budget_effective_window_tokens'] ?? 0}:${promptMeta['context_budget_usage_percent'] ?? 0}`;
+        const fingerprint = `${snapshotMessagesFingerprint(snap.messages)}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}|ctx=${contextSig}`;
         if (fingerprint === lastSnapshotFingerprint) return;
         lastSnapshotFingerprint = fingerprint;
         // 增量合并：当 snapshot 与本地 messages 的尾巴 N-1 条 id+content.length 完全一致，
@@ -7055,7 +7057,6 @@ export function SessionDetailPage() {
     const runtimeNotices = stringListFromUnknown(lastPromptMetadata['runtime_tool_catalog_notices']);
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
     const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
-    const tokens = session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : t('topbar.tokens.empty', 'Token 暂无');
     const tokenStats = recordFromUnknown(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
     const cacheHitSummary = buildSessionCacheHitSummary(session, tokenStats);
@@ -7063,6 +7064,7 @@ export function SessionDetailPage() {
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
     const cacheSavingsPercent = cacheHitSummary.cacheHitRatio;
     const cacheSavingsBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
+    const contextWindowUsage = parseContextWindowUsage(session);
     const tokensBadge =
       sessCacheRead > 0
         ? {
@@ -7083,9 +7085,13 @@ export function SessionDetailPage() {
       {
         key: 'tokens',
         icon: 'tokens',
-        label: tokens,
-        title: `${t('topbar.tokens', 'Token 统计')} · prompt ${session.total_prompt_tokens ?? 0} / completion ${session.total_completion_tokens ?? 0}`,
+        label: '',
+        title: `${t('topbar.tokens', 'Token 统计')} · ${t('tokenPopup.context.window', '上下文窗口')} ${contextWindowUsage.percent}%`,
         badge: tokensBadge,
+        progress: {
+          ratio: contextWindowUsage.ratio,
+          title: `${t('tokenPopup.context.window', '上下文窗口')} ${contextWindowUsage.percent}%`,
+        },
         onClick: () => {
           setTokenStatsOpen(true);
           void hydrateCacheStatisticsOnDemand();
@@ -8141,7 +8147,10 @@ export function SessionDetailPage() {
       {tokenStatsOpen && detail ? (
         <SessionTokenStatsDialog
           detail={detail}
+          modelKey={composerModelKey}
+          responseRunning={responseRunning}
           onClose={() => setTokenStatsOpen(false)}
+          onCompacted={() => void refresh()}
           onPointSelected={(point) => void revealCacheHitTurn(point)}
         />
       ) : null}
@@ -8855,6 +8864,15 @@ interface ContextUsageBreakdown {
   measured: boolean;
 }
 
+interface ContextWindowUsage {
+  usedTokens: number;
+  windowTokens: number;
+  ratio: number;
+  percent: number;
+}
+
+const MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO = 0.2;
+
 const CONTEXT_USAGE_CATEGORIES: ContextUsageCategory[] = [
   'system_prompt',
   'builtin_tools',
@@ -8913,6 +8931,21 @@ function parseContextUsage(session: SessionSummary): ContextUsageBreakdown | nul
   };
 }
 
+function parseContextWindowUsage(session: SessionSummary): ContextWindowUsage {
+  const metadata = recordFromUnknown(session.last_prompt_metadata);
+  const usedTokens = nonNegativeIntegerFromUnknown(metadata['context_budget_estimated_prompt_tokens']);
+  const windowTokens = nonNegativeIntegerFromUnknown(metadata['context_budget_effective_window_tokens']);
+  const ratio = usedTokens > 0 && windowTokens > 0
+    ? clampNumber(usedTokens / windowTokens, 0, 1)
+    : 0;
+  return {
+    usedTokens,
+    windowTokens,
+    ratio,
+    percent: Math.round(ratio * 100),
+  };
+}
+
 interface SessionTokenStatsViewModel {
   promptTokens: number;
   completionTokens: number;
@@ -8928,6 +8961,7 @@ interface SessionTokenStatsViewModel {
   totalPromptCharacters: number;
   cacheHit: SessionCacheHitDisplay;
   contextUsage: ContextUsageBreakdown | null;
+  contextWindowUsage: ContextWindowUsage;
 }
 
 function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenStatsViewModel {
@@ -8947,6 +8981,7 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
   const contextUsage = parseContextUsage(session);
+  const contextWindowUsage = parseContextWindowUsage(session);
   // WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
   // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
@@ -8966,6 +9001,7 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
     totalPromptCharacters,
     cacheHit,
     contextUsage,
+    contextWindowUsage,
   };
 }
 
@@ -8976,8 +9012,26 @@ function contextUsagePercent(tokens: number, totalTokens: number): string {
   return value >= 10 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
 }
 
-function ContextUsageOverview({ usage }: { usage: ContextUsageBreakdown | null }) {
+function ContextUsageOverview({
+  usage,
+  windowUsage,
+  canCompact = false,
+  compacting = false,
+  onCompact,
+}: {
+  usage: ContextUsageBreakdown | null;
+  windowUsage: ContextWindowUsage;
+  canCompact?: boolean;
+  compacting?: boolean;
+  onCompact?: () => void;
+}) {
   const activeItems = usage?.items.filter((item) => item.tokenCount > 0) ?? [];
+  const contextColor = windowUsage.ratio >= 0.9
+    ? 'var(--m3-error)'
+    : windowUsage.ratio >= 0.7
+      ? 'var(--m3-tertiary)'
+      : 'var(--m3-primary)';
+  const showCompact = canCompact || compacting;
   return (
     <section
       class="rounded-m3-md p-3"
@@ -9010,6 +9064,64 @@ function ContextUsageOverview({ usage }: { usage: ContextUsageBreakdown | null }
       </div>
       {usage ? (
         <>
+          {windowUsage.windowTokens > 0 ? (
+            <div
+              class="mt-3 rounded-m3-sm px-2.5 py-2.5"
+              style={{
+                background: `color-mix(in srgb, ${contextColor} 7%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${contextColor} 20%, transparent)`,
+              }}
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+                  {t('tokenPopup.context.window', '上下文窗口')}
+                </span>
+                <span class="ml-auto text-xs font-black tabular-nums" style={{ color: contextColor }}>
+                  <RollingText text={`${windowUsage.percent}%`} />
+                </span>
+              </div>
+              <div class="mt-2 h-[7px] overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-container-highest)' }}>
+                <div
+                  class="h-full rounded-full"
+                  style={{
+                    width: `${windowUsage.ratio * 100}%`,
+                    background: contextColor,
+                    transition: 'width 680ms cubic-bezier(.34, 1.56, .64, 1), background 240ms ease-out',
+                  }}
+                />
+              </div>
+              <div class="mt-1.5 text-right text-[10px] tabular-nums" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                {windowUsage.usedTokens.toLocaleString()} / {windowUsage.windowTokens.toLocaleString()} Token
+              </div>
+            </div>
+          ) : null}
+          <div
+            aria-hidden={!showCompact}
+            style={{
+              maxHeight: showCompact ? '48px' : '0px',
+              marginTop: showCompact ? '10px' : '0px',
+              opacity: showCompact ? 1 : 0,
+              transform: showCompact ? 'translateY(0) scale(1)' : 'translateY(-5px) scale(.96)',
+              overflow: 'hidden',
+              pointerEvents: showCompact ? 'auto' : 'none',
+              transition: 'max-height var(--oh-dialog-duration) var(--oh-dialog-curve), margin var(--oh-dialog-duration) var(--oh-dialog-curve), opacity var(--oh-dialog-duration) ease-out, transform var(--oh-dialog-duration) cubic-bezier(.34, 1.56, .64, 1)',
+            }}
+          >
+            <button
+              type="button"
+              class="oh-tap-press ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-60"
+              style={{
+                color: 'var(--m3-on-primary-container)',
+                background: 'var(--m3-primary-container)',
+                border: '1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent)',
+              }}
+              disabled={compacting}
+              onClick={onCompact}
+            >
+              {compacting ? <span class="oh-spin"><ComposerIcon name="refresh" size={14} /></span> : null}
+              <span>{compacting ? t('tokenPopup.context.compacting', '正在压缩…') : t('tokenPopup.context.compactNow', '主动压缩')}</span>
+            </button>
+          </div>
           <div class="mt-3 flex h-[7px] overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-container-highest)' }}>
             {activeItems.map((item) => (
               <span
@@ -9065,11 +9177,17 @@ function SessionTokenStatsContent({
   trendDisplayMode,
   onTrendDisplayModeChange,
   onPointSelected,
+  canCompact,
+  compacting,
+  onCompact,
 }: {
   stats: SessionTokenStatsViewModel;
   trendDisplayMode: CacheHitDisplayMode;
   onTrendDisplayModeChange: (mode: CacheHitDisplayMode) => void;
   onPointSelected?: (point: CacheHitTrendPoint) => void;
+  canCompact?: boolean;
+  compacting?: boolean;
+  onCompact?: () => void;
 }) {
   const {
     promptTokens,
@@ -9086,6 +9204,7 @@ function SessionTokenStatsContent({
     totalPromptCharacters,
     cacheHit,
     contextUsage,
+    contextWindowUsage,
   } = stats;
   const {
     cacheReadTokens,
@@ -9158,7 +9277,13 @@ function SessionTokenStatsContent({
           </>
         ) : null}
       </div>
-      <ContextUsageOverview usage={contextUsage} />
+      <ContextUsageOverview
+        usage={contextUsage}
+        windowUsage={contextWindowUsage}
+        canCompact={canCompact}
+        compacting={compacting}
+        onCompact={onCompact}
+      />
       {trendData && trendData.points.length > 0 ? (
         <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} onPointSelected={onPointSelected} t={t} />
       ) : null}
@@ -9173,17 +9298,47 @@ function SessionTokenStatsContent({
 
 function SessionTokenStatsDialog({
   detail,
+  modelKey,
+  responseRunning,
   onClose,
+  onCompacted,
   onPointSelected,
 }: {
   detail: SessionDetailResponse;
+  modelKey: string;
+  responseRunning: boolean;
   onClose: () => void;
+  onCompacted: () => void;
   onPointSelected: (point: CacheHitTrendPoint) => void;
 }) {
   const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
+  const [compacting, setCompacting] = useState(false);
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
   const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
+  const canCompact = tokenStats.contextWindowUsage.ratio > MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO && !responseRunning;
+
+  async function handleCompact() {
+    if (!canCompact || compacting) return;
+    setCompacting(true);
+    try {
+      const response = await compactSession(session.id, { modelKey });
+      showSnackbar(compactStatusMessage(response.status, response.retry_after_ms), {
+        tone: response.ok ? 'success' : 'error',
+      });
+      if (response.ok) onCompacted();
+    } catch (error) {
+      showSnackbar(
+        t('contextStats.error', '压缩请求失败：{detail}').replace(
+          '{detail}',
+          error instanceof Error ? error.message : String(error),
+        ),
+        { tone: 'error' },
+      );
+    } finally {
+      setCompacting(false);
+    }
+  }
   return (
     <DialogFrame
       closing={closing}
@@ -9213,6 +9368,9 @@ function SessionTokenStatsDialog({
           stats={tokenStats}
           trendDisplayMode={trendDisplayMode}
           onTrendDisplayModeChange={setTrendDisplayMode}
+          canCompact={canCompact}
+          compacting={compacting}
+          onCompact={() => void handleCompact()}
           onPointSelected={(point) => {
             requestClose();
             onPointSelected(point);
@@ -9311,7 +9469,10 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
   const [resultIsError, setResultIsError] = useState(false);
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
-  const disableCompact = estimatedTokens <= 0 || (percentLeft >= 0 && percentLeft > 85) || usagePercent < 10 || busy;
+  const contextWindowUsage = parseContextWindowUsage(session);
+  const showCompact =
+    contextWindowUsage.ratio > MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO &&
+    (!isRunningPhase(detail.runtime.send_phase) || busy);
 
   const statusBadge =
     status === 'critical'
@@ -9474,14 +9635,15 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
         class="flex shrink-0 justify-end px-5 py-4"
         style={{ borderTop: '1px solid var(--m3-outline-variant)' }}
       >
-        <DialogActionButton
-          tone={disableCompact ? 'secondary' : 'primary'}
-          style={{ opacity: disableCompact ? 0.7 : 1 }}
-          disabled={disableCompact}
-          onClick={() => void handleCompactPressed()}
-        >
-          {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '立即压缩')}
-        </DialogActionButton>
+        {showCompact ? (
+          <DialogActionButton
+            tone="primary"
+            disabled={busy}
+            onClick={() => void handleCompactPressed()}
+          >
+            {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '主动压缩')}
+          </DialogActionButton>
+        ) : null}
       </footer>
     </DialogFrame>
   );

@@ -460,9 +460,6 @@ class AiSessionController extends ChangeNotifier {
   /// 频繁触发既浪费 token 也会冲掉刚生成的检查点上下文。
   static const Duration _manualCompactionDebounce = Duration(seconds: 30);
 
-  /// 手动压缩拒绝阈值——percentLeft 高于该值（即 prompt 占比很低）时
-  /// 拒绝触发，避免「0% 占比下也强行压缩」。
-  static const int _manualCompactionRefusePercentLeftAbove = 85;
   // 首次打开时与消息列表窗口保持一致，避免长会话在首帧前解码大量消息。
   static const int _initialMessageHydrationWindowSize = 8;
   static const int _initialMessageHydrationCharacterBudget = 14000;
@@ -7014,6 +7011,16 @@ class AiSessionController extends ChangeNotifier {
         planModeRecoveryInspectionRequired: planModeRecoveryInspectionRequired,
         displayCatalogOverride: displayCatalogForPrompt.definitions,
       );
+      workingSession = workingSession.copyWith(
+        lastPromptMetadata: _promptMetadataWithRuntimeToolCatalog(
+          baseMetadata: promptResult.metadata,
+          session: workingSession,
+          toolCatalog: toolCatalogForRound,
+          executionApprovedForSend: planModeExecutionApprovedForSend,
+          recoveryInspectionRequired: planModeRecoveryInspectionRequired,
+        ),
+      );
+      _previewSession(workingSession);
       preRequestTimingsMs['prompt_build'] =
           promptBuildStopwatch.elapsedMilliseconds;
       preRequestTimingsMs['assistant_pre_request_elapsed'] =
@@ -10632,6 +10639,12 @@ class AiSessionController extends ChangeNotifier {
           lastUsedModelLabel: model.displayName,
           latestCompressionCheckpointMessageId: checkpoint.id,
           latestCompressionAt: checkpoint.createdAt,
+          lastPromptMetadata: _contextMetadataAfterCompression(
+            session.lastPromptMetadata,
+            runtimeContext: runtimeContext,
+            checkpoint: checkpoint,
+            retainedMessages: retainedMessages,
+          ),
         ),
         totalPromptCharacters:
             session.statistics.totalPromptCharacters +
@@ -10720,6 +10733,91 @@ class AiSessionController extends ChangeNotifier {
         text.contains('request too large') ||
         text.contains('413') ||
         (text.contains('token') && text.contains('exceed'));
+  }
+
+  Map<String, Object?> _contextMetadataAfterCompression(
+    Map<String, Object?> metadata, {
+    required AiSessionRuntimeContext runtimeContext,
+    required AiSessionMessage checkpoint,
+    required List<AiSessionMessage> retainedMessages,
+  }) {
+    final previous = AiContextUsageBreakdown.fromMetadata(metadata);
+    if (previous == null) return metadata;
+    int metadataInt(String key) =>
+        optionalNonNegativeIntegralIntFromValue(metadata[key]) ?? 0;
+
+    final characters = <AiContextUsageCategory, int>{
+      for (final item in previous.items)
+        item.category: item.category == AiContextUsageCategory.conversation
+            ? checkpoint.characterCount +
+                  retainedMessages.fold<int>(
+                    0,
+                    (sum, message) => sum + message.characterCount,
+                  )
+            : item.characterCount,
+    };
+    final totalCharacters = characters.values.fold<int>(0, (a, b) => a + b);
+    final charactersPerToken = math.max(
+      1,
+      runtimeContext.estimatedCharactersPerToken,
+    );
+    final estimatedTokens = math.max(
+      1,
+      (totalCharacters / charactersPerToken).ceil(),
+    );
+    final effectiveWindow = metadataInt(
+      'context_budget_effective_window_tokens',
+    );
+    if (effectiveWindow <= 0) return metadata;
+
+    final autoCompactThreshold = metadataInt(
+      'context_budget_auto_compact_threshold_tokens',
+    );
+    final warningThreshold = metadataInt(
+      'context_budget_warning_threshold_tokens',
+    );
+    final errorThreshold = metadataInt('context_budget_error_threshold_tokens');
+    final blockingLimit = metadataInt('context_budget_blocking_limit_tokens');
+    final isAtBlockingLimit =
+        blockingLimit > 0 && estimatedTokens >= blockingLimit;
+    final isAboveAutoCompact =
+        autoCompactThreshold > 0 && estimatedTokens >= autoCompactThreshold;
+    final isAboveWarning =
+        warningThreshold > 0 && estimatedTokens >= warningThreshold;
+    final isAboveError =
+        errorThreshold > 0 && estimatedTokens >= errorThreshold;
+    final status = isAtBlockingLimit
+        ? 'critical'
+        : isAboveAutoCompact
+        ? 'auto_compact'
+        : isAboveError || isAboveWarning
+        ? 'warning'
+        : 'ok';
+    final percentLeft = autoCompactThreshold <= 0
+        ? 0
+        : math.max(
+            0,
+            (((autoCompactThreshold - estimatedTokens) / autoCompactThreshold) *
+                    100)
+                .round(),
+          );
+    return <String, Object?>{
+      ...metadata,
+      aiContextUsageMetadataKey: AiContextUsageBreakdown.fromCharacterCounts(
+        characters,
+        totalTokens: estimatedTokens,
+      ).toJson(),
+      'context_budget_status': status,
+      'context_budget_estimated_prompt_tokens': estimatedTokens,
+      'context_budget_remaining_tokens': effectiveWindow - estimatedTokens,
+      'context_budget_usage_percent': (estimatedTokens / effectiveWindow * 100)
+          .round(),
+      'context_budget_percent_left': percentLeft,
+      'context_budget_is_above_warning_threshold': isAboveWarning,
+      'context_budget_is_above_error_threshold': isAboveError,
+      'context_budget_is_above_auto_compact_threshold': isAboveAutoCompact,
+      'context_budget_is_at_blocking_limit': isAtBlockingLimit,
+    };
   }
 
   String _buildCompressionCheckpointContent({

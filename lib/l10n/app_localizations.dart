@@ -7200,6 +7200,24 @@ abstract class AppLocalizations {
   /// **'运行时'**
   String get tokenPopupContextRuntime;
 
+  /// No description provided for @tokenPopupContextWindow.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下文窗口'**
+  String get tokenPopupContextWindow;
+
+  /// No description provided for @tokenPopupCompactNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'主动压缩'**
+  String get tokenPopupCompactNow;
+
+  /// No description provided for @tokenPopupCompacting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在压缩…'**
+  String get tokenPopupCompacting;
+
   /// No description provided for @tokenPopupSessionHeading.
   ///
   /// In zh, this message translates to:

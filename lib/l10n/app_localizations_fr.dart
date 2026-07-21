@@ -4107,6 +4107,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupContextRuntime => 'Exécution';
 
   @override
+  String get tokenPopupContextWindow => 'Fenêtre de contexte';
+
+  @override
+  String get tokenPopupCompactNow => 'Compresser';
+
+  @override
+  String get tokenPopupCompacting => 'Compression…';
+
+  @override
   String get tokenPopupSessionHeading => 'Session';
 
   @override
