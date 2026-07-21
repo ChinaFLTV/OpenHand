@@ -58,6 +58,7 @@ class _TokenDialState extends State<_TokenDial>
   late final AnimationController _transitionController;
   Timer? _hideTimer;
   bool _showQueued = false;
+  bool _touchSheetOpen = false;
   int _popupGeneration = 0;
 
   void _runAfterFrame(VoidCallback callback) {
@@ -72,7 +73,7 @@ class _TokenDialState extends State<_TokenDial>
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  /// WEB 端同时支持悬停预览和点击切换；点击后 pin 住浮窗直到再次点击或光标移出。
+  /// Web 端支持悬停预览，点击后固定浮窗，再次点击关闭。
   bool _webClickPinned = false;
 
   DialogAnimationSettings _dialogSettings(BuildContext context) {
@@ -89,10 +90,7 @@ class _TokenDialState extends State<_TokenDial>
   @override
   void initState() {
     super.initState();
-    _transitionController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
+    _transitionController = AnimationController(vsync: this);
   }
 
   @override
@@ -113,7 +111,9 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   void _showPopup() {
-    _hydrateCacheStatisticsOnDemand();
+    if (!_showQueued && !_portalController.isShowing) {
+      _hydrateCacheStatisticsOnDemand();
+    }
     _hideTimer?.cancel();
     _showQueued = true;
     final generation = ++_popupGeneration;
@@ -149,33 +149,39 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   Future<void> _showTouchPopupSheet() async {
+    if (_touchSheetOpen) return;
+    _touchSheetOpen = true;
     _hydrateCacheStatisticsOnDemand();
     SessionCacheHitTurnPoint? selectedPoint;
     var dismissQueued = false;
-    await showAnimatedModalSheet<void>(
-      context: context,
-      settings: _dialogSettings(context),
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-        child: _TokenDialPopup(
-          session: widget.session,
-          statistics: widget.statistics,
-          activeProfile: widget.activeProfile,
-          claudeStyle: widget.claudeStyle,
-          cacheHitRatio: _tokenDialSummaryCacheHitRatio(
-            widget.statistics,
+    try {
+      await showAnimatedModalSheet<void>(
+        context: context,
+        settings: _dialogSettings(context),
+        builder: (sheetContext) => Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: _TokenDialPopup(
+            session: widget.session,
+            statistics: widget.statistics,
+            activeProfile: widget.activeProfile,
             claudeStyle: widget.claudeStyle,
+            cacheHitRatio: _tokenDialSummaryCacheHitRatio(
+              widget.statistics,
+              claudeStyle: widget.claudeStyle,
+            ),
+            compact: false,
+            onCacheHitTrendPointSelected: (point) {
+              selectedPoint = point;
+              if (dismissQueued) return;
+              dismissQueued = true;
+              unawaited(_dismissTouchPopupAfterPointSelection(sheetContext));
+            },
           ),
-          compact: false,
-          onCacheHitTrendPointSelected: (point) {
-            selectedPoint = point;
-            if (dismissQueued) return;
-            dismissQueued = true;
-            unawaited(_dismissTouchPopupAfterPointSelection(sheetContext));
-          },
         ),
-      ),
-    );
+      );
+    } finally {
+      _touchSheetOpen = false;
+    }
     if (selectedPoint != null && mounted) {
       widget.onCacheHitTrendPointSelected?.call(selectedPoint!);
     }
@@ -184,15 +190,18 @@ class _TokenDialState extends State<_TokenDial>
   Future<void> _dismissTouchPopupAfterPointSelection(
     BuildContext sheetContext,
   ) async {
+    final navigator = Navigator.maybeOf(sheetContext);
+    final route = ModalRoute.of(sheetContext);
+    if (navigator == null || route == null) return;
     final settings = _dialogSettings(sheetContext);
     final delay = settings.entranceDisabled
         ? Duration.zero
-        : settings.entranceDuration + const Duration(milliseconds: 80);
+        : settings.entranceDuration + _kTokenDialSelectionDismissBuffer;
     if (delay > Duration.zero) {
       await Future<void>.delayed(delay);
     }
-    if (!sheetContext.mounted) return;
-    await Navigator.of(sheetContext).maybePop();
+    if (!sheetContext.mounted || !navigator.mounted || !route.isCurrent) return;
+    await navigator.maybePop();
   }
 
   void _hydrateCacheStatisticsOnDemand() {
@@ -321,6 +330,7 @@ const double _kTokenDialPopupExpandedMaxWidth = 520;
 const double _kTokenDialPopupViewportPadding = 12;
 const double _kTokenDialPopupAnchorGap = 8;
 const double _kTokenDialPopupMinScrollableHeight = 180;
+const Duration _kTokenDialSelectionDismissBuffer = Duration(milliseconds: 80);
 
 double? _positivePopupExtent(double? value) {
   if (value == null || !value.isFinite || value <= 0) return null;
@@ -401,10 +411,9 @@ class _TokenDialPopupMetrics {
     required GlobalKey anchorKey,
     required Size overlaySize,
   }) {
-    final media = MediaQuery.of(context);
-    final safeRect = _safePopupRect(overlaySize, media.padding);
+    final safeRect = _safePopupRect(overlaySize, MediaQuery.paddingOf(context));
     final anchorRect =
-        _anchorRect(anchorKey) ??
+        _anchorRect(anchorKey, context) ??
         Rect.fromLTWH(safeRect.right, safeRect.top, 0, 0);
     final belowHeight =
         safeRect.bottom - anchorRect.bottom - _kTokenDialPopupAnchorGap;
@@ -414,13 +423,8 @@ class _TokenDialPopupMetrics {
         belowHeight < _kTokenDialPopupMinScrollableHeight &&
         aboveHeight > belowHeight;
     final rawHeight = placedAbove ? aboveHeight : belowHeight;
-    final maxHeight = rawHeight.isFinite && rawHeight > 0
-        ? rawHeight
-              .clamp(
-                0.0,
-                math.max(_kTokenDialPopupMinScrollableHeight, safeRect.height),
-              )
-              .toDouble()
+    final maxHeight = rawHeight.isFinite
+        ? rawHeight.clamp(0.0, safeRect.height).toDouble()
         : safeRect.height;
     final maxWidth = math.min(
       _kTokenDialPopupCompactMaxWidth,
@@ -458,15 +462,37 @@ class _TokenDialPopupMetrics {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  static Rect? _anchorRect(GlobalKey key) {
-    final context = key.currentContext;
-    final renderObject = context?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.attached) return null;
+  static Rect? _anchorRect(GlobalKey key, BuildContext overlayContext) {
+    final renderObject = key.currentContext?.findRenderObject();
+    final overlayObject = Overlay.maybeOf(
+      overlayContext,
+    )?.context.findRenderObject();
+    if (renderObject is! RenderBox ||
+        overlayObject is! RenderBox ||
+        !renderObject.attached ||
+        !overlayObject.attached ||
+        !renderObject.hasSize ||
+        !overlayObject.hasSize ||
+        renderObject.size.isEmpty) {
+      return null;
+    }
     final size = renderObject.size;
-    if (size.isEmpty) return null;
-    final topLeft = renderObject.localToGlobal(Offset.zero);
+    final topLeft = renderObject.localToGlobal(
+      Offset.zero,
+      ancestor: overlayObject,
+    );
     return topLeft & size;
   }
+}
+
+double _clampTokenDialPopupCoordinate(
+  double value, {
+  required double lower,
+  required double upper,
+}) {
+  if (!value.isFinite) return lower;
+  if (upper <= lower) return lower;
+  return value.clamp(lower, upper).toDouble();
 }
 
 class _TokenDialPopupLayoutDelegate extends SingleChildLayoutDelegate {
@@ -487,12 +513,20 @@ class _TokenDialPopupLayoutDelegate extends SingleChildLayoutDelegate {
   Offset getPositionForChild(Size size, Size childSize) {
     final safe = metrics.safeRect;
     final rawLeft = metrics.anchorRect.right - childSize.width;
-    final left = rawLeft.clamp(safe.left, safe.right - childSize.width);
+    final left = _clampTokenDialPopupCoordinate(
+      rawLeft,
+      lower: safe.left,
+      upper: safe.right - childSize.width,
+    );
     final rawTop = metrics.placedAbove
         ? metrics.anchorRect.top - childSize.height - _kTokenDialPopupAnchorGap
         : metrics.anchorRect.bottom + _kTokenDialPopupAnchorGap;
-    final top = rawTop.clamp(safe.top, safe.bottom - childSize.height);
-    return Offset(left.toDouble(), top.toDouble());
+    final top = _clampTokenDialPopupCoordinate(
+      rawTop,
+      lower: safe.top,
+      upper: safe.bottom - childSize.height,
+    );
+    return Offset(left, top);
   }
 
   @override
@@ -599,11 +633,11 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       );
       if (!mounted) return;
       final feedback = _manualCompactionFeedback(context, result);
-      showHomeInfoSnack(context, feedback.message, maxLines: 2);
+      showOpenHandInfoSnack(context, feedback.message, maxLines: 2);
     } catch (error, stack) {
       silentLog('Token统计', '主动压缩', error, stack);
       if (!mounted) return;
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,

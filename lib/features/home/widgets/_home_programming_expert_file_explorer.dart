@@ -793,7 +793,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     } catch (error, stack) {
       silentLog('file_explorer', 'paste node', error, stack);
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -9678,7 +9678,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     } catch (error, stack) {
       silentLog('file_explorer', 'save file $filePath', error, stack);
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _editorText(
           zh: '保存失败：${p.basename(filePath)}\n$error',
@@ -14845,27 +14845,39 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     }
     final overlayBox =
         Overlay.of(overlayContext).context.findRenderObject() as RenderBox?;
-    final overlaySize = overlayBox?.size ?? MediaQuery.sizeOf(overlayContext);
+    final mediaSize = MediaQuery.sizeOf(overlayContext);
+    final overlaySize = overlayBox?.size ?? mediaSize;
     const tooltipMaxWidth = 340.0;
-    const tooltipHeightBudget = 236.0;
+    const tooltipViewportMargin = 8.0;
     const tooltipGap = 10.0;
-    final left = math.max(
-      8.0,
-      math.min(
-        globalAnchorRect.left,
-        overlaySize.width - tooltipMaxWidth - 8.0,
-      ),
+    final availableWidth = math.max(
+      0.0,
+      overlaySize.width - tooltipViewportMargin * 2,
     );
-    final showBelow =
-        globalAnchorRect.bottom + tooltipGap + tooltipHeightBudget <=
-        overlaySize.height - 8.0;
-    final topCandidate = showBelow
-        ? globalAnchorRect.bottom + tooltipGap
-        : globalAnchorRect.top - tooltipHeightBudget - tooltipGap;
-    final top = math.max(
-      8.0,
-      math.min(topCandidate, overlaySize.height - tooltipHeightBudget - 8.0),
+    if (availableWidth <= 0 || overlaySize.height <= 0) {
+      return const SizedBox.shrink();
+    }
+    final tooltipWidth = math.min(tooltipMaxWidth, availableWidth);
+    final maxLeft = math.max(
+      tooltipViewportMargin,
+      overlaySize.width - tooltipWidth - tooltipViewportMargin,
     );
+    final left = globalAnchorRect.left
+        .clamp(tooltipViewportMargin, maxLeft)
+        .toDouble();
+    final belowSpace = math.max(
+      0.0,
+      overlaySize.height -
+          globalAnchorRect.bottom -
+          tooltipGap -
+          tooltipViewportMargin,
+    );
+    final aboveSpace = math.max(
+      0.0,
+      globalAnchorRect.top - tooltipGap - tooltipViewportMargin,
+    );
+    final showBelow = belowSpace >= aboveSpace;
+    final tooltipMaxHeight = math.max(1.0, showBelow ? belowSpace : aboveSpace);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final visibleDiagnostics = diagnostics.take(4).toList(growable: false);
@@ -14873,7 +14885,10 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
     return Positioned(
       left: left,
-      top: top,
+      top: showBelow ? globalAnchorRect.bottom + tooltipGap : null,
+      bottom: showBelow
+          ? null
+          : overlaySize.height - globalAnchorRect.top + tooltipGap,
       child: MouseRegion(
         onEnter: (_) {
           _hoveringDiagnosticTooltip = true;
@@ -14887,7 +14902,10 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
           color: Colors.transparent,
           elevation: 12,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
+            constraints: BoxConstraints(
+              maxWidth: tooltipWidth,
+              maxHeight: tooltipMaxHeight,
+            ),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -14907,133 +14925,144 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (
-                    var index = 0;
-                    index < visibleDiagnostics.length;
-                    index++
-                  ) ...[
-                    if (index > 0)
-                      Divider(
-                        height: 12,
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.18,
+              child: SingleChildScrollView(
+                primary: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < visibleDiagnostics.length;
+                      index++
+                    ) ...[
+                      if (index > 0)
+                        Divider(
+                          height: 12,
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.18,
+                          ),
+                        ),
+                      _buildDiagnosticTooltipEntry(
+                        theme,
+                        colorScheme,
+                        visibleDiagnostics[index],
+                      ),
+                    ],
+                    if (diagnostics.length > visibleDiagnostics.length) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '还有 ${diagnostics.length - visibleDiagnostics.length} 条重叠诊断',
+                          zhHant:
+                              '還有 ${diagnostics.length - visibleDiagnostics.length} 條重疊診斷',
+                          en: '${diagnostics.length - visibleDiagnostics.length} more overlapping diagnostics',
+                          fr: '${diagnostics.length - visibleDiagnostics.length} diagnostics superposés en plus',
+                          de: '${diagnostics.length - visibleDiagnostics.length} weitere überlappende Diagnosen',
+                          ja: 'ほかに ${diagnostics.length - visibleDiagnostics.length} 件の重なった診断',
+                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    _buildDiagnosticTooltipEntry(
-                      theme,
-                      colorScheme,
-                      visibleDiagnostics[index],
-                    ),
-                  ],
-                  if (diagnostics.length > visibleDiagnostics.length) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '还有 ${diagnostics.length - visibleDiagnostics.length} 条重叠诊断',
-                        zhHant:
-                            '還有 ${diagnostics.length - visibleDiagnostics.length} 條重疊診斷',
-                        en: '${diagnostics.length - visibleDiagnostics.length} more overlapping diagnostics',
-                        fr: '${diagnostics.length - visibleDiagnostics.length} diagnostics superposés en plus',
-                        de: '${diagnostics.length - visibleDiagnostics.length} weitere überlappende Diagnosen',
-                        ja: 'ほかに ${diagnostics.length - visibleDiagnostics.length} 件の重なった診断',
-                      ),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  if (widget.onDiagnosticTooltipQuickFixRequested != null ||
-                      widget.onDiagnosticTooltipMoreActionsRequested !=
-                          null) ...[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (widget.onDiagnosticTooltipMoreActionsRequested !=
-                              null)
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                final selectedDiagnostics =
-                                    List<_EditorDiagnostic>.from(
-                                      diagnostics,
-                                      growable: false,
-                                    );
-                                _removeDiagnosticTooltip();
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  widget.onDiagnosticTooltipMoreActionsRequested
-                                      ?.call(selectedDiagnostics, actionAnchor);
-                                });
-                              },
-                              icon: const Icon(
-                                Icons.more_horiz_rounded,
-                                size: 16,
-                              ),
-                              label: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '更多操作',
-                                  zhHant: '更多操作',
-                                  en: 'More Actions',
-                                  fr: 'Plus d’actions',
-                                  de: 'Weitere Aktionen',
-                                  ja: 'その他の操作',
+                    ],
+                    if (widget.onDiagnosticTooltipQuickFixRequested != null ||
+                        widget.onDiagnosticTooltipMoreActionsRequested !=
+                            null) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (widget
+                                    .onDiagnosticTooltipMoreActionsRequested !=
+                                null)
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  final selectedDiagnostics =
+                                      List<_EditorDiagnostic>.from(
+                                        diagnostics,
+                                        growable: false,
+                                      );
+                                  _removeDiagnosticTooltip();
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    widget
+                                        .onDiagnosticTooltipMoreActionsRequested
+                                        ?.call(
+                                          selectedDiagnostics,
+                                          actionAnchor,
+                                        );
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  openHandLocalizedText(
+                                    context,
+                                    zh: '更多操作',
+                                    zhHant: '更多操作',
+                                    en: 'More Actions',
+                                    fr: 'Plus d’actions',
+                                    de: 'Weitere Aktionen',
+                                    ja: 'その他の操作',
+                                  ),
                                 ),
                               ),
-                            ),
-                          if (widget.onDiagnosticTooltipQuickFixRequested !=
-                              null)
-                            FilledButton.tonalIcon(
-                              onPressed: () {
-                                final selectedDiagnostics =
-                                    List<_EditorDiagnostic>.from(
-                                      diagnostics,
-                                      growable: false,
-                                    );
-                                _removeDiagnosticTooltip();
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  widget.onDiagnosticTooltipQuickFixRequested
-                                      ?.call(selectedDiagnostics, actionAnchor);
-                                });
-                              },
-                              icon: const Icon(
-                                Icons.auto_fix_high_rounded,
-                                size: 16,
-                              ),
-                              label: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '应用快速修复',
-                                  zhHant: '套用快速修復',
-                                  en: 'Apply Quick Fix',
-                                  fr: 'Appliquer la correction rapide',
-                                  de: 'Schnellkorrektur anwenden',
-                                  ja: 'クイック修正を適用',
+                            if (widget.onDiagnosticTooltipQuickFixRequested !=
+                                null)
+                              FilledButton.tonalIcon(
+                                onPressed: () {
+                                  final selectedDiagnostics =
+                                      List<_EditorDiagnostic>.from(
+                                        diagnostics,
+                                        growable: false,
+                                      );
+                                  _removeDiagnosticTooltip();
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    widget.onDiagnosticTooltipQuickFixRequested
+                                        ?.call(
+                                          selectedDiagnostics,
+                                          actionAnchor,
+                                        );
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.auto_fix_high_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  openHandLocalizedText(
+                                    context,
+                                    zh: '应用快速修复',
+                                    zhHant: '套用快速修復',
+                                    en: 'Apply Quick Fix',
+                                    fr: 'Appliquer la correction rapide',
+                                    de: 'Schnellkorrektur anwenden',
+                                    ja: 'クイック修正を適用',
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

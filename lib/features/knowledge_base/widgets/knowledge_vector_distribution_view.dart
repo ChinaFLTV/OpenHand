@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
+import '../../../shared/ui/animated_appearance.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_vector_distribution.dart';
 
@@ -21,6 +24,7 @@ const double _kVectorPopoverMinWidth = 282;
 const double _kVectorPopoverMaxWidth = 342;
 const double _kVectorPopoverScenePadding = 12;
 const double _kVectorPopoverAnchorGap = 14;
+const Duration _kVectorSceneRevealDuration = Duration(milliseconds: 920);
 
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
@@ -44,18 +48,30 @@ class _KnowledgeVectorDistributionViewState
     with SingleTickerProviderStateMixin {
   late final AnimationController _revealController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 920),
+    duration: _kVectorSceneRevealDuration,
   );
   double _yaw = -0.62;
   double _pitch = -0.34;
   double _zoom = 1.0;
   double _gestureStartZoom = 1.0;
   KnowledgeVectorDistributionPoint? _selected;
+  bool _popoverVisible = false;
+  bool _revealInitialized = false;
 
   @override
-  void initState() {
-    super.initState();
-    _revealController.forward();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final duration = openHandMotionDuration(
+      context,
+      _kVectorSceneRevealDuration,
+    );
+    _revealController.duration = duration;
+    if (!_revealInitialized) {
+      _revealInitialized = true;
+      _restartReveal();
+    } else if (duration == Duration.zero && !_revealController.isCompleted) {
+      _revealController.value = 1;
+    }
   }
 
   @override
@@ -63,9 +79,8 @@ class _KnowledgeVectorDistributionViewState
     super.didUpdateWidget(oldWidget);
     if (!_sameDistribution(oldWidget.distribution, widget.distribution)) {
       _selected = null;
-      _revealController
-        ..reset()
-        ..forward();
+      _popoverVisible = false;
+      _restartReveal();
     }
   }
 
@@ -80,6 +95,10 @@ class _KnowledgeVectorDistributionViewState
     final points = widget.distribution.points;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final popoverMotionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.menu,
+    );
     if (points.isEmpty) {
       return Container(
         height: math.max(_kVectorSceneMinHeight, widget.height),
@@ -177,7 +196,7 @@ class _KnowledgeVectorDistributionViewState
                           projected,
                           details.localPosition,
                         );
-                        setState(() => _selected = nearest?.point);
+                        _selectPoint(nearest?.point);
                       },
                       child: AnimatedBuilder(
                         animation: _revealController,
@@ -228,47 +247,18 @@ class _KnowledgeVectorDistributionViewState
                 bottom: 12,
                 child: _VectorLegend(visibleKinds: visibleKinds),
               ),
-              IgnorePointer(
-                ignoring: selectedProjection == null,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  reverseDuration: const Duration(milliseconds: 210),
-                  transitionBuilder: (child, animation) {
-                    final curved = CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutBack,
-                      reverseCurve: Curves.easeInCubic,
-                    );
-                    return FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(
-                          begin: 0.90,
-                          end: 1.0,
-                        ).animate(curved),
-                        alignment: Alignment.bottomLeft,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: selectedProjection == null
-                      ? const SizedBox.expand(key: ValueKey('popover-empty'))
-                      : SizedBox.expand(
-                          key: ValueKey<String>(
-                            'popover-${selectedProjection.point.id}',
-                          ),
-                          child: Stack(
-                            children: [
-                              _VectorPointPopover(
-                                projection: selectedProjection,
-                                sceneSize: size,
-                                onClose: () => setState(() => _selected = null),
-                              ),
-                            ],
-                          ),
-                        ),
+              if (selectedProjection != null)
+                IgnorePointer(
+                  ignoring: !_popoverVisible,
+                  child: _VectorPointPopover(
+                    projection: selectedProjection,
+                    sceneSize: size,
+                    motionSettings: popoverMotionSettings,
+                    present: _popoverVisible,
+                    onClose: _hidePopover,
+                    onDismissed: _clearDismissedPopover,
+                  ),
                 ),
-              ),
             ],
           ),
         );
@@ -322,6 +312,36 @@ class _KnowledgeVectorDistributionViewState
 
   double _clampZoom(double zoom) {
     return zoom.clamp(_kVectorSceneMinZoom, _kVectorSceneMaxZoom).toDouble();
+  }
+
+  void _restartReveal() {
+    if (_revealController.duration == Duration.zero) {
+      _revealController.value = 1;
+      return;
+    }
+    _revealController.forward(from: 0);
+  }
+
+  void _selectPoint(KnowledgeVectorDistributionPoint? point) {
+    if (point == null) {
+      _hidePopover();
+      return;
+    }
+    if (_popoverVisible && _selected?.id == point.id) return;
+    setState(() {
+      _selected = point;
+      _popoverVisible = true;
+    });
+  }
+
+  void _hidePopover() {
+    if (_selected == null || !_popoverVisible) return;
+    setState(() => _popoverVisible = false);
+  }
+
+  void _clearDismissedPopover() {
+    if (!mounted || _popoverVisible || _selected == null) return;
+    setState(() => _selected = null);
   }
 }
 
@@ -592,12 +612,18 @@ class _VectorPointPopover extends StatelessWidget {
   const _VectorPointPopover({
     required this.projection,
     required this.sceneSize,
+    required this.motionSettings,
+    required this.present,
     required this.onClose,
+    required this.onDismissed,
   });
 
   final _ProjectedVectorPoint projection;
   final Size sceneSize;
+  final DialogAnimationSettings motionSettings;
+  final bool present;
   final VoidCallback onClose;
+  final VoidCallback onDismissed;
 
   @override
   Widget build(BuildContext context) {
@@ -615,18 +641,11 @@ class _VectorPointPopover extends StatelessWidget {
           safeRect: safeRect,
           width: popoverWidth,
         ),
-        child: TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0.88, end: 1),
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutBack,
-          builder: (context, scale, child) {
-            final boundedScale = scale.clamp(0.0, 1.0).toDouble();
-            return Transform.scale(
-              scale: boundedScale,
-              alignment: Alignment.bottomLeft,
-              child: Opacity(opacity: boundedScale, child: child),
-            );
-          },
+        child: AnimatedAppearance(
+          settings: motionSettings,
+          present: present,
+          collapseSize: false,
+          onDismissed: onDismissed,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colorScheme.surface.withValues(alpha: 0.96),

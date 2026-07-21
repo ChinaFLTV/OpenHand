@@ -40,9 +40,10 @@ Future<T?> showAnimatedMenu<T>({
   bool enableBidirectionalScroll = false,
   bool barrierDismissible = true,
 }) {
-  if (items.isEmpty) return Future<T?>.value();
+  if (items.isEmpty || !context.mounted) return Future<T?>.value();
+  final navigator = Navigator.maybeOf(context, rootNavigator: useRootNavigator);
+  if (navigator == null || !navigator.mounted) return Future<T?>.value();
   final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
-  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   final route = _AnimatedPopupMenuRoute<T>(
     position: position,
     items: items,
@@ -60,7 +61,7 @@ Future<T?> showAnimatedMenu<T>({
       to: navigator.context,
     ),
   );
-  return pushOpenHandTransitionRoute(navigator, route);
+  return pushOpenHandTransitionRoute(navigator, route, sourceContext: context);
 }
 
 /// 以当前组件为锚点显示标准弹出菜单，并统一处理挂载对象与窗口尺寸校验。
@@ -79,8 +80,9 @@ Future<T?> showAnimatedAnchoredPopupMenu<T>({
   bool enableBidirectionalScroll = false,
   bool barrierDismissible = true,
 }) {
-  if (items.isEmpty) return Future<T?>.value();
-  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  if (items.isEmpty || !context.mounted) return Future<T?>.value();
+  final navigator = Navigator.maybeOf(context, rootNavigator: useRootNavigator);
+  if (navigator == null || !navigator.mounted) return Future<T?>.value();
   final relativePosition = _resolveAnimatedMenuPosition(
     anchorObject: context.findRenderObject(),
     overlayObject: navigator.overlay?.context.findRenderObject(),
@@ -118,7 +120,9 @@ Future<T?> showAnimatedAnchoredMenu<T>({
   bool useRootNavigator = false,
   bool barrierDismissible = true,
 }) {
-  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  if (!context.mounted) return Future<T?>.value();
+  final navigator = Navigator.maybeOf(context, rootNavigator: useRootNavigator);
+  if (navigator == null || !navigator.mounted) return Future<T?>.value();
   final relativePosition = _resolveAnimatedMenuPosition(
     anchorObject: context.findRenderObject(),
     overlayObject: navigator.overlay?.context.findRenderObject(),
@@ -139,7 +143,7 @@ Future<T?> showAnimatedAnchoredMenu<T>({
     ),
     builder: builder,
   );
-  return pushOpenHandTransitionRoute(navigator, route);
+  return pushOpenHandTransitionRoute(navigator, route, sourceContext: context);
 }
 
 class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {

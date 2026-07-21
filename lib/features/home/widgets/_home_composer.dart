@@ -20,6 +20,8 @@ const int _atMentionDirectoryEntryLimit = 5000;
 const int _atMentionDeepSearchEntryLimit = 20000;
 const double _composerActionControlGap = 10;
 const double _composerActionControlHeight = 52;
+const double _composerOverlayViewportMargin = 8;
+const double _composerOverlayGap = 6;
 final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
 
 enum _AtMentionOverlayMode { projectFiles, localFiles }
@@ -209,6 +211,8 @@ class _ComposerPanel extends StatefulWidget {
 class _ComposerPanelState extends State<_ComposerPanel> {
   final LayerLink _atMentionLayerLink = LayerLink();
   final LayerLink _skillPickerLayerLink = LayerLink();
+  final GlobalKey _atMentionAnchorKey = GlobalKey();
+  final GlobalKey _skillPickerAnchorKey = GlobalKey();
   final AnimatedOverlayEntryController _atMentionOverlay =
       AnimatedOverlayEntryController();
   final AnimatedOverlayEntryController _skillPickerOverlay =
@@ -725,6 +729,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       builder: (context, visibility, onExitCompleted) {
         return _AtMentionOverlayPanel(
           link: _atMentionLayerLink,
+          anchorKey: _atMentionAnchorKey,
           items: _atMentionResults,
           selectedIndex: _atMentionSelectedIndex,
           loading: _atMentionLoading,
@@ -990,6 +995,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       builder: (context, visibility, onExitCompleted) {
         return _SkillPickerOverlayPanel(
           link: _skillPickerLayerLink,
+          anchorKey: _skillPickerAnchorKey,
           items: _skillPickerResults,
           selectedIndex: _skillPickerSelectedIndex,
           loading: _skillPickerLoading,
@@ -1806,10 +1812,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               fit: StackFit.expand,
               children: [
                 CompositedTransformTarget(
+                  key: _atMentionAnchorKey,
                   link: _atMentionLayerLink,
                   child: const SizedBox.expand(),
                 ),
                 CompositedTransformTarget(
+                  key: _skillPickerAnchorKey,
                   link: _skillPickerLayerLink,
                   child: const SizedBox.expand(),
                 ),
@@ -3382,9 +3390,123 @@ class _AtMentionItem {
 
 enum _AtMentionItemKind { projectEntry, localFileAction }
 
+class _ComposerOverlayLayout {
+  const _ComposerOverlayLayout({
+    required this.targetAnchor,
+    required this.followerAnchor,
+    required this.offset,
+    required this.maxWidth,
+    required this.maxHeight,
+  });
+
+  final Alignment targetAnchor;
+  final Alignment followerAnchor;
+  final Offset offset;
+  final double maxWidth;
+  final double maxHeight;
+}
+
+_ComposerOverlayLayout _resolveComposerOverlayLayout(
+  BuildContext context,
+  GlobalKey anchorKey, {
+  required double preferredWidth,
+  required double preferredHeight,
+}) {
+  final overlayBox = Overlay.maybeOf(
+    context,
+    rootOverlay: true,
+  )?.context.findRenderObject();
+  final anchorBox = anchorKey.currentContext?.findRenderObject();
+  final fallbackSize = MediaQuery.sizeOf(context);
+  final overlaySize = overlayBox is RenderBox && overlayBox.hasSize
+      ? overlayBox.size
+      : fallbackSize;
+  final availableWidth = math.max(
+    1.0,
+    overlaySize.width - _composerOverlayViewportMargin * 2,
+  );
+  final fallbackWidth = math.min(preferredWidth, availableWidth);
+  if (overlayBox is! RenderBox ||
+      anchorBox is! RenderBox ||
+      !overlayBox.hasSize ||
+      !anchorBox.hasSize ||
+      !anchorBox.attached) {
+    return _ComposerOverlayLayout(
+      targetAnchor: Alignment.topLeft,
+      followerAnchor: Alignment.bottomLeft,
+      offset: const Offset(0, -_composerOverlayGap),
+      maxWidth: fallbackWidth,
+      maxHeight: math.max(
+        1.0,
+        math.min(
+          preferredHeight,
+          overlaySize.height - _composerOverlayViewportMargin * 2,
+        ),
+      ),
+    );
+  }
+
+  final topLeft = anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+  final anchorRect = topLeft & anchorBox.size;
+  final maxWidth = math.min(preferredWidth, availableWidth);
+  final spaceAbove = math.max(
+    0.0,
+    anchorRect.top - _composerOverlayGap - _composerOverlayViewportMargin,
+  );
+  final spaceBelow = math.max(
+    0.0,
+    overlaySize.height -
+        anchorRect.bottom -
+        _composerOverlayGap -
+        _composerOverlayViewportMargin,
+  );
+  final preferredAboveThreshold = math.min(preferredHeight, 160.0);
+  final placeAbove =
+      spaceAbove >= preferredAboveThreshold || spaceAbove >= spaceBelow;
+  final maxHeight = math.max(
+    1.0,
+    math.min(preferredHeight, placeAbove ? spaceAbove : spaceBelow),
+  );
+  final fitsFromLeft =
+      anchorRect.left + maxWidth <=
+      overlaySize.width - _composerOverlayViewportMargin;
+  final fitsFromRight =
+      anchorRect.right - maxWidth >= _composerOverlayViewportMargin;
+  final alignRight =
+      !fitsFromLeft &&
+      (fitsFromRight || anchorRect.center.dx >= overlaySize.width / 2);
+  const minLeft = _composerOverlayViewportMargin;
+  final maxLeft = math.max(
+    minLeft,
+    overlaySize.width - _composerOverlayViewportMargin - maxWidth,
+  );
+  final horizontalOffset = alignRight
+      ? anchorRect.right
+                .clamp(minLeft + maxWidth, maxLeft + maxWidth)
+                .toDouble() -
+            anchorRect.right
+      : anchorRect.left.clamp(minLeft, maxLeft).toDouble() - anchorRect.left;
+
+  return _ComposerOverlayLayout(
+    targetAnchor: placeAbove
+        ? (alignRight ? Alignment.topRight : Alignment.topLeft)
+        : (alignRight ? Alignment.bottomRight : Alignment.bottomLeft),
+    followerAnchor: placeAbove
+        ? (alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
+        : (alignRight ? Alignment.topRight : Alignment.topLeft),
+    offset: Offset(
+      horizontalOffset,
+      placeAbove ? -_composerOverlayGap : _composerOverlayGap,
+    ),
+    maxWidth: maxWidth,
+    maxHeight: maxHeight,
+  );
+}
+
 class _AtMentionOverlayPanel extends StatefulWidget {
   const _AtMentionOverlayPanel({
     required this.link,
+    required this.anchorKey,
     required this.items,
     required this.selectedIndex,
     required this.loading,
@@ -3401,6 +3523,7 @@ class _AtMentionOverlayPanel extends StatefulWidget {
   });
 
   final LayerLink link;
+  final GlobalKey anchorKey;
   final List<_AtMentionItem> items;
   final int selectedIndex;
   final bool loading;
@@ -3488,9 +3611,14 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
             ja: 'プロジェクトファイルを選択',
           );
 
-    final content = Stack(
+    final layout = _resolveComposerOverlayLayout(
+      context,
+      widget.anchorKey,
+      preferredWidth: 460,
+      preferredHeight: 340,
+    );
+    return Stack(
       children: [
-        // Dismiss barrier.
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -3499,277 +3627,284 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
         ),
         CompositedTransformFollower(
           link: widget.link,
-          followerAnchor: Alignment.bottomLeft,
-          offset: const Offset(0, -6),
+          showWhenUnlinked: false,
+          targetAnchor: layout.targetAnchor,
+          followerAnchor: layout.followerAnchor,
+          offset: layout.offset,
           child: TextFieldTapRegion(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
-              child: Material(
-                elevation: 8,
-                shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(16),
-                color: isDark
-                    ? colorScheme.surfaceContainerHigh
-                    : colorScheme.surface,
-                surfaceTintColor: colorScheme.surfaceTint,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isLocalFileMode
-                                ? Icons.attach_file_rounded
-                                : Icons.folder_open_rounded,
-                            size: 16,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            titleLabel,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Breadcrumb row.
-                    if (!isLocalFileMode && widget.breadcrumbs.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _AtMentionBreadcrumbChip(
-                                label: openHandLocalizedText(
-                                  context,
-                                  zh: '项目根目录',
-                                  zhHant: '專案根目錄',
-                                  en: 'Project Root',
-                                  fr: 'Racine du projet',
-                                  de: 'Projektwurzel',
-                                  ja: 'プロジェクトルート',
-                                ),
-                                icon: Icons.home_rounded,
-                                onTap: () => widget.onBreadcrumbTap(-1),
-                              ),
-                              for (
-                                var i = 0;
-                                i < widget.breadcrumbs.length;
-                                i++
-                              ) ...[
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 2,
-                                  ),
-                                  child: Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 14,
-                                    color: colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                _AtMentionBreadcrumbChip(
-                                  label: widget.breadcrumbs[i],
-                                  icon: Icons.folder_rounded,
-                                  onTap: () => widget.onBreadcrumbTap(i),
-                                  isLast: i == widget.breadcrumbs.length - 1,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    // Results.
-                    if (widget.loading)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      )
-                    else if (widget.items.isEmpty)
+              constraints: BoxConstraints(
+                maxWidth: layout.maxWidth,
+                maxHeight: layout.maxHeight,
+              ),
+              child: AnimatedOverlayContent(
+                customSettings: widget.animationSettings,
+                visibility: widget.visible,
+                onExitCompleted: widget.onExitComplete,
+                alignment: layout.followerAnchor,
+                child: Material(
+                  elevation: 8,
+                  shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(16),
+                  color: isDark
+                      ? colorScheme.surfaceContainerHigh
+                      : colorScheme.surface,
+                  surfaceTintColor: colorScheme.surfaceTint,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Center(
-                          child: Text(
-                            isLocalFileMode && !widget.attachmentsEnabled
-                                ? openHandLocalizedText(
-                                    context,
-                                    zh: '当前模型不支持附件',
-                                    zhHant: '目前模型不支援附件',
-                                    en: 'The selected model does not support attachments',
-                                    fr: 'Le modèle sélectionné ne prend pas en charge les pièces jointes',
-                                    de: 'Das ausgewählte Modell unterstützt keine Anhänge',
-                                    ja: '選択中のモデルは添付ファイルに対応していません',
-                                  )
-                                : openHandLocalizedText(
-                                    context,
-                                    zh: '未找到匹配文件或目录',
-                                    zhHant: '找不到相符的檔案或目錄',
-                                    en: 'No matching files or directories',
-                                    fr: 'Aucun fichier ou dossier correspondant',
-                                    de: 'Keine passenden Dateien oder Ordner gefunden',
-                                    ja: '一致するファイルまたはディレクトリがありません',
-                                  ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant.withValues(
-                                alpha: 0.6,
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isLocalFileMode
+                                  ? Icons.attach_file_rounded
+                                  : Icons.folder_open_rounded,
+                              size: 16,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              titleLabel,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
                               ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Breadcrumb row.
+                      if (!isLocalFileMode && widget.breadcrumbs.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _AtMentionBreadcrumbChip(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '项目根目录',
+                                    zhHant: '專案根目錄',
+                                    en: 'Project Root',
+                                    fr: 'Racine du projet',
+                                    de: 'Projektwurzel',
+                                    ja: 'プロジェクトルート',
+                                  ),
+                                  icon: Icons.home_rounded,
+                                  onTap: () => widget.onBreadcrumbTap(-1),
+                                ),
+                                for (
+                                  var i = 0;
+                                  i < widget.breadcrumbs.length;
+                                  i++
+                                ) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                    ),
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 14,
+                                      color: colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  _AtMentionBreadcrumbChip(
+                                    label: widget.breadcrumbs[i],
+                                    icon: Icons.folder_rounded,
+                                    onTap: () => widget.onBreadcrumbTap(i),
+                                    isLast: i == widget.breadcrumbs.length - 1,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          controller: _listController,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          shrinkWrap: true,
-                          itemCount: widget.items.length,
-                          itemBuilder: (ctx, index) {
-                            final item = widget.items[index];
-                            final isSelected = index == widget.selectedIndex;
-                            return Material(
-                              color: isSelected
-                                  ? colorScheme.primaryContainer.withValues(
-                                      alpha: 0.4,
+                      // Results.
+                      if (widget.loading)
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      else if (widget.items.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              isLocalFileMode && !widget.attachmentsEnabled
+                                  ? openHandLocalizedText(
+                                      context,
+                                      zh: '当前模型不支持附件',
+                                      zhHant: '目前模型不支援附件',
+                                      en: 'The selected model does not support attachments',
+                                      fr: 'Le modèle sélectionné ne prend pas en charge les pièces jointes',
+                                      de: 'Das ausgewählte Modell unterstützt keine Anhänge',
+                                      ja: '選択中のモデルは添付ファイルに対応していません',
                                     )
-                                  : Colors.transparent,
-                              child: InkWell(
-                                onTap: () => widget.onSelect(item),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _atMentionIcon(item),
-                                        size: 18,
-                                        color: item.isDirectory
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              item.isLocalFileAction
-                                                  ? openHandLocalizedText(
-                                                      context,
-                                                      zh: '选择本地文件',
-                                                      zhHant: '選擇本機檔案',
-                                                      en: 'Choose Local Files',
-                                                      fr: 'Choisir des fichiers locaux',
-                                                      de: 'Lokale Dateien auswählen',
-                                                      ja: 'ローカルファイルを選択',
-                                                    )
-                                                  : item.name,
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              item.isLocalFileAction
-                                                  ? openHandLocalizedText(
-                                                      context,
-                                                      zh: '添加图片、文本、代码、表格或 PDF 附件',
-                                                      zhHant:
-                                                          '新增圖片、文字、程式碼、試算表或 PDF 附件',
-                                                      en: 'Add images, text, code, spreadsheets, or PDFs',
-                                                      fr: 'Ajouter des images, du texte, du code, des feuilles de calcul ou des PDF',
-                                                      de: 'Bilder, Text, Code, Tabellen oder PDFs anhängen',
-                                                      ja: '画像、テキスト、コード、表計算、PDF を添付',
-                                                    )
-                                                  : item.relativePath,
-                                              style: theme.textTheme.labelSmall
-                                                  ?.copyWith(
-                                                    color: colorScheme
-                                                        .onSurfaceVariant
-                                                        .withValues(
-                                                          alpha: 0.55,
-                                                        ),
-                                                    fontSize: 10,
-                                                  ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
+                                  : openHandLocalizedText(
+                                      context,
+                                      zh: '未找到匹配文件或目录',
+                                      zhHant: '找不到相符的檔案或目錄',
+                                      en: 'No matching files or directories',
+                                      fr: 'Aucun fichier ou dossier correspondant',
+                                      de: 'Keine passenden Dateien oder Ordner gefunden',
+                                      ja: '一致するファイルまたはディレクトリがありません',
+                                    ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: ListView.builder(
+                            controller: _listController,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            shrinkWrap: true,
+                            itemCount: widget.items.length,
+                            itemBuilder: (ctx, index) {
+                              final item = widget.items[index];
+                              final isSelected = index == widget.selectedIndex;
+                              return Material(
+                                color: isSelected
+                                    ? colorScheme.primaryContainer.withValues(
+                                        alpha: 0.4,
+                                      )
+                                    : Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => widget.onSelect(item),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _atMentionIcon(item),
+                                          size: 18,
+                                          color: item.isDirectory
+                                              ? colorScheme.primary
+                                              : colorScheme.onSurfaceVariant,
                                         ),
-                                      ),
-                                      if (item.isDirectory) ...[
-                                        const SizedBox(width: 4),
-                                        Semantics(
-                                          button: true,
-                                          label: openHandLocalizedText(
-                                            context,
-                                            zh: '进入目录',
-                                            zhHant: '進入目錄',
-                                            en: 'Open directory',
-                                            fr: 'Ouvrir le dossier',
-                                            de: 'Ordner öffnen',
-                                            ja: 'ディレクトリを開く',
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.isLocalFileAction
+                                                    ? openHandLocalizedText(
+                                                        context,
+                                                        zh: '选择本地文件',
+                                                        zhHant: '選擇本機檔案',
+                                                        en: 'Choose Local Files',
+                                                        fr: 'Choisir des fichiers locaux',
+                                                        de: 'Lokale Dateien auswählen',
+                                                        ja: 'ローカルファイルを選択',
+                                                      )
+                                                    : item.name,
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                item.isLocalFileAction
+                                                    ? openHandLocalizedText(
+                                                        context,
+                                                        zh: '添加图片、文本、代码、表格或 PDF 附件',
+                                                        zhHant:
+                                                            '新增圖片、文字、程式碼、試算表或 PDF 附件',
+                                                        en: 'Add images, text, code, spreadsheets, or PDFs',
+                                                        fr: 'Ajouter des images, du texte, du code, des feuilles de calcul ou des PDF',
+                                                        de: 'Bilder, Text, Code, Tabellen oder PDFs anhängen',
+                                                        ja: '画像、テキスト、コード、表計算、PDF を添付',
+                                                      )
+                                                    : item.relativePath,
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color: colorScheme
+                                                          .onSurfaceVariant
+                                                          .withValues(
+                                                            alpha: 0.55,
+                                                          ),
+                                                      fontSize: 10,
+                                                    ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
                                           ),
-                                          child: SizedBox(
-                                            width: 28,
-                                            height: 28,
-                                            child: IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints:
-                                                  const BoxConstraints(),
-                                              onPressed: () =>
-                                                  widget.onDrillDown(item),
-                                              icon: Icon(
-                                                Icons.chevron_right_rounded,
-                                                size: 18,
-                                                color: colorScheme.primary,
+                                        ),
+                                        if (item.isDirectory) ...[
+                                          const SizedBox(width: 4),
+                                          Semantics(
+                                            button: true,
+                                            label: openHandLocalizedText(
+                                              context,
+                                              zh: '进入目录',
+                                              zhHant: '進入目錄',
+                                              en: 'Open directory',
+                                              fr: 'Ouvrir le dossier',
+                                              de: 'Ordner öffnen',
+                                              ja: 'ディレクトリを開く',
+                                            ),
+                                            child: SizedBox(
+                                              width: 28,
+                                              height: 28,
+                                              child: IconButton(
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                                onPressed: () =>
+                                                    widget.onDrillDown(item),
+                                                icon: Icon(
+                                                  Icons.chevron_right_rounded,
+                                                  size: 18,
+                                                  color: colorScheme.primary,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
+                                        ],
                                       ],
-                                    ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ],
-    );
-
-    return AnimatedOverlayContent(
-      customSettings: widget.animationSettings,
-      visibility: widget.visible,
-      onExitCompleted: widget.onExitComplete,
-      child: content,
     );
   }
 
@@ -3862,6 +3997,7 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
 class _SkillPickerOverlayPanel extends StatefulWidget {
   const _SkillPickerOverlayPanel({
     required this.link,
+    required this.anchorKey,
     required this.items,
     required this.selectedIndex,
     required this.loading,
@@ -3873,6 +4009,7 @@ class _SkillPickerOverlayPanel extends StatefulWidget {
   });
 
   final LayerLink link;
+  final GlobalKey anchorKey;
   final List<LocalSkill> items;
   final int selectedIndex;
   final bool loading;
@@ -3938,6 +4075,12 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+    final layout = _resolveComposerOverlayLayout(
+      context,
+      widget.anchorKey,
+      preferredWidth: 480,
+      preferredHeight: 360,
+    );
 
     final panel = Material(
       elevation: 8,
@@ -4084,15 +4227,21 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
         ),
         CompositedTransformFollower(
           link: widget.link,
-          followerAnchor: Alignment.bottomLeft,
-          offset: const Offset(0, -6),
+          showWhenUnlinked: false,
+          targetAnchor: layout.targetAnchor,
+          followerAnchor: layout.followerAnchor,
+          offset: layout.offset,
           child: TextFieldTapRegion(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480, maxHeight: 360),
+              constraints: BoxConstraints(
+                maxWidth: layout.maxWidth,
+                maxHeight: layout.maxHeight,
+              ),
               child: AnimatedOverlayContent(
                 customSettings: widget.animationSettings,
                 visibility: widget.visible,
                 onExitCompleted: widget.onExitComplete,
+                alignment: layout.followerAnchor,
                 child: panel,
               ),
             ),

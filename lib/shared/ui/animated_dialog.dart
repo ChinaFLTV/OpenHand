@@ -989,7 +989,11 @@ Future<T?> _pushOpenHandDialogRoute<T>({
     ),
     settings: routeSettings,
   );
-  return pushOpenHandTransitionRoute(navigator, route);
+  return pushOpenHandTransitionRoute(
+    navigator,
+    route,
+    sourceContext: sourceContext,
+  );
 }
 
 final Expando<List<TransitionRoute<dynamic>>> _openHandRoutesByNavigator =
@@ -999,8 +1003,10 @@ final Expando<List<TransitionRoute<dynamic>>> _openHandRoutesByNavigator =
 /// finishes and all overlay entries are removed.
 Future<T?> pushOpenHandTransitionRoute<T>(
   NavigatorState navigator,
-  TransitionRoute<T> route,
-) async {
+  TransitionRoute<T> route, {
+  BuildContext? sourceContext,
+}) async {
+  if (!navigator.mounted || sourceContext?.mounted == false) return null;
   final routes = _openHandRoutesByNavigator[navigator] ??=
       <TransitionRoute<dynamic>>[];
   if (routes.isNotEmpty) {
@@ -1012,6 +1018,7 @@ Future<T?> pushOpenHandTransitionRoute<T>(
       await previous.completed;
     }
   }
+  if (!navigator.mounted || sourceContext?.mounted == false) return null;
   final popped = navigator.push<T>(route);
   routes.add(route);
   try {

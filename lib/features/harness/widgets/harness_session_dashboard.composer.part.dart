@@ -171,7 +171,8 @@ class _HeComposer extends StatelessWidget {
                   ),
                 ],
               ).then((value) {
-                if (value != null) onToggleFullAccessPermission(value);
+                if (!btnContext.mounted || value == null) return;
+                onToggleFullAccessPermission(value);
               });
             },
             style: OutlinedButton.styleFrom(

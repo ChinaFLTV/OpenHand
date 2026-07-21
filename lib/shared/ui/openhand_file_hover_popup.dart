@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,7 +12,6 @@ import 'motion_preference.dart';
 const double _popupWidth = 320;
 const double _popupHorizontalMargin = 8;
 const double _popupVerticalGap = 6;
-const double _estimatedPopupHeight = 140;
 const Duration _contentResizeDuration = Duration(milliseconds: 200);
 const Duration _contentSwitchDuration = Duration(milliseconds: 220);
 const Curve _contentMotionCurve = Curves.easeOutCubic;
@@ -39,6 +39,8 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
   bool _isListening = false;
   bool _showScheduled = false;
   bool _hideScheduled = false;
+  String? _overlayPath;
+  Future<FileStat>? _overlayStatFuture;
 
   bool get _isControlOrMetaPressed {
     final pressedKeys = HardwareKeyboard.instance.physicalKeysPressed;
@@ -62,9 +64,12 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
 
   void _showOverlay() {
     if (widget.isUnresolved || _showScheduled) return;
+    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlayState == null) return;
     if (_overlay.hasEntry) {
       _hideScheduled = false;
-      _overlay.reopen();
+      _prepareOverlayContent();
+      _overlay.show(overlay: overlayState, builder: _buildOverlayEntry);
       return;
     }
     _showScheduled = true;
@@ -81,52 +86,104 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
     if (renderObject is! RenderBox || !renderObject.hasSize) return;
     final overlayState = Overlay.maybeOf(context, rootOverlay: true);
     if (overlayState == null) return;
+    _prepareOverlayContent();
+    _overlay.show(overlay: overlayState, builder: _buildOverlayEntry);
+  }
 
-    final screenSize = MediaQuery.sizeOf(context);
+  void _prepareOverlayContent() {
+    if (_overlayPath == widget.resolvedPath && _overlayStatFuture != null) {
+      return;
+    }
+    _overlayPath = widget.resolvedPath;
+    _overlayStatFuture = FileStat.stat(widget.resolvedPath);
+  }
+
+  Widget _buildOverlayEntry(
+    BuildContext overlayContext,
+    ValueListenable<bool> visibility,
+    VoidCallback onExitCompleted,
+  ) {
+    Widget animatedContent(
+      Widget child, {
+      Alignment alignment = Alignment.center,
+    }) {
+      return AnimatedOverlayContent(
+        useMenuSettings: true,
+        visibility: visibility,
+        onExitCompleted: onExitCompleted,
+        alignment: alignment,
+        child: child,
+      );
+    }
+
+    final renderObject = context.findRenderObject();
+    final overlayObject = Overlay.of(overlayContext).context.findRenderObject();
+    if (renderObject is! RenderBox ||
+        overlayObject is! RenderBox ||
+        !renderObject.hasSize ||
+        !overlayObject.hasSize ||
+        !renderObject.attached ||
+        !overlayObject.attached) {
+      return animatedContent(const SizedBox.shrink());
+    }
+    final mediaSize = MediaQuery.sizeOf(overlayContext);
+    final screenSize = overlayObject.size.isEmpty
+        ? mediaSize
+        : overlayObject.size;
     final availableWidth = screenSize.width - _popupHorizontalMargin * 2;
-    if (availableWidth <= 0) return;
+    if (availableWidth <= 0 || screenSize.height <= 0) {
+      return animatedContent(const SizedBox.shrink());
+    }
     final popupWidth = math.min(_popupWidth, availableWidth);
-    final offset = renderObject.localToGlobal(Offset.zero);
+    final offset = renderObject.localToGlobal(
+      Offset.zero,
+      ancestor: overlayObject,
+    );
     final maxLeft = math.max(
       _popupHorizontalMargin,
       screenSize.width - popupWidth - _popupHorizontalMargin,
     );
-    final targetLeft = offset.dx.clamp(_popupHorizontalMargin, maxLeft);
-
-    var targetTop = offset.dy + renderObject.size.height + _popupVerticalGap;
-    if (targetTop + _estimatedPopupHeight >
-        screenSize.height - _popupHorizontalMargin) {
-      targetTop = offset.dy - _estimatedPopupHeight - _popupVerticalGap;
-    }
-    targetTop = math.max(_popupHorizontalMargin, targetTop);
-
-    final resolvedPath = widget.resolvedPath;
-    final statFuture = FileStat.stat(resolvedPath);
-    _overlay.show(
-      overlay: overlayState,
-      builder: (overlayContext, visibility, onExitCompleted) => Positioned(
-        left: targetLeft,
-        top: targetTop,
-        child: IgnorePointer(
-          child: AnimatedOverlayContent(
-            useMenuSettings: true,
-            visibility: visibility,
-            onExitCompleted: onExitCompleted,
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: popupWidth,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    overlayContext,
-                  ).colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Theme.of(overlayContext).dividerColor,
-                  ),
+    final targetLeft = offset.dx
+        .clamp(_popupHorizontalMargin, maxLeft)
+        .toDouble();
+    final belowSpace = math.max(
+      0.0,
+      screenSize.height -
+          offset.dy -
+          renderObject.size.height -
+          _popupVerticalGap -
+          _popupHorizontalMargin,
+    );
+    final aboveSpace = math.max(
+      0.0,
+      offset.dy - _popupVerticalGap - _popupHorizontalMargin,
+    );
+    final showAbove = aboveSpace > belowSpace;
+    final availableHeight = math.max(1.0, showAbove ? aboveSpace : belowSpace);
+    final resolvedPath = _overlayPath ?? widget.resolvedPath;
+    final statFuture = _overlayStatFuture ?? FileStat.stat(resolvedPath);
+    final child = IgnorePointer(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: availableHeight),
+        child: animatedContent(
+          Material(
+            elevation: 4,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: popupWidth,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  overlayContext,
+                ).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(overlayContext).dividerColor,
                 ),
+              ),
+              child: SingleChildScrollView(
+                primary: false,
                 child: FutureBuilder<FileStat>(
                   future: statFuture,
                   builder: (context, snapshot) =>
@@ -135,8 +192,21 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
               ),
             ),
           ),
+          alignment: showAbove ? Alignment.bottomLeft : Alignment.topLeft,
         ),
       ),
+    );
+    if (showAbove) {
+      return Positioned(
+        left: targetLeft,
+        bottom: screenSize.height - offset.dy + _popupVerticalGap,
+        child: child,
+      );
+    }
+    return Positioned(
+      left: targetLeft,
+      top: offset.dy + renderObject.size.height + _popupVerticalGap,
+      child: child,
     );
   }
 
@@ -188,6 +258,9 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onSurface,
                     ),
+                    softWrap: true,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 12),
                   _MetadataRow(
@@ -269,7 +342,13 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.resolvedPath != widget.resolvedPath ||
         oldWidget.isUnresolved != widget.isUnresolved) {
-      _hideOverlay();
+      _overlayPath = null;
+      _overlayStatFuture = null;
+      if (_isHovered && !widget.isUnresolved && _isControlOrMetaPressed) {
+        _showOverlay();
+      } else {
+        _hideOverlay();
+      }
     }
     if (!_isHovered || widget.isUnresolved) {
       _stopListening();
@@ -295,28 +374,34 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) {
-        _isHovered = true;
-        _startListening();
-        if (!widget.isUnresolved && _isControlOrMetaPressed) {
-          _showOverlay();
-        }
+    return NotificationListener<ScrollNotification>(
+      onNotification: (_) {
+        _overlay.markNeedsBuild();
+        return false;
       },
-      onHover: (_) {
-        if (widget.isUnresolved) return;
-        if (_isControlOrMetaPressed) {
-          _showOverlay();
-        } else {
+      child: MouseRegion(
+        onEnter: (_) {
+          _isHovered = true;
+          _startListening();
+          if (!widget.isUnresolved && _isControlOrMetaPressed) {
+            _showOverlay();
+          }
+        },
+        onHover: (_) {
+          if (widget.isUnresolved) return;
+          if (_isControlOrMetaPressed) {
+            _showOverlay();
+          } else {
+            _hideOverlay();
+          }
+        },
+        onExit: (_) {
+          _isHovered = false;
+          _stopListening();
           _hideOverlay();
-        }
-      },
-      onExit: (_) {
-        _isHovered = false;
-        _stopListening();
-        _hideOverlay();
-      },
-      child: widget.child,
+        },
+        child: widget.child,
+      ),
     );
   }
 }

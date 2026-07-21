@@ -183,6 +183,7 @@ class AnimatedOverlayContent extends StatefulWidget {
     this.customCurve,
     this.enableScaleAnimation = true,
     this.scaleBegin = _kDefaultOverlayScaleBegin,
+    this.alignment = Alignment.center,
     this.customSettings,
     this.visibility,
     this.onExitCompleted,
@@ -208,6 +209,8 @@ class AnimatedOverlayContent extends StatefulWidget {
 
   /// The starting scale value when [enableScaleAnimation] is true.
   final double scaleBegin;
+
+  final Alignment alignment;
 
   /// Optional visibility signal used to coordinate an [OverlayEntry] exit.
   ///
@@ -271,6 +274,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
         oldWidget.customCurve != widget.customCurve ||
         oldWidget.customSettings != widget.customSettings ||
         oldWidget.enableScaleAnimation != widget.enableScaleAnimation ||
+        oldWidget.alignment != widget.alignment ||
         oldWidget.visibility != widget.visibility ||
         oldWidget.onExitCompleted != widget.onExitCompleted) {
       _syncAnimationPreference();
@@ -400,6 +404,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   OpenHandAnimationTransitionProfile _transitionProfile() {
     final scaleBegin = _safeOverlayScaleBegin(widget.scaleBegin);
     return OpenHandAnimationTransitionProfile(
+      alignment: widget.alignment,
       fadeScaleBegin: scaleBegin,
       expandScaleBegin: scaleBegin,
       rotateScaleBegin: scaleBegin,

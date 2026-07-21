@@ -1942,10 +1942,10 @@ void _showMediaClipboardSnack(
 }) {
   final message = openHandLocalizedText(context, zh: zh, en: en);
   if (isError) {
-    showHomeErrorSnack(context, message, maxLines: 2);
+    showOpenHandErrorSnack(context, message, maxLines: 2);
     return;
   }
-  showHomeSuccessSnack(context, message);
+  showOpenHandSuccessSnack(context, message);
 }
 
 Future<bool> _copyLocalFileToPasteboard(String filePath) async {
@@ -2133,7 +2133,7 @@ Future<void> _openAttachment(
   }
   if (!await isRegularFilePath(storagePath)) {
     if (!context.mounted) return;
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2220,7 +2220,7 @@ Future<void> _openLocalPathWithSystemApp(
   final hasLeadingDash = normalizedPath.startsWith('-');
   if ((looksLikeUri && !isWindowsDrivePath) || hasLeadingDash) {
     if (context.mounted) {
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2250,7 +2250,7 @@ Future<void> _openLocalPathWithSystemApp(
     if (!context.mounted) {
       return;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -5415,16 +5415,14 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
     if (!_isVideoPreview || controller == null) return;
     if (_isEnteringFullscreen) return;
     _isEnteringFullscreen = true;
-    // Capture the navigator before the async pause so we don't reference
-    // a possibly-stale BuildContext after the await.
+    // 异步暂停前先获取导航器，避免等待后再从失效上下文读取。
     final navigator = Navigator.of(context, rootNavigator: true);
     final settings = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
     );
     try {
-      // Pause the underlying preview before we hand control to the
-      // fullscreen route so the user never hears two audio tracks at once.
+      // 进入全屏前暂停底层预览，避免两个音轨同时播放。
       try {
         await controller.runJavaScript(
           'try{if(window.media){window.media.pause();}}catch(_){}',
@@ -5433,7 +5431,9 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         silentLog('home_message_bubble', '媒体预览：进入全屏前暂停失败', error, stack);
       }
       if (!mounted) return;
-      final returnedTime = await navigator.push<double>(
+      if (!context.mounted) return;
+      final returnedTime = await pushOpenHandTransitionRoute<double>(
+        navigator,
         PageRouteBuilder<double>(
           fullscreenDialog: true,
           transitionDuration: settings.entranceDuration,
@@ -5453,13 +5453,13 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             );
           },
         ),
+        sourceContext: context,
       );
       if (!mounted) return;
       if (returnedTime != null && returnedTime >= 0) {
         _currentTime = returnedTime;
         try {
-          // Seek the preview to the same point the user left fullscreen at;
-          // we deliberately do NOT auto-resume — the user can press play.
+          // 同步全屏退出进度，但不自动续播。
           await controller.runJavaScript(
             'try{if(window.media){window.media.currentTime=${returnedTime.toStringAsFixed(3)};}}catch(_){}',
           );
@@ -5485,11 +5485,11 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
       OpenHandGlobalSnackBarHost.hideCurrent();
       switch (kind) {
         case OpenHandSnackKind.success:
-          showHomeSuccessSnack(context, message, maxLines: 2);
+          showOpenHandSuccessSnack(context, message, maxLines: 2);
         case OpenHandSnackKind.error:
-          showHomeErrorSnack(context, message, maxLines: 2);
+          showOpenHandErrorSnack(context, message, maxLines: 2);
         case OpenHandSnackKind.info:
-          showHomeInfoSnack(context, message, maxLines: 2);
+          showOpenHandInfoSnack(context, message, maxLines: 2);
       }
     }
 

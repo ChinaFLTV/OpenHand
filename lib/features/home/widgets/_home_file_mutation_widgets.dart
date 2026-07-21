@@ -210,7 +210,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           r.errorMessage.isNotEmpty
               ? r.errorMessage
@@ -238,7 +238,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           r.errorMessage.isNotEmpty
               ? r.errorMessage
@@ -328,7 +328,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     _refresh();
     if (failure > 0) {
       final l10n = AppLocalizations.of(context)!;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         lastError != null && lastError!.isNotEmpty
             ? '${l10n.fileMutationUndoFailed} ($failure): $lastError'
@@ -1049,7 +1049,7 @@ class _FileMutationCardRow extends StatelessWidget {
         ),
       ],
     );
-    if (selected == null) return;
+    if (selected == null || !context.mounted) return;
     switch (selected) {
       case 'reveal':
         if (context.mounted) {
@@ -2212,7 +2212,7 @@ Future<void> _revealFileMutationPath(
 ) async {
   final rawPath = filePath.trim();
   if (rawPath.isEmpty) {
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       _fileMutationRevealPathFailedLabel(context),
       duration: const Duration(seconds: 2),
@@ -2243,7 +2243,7 @@ Future<void> _revealFileMutationPath(
     );
     if (!context.mounted) return;
     if (!ok) {
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _fileMutationRevealPathFailedLabel(context),
         duration: const Duration(seconds: 2),
@@ -2252,7 +2252,7 @@ Future<void> _revealFileMutationPath(
   } catch (error, stack) {
     silentLog('file_mutation_entry', 'reveal path', error, stack);
     if (!context.mounted) return;
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       _fileMutationRevealPathFailedLabel(context),
       duration: const Duration(seconds: 2),
@@ -3503,7 +3503,7 @@ class _RoundFileMutationSummaryCardState
                 highlight: true,
               );
           if (fallbackOk && mounted) {
-            showHomeInfoSnack(
+            showOpenHandInfoSnack(
               context,
               openHandLocalizedText(
                 context,
@@ -3519,7 +3519,7 @@ class _RoundFileMutationSummaryCardState
     }
 
     if (!mounted) return;
-    showHomeInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -3596,7 +3596,7 @@ class _RoundFileMutationSummaryCardState
     });
     _pulseSignal.value += 1;
     if (lastError != null) {
-      showHomeErrorSnack(context, lastError!);
+      showOpenHandErrorSnack(context, lastError!);
     }
   }
 
@@ -3647,7 +3647,7 @@ class _RoundFileMutationSummaryCardState
         stack,
       );
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -3660,7 +3660,7 @@ class _RoundFileMutationSummaryCardState
     }
     if (location == null) {
       if (!mounted) return;
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(context, zh: '已取消导出。', en: 'Export cancelled.'),
         duration: const Duration(milliseconds: 1600),
@@ -3677,7 +3677,7 @@ class _RoundFileMutationSummaryCardState
         stack,
       );
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -3690,7 +3690,7 @@ class _RoundFileMutationSummaryCardState
     }
     if (!mounted) return;
     _pulseSignal.value += 1;
-    showHomeSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       openHandLocalizedText(
         context,

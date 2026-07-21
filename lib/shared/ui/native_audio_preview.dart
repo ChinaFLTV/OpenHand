@@ -1011,6 +1011,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _setEffect(_NativeAudioEffect effect) async {
+    if (!mounted || _disposed) return;
     setState(() => _effect = effect);
     try {
       await _applyEffectToPlayer().timeout(kNativeAudioControlTimeout);
@@ -1966,7 +1967,8 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
         );
       }).toList(),
     ).then((selected) {
-      if (selected != null) onSelect(selected);
+      if (!ctx.mounted || selected == null) return;
+      onSelect(selected);
     });
   }
 }
@@ -2065,10 +2067,6 @@ bool looksLikeGeneratedNativeAudioName(String value) {
 }
 
 bool _sameNativeAudioBytes(Uint8List? a, Uint8List? b) {
-  if (identical(a, b)) return true;
-  if (a == null || b == null || a.lengthInBytes != b.lengthInBytes) {
-    return false;
-  }
   return listEquals<int>(a, b);
 }
 
