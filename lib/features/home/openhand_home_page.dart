@@ -76,6 +76,7 @@ import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
+import '../../shared/ui/openhand_file_hover_popup.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';

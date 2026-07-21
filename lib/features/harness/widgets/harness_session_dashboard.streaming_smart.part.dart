@@ -537,7 +537,7 @@ class _HeFilePathChipInline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Match _FilePathChip reference: surface-based background + textColor.
+    // 与文件路径标签保持一致的表面色和文字色。
     final chipColor = theme.colorScheme.surface.withValues(alpha: 0.68);
     final borderColor = textColor.withValues(alpha: 0.24);
     final labelStyle =
@@ -547,7 +547,7 @@ class _HeFilePathChipInline extends StatelessWidget {
         ) ??
         TextStyle(color: textColor, fontWeight: FontWeight.w700);
 
-    return _HeFileHoverPopup(
+    return OpenHandFileHoverPopup(
       resolvedPath: resolvedPath,
       isUnresolved: isUnresolved,
       child: Material(
@@ -605,6 +605,3 @@ class _HeFilePathChipInline extends StatelessWidget {
     _heOpenPathInFileBrowser(context, resolvedPath);
   }
 }
-
-// _HeFileHoverPopup — Ctrl/Cmd+hover overlay showing file/directory metadata.
-// Mirrors the _FileHoverPopup pattern from openhand_home_page.dart.
