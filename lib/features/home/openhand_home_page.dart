@@ -89,6 +89,7 @@ import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_copy.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_directory_io.dart';

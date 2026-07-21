@@ -8122,26 +8122,19 @@ class _UserSkillSelectionChip extends StatelessWidget {
   }
 }
 
-/// Coordinates one-shot first-frame capture for local video files.
+/// 协调本地视频的一次性首帧捕获。
 ///
-/// We render the existing `webview_flutter` stack (no new deps) inside an
-/// `Offstage` host, ask the page to seek to ~0.1s, draw the first frame to
-/// a 480px-wide canvas, and post the dataURL back through a JS channel.
-/// The PNG is persisted next to the source video as `<video>.thumb.png` so
-/// future card mounts simply read the cached file via `Image.file`.
+/// 在 `Offstage` 中复用现有 WebView，将约 0.1 秒处的首帧绘制到最大边长 480 像素的
+/// 画布，再通过 JS 通道回传。PNG 保存为 `<video>.thumb.png`，后续直接读取。
 ///
-/// Concurrency is intentionally capped at one capture in flight so the
-/// UI never spawns multiple WKWebView platform views simultaneously,
-/// which has historically caused jank/ANR on macOS. Subsequent requesters
-/// queue and inherit the slot when the previous capture finishes.
+/// 捕获并发固定为 1，避免 macOS 同时创建多个 WKWebView 引发卡顿。
 class _VideoThumbnailManager {
   static const int _failedCacheLimit = 512;
   static final OpenHandAsyncSemaphore _semaphore = OpenHandAsyncSemaphore(
     1,
     maxAllowedPermits: 1,
   );
-  // Per-process retry guard: if a capture failed once we don't keep
-  // re-creating WebViews for the same file in the same session.
+  // 单次进程内失败后不再为同一文件反复创建 WebView。
   static final Set<String> _failed = <String>{};
 
   static String thumbnailPathFor(String videoPath) => '$videoPath.thumb.png';
@@ -8162,14 +8155,13 @@ class _VideoThumbnailManager {
     }
   }
 
-  static Future<void> _acquireSlot() => _semaphore.acquire();
+  static Future<bool> _acquireSlot(Future<void> cancelSignal) =>
+      _semaphore.acquireUnlessCancelled(cancelSignal);
 
   static void _releaseSlot() => _semaphore.release();
 }
 
-/// Offstage WebView that captures a single first-frame PNG for a local
-/// video file. Removes itself by calling `onResult` (which the parent
-/// uses to swap the card to `Image.file`).
+/// 使用 Offstage WebView 捕获本地视频首帧，并通过 `onResult` 通知父组件替换图片。
 class _VideoThumbnailCaptureHost extends StatefulWidget {
   const _VideoThumbnailCaptureHost({
     required this.videoPath,
@@ -8189,11 +8181,14 @@ class _VideoThumbnailCaptureHost extends StatefulWidget {
 class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     with WidgetsBindingObserver {
   static const Duration _thumbnailCaptureTimeout = Duration(seconds: 18);
+  static const Duration _thumbnailFileOperationTimeout = Duration(seconds: 5);
+  static const int _maxThumbnailBytes = 1024 * 1024;
 
   WebViewController? _controller;
   String? _tempHtmlPath;
   bool _slotHeld = false;
   bool _done = false;
+  final Completer<void> _captureCancellation = Completer<void>();
   Timer? _watchdog;
   // 应用切到后台时 WebView/JS 通道可能被 OS 暂停，需将 watchdog 一并暂停，
   // 否则 18s 后会误判为超时并标记失败；回到前台时按完整预算重新计时。
@@ -8227,19 +8222,61 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
   }
 
   Future<void> _start() async {
-    await _VideoThumbnailManager._acquireSlot();
+    final acquired = await _VideoThumbnailManager._acquireSlot(
+      _captureCancellation.future,
+    );
+    if (!acquired) return;
     if (_done || !mounted) {
       _VideoThumbnailManager._releaseSlot();
       return;
     }
     _slotHeld = true;
+    _watchdog = startSafeTimer(_thumbnailCaptureTimeout, () {
+      if (!_done) _finish(null);
+    });
     try {
+      final thumbnailPath = _VideoThumbnailManager.thumbnailPathFor(
+        widget.videoPath,
+      );
+      try {
+        final alreadyGenerated = await File(
+          thumbnailPath,
+        ).exists().timeout(_thumbnailFileOperationTimeout);
+        if (_done || !mounted) return;
+        if (alreadyGenerated) {
+          _finish(thumbnailPath);
+          return;
+        }
+      } catch (error, stack) {
+        silentLog('home_message_bubble', '检查已生成视频缩略图失败', error, stack);
+      }
+      if (_done || !mounted) return;
       final dir = p.dirname(widget.videoPath);
       final tempName =
           '.openhand_thumb_capture_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
       final tempFile = File(p.join(dir, tempName));
-      await tempFile.writeAsString(_buildCaptureHtml());
       _tempHtmlPath = tempFile.path;
+      final writeFuture = tempFile.writeAsString(_buildCaptureHtml());
+      try {
+        await writeFuture.timeout(_thumbnailFileOperationTimeout);
+      } on TimeoutException {
+        unawaited(
+          writeFuture.then<void>(
+            (_) => _deleteThumbnailTempFile(tempFile.path),
+            onError: (Object error, StackTrace stack) => silentLog(
+              'home_message_bubble',
+              '视频缩略图临时页面迟到写入失败',
+              error,
+              stack,
+            ),
+          ),
+        );
+        rethrow;
+      }
+      if (_done || !mounted) {
+        _deleteTempHtmlInBackground();
+        return;
+      }
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..addJavaScriptChannel('OpenHandThumb', onMessageReceived: _onMessage);
@@ -8247,24 +8284,15 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
         controller.setBackgroundColor(Colors.transparent);
       }
       _controller = controller;
-      await controller.loadFile(tempFile.path);
-      if (!mounted) {
-        _finish(null);
-        return;
-      }
-      // Watchdog: if no message arrives within the budget, bail out so
-      // the slot is released and the card stops trying for this session.
-      _watchdog = startSafeTimer(_thumbnailCaptureTimeout, () {
-        if (!_done) _finish(null);
-      });
+      await awaitWithCancelSignal<bool>(
+        controller.loadFile(tempFile.path).then((_) => true),
+        cancelSignal: _captureCancellation.future,
+      );
+      if (_done || !mounted) return;
       setState(() {});
     } catch (error, stack) {
-      silentLog(
-        'home_message_bubble',
-        'video thumbnail: setup failed',
-        error,
-        stack,
-      );
+      if (_done) return;
+      silentLog('home_message_bubble', '视频缩略图初始化失败', error, stack);
       _finish(null);
     }
   }
@@ -8283,47 +8311,70 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
       return;
     }
     final b64 = value.substring(idx + marker.length);
-    Future<void>(() async {
+    unawaited(_persistThumbnail(b64));
+  }
+
+  Future<void> _persistThumbnail(String encoded) async {
+    String? stagingPath;
+    try {
+      final bytes = decodeBase64Bounded(
+        encoded,
+        maxDecodedBytes: _maxThumbnailBytes,
+      );
+      final outPath = _VideoThumbnailManager.thumbnailPathFor(widget.videoPath);
+      stagingPath =
+          '$outPath.${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.tmp';
+      final stagingFile = File(stagingPath);
+      final writeFuture = stagingFile.writeAsBytes(bytes, flush: true);
       try {
-        final bytes = base64.decode(b64);
-        final outPath = _VideoThumbnailManager.thumbnailPathFor(
-          widget.videoPath,
+        await writeFuture.timeout(_thumbnailFileOperationTimeout);
+      } on TimeoutException {
+        unawaited(
+          writeFuture.then<void>(
+            (_) => _deleteThumbnailTempFile(stagingFile.path),
+            onError: (Object error, StackTrace stack) => silentLog(
+              'home_message_bubble',
+              '视频缩略图临时文件迟到写入失败',
+              error,
+              stack,
+            ),
+          ),
         );
-        await File(outPath).writeAsBytes(bytes, flush: true);
-        _finish(outPath);
-      } catch (error, stack) {
-        silentLog(
-          'home_message_bubble',
-          'video thumbnail: write failed',
-          error,
-          stack,
-        );
-        _finish(null);
+        rethrow;
       }
-    });
+      if (_done || !mounted) return;
+      final outputFile = File(outPath);
+      if (await outputFile.exists().timeout(_thumbnailFileOperationTimeout)) {
+        await _deleteThumbnailTempFile(stagingFile.path);
+      } else {
+        await stagingFile
+            .rename(outPath)
+            .timeout(_thumbnailFileOperationTimeout);
+      }
+      stagingPath = null;
+      _finish(outPath);
+    } catch (error, stack) {
+      if (!_done) {
+        silentLog('home_message_bubble', '视频缩略图写入失败', error, stack);
+      }
+      _finish(null);
+    } finally {
+      final pendingPath = stagingPath;
+      if (pendingPath != null) {
+        unawaited(_deleteThumbnailTempFile(pendingPath));
+      }
+    }
   }
 
   void _finish(String? path) {
     if (_done) return;
     _done = true;
     _watchdog?.cancel();
-    if (path == null) _VideoThumbnailManager._markFailed(widget.videoPath);
-    final temp = _tempHtmlPath;
-    if (temp != null) {
-      Future<void>(() async {
-        try {
-          final f = File(temp);
-          if (await f.exists()) await f.delete();
-        } catch (error, stack) {
-          silentLog(
-            'home_message_bubble',
-            'delete temp video thumbnail capture file',
-            error,
-            stack,
-          );
-        }
-      });
+    if (!_captureCancellation.isCompleted) {
+      _captureCancellation.complete();
     }
+    if (path == null) _VideoThumbnailManager._markFailed(widget.videoPath);
+    _deleteTempHtmlInBackground();
     if (_slotHeld) {
       _slotHeld = false;
       _VideoThumbnailManager._releaseSlot();
@@ -8331,28 +8382,34 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     widget.onResult(path);
   }
 
+  void _deleteTempHtmlInBackground() {
+    final temp = _tempHtmlPath;
+    _tempHtmlPath = null;
+    if (temp == null) return;
+    unawaited(_deleteThumbnailTempFile(temp));
+  }
+
+  static Future<void> _deleteThumbnailTempFile(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists().timeout(_thumbnailFileOperationTimeout)) {
+        await file.delete().timeout(_thumbnailFileOperationTimeout);
+      }
+    } catch (error, stack) {
+      silentLog('home_message_bubble', '删除视频缩略图临时文件', error, stack);
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (!_captureCancellation.isCompleted) {
+      _captureCancellation.complete();
+    }
     if (!_done) {
       _done = true;
       _watchdog?.cancel();
-      final temp = _tempHtmlPath;
-      if (temp != null) {
-        Future<void>(() async {
-          try {
-            final f = File(temp);
-            if (await f.exists()) await f.delete();
-          } catch (error, stack) {
-            silentLog(
-              'home_message_bubble',
-              'delete temp video thumbnail capture file',
-              error,
-              stack,
-            );
-          }
-        });
-      }
+      _deleteTempHtmlInBackground();
       if (_slotHeld) {
         _slotHeld = false;
         _VideoThumbnailManager._releaseSlot();
@@ -8368,11 +8425,8 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     final mime = const HtmlEscape(
       HtmlEscapeMode.attribute,
     ).convert(widget.mimeType);
-    // We deliberately omit `crossorigin="anonymous"` — file:// requests in
-    // WKWebView cannot honour it and the canvas would taint, making
-    // toDataURL throw SecurityError. We also force play()→pause() to make
-    // sure the decoder actually produces frames before drawImage runs;
-    // muted preload="auto" alone is not enough on macOS WKWebView.
+    // WKWebView 的 file:// 请求无法满足 crossorigin，添加后会污染画布。
+    // 强制播放再暂停，确保 macOS 解码器在 drawImage 前产出首帧。
     return '''
 <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}video{position:fixed;left:0;top:0;width:32px;height:32px;opacity:0.01;pointer-events:none}canvas{display:none}</style></head><body>
 <video id="v" muted autoplay playsinline preload="auto" disableRemotePlayback><source src="$src" type="$mime"></video>
@@ -8386,8 +8440,9 @@ function tryCapture(reason){
   var w=v.videoWidth, h=v.videoHeight;
   if(!w||!h)return false;
   try{
-    var tw=Math.min(480,w);
-    var th=Math.max(1,Math.round(h*(tw/w)));
+    var scale=Math.min(1,480/w,480/h);
+    var tw=Math.max(1,Math.round(w*scale));
+    var th=Math.max(1,Math.round(h*scale));
     c.width=tw;c.height=th;
     var ctx=c.getContext('2d');
     ctx.drawImage(v,0,0,tw,th);
@@ -8397,9 +8452,7 @@ function tryCapture(reason){
     post(url);
     return true;
   }catch(e){
-    // Swallow transient drawImage failures so the polling loop or a
-    // later seek event can still succeed without prematurely failing
-    // the capture on the Dart side.
+    // 忽略瞬时绘制失败，交给后续轮询或 seek 事件继续捕获。
     return false;
   }
 }
@@ -8410,22 +8463,20 @@ function armRVFC(){
     try{v.requestVideoFrameCallback(function(){tryCapture('rvfc');if(!captured){v.requestVideoFrameCallback(function(){tryCapture('rvfc2');});}});}catch(_){}}
 }
 v.addEventListener('loadedmetadata',function(){
-  // Kick off decode; some macOS WKWebView builds do not produce frames
-  // until play() is called even with preload=auto.
+  // 部分 macOS WKWebView 必须实际播放后才会产出解码帧。
   armRVFC();
   var p;
   try{v.muted=true;v.volume=0;p=v.play();}catch(_){p=null;}
   if(p&&p.then){
     p.then(function(){
-      // Let the decoder produce 1-2 frames, then pause and snap.
+      // 等待解码器产出首帧后暂停并截取。
       setTimeout(function(){
         tryCapture('after_play');
         try{v.pause();}catch(_){};
         safeSeek(Math.min(0.05,(v.duration||0)));
       },180);
     }).catch(function(){
-      // Autoplay blocked or play() rejected; seek manually and rely on
-      // the seeked / canplay / poll fallbacks.
+      // 自动播放失败时主动跳转，并依赖 seeked、canplay 和轮询兜底。
       safeSeek(Math.min(0.05,(v.duration||0)));
     });
   }else{
@@ -8435,8 +8486,7 @@ v.addEventListener('loadedmetadata',function(){
 v.addEventListener('seeked',function(){tryCapture('seeked');});
 v.addEventListener('canplay',function(){armRVFC();tryCapture('canplay');});
 v.addEventListener('canplaythrough',function(){tryCapture('canplaythrough');});
-// Repeated polling fallback in case neither seeked nor canplay produces a
-// painted frame (rare but seen on some H.265 sources under WKWebView).
+// seeked 和 canplay 均未产出画面时，用有限轮询兜底。
 var attempts=0;
 var poll=setInterval(function(){
   attempts++;

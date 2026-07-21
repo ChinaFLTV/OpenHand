@@ -73,29 +73,60 @@ class OpenHandAsyncSemaphore {
   final int maxPermits;
   final int maxWaiters;
   int _available;
-  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+  final Queue<_OpenHandAsyncSemaphoreWaiter> _waiters =
+      Queue<_OpenHandAsyncSemaphoreWaiter>();
 
-  Future<void> acquire() {
+  Future<void> acquire() async {
+    await _acquire();
+  }
+
+  /// 等待许可；取消信号先完成时从队列移除并返回 `false`。
+  Future<bool> acquireUnlessCancelled(Future<void> cancelSignal) {
+    return _acquire(cancelSignal: cancelSignal);
+  }
+
+  Future<bool> _acquire({Future<void>? cancelSignal}) async {
+    if (cancelSignal != null && await isCancelSignalCompleted(cancelSignal)) {
+      return false;
+    }
     if (_available > 0) {
       _available -= 1;
-      return Future<void>.value();
+      return true;
     }
     if (_waiters.length >= maxWaiters) {
-      return Future<void>.error(StateError('异步信号量等待队列已满。'));
+      throw StateError('异步信号量等待队列已满。');
     }
-    final completer = Completer<void>();
-    _waiters.add(completer);
-    return completer.future;
+    final waiter = _OpenHandAsyncSemaphoreWaiter();
+    _waiters.add(waiter);
+    if (cancelSignal != null) {
+      unawaited(
+        cancelSignal.then<void>(
+          (_) => _cancelWaiter(waiter),
+          onError: (Object _, StackTrace _) => _cancelWaiter(waiter),
+        ),
+      );
+    }
+    return waiter.completer.future;
+  }
+
+  void _cancelWaiter(_OpenHandAsyncSemaphoreWaiter waiter) {
+    if (waiter.settled || !_waiters.remove(waiter)) return;
+    waiter.settled = true;
+    waiter.completer.complete(false);
   }
 
   void release() {
-    if (_waiters.isNotEmpty) {
-      _waiters.removeFirst().complete();
+    while (_waiters.isNotEmpty) {
+      final waiter = _waiters.removeFirst();
+      if (waiter.settled) continue;
+      waiter.settled = true;
+      waiter.completer.complete(true);
       return;
     }
-    if (_available < maxPermits) {
-      _available += 1;
+    if (_available >= maxPermits) {
+      throw StateError('异步信号量被重复释放。');
     }
+    _available += 1;
   }
 
   Future<T> withPermit<T>(Future<T> Function() action) async {
@@ -106,6 +137,11 @@ class OpenHandAsyncSemaphore {
       release();
     }
   }
+}
+
+class _OpenHandAsyncSemaphoreWaiter {
+  final Completer<bool> completer = Completer<bool>();
+  bool settled = false;
 }
 
 Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) {
@@ -226,23 +262,34 @@ Future<void> _runIndexedWithConcurrencyLimit({
   if (workerCount == 0) return;
 
   var nextIndex = 0;
+  Object? firstError;
+  StackTrace? firstStackTrace;
+  var failed = false;
   bool keepGoing() => shouldContinue?.call() ?? true;
 
   Future<void> worker() async {
-    while (keepGoing()) {
-      final index = nextIndex;
-      nextIndex += 1;
-      if (index >= itemCount) return;
-      await task(index);
-      if (!keepGoing()) return;
-      if (delayBetweenItems > Duration.zero &&
-          index < itemCount - 1 &&
-          nextIndex < itemCount) {
-        final stillActive = await _delayWhileContinuing(
-          delayBetweenItems,
-          keepGoing,
-        );
-        if (!stillActive) return;
+    try {
+      while (!failed && keepGoing()) {
+        final index = nextIndex;
+        nextIndex += 1;
+        if (index >= itemCount) return;
+        await task(index);
+        if (failed || !keepGoing()) return;
+        if (delayBetweenItems > Duration.zero &&
+            index < itemCount - 1 &&
+            nextIndex < itemCount) {
+          final stillActive = await _delayWhileContinuing(
+            delayBetweenItems,
+            () => !failed && keepGoing(),
+          );
+          if (!stillActive) return;
+        }
+      }
+    } catch (error, stack) {
+      if (!failed) {
+        failed = true;
+        firstError = error;
+        firstStackTrace = stack;
       }
     }
   }
@@ -250,6 +297,9 @@ Future<void> _runIndexedWithConcurrencyLimit({
   await Future.wait<void>(
     List<Future<void>>.generate(workerCount, (_) => worker()),
   );
+  if (failed) {
+    Error.throwWithStackTrace(firstError!, firstStackTrace!);
+  }
 }
 
 Future<bool> _delayWhileContinuing(
