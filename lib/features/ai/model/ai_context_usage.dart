@@ -1,6 +1,10 @@
 import '../../../shared/util/input_value_parsing.dart';
 
 const String aiContextUsageMetadataKey = 'context_usage_breakdown';
+const String aiContextUsedTokensMetadataKey =
+    'context_budget_estimated_prompt_tokens';
+const String aiContextWindowTokensMetadataKey =
+    'context_budget_effective_window_tokens';
 const double aiManualCompactionMinContextUsageRatio = 0.20;
 
 class AiContextWindowUsage {
@@ -13,12 +17,12 @@ class AiContextWindowUsage {
     return AiContextWindowUsage(
       usedTokens:
           optionalNonNegativeIntegralIntFromValue(
-            metadata['context_budget_estimated_prompt_tokens'],
+            metadata[aiContextUsedTokensMetadataKey],
           ) ??
           0,
       windowTokens:
           optionalNonNegativeIntegralIntFromValue(
-            metadata['context_budget_effective_window_tokens'],
+            metadata[aiContextWindowTokensMetadataKey],
           ) ??
           0,
     );

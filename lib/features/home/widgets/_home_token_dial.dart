@@ -212,7 +212,6 @@ class _TokenDialState extends State<_TokenDial>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final cacheHitRatio = _tokenDialSummaryCacheHitRatio(
       widget.statistics,
       claudeStyle: widget.claudeStyle,
@@ -273,53 +272,14 @@ class _TokenDialState extends State<_TokenDial>
                   }
                 }
               : null,
-          child: Container(
-            key: _anchorKey,
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: showCacheHitRate
-                  ? colorScheme.primary.withValues(alpha: 0.08)
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: _borderRadius999,
-              border: Border.all(
-                color: showCacheHitRate
-                    ? colorScheme.primary.withValues(alpha: 0.38)
-                    : colorScheme.outlineVariant.withValues(alpha: 0.55),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  showCacheHitRate
-                      ? Icons.bolt_rounded
-                      : Icons.confirmation_number_rounded,
-                  size: 14,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                if (showCacheHitRate) ...[
-                  _CacheHitRateBadge(percent: cacheHitRatio),
-                  Container(
-                    width: 1,
-                    height: 12,
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    color: colorScheme.outlineVariant,
-                  ),
-                ],
-                Tooltip(
-                  message:
-                      '${AppLocalizations.of(context)!.tokenPopupContextWindow} '
-                      '${contextWindowUsage.percent}%',
-                  child: _AnimatedContextUsageRing(
-                    ratio: contextWindowUsage.ratio,
-                    size: 18,
-                    strokeWidth: 2.6,
-                  ),
-                ),
-              ],
-            ),
+          child: OpenHandTokenUsageCapsule(
+            anchorKey: _anchorKey,
+            showCacheHitRate: showCacheHitRate,
+            cacheHitRatio: cacheHitRatio,
+            contextWindowRatio: contextWindowUsage.ratio,
+            contextWindowTooltip:
+                '${AppLocalizations.of(context)!.tokenPopupContextWindow} '
+                '${contextWindowUsage.percent}%',
           ),
         ),
       ),
@@ -1426,7 +1386,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final color = _contextWindowUsageColor(colorScheme, usage.ratio);
+    final color = openHandContextWindowUsageColor(colorScheme, usage.ratio);
     final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
@@ -1439,7 +1399,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              _AnimatedContextUsageRing(
+              OpenHandAnimatedContextUsageRing(
                 ratio: usage.ratio,
                 size: 18,
                 strokeWidth: 2.6,
@@ -1502,49 +1462,6 @@ class _ContextWindowUsageBar extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AnimatedContextUsageRing extends StatelessWidget {
-  const _AnimatedContextUsageRing({
-    required this.ratio,
-    required this.size,
-    required this.strokeWidth,
-    this.settings,
-  });
-
-  final double ratio;
-  final double size;
-  final double strokeWidth;
-  final DialogAnimationSettings? settings;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final motionSettings =
-        settings ??
-        openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.menu);
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: ratio),
-      duration: motionSettings.entranceDuration,
-      curve: motionSettings.curve.curve,
-      builder: (context, value, _) => SizedBox.square(
-        dimension: size,
-        child: CircularProgressIndicator(
-          value: value.clamp(0.0, 1.0),
-          strokeWidth: strokeWidth,
-          strokeCap: StrokeCap.round,
-          color: _contextWindowUsageColor(colorScheme, ratio),
-          backgroundColor: colorScheme.outlineVariant.withValues(alpha: 0.42),
-        ),
-      ),
-    );
-  }
-}
-
-Color _contextWindowUsageColor(ColorScheme colorScheme, double ratio) {
-  if (ratio >= 0.90) return colorScheme.error;
-  if (ratio >= 0.70) return colorScheme.tertiary;
-  return colorScheme.primary;
 }
 
 class _ContextUsageTile extends StatelessWidget {
@@ -1772,54 +1689,6 @@ class _CostPopupRowState extends State<_CostPopupRow> {
             Text(_format(widget.usd), style: widget.valueStyle),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// TopBar Token 胶囊里的常驻缓存命中率徽标。
-class _CacheHitRateBadge extends StatelessWidget {
-  const _CacheHitRateBadge({required this.percent});
-
-  /// 0..1 之间的命中率。
-  final double percent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    // 0 命中时弱化显示；命中越高强调越强。
-    final clamped = finiteUnitInterval(percent);
-    final intensity = (0.5 + clamped * 0.5).clamp(0.5, 1.0);
-    final fg = colorScheme.primary;
-    final bg = colorScheme.primary.withValues(alpha: 0.08 + clamped * 0.12);
-    final percentInt = (clamped * 100).round();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.savings_rounded, size: 11, color: fg),
-          const SizedBox(width: 3),
-          RollingText(
-            text: '$percentInt',
-            style: theme.textTheme.labelSmall!.copyWith(
-              fontWeight: FontWeight.w800,
-              color: fg.withValues(alpha: intensity),
-            ),
-          ),
-          Text(
-            '%',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: fg.withValues(alpha: intensity),
-            ),
-          ),
-        ],
       ),
     );
   }

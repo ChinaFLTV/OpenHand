@@ -92,6 +92,8 @@ class AiUsageSummary {
     this.totalDurationMs = 0,
     this.firstTokenDurationMs = 0,
     this.firstTokenSampleCount = 0,
+    this.latestContextUsedTokens = 0,
+    this.latestContextWindowTokens = 0,
   });
 
   final int requestCount;
@@ -116,6 +118,8 @@ class AiUsageSummary {
   final int totalDurationMs;
   final int firstTokenDurationMs;
   final int firstTokenSampleCount;
+  final int latestContextUsedTokens;
+  final int latestContextWindowTokens;
 
   double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
   double get cacheHitRate {
@@ -128,6 +132,15 @@ class AiUsageSummary {
   double get averageFirstTokenMs => firstTokenSampleCount == 0
       ? 0
       : firstTokenDurationMs / firstTokenSampleCount;
+  double get latestContextWindowUsageRate {
+    if (latestContextUsedTokens <= 0 || latestContextWindowTokens <= 0) {
+      return 0;
+    }
+    return (latestContextUsedTokens / latestContextWindowTokens)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
   bool get hasCompletePricing =>
       requestCount > 0 && pricedRequestCount == requestCount;
 }

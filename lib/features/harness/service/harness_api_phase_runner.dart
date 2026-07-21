@@ -431,6 +431,14 @@ class HarnessApiPhaseRunner {
     final contextWindowTokens = (model.maxContextTokens ?? 0) > 0
         ? model.maxContextTokens!
         : kInferredModelContextWindowTokens;
+    final estimatedCharactersPerToken = math.max(
+      1,
+      runtimeContext.estimatedCharactersPerToken,
+    );
+    final effectiveContextWindowTokens = math.max(
+      1,
+      contextWindowTokens - _responseReserveTokens,
+    );
     var toolRound = 0;
     final previouslyReadFiles = <String>{};
     // Phase-specific deny rules: read-only phases should not allow file writes.
@@ -484,7 +492,14 @@ class HarnessApiPhaseRunner {
             operation: 'phase_execution',
             sessionId: usageSessionId,
             threadTemplateId: 'harness_engineering',
-            metadata: <String, Object?>{'phase': phase.name},
+            metadata: <String, Object?>{
+              'phase': phase.name,
+              aiContextUsedTokensMetadataKey: _estimateConversationTokens(
+                conversation,
+                charactersPerToken: estimatedCharactersPerToken,
+              ),
+              aiContextWindowTokensMetadataKey: effectiveContextWindowTokens,
+            },
             body: () => _chatClient.sendMessage(
               model: model,
               messages: conversation,
@@ -882,7 +897,10 @@ class HarnessApiPhaseRunner {
   }
 
   /// Estimates the total token count of the conversation.
-  int _estimateConversationTokens(List<AiChatTurn> conversation) {
+  int _estimateConversationTokens(
+    List<AiChatTurn> conversation, {
+    int charactersPerToken = _estimatedCharsPerToken,
+  }) {
     var totalChars = 0;
     for (final turn in conversation) {
       totalChars += turn.content.length;
@@ -890,7 +908,7 @@ class HarnessApiPhaseRunner {
         totalChars += tc.name.length + tc.arguments.length;
       }
     }
-    return totalChars ~/ _estimatedCharsPerToken;
+    return totalChars ~/ math.max(1, charactersPerToken);
   }
 
   /// Checks whether context has grown past the compression threshold and, if
@@ -955,7 +973,17 @@ class HarnessApiPhaseRunner {
         operation: 'context_handoff',
         sessionId: usageSessionId,
         threadTemplateId: 'harness_engineering',
-        metadata: <String, Object?>{'phase': phase.name},
+        metadata: <String, Object?>{
+          'phase': phase.name,
+          aiContextUsedTokensMetadataKey: _estimateConversationTokens(
+            handoffConversation,
+            charactersPerToken: runtimeContext.estimatedCharactersPerToken,
+          ),
+          aiContextWindowTokensMetadataKey: math.max(
+            1,
+            contextWindowTokens - _responseReserveTokens,
+          ),
+        },
         body: () => _chatClient.sendMessage(
           model: model,
           messages: handoffConversation,

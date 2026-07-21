@@ -436,96 +436,39 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final hasUsage = _summary.requestCount > 0 || _summary.totalTokens > 0;
     final showCacheHitRate =
         _loaded &&
         (_summary.cacheReadTokens > 0 || _summary.cacheCreationTokens > 0);
-    final cacheHitPercent = (_summary.cacheHitRate * 100).round();
-    final tokenLabel = _loaded
-        ? '${_heCompactTokenCount(_summary.totalTokens)} Token'
-        : '-- Token';
-    return Tooltip(
-      message: _loaded
-          ? openHandLocalizedText(
-              context,
-              zh: 'Token 统计：${_heInteger(_summary.totalTokens)}',
-              zhHant: 'Token 統計：${_heInteger(_summary.totalTokens)}',
-              en: 'Token usage: ${_heInteger(_summary.totalTokens)}',
-              fr: 'Utilisation des tokens : ${_heInteger(_summary.totalTokens)}',
-              de: 'Token-Nutzung: ${_heInteger(_summary.totalTokens)}',
-              ja: 'Token 使用量: ${_heInteger(_summary.totalTokens)}',
-            )
-          : openHandLocalizedText(
-              context,
-              zh: '正在加载 Token 统计',
-              zhHant: '正在載入 Token 統計',
-              en: 'Loading token usage',
-              fr: 'Chargement de l’utilisation des tokens',
-              de: 'Token-Nutzung wird geladen',
-              ja: 'Token 使用量を読み込み中',
-            ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: InkWell(
+    final contextWindowRatio = _summary.latestContextWindowUsageRate;
+    final contextWindowPercent = (contextWindowRatio * 100).round();
+    return Semantics(
+      button: true,
+      label: openHandLocalizedText(
+        context,
+        zh: 'Token 统计',
+        zhHant: 'Token 統計',
+        en: 'Token usage',
+        fr: 'Utilisation des tokens',
+        de: 'Token-Nutzung',
+        ja: 'Token 使用量',
+      ),
+      child: MouseRegion(
+        cursor: _loaded ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: _loaded ? _showDetails : null,
-          borderRadius: kOpenHandPillBorderRadius,
-          overlayColor: WidgetStatePropertyAll<Color>(
-            colorScheme.primary.withValues(alpha: 0.08),
-          ),
-          child: Container(
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: showCacheHitRate
-                  ? colorScheme.primary.withValues(alpha: 0.08)
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: kOpenHandPillBorderRadius,
-              border: Border.all(
-                color: showCacheHitRate
-                    ? colorScheme.primary.withValues(alpha: 0.38)
-                    : colorScheme.outlineVariant.withValues(alpha: 0.55),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  showCacheHitRate || hasUsage
-                      ? Icons.bolt_rounded
-                      : Icons.confirmation_number_rounded,
-                  size: 14,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                if (showCacheHitRate) ...[
-                  Text(
-                    '$cacheHitPercent%',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 12,
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    color: colorScheme.outlineVariant,
-                  ),
-                ],
-                Text(
-                  tokenLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+          child: OpenHandTokenUsageCapsule(
+            showCacheHitRate: showCacheHitRate,
+            cacheHitRatio: _summary.cacheHitRate,
+            contextWindowRatio: contextWindowRatio,
+            contextWindowTooltip: openHandLocalizedText(
+              context,
+              zh: '上下文窗口 $contextWindowPercent%',
+              zhHant: '上下文視窗 $contextWindowPercent%',
+              en: 'Context window $contextWindowPercent%',
+              fr: 'Fenêtre de contexte $contextWindowPercent%',
+              de: 'Kontextfenster $contextWindowPercent%',
+              ja: 'コンテキストウィンドウ $contextWindowPercent%',
             ),
           ),
         ),
@@ -598,6 +541,17 @@ class _HeTokenUsageDialog extends StatelessWidget {
         label: openHandLocalizedText(context, zh: '模型请求', en: 'Model Requests'),
         value: _heInteger(summary.requestCount),
       ),
+      if (summary.latestContextWindowTokens > 0)
+        (
+          label: openHandLocalizedText(
+            context,
+            zh: '上下文窗口',
+            en: 'Context Window',
+          ),
+          value:
+              '${_heInteger(summary.latestContextUsedTokens)} / '
+              '${_heInteger(summary.latestContextWindowTokens)} Token',
+        ),
     ];
     return buildOpenHandResponsiveDialogShell(
       context: context,
@@ -673,12 +627,6 @@ class _HeTokenUsageDialog extends StatelessWidget {
       ),
     );
   }
-}
-
-String _heCompactTokenCount(int value) {
-  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
-  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
-  return '$value';
 }
 
 String _heInteger(int value) {

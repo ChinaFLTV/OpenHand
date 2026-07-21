@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../model/ai_context_usage.dart';
 import '../model/ai_token_usage.dart';
 import '../model/ai_usage_analytics.dart';
 
@@ -253,6 +255,9 @@ class AiUsageStore {
 
   Future<AiUsageSummary> _loadSummary(_UsageWhere where) async {
     final rows = await _db.rawQuery('''
+      WITH filtered_usage AS (
+        SELECT * FROM $tableName ${where.sql}
+      )
       SELECT
         COUNT(*) AS request_count,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success_count,
@@ -275,10 +280,20 @@ class AiUsageStore {
         SUM(COALESCE(total_cost_usd, 0)) AS total_cost_usd,
         SUM(duration_ms) AS total_duration_ms,
         SUM(CASE WHEN first_token_ms IS NOT NULL THEN first_token_ms ELSE 0 END) AS first_token_ms,
-        SUM(CASE WHEN first_token_ms IS NOT NULL THEN 1 ELSE 0 END) AS first_token_count
-      FROM $tableName ${where.sql}
+        SUM(CASE WHEN first_token_ms IS NOT NULL THEN 1 ELSE 0 END) AS first_token_count,
+        (
+          SELECT metadata_json
+          FROM filtered_usage
+          WHERE status = 'success'
+          ORDER BY started_at DESC
+          LIMIT 1
+        ) AS latest_metadata_json
+      FROM filtered_usage
       ''', where.arguments);
     final row = rows.firstOrNull ?? const <String, Object?>{};
+    final latestContext = _contextUsageFromMetadata(
+      row['latest_metadata_json'],
+    );
     return AiUsageSummary(
       requestCount: _int(row['request_count']),
       successCount: _int(row['success_count']),
@@ -302,6 +317,8 @@ class AiUsageStore {
       totalDurationMs: _int(row['total_duration_ms']),
       firstTokenDurationMs: _int(row['first_token_ms']),
       firstTokenSampleCount: _int(row['first_token_count']),
+      latestContextUsedTokens: latestContext.usedTokens,
+      latestContextWindowTokens: latestContext.windowTokens,
     );
   }
 
@@ -496,6 +513,22 @@ class AiUsageStore {
       totalCostUsd: _nullableDouble(row['total_cost_usd']),
       usageEstimated: _int(row['usage_estimated']) == 1,
     );
+  }
+}
+
+({int usedTokens, int windowTokens}) _contextUsageFromMetadata(Object? value) {
+  if (value is! String || value.isEmpty) {
+    return (usedTokens: 0, windowTokens: 0);
+  }
+  try {
+    final metadata = jsonDecode(value);
+    if (metadata is! Map) return (usedTokens: 0, windowTokens: 0);
+    return (
+      usedTokens: _int(metadata[aiContextUsedTokensMetadataKey]),
+      windowTokens: _int(metadata[aiContextWindowTokensMetadataKey]),
+    );
+  } on FormatException {
+    return (usedTokens: 0, windowTokens: 0);
   }
 }
 
