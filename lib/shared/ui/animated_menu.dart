@@ -63,6 +63,47 @@ Future<T?> showAnimatedMenu<T>({
   return pushOpenHandTransitionRoute(navigator, route);
 }
 
+/// 以当前组件为锚点显示标准弹出菜单，并统一处理挂载对象与窗口尺寸校验。
+Future<T?> showAnimatedAnchoredPopupMenu<T>({
+  required BuildContext context,
+  required List<PopupMenuEntry<T>> items,
+  T? initialValue,
+  double? elevation,
+  Color? color,
+  ShapeBorder? shape,
+  BoxConstraints? constraints,
+  DialogAnimationSettings? settings,
+  PopupMenuPosition position = PopupMenuPosition.over,
+  Offset offset = Offset.zero,
+  bool useRootNavigator = false,
+  bool enableBidirectionalScroll = false,
+  bool barrierDismissible = true,
+}) {
+  if (items.isEmpty) return Future<T?>.value();
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  final relativePosition = _resolveAnimatedMenuPosition(
+    anchorObject: context.findRenderObject(),
+    overlayObject: navigator.overlay?.context.findRenderObject(),
+    position: position,
+    offset: offset,
+  );
+  if (relativePosition == null) return Future<T?>.value();
+  return showAnimatedMenu<T>(
+    context: context,
+    position: relativePosition,
+    items: items,
+    initialValue: initialValue,
+    elevation: elevation,
+    color: color,
+    shape: shape,
+    constraints: constraints,
+    settings: settings,
+    useRootNavigator: useRootNavigator,
+    enableBidirectionalScroll: enableBidirectionalScroll,
+    barrierDismissible: barrierDismissible,
+  );
+}
+
 /// Shows arbitrary interactive content in an anchored popup route while
 /// inheriting the global menu entrance and exit motion settings.
 ///
@@ -78,24 +119,13 @@ Future<T?> showAnimatedAnchoredMenu<T>({
   bool barrierDismissible = true,
 }) {
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
-  final anchorObject = context.findRenderObject();
-  final overlayObject = navigator.overlay?.context.findRenderObject();
-  if (anchorObject is! RenderBox ||
-      overlayObject is! RenderBox ||
-      !anchorObject.hasSize ||
-      !overlayObject.hasSize) {
-    return Future<T?>.value();
-  }
-  final anchorRect = _animatedPopupMenuAnchorRect(
-    button: anchorObject,
-    overlay: overlayObject,
+  final relativePosition = _resolveAnimatedMenuPosition(
+    anchorObject: context.findRenderObject(),
+    overlayObject: navigator.overlay?.context.findRenderObject(),
     position: position,
     offset: offset,
   );
-  final relativePosition = RelativeRect.fromRect(
-    anchorRect,
-    Offset.zero & overlayObject.size,
-  );
+  if (relativePosition == null) return Future<T?>.value();
   final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
   final route = _AnimatedAnchoredMenuRoute<T>(
     position: relativePosition,
@@ -290,7 +320,6 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
           return CustomSingleChildLayout(
             delegate: _PopupMenuRouteLayout(
               position,
-              itemSizes,
               Directionality.of(context),
               mediaPadding,
             ),
@@ -324,6 +353,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
 
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
+  bool _initialScrollScheduled = false;
 
   @override
   void dispose() {
@@ -370,7 +400,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
     bool enableScrollbar = false,
   }) {
     final list = SingleChildScrollView(
-      controller: enableScrollbar ? _verticalScrollController : null,
+      controller: _verticalScrollController,
       primary: false,
       padding: padding,
       child: ListBody(children: children),
@@ -387,6 +417,36 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
           notification.metrics.axis == Axis.vertical,
       child: list,
     );
+  }
+
+  void _scheduleInitialSelectionScroll(
+    _AnimatedPopupMenuRoute<T> route,
+    EdgeInsetsGeometry padding,
+  ) {
+    if (_initialScrollScheduled || route.initialValue == null) return;
+    final selectedIndex = route.items.indexWhere(
+      (item) => item.represents(route.initialValue),
+    );
+    if (selectedIndex < 0) return;
+    _initialScrollScheduled = true;
+    final topPadding = padding.resolve(Directionality.of(context)).top;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_verticalScrollController.hasClients) return;
+      final selectedSize = route.itemSizes[selectedIndex];
+      if (selectedSize == null) return;
+      var offset = topPadding;
+      for (var index = 0; index < selectedIndex; index++) {
+        offset += route.itemSizes[index]?.height ?? 0;
+      }
+      final position = _verticalScrollController.position;
+      final target =
+          (offset - (position.viewportDimension - selectedSize.height) / 2)
+              .clamp(position.minScrollExtent, position.maxScrollExtent)
+              .toDouble();
+      if ((position.pixels - target).abs() > 0.5) {
+        _verticalScrollController.jumpTo(target);
+      }
+    });
   }
 
   Widget _buildScrollableBody({
@@ -454,6 +514,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
     }
     final menuPadding =
         (popupMenuTheme.menuPadding ?? defaults.menuPadding) ?? EdgeInsets.zero;
+    _scheduleInitialSelectionScroll(route, menuPadding);
     final menuConstraints = _resolvedMenuConstraints(route.constraints);
     final menuBody = _buildScrollableBody(
       padding: menuPadding,
@@ -523,15 +584,9 @@ class _MenuItemRenderObject extends RenderProxyBox {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
-  _PopupMenuRouteLayout(
-    this.position,
-    this.itemSizes,
-    this.textDirection,
-    this.padding,
-  );
+  _PopupMenuRouteLayout(this.position, this.textDirection, this.padding);
 
   final RelativeRect position;
-  final List<Size?> itemSizes;
   final TextDirection textDirection;
   final EdgeInsets padding;
 
@@ -1319,42 +1374,19 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
 class _AnimatedPopupMenuButtonState<T>
     extends State<AnimatedPopupMenuButton<T>> {
   void _showMenu() {
-    final buttonObject = context.findRenderObject();
-    final navigator = Navigator.of(
-      context,
-      rootNavigator: widget.useRootNavigator,
-    );
-    final overlayObject = navigator.overlay?.context.findRenderObject();
-    if (buttonObject is! RenderBox ||
-        overlayObject is! RenderBox ||
-        !buttonObject.hasSize ||
-        !overlayObject.hasSize) {
-      return;
-    }
-    final offset = widget.offset;
-    final anchorRect = _animatedPopupMenuAnchorRect(
-      button: buttonObject,
-      overlay: overlayObject,
-      position: widget.position,
-      offset: offset,
-    );
-    final position = RelativeRect.fromRect(
-      anchorRect,
-      Offset.zero & overlayObject.size,
-    );
-
     final items = widget.itemBuilder(context);
     if (items.isEmpty) return;
 
-    showAnimatedMenu<T>(
+    showAnimatedAnchoredPopupMenu<T>(
       context: context,
-      position: position,
       items: items,
       initialValue: widget.initialValue,
       elevation: widget.elevation,
       color: widget.color,
       shape: widget.shape,
       constraints: widget.constraints,
+      position: widget.position,
+      offset: widget.offset,
       useRootNavigator: widget.useRootNavigator,
       barrierDismissible: widget.barrierDismissible,
     ).then((value) {
@@ -1398,6 +1430,27 @@ class _AnimatedPopupMenuButtonState<T>
       ),
     );
   }
+}
+
+RelativeRect? _resolveAnimatedMenuPosition({
+  required RenderObject? anchorObject,
+  required RenderObject? overlayObject,
+  required PopupMenuPosition position,
+  required Offset offset,
+}) {
+  if (anchorObject is! RenderBox ||
+      overlayObject is! RenderBox ||
+      !anchorObject.hasSize ||
+      !overlayObject.hasSize) {
+    return null;
+  }
+  final anchorRect = _animatedPopupMenuAnchorRect(
+    button: anchorObject,
+    overlay: overlayObject,
+    position: position,
+    offset: offset,
+  );
+  return RelativeRect.fromRect(anchorRect, Offset.zero & overlayObject.size);
 }
 
 Rect _animatedPopupMenuAnchorRect({

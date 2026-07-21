@@ -608,6 +608,16 @@ class _CronEditorDialog extends StatefulWidget {
 
 enum _NotificationTestScenario { success, failure, timeout, all }
 
+typedef _NotificationTestConfig = ({
+  CronNotifyType type,
+  CronNotifySeverity severity,
+  bool soundEnabled,
+  bool vibrationEnabled,
+  String message,
+  String label,
+  String defaultBody,
+});
+
 class _CronEditorDialogState extends State<_CronEditorDialog> {
   static const Uuid _uuid = Uuid();
 
@@ -654,6 +664,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   bool _saving = false;
   String? _cronError;
   String? _formError;
+  int _notificationTestGeneration = 0;
 
   @override
   void initState() {
@@ -734,6 +745,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
   @override
   void dispose() {
+    _notificationTestGeneration++;
     _nameController.dispose();
     _descriptionController.dispose();
     _scriptPathController.dispose();
@@ -1592,69 +1604,98 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 
   Future<void> _testNotification(_NotificationTestScenario scenario) async {
+    final generation = ++_notificationTestGeneration;
+    final strings = l10n;
     if (scenario == _NotificationTestScenario.all) {
-      await _testAllNotificationsSequentially();
+      await _testAllNotificationsSequentially(strings, generation);
       return;
     }
-    await _testSingleNotification(scenario);
+    await _testSingleNotification(scenario, strings, generation);
   }
 
-  Future<void> _testAllNotificationsSequentially() async {
+  bool _isNotificationTestActive(int generation) =>
+      mounted && generation == _notificationTestGeneration;
+
+  Future<void> _testAllNotificationsSequentially(
+    AppLocalizations strings,
+    int generation,
+  ) async {
     final scenarios = <_NotificationTestScenario>[
       _NotificationTestScenario.success,
       _NotificationTestScenario.failure,
       _NotificationTestScenario.timeout,
     ];
+    final configs = <_NotificationTestConfig>[
+      for (final scenario in scenarios)
+        _resolveTestNotificationConfig(scenario, strings),
+    ];
 
     final hasUnsupportedVibration =
         !OpenHandNotificationService.supportsVibration &&
-        scenarios
-            .map(_resolveTestNotificationConfig)
-            .any((cfg) => cfg.vibrationEnabled);
+        configs.any((config) => config.vibrationEnabled);
 
     await OpenHandNotificationService.showInApp(
-      title: l10n.cronsNotificationSequentialStartTitle,
-      body: l10n.cronsNotificationSequentialStartBody,
+      title: strings.cronsNotificationSequentialStartTitle,
+      body: strings.cronsNotificationSequentialStartBody,
     );
+    if (!_isNotificationTestActive(generation)) return;
 
-    for (var i = 0; i < scenarios.length; i++) {
-      await _testSingleNotification(
-        scenarios[i],
+    for (var i = 0; i < configs.length; i++) {
+      await _emitTestNotification(
+        configs[i],
+        strings,
+        generation,
         showVibrationFallbackHint: false,
       );
-      if (i < scenarios.length - 1) {
+      if (!_isNotificationTestActive(generation)) return;
+      if (i < configs.length - 1) {
         await Future<void>.delayed(const Duration(milliseconds: 520));
+        if (!_isNotificationTestActive(generation)) return;
       }
     }
 
     if (hasUnsupportedVibration) {
       await OpenHandNotificationService.showInApp(
-        title: l10n.cronsNotificationVibrationIgnoredTitle,
-        body: l10n.cronsNotificationSequentialVibrationIgnoredBody,
+        title: strings.cronsNotificationVibrationIgnoredTitle,
+        body: strings.cronsNotificationSequentialVibrationIgnoredBody,
       );
+      if (!_isNotificationTestActive(generation)) return;
     }
 
     await OpenHandNotificationService.showInApp(
-      title: l10n.cronsNotificationSequentialCompletedTitle,
-      body: l10n.cronsNotificationSequentialCompletedBody,
+      title: strings.cronsNotificationSequentialCompletedTitle,
+      body: strings.cronsNotificationSequentialCompletedBody,
       level: OpenHandNotificationLevel.success,
     );
   }
 
   Future<void> _testSingleNotification(
-    _NotificationTestScenario scenario, {
+    _NotificationTestScenario scenario,
+    AppLocalizations strings,
+    int generation,
+  ) {
+    return _emitTestNotification(
+      _resolveTestNotificationConfig(scenario, strings),
+      strings,
+      generation,
+    );
+  }
+
+  Future<void> _emitTestNotification(
+    _NotificationTestConfig config,
+    AppLocalizations strings,
+    int generation, {
     bool showVibrationFallbackHint = true,
   }) async {
-    final config = _resolveTestNotificationConfig(scenario);
-    final title = l10n.cronsNotificationTestTitle(config.label);
-    final defaultBody = config.defaultBody;
-    final body = nullIfBlank(config.messageController.text) ?? defaultBody;
+    if (!_isNotificationTestActive(generation)) return;
+    final title = strings.cronsNotificationTestTitle(config.label);
+    final body = nullIfBlank(config.message) ?? config.defaultBody;
 
     if (config.type == CronNotifyType.none ||
         config.type == CronNotifyType.log) {
       await OpenHandNotificationService.showInApp(
         title: title,
-        body: l10n.cronsNotificationNoEmitBody,
+        body: strings.cronsNotificationNoEmitBody,
         level: OpenHandNotificationLevel.warning,
       );
       return;
@@ -1669,10 +1710,11 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         playSound: config.soundEnabled,
         vibrate: config.vibrationEnabled,
       );
+      if (!_isNotificationTestActive(generation)) return;
       if (!shown) {
         await OpenHandNotificationService.showInApp(
-          title: l10n.cronsSystemNotificationUnavailableTitle,
-          body: l10n.cronsSystemNotificationFallbackBody,
+          title: strings.cronsSystemNotificationUnavailableTitle,
+          body: strings.cronsSystemNotificationFallbackBody,
           level: OpenHandNotificationLevel.warning,
           playSound: config.soundEnabled,
           vibrate: config.vibrationEnabled,
@@ -1687,63 +1729,58 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         vibrate: config.vibrationEnabled,
       );
     }
+    if (!_isNotificationTestActive(generation)) return;
 
     if (showVibrationFallbackHint &&
         config.vibrationEnabled &&
         !OpenHandNotificationService.supportsVibration) {
       await OpenHandNotificationService.showInApp(
-        title: l10n.cronsNotificationVibrationIgnoredTitle,
-        body: l10n.cronsNotificationVibrationIgnoredBody,
+        title: strings.cronsNotificationVibrationIgnoredTitle,
+        body: strings.cronsNotificationVibrationIgnoredBody,
       );
     }
   }
 
-  ({
-    CronNotifyType type,
-    CronNotifySeverity severity,
-    bool soundEnabled,
-    bool vibrationEnabled,
-    TextEditingController messageController,
-    String label,
-    String defaultBody,
-  })
-  _resolveTestNotificationConfig(_NotificationTestScenario scenario) {
+  _NotificationTestConfig _resolveTestNotificationConfig(
+    _NotificationTestScenario scenario,
+    AppLocalizations strings,
+  ) {
     return switch (scenario) {
       _NotificationTestScenario.success => (
         type: _onSuccessNotify,
         severity: _onSuccessSeverity,
         soundEnabled: _onSuccessSound,
         vibrationEnabled: _onSuccessVibration,
-        messageController: _onSuccessMsgController,
-        label: l10n.cronsNotificationScenarioSuccess,
-        defaultBody: l10n.cronsNotificationTestDefaultBodySuccess,
+        message: _onSuccessMsgController.text,
+        label: strings.cronsNotificationScenarioSuccess,
+        defaultBody: strings.cronsNotificationTestDefaultBodySuccess,
       ),
       _NotificationTestScenario.failure => (
         type: _onFailureNotify,
         severity: _onFailureSeverity,
         soundEnabled: _onFailureSound,
         vibrationEnabled: _onFailureVibration,
-        messageController: _onFailureMsgController,
-        label: l10n.cronsNotificationScenarioFailure,
-        defaultBody: l10n.cronsNotificationTestDefaultBodyFailure,
+        message: _onFailureMsgController.text,
+        label: strings.cronsNotificationScenarioFailure,
+        defaultBody: strings.cronsNotificationTestDefaultBodyFailure,
       ),
       _NotificationTestScenario.timeout => (
         type: _onTimeoutNotify,
         severity: _onTimeoutSeverity,
         soundEnabled: _onTimeoutSound,
         vibrationEnabled: _onTimeoutVibration,
-        messageController: _onTimeoutMsgController,
-        label: l10n.cronsNotificationScenarioTimeout,
-        defaultBody: l10n.cronsNotificationTestDefaultBodyTimeout,
+        message: _onTimeoutMsgController.text,
+        label: strings.cronsNotificationScenarioTimeout,
+        defaultBody: strings.cronsNotificationTestDefaultBodyTimeout,
       ),
       _NotificationTestScenario.all => (
         type: _onFailureNotify,
         severity: _onFailureSeverity,
         soundEnabled: _onFailureSound,
         vibrationEnabled: _onFailureVibration,
-        messageController: _onFailureMsgController,
-        label: l10n.cronsNotificationScenarioAll,
-        defaultBody: l10n.cronsNotificationTestDefaultBodyFailure,
+        message: _onFailureMsgController.text,
+        label: strings.cronsNotificationScenarioAll,
+        defaultBody: strings.cronsNotificationTestDefaultBodyFailure,
       ),
     };
   }

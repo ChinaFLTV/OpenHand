@@ -67,9 +67,7 @@ class SkillsView extends StatefulWidget {
   State<SkillsView> createState() => _SkillsViewState();
 }
 
-/// A [PopupMenuEntry] that displays an emoji grid.  Each emoji button
-/// calls [Navigator.pop] with its value so the result is returned via
-/// [showAnimatedMenu].
+/// 以网格显示技能表情，点击后通过当前菜单路由返回所选值。
 class _EmojiGridPopupEntry extends PopupMenuEntry<String> {
   const _EmojiGridPopupEntry({required this.emojis, this.selectedEmoji});
 
@@ -120,6 +118,21 @@ class _EmojiGridPopupEntryState extends State<_EmojiGridPopupEntry> {
       ),
     );
   }
+}
+
+Future<String?> _showSkillEmojiMenu(
+  BuildContext context, {
+  required String? selectedEmoji,
+}) {
+  return showAnimatedAnchoredPopupMenu<String>(
+    context: context,
+    items: <PopupMenuEntry<String>>[
+      _EmojiGridPopupEntry(
+        emojis: _skillEmojiOptions,
+        selectedEmoji: selectedEmoji,
+      ),
+    ],
+  );
 }
 
 class _SkillsViewState extends State<SkillsView> {
@@ -730,21 +743,24 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
                                       return OutlinedButton.icon(
                                         onPressed: _isSaving
                                             ? null
-                                            : () {
-                                                _showEmojiMenu(
-                                                  btnContext,
-                                                  onSelected: (emoji) {
-                                                    field.didChange(true);
-                                                    setState(() {
-                                                      _selectedEmoji = emoji;
-                                                      _selectedImageBytes =
-                                                          null;
-                                                      _existingIconPath = null;
-                                                      _existingIconKind = null;
-                                                      _errorMessage = null;
-                                                    });
-                                                  },
-                                                );
+                                            : () async {
+                                                final emoji =
+                                                    await _showSkillEmojiMenu(
+                                                      btnContext,
+                                                      selectedEmoji:
+                                                          _selectedEmoji,
+                                                    );
+                                                if (!mounted || emoji == null) {
+                                                  return;
+                                                }
+                                                field.didChange(true);
+                                                setState(() {
+                                                  _selectedEmoji = emoji;
+                                                  _selectedImageBytes = null;
+                                                  _existingIconPath = null;
+                                                  _existingIconKind = null;
+                                                  _errorMessage = null;
+                                                });
                                               },
                                         icon: const Icon(
                                           Icons.emoji_emotions_outlined,
@@ -972,39 +988,6 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     return const _SkillEmojiGlyph(emoji: '🙂', fontSize: 28);
   }
 
-  void _showEmojiMenu(
-    BuildContext btnContext, {
-    required ValueChanged<String> onSelected,
-  }) {
-    final button = btnContext.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(btnContext).overlay!.context.findRenderObject()!
-            as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-    showAnimatedMenu<String>(
-      context: btnContext,
-      position: position,
-      items: [
-        _EmojiGridPopupEntry(
-          emojis: _skillEmojiOptions,
-          selectedEmoji: _selectedEmoji,
-        ),
-      ],
-    ).then((emoji) {
-      if (!mounted || emoji == null) return;
-      onSelected(emoji);
-    });
-  }
-
   Future<void> _pickLocalImage(FormFieldState<bool> field) async {
     try {
       final picked = await pickAndEditImage(context);
@@ -1166,18 +1149,21 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
                                       return OutlinedButton.icon(
                                         onPressed: _isSaving
                                             ? null
-                                            : () {
-                                                _showEmojiMenu(
-                                                  btnContext,
-                                                  onSelected: (emoji) {
-                                                    field.didChange(true);
-                                                    setState(() {
-                                                      _selectedEmoji = emoji;
-                                                      _selectedImageBytes =
-                                                          null;
-                                                    });
-                                                  },
-                                                );
+                                            : () async {
+                                                final emoji =
+                                                    await _showSkillEmojiMenu(
+                                                      btnContext,
+                                                      selectedEmoji:
+                                                          _selectedEmoji,
+                                                    );
+                                                if (!mounted || emoji == null) {
+                                                  return;
+                                                }
+                                                field.didChange(true);
+                                                setState(() {
+                                                  _selectedEmoji = emoji;
+                                                  _selectedImageBytes = null;
+                                                });
                                               },
                                         icon: const Icon(
                                           Icons.emoji_emotions_outlined,
@@ -1315,39 +1301,6 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
         _errorMessage = l10n.skillOperationFailed;
       });
     }
-  }
-
-  void _showEmojiMenu(
-    BuildContext btnContext, {
-    required ValueChanged<String> onSelected,
-  }) {
-    final button = btnContext.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(btnContext).overlay!.context.findRenderObject()!
-            as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-    showAnimatedMenu<String>(
-      context: btnContext,
-      position: position,
-      items: [
-        _EmojiGridPopupEntry(
-          emojis: _skillEmojiOptions,
-          selectedEmoji: _selectedEmoji,
-        ),
-      ],
-    ).then((emoji) {
-      if (!mounted || emoji == null) return;
-      onSelected(emoji);
-    });
   }
 
   Future<void> _pickLocalImage(FormFieldState<bool> field) async {

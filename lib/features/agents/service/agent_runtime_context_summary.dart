@@ -48,7 +48,7 @@ Map<String, Object?> agentCapabilityBindingsJson(
           return true;
         }
         return normalizedCallableAgentToolNames.contains(
-          _normalizeToolName(name),
+          normalizeAsciiLookupKey(name),
         );
       })
       .toList(growable: false);
@@ -89,7 +89,7 @@ Map<String, Object?> agentCapabilityBindingsJson(
 Set<String> agentNormalizedCallableToolNames(Iterable<String> names) {
   final result = <String>{};
   for (final name in names) {
-    final normalized = _normalizeToolName(name);
+    final normalized = normalizeAsciiLookupKey(name);
     if (normalized.isNotEmpty) result.add(normalized);
   }
   return result;
@@ -114,7 +114,7 @@ Map<String, int> _agentBuiltinToolGroupCounts(Iterable<String> names) {
 
 String? _agentBuiltinToolGroupName(String name) {
   if (!isAgentCoordinationBuiltinToolName(name)) return null;
-  final normalized = _normalizeToolName(name);
+  final normalized = normalizeAsciiLookupKey(name);
   if (normalized == 'agentlist' || normalized == 'agentdetail') {
     return 'discovery';
   }
@@ -144,16 +144,4 @@ Map<String, Object?> agentWorkspacePolicyJson(AgentProfile agent) {
     'writes_limited_to_allowed_roots': true,
     'requires_confirmation_when_empty': allowedRoots.isEmpty,
   };
-}
-
-String _normalizeToolName(String value) {
-  final buffer = StringBuffer();
-  for (final code in value.codeUnits) {
-    if ((code >= 0x30 && code <= 0x39) ||
-        (code >= 0x41 && code <= 0x5A) ||
-        (code >= 0x61 && code <= 0x7A)) {
-      buffer.writeCharCode(code | 0x20);
-    }
-  }
-  return buffer.toString();
 }

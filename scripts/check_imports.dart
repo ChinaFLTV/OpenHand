@@ -27,12 +27,10 @@ Future<void> main(List<String> args) async {
   violations += await _scanWeb(Directory('$root/clients/web/src/features'));
 
   if (violations > 0) {
-    stderr.writeln(
-      '[check_imports] $violations deep cross-feature import(s) found.',
-    );
+    stderr.writeln('[导入检查] 发现 $violations 个跨功能深层导入。');
     exit(1);
   }
-  stdout.writeln('[check_imports] OK');
+  stdout.writeln('[导入检查] 通过。');
 }
 
 Future<int> _scanDart(String root) async {
@@ -87,9 +85,7 @@ Future<int> _scanDart(String root) async {
           sub == '${target}_module.dart' ||
           sub == '${target}_controller.dart';
       if (!allowed) {
-        stderr.writeln(
-          '${entity.path}:${i + 1} deep cross-feature import: $target/$sub',
-        );
+        stderr.writeln('${entity.path}:${i + 1} 跨功能深层导入：$target/$sub');
         n++;
       }
     }
@@ -148,9 +144,7 @@ String _normalize(String p) {
 Future<int> _scanWeb(Directory featuresRoot) async {
   if (!featuresRoot.existsSync()) return 0;
   var n = 0;
-  final tsRe = RegExp(
-    r"""from\s+['"](?:@/features/|(?:\.\./)+features/)([\w-]+)/([\w./-]+)['"]""",
-  );
+  final tsRe = RegExp(r'''^\s*import\b.*\bfrom\s+['"]([^'"]+)['"]''');
   await for (final entity in featuresRoot.list(recursive: true)) {
     if (entity is! File ||
         !(entity.path.endsWith('.ts') || entity.path.endsWith('.tsx'))) {
@@ -162,15 +156,50 @@ Future<int> _scanWeb(Directory featuresRoot) async {
     for (var i = 0; i < lines.length; i++) {
       final m = tsRe.firstMatch(lines[i]);
       if (m == null) continue;
-      final target = m.group(1)!;
-      final sub = m.group(2)!;
-      if (target == owner) continue;
-      if (sub == 'index' || sub == 'index.ts' || sub == 'index.tsx') continue;
-      stderr.writeln(
-        '${entity.path}:${i + 1} deep cross-feature import: $target/$sub',
+      final resolved = _resolveWebImport(
+        raw: m.group(1)!,
+        fileDir: entity.parent.path,
+        featuresRoot: featuresRoot.path,
       );
+      if (resolved == null) continue;
+      final featuresPrefix = '${featuresRoot.path}${Platform.pathSeparator}';
+      if (!resolved.startsWith(featuresPrefix)) continue;
+      final relUnderFeatures = resolved.substring(featuresPrefix.length);
+      final segments = relUnderFeatures.split(Platform.pathSeparator);
+      if (segments.isEmpty || segments.first.isEmpty) continue;
+      final target = segments.first;
+      final sub = segments.skip(1).join('/');
+      if (target == owner) continue;
+      if (_isWebFeatureEntry(sub)) continue;
+      stderr.writeln('${entity.path}:${i + 1} 跨功能深层导入：$target/$sub');
       n++;
     }
   }
   return n;
+}
+
+String? _resolveWebImport({
+  required String raw,
+  required String fileDir,
+  required String featuresRoot,
+}) {
+  const aliasPrefix = '@/features/';
+  if (raw.startsWith(aliasPrefix)) {
+    return _normalize(
+      '$featuresRoot${Platform.pathSeparator}'
+      '${raw.substring(aliasPrefix.length).replaceAll('/', Platform.pathSeparator)}',
+    );
+  }
+  if (!raw.startsWith('.')) return null;
+  final resolved = _normalize(
+    '$fileDir${Platform.pathSeparator}'
+    '${raw.replaceAll('/', Platform.pathSeparator)}',
+  );
+  final prefix = '$featuresRoot${Platform.pathSeparator}';
+  return resolved.startsWith(prefix) ? resolved : null;
+}
+
+bool _isWebFeatureEntry(String sub) {
+  if (sub.isEmpty) return true;
+  return RegExp(r'^index(?:\.(?:ts|tsx|js|jsx))?$').hasMatch(sub);
 }

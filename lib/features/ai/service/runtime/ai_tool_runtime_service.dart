@@ -17,6 +17,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/physical_path_safety.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/index.dart';
 import '../../../instructions/instructions_controller.dart';
@@ -106,12 +107,12 @@ class AiResolvedToolCatalog {
     if (direct != null) {
       return direct;
     }
-    final normalizedName = _normalizeToolLookupKey(name);
+    final normalizedName = normalizeAsciiLookupKey(name);
     if (normalizedName.isEmpty) {
       return null;
     }
     for (final entry in toolsByName.entries) {
-      if (_normalizeToolLookupKey(entry.key) == normalizedName) {
+      if (normalizeAsciiLookupKey(entry.key) == normalizedName) {
         return entry.value;
       }
     }
@@ -128,36 +129,22 @@ class AiResolvedToolCatalog {
   }
 
   AiResolvedTool? findDeferredTool(String name) {
-    final normalizedName = _normalizeToolLookupKey(name);
+    final normalizedName = normalizeAsciiLookupKey(name);
     if (normalizedName.isEmpty) return null;
     for (final tool in toolsByName.values) {
       if (tool.builtinKind != AiBuiltinToolKind.toolSearch) continue;
       final direct = tool.toolSearchDeferredTools[name];
       if (direct != null) return direct;
       for (final entry in tool.toolSearchDeferredTools.entries) {
-        if (_normalizeToolLookupKey(entry.key) == normalizedName ||
-            _normalizeToolLookupKey(entry.value.name) == normalizedName ||
-            _normalizeToolLookupKey(entry.value.definition.name) ==
+        if (normalizeAsciiLookupKey(entry.key) == normalizedName ||
+            normalizeAsciiLookupKey(entry.value.name) == normalizedName ||
+            normalizeAsciiLookupKey(entry.value.definition.name) ==
                 normalizedName) {
           return entry.value;
         }
       }
     }
     return null;
-  }
-
-  /// 统一工具名大小写及分隔符，兼容 PascalCase、camelCase、snake_case、
-  /// kebab-case 和多余空格。
-  static String _normalizeToolLookupKey(String value) {
-    final buffer = StringBuffer();
-    for (final code in value.codeUnits) {
-      if ((code >= 0x30 && code <= 0x39) ||
-          (code >= 0x41 && code <= 0x5A) ||
-          (code >= 0x61 && code <= 0x7A)) {
-        buffer.writeCharCode(code | 0x20); // lowercase ASCII
-      }
-    }
-    return buffer.toString();
   }
 
   static AiBuiltinToolKind? _builtinAliasKind(String normalizedName) {
@@ -596,14 +583,10 @@ class AiToolRuntimeService {
     String toolName,
     String configuredName,
   ) {
-    final normalized = AiResolvedToolCatalog._normalizeToolLookupKey(
-      configuredName,
-    );
+    final normalized = normalizeAsciiLookupKey(configuredName);
     if (normalized.isEmpty) return false;
-    return normalized ==
-            AiResolvedToolCatalog._normalizeToolLookupKey(toolName) ||
-        normalized ==
-            AiResolvedToolCatalog._normalizeToolLookupKey(kind.name) ||
+    return normalized == normalizeAsciiLookupKey(toolName) ||
+        normalized == normalizeAsciiLookupKey(kind.name) ||
         AiResolvedToolCatalog._builtinAliasKind(normalized) == kind;
   }
 
@@ -612,9 +595,9 @@ class AiToolRuntimeService {
   }
 
   int _toolNameCompare(String left, String right) {
-    final normalizedCompare = AiResolvedToolCatalog._normalizeToolLookupKey(
+    final normalizedCompare = normalizeAsciiLookupKey(
       left,
-    ).compareTo(AiResolvedToolCatalog._normalizeToolLookupKey(right));
+    ).compareTo(normalizeAsciiLookupKey(right));
     if (normalizedCompare != 0) {
       return normalizedCompare;
     }

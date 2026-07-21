@@ -1076,8 +1076,8 @@ class AppSettingsSnapshot {
 
   /// 2026-05 — 用户层减少动画总开关。true 时所有自定义动画
   /// 时长压到 0；built-in 动画（路由/弹窗/HeroAnimation）通过
-  /// MediaQuery.disableAnimations 同步禁用。`AppearOnce`、
-  /// `AnimatedExpandable` 等自研组件经由 InheritedWidget 读取。
+  /// MediaQuery.disableAnimations 同步禁用，自研动画组件经由
+  /// InheritedWidget 读取。
   /// 默认 false（OS-level reduceMotion 仍会被 MediaQuery 自动
   /// 抓取，所以即便此处为 false，开了系统辅助功能用户也能拿到
   /// 减弱动画体验）。

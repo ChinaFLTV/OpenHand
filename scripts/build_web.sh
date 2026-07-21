@@ -259,7 +259,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-clean_web_output() {
+prepare_web_output() {
   is_safe_out_dir || fail "拒绝清理可疑目录: '$OUT_DIR'"
 
   if [[ ! -d "$OUT_DIR" ]]; then
@@ -268,16 +268,7 @@ clean_web_output() {
 
   backup_web_output
   OUT_DIR_TOUCHED=1
-
-  log "清理旧产物 → $OUT_DIR/{app.js,app.css,index.html,chunks,assets,*.map}"
-  # 主入口 + sourcemap + 拆分子目录；public/ 内会被 vite 自动 copy 回来。
-  rm -f -- \
-    "$OUT_DIR/app.js" \
-    "$OUT_DIR/app.css" \
-    "$OUT_DIR/index.html" \
-    "$OUT_DIR"/*.map
-  rm -rf -- "$OUT_DIR/chunks" "$OUT_DIR/assets"
-  mkdir -p "$OUT_DIR/chunks" "$OUT_DIR/assets"
+  log "由 Vite emptyOutDir 清理旧产物 → $OUT_DIR"
 }
 
 build_web_client() {
@@ -293,7 +284,7 @@ install_web_dependencies
 
 # ---- 安全清理旧产物 ---------------------------------------------------------
 # 依赖准备成功后再清理，避免 corepack/npm 网络失败时把可用旧产物删除。
-clean_web_output
+prepare_web_output
 
 # ---- 构建 -------------------------------------------------------------------
 build_web_client

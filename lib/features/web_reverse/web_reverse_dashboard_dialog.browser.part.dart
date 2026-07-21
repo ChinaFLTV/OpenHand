@@ -3413,14 +3413,14 @@ class _DevicePresetMenu extends StatelessWidget {
       ),
       child: SizedBox(
         height: _kToolbarHeight,
-        child: AnimatedPopupMenuButton<WebReverseDevicePreset?>(
+        child: AnimatedPopupMenuButton<({WebReverseDevicePreset? preset})>(
           enabled: enabled,
           tooltip: '',
-          onSelected: onChanged,
+          onSelected: (selection) => onChanged(selection.preset),
           itemBuilder: (_) => _presets
               .map(
-                (p) => PopupMenuItem<WebReverseDevicePreset?>(
-                  value: p,
+                (p) => PopupMenuItem<({WebReverseDevicePreset? preset})>(
+                  value: (preset: p),
                   child: Text(
                     p == null
                         ? openHandLocalizedText(

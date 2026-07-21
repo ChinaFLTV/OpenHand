@@ -205,6 +205,7 @@ class McpController extends ChangeNotifier {
   McpServerOpsRuntime? _opsRuntime;
   McpOpsRuntimeBindings? _opsBindings;
   bool _isDisposed = false;
+  Future<void>? _shutdownFuture;
   bool _isPageActive = false;
   bool _autoToolRefreshInProgress = false;
   bool _autoHealthCheckInProgress = false;
@@ -539,6 +540,7 @@ class McpController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_isDisposed) return;
     _isDisposed = true;
     for (final completer in _opsApprovalCompleters.values) {
       if (!completer.isCompleted) {
@@ -548,11 +550,8 @@ class McpController extends ChangeNotifier {
     _opsApprovalCompleters.clear();
     _opsApprovalRequests.clear();
     final opsRuntime = _opsRuntime;
-    if (opsRuntime != null) {
-      unawaited(opsRuntime.stop());
-    }
+    _opsRuntime = null;
     _pageActivationWorkDebouncer.dispose();
-    unawaited(_persistOpsRuntimeData());
     _opsPersistenceDebouncer.dispose();
     _healthCheckTimer?.cancel();
     _opsSnapshotNotifyTimer?.cancel();
@@ -564,8 +563,38 @@ class McpController extends ChangeNotifier {
         silentLog('mcp', 'dispose.discoveryService', error, stack);
       }
     }
+    _shutdownFuture = _shutdownRuntimeResources(opsRuntime);
     _saveSuccessSignal.dispose();
     super.dispose();
+  }
+
+  Future<void> shutdown() {
+    if (!_isDisposed) dispose();
+    return _shutdownFuture ?? Future<void>.value();
+  }
+
+  Future<void> _shutdownRuntimeResources(
+    McpServerOpsRuntime? opsRuntime,
+  ) async {
+    await Future.wait<void>(<Future<void>>[
+      if (opsRuntime != null) _runShutdownStep('停止 MCP 运维服务', opsRuntime.stop),
+      _runShutdownStep(
+        '停止 STDIO MCP 进程',
+        McpStdioProcessManager.instance.stopAll,
+      ),
+    ]);
+    await _runShutdownStep('保存 MCP 运维数据', _persistOpsRuntimeData);
+  }
+
+  Future<void> _runShutdownStep(
+    String action,
+    FutureOr<void> Function() operation,
+  ) async {
+    try {
+      await Future<void>.sync(operation);
+    } catch (error, stack) {
+      silentLog('mcp', action, error, stack);
+    }
   }
 
   void clearPersistenceIssue() {

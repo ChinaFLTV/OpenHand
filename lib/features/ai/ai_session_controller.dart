@@ -1223,6 +1223,11 @@ class AiSessionController extends ChangeNotifier {
   ValueListenable<int> get streamThrottleOverrideSignal =>
       _sessionStreamThrottleSignal;
 
+  void _notifySessionStreamThrottleChanged() {
+    if (_isDisposed) return;
+    _sessionStreamThrottleSignal.value++;
+  }
+
   /// 设置或清除某个会话的字符节流覆盖。`value == null` 表示清除该字段；
   /// 当两个字段都被清除时，整个 entry 移除。
   /// 同时执行两项同步操作：
@@ -1256,7 +1261,7 @@ class AiSessionController extends ChangeNotifier {
       activeReasoning.maxCharsPerSecond = clamped;
     }
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
+    _notifySessionStreamThrottleChanged();
   }
 
   /// 设置或清除某个会话的卡片节流覆盖。语义同
@@ -1282,7 +1287,7 @@ class AiSessionController extends ChangeNotifier {
       activeCard.maxCardsPerSecond = clamped;
     }
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
+    _notifySessionStreamThrottleChanged();
   }
 
   /// 设置或清除某个会话的「启用节流」开关覆盖。
@@ -1311,7 +1316,7 @@ class AiSessionController extends ChangeNotifier {
     _activeReasoningCharThrottles[sessionId]?.enabledOverride = value;
     _activeCardThrottles[sessionId]?.enabledOverride = value;
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
+    _notifySessionStreamThrottleChanged();
   }
 
   /// 该会话历史上是否曾经处于节流态。胶囊可见性判据之一。
@@ -1323,7 +1328,7 @@ class AiSessionController extends ChangeNotifier {
     if (sessionId.isEmpty) return;
     if (_sessionStreamThrottleOverrides.remove(sessionId) == null) return;
     _persistThrottleOverride(sessionId);
-    _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
+    _notifySessionStreamThrottleChanged();
   }
 
   /// 把 [_sessionStreamThrottleOverrides] 中 sessionId 对应的覆盖写入
@@ -1359,8 +1364,7 @@ class AiSessionController extends ChangeNotifier {
       }
     }
     if (changed) {
-      _sessionStreamThrottleSignal.value =
-          _sessionStreamThrottleSignal.value + 1;
+      _notifySessionStreamThrottleChanged();
     }
   }
 
@@ -1499,8 +1503,7 @@ class AiSessionController extends ChangeNotifier {
     _lastRawCharThroughputSnapshot.remove(sessionId);
     _sessionsInitiallyThrottled.remove(sessionId);
     if (_sessionStreamThrottleOverrides.remove(sessionId) != null) {
-      _sessionStreamThrottleSignal.value =
-          _sessionStreamThrottleSignal.value + 1;
+      _notifySessionStreamThrottleChanged();
     }
   }
 
@@ -1556,7 +1559,7 @@ class AiSessionController extends ChangeNotifier {
     );
     if (_sessionStreamThrottleOverrides.length !=
         previousThrottleOverrideCount) {
-      _sessionStreamThrottleSignal.value++;
+      _notifySessionStreamThrottleChanged();
     }
     _sessionHeaderMutationGenerations.removeWhere(
       (sessionId, _) =>
@@ -7610,8 +7613,7 @@ class AiSessionController extends ChangeNotifier {
         onCardEmitted: () {
           schedulePreview('cardThrottle');
           // 卡片释放/积压变化时重用 signal 让 UI 即时刷新积压数。
-          _sessionStreamThrottleSignal.value =
-              _sessionStreamThrottleSignal.value + 1;
+          _notifySessionStreamThrottleChanged();
         },
       );
       // 媒体生成模式下不把 throttle 注册进 _active* 表 —— 既避免设置面板的
@@ -7643,8 +7645,7 @@ class AiSessionController extends ChangeNotifier {
       if (throttleDuration != null) {
         throttleExpiryTimer = startSafeTimer(throttleDuration, () {
           if (_isDisposed) return;
-          _sessionStreamThrottleSignal.value =
-              _sessionStreamThrottleSignal.value + 1;
+          _notifySessionStreamThrottleChanged();
           notifyListeners();
         });
       }
@@ -7934,8 +7935,7 @@ class AiSessionController extends ChangeNotifier {
         _activeCharThrottles.remove(workingSession.id);
         _activeReasoningCharThrottles.remove(workingSession.id);
         _activeAiThroughputSamplers.remove(workingSession.id);
-        _sessionStreamThrottleSignal.value =
-            _sessionStreamThrottleSignal.value + 1;
+        _notifySessionStreamThrottleChanged();
         await cancelStreamSubscriptionBounded<AiChatStreamEvent>(
           subscription,
           onError: (cancelError, stack) => silentLog(
@@ -8123,8 +8123,7 @@ class AiSessionController extends ChangeNotifier {
       _activeCharThrottles.remove(workingSession.id);
       _activeReasoningCharThrottles.remove(workingSession.id);
       _activeAiThroughputSamplers.remove(workingSession.id);
-      _sessionStreamThrottleSignal.value =
-          _sessionStreamThrottleSignal.value + 1;
+      _notifySessionStreamThrottleChanged();
       materializePendingReasoningPreview();
       // Always preserve the intermediate assistant narration if it has
       // meaningful content after sanitization.  Previous versions removed this

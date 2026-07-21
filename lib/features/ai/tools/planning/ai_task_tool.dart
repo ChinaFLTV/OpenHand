@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
@@ -491,21 +492,9 @@ class AiTaskTool extends AiTool {
   }
 
   String _displayToolName(AiToolExecutionContext context) {
-    return _normalizedToolCallName(context.toolCall.name) == 'agent'
+    return normalizeAsciiLookupKey(context.toolCall.name) == 'agent'
         ? 'Agent'
         : _toolName;
-  }
-
-  String _normalizedToolCallName(String value) {
-    final buffer = StringBuffer();
-    for (final code in value.codeUnits) {
-      if ((code >= 0x30 && code <= 0x39) ||
-          (code >= 0x41 && code <= 0x5A) ||
-          (code >= 0x61 && code <= 0x7A)) {
-        buffer.writeCharCode(code | 0x20);
-      }
-    }
-    return buffer.toString();
   }
 
   bool _isAllowedSubagentTool(
