@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -10,11 +12,91 @@ import 'qdrant_http_client.dart';
 
 const Uuid _qdrantPointUuid = Uuid();
 const int _qdrantVectorMaxResponseBytes = 32 * 1024 * 1024;
+const int _qdrantHealthMaxResponseBytes = 64 * 1024;
+const Duration _qdrantHealthMaxTimeout = Duration(seconds: 2);
 
 class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   QdrantKnowledgeVectorStore({required this.settings});
 
   final KnowledgeBaseSettings settings;
+
+  Future<bool> isAvailable({Future<void>? cancelSignal}) async {
+    final configuredTimeout = Duration(seconds: settings.requestTimeoutSeconds);
+    final totalTimeout = configuredTimeout < _qdrantHealthMaxTimeout
+        ? configuredTimeout
+        : _qdrantHealthMaxTimeout;
+    final stopwatch = Stopwatch()..start();
+    Duration remainingTimeout() {
+      final microseconds =
+          totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+      if (microseconds <= 0) {
+        throw TimeoutException('Qdrant 健康检查超时。', totalTimeout);
+      }
+      return Duration(microseconds: microseconds);
+    }
+
+    bool continueAfterTransientFailure(
+      String action,
+      Object error,
+      StackTrace stack,
+    ) {
+      final shouldRetry = settings.retryCount > 0;
+      silentLog(
+        'qdrant_vector_store',
+        shouldRetry ? '$action，继续按配置重试向量检索' : '$action，降级为本地检索',
+        error,
+        stack,
+      );
+      return shouldRetry;
+    }
+
+    try {
+      final readyTimeout = remainingTimeout();
+      final ready = await sendQdrantJsonRequest(
+        method: 'GET',
+        uri: _uri('/readyz'),
+        connectionTimeout: readyTimeout,
+        openTimeout: readyTimeout,
+        responseTimeout: readyTimeout,
+        responseIdleTimeout: readyTimeout,
+        maxResponseBytes: _qdrantHealthMaxResponseBytes,
+        toleratedFailureStatuses: const <int>{HttpStatus.notFound},
+        cancelSignal: cancelSignal,
+      );
+      if (ready.statusCode != HttpStatus.ok &&
+          ready.statusCode != HttpStatus.notFound) {
+        throw FormatException('Qdrant 就绪检查返回异常状态：${ready.statusCode}。');
+      }
+
+      final rootTimeout = remainingTimeout();
+      final root = await sendQdrantJsonRequest(
+        method: 'GET',
+        uri: _uri('/'),
+        connectionTimeout: rootTimeout,
+        openTimeout: rootTimeout,
+        responseTimeout: rootTimeout,
+        responseIdleTimeout: rootTimeout,
+        maxResponseBytes: _qdrantHealthMaxResponseBytes,
+        cancelSignal: cancelSignal,
+      );
+      final decoded = optionalStringKeyedMapFromJsonText(root.body);
+      final title = '${decoded?['title'] ?? ''}'.toLowerCase();
+      if (!title.contains('qdrant')) {
+        throw const FormatException('Qdrant 健康检查响应无效。');
+      }
+      return true;
+    } on QdrantHttpException catch (error, stack) {
+      if (!error.isRetryable) rethrow;
+      return continueAfterTransientFailure('健康检查失败', error, stack);
+    } on TimeoutException catch (error, stack) {
+      silentLog('qdrant_vector_store', '健康检查超时，继续尝试向量检索', error, stack);
+      return true;
+    } on SocketException catch (error, stack) {
+      return continueAfterTransientFailure('健康检查连接失败', error, stack);
+    } finally {
+      stopwatch.stop();
+    }
+  }
 
   Uri _uri(String path, {Map<String, String>? queryParameters}) {
     final base = settings.qdrantBaseUri;
@@ -38,39 +120,56 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
       uri: _uri('/collections/$collectionName'),
       tolerateNotFound: true,
       cancelSignal: cancelSignal,
+      retrySafe: true,
     );
     if (existing.statusCode == 200) {
-      final decoded = _decode(existing.body);
-      final result = stringKeyedMapFromValue(decoded['result']);
-      if (result.isNotEmpty) {
-        final config = stringKeyedMapFromValue(result['config']);
-        final params = stringKeyedMapFromValue(config['params']);
-        final vectors = stringKeyedMapFromValue(params['vectors']);
-        final size = vectors['size'];
-        final vectorSize = optionalPositiveIntFromValue(size);
-        if (vectorSize != null && vectorSize != dimensions) {
-          throw StateError(
-            'Qdrant collection $collectionName vector size is $vectorSize, expected $dimensions. Rebuild the index after changing embedding dimensions.',
-          );
-        }
-      }
+      _validateCollectionConfig(existing, collectionName, dimensions, distance);
       return;
     }
-    await _send(
-      method: 'PUT',
-      uri: _uri('/collections/$collectionName'),
-      cancelSignal: cancelSignal,
-      body: <String, Object?>{
-        'vectors': <String, Object?>{
-          'size': dimensions,
-          'distance': _qdrantDistance(distance),
+    try {
+      await _send(
+        method: 'PUT',
+        uri: _uri('/collections/$collectionName'),
+        cancelSignal: cancelSignal,
+        body: <String, Object?>{
+          'vectors': <String, Object?>{
+            'size': dimensions,
+            'distance': _qdrantDistance(distance),
+          },
+          'hnsw_config': <String, Object?>{
+            'm': settings.hnswM,
+            'ef_construct': settings.hnswEfConstruct,
+          },
         },
-        'hnsw_config': <String, Object?>{
-          'm': settings.hnswM,
-          'ef_construct': settings.hnswEfConstruct,
-        },
-      },
-    );
+      );
+    } catch (error, stack) {
+      if (!_isAmbiguousWriteFailure(error)) {
+        Error.throwWithStackTrace(error, stack);
+      }
+      try {
+        final verified = await _send(
+          method: 'GET',
+          uri: _uri('/collections/$collectionName'),
+          tolerateNotFound: true,
+          cancelSignal: cancelSignal,
+          retrySafe: true,
+        );
+        if (verified.statusCode == HttpStatus.ok) {
+          _validateCollectionConfig(
+            verified,
+            collectionName,
+            dimensions,
+            distance,
+          );
+          return;
+        }
+      } catch (verificationError, verificationStack) {
+        if (!_isAmbiguousWriteFailure(verificationError)) {
+          Error.throwWithStackTrace(verificationError, verificationStack);
+        }
+      }
+      Error.throwWithStackTrace(error, stack);
+    }
   }
 
   @override
@@ -87,6 +186,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         queryParameters: const <String, String>{'wait': 'true'},
       ),
       cancelSignal: cancelSignal,
+      retrySafe: true,
       body: <String, Object?>{
         'points': points
             .map(
@@ -109,6 +209,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     double? scoreThreshold,
     Map<String, Object?>? filter,
     bool includeVector = false,
+    Future<void>? cancelSignal,
   }) async {
     if (limit <= 0 ||
         vector.isEmpty ||
@@ -119,6 +220,8 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     final response = await _send(
       method: 'POST',
       uri: _uri('/collections/$collectionName/points/search'),
+      cancelSignal: cancelSignal,
+      retrySafe: true,
       body: <String, Object?>{
         'vector': vector,
         'limit': limit,
@@ -161,6 +264,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     final response = await _send(
       method: 'POST',
       uri: _uri('/collections/$collectionName/points/scroll'),
+      retrySafe: true,
       body: <String, Object?>{
         'limit': limit,
         'with_payload': true,
@@ -211,6 +315,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         },
       },
       cancelSignal: cancelSignal,
+      retrySafe: true,
     );
   }
 
@@ -220,6 +325,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     Map<String, Object?>? body,
     bool tolerateNotFound = false,
     Future<void>? cancelSignal,
+    bool retrySafe = false,
   }) async {
     final requestTimeout = Duration(seconds: settings.requestTimeoutSeconds);
     try {
@@ -236,6 +342,8 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
             ? const <int>{HttpStatus.notFound}
             : const <int>{},
         cancelSignal: cancelSignal,
+        retryCount: retrySafe ? settings.retryCount : 0,
+        retryBackoff: Duration(milliseconds: settings.retryBackoffMs),
       );
       return _QdrantResponse(response.statusCode, response.body);
     } on QdrantRequestCancelledException {
@@ -243,10 +351,54 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     }
   }
 
+  void _validateCollectionConfig(
+    _QdrantResponse response,
+    String collectionName,
+    int dimensions,
+    String distance,
+  ) {
+    final decoded = _decode(response.body);
+    final result = stringKeyedMapFromValue(decoded['result']);
+    final config = stringKeyedMapFromValue(result['config']);
+    final params = stringKeyedMapFromValue(config['params']);
+    final vectors = stringKeyedMapFromValue(params['vectors']);
+    final vectorSize = optionalPositiveIntFromValue(vectors['size']);
+    final actualDistance = optionalStringFromValue(
+      vectors['distance'],
+    )?.toLowerCase();
+    if (vectorSize == null || actualDistance == null) {
+      throw const FormatException('Qdrant 集合配置响应缺少向量维度或距离。');
+    }
+    if (vectorSize != dimensions) {
+      throw StateError(
+        'Qdrant 集合 $collectionName 的向量维度为 $vectorSize，'
+        '预期为 $dimensions。修改嵌入维度后请重建索引。',
+      );
+    }
+    final expectedDistance = _qdrantDistance(distance).toLowerCase();
+    if (actualDistance != expectedDistance) {
+      throw StateError(
+        'Qdrant 集合 $collectionName 的距离算法为 $actualDistance，'
+        '预期为 $expectedDistance。修改距离算法后请重建索引。',
+      );
+    }
+  }
+
+  bool _isAmbiguousWriteFailure(Object error) {
+    if (error is QdrantHttpException) {
+      return error.isRetryable ||
+          error.statusCode == HttpStatus.badRequest ||
+          error.statusCode == HttpStatus.conflict;
+    }
+    return error is TimeoutException ||
+        error is SocketException ||
+        error is HttpException;
+  }
+
   Map<String, Object?> _decode(String body) {
     final decoded = optionalStringKeyedMapFromJsonText(body);
     if (decoded != null) return decoded;
-    throw const FormatException('Expected Qdrant JSON object response.');
+    throw const FormatException('Qdrant 未返回有效的 JSON 对象。');
   }
 
   String _qdrantDistance(String value) {
@@ -277,7 +429,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
 Object qdrantPointIdForStableId(String value) {
   final normalized = value.trim();
   if (normalized.isEmpty) {
-    throw const FormatException('Qdrant point id cannot be empty.');
+    throw const FormatException('Qdrant 点 ID 不能为空。');
   }
   if (Uuid.isValidUUID(fromString: normalized)) return normalized;
   final unsigned = optionalNonNegativeIntFromValue(normalized);

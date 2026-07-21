@@ -64,6 +64,7 @@ abstract class KnowledgeVectorStore {
     double? scoreThreshold,
     Map<String, Object?>? filter,
     bool includeVector = false,
+    Future<void>? cancelSignal,
   });
 
   Future<KnowledgeVectorSamplePage> sample({

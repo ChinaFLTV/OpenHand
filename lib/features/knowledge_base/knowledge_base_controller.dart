@@ -39,16 +39,20 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeBaseSettingsStore? settingsStore,
     KnowledgeBaseStore? store,
     KnowledgeEmbeddingService? embeddingService,
+    KnowledgeEmbeddingService Function()? queryEmbeddingServiceFactory,
     KnowledgeDependencyService dependencyService =
         const KnowledgeDependencyService(),
   }) : _settingsStore = settingsStore ?? KnowledgeBaseSettingsStore(),
        _store = store ?? KnowledgeBaseStore(),
        _embeddingService = embeddingService ?? KnowledgeEmbeddingService(),
+       _queryEmbeddingServiceFactory =
+           queryEmbeddingServiceFactory ?? KnowledgeEmbeddingService.new,
        _dependencyService = dependencyService;
 
   final KnowledgeBaseSettingsStore _settingsStore;
   final KnowledgeBaseStore _store;
   final KnowledgeEmbeddingService _embeddingService;
+  final KnowledgeEmbeddingService Function() _queryEmbeddingServiceFactory;
   final KnowledgeDependencyService _dependencyService;
   final QdrantAdminService _qdrantAdminService = QdrantAdminService();
   final OpenHandDebouncer _sourceSearchDebouncer = OpenHandDebouncer(
@@ -319,21 +323,27 @@ class KnowledgeBaseController extends ChangeNotifier {
     required String query,
     required int topK,
     required List<AiModelConfig> models,
+    Future<void>? cancelSignal,
   }) async {
     final normalizedQuery = query.trim();
-    if (normalizedQuery.isEmpty) return null;
-    final embeddingModel = resolveEmbeddingModel(models);
+    if (normalizedQuery.isEmpty || _isDisposed) return null;
+    final settings = _settings;
+    final embeddingModel = resolveEmbeddingModel(models, settings: settings);
     if (embeddingModel == null) return null;
+    final rerankModel = resolveRerankModel(models, settings: settings);
     final effectiveTopK = topK.clamp(1, 20).toInt();
-    final retrievalSettings = _settings.copyWith(
+    final retrievalSettings = settings.copyWith(
       topK: effectiveTopK,
-      maxPromptChunks: math.max(effectiveTopK, _settings.maxPromptChunks),
-      topN: math.max(_settings.topN, effectiveTopK),
+      maxPromptChunks: math.max(effectiveTopK, settings.maxPromptChunks),
+      topN: math.max(settings.topN, effectiveTopK),
     );
     final vectorStore = QdrantKnowledgeVectorStore(settings: retrievalSettings);
+    final available = await vectorStore.isAvailable(cancelSignal: cancelSignal);
+    if (!available || _isDisposed) return null;
+    final queryEmbeddingService = _queryEmbeddingServiceFactory();
     final retrievalService = KnowledgeRetrievalService(
       store: _store,
-      embeddingService: _embeddingService,
+      embeddingService: queryEmbeddingService,
       vectorStore: vectorStore,
     );
     try {
@@ -341,11 +351,13 @@ class KnowledgeBaseController extends ChangeNotifier {
         query: normalizedQuery,
         settings: retrievalSettings,
         embeddingModel: embeddingModel,
-        rerankModel: resolveRerankModel(models),
+        rerankModel: rerankModel,
+        cancelSignal: cancelSignal,
       );
       return (settings: retrievalSettings, result: result);
     } finally {
       retrievalService.dispose();
+      queryEmbeddingService.dispose();
     }
   }
 
@@ -622,26 +634,34 @@ class KnowledgeBaseController extends ChangeNotifier {
     return _qdrantAdminService.deleteCollection(_settings, collection);
   }
 
-  AiModelConfig? resolveEmbeddingModel(List<AiModelConfig> models) {
+  AiModelConfig? resolveEmbeddingModel(
+    List<AiModelConfig> models, {
+    KnowledgeBaseSettings? settings,
+  }) {
+    final current = settings ?? _settings;
     for (final model in models) {
-      if (model.id == _settings.providerConfigId) {
-        final profile = model.profileFor(_settings.modelId);
+      if (model.id == current.providerConfigId) {
+        final profile = model.profileFor(current.modelId);
         if (!profile.supportsEmbeddings) return null;
-        return model.copyWith(modelId: _settings.modelId);
+        return model.copyWith(modelId: current.modelId);
       }
     }
     return null;
   }
 
-  AiModelConfig? resolveRerankModel(List<AiModelConfig> models) {
-    if (!_settings.modelRerankEnabled || !_settings.hasRerankModel) {
+  AiModelConfig? resolveRerankModel(
+    List<AiModelConfig> models, {
+    KnowledgeBaseSettings? settings,
+  }) {
+    final current = settings ?? _settings;
+    if (!current.modelRerankEnabled || !current.hasRerankModel) {
       return null;
     }
     for (final model in models) {
-      if (model.id == _settings.rerankProviderConfigId) {
-        final profile = model.profileFor(_settings.rerankModelId);
+      if (model.id == current.rerankProviderConfigId) {
+        final profile = model.profileFor(current.rerankModelId);
         if (!profile.supportsRerank) return null;
-        return model.copyWith(modelId: _settings.rerankModelId);
+        return model.copyWith(modelId: current.rerankModelId);
       }
     }
     return null;

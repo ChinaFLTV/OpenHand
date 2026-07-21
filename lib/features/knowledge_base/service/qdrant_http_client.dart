@@ -1,12 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/text_clip.dart';
 
 const int _qdrantErrorPreviewCharacters = 4 * 1024;
+const int _qdrantMaxRetryCount = 20;
+const int _qdrantMaxRetryBackoffMs = 10000;
+const int _httpTooEarlyStatusCode = 425;
+const Set<int> _qdrantRetryableStatusCodes = <int>{
+  HttpStatus.requestTimeout,
+  _httpTooEarlyStatusCode,
+  HttpStatus.tooManyRequests,
+  HttpStatus.internalServerError,
+  HttpStatus.badGateway,
+  HttpStatus.serviceUnavailable,
+  HttpStatus.gatewayTimeout,
+};
 
 final class QdrantHttpResponse {
   const QdrantHttpResponse({required this.statusCode, required this.body});
@@ -17,6 +31,27 @@ final class QdrantHttpResponse {
 
 final class QdrantRequestCancelledException implements Exception {
   const QdrantRequestCancelledException();
+}
+
+final class QdrantHttpException extends HttpException {
+  QdrantHttpException({
+    required this.statusCode,
+    required String responseBody,
+    required Uri uri,
+  }) : super(_failureMessage(statusCode, responseBody), uri: uri);
+
+  final int statusCode;
+
+  bool get isRetryable => _qdrantRetryableStatusCodes.contains(statusCode);
+
+  static String _failureMessage(int statusCode, String responseBody) {
+    final preview = clipTextWithEllipsis(
+      responseBody.trim(),
+      _qdrantErrorPreviewCharacters,
+    );
+    final detail = preview.isEmpty ? '响应正文为空。' : preview;
+    return 'Qdrant 请求失败（HTTP $statusCode）：$detail';
+  }
 }
 
 Future<QdrantHttpResponse> sendQdrantJsonRequest({
@@ -30,41 +65,125 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
   Map<String, Object?>? body,
   Set<int> toleratedFailureStatuses = const <int>{},
   Future<void>? cancelSignal,
+  int retryCount = 0,
+  Duration retryBackoff = const Duration(milliseconds: 800),
 }) async {
   _requirePositiveDuration(connectionTimeout, 'connectionTimeout');
   _requirePositiveDuration(openTimeout, 'openTimeout');
   _requirePositiveDuration(responseTimeout, 'responseTimeout');
   _requirePositiveDuration(responseIdleTimeout, 'responseIdleTimeout');
   if (maxResponseBytes < 1) {
-    throw ArgumentError.value(
-      maxResponseBytes,
-      'maxResponseBytes',
-      'Must be positive.',
+    throw ArgumentError.value(maxResponseBytes, 'maxResponseBytes', '必须大于零。');
+  }
+  if (retryCount < 0 || retryCount > _qdrantMaxRetryCount) {
+    throw RangeError.range(
+      retryCount,
+      0,
+      _qdrantMaxRetryCount,
+      'retryCount',
+      '必须在有效范围内。',
     );
+  }
+  if (retryCount > 0 && retryBackoff <= Duration.zero) {
+    throw ArgumentError.value(retryBackoff, 'retryBackoff', '必须大于零。');
   }
   if (await isCancelSignalCompleted(cancelSignal)) {
     throw const QdrantRequestCancelledException();
   }
 
-  final client = HttpClient()..connectionTimeout = connectionTimeout;
+  final deadline = _QdrantRequestDeadline(responseTimeout);
+  try {
+    for (var attempt = 0; ; attempt += 1) {
+      try {
+        return await _sendQdrantJsonRequestOnce(
+          method: method,
+          uri: uri,
+          connectionTimeout: connectionTimeout,
+          openTimeout: openTimeout,
+          responseIdleTimeout: responseIdleTimeout,
+          maxResponseBytes: maxResponseBytes,
+          body: body,
+          toleratedFailureStatuses: toleratedFailureStatuses,
+          cancelSignal: cancelSignal,
+          deadline: deadline,
+        );
+      } catch (error, stackTrace) {
+        if (attempt >= retryCount || !_isRetryableQdrantError(error)) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+        final configuredBackoffMs = retryBackoff.inMilliseconds;
+        final backoff = Duration(
+          milliseconds: exponentialBackoffMs(
+            attempt: attempt + 1,
+            baseMs: configuredBackoffMs > _qdrantMaxRetryBackoffMs
+                ? _qdrantMaxRetryBackoffMs
+                : configuredBackoffMs,
+            capMs: _qdrantMaxRetryBackoffMs,
+          ),
+        );
+        final remaining = deadline.remaining();
+        if (backoff >= remaining) throw deadline.timeoutException();
+        final cancelled = await delayUntilCancelled(
+          backoff,
+          cancelSignal: cancelSignal,
+        );
+        if (cancelled) throw const QdrantRequestCancelledException();
+        deadline.remaining();
+      }
+    }
+  } finally {
+    deadline.stop();
+  }
+}
+
+Future<QdrantHttpResponse> _sendQdrantJsonRequestOnce({
+  required String method,
+  required Uri uri,
+  required Duration connectionTimeout,
+  required Duration openTimeout,
+  required Duration responseIdleTimeout,
+  required int maxResponseBytes,
+  required Map<String, Object?>? body,
+  required Set<int> toleratedFailureStatuses,
+  required Future<void>? cancelSignal,
+  required _QdrantRequestDeadline deadline,
+}) async {
+  final client = HttpClient()
+    ..connectionTimeout = deadline.limit(connectionTimeout);
   Future<QdrantHttpResponse> send() async {
-    final request = await client.openUrl(method, uri).timeout(openTimeout);
+    final openBudget = deadline.limit(openTimeout);
+    final request = await client
+        .openUrl(method, uri)
+        .timeout(
+          openBudget,
+          onTimeout: () => throw TimeoutException('Qdrant 连接建立超时。', openBudget),
+        );
+    request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
     if (body != null) {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
     }
-    final response = await request.close().timeout(responseTimeout);
+    final responseBudget = deadline.remaining();
+    final response = await request.close().timeout(
+      responseBudget,
+      onTimeout: () => throw TimeoutException('Qdrant 等待响应超时。', responseBudget),
+    );
+    final bodyBudget = deadline.remaining();
+    final idleBudget = responseIdleTimeout < bodyBudget
+        ? responseIdleTimeout
+        : bodyBudget;
     final responseBody = await readBoundedHttpResponseText(
       response,
       maxBytes: maxResponseBytes,
-      idleTimeout: responseIdleTimeout,
-      totalTimeout: responseTimeout,
+      idleTimeout: idleBudget,
+      totalTimeout: bodyBudget,
+      allowMalformed: isHttpFailureStatus(response.statusCode),
     );
     if (isHttpFailureStatus(response.statusCode) &&
         !toleratedFailureStatuses.contains(response.statusCode)) {
-      throw HttpException(
-        'Qdrant ${response.statusCode}: '
-        '${clipTextWithEllipsis(responseBody, _qdrantErrorPreviewCharacters)}',
+      throw QdrantHttpException(
+        statusCode: response.statusCode,
+        responseBody: responseBody,
         uri: uri,
       );
     }
@@ -86,8 +205,40 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
   }
 }
 
+bool _isRetryableQdrantError(Object error) {
+  if (error is QdrantHttpException) return error.isRetryable;
+  return error is TimeoutException ||
+      error is SocketException ||
+      error is HttpException && error is! ByteStreamSizeLimitException;
+}
+
 void _requirePositiveDuration(Duration value, String name) {
   if (value <= Duration.zero) {
-    throw ArgumentError.value(value, name, 'Must be positive.');
+    throw ArgumentError.value(value, name, '必须大于零。');
   }
+}
+
+final class _QdrantRequestDeadline {
+  _QdrantRequestDeadline(this.timeout) : _stopwatch = Stopwatch()..start();
+
+  final Duration timeout;
+  final Stopwatch _stopwatch;
+
+  Duration remaining() {
+    final microseconds =
+        timeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
+    if (microseconds <= 0) throw timeoutException();
+    return Duration(microseconds: microseconds);
+  }
+
+  Duration limit(Duration phaseTimeout) {
+    final budget = remaining();
+    return phaseTimeout < budget ? phaseTimeout : budget;
+  }
+
+  TimeoutException timeoutException() {
+    return TimeoutException('Qdrant 请求超过总时限。', timeout);
+  }
+
+  void stop() => _stopwatch.stop();
 }

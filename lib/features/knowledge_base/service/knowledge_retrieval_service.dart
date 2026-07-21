@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import '../../../app/support/silent_log.dart';
@@ -7,6 +8,7 @@ import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_retrieval_result.dart';
 import 'knowledge_embedding_service.dart';
+import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
 
 const Duration _oneDay = Duration(days: 1);
@@ -46,14 +48,28 @@ class KnowledgeRetrievalService {
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
     AiModelConfig? rerankModel,
+    Future<void>? cancelSignal,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final cancelToken = cancelSignal == null
+        ? null
+        : KnowledgeIndexingCancelToken();
+    if (cancelToken != null) {
+      unawaited(
+        cancelSignal!.then<void>(
+          (_) => cancelToken.cancel(),
+          onError: (Object _, StackTrace _) => cancelToken.cancel(),
+        ),
+      );
+    }
     final vectors = await _embeddingService.embedBatch(
       settings: settings,
       model: embeddingModel,
       inputs: <String>[query],
       isQuery: true,
+      cancelToken: cancelToken,
     );
+    cancelToken?.throwIfCancelled();
     final rawHits = await _vectorStore.search(
       collectionName: settings.effectiveCollectionName,
       vector: vectors.first,
@@ -61,16 +77,20 @@ class KnowledgeRetrievalService {
       scoreThreshold: settings.minSimilarity,
       filter: _filterForQuery(query, settings),
       includeVector: true,
+      cancelSignal: cancelSignal,
     );
+    cancelToken?.throwIfCancelled();
     final chunkIds = stringListFromValue(
       rawHits
           .map((hit) => hit.payload['chunk_id'] ?? hit.id)
           .toList(growable: false),
     );
     final chunksById = await _store.loadChunksByIds(chunkIds);
+    cancelToken?.throwIfCancelled();
     final sourcesById = await _store.loadSourcesByIds(
       chunksById.values.map((chunk) => chunk.sourceId),
     );
+    cancelToken?.throwIfCancelled();
     final scored = <KnowledgeRetrievalHit>[];
     for (final raw in rawHits) {
       final chunkId = '${raw.payload['chunk_id'] ?? raw.id}'.trim();
@@ -107,7 +127,10 @@ class KnowledgeRetrievalService {
       settings: settings,
       embeddingModel: embeddingModel,
       rerankModel: rerankModel,
+      cancelSignal: cancelSignal,
+      cancelToken: cancelToken,
     );
+    cancelToken?.throwIfCancelled();
     final capped = <KnowledgeRetrievalHit>[];
     final perSource = <String, int>{};
     final perSourceLimit = math.min(
@@ -149,7 +172,10 @@ class KnowledgeRetrievalService {
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
     required AiModelConfig? rerankModel,
+    required Future<void>? cancelSignal,
+    required KnowledgeIndexingCancelToken? cancelToken,
   }) async {
+    cancelToken?.throwIfCancelled();
     final mode = KnowledgeRerankMode.normalize(settings.rerankMode);
     if (hits.isEmpty) {
       return (
@@ -187,6 +213,8 @@ class KnowledgeRetrievalService {
         settings: settings,
         embeddingModel: embeddingModel,
         rerankModel: rerankModel,
+        cancelSignal: cancelSignal,
+        cancelToken: cancelToken,
       ),
       _ => (
         hits: localRanked,
@@ -262,7 +290,10 @@ class KnowledgeRetrievalService {
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
     required AiModelConfig? rerankModel,
+    required Future<void>? cancelSignal,
+    required KnowledgeIndexingCancelToken? cancelToken,
   }) async {
+    cancelToken?.throwIfCancelled();
     if (_shouldSkipModelRerankForDualCapability(
       settings: settings,
       embeddingModel: embeddingModel,
@@ -324,8 +355,10 @@ class KnowledgeRetrievalService {
           topN: candidateLimit,
           returnDocuments: false,
           timeout: Duration(seconds: settings.rerankTimeoutSeconds),
+          cancelSignal: cancelSignal,
         ),
       );
+      cancelToken?.throwIfCancelled();
       stopwatch.stop();
       if (result.items.isEmpty) {
         return (
@@ -389,6 +422,7 @@ class KnowledgeRetrievalService {
       );
     } catch (error, stackTrace) {
       stopwatch.stop();
+      cancelToken?.throwIfCancelled();
       if (settings.failureStrategy == KnowledgeFailureStrategy.failClosed) {
         rethrow;
       }

@@ -78,6 +78,7 @@ final class AiOperationHttp {
     bool includeJsonContentType = true,
     bool acceptJson = false,
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+    Future<void>? cancelSignal,
   }) {
     return transport.sendJson(
       uri: uriWithExtraQuery(endpoint.url, model, family),
@@ -92,6 +93,7 @@ final class AiOperationHttp {
       body: body,
       timeout: timeout,
       maxResponseBytes: maxResponseBytes,
+      cancelSignal: cancelSignal,
     );
   }
 

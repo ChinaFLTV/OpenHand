@@ -74,6 +74,7 @@ class AiRerankService {
     int? priority,
     String? instruction,
     bool? truncation,
+    Future<void>? cancelSignal,
   }) async {
     if (documents.isEmpty) return _emptyResult;
     final startedAt = DateTime.now().toUtc();
@@ -95,6 +96,7 @@ class AiRerankService {
         documents: documents,
         plan: plan,
         timeout: timeout,
+        cancelSignal: cancelSignal,
       );
       AiUsageTracker.instance.recordSuccess(
         model: model,
@@ -119,6 +121,7 @@ class AiRerankService {
         startedAt: startedAt,
         endedAt: DateTime.now().toUtc(),
         error: error,
+        timeout: timeout,
       );
       rethrow;
     }
@@ -129,6 +132,7 @@ class AiRerankService {
     required List<Object> documents,
     required _RerankRequestPlan plan,
     required Duration timeout,
+    required Future<void>? cancelSignal,
   }) async {
     const family = AiApiFamily.rerank;
     final endpoint = _router.resolve(
@@ -144,6 +148,7 @@ class AiRerankService {
       family: family,
       body: plan.body,
       timeout: timeout,
+      cancelSignal: cancelSignal,
     );
     final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,

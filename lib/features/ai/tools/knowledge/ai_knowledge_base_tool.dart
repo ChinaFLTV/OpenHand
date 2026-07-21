@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/database_service.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../knowledge_base/index.dart';
@@ -45,6 +46,11 @@ class AiKnowledgeSearchTool extends AiTool {
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final sw = Stopwatch()..start();
+    AiToolExecutionResult cancelledResult() => AiToolUtils.cancelledResult(
+      command: 'KnowledgeSearch',
+      durationMs: sw.elapsedMilliseconds,
+    );
+
     final args = context.decodedArguments;
     final query = AiToolUtils.readString(args['query']);
     if (query.isEmpty) {
@@ -63,8 +69,12 @@ class AiKnowledgeSearchTool extends AiTool {
       query: query,
       topK: topK,
       stopwatch: sw,
+      cancelSignal: context.cancelSignal,
     );
     if (vectorResult != null) return vectorResult;
+    if (await isCancelSignalCompleted(context.cancelSignal)) {
+      return cancelledResult();
+    }
     final terms = _knowledgeQueryTerms(query);
     final db = DatabaseService.instance.database;
     final rows = await _loadSearchCandidates(
@@ -76,6 +86,9 @@ class AiKnowledgeSearchTool extends AiTool {
       dateTo: AiToolUtils.readString(args['date_to']),
       limit: _candidateLimitFor(topK),
     );
+    if (await isCancelSignalCompleted(context.cancelSignal)) {
+      return cancelledResult();
+    }
     final rankedRows = _rankSearchRows(rows, query: query, terms: terms);
     final hits = rankedRows
         .take(topK)
@@ -124,6 +137,7 @@ class AiKnowledgeSearchTool extends AiTool {
     required String query,
     required int topK,
     required Stopwatch stopwatch,
+    required Future<void>? cancelSignal,
   }) async {
     try {
       final controller = _knowledgeBaseControllerProvider?.call();
@@ -133,6 +147,7 @@ class AiKnowledgeSearchTool extends AiTool {
         query: query,
         topK: topK,
         models: models,
+        cancelSignal: cancelSignal,
       );
       if (retrieval == null) return null;
       final result = retrieval.result;
@@ -161,12 +176,10 @@ class AiKnowledgeSearchTool extends AiTool {
         },
       );
     } catch (error, stack) {
-      silentLog(
-        'ai_knowledge_base_tool',
-        'vector retrieval fallback',
-        error,
-        stack,
-      );
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        return null;
+      }
+      silentLog('ai_knowledge_base_tool', '向量检索失败，已降级为本地检索', error, stack);
       return null;
     }
   }
