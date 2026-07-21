@@ -10,9 +10,16 @@ import {
 
 export type { CacheHitDisplayMode };
 
+export interface CacheHitComposition {
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  uncachedPromptTokens: number;
+}
+
 interface CacheHitTrendChartProps {
   points: CacheHitTrendPoint[];
   averageRatio: number;
+  fallbackComposition?: CacheHitComposition;
   claudeStyle?: boolean;
   height?: number;
   displayMode?: CacheHitDisplayMode;
@@ -122,6 +129,95 @@ function buildSmoothFillPath(
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInCubic = (t: number) => t * t * t;
 
+function compactTokenCount(value: number): string {
+  const safe = Math.max(0, Math.round(value));
+  if (safe < 1000) return String(safe);
+  if (safe < 1000000) return `${(safe / 1000).toFixed(1)}k`;
+  return `${(safe / 1000000).toFixed(1)}m`;
+}
+
+function CacheHitCompositionSummary({
+  composition,
+  progress,
+  t,
+}: {
+  composition: CacheHitComposition;
+  progress: number;
+  t: (key: string, fallback: string) => string;
+}) {
+  const read = Math.max(0, composition.cacheReadTokens);
+  const write = Math.max(0, composition.cacheWriteTokens);
+  const miss = Math.max(0, composition.uncachedPromptTokens);
+  const total = read + write + miss;
+  const readRatio = total > 0 ? read / total : 0;
+  const cachedRatio = total > 0 ? (read + write) / total : 0;
+  const animatedProgress = easeOutCubic(clampNumber(progress, 0, 1));
+  const readColor = 'var(--m3-primary)';
+  const writeColor = 'color-mix(in srgb, var(--m3-primary) 52%, var(--m3-surface-container-highest))';
+  const missColor = 'color-mix(in srgb, var(--m3-outline-variant) 68%, transparent)';
+  const items = [
+    {
+      label: t('tokenPopup.cacheRead', '缓存命中'),
+      value: read,
+      color: readColor,
+    },
+    {
+      label: t('tokenPopup.cacheWrite', '缓存写入'),
+      value: write,
+      color: writeColor,
+    },
+    {
+      label: t('tokenPopup.uncached', '未缓存'),
+      value: miss,
+      color: missColor,
+    },
+  ];
+  return (
+    <div>
+      <div
+        class="relative h-2 overflow-hidden rounded-full"
+        style={{ background: missColor }}
+        title={t(
+          'tokenPopup.cacheHitBar.title',
+          '左：缓存命中 · 中：缓存写入 · 右：未缓存提示词',
+        )}
+      >
+        <span
+          class="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: `${cachedRatio * animatedProgress * 100}%`,
+            background: writeColor,
+            transition: 'width var(--oh-dialog-duration) var(--oh-dialog-curve)',
+          }}
+        />
+        <span
+          class="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: `${readRatio * animatedProgress * 100}%`,
+            background: readColor,
+            transition: 'width var(--oh-dialog-duration) var(--oh-dialog-curve)',
+          }}
+        />
+      </div>
+      <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
+        {items.map((item) => (
+          <span
+            key={item.label}
+            class="flex items-center gap-1.5 text-[10px] font-semibold tabular-nums"
+            style={{ color: 'var(--m3-on-surface-variant)' }}
+          >
+            <span
+              class="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: item.color }}
+            />
+            {item.label} {compactTokenCount(item.value)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function cacheHitExclusionHint(
   displayData: ReturnType<typeof cacheHitDisplayData>,
   displayMode: CacheHitDisplayMode,
@@ -142,6 +238,7 @@ function cacheHitExclusionHint(
 export default function CacheHitTrendChart({
   points,
   averageRatio,
+  fallbackComposition,
   claudeStyle = false,
   height = 168,
   displayMode = DEFAULT_CACHE_HIT_DISPLAY_MODE,
@@ -163,6 +260,17 @@ export default function CacheHitTrendChart({
   );
   const filteredPoints = displayData.points;
   const displayedAverageRatio = displayData.averageRatio;
+  const composition = displayData.averagePointCount > 0
+    ? {
+        cacheReadTokens: displayData.cacheReadTokens,
+        cacheWriteTokens: displayData.cacheWriteTokens,
+        uncachedPromptTokens: displayData.uncachedPromptTokens,
+      }
+    : fallbackComposition ?? {
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        uncachedPromptTokens: 0,
+      };
   const hasDrawablePoints = filteredPoints.length >= 1;
   const modeOptions = useMemo(
     () =>
@@ -186,7 +294,7 @@ export default function CacheHitTrendChart({
 
   useEffect(() => {
     setViewport(viewportFull(filteredPoints.length));
-  }, [filteredPoints.length]);
+  }, [filteredPoints.length, displayMode]);
 
   // 进场动画。
   const [animProgress, setAnimProgress] = useState(0);
@@ -393,9 +501,9 @@ export default function CacheHitTrendChart({
         ref={containerRef}
         class="rounded-m3-md"
         style={{
-          background: 'var(--m3-surface-container-high)',
-          border: '1px solid var(--m3-outline-variant)',
-          padding: '10px 12px 12px 12px',
+          background: 'var(--m3-surface-container-low)',
+          border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent)',
+          padding: 12,
         }}
       >
         <div
@@ -403,26 +511,38 @@ export default function CacheHitTrendChart({
           style={{ gap: 8, marginBottom: 8 }}
         >
           <span
-            class="text-xs font-bold"
+            class="text-xs font-extrabold"
             style={{
-              color: 'var(--m3-on-surface-variant)',
-              letterSpacing: '0.6px',
+              color: 'var(--m3-on-surface)',
               flex: 1,
             }}
           >
             {t2('sessMeta.cacheHitTrend', '缓存命中率趋势')}
           </span>
           <span
-            class="text-xs"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
+            class="shrink-0 rounded-full px-2 py-1 text-[11px] font-extrabold tabular-nums"
+            style={{
+              color: 'var(--m3-primary)',
+              background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--m3-primary) 20%, transparent)',
+            }}
           >
             {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
             {Math.round(displayedAverageRatio * 100)}%
           </span>
         </div>
+        <CacheHitCompositionSummary
+          composition={composition}
+          progress={animProgress}
+          t={t2}
+        />
         <div
-          class="text-xs"
-          style={{ color: 'var(--m3-on-surface-variant)', marginBottom: 10 }}
+          class="mt-3 rounded-m3-sm px-2.5 py-2 text-[11px]"
+          style={{
+            color: 'var(--m3-on-surface-variant)',
+            background: 'color-mix(in srgb, var(--m3-surface-container-highest) 52%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 48%, transparent)',
+          }}
         >
           {points.length <= 0
             ? t2(
@@ -439,7 +559,7 @@ export default function CacheHitTrendChart({
                 '首轮仅作参考，不参与平均缓存命中率。',
               )}
         </div>
-        <div class="flex items-center" style={{ gap: 8 }}>
+        <div class="mt-3 flex items-center" style={{ gap: 8 }}>
           <div
             class="flex items-center"
             style={{ gap: 8, flexWrap: 'nowrap', overflowX: 'auto' }}
@@ -468,9 +588,9 @@ export default function CacheHitTrendChart({
       ref={containerRef}
       class="rounded-m3-md"
       style={{
-        background: 'var(--m3-surface-container-high)',
-        border: '1px solid var(--m3-outline-variant)',
-        padding: '10px 12px 12px 12px',
+        background: 'var(--m3-surface-container-low)',
+        border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent)',
+        padding: 12,
       }}
     >
       {/* 标题栏。 */}
@@ -479,19 +599,20 @@ export default function CacheHitTrendChart({
         style={{ gap: 8, marginBottom: 8 }}
       >
         <span
-          class="text-xs font-bold"
+          class="text-xs font-extrabold"
           style={{
-            color: 'var(--m3-on-surface-variant)',
-            letterSpacing: '0.6px',
+            color: 'var(--m3-on-surface)',
             flex: 1,
           }}
         >
           {t2('sessMeta.cacheHitTrend', '缓存命中率趋势')}
         </span>
         <span
-          class="text-xs"
+          class="shrink-0 rounded-full px-2 py-1 text-[11px] font-extrabold tabular-nums"
           style={{
-            color: 'var(--m3-on-surface-variant)',
+            color: 'var(--m3-primary)',
+            background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--m3-primary) 20%, transparent)',
             fontFeatureSettings: '"tnum" 1',
           }}
         >
@@ -539,9 +660,15 @@ export default function CacheHitTrendChart({
         ) : null}
       </div>
 
+      <CacheHitCompositionSummary
+        composition={composition}
+        progress={animProgress}
+        t={t2}
+      />
+
       {/* 展示模式。 */}
       <div
-        class="flex items-center"
+        class="mt-3 flex items-center"
         style={{ gap: 8, marginBottom: 10 }}
       >
         <div

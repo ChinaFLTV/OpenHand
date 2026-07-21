@@ -9209,38 +9209,11 @@ function SessionTokenStatsContent({
   const {
     cacheReadTokens,
     cacheWriteTokens,
+    uncachedPromptTokens,
     cacheHitRatio,
-    readWeight,
-    writeWeight,
-    missWeight,
     trendData,
     claudeStyle,
   } = cacheHit;
-  const activeTrendDisplay = trendData
-    ? cacheHitDisplayData({
-      points: trendData.points,
-      displayMode: trendDisplayMode,
-      claudeStyle,
-      fallbackAverageRatio: trendData.averageRatio,
-    })
-    : null;
-  const activeCacheHitRatio = activeTrendDisplay
-    ? cacheHitRatioPercent(activeTrendDisplay.averageRatio)
-    : cacheHitRatio;
-  const activeBarTotal = activeTrendDisplay
-    ? activeTrendDisplay.cacheReadTokens +
-      activeTrendDisplay.cacheWriteTokens +
-      activeTrendDisplay.uncachedPromptTokens
-    : 0;
-  const activeReadWeight = activeTrendDisplay && activeBarTotal > 0
-    ? activeTrendDisplay.cacheReadTokens / activeBarTotal
-    : readWeight;
-  const activeWriteWeight = activeTrendDisplay && activeBarTotal > 0
-    ? activeTrendDisplay.cacheWriteTokens / activeBarTotal
-    : writeWeight;
-  const activeMissWeight = activeTrendDisplay && activeBarTotal > 0
-    ? activeTrendDisplay.uncachedPromptTokens / activeBarTotal
-    : missWeight;
   return (
     <>
       <TokenStatsSection title={t('tokenPopup.input', '输入')}>
@@ -9251,32 +9224,25 @@ function SessionTokenStatsContent({
         <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="accent" />
         <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="accent" />
       </TokenStatsSection>
+      <TokenStatsSection title={t('tokenPopup.output', '输出')}>
+        <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
+        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} /> : null}
+      </TokenStatsSection>
       {webSearchToolUsage > 0 || webSearchPageUsage > 0 ? (
         <TokenStatsSection title={t('tokenPopup.webSearch', '联网搜索')}>
           {webSearchToolUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchCalls', '调用次数')} value={webSearchToolUsage} tone="accent" /> : null}
           {webSearchPageUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchPages', '返回页面')} value={webSearchPageUsage} tone="accent" /> : null}
         </TokenStatsSection>
       ) : null}
-      <TokenStatsSection title={t('tokenPopup.output', '输出')}>
-        <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
-        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} /> : null}
-      </TokenStatsSection>
-      <div
-        class="rounded-m3-md px-3 py-2.5"
-        style={{
-          background: 'var(--m3-primary-container)',
-          color: 'var(--m3-on-primary-container)',
-          border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
-        }}
-      >
-        <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
-        {cacheHit.hasCacheHitMetrics ? (
-          <>
-            <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={activeCacheHitRatio} suffix="%" tone="accent" />
-            <CacheHitBar readWeight={activeReadWeight} writeWeight={activeWriteWeight} missWeight={activeMissWeight} />
-          </>
-        ) : null}
-      </div>
+      <TokenStatsSection
+        title={t('tokenPopup.total', '总计')}
+        emphasized
+        trailing={(
+          <span class="text-lg font-black tabular-nums" style={{ color: 'var(--m3-primary)' }}>
+            <RollingText text={totalTokens.toLocaleString()} />
+          </span>
+        )}
+      />
       <ContextUsageOverview
         usage={contextUsage}
         windowUsage={contextWindowUsage}
@@ -9284,8 +9250,22 @@ function SessionTokenStatsContent({
         compacting={compacting}
         onCompact={onCompact}
       />
-      {trendData && trendData.points.length > 0 ? (
-        <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} onPointSelected={onPointSelected} t={t} />
+      {cacheHit.hasCacheHitMetrics ? (
+        <CacheHitTrendChart
+          points={trendData?.points ?? []}
+          averageRatio={trendData?.averageRatio ?? cacheHitRatio / 100}
+          fallbackComposition={{
+            cacheReadTokens,
+            cacheWriteTokens,
+            uncachedPromptTokens,
+          }}
+          claudeStyle={claudeStyle}
+          height={136}
+          displayMode={trendDisplayMode}
+          onDisplayModeChange={onTrendDisplayModeChange}
+          onPointSelected={onPointSelected}
+          t={t}
+        />
       ) : null}
       <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
         <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
@@ -9707,75 +9687,58 @@ function ContextBreakdownBar({ label, chars, totalChars, color }: { label: strin
   );
 }
 
-function TokenStatsSection({ title, children }: { title: string; children: ComponentChildren }) {
+function TokenStatsSection({
+  title,
+  children,
+  trailing,
+  emphasized = false,
+}: {
+  title: string;
+  children?: ComponentChildren;
+  trailing?: ComponentChildren;
+  emphasized?: boolean;
+}) {
   return (
     <section
       class="rounded-m3-md p-3"
       style={{
-        background: 'var(--m3-surface)',
-        border: '1px solid var(--m3-outline-variant)',
+        background: emphasized
+          ? 'color-mix(in srgb, var(--m3-primary-container) 64%, var(--m3-surface-container-low))'
+          : 'var(--m3-surface-container-low)',
+        border: emphasized
+          ? '1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent)'
+          : '1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent)',
       }}
     >
-      <h3 class="mb-2 text-[11px] font-semibold uppercase" style={{ color: 'var(--m3-on-surface-variant)' }}>
-        {title}
-      </h3>
-      <div class="space-y-1.5">{children}</div>
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-xs font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+          {title}
+        </h3>
+        {trailing}
+      </div>
+      {children ? <div class="mt-2 space-y-1.5">{children}</div> : null}
     </section>
   );
 }
 
-// Three-segment cache hit visualisation: primary = cache_read, soft primary =
-// cache_creation (write), neutral = remaining un-cached prompt. Mirrors
-// the App-side _CacheHitBar so users get the same shape across platforms.
-function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: number; writeWeight: number; missWeight: number }) {
-  const safe = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
-  const r = safe(readWeight);
-  const w = safe(writeWeight);
-  const m = safe(missWeight);
-  const sum = r + w + m;
-  if (sum <= 0) return null;
+function TokenStatsRow({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'neutral' | 'accent' }) {
+  const accent = tone === 'accent';
   return (
-    <div class="mt-2 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-variant)' }} title={t('tokenPopup.cacheHitBar.title', '左：缓存命中 · 中：缓存写入 · 右：未缓存提示词')}>
-      <div class="flex h-full">
-        {r > 0 ? (
-          <div
-            style={{
-              width: `${(r / sum) * 100}%`,
-              background: 'color-mix(in srgb, var(--m3-primary) 72%, transparent)',
-              transition: 'width 220ms ease-out',
-            }}
-          />
-        ) : null}
-        {w > 0 ? (
-          <div
-            style={{
-              width: `${(w / sum) * 100}%`,
-              background: 'color-mix(in srgb, var(--m3-primary) 34%, var(--m3-surface-container-highest))',
-              transition: 'width 220ms ease-out',
-            }}
-          />
-        ) : null}
-        {m > 0 ? (
-          <div
-            style={{
-              width: `${(m / sum) * 100}%`,
-              background: 'transparent',
-              transition: 'width 220ms ease-out',
-            }}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function TokenStatsRow({ label, value, suffix = '', tone = 'neutral', emphasized = false }: { label: string; value: number; suffix?: string; tone?: 'neutral' | 'accent'; emphasized?: boolean }) {
-  const color = tone === 'accent' || emphasized ? 'var(--m3-primary)' : 'var(--m3-on-surface)';
-  return (
-    <div class="flex items-center justify-between gap-3 text-sm">
-      <span style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
-      <span class={emphasized ? 'text-base font-bold tabular-nums' : 'font-semibold tabular-nums'} style={{ color }}>
-        <RollingText text={`${value.toLocaleString()}${suffix}`} />
+    <div
+      class="flex items-center justify-between gap-3 rounded-m3-sm px-2.5 py-2 text-sm hover:-translate-y-px"
+      style={{
+        background: accent
+          ? 'color-mix(in srgb, var(--m3-primary) 7%, transparent)'
+          : 'color-mix(in srgb, var(--m3-surface) 58%, transparent)',
+        border: accent
+          ? '1px solid color-mix(in srgb, var(--m3-primary) 18%, transparent)'
+          : '1px solid color-mix(in srgb, var(--m3-outline-variant) 42%, transparent)',
+        transition: 'transform var(--oh-dialog-duration) var(--oh-dialog-curve), border-color var(--oh-dialog-duration) var(--oh-dialog-curve)',
+      }}
+    >
+      <span class="text-xs font-medium" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
+      <span class="font-bold tabular-nums" style={{ color: accent ? 'var(--m3-primary)' : 'var(--m3-on-surface)' }}>
+        <RollingText text={value.toLocaleString()} />
       </span>
     </div>
   );
@@ -9827,11 +9790,9 @@ function shouldShowSessionCacheHitMetrics({
 interface SessionCacheHitDisplay {
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  uncachedPromptTokens: number;
   cacheHitRatio: number;
   hasCacheHitMetrics: boolean;
-  readWeight: number;
-  writeWeight: number;
-  missWeight: number;
   claudeStyle: boolean;
   trendData: {
     points: CacheHitTrendPoint[];
@@ -9906,16 +9867,11 @@ function buildSessionCacheHitDisplay(
       averageRatio: defaultDisplay?.averageRatio ?? backendHitRatio,
     }
     : null;
-  let barReadTokens = cacheReadTokens;
-  let barWriteTokens = cacheWriteTokens;
-  let barUncachedTokens = claudeStyle
+  const uncachedPromptTokens = defaultDisplay?.averagePointCount
+    ? defaultDisplay.uncachedPromptTokens
+    : claudeStyle
     ? promptTokensTotal
     : Math.max(0, promptTokensTotal - cacheReadTokens - cacheWriteTokens);
-  if (defaultDisplay) {
-    barReadTokens = defaultDisplay.cacheReadTokens;
-    barWriteTokens = defaultDisplay.cacheWriteTokens;
-    barUncachedTokens = defaultDisplay.uncachedPromptTokens;
-  }
   const hasCacheHitMetrics = shouldShowSessionCacheHitMetrics({
     cacheReadTokens,
     cacheWriteTokens,
@@ -9923,18 +9879,12 @@ function buildSessionCacheHitDisplay(
     totalTokens,
     trendPointCount: trendData?.points.length ?? 0,
   });
-  const barTotal = barReadTokens + barWriteTokens + barUncachedTokens;
-  const readWeight = barTotal > 0 ? barReadTokens / barTotal : cacheHitRatio / 100;
-  const writeWeight = barTotal > 0 ? barWriteTokens / barTotal : 0;
-  const missWeight = barTotal > 0 ? barUncachedTokens / barTotal : Math.max(0, 1 - cacheHitRatio / 100);
   return {
     cacheReadTokens,
     cacheWriteTokens,
+    uncachedPromptTokens,
     cacheHitRatio,
     hasCacheHitMetrics,
-    readWeight,
-    writeWeight,
-    missWeight,
     claudeStyle,
     trendData,
   };
@@ -10514,32 +10464,21 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       return null;
     }
     return (
-      <div
-        class={`${withTopMargin ? 'mt-4 ' : ''}rounded-m3-md p-3`}
-        style={{
-          background: 'var(--m3-surface)',
-          border: '1px solid var(--m3-outline-variant)',
-        }}
-      >
-        <EntryRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={`${cacheHit.cacheHitRatio}%`} />
-        <div class="flex flex-wrap gap-2 mb-2">
-          <Chip label={`${t('tokenPopup.cacheRead', '缓存命中')} ${cacheHit.cacheReadTokens}`} />
-          <Chip label={`${t('tokenPopup.cacheWrite', '缓存写入')} ${cacheHit.cacheWriteTokens}`} />
-        </div>
-        <CacheHitBar readWeight={cacheHit.readWeight} writeWeight={cacheHit.writeWeight} missWeight={cacheHit.missWeight} />
-        {cacheHit.trendData && cacheHit.trendData.points.length > 0 ? (
-          <div class="mt-3">
-            <CacheHitTrendChart
-              points={cacheHit.trendData.points}
-              averageRatio={cacheHit.trendData.averageRatio}
-              claudeStyle={cacheHit.claudeStyle}
-              height={136}
-              displayMode={metadataTrendDisplayMode}
-              onDisplayModeChange={setMetadataTrendDisplayMode}
-              t={t}
-            />
-          </div>
-        ) : null}
+      <div class={withTopMargin ? 'mt-4' : ''}>
+        <CacheHitTrendChart
+          points={cacheHit.trendData?.points ?? []}
+          averageRatio={cacheHit.trendData?.averageRatio ?? cacheHit.cacheHitRatio / 100}
+          fallbackComposition={{
+            cacheReadTokens: cacheHit.cacheReadTokens,
+            cacheWriteTokens: cacheHit.cacheWriteTokens,
+            uncachedPromptTokens: cacheHit.uncachedPromptTokens,
+          }}
+          claudeStyle={cacheHit.claudeStyle}
+          height={136}
+          displayMode={metadataTrendDisplayMode}
+          onDisplayModeChange={setMetadataTrendDisplayMode}
+          t={t}
+        />
       </div>
     );
   };

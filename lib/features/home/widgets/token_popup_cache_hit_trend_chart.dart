@@ -410,12 +410,12 @@ class _TokenPopupCacheHitTrendChartState
     );
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.48),
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
       ),
       child: Column(
@@ -426,16 +426,18 @@ class _TokenPopupCacheHitTrendChartState
               Expanded(
                 child: Text(
                   l10n.sessMetaCacheHitTrend,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               Text(
                 '${l10n.sessMetaCacheHitAvg}: ${(displayData.averageHitRatio * 100).round()}%',
-                style: valueStyle,
+                style: valueStyle?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(width: 8),
               InkWell(
@@ -487,7 +489,13 @@ class _TokenPopupCacheHitTrendChartState
               ],
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          _CacheHitCompositionSummary(
+            cacheRead: displayData.cacheReadTokens,
+            cacheWrite: displayData.cacheWriteTokens,
+            uncachedPrompt: displayData.uncachedPromptTokens,
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -1281,6 +1289,141 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
     return oldDelegate.points != points ||
         oldDelegate.progress != progress ||
         oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+class _CacheHitCompositionSummary extends StatelessWidget {
+  const _CacheHitCompositionSummary({
+    required this.cacheRead,
+    required this.cacheWrite,
+    required this.uncachedPrompt,
+  });
+
+  final int cacheRead;
+  final int cacheWrite;
+  final int uncachedPrompt;
+
+  String _compact(int value) {
+    if (value < 1000) return '$value';
+    if (value < 1000000) return '${(value / 1000).toStringAsFixed(1)}k';
+    return '${(value / 1000000).toStringAsFixed(1)}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final total = cacheRead + cacheWrite + uncachedPrompt;
+    final readRatio = total <= 0 ? 0.0 : cacheRead / total;
+    final cachedRatio = total <= 0 ? 0.0 : (cacheRead + cacheWrite) / total;
+    final readColor = colorScheme.primary;
+    final writeColor = Color.lerp(
+      colorScheme.primary,
+      colorScheme.surfaceContainerHighest,
+      0.45,
+    )!;
+    final missColor = colorScheme.outlineVariant.withValues(alpha: 0.62);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: ColoredBox(
+            color: missColor,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: cachedRatio),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 520),
+              ),
+              curve: Curves.easeOutBack,
+              builder: (context, animatedCached, _) {
+                return TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: readRatio),
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 520),
+                  ),
+                  curve: Curves.easeOutBack,
+                  builder: (context, animatedRead, _) => SizedBox(
+                    height: 8,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: animatedCached.clamp(0.0, 1.0),
+                            child: ColoredBox(color: writeColor),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: animatedRead.clamp(0.0, 1.0),
+                            child: ColoredBox(color: readColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 7),
+        Wrap(
+          spacing: 10,
+          runSpacing: 5,
+          children: [
+            _CacheHitCompositionLegend(
+              color: readColor,
+              label: '${l10n.tokenPopupCacheRead} ${_compact(cacheRead)}',
+            ),
+            _CacheHitCompositionLegend(
+              color: writeColor,
+              label: '${l10n.tokenPopupCacheWrite} ${_compact(cacheWrite)}',
+            ),
+            _CacheHitCompositionLegend(
+              color: missColor,
+              label: '${l10n.tokenPopupUncached} ${_compact(uncachedPrompt)}',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CacheHitCompositionLegend extends StatelessWidget {
+  const _CacheHitCompositionLegend({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
   }
 }
 

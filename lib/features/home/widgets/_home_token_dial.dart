@@ -45,10 +45,6 @@ Color _cacheWriteThemeColor(ColorScheme colorScheme) {
   )!;
 }
 
-int _cacheHitBarFlex(double weight) {
-  return (weight * 1000).round().clamp(1, 1000);
-}
-
 class _TokenDialState extends State<_TokenDial>
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portalController = OverlayPortalController();
@@ -636,11 +632,6 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final liveSession = liveState.session ?? widget.session;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final headStyle = theme.textTheme.labelSmall?.copyWith(
-      fontWeight: FontWeight.w700,
-      color: colorScheme.onSurfaceVariant,
-      letterSpacing: 0.4,
-    );
     final keyStyle = theme.textTheme.bodySmall?.copyWith(
       color: colorScheme.onSurfaceVariant,
     );
@@ -715,126 +706,122 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          AppLocalizations.of(context)!.tokenPopupInputHeading.toUpperCase(),
-          style: headStyle,
+        _TokenStatsPanel(
+          title: AppLocalizations.of(context)!.tokenPopupInputHeading,
+          icon: Icons.south_west_rounded,
+          child: Column(
+            children: [
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupPrompt,
+                value: promptTokens,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+              if (audioInput > 0)
+                _PopupRow(
+                  label: AppLocalizations.of(context)!.tokenPopupAudioInput,
+                  value: audioInput,
+                  keyStyle: keyStyle,
+                  valueStyle: valueStyle,
+                ),
+              if (imageInput > 0)
+                _PopupRow(
+                  label: AppLocalizations.of(context)!.tokenPopupImageInput,
+                  value: imageInput,
+                  keyStyle: keyStyle,
+                  valueStyle: valueStyle,
+                ),
+              if (videoInput > 0)
+                _PopupRow(
+                  label: AppLocalizations.of(context)!.tokenPopupVideoInput,
+                  value: videoInput,
+                  keyStyle: keyStyle,
+                  valueStyle: valueStyle,
+                ),
+              if (hasCacheUsageTelemetry) ...[
+                _PopupRow(
+                  label: AppLocalizations.of(context)!.tokenPopupCacheRead,
+                  value: cacheRead,
+                  keyStyle: keyStyle,
+                  valueStyle: accentValueStyle,
+                ),
+                _PopupRow(
+                  label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
+                  value: cacheWrite,
+                  keyStyle: keyStyle,
+                  valueStyle: accentValueStyle,
+                ),
+              ],
+            ],
+          ),
         ),
-        const SizedBox(height: 6),
-        _PopupRow(
-          label: AppLocalizations.of(context)!.tokenPopupPrompt,
-          value: promptTokens,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
+        const SizedBox(height: 10),
+        _TokenStatsPanel(
+          title: AppLocalizations.of(context)!.tokenPopupOutputHeading,
+          icon: Icons.north_east_rounded,
+          child: Column(
+            children: [
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupCompletion,
+                value: completionTokens,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+              if (reasoning > 0)
+                _PopupRow(
+                  label: AppLocalizations.of(context)!.tokenPopupReasoning,
+                  value: reasoning,
+                  keyStyle: keyStyle,
+                  valueStyle: valueStyle,
+                ),
+            ],
+          ),
         ),
-        if (audioInput > 0)
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupAudioInput,
-            value: audioInput,
-            keyStyle: keyStyle,
-            valueStyle: valueStyle,
-          ),
-        if (imageInput > 0)
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupImageInput,
-            value: imageInput,
-            keyStyle: keyStyle,
-            valueStyle: valueStyle,
-          ),
-        if (videoInput > 0)
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupVideoInput,
-            value: videoInput,
-            keyStyle: keyStyle,
-            valueStyle: valueStyle,
-          ),
-        if (hasCacheUsageTelemetry) ...[
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupCacheRead,
-            value: cacheRead,
-            keyStyle: keyStyle,
-            valueStyle: accentValueStyle,
-          ),
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
-            value: cacheWrite,
-            keyStyle: keyStyle,
-            valueStyle: accentValueStyle,
+        if (webSearchCalls > 0 || webSearchPages > 0) ...[
+          const SizedBox(height: 10),
+          _TokenStatsPanel(
+            title: AppLocalizations.of(context)!.tokenPopupWebSearchHeading,
+            icon: Icons.language_rounded,
+            child: Column(
+              children: [
+                if (webSearchCalls > 0)
+                  _PopupRow(
+                    label: AppLocalizations.of(
+                      context,
+                    )!.tokenPopupWebSearchCalls,
+                    value: webSearchCalls,
+                    keyStyle: keyStyle,
+                    valueStyle: accentValueStyle,
+                  ),
+                if (webSearchPages > 0)
+                  _PopupRow(
+                    label: AppLocalizations.of(
+                      context,
+                    )!.tokenPopupWebSearchPages,
+                    value: webSearchPages,
+                    keyStyle: keyStyle,
+                    valueStyle: accentValueStyle,
+                  ),
+              ],
+            ),
           ),
         ],
         const SizedBox(height: 10),
-        Text(
-          AppLocalizations.of(context)!.tokenPopupOutputHeading.toUpperCase(),
-          style: headStyle,
-        ),
-        const SizedBox(height: 6),
-        _PopupRow(
-          label: AppLocalizations.of(context)!.tokenPopupCompletion,
-          value: completionTokens,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-        if (reasoning > 0)
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupReasoning,
-            value: reasoning,
-            keyStyle: keyStyle,
-            valueStyle: valueStyle,
-          ),
-        if (webSearchCalls > 0 || webSearchPages > 0) ...[
-          const SizedBox(height: 10),
-          Text(
-            AppLocalizations.of(
-              context,
-            )!.tokenPopupWebSearchHeading.toUpperCase(),
-            style: headStyle,
-          ),
-          const SizedBox(height: 6),
-          if (webSearchCalls > 0)
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupWebSearchCalls,
-              value: webSearchCalls,
-              keyStyle: keyStyle,
-              valueStyle: accentValueStyle,
-            ),
-          if (webSearchPages > 0)
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupWebSearchPages,
-              value: webSearchPages,
-              keyStyle: keyStyle,
-              valueStyle: accentValueStyle,
-            ),
-        ],
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          height: 1,
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-        ),
-        _PopupRow(
-          label: AppLocalizations.of(context)!.tokenPopupGrandTotal,
-          value: total,
-          keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w700),
-          valueStyle: valueStyle?.copyWith(
-            color: colorScheme.primary,
-            fontSize: (valueStyle.fontSize ?? 14) + 1,
+        _TokenStatsPanel(
+          title: AppLocalizations.of(context)!.tokenPopupGrandTotal,
+          icon: Icons.donut_large_rounded,
+          emphasized: true,
+          trailing: RollingText(
+            text: _formatThousands(total),
+            style:
+                theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ) ??
+                const TextStyle(),
           ),
         ),
-        if (showCacheHitMetrics) ...[
-          const SizedBox(height: 6),
-          _PopupRow(
-            label: AppLocalizations.of(context)!.tokenPopupCacheHit,
-            value: (cacheHitRatio * 100).round(),
-            suffix: '%',
-            keyStyle: keyStyle,
-            valueStyle: accentValueStyle,
-          ),
-          const SizedBox(height: 6),
-          _CacheHitBar(
-            ratio: cacheHitRatio,
-            cacheRead: displayData.cacheReadTokens,
-            cacheWrite: displayData.cacheWriteTokens,
-            prompt: cacheBarPromptTokens,
-          ),
-        ],
         _TokenPopupAnimatedSection(
           present: contextUsage?.hasData ?? false,
           settings: sectionMotionSettings,
@@ -850,7 +837,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           ),
         ),
         _TokenPopupAnimatedSection(
-          present: trend.points.isNotEmpty || cacheRead > 0,
+          present: showCacheHitMetrics,
           settings: sectionMotionSettings,
           child: AnimatedSize(
             alignment: Alignment.topCenter,
@@ -900,32 +887,34 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           ),
         ),
         const SizedBox(height: 10),
-        Text(
-          AppLocalizations.of(context)!.tokenPopupSessionHeading.toUpperCase(),
-          style: headStyle,
-        ),
-        const SizedBox(height: 6),
-        _PopupRow(
-          label: AppLocalizations.of(context)!.tokenPopupMessages,
-          value: widget.statistics.totalMessageCount,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-        _PopupRow(
-          label: AppLocalizations.of(context)!.tokenPopupPromptBuilds,
-          value: widget.statistics.promptBuildCount,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-        _PopupRow(
-          label: AppLocalizations.of(context)!.tokenPopupPromptChars,
-          value: widget.statistics.totalPromptCharacters,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
+        _TokenStatsPanel(
+          title: AppLocalizations.of(context)!.tokenPopupSessionHeading,
+          icon: Icons.timeline_rounded,
+          child: Column(
+            children: [
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupMessages,
+                value: widget.statistics.totalMessageCount,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupPromptBuilds,
+                value: widget.statistics.promptBuildCount,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupPromptChars,
+                value: widget.statistics.totalPromptCharacters,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+            ],
+          ),
         ),
         ..._buildCostSection(
           context: context,
-          headStyle: headStyle,
           keyStyle: keyStyle,
           valueStyle: valueStyle,
           colorScheme: colorScheme,
@@ -980,7 +969,6 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
   /// 没有任一价格字段时返回空 list — UI 不渲染该分区。
   List<Widget> _buildCostSection({
     required BuildContext context,
-    required TextStyle? headStyle,
     required TextStyle? keyStyle,
     required TextStyle? valueStyle,
     required ColorScheme colorScheme,
@@ -1005,51 +993,118 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final l10n = AppLocalizations.of(context)!;
 
     return <Widget>[
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        height: 1,
-        color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+      const SizedBox(height: 10),
+      _TokenStatsPanel(
+        title: l10n.tokenPopupCostHeading,
+        icon: Icons.payments_outlined,
+        child: Column(
+          children: [
+            if (breakdown.inputUsd != null)
+              _CostPopupRow(
+                label: l10n.tokenPopupCostInput,
+                usd: breakdown.inputUsd!,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+            if (breakdown.outputUsd != null)
+              _CostPopupRow(
+                label: l10n.tokenPopupCostOutput,
+                usd: breakdown.outputUsd!,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+            if (breakdown.cacheReadUsd != null)
+              _CostPopupRow(
+                label: l10n.tokenPopupCostCacheRead,
+                usd: breakdown.cacheReadUsd!,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+            if (breakdown.cacheWriteUsd != null)
+              _CostPopupRow(
+                label: l10n.tokenPopupCostCacheWrite,
+                usd: breakdown.cacheWriteUsd!,
+                keyStyle: keyStyle,
+                valueStyle: valueStyle,
+              ),
+            if (breakdown.totalUsd != null)
+              _CostPopupRow(
+                label: l10n.tokenPopupCostTotal,
+                usd: breakdown.totalUsd!,
+                keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w800),
+                valueStyle: valueStyle?.copyWith(color: colorScheme.primary),
+              ),
+          ],
+        ),
       ),
-      Text(l10n.tokenPopupCostHeading.toUpperCase(), style: headStyle),
-      const SizedBox(height: 6),
-      if (breakdown.inputUsd != null)
-        _CostPopupRow(
-          label: l10n.tokenPopupCostInput,
-          usd: breakdown.inputUsd!,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-      if (breakdown.outputUsd != null)
-        _CostPopupRow(
-          label: l10n.tokenPopupCostOutput,
-          usd: breakdown.outputUsd!,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-      if (breakdown.cacheReadUsd != null)
-        _CostPopupRow(
-          label: l10n.tokenPopupCostCacheRead,
-          usd: breakdown.cacheReadUsd!,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-      if (breakdown.cacheWriteUsd != null)
-        _CostPopupRow(
-          label: l10n.tokenPopupCostCacheWrite,
-          usd: breakdown.cacheWriteUsd!,
-          keyStyle: keyStyle,
-          valueStyle: valueStyle,
-        ),
-      if (breakdown.totalUsd != null) ...[
-        const SizedBox(height: 4),
-        _CostPopupRow(
-          label: l10n.tokenPopupCostTotal,
-          usd: breakdown.totalUsd!,
-          keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w800),
-          valueStyle: valueStyle?.copyWith(color: colorScheme.primary),
-        ),
-      ],
     ];
+  }
+}
+
+class _TokenStatsPanel extends StatelessWidget {
+  const _TokenStatsPanel({
+    required this.title,
+    required this.icon,
+    this.child,
+    this.trailing,
+    this.emphasized = false,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget? child;
+  final Widget? trailing;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? accent.withValues(alpha: 0.08)
+            : colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: emphasized
+              ? accent.withValues(alpha: 0.28)
+              : colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: emphasized ? 0.15 : 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 15, color: accent),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+            ],
+          ),
+          if (child != null) ...[const SizedBox(height: 8), child!],
+        ],
+      ),
+    );
   }
 }
 
@@ -1591,33 +1646,35 @@ class _CostPopupRowState extends State<_CostPopupRow> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    final highlight = _hovered
-        ? accent.withValues(alpha: 0.10)
-        : Colors.transparent;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = colorScheme.primary;
     return MouseRegion(
       onEnter: (_) {
         if (_hovered) return;
-        _hovered = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
+        setState(() => _hovered = true);
       },
       onExit: (_) {
         if (!_hovered) return;
-        _hovered = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
+        setState(() => _hovered = false);
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-        margin: const EdgeInsets.symmetric(vertical: 1),
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
+        curve: Curves.easeOutBack,
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
-          color: highlight,
-          borderRadius: BorderRadius.circular(6),
+          color: _hovered
+              ? accent.withValues(alpha: 0.10)
+              : colorScheme.surface.withValues(alpha: 0.52),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: _hovered
+                ? accent.withValues(alpha: 0.22)
+                : colorScheme.outlineVariant.withValues(alpha: 0.36),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1688,117 +1745,16 @@ class _CacheSavingsBadge extends StatelessWidget {
   }
 }
 
-/// 缓存命中比例可视化条：左侧主色 = cache_read（命中），中间浅主色 =
-/// cache_creation（写入），右侧中性底色 = 未缓存的 prompt。
-class _CacheHitBar extends StatefulWidget {
-  const _CacheHitBar({
-    required this.ratio,
-    required this.cacheRead,
-    required this.cacheWrite,
-    required this.prompt,
-  });
-
-  final double ratio;
-  final int cacheRead;
-  final int cacheWrite;
-  final int prompt;
-
-  @override
-  State<_CacheHitBar> createState() => _CacheHitBarState();
-}
-
-class _CacheHitBarState extends State<_CacheHitBar> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // 分母：cache_read + cache_write + 未缓存 prompt（promptTokens 已扣除
-    // cache_read，与 read/write 不重叠）。
-    final total = widget.cacheRead + widget.cacheWrite + widget.prompt;
-    final readWeight = unitRatio(widget.cacheRead, total);
-    final writeWeight = unitRatio(widget.cacheWrite, total);
-    final promptWeight = unitRatio(widget.prompt, total);
-    final intensify = _hovered ? 1.10 : 1.0;
-    final readColor = colorScheme.primary;
-    final writeColor = _cacheWriteThemeColor(colorScheme);
-    final missColor = colorScheme.surfaceContainerHighest;
-    return MouseRegion(
-      onEnter: (_) {
-        if (_hovered) return;
-        _hovered = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hovered) return;
-        _hovered = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        height: 8,
-        decoration: BoxDecoration(
-          color: missColor.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: _hovered
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: readColor.withValues(alpha: 0.18),
-                    blurRadius: 4,
-                  ),
-                ]
-              : const <BoxShadow>[],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            if (readWeight > 0)
-              Expanded(
-                flex: _cacheHitBarFlex(readWeight),
-                child: Container(
-                  color: readColor.withValues(
-                    alpha: clampUnitInterval(0.85 * intensify),
-                  ),
-                ),
-              ),
-            if (writeWeight > 0)
-              Expanded(
-                flex: _cacheHitBarFlex(writeWeight),
-                child: Container(
-                  color: writeColor.withValues(
-                    alpha: clampUnitInterval(0.78 * intensify),
-                  ),
-                ),
-              ),
-            if (promptWeight > 0)
-              Expanded(
-                flex: _cacheHitBarFlex(promptWeight),
-                child: const SizedBox.shrink(),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PopupRow extends StatefulWidget {
   const _PopupRow({
     required this.label,
     required this.value,
-    this.suffix,
     this.keyStyle,
     this.valueStyle,
   });
 
   final String label;
   final int value;
-  final String? suffix;
   final TextStyle? keyStyle;
   final TextStyle? valueStyle;
 
@@ -1811,33 +1767,35 @@ class _PopupRowState extends State<_PopupRow> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    final highlight = _hovered
-        ? accent.withValues(alpha: 0.10)
-        : Colors.transparent;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = colorScheme.primary;
     return MouseRegion(
       onEnter: (_) {
         if (_hovered) return;
-        _hovered = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
+        setState(() => _hovered = true);
       },
       onExit: (_) {
         if (!_hovered) return;
-        _hovered = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
+        setState(() => _hovered = false);
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-        margin: const EdgeInsets.symmetric(vertical: 1),
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
+        curve: Curves.easeOutBack,
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
-          color: highlight,
-          borderRadius: BorderRadius.circular(6),
+          color: _hovered
+              ? accent.withValues(alpha: 0.10)
+              : colorScheme.surface.withValues(alpha: 0.52),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: _hovered
+                ? accent.withValues(alpha: 0.22)
+                : colorScheme.outlineVariant.withValues(alpha: 0.36),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1851,18 +1809,9 @@ class _PopupRowState extends State<_PopupRow> {
               ),
             ),
             const SizedBox(width: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RollingText(
-                  text: '${widget.value}',
-                  style: widget.valueStyle ?? const TextStyle(),
-                ),
-                if (widget.suffix != null) ...[
-                  const SizedBox(width: 2),
-                  Text(widget.suffix!, style: widget.valueStyle),
-                ],
-              ],
+            RollingText(
+              text: _formatThousands(widget.value),
+              style: widget.valueStyle ?? const TextStyle(),
             ),
           ],
         ),
@@ -1900,82 +1849,110 @@ class _CompactCacheHitSparkline extends StatelessWidget {
     final total = cacheRead + cacheWrite + promptTokens;
     final readFrac = total == 0 ? 0.0 : cacheRead / total;
     final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
-    final promptFrac = total == 0 ? 1.0 : promptTokens / total;
     final uncachedLabel = l10n.tokenPopupUncached;
     final readColor = colorScheme.primary;
     final writeColor = _cacheWriteThemeColor(colorScheme);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                color: readColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${l10n.tokenPopupCacheHit} $hitPercent%',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+    final missColor = colorScheme.outlineVariant.withValues(alpha: 0.62);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            height: 8,
-            child: Row(
-              children: [
-                if (readFrac > 0)
-                  Flexible(
-                    flex: (readFrac * 1000).round().clamp(1, 1000),
-                    child: Container(color: readColor.withValues(alpha: 0.72)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.sessMetaCacheHitTrend,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
                   ),
-                if (writeFrac > 0)
-                  Flexible(
-                    flex: (writeFrac * 1000).round().clamp(1, 1000),
-                    child: Container(color: writeColor.withValues(alpha: 0.72)),
+                ),
+              ),
+              Text(
+                '${l10n.sessMetaCacheHitAvg}: $hitPercent%',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: ColoredBox(
+              color: missColor,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: readFrac + writeFrac),
+                duration: openHandMotionDuration(
+                  context,
+                  const Duration(milliseconds: 520),
+                ),
+                curve: Curves.easeOutBack,
+                builder: (context, cached, _) => TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: readFrac),
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 520),
                   ),
-                if (promptFrac > 0)
-                  Flexible(
-                    flex: (promptFrac * 1000).round().clamp(1, 1000),
-                    child: Container(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  curve: Curves.easeOutBack,
+                  builder: (context, read, _) => SizedBox(
+                    height: 8,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: cached.clamp(0.0, 1.0),
+                            child: ColoredBox(color: writeColor),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: read.clamp(0.0, 1.0),
+                            child: ColoredBox(color: readColor),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-              ],
+                ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 10,
-          runSpacing: 4,
-          children: [
-            _LegendDot(
-              color: readColor.withValues(alpha: 0.72),
-              label: '${l10n.tokenPopupCacheRead} ${_k(cacheRead)}',
-            ),
-            _LegendDot(
-              color: writeColor.withValues(alpha: 0.72),
-              label: '${l10n.tokenPopupCacheWrite} ${_k(cacheWrite)}',
-            ),
-            _LegendDot(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-              label: '$uncachedLabel ${_k(promptTokens)}',
-            ),
-          ],
-        ),
-      ],
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 10,
+            runSpacing: 5,
+            children: [
+              _LegendDot(
+                color: readColor,
+                label: '${l10n.tokenPopupCacheRead} ${_k(cacheRead)}',
+              ),
+              _LegendDot(
+                color: writeColor,
+                label: '${l10n.tokenPopupCacheWrite} ${_k(cacheWrite)}',
+              ),
+              _LegendDot(
+                color: missColor,
+                label: '$uncachedLabel ${_k(promptTokens)}',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
