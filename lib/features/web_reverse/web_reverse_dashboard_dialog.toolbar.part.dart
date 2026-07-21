@@ -2204,7 +2204,7 @@ class _HarChangeRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            '${sizeDelta >= 0 ? '+' : ''}${_fmtSize(sizeDelta)}',
+            formatSignedByteSize(sizeDelta),
             style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: sizeDelta > 0 ? cs.error : Colors.green,
@@ -2268,13 +2268,6 @@ class _HarChangeRow extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static String _fmtSize(int v) {
-    final a = v.abs();
-    if (a < 1024) return '$a B';
-    if (a < 1024 * 1024) return '${(a / 1024).toStringAsFixed(1)} KB';
-    return '${(a / 1024 / 1024).toStringAsFixed(2)} MB';
   }
 }
 

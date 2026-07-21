@@ -1935,13 +1935,13 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                   Text(
                     openHandLocalizedText(
                       context,
-                      zh: '原始大小约 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · 可保存为 .heapsnapshot 后在 Chrome DevTools → Memory → Load 里打开重放。',
+                      zh: '原始大小约 ${formatByteSize(_last!.bytes)} · 可保存为 .heapsnapshot 后在 Chrome DevTools → Memory → Load 里打开重放。',
                       zhHant:
-                          '原始大小約 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · 可儲存為 .heapsnapshot 後在 Chrome DevTools → Memory → Load 裡開啟重放。',
-                      en: '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · save as .heapsnapshot and load it back in Chrome DevTools.',
-                      fr: '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · enregistrez en .heapsnapshot puis chargez dans Chrome DevTools.',
-                      de: '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · als .heapsnapshot speichern und in Chrome DevTools laden.',
-                      ja: '約 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · .heapsnapshot として保存し Chrome DevTools で読み込めます。',
+                          '原始大小約 ${formatByteSize(_last!.bytes)} · 可儲存為 .heapsnapshot 後在 Chrome DevTools → Memory → Load 裡開啟重放。',
+                      en: '~${formatByteSize(_last!.bytes)} · save as .heapsnapshot and load it back in Chrome DevTools.',
+                      fr: '~${formatByteSize(_last!.bytes)} · enregistrez en .heapsnapshot puis chargez dans Chrome DevTools.',
+                      de: '~${formatByteSize(_last!.bytes)} · als .heapsnapshot speichern und in Chrome DevTools laden.',
+                      ja: '約 ${formatByteSize(_last!.bytes)} · .heapsnapshot として保存し Chrome DevTools で読み込めます。',
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
@@ -1990,12 +1990,6 @@ class _V8HeapLiveCard extends StatelessWidget {
   final double thresholdMb;
   final bool breached;
   final ValueChanged<double> onThresholdChanged;
-
-  String _fmt(double v) {
-    if (v < 1024) return '${v.toStringAsFixed(0)} B';
-    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
-    return '${(v / 1024 / 1024).toStringAsFixed(2)} MB';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2050,14 +2044,14 @@ class _V8HeapLiveCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${openHandLocalizedText(context, zh: "已用", zhHant: "已用", en: "Used", fr: "Utilise", de: "Genutzt", ja: "使用済み")}: ${_fmt(lastUsed)}',
+                  '${openHandLocalizedText(context, zh: "已用", zhHant: "已用", en: "Used", fr: "Utilise", de: "Genutzt", ja: "使用済み")}: ${formatByteSize(lastUsed)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: usedColor,
                   ),
                 ),
                 Text(
-                  '${openHandLocalizedText(context, zh: "总量", zhHant: "總量", en: "Total", fr: "Total", de: "Gesamt", ja: "合計")}: ${_fmt(lastTotal)}',
+                  '${openHandLocalizedText(context, zh: "总量", zhHant: "總量", en: "Total", fr: "Total", de: "Gesamt", ja: "合計")}: ${formatByteSize(lastTotal)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -2353,12 +2347,6 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
   final Future<void> Function() onToggle;
   final bool reduceMotion;
 
-  String _fmtBytes(double v) {
-    if (v < 1024) return '${v.toStringAsFixed(0)} B';
-    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
-    return '${(v / 1024 / 1024).toStringAsFixed(2)} MB';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2451,12 +2439,13 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                   Text(
                     openHandLocalizedText(
                       context,
-                      zh: '峰值 ${_fmtBytes(peak)} · 累计 ${_fmtBytes(total)}',
-                      zhHant: '峰值 ${_fmtBytes(peak)} · 累計 ${_fmtBytes(total)}',
-                      en: 'peak ${_fmtBytes(peak)} · sum ${_fmtBytes(total)}',
-                      fr: 'pic ${_fmtBytes(peak)} · somme ${_fmtBytes(total)}',
-                      de: 'Peak ${_fmtBytes(peak)} · Summe ${_fmtBytes(total)}',
-                      ja: 'ピーク ${_fmtBytes(peak)} · 合計 ${_fmtBytes(total)}',
+                      zh: '峰值 ${formatByteSize(peak)} · 累计 ${formatByteSize(total)}',
+                      zhHant:
+                          '峰值 ${formatByteSize(peak)} · 累計 ${formatByteSize(total)}',
+                      en: 'peak ${formatByteSize(peak)} · sum ${formatByteSize(total)}',
+                      fr: 'pic ${formatByteSize(peak)} · somme ${formatByteSize(total)}',
+                      de: 'Peak ${formatByteSize(peak)} · Summe ${formatByteSize(total)}',
+                      ja: 'ピーク ${formatByteSize(peak)} · 合計 ${formatByteSize(total)}',
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
@@ -2619,13 +2608,12 @@ class _SamplingTopList extends StatelessWidget {
               Text(
                 openHandLocalizedText(
                   context,
-                  zh: '总分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
-                  zhHant:
-                      '總分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
-                  en: 'Total ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
-                  fr: 'Total ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
-                  de: 'Gesamt ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
-                  ja: '合計 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                  zh: '总分配 ${formatByteSize(result.totalSize)}',
+                  zhHant: '總分配 ${formatByteSize(result.totalSize)}',
+                  en: 'Total ${formatByteSize(result.totalSize)}',
+                  fr: 'Total ${formatByteSize(result.totalSize)}',
+                  de: 'Gesamt ${formatByteSize(result.totalSize)}',
+                  ja: '合計 ${formatByteSize(result.totalSize)}',
                 ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
@@ -2695,7 +2683,7 @@ class _SamplingTopList extends StatelessWidget {
                         SizedBox(
                           width: 84,
                           child: Text(
-                            '${(r.size / 1024).toStringAsFixed(1)} KB',
+                            formatByteSize(r.size),
                             textAlign: TextAlign.right,
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontFamily: 'monospace',
@@ -6588,20 +6576,6 @@ class _SnapshotDiffDialog extends StatefulWidget {
   final _HeapDiffResult result;
   final String bJson;
 
-  static String _fmtBytes(int v) {
-    if (v < 1024) return '$v B';
-    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
-    if (v < 1024 * 1024 * 1024) {
-      return '${(v / 1024 / 1024).toStringAsFixed(1)} MB';
-    }
-    return '${(v / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
-  }
-
-  static String _fmtSignedBytes(int v) {
-    final s = _fmtBytes(v.abs());
-    return v >= 0 ? '+$s' : '-$s';
-  }
-
   static String _fmtSigned(int v) => v >= 0 ? '+$v' : '$v';
 
   @override
@@ -6689,8 +6663,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                     de: 'Rohbytes',
                     ja: '生バイト',
                   ),
-                  a: _SnapshotDiffDialog._fmtBytes(widget.bytesA),
-                  b: _SnapshotDiffDialog._fmtBytes(widget.bytesB),
+                  a: formatByteSize(widget.bytesA),
+                  b: formatByteSize(widget.bytesB),
                   delta: dBytes,
                 ),
                 _DiffRow(
@@ -6717,8 +6691,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                     de: 'Self Size',
                     ja: '自己サイズ',
                   ),
-                  a: _SnapshotDiffDialog._fmtBytes(result.totalSelfA),
-                  b: _SnapshotDiffDialog._fmtBytes(result.totalSelfB),
+                  a: formatByteSize(result.totalSelfA),
+                  b: formatByteSize(result.totalSelfB),
                   delta: dSelf,
                 ),
               ],
@@ -6901,9 +6875,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                         ),
                                         DataCell(
                                           Text(
-                                            _SnapshotDiffDialog._fmtSignedBytes(
-                                              g.bytesDelta,
-                                            ),
+                                            formatSignedByteSize(g.bytesDelta),
                                             style: TextStyle(
                                               fontFamily: 'monospace',
                                               fontSize: 12,
@@ -6929,9 +6901,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                         ),
                                         DataCell(
                                           Text(
-                                            _SnapshotDiffDialog._fmtBytes(
-                                              g.bytesA,
-                                            ),
+                                            formatByteSize(g.bytesA),
                                             style: const TextStyle(
                                               fontFamily: 'monospace',
                                               fontSize: 12,
@@ -6940,9 +6910,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                         ),
                                         DataCell(
                                           Text(
-                                            _SnapshotDiffDialog._fmtBytes(
-                                              g.bytesB,
-                                            ),
+                                            formatByteSize(g.bytesB),
                                             style: const TextStyle(
                                               fontFamily: 'monospace',
                                               fontSize: 12,

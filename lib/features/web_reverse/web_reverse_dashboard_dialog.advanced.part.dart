@@ -2854,7 +2854,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   de: 'Gesendet',
                   ja: '送信済み',
                 ),
-                value: _formatBytes(last?.bytesSent ?? 0),
+                value: formatByteSize(last?.bytesSent ?? 0),
                 color: cs.primary,
               ),
               _RtcStatChip(
@@ -2867,7 +2867,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   de: 'Empfangen',
                   ja: '受信済み',
                 ),
-                value: _formatBytes(last?.bytesReceived ?? 0),
+                value: formatByteSize(last?.bytesReceived ?? 0),
                 color: cs.tertiary,
               ),
               _RtcStatChip(
@@ -3240,15 +3240,6 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       ),
     );
   }
-
-  static String _formatBytes(double v) {
-    if (v < 1024) return '${v.toStringAsFixed(0)} B';
-    if (v < 1024 * 1024) return '${(v / 1024).toStringAsFixed(1)} KB';
-    if (v < 1024 * 1024 * 1024) {
-      return '${(v / 1024 / 1024).toStringAsFixed(1)} MB';
-    }
-    return '${(v / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
-  }
 }
 
 class _RtcSeries {
@@ -3469,7 +3460,7 @@ class _RtcChartPainter extends CustomPainter {
     // 左侧 y 轴最大值标签。
     final tp = TextPainter(
       text: TextSpan(
-        text: '${(maxBytes / 1024).toStringAsFixed(1)} KB',
+        text: formatByteSize(maxBytes),
         style: TextStyle(color: onSurface, fontSize: 9),
       ),
       textDirection: TextDirection.ltr,

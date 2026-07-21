@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../ai_session_controller.dart';
 import '../service/runtime/ai_tool_usage_promotion_store.dart';
@@ -253,7 +254,7 @@ class _ResourceUsageStatisticsDialogState
                             ),
                             const SizedBox(width: 5),
                             Text(
-                              _formatTimestamp(generatedAt),
+                              formatYearMonthDayHms(generatedAt.toLocal()),
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: colorScheme.onPrimaryContainer,
@@ -1304,7 +1305,9 @@ class _ResourceDetailCard extends StatelessWidget {
               if (resource.lastCalledAt != null)
                 _MetricPill(
                   icon: Icons.schedule_rounded,
-                  label: _formatTimestamp(resource.lastCalledAt!),
+                  label: formatYearMonthDayHms(
+                    resource.lastCalledAt!.toLocal(),
+                  ),
                 ),
             ],
           ),
@@ -1511,7 +1514,7 @@ class _UsageEventCard extends StatelessWidget {
             children: [
               _EventMeta(
                 icon: Icons.schedule_rounded,
-                text: _formatTimestamp(event.occurredAt),
+                text: formatYearMonthDayHms(event.occurredAt.toLocal()),
               ),
               _EventMeta(
                 icon: Icons.timer_outlined,
@@ -1773,15 +1776,6 @@ String _formatDuration(int milliseconds) {
     return '${(milliseconds / 1000).toStringAsFixed(1)} s';
   }
   return '${(milliseconds / 60000).toStringAsFixed(1)} min';
-}
-
-String _formatTimestamp(DateTime value) {
-  final local = value.toLocal();
-  final date =
-      '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
-  final time =
-      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}';
-  return '$date $time';
 }
 
 String _statusLabel(BuildContext context, String status) {

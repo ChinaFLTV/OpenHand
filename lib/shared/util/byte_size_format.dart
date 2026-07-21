@@ -8,9 +8,9 @@ const List<String> _byteSizeUnits = <String>['KB', 'MB', 'GB', 'TB', 'PB'];
 final RegExp _trailingFractionZerosPattern = RegExp(r'0+$');
 final RegExp _trailingDecimalPointPattern = RegExp(r'\.$');
 
-String formatByteSize(int bytes) {
-  if (bytes <= 0) return '0 B';
-  if (bytes < kBytesPerKiB) return '$bytes B';
+String formatByteSize(num bytes) {
+  if (!bytes.isFinite || bytes <= 0) return '0 B';
+  if (bytes < kBytesPerKiB) return '${bytes.round()} B';
 
   double size = bytes / kBytesPerKiB;
   var unitIndex = 0;
@@ -22,6 +22,12 @@ String formatByteSize(int bytes) {
   final fractionDigits = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
   return '${_trimFractionZeros(size.toStringAsFixed(fractionDigits))} '
       '${_byteSizeUnits[unitIndex]}';
+}
+
+String formatSignedByteSize(num bytes) {
+  if (!bytes.isFinite || bytes == 0) return '0 B';
+  final prefix = bytes < 0 ? '-' : '+';
+  return '$prefix${formatByteSize(bytes.abs())}';
 }
 
 String formatNullableByteSize(int? bytes, {String pendingLabel = '...'}) {

@@ -16,6 +16,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -484,7 +485,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     child: Text(
                       pending
                           ? '…'
-                          : '${total}ms${size != null ? '·${_fmtSize(size)}' : ''}',
+                          : '${total}ms${size != null ? '·${formatByteSize(size)}' : ''}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontFamily: 'monospace',
@@ -874,11 +875,5 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     } catch (_) {
       return url;
     }
-  }
-
-  String _fmtSize(int bytes) {
-    if (bytes < 1024) return '${bytes}B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    return '${(bytes / 1024 / 1024).toStringAsFixed(2)}MB';
   }
 }

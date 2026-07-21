@@ -40,7 +40,6 @@ class _HeapDialogState extends State<_HeapDialog> {
   bool _busy = false;
   String _status = '';
   String _lastSaved = '';
-  int _lastBytes = 0;
 
   void _finishWithFailure(String message) {
     if (!mounted) return;
@@ -88,8 +87,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     setState(() {
       _busy = false;
       _lastSaved = file.path;
-      _lastBytes = r!.bytes;
-      final mb = (_lastBytes / 1024 / 1024).toStringAsFixed(2);
+      final mb = (r!.bytes / 1024 / 1024).toStringAsFixed(2);
       _status =
           loc?.webReverseHeapSaved(file.path, mb) ??
           'Saved: ${file.path} ($mb MB)';

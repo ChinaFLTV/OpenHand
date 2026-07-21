@@ -41,7 +41,6 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
   double _seconds = 5;
   String _status = '';
   String _lastSaved = '';
-  int _lastBytes = 0;
   Timer? _ticker;
   int _ticksLeft = 0;
   Completer<void>? _earlyStop;
@@ -135,11 +134,13 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       return;
     }
     late final File file;
+    late final int savedBytes;
     try {
       final dir = await getApplicationDocumentsDirectory();
       final ts = DateTime.now().millisecondsSinceEpoch;
       file = File('${dir.path}/openhand_trace_$ts.json');
       await file.writeAsString(json);
+      savedBytes = await file.length();
     } catch (e, s) {
       silentLog('web_reverse_perf_trace_dialog', 'perf-trace.save', e, s);
       if (!mounted) return;
@@ -153,8 +154,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       _busy = false;
       _earlyStop = null;
       _lastSaved = file.path;
-      _lastBytes = json!.length;
-      final kb = (_lastBytes / 1024).toStringAsFixed(1);
+      final kb = (savedBytes / 1024).toStringAsFixed(1);
       _status =
           loc?.webReversePerfSaved(file.path, kb) ??
           'Saved: ${file.path} ($kb KB)';

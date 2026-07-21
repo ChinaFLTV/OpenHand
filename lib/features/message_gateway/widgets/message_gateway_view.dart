@@ -21,6 +21,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -4266,7 +4267,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 de: 'Eingehend',
                                 ja: '受信量',
                               ),
-                              value: _bytes(snapshot.totalBytesIn),
+                              value: formatByteSize(snapshot.totalBytesIn),
                               detail: openHandLocalizedText(
                                 context,
                                 zh: '累计请求体',
@@ -4291,7 +4292,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 de: 'Ausgehend',
                                 ja: '送信量',
                               ),
-                              value: _bytes(snapshot.totalBytesOut),
+                              value: formatByteSize(snapshot.totalBytesOut),
                               detail: openHandLocalizedText(
                                 context,
                                 zh: '累计响应体',
@@ -4441,15 +4442,16 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 de: 'Prozessspeicher',
                                 ja: 'プロセスメモリ',
                               ),
-                              value: _bytes(snapshot.currentRssBytes),
+                              value: formatByteSize(snapshot.currentRssBytes),
                               detail: openHandLocalizedText(
                                 context,
-                                zh: '峰值 ${_bytes(snapshot.maxRssBytes)}',
-                                zhHant: '峰值 ${_bytes(snapshot.maxRssBytes)}',
-                                en: 'peak ${_bytes(snapshot.maxRssBytes)}',
-                                fr: 'pic ${_bytes(snapshot.maxRssBytes)}',
-                                de: 'Peak ${_bytes(snapshot.maxRssBytes)}',
-                                ja: 'ピーク ${_bytes(snapshot.maxRssBytes)}',
+                                zh: '峰值 ${formatByteSize(snapshot.maxRssBytes)}',
+                                zhHant:
+                                    '峰值 ${formatByteSize(snapshot.maxRssBytes)}',
+                                en: 'peak ${formatByteSize(snapshot.maxRssBytes)}',
+                                fr: 'pic ${formatByteSize(snapshot.maxRssBytes)}',
+                                de: 'Peak ${formatByteSize(snapshot.maxRssBytes)}',
+                                ja: 'ピーク ${formatByteSize(snapshot.maxRssBytes)}',
                               ),
                               tone: Theme.of(context).colorScheme.primary,
                               onTap: () =>
@@ -4486,20 +4488,20 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 de: 'Datenfluss',
                                 ja: 'データフロー',
                               ),
-                              value: _bytes(
+                              value: formatByteSize(
                                 (snapshot.bytesInPerMinute +
                                         snapshot.bytesOutPerMinute)
                                     .round(),
                               ),
                               detail: openHandLocalizedText(
                                 context,
-                                zh: '入 ${_bytes(snapshot.bytesInPerMinute.round())} / 出 ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                zh: '入 ${formatByteSize(snapshot.bytesInPerMinute.round())} / 出 ${formatByteSize(snapshot.bytesOutPerMinute.round())}',
                                 zhHant:
-                                    '入 ${_bytes(snapshot.bytesInPerMinute.round())} / 出 ${_bytes(snapshot.bytesOutPerMinute.round())}',
-                                en: 'in ${_bytes(snapshot.bytesInPerMinute.round())} / out ${_bytes(snapshot.bytesOutPerMinute.round())}',
-                                fr: 'in ${_bytes(snapshot.bytesInPerMinute.round())} / out ${_bytes(snapshot.bytesOutPerMinute.round())}',
-                                de: 'in ${_bytes(snapshot.bytesInPerMinute.round())} / out ${_bytes(snapshot.bytesOutPerMinute.round())}',
-                                ja: '受信 ${_bytes(snapshot.bytesInPerMinute.round())} / 送信 ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                    '入 ${formatByteSize(snapshot.bytesInPerMinute.round())} / 出 ${formatByteSize(snapshot.bytesOutPerMinute.round())}',
+                                en: 'in ${formatByteSize(snapshot.bytesInPerMinute.round())} / out ${formatByteSize(snapshot.bytesOutPerMinute.round())}',
+                                fr: 'in ${formatByteSize(snapshot.bytesInPerMinute.round())} / out ${formatByteSize(snapshot.bytesOutPerMinute.round())}',
+                                de: 'in ${formatByteSize(snapshot.bytesInPerMinute.round())} / out ${formatByteSize(snapshot.bytesOutPerMinute.round())}',
+                                ja: '受信 ${formatByteSize(snapshot.bytesInPerMinute.round())} / 送信 ${formatByteSize(snapshot.bytesOutPerMinute.round())}',
                               ),
                               tone: Theme.of(context).colorScheme.tertiary,
                               onTap: () =>
@@ -4794,7 +4796,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                     label: 'Swap',
                                     value: snapshot.swapBytes == null
                                         ? _gatewayUnavailable(context)
-                                        : _bytes(snapshot.swapBytes!),
+                                        : formatByteSize(snapshot.swapBytes!),
                                   ),
                                 ),
                                 SizedBox(
@@ -4809,7 +4811,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                       de: 'Max. Speicher',
                                       ja: '最大メモリ',
                                     ),
-                                    value: _bytes(snapshot.maxRssBytes),
+                                    value: formatByteSize(snapshot.maxRssBytes),
                                   ),
                                 ),
                                 SizedBox(
@@ -4824,7 +4826,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                       de: 'Protokollspeicher',
                                       ja: 'ログディスク',
                                     ),
-                                    value: _bytes(snapshot.logBytes),
+                                    value: formatByteSize(snapshot.logBytes),
                                   ),
                                 ),
                                 SizedBox(
@@ -5094,7 +5096,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                         snapshot.currentRssBytes.toDouble(),
                                   ),
                                   valueFormatter: (value) =>
-                                      _bytes(value.round()),
+                                      formatByteSize(value.round()),
                                 ),
                                 _TrendLineChart(
                                   title: openHandLocalizedText(
@@ -5111,7 +5113,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                     (snapshot) => snapshot.logBytes.toDouble(),
                                   ),
                                   valueFormatter: (value) =>
-                                      _bytes(value.round()),
+                                      formatByteSize(value.round()),
                                 ),
                                 _TrendLineChart(
                                   title: openHandLocalizedText(
@@ -5164,7 +5166,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                     (snapshot) => snapshot.bytesInPerMinute,
                                   ),
                                   valueFormatter: (value) =>
-                                      _bytes(value.round()),
+                                      formatByteSize(value.round()),
                                 ),
                               ],
                             );
@@ -5281,13 +5283,13 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         openHandLocalizedText(
           context,
-          zh: '$uploadCacheLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 条运维记录',
+          zh: '$uploadCacheLabel / $opsCacheLabel 清理完成，释放 ${formatByteSize(freedBytes)}，清理 ${opsResult.itemCount} 条运维记录',
           zhHant:
-              '$uploadCacheLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 則維運記錄',
-          en: '$uploadCacheLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, removed ${opsResult.itemCount} ops records',
-          fr: 'Nettoyage $uploadCacheLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${opsResult.itemCount} enregistrements supprimés',
-          de: '$uploadCacheLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${opsResult.itemCount} Ops-Einträge entfernt',
-          ja: '$uploadCacheLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${opsResult.itemCount} 件削除',
+              '$uploadCacheLabel / $opsCacheLabel 清理完成，釋放 ${formatByteSize(freedBytes)}，清理 ${opsResult.itemCount} 則維運記錄',
+          en: '$uploadCacheLabel / $opsCacheLabel cleanup completed, freed ${formatByteSize(freedBytes)}, removed ${opsResult.itemCount} ops records',
+          fr: 'Nettoyage $uploadCacheLabel / $opsCacheLabel terminé, ${formatByteSize(freedBytes)} libérés, ${opsResult.itemCount} enregistrements supprimés',
+          de: '$uploadCacheLabel / $opsCacheLabel bereinigt, ${formatByteSize(freedBytes)} freigegeben, ${opsResult.itemCount} Ops-Einträge entfernt',
+          ja: '$uploadCacheLabel / $opsCacheLabel のクリーンアップが完了しました。${formatByteSize(freedBytes)} 解放、${opsResult.itemCount} 件削除',
         ),
       );
       final persisted = widget.controller.persistedRuntimeSnapshots;
@@ -5356,13 +5358,13 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         openHandLocalizedText(
           context,
-          zh: '$expiredResourcesLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，删除 ${expiredResult.deletedFiles} 个文件，清理 ${opsResult.itemCount} 条运维记录',
+          zh: '$expiredResourcesLabel / $opsCacheLabel 清理完成，释放 ${formatByteSize(freedBytes)}，删除 ${expiredResult.deletedFiles} 个文件，清理 ${opsResult.itemCount} 条运维记录',
           zhHant:
-              '$expiredResourcesLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，刪除 ${expiredResult.deletedFiles} 個檔案，清理 ${opsResult.itemCount} 則維運記錄',
-          en: '$expiredResourcesLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, deleted ${expiredResult.deletedFiles} files, removed ${opsResult.itemCount} ops records',
-          fr: 'Nettoyage $expiredResourcesLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${expiredResult.deletedFiles} fichiers supprimés, ${opsResult.itemCount} enregistrements supprimés',
-          de: '$expiredResourcesLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${expiredResult.deletedFiles} Dateien gelöscht, ${opsResult.itemCount} Ops-Einträge entfernt',
-          ja: '$expiredResourcesLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${expiredResult.deletedFiles} ファイル削除、${opsResult.itemCount} 件削除',
+              '$expiredResourcesLabel / $opsCacheLabel 清理完成，釋放 ${formatByteSize(freedBytes)}，刪除 ${expiredResult.deletedFiles} 個檔案，清理 ${opsResult.itemCount} 則維運記錄',
+          en: '$expiredResourcesLabel / $opsCacheLabel cleanup completed, freed ${formatByteSize(freedBytes)}, deleted ${expiredResult.deletedFiles} files, removed ${opsResult.itemCount} ops records',
+          fr: 'Nettoyage $expiredResourcesLabel / $opsCacheLabel terminé, ${formatByteSize(freedBytes)} libérés, ${expiredResult.deletedFiles} fichiers supprimés, ${opsResult.itemCount} enregistrements supprimés',
+          de: '$expiredResourcesLabel / $opsCacheLabel bereinigt, ${formatByteSize(freedBytes)} freigegeben, ${expiredResult.deletedFiles} Dateien gelöscht, ${opsResult.itemCount} Ops-Einträge entfernt',
+          ja: '$expiredResourcesLabel / $opsCacheLabel のクリーンアップが完了しました。${formatByteSize(freedBytes)} 解放、${expiredResult.deletedFiles} ファイル削除、${opsResult.itemCount} 件削除',
         ),
         maxLines: 2,
       );
@@ -5482,13 +5484,13 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         openHandLocalizedText(
           context,
-          zh: '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
+          zh: '$label清理完成，释放 ${formatByteSize(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
           zhHant:
-              '$label 清理完成，釋放 ${_bytes(result.bytesFreed)}，刪除 ${result.deletedFiles} 個檔案',
-          en: '$label cleanup completed, freed ${_bytes(result.bytesFreed)}, deleted ${result.deletedFiles} files',
-          fr: 'Nettoyage $label terminé, ${_bytes(result.bytesFreed)} libérés, ${result.deletedFiles} fichiers supprimés',
-          de: '$label-Bereinigung abgeschlossen, ${_bytes(result.bytesFreed)} freigegeben, ${result.deletedFiles} Dateien gelöscht',
-          ja: '$label のクリーンアップが完了しました。${_bytes(result.bytesFreed)} 解放、${result.deletedFiles} ファイル削除',
+              '$label 清理完成，釋放 ${formatByteSize(result.bytesFreed)}，刪除 ${result.deletedFiles} 個檔案',
+          en: '$label cleanup completed, freed ${formatByteSize(result.bytesFreed)}, deleted ${result.deletedFiles} files',
+          fr: 'Nettoyage $label terminé, ${formatByteSize(result.bytesFreed)} libérés, ${result.deletedFiles} fichiers supprimés',
+          de: '$label-Bereinigung abgeschlossen, ${formatByteSize(result.bytesFreed)} freigegeben, ${result.deletedFiles} Dateien gelöscht',
+          ja: '$label のクリーンアップが完了しました。${formatByteSize(result.bytesFreed)} 解放、${result.deletedFiles} ファイル削除',
         ),
       );
       await _tick();
@@ -5690,13 +5692,13 @@ class _WebOpsInsightDialog extends StatelessWidget {
       (text('成功', 'Succeeded'), '${snapshot.successTotal}'),
       (text('拦截', 'Blocked'), '${snapshot.effectiveBlockedTotal}'),
       (text('失败', 'Failed'), '${snapshot.failedRequests}'),
-      (text('入口流量', 'Inbound'), _bytes(snapshot.totalBytesIn)),
-      (text('出口流量', 'Outbound'), _bytes(snapshot.totalBytesOut)),
+      (text('入口流量', 'Inbound'), formatByteSize(snapshot.totalBytesIn)),
+      (text('出口流量', 'Outbound'), formatByteSize(snapshot.totalBytesOut)),
       (text('当前 RPM', 'Current RPM'), _rate(snapshot.requestsPerMinute)),
       (text('平均延迟', 'Average latency'), '${snapshot.latencyStats.avgMs}ms'),
       ('P95', '${snapshot.latencyStats.p95Ms}ms'),
       (text('文件变动', 'Mutations'), '${snapshot.fileMutationCount}'),
-      (text('内存 RSS', 'Memory RSS'), _bytes(snapshot.currentRssBytes)),
+      (text('内存 RSS', 'Memory RSS'), formatByteSize(snapshot.currentRssBytes)),
     ];
     return items
         .map((item) => _MetricTile(label: item.$1, value: item.$2))
@@ -6610,7 +6612,7 @@ class _WebOpsRuntimeTerminal extends StatelessWidget {
               _WebOpsConsoleLine(
                 prompt: 'traffic',
                 command:
-                    'in=${_bytes(snapshot.totalBytesIn)} out=${_bytes(snapshot.totalBytesOut)}',
+                    'in=${formatByteSize(snapshot.totalBytesIn)} out=${formatByteSize(snapshot.totalBytesOut)}',
                 detail:
                     'rpm=${_rate(snapshot.requestsPerMinute)} err=${_rate(snapshot.errorsPerMinute)} p95=${snapshot.latencyStats.p95Ms}ms',
                 promptColor: promptColor,
@@ -6628,7 +6630,7 @@ class _WebOpsRuntimeTerminal extends StatelessWidget {
                 prompt: 'limits',
                 command: 'concurrency=${config.maxConcurrentRequests}',
                 detail:
-                    'message_tokens=${config.singleMessageTokenLimit} upload_cache=${_bytes(config.uploadCacheMaxBytes)}',
+                    'message_tokens=${config.singleMessageTokenLimit} upload_cache=${formatByteSize(config.uploadCacheMaxBytes)}',
                 promptColor: promptColor,
                 commandColor: commandColor,
               ),
@@ -7585,7 +7587,7 @@ class _WebOpsEnvironmentPanel extends StatelessWidget {
               de: 'Ressourcennutzung',
               ja: 'リソース使用量',
             ),
-            'RSS ${_bytes(snapshot.currentRssBytes)} · CPU ${snapshot.cpuPercent == null ? _gatewayUnavailable(context) : '${snapshot.cpuPercent!.toStringAsFixed(1)}%'}',
+            'RSS ${formatByteSize(snapshot.currentRssBytes)} · CPU ${snapshot.cpuPercent == null ? _gatewayUnavailable(context) : '${snapshot.cpuPercent!.toStringAsFixed(1)}%'}',
           ),
           _WebOpsInfoRow(
             openHandLocalizedText(
@@ -7597,7 +7599,7 @@ class _WebOpsEnvironmentPanel extends StatelessWidget {
               de: 'Handles / Swap',
               ja: 'ハンドル / Swap',
             ),
-            '${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)} · ${snapshot.swapBytes == null ? _gatewayUnavailable(context) : _bytes(snapshot.swapBytes!)}',
+            '${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)} · ${snapshot.swapBytes == null ? _gatewayUnavailable(context) : formatByteSize(snapshot.swapBytes!)}',
           ),
         ],
       ),
@@ -7891,13 +7893,13 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
             ),
             openHandLocalizedText(
               context,
-              zh: '上传缓存 ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 天 · 工作区 ${_bytes(config.workspaceFileMaxBytes)}',
+              zh: '上传缓存 ${formatByteSize(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 天 · 工作区 ${formatByteSize(config.workspaceFileMaxBytes)}',
               zhHant:
-                  '上傳快取 ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 天 · 工作區 ${_bytes(config.workspaceFileMaxBytes)}',
-              en: 'upload cache ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} days · workspace ${_bytes(config.workspaceFileMaxBytes)}',
-              fr: 'cache upload ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} jours · workspace ${_bytes(config.workspaceFileMaxBytes)}',
-              de: 'Upload-Cache ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} Tage · Workspace ${_bytes(config.workspaceFileMaxBytes)}',
-              ja: 'アップロードキャッシュ ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 日 · ワークスペース ${_bytes(config.workspaceFileMaxBytes)}',
+                  '上傳快取 ${formatByteSize(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 天 · 工作區 ${formatByteSize(config.workspaceFileMaxBytes)}',
+              en: 'upload cache ${formatByteSize(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} days · workspace ${formatByteSize(config.workspaceFileMaxBytes)}',
+              fr: 'cache upload ${formatByteSize(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} jours · workspace ${formatByteSize(config.workspaceFileMaxBytes)}',
+              de: 'Upload-Cache ${formatByteSize(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} Tage · Workspace ${formatByteSize(config.workspaceFileMaxBytes)}',
+              ja: 'アップロードキャッシュ ${formatByteSize(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 日 · ワークスペース ${formatByteSize(config.workspaceFileMaxBytes)}',
             ),
           ),
           _WebOpsInfoRow(
@@ -7954,13 +7956,13 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
             ),
             openHandLocalizedText(
               context,
-              zh: '${_bytes(config.logConfig.fileMaxBytes)} / 文件 · ${config.logConfig.maxFiles} 文件 · ${config.logConfig.rotationDays} 天轮转 · ${config.logConfig.lazyReadPageSize} 条/页',
+              zh: '${formatByteSize(config.logConfig.fileMaxBytes)} / 文件 · ${config.logConfig.maxFiles} 文件 · ${config.logConfig.rotationDays} 天轮转 · ${config.logConfig.lazyReadPageSize} 条/页',
               zhHant:
-                  '${_bytes(config.logConfig.fileMaxBytes)} / 檔案 · ${config.logConfig.maxFiles} 檔案 · ${config.logConfig.rotationDays} 天輪轉 · ${config.logConfig.lazyReadPageSize} 則/頁',
-              en: '${_bytes(config.logConfig.fileMaxBytes)} per file · ${config.logConfig.maxFiles} files · ${config.logConfig.rotationDays}d rotation · ${config.logConfig.lazyReadPageSize}/page',
-              fr: '${_bytes(config.logConfig.fileMaxBytes)} par fichier · ${config.logConfig.maxFiles} fichiers · rotation ${config.logConfig.rotationDays}j · ${config.logConfig.lazyReadPageSize}/page',
-              de: '${_bytes(config.logConfig.fileMaxBytes)} pro Datei · ${config.logConfig.maxFiles} Dateien · Rotation ${config.logConfig.rotationDays}T · ${config.logConfig.lazyReadPageSize}/Seite',
-              ja: 'ファイルごと ${_bytes(config.logConfig.fileMaxBytes)} · ${config.logConfig.maxFiles} ファイル · ${config.logConfig.rotationDays}日ローテーション · ${config.logConfig.lazyReadPageSize}/ページ',
+                  '${formatByteSize(config.logConfig.fileMaxBytes)} / 檔案 · ${config.logConfig.maxFiles} 檔案 · ${config.logConfig.rotationDays} 天輪轉 · ${config.logConfig.lazyReadPageSize} 則/頁',
+              en: '${formatByteSize(config.logConfig.fileMaxBytes)} per file · ${config.logConfig.maxFiles} files · ${config.logConfig.rotationDays}d rotation · ${config.logConfig.lazyReadPageSize}/page',
+              fr: '${formatByteSize(config.logConfig.fileMaxBytes)} par fichier · ${config.logConfig.maxFiles} fichiers · rotation ${config.logConfig.rotationDays}j · ${config.logConfig.lazyReadPageSize}/page',
+              de: '${formatByteSize(config.logConfig.fileMaxBytes)} pro Datei · ${config.logConfig.maxFiles} Dateien · Rotation ${config.logConfig.rotationDays}T · ${config.logConfig.lazyReadPageSize}/Seite',
+              ja: 'ファイルごと ${formatByteSize(config.logConfig.fileMaxBytes)} · ${config.logConfig.maxFiles} ファイル · ${config.logConfig.rotationDays}日ローテーション · ${config.logConfig.lazyReadPageSize}/ページ',
             ),
           ),
           _WebOpsInfoRow(
@@ -11175,12 +11177,13 @@ class _CleanupHistoryLine extends StatelessWidget {
           Text(
             openHandLocalizedText(
               context,
-              zh: '${entry.deletedFiles} 文件 / ${_bytes(entry.bytesFreed)}',
-              zhHant: '${entry.deletedFiles} 個檔案 / ${_bytes(entry.bytesFreed)}',
-              en: '${entry.deletedFiles} files / ${_bytes(entry.bytesFreed)}',
-              fr: '${entry.deletedFiles} fichiers / ${_bytes(entry.bytesFreed)}',
-              de: '${entry.deletedFiles} Dateien / ${_bytes(entry.bytesFreed)}',
-              ja: '${entry.deletedFiles} ファイル / ${_bytes(entry.bytesFreed)}',
+              zh: '${entry.deletedFiles} 文件 / ${formatByteSize(entry.bytesFreed)}',
+              zhHant:
+                  '${entry.deletedFiles} 個檔案 / ${formatByteSize(entry.bytesFreed)}',
+              en: '${entry.deletedFiles} files / ${formatByteSize(entry.bytesFreed)}',
+              fr: '${entry.deletedFiles} fichiers / ${formatByteSize(entry.bytesFreed)}',
+              de: '${entry.deletedFiles} Dateien / ${formatByteSize(entry.bytesFreed)}',
+              ja: '${entry.deletedFiles} ファイル / ${formatByteSize(entry.bytesFreed)}',
             ),
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -11791,13 +11794,4 @@ String _cleanupTargetLabel(BuildContext context, String target) {
     ),
     _ => target,
   };
-}
-
-String _bytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  final kb = bytes / 1024;
-  if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
-  final mb = kb / 1024;
-  if (mb < 1024) return '${mb.toStringAsFixed(1)} MB';
-  return '${(mb / 1024).toStringAsFixed(1)} GB';
 }
