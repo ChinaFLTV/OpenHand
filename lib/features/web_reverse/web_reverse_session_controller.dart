@@ -384,7 +384,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _startAliveWatchdog();
       _safeNotify();
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'start', error, stack);
+      silentLog('web_reverse_session_controller', '启动会话', error, stack);
       _errorMessage = error.toString();
       _started = false;
       await _safeStop();
@@ -686,12 +686,7 @@ class WebReverseSessionController extends ChangeNotifier {
           params: <String, Object?>{'sessionId': _pageSessionId},
         );
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'detach old target',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '分离旧页面目标', error, stack);
       }
       _pageSessionId = null;
     }
@@ -742,7 +737,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 当前 target 换了，上轮拿到的 hook scriptId 在新 target 上
     // 无意义，重新沿着新 _pageSessionId 装载 enabled hook。
     await _reapplyEnabledHooks();
-    await _cancelRuntimeSubscription(_pageEventsSub, 'replace page events');
+    await _cancelRuntimeSubscription(_pageEventsSub, '替换页面事件订阅');
     _pageEventsSub = cdp.events
         .where((ev) => ev.sessionId == null || ev.sessionId == _pageSessionId)
         .listen(_onCdpEvent);
@@ -764,7 +759,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
-          'stop screencast before target switch',
+          '切换页面目标前停止投屏',
           error,
           stack,
         );
@@ -777,7 +772,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'switchToPageTarget $normalizedTargetId',
+        '切换页面目标：$normalizedTargetId',
         error,
         stack,
       );
@@ -801,7 +796,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
-          'restart screencast after target switch',
+          '切换页面目标后恢复投屏',
           error,
           stack,
         );
@@ -901,12 +896,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return _validatedPageTargetId(r['targetId']);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'createPageTarget',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '创建页面目标', error, stack);
       return null;
     }
   }
@@ -932,7 +922,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'closePageTarget $normalizedTargetId',
+        '关闭页面目标：$normalizedTargetId',
         error,
         stack,
       );
@@ -945,12 +935,7 @@ class WebReverseSessionController extends ChangeNotifier {
       try {
         _rawCdpEventBus.add(ev);
       } catch (e, st) {
-        silentLog(
-          'web_reverse_session_controller',
-          'rawCdpEventBus.add',
-          e,
-          st,
-        );
+        silentLog('web_reverse_session_controller', '广播原始调试协议事件', e, st);
       }
     }
     switch (ev.method) {
@@ -1038,12 +1023,7 @@ class WebReverseSessionController extends ChangeNotifier {
       return normalizeWebReversePerformanceMetrics(r['metrics']);
     } catch (error, stack) {
       _performanceEnabled = false;
-      silentLog(
-        'web_reverse_session_controller',
-        'performanceMetrics',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取性能指标', error, stack);
       return const [];
     }
   }
@@ -1095,15 +1075,10 @@ class WebReverseSessionController extends ChangeNotifier {
       final raw = buffer.toString();
       return (json: raw, bytes: raw.length);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'takeHeapSnapshot',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '获取堆快照', error, stack);
       return null;
     } finally {
-      await _cancelRuntimeSubscription(sub, 'heap snapshot events');
+      await _cancelRuntimeSubscription(sub, '堆快照事件');
     }
   }
 
@@ -1197,10 +1172,10 @@ class WebReverseSessionController extends ChangeNotifier {
         },
       });
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'recordTrace', error, stack);
+      silentLog('web_reverse_session_controller', '记录性能跟踪', error, stack);
       return null;
     } finally {
-      await _cancelRuntimeSubscription(sub, 'performance trace events');
+      await _cancelRuntimeSubscription(sub, '性能跟踪事件');
     }
   }
 
@@ -1216,7 +1191,12 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return compactWebReverseCookies(r['cookies']);
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'listCookies', error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        '读取浏览器 Cookie 列表',
+        error,
+        stack,
+      );
       return const [];
     }
   }
@@ -1246,12 +1226,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return normalizeWebReverseDomStorageEntries(r['entries']);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'listDomStorage',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取页面存储', error, stack);
       return const [];
     }
   }
@@ -1311,7 +1286,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'deleteCookie $name',
+        '删除浏览器 Cookie：$name',
         error,
         stack,
       );
@@ -1411,7 +1386,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'setCookie $name',
+        '写入浏览器 Cookie：$name',
         error,
         stack,
       );
@@ -1440,12 +1415,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send('Network.clearBrowserCookies', sessionId: _pageSessionId);
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'clearAllCookies',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '清空浏览器 Cookie', error, stack);
       return false;
     }
   }
@@ -1496,12 +1466,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setDomStorageItem',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '写入页面存储项', error, stack);
       return false;
     }
   }
@@ -1539,12 +1504,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'removeDomStorageItem',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '删除页面存储项', error, stack);
       return false;
     }
   }
@@ -1574,12 +1534,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'clearDomStorage',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '清空页面存储', error, stack);
       return false;
     }
   }
@@ -1601,12 +1556,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (value is! String) return null;
       return _validatedCommandText(value, maxPageTargetUrlChars);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'currentOrigin',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取当前页面源地址', error, stack);
       return null;
     }
   }
@@ -1626,12 +1576,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return normalizeWebReverseIndexedDbNames(r['databaseNames']);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'listIndexedDbNames',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取浏览器索引数据库列表', error, stack);
       return const [];
     }
   }
@@ -1664,7 +1609,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'describeIndexedDb $dbName',
+        '读取浏览器索引数据库结构：$dbName',
         error,
         stack,
       );
@@ -1713,7 +1658,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'readIndexedDbStore $dbName/$storeName',
+        '读取浏览器索引数据库存储：$dbName/$storeName',
         error,
         stack,
       );
@@ -1748,7 +1693,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'clearIndexedDbStore $dbName/$storeName',
+        '清空浏览器索引数据库存储：$dbName/$storeName',
         error,
         stack,
       );
@@ -1798,7 +1743,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'deleteIndexedDbEntry $dbName/$storeName',
+        '删除浏览器索引数据库记录：$dbName/$storeName',
         error,
         stack,
       );
@@ -1843,7 +1788,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'deleteIndexedDb $dbName',
+        '删除浏览器索引数据库：$dbName',
         error,
         stack,
       );
@@ -1865,12 +1810,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return normalizeWebReverseCacheStorageNames(r['caches']);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'listCacheStorage',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取浏览器缓存列表', error, stack);
       return const [];
     }
   }
@@ -1891,7 +1831,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'registerSW', error, stack);
+      silentLog('web_reverse_session_controller', '注册服务工作线程', error, stack);
       return false;
     }
   }
@@ -1907,7 +1847,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'updateSW', error, stack);
+      silentLog('web_reverse_session_controller', '更新服务工作线程', error, stack);
       return false;
     }
   }
@@ -1923,7 +1863,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'unregisterSW', error, stack);
+      silentLog('web_reverse_session_controller', '注销服务工作线程', error, stack);
       return false;
     }
   }
@@ -1997,15 +1937,10 @@ class WebReverseSessionController extends ChangeNotifier {
         rawRegistrations: registrationsById.values,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'listServiceWorkers',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取服务工作线程列表', error, stack);
       return const [];
     } finally {
-      await _cancelRuntimeSubscription(sub, 'service worker events');
+      await _cancelRuntimeSubscription(sub, '服务工作线程事件');
     }
   }
 
@@ -2028,12 +1963,7 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       await cdp.send('Security.enable', sessionId: _pageSessionId);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'enableSecurity',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '启用安全域', error, stack);
     }
   }
 
@@ -2239,12 +2169,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _recording = true;
       _safeNotify();
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'startRecording',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '开始录制', error, stack);
     }
   }
 
@@ -2260,12 +2185,7 @@ class WebReverseSessionController extends ChangeNotifier {
           sessionId: _pageSessionId,
         );
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'remove recorder script',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '移除录制脚本', error, stack);
       }
       _recorderScriptIdentifier = null;
     }
@@ -2281,12 +2201,7 @@ class WebReverseSessionController extends ChangeNotifier {
           sessionId: _pageSessionId,
         );
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'remove recorder overlay',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '移除录制浮层', error, stack);
       }
     }
     _safeNotify();
@@ -2442,7 +2357,7 @@ class WebReverseSessionController extends ChangeNotifier {
         failed++;
         silentLog(
           'web_reverse_session_controller',
-          'replay step $type',
+          '重放录制步骤：$type',
           error,
           stack,
         );
@@ -2484,12 +2399,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final v = cdpResultValue(r);
       return v is bool ? v : null;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'eval bool expression',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '求值布尔表达式', error, stack);
       return null;
     }
   }
@@ -2895,7 +2805,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _safeNotify();
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', '_refreshPageTitle', e, st);
+      silentLog('web_reverse_session_controller', '刷新页面标题', e, st);
     }
   }
 
@@ -2963,12 +2873,7 @@ class WebReverseSessionController extends ChangeNotifier {
         if (!_disposed) screencastFrameNotifier.value = _screencastFrameSeq;
         if (viewportChanged) _safeNotify();
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'decode screencast frame',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '解析页面投屏帧', error, stack);
       }
     }
     // ack 必须发送，且要带回原 sessionId。即便帧解码失败也要 ack，否则
@@ -3087,12 +2992,7 @@ class WebReverseSessionController extends ChangeNotifier {
           _appendRecorderStep(stringKeyedMapFromValue(decoded));
         }
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'decode recorder console step',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '解析控制台录制步骤', error, stack);
       }
     }
     _appendConsole(type, text);
@@ -3143,7 +3043,7 @@ class WebReverseSessionController extends ChangeNotifier {
           } catch (closeError, closeStack) {
             silentLog(
               'web_reverse_session_controller',
-              '关闭失联浏览器 CDP',
+              '关闭失联浏览器调试协议连接',
               closeError,
               closeStack,
             );
@@ -3214,7 +3114,7 @@ class WebReverseSessionController extends ChangeNotifier {
         } catch (error, stack) {
           silentLog(
             'web_reverse_session_controller',
-            'restore screencast after reconnect',
+            '重连后恢复页面投屏',
             error,
             stack,
           );
@@ -3222,12 +3122,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       _appendConsole('info', '[OpenHand] CDP 已自动重连，已恢复网络 / 控制台监听');
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        '_reattachAfterReconnect',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '重连后重新附加页面', error, stack);
     }
   }
 
@@ -3510,12 +3405,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final sid = r['identifier'];
       if (sid is String) _hookCdpScriptId[h.id] = sid;
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'installHook ${h.name}',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '安装钩子：${h.name}', e, st);
     }
   }
 
@@ -3531,7 +3421,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 5),
       );
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'uninstallHook', e, st);
+      silentLog('web_reverse_session_controller', '卸载钩子', e, st);
     }
   }
 
@@ -3689,7 +3579,7 @@ class WebReverseSessionController extends ChangeNotifier {
       (_) => _executeCronOnce(c),
       onError: (error, stack) => silentLog(
         'web_reverse_session_controller',
-        'cron timer ${c.name}',
+        '定时任务计时器：${c.name}',
         error,
         stack,
       ),
@@ -3704,7 +3594,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return r;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'cron ${c.name}', e, st);
+      silentLog('web_reverse_session_controller', '执行定时任务：${c.name}', e, st);
       return null;
     }
   }
@@ -3733,7 +3623,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final root = r['root'];
       return compactWebReverseDomNode(root, maxDepth: safeDepth);
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'domGetDocument', e, st);
+      silentLog('web_reverse_session_controller', '读取页面文档', e, st);
       return null;
     }
   }
@@ -3758,7 +3648,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final node = r['node'];
       return compactWebReverseDomNode(node, maxDepth: safeDepth);
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'domDescribeNode', e, st);
+      silentLog('web_reverse_session_controller', '读取页面节点', e, st);
       return null;
     }
   }
@@ -3789,7 +3679,7 @@ class WebReverseSessionController extends ChangeNotifier {
       return compactWebReverseComputedStyles(r['computedStyle']);
     } catch (e, st) {
       _cssEnabled = false;
-      silentLog('web_reverse_session_controller', 'domGetComputedStyle', e, st);
+      silentLog('web_reverse_session_controller', '读取页面节点计算样式', e, st);
       return const [];
     }
   }
@@ -3828,12 +3718,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseDomEventListeners(r['listeners']);
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'domGetEventListeners',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '读取页面节点事件监听器', e, st);
       return const [];
     } finally {
       if (objectId != null && _pageSessionId == sessionId) {
@@ -3847,7 +3732,7 @@ class WebReverseSessionController extends ChangeNotifier {
         } catch (error, stack) {
           silentLog(
             'web_reverse_session_controller',
-            'release DOM listener object',
+            '释放页面节点监听器对象',
             error,
             stack,
           );
@@ -3897,7 +3782,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return null;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', '_domEvaluatePathFn', e, st);
+      silentLog('web_reverse_session_controller', '计算页面节点路径', e, st);
       return null;
     }
   }
@@ -3950,7 +3835,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 4),
       );
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'domHighlightNode', e, st);
+      silentLog('web_reverse_session_controller', '高亮页面节点', e, st);
     }
   }
 
@@ -3964,7 +3849,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'domHideHighlight', e, st);
+      silentLog('web_reverse_session_controller', '隐藏页面节点高亮', e, st);
     }
   }
 
@@ -3980,7 +3865,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 4),
       );
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'domScrollIntoView', e, st);
+      silentLog('web_reverse_session_controller', '滚动到页面节点', e, st);
     }
   }
 
@@ -4055,7 +3940,7 @@ class WebReverseSessionController extends ChangeNotifier {
           } catch (error, stack) {
             silentLog(
               'web_reverse_session_controller',
-              'format console eval result preview',
+              '格式化控制台求值结果预览',
               error,
               stack,
             );
@@ -4071,12 +3956,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _appendConsole('repl-result', preview);
       return preview;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'runReplExpression',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '运行控制台表达式', error, stack);
       _appendConsole('error', '$error');
       return null;
     }
@@ -4226,48 +4106,33 @@ class WebReverseSessionController extends ChangeNotifier {
               .timeout(const Duration(milliseconds: 500));
         }
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'stop browser screencast',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '停止浏览器页面投屏', error, stack);
       }
     }
     _resetScreencastRuntimeState(resetRefCount: false);
     _clearPendingFetchRequests(resetEnabled: true);
     _samplingProfileRunning = false;
-    await _cancelRuntimeSubscription(_pageEventsSub, 'stop page events');
+    await _cancelRuntimeSubscription(_pageEventsSub, '停止页面事件订阅');
     _pageEventsSub = null;
     _pageSessionId = null;
     await _closeAuxiliaryServices();
     try {
       await _pageCdp?.close();
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'close page cdp',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '关闭页面调试协议连接', error, stack);
     }
     _pageCdp = null;
     _sourceMapCache.clear();
     try {
       await _browserCdp?.close();
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'close browser cdp',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '关闭浏览器调试协议连接', error, stack);
     }
     _browserCdp = null;
     final p = _launchResult?.process;
     _launchResult = null;
     if (p != null) {
-      await _terminateBrowserProcess(p, 'stop browser process');
+      await _terminateBrowserProcess(p, '停止浏览器');
     }
     _errorMessage = null;
     _safeNotify();
@@ -4319,12 +4184,7 @@ class WebReverseSessionController extends ChangeNotifier {
         );
       }
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'restartBrowser → start',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '重启浏览器后启动会话', error, stack);
       _screencastRefCount = restoreScreencastRefCount;
       _errorMessage = '浏览器重启失败：$error';
       _safeNotify();
@@ -4360,30 +4220,20 @@ class WebReverseSessionController extends ChangeNotifier {
               .timeout(const Duration(milliseconds: 500));
         }
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'safe stop screencast',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '安全停止页面投屏', error, stack);
       }
     }
     _resetScreencastRuntimeState(resetRefCount: true);
     _clearPendingFetchRequests(resetEnabled: true);
     _samplingProfileRunning = false;
-    await _cancelRuntimeSubscription(_pageEventsSub, 'shutdown page events');
+    await _cancelRuntimeSubscription(_pageEventsSub, '关闭页面事件订阅');
     await _closeAuxiliaryServices();
     _pageEventsSub = null;
     _pageSessionId = null;
     try {
       await _pageCdp?.close();
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'safe close page cdp',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '安全关闭页面调试协议连接', error, stack);
     }
     _pageCdp = null;
     _sourceMapCache.clear();
@@ -4392,7 +4242,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'safe close browser cdp',
+        '安全关闭浏览器调试协议连接',
         error,
         stack,
       );
@@ -4401,13 +4251,13 @@ class WebReverseSessionController extends ChangeNotifier {
     final p = _launchResult?.process;
     _launchResult = null;
     if (p != null) {
-      await _terminateBrowserProcess(p, 'shutdown browser process');
+      await _terminateBrowserProcess(p, '关闭浏览器');
     }
     // 收尾产物：先导 HAR（用 in-memory drafts），再关 artifacts。
     try {
       _lastHarPath = await _artifacts.exportHar();
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'export HAR', error, stack);
+      silentLog('web_reverse_session_controller', '导出网络归档', error, stack);
     }
     await _artifacts.close();
   }
@@ -4419,13 +4269,17 @@ class WebReverseSessionController extends ChangeNotifier {
         gracefulTimeout: _browserStopGrace,
       ),
       timeout: _browserCleanupTimeout,
-      onError: (error, stack) =>
-          silentLog('web_reverse_session_controller', where, error, stack),
+      onError: (error, stack) => silentLog(
+        'web_reverse_session_controller',
+        '终止浏览器进程：$where',
+        error,
+        stack,
+      ),
     );
   }
 
   Future<void> _closeAuxiliaryServices() async {
-    await _cancelRuntimeSubscription(_mitmSub, 'shutdown mitm events');
+    await _cancelRuntimeSubscription(_mitmSub, '关闭流量代理事件订阅');
     _mitmSub = null;
     final br = _mitmBridge;
     _mitmBridge = null;
@@ -4433,12 +4287,7 @@ class WebReverseSessionController extends ChangeNotifier {
       try {
         await br.close();
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'close mitm bridge',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '关闭流量代理桥接', error, stack);
       }
     }
     final har = _harReplayServer;
@@ -4447,12 +4296,7 @@ class WebReverseSessionController extends ChangeNotifier {
       try {
         await har.close();
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'close har replay server',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_session_controller', '关闭网络归档重放服务', error, stack);
       }
     }
   }
@@ -4480,12 +4324,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setCacheDisabled',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '设置浏览器缓存禁用状态', error, stack);
       _safeNotify();
       return false;
     }
@@ -4540,12 +4379,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _fpsCounterInstalled = true;
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'install fps counter',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '安装帧率计数器', error, stack);
       return false;
     }
   }
@@ -4609,12 +4443,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _longTaskObserverInstalled = true;
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'install long task observer',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '安装长任务观察器', error, stack);
       return false;
     }
   }
@@ -4642,12 +4471,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (decoded is! List) return const [];
       return compactWebReverseLongTasks(decoded);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'read long tasks',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取长任务', error, stack);
       return const [];
     }
   }
@@ -4847,12 +4671,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _rtcInstalled = true;
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'installWebRtcCapture',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '安装网页实时通信采集器', error, stack);
       return false;
     }
   }
@@ -4880,12 +4699,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (decoded is! List) return const [];
       return compactWebReverseWebRtcLog(decoded);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'read WebRTC logs',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取网页实时通信日志', error, stack);
       return const [];
     }
   }
@@ -4909,7 +4723,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final v = cdpResultValue(r);
       return v is num ? v.toDouble() : null;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'read fps', error, stack);
+      silentLog('web_reverse_session_controller', '读取帧率', error, stack);
       return null;
     }
   }
@@ -4953,12 +4767,7 @@ class WebReverseSessionController extends ChangeNotifier {
             .timeout(const Duration(seconds: 3));
       }
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'releaseScreencast',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '释放页面投屏', error, stack);
     }
     _resetScreencastRuntimeState(resetRefCount: false);
     _safeNotify();
@@ -5001,12 +4810,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'startScreencastForCurrentSubscribers',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '为当前订阅者启动页面投屏', error, stack);
       return false;
     }
   }
@@ -5053,12 +4857,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _screencastQuality = clampedQ;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'reconfigureScreencast',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '重新配置页面投屏', error, stack);
     }
   }
 
@@ -5095,12 +4894,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'dispatchMouseEvent $type',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '派发鼠标事件：$type', error, stack);
     }
   }
 
@@ -5136,12 +4930,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'dispatchKeyEvent $type',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '派发键盘事件：$type', error, stack);
     }
   }
 
@@ -5158,7 +4947,7 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'insertText', error, stack);
+      silentLog('web_reverse_session_controller', '插入文本', error, stack);
     }
   }
 
@@ -5177,7 +4966,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'navigate $normalizedUrl',
+        '导航页面：$normalizedUrl',
         error,
         stack,
       );
@@ -5186,12 +4975,12 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 后退一帧（若有历史）。
   Future<void> goBack() async {
-    await _navigateHistoryOffset(-1, logAction: 'goBack');
+    await _navigateHistoryOffset(-1, logAction: '后退');
   }
 
   /// 前进一帧（若有历史）。
   Future<void> goForward() async {
-    await _navigateHistoryOffset(1, logAction: 'goForward');
+    await _navigateHistoryOffset(1, logAction: '前进');
   }
 
   Future<void> _navigateHistoryOffset(
@@ -5221,7 +5010,12 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', logAction, error, stack);
+      silentLog(
+        'web_reverse_session_controller',
+        '页面历史导航：$logAction',
+        error,
+        stack,
+      );
     }
   }
 
@@ -5236,7 +5030,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'reload', error, stack);
+      silentLog('web_reverse_session_controller', '重新加载页面', error, stack);
     }
   }
 
@@ -5273,12 +5067,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'applyResolutionEmulation',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '应用分辨率模拟', error, stack);
     }
   }
 
@@ -5316,12 +5105,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setDeviceMetricsPreset',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '设置设备指标预设', error, stack);
       return false;
     }
   }
@@ -5356,12 +5140,7 @@ class WebReverseSessionController extends ChangeNotifier {
             sessionId: _pageSessionId,
           );
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_session_controller',
-            'remove old zoom script',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_session_controller', '移除旧缩放脚本', error, stack);
         }
       }
       final initJs =
@@ -5397,7 +5176,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'setZoomFactor $clamped',
+        '设置页面缩放比例：$clamped',
         error,
         stack,
       );
@@ -5439,7 +5218,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final v = cdpResultValue(r);
       return v is num ? v.toInt() : 0;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'find in page', error, stack);
+      silentLog('web_reverse_session_controller', '在页面中查找', error, stack);
       return 0;
     }
   }
@@ -5456,7 +5235,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'find cycle', error, stack);
+      silentLog('web_reverse_session_controller', '切换页面查找结果', error, stack);
     }
   }
 
@@ -5472,12 +5251,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'clear find highlights',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '清除页面查找高亮', error, stack);
     }
   }
 
@@ -5576,12 +5350,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _finderInstalled = true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        '_installFinder',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '安装页面查找器', error, stack);
     }
   }
 
@@ -5604,12 +5373,7 @@ class WebReverseSessionController extends ChangeNotifier {
           ? _capPlainWebReverseText(value, maxPageTargetUrlChars)
           : null;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'read current url',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取当前页面地址', error, stack);
       return null;
     }
   }
@@ -5697,7 +5461,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'captureScreenshot $format full=$capturePastViewport',
+        '截取页面图像：格式=$format，整页=$capturePastViewport',
         error,
         stack,
       );
@@ -5731,12 +5495,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'startMemorySampling',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '开始内存采样', error, stack);
       return false;
     }
   }
@@ -5758,12 +5517,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (profile.isEmpty) return null;
       return summarizeSamplingHeapProfile(profile['head']);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'stopMemorySampling',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '停止内存采样', error, stack);
       return null;
     } finally {
       if (_samplingProfileRunning) {
@@ -5888,12 +5642,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setFetchInterceptEnabled',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '设置请求拦截状态', error, stack);
       return false;
     }
   }
@@ -5920,7 +5669,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'continue fetch request $requestId',
+        '继续请求：$requestId',
         error,
         stack,
       );
@@ -5976,12 +5725,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: sessionId,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'continueFetchRequestEdited',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '继续已编辑请求', error, stack);
     }
     _safeNotify();
   }
@@ -6015,7 +5759,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'abort fetch request $requestId',
+        '终止请求：$requestId',
         error,
         stack,
       );
@@ -6242,7 +5986,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       _safeNotify();
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', '_fulfillMockRequest', e, st);
+      silentLog('web_reverse_session_controller', '响应模拟请求', e, st);
     }
   }
 
@@ -6282,12 +6026,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setBlockedURLs',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '设置拦截地址', error, stack);
     }
     _safeNotify();
   }
@@ -6348,12 +6087,7 @@ class WebReverseSessionController extends ChangeNotifier {
         body: '${decoded['body'] ?? ''}',
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'replayRequest',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '重放请求', error, stack);
       return null;
     }
   }
@@ -6388,12 +6122,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setNetworkThrottling',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '设置网络限速', error, stack);
       return false;
     }
   }
@@ -6432,12 +6161,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send('Debugger.enable', sessionId: _pageSessionId);
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'enableDebugger',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '启用调试器', error, stack);
       return false;
     }
   }
@@ -6497,12 +6221,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _scriptSources.put(scriptId, boundedSource);
       return boundedSource;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'getScriptSource',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取脚本源码', error, stack);
       return null;
     }
   }
@@ -6590,12 +6309,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return bp;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setBreakpointByUrl',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '按地址设置断点', error, stack);
       return null;
     }
   }
@@ -6654,12 +6368,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'removeBreakpoint',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '移除断点', error, stack);
       return false;
     }
   }
@@ -6681,12 +6390,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send('Debugger.resume', sessionId: _pageSessionId);
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'resume debugger',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '恢复调试器运行', error, stack);
       return false;
     }
   }
@@ -6715,12 +6419,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setPauseOnExceptions',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '设置异常暂停策略', e, st);
       return false;
     }
   }
@@ -6742,7 +6441,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'addXhrBreakpoint', e, st);
+      silentLog('web_reverse_session_controller', '添加异步请求断点', e, st);
       return false;
     }
   }
@@ -6761,7 +6460,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'removeXhrBreakpoint', e, st);
+      silentLog('web_reverse_session_controller', '移除异步请求断点', e, st);
       return false;
     }
   }
@@ -6830,7 +6529,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send(method, sessionId: _pageSessionId);
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', method, e, st);
+      silentLog('web_reverse_session_controller', '执行调试器命令：$method', e, st);
       return false;
     }
   }
@@ -6869,7 +6568,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return (r['result'] as Map?)?.cast<String, Object?>();
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'evaluateOnCallFrame', e, st);
+      silentLog('web_reverse_session_controller', '在调用帧中求值', e, st);
       return null;
     }
   }
@@ -6929,7 +6628,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return (r['result'] as Map?)?.cast<String, Object?>();
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'evaluateWatch', e, st);
+      silentLog('web_reverse_session_controller', '求值监视表达式', e, st);
       return null;
     }
   }
@@ -6964,12 +6663,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setEventListenerBreakpoint',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '设置事件监听器断点', e, st);
       return false;
     }
   }
@@ -6988,12 +6682,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'removeEventListenerBreakpoint',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '移除事件监听器断点', e, st);
       return false;
     }
   }
@@ -7062,7 +6751,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'addDomBreakpoint', e, st);
+      silentLog('web_reverse_session_controller', '添加页面节点断点', e, st);
       return false;
     }
   }
@@ -7105,7 +6794,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'removeDomBreakpoint', e, st);
+      silentLog('web_reverse_session_controller', '移除页面节点断点', e, st);
       return false;
     }
   }
@@ -7138,12 +6827,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setCspViolationBreakpoints',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '设置内容安全策略违规断点', e, st);
       return false;
     }
   }
@@ -7176,12 +6860,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseRuntimeProperties(r['result']);
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'runtimeGetProperties',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '读取运行时对象属性', e, st);
       return const [];
     }
   }
@@ -7219,12 +6898,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseDomEventListeners(r['listeners']);
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'listGlobalEventListeners',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '读取全局事件监听器', e, st);
       return const [];
     } finally {
       if (_pageSessionId == sessionId) {
@@ -7238,7 +6912,7 @@ class WebReverseSessionController extends ChangeNotifier {
         } catch (error, stack) {
           silentLog(
             'web_reverse_session_controller',
-            'release global listener objects',
+            '释放全局监听器对象',
             error,
             stack,
           );
@@ -7622,7 +7296,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
-          'restore $method',
+          '恢复网络域状态：$method',
           error,
           stack,
         );
@@ -7679,12 +7353,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'setExtraHttpHeaders',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '设置附加请求头', error, stack);
       return false;
     }
   }
@@ -7777,12 +7446,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return (port: s.port, entryCount: s.entryCount);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'startHarReplayServer',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '启动网络归档重放服务', error, stack);
       return null;
     }
   }
@@ -7896,7 +7560,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final br = _mitmBridge;
     if (br == null) return;
     _mitmBridge = null;
-    await _cancelRuntimeSubscription(_mitmSub, 'stop mitm events');
+    await _cancelRuntimeSubscription(_mitmSub, '停止流量代理事件订阅');
     _mitmSub = null;
     _safeNotify();
     await br.close();
@@ -7929,7 +7593,7 @@ class WebReverseSessionController extends ChangeNotifier {
         if (r.exitCode != 0) {
           silentLog(
             'web_reverse_session_controller',
-            'zip exitCode=${r.exitCode}',
+            '压缩会话包失败，退出码：${r.exitCode}',
             r.stderr,
             StackTrace.current,
           );
@@ -7948,7 +7612,7 @@ class WebReverseSessionController extends ChangeNotifier {
         if (r.exitCode != 0) {
           silentLog(
             'web_reverse_session_controller',
-            'Compress-Archive exitCode=${r.exitCode}',
+            '压缩会话包失败，退出码：${r.exitCode}',
             r.stderr,
             StackTrace.current,
           );
@@ -7957,12 +7621,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       return out.path;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'exportSessionBundle',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '导出会话包', error, stack);
       return null;
     }
   }
@@ -8016,7 +7675,7 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'fetchResponseBody $normalizedRequestId',
+        '读取响应正文：$normalizedRequestId',
         error,
         stack,
       );
@@ -8034,12 +7693,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return destPath;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'exportHarToPath copy',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '复制网络归档到目标路径', error, stack);
       return null;
     }
   }
@@ -8158,7 +7812,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return (loaded: loaded, skipped: skipped);
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'loadHarBytes', error, stack);
+      silentLog('web_reverse_session_controller', '载入网络归档数据', error, stack);
       return (loaded: 0, skipped: 0);
     }
   }
@@ -8175,8 +7829,7 @@ class WebReverseSessionController extends ChangeNotifier {
     return 'Other';
   }
 
-  /// Releases browser/CDP processes, auxiliary servers, subscriptions, and the
-  /// raw event bus through one idempotent shutdown future.
+  /// 通过同一个幂等异步任务关闭浏览器、辅助服务、订阅和原始事件总线。
   Future<void> shutdown() {
     final active = _shutdownFuture;
     if (active != null) return active;
@@ -8196,14 +7849,14 @@ class WebReverseSessionController extends ChangeNotifier {
               timeout: _browserCleanupTimeout,
               onError: (error, stack) => silentLog(
                 'web_reverse_session_controller',
-                'close raw CDP event bus',
+                '关闭原始调试协议事件总线',
                 error,
                 stack,
               ),
             );
           }
         }().catchError((Object error, StackTrace stack) {
-          silentLog('web_reverse_session_controller', 'shutdown', error, stack);
+          silentLog('web_reverse_session_controller', '关闭会话', error, stack);
         });
     _shutdownFuture = shutdown;
     return shutdown;
@@ -8420,7 +8073,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return _networkRequests.length;
     } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'importSnapshot', e, st);
+      silentLog('web_reverse_session_controller', '导入会话快照', e, st);
       return -1;
     }
   }
@@ -8436,7 +8089,7 @@ class WebReverseSessionController extends ChangeNotifier {
       subscription,
       onError: (error, stack) => silentLog(
         'web_reverse_session_controller',
-        'cancel $where',
+        '取消运行时订阅：$where',
         error,
         stack,
       ),
@@ -8562,7 +8215,7 @@ class WebReverseSessionController extends ChangeNotifier {
             timeout: const Duration(seconds: 3),
           );
         } catch (e, st) {
-          silentLog('web_reverse_session_controller', 'breakpoint_eval', e, st);
+          silentLog('web_reverse_session_controller', '执行断点表达式', e, st);
         }
       }
     }
@@ -8612,12 +8265,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final v = result?['value'];
       return v is String && v.isNotEmpty ? v : null;
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'read current page origin',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '读取当前页面源地址', error, stack);
       return null;
     }
   }
@@ -8689,7 +8337,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
-          'clearBrowserCookies',
+          '清空浏览器 Cookie',
           error,
           stack,
         );
@@ -8706,7 +8354,7 @@ class WebReverseSessionController extends ChangeNotifier {
         } catch (error, stack) {
           silentLog(
             'web_reverse_session_controller',
-            'restore account snapshot cookies',
+            '恢复账户快照 Cookie',
             error,
             stack,
           );
@@ -8733,7 +8381,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
-          'enable DOM storage for account snapshot',
+          '为账户快照启用页面存储',
           error,
           stack,
         );
@@ -8763,7 +8411,7 @@ class WebReverseSessionController extends ChangeNotifier {
             restoreActive = false;
             silentLog(
               'web_reverse_session_controller',
-              'restore account snapshot storage',
+              '恢复账户快照存储',
               error,
               stack,
             );
@@ -8780,12 +8428,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (succeeded) _safeNotify();
       return succeeded;
     } on TimeoutException catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'restore account snapshot timeout',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_session_controller', '恢复账户快照超时', error, stack);
       return false;
     } finally {
       restoreActive = false;
@@ -8959,12 +8602,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return _cacheSourceMap(url, info);
     } catch (e, st) {
-      silentLog(
-        'web_reverse_session_controller',
-        'fetchSourceMapForUrl',
-        e,
-        st,
-      );
+      silentLog('web_reverse_session_controller', '按地址获取源映射', e, st);
       return _cacheSourceMap(url, null);
     }
   }
