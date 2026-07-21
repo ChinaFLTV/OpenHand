@@ -15,6 +15,9 @@ final class SerialTaskQueue {
   Future<void> _tail = Future<void>.value();
   int _pendingTasks = 0;
 
+  /// 当前已入队任务全部结束时完成；后续新任务不包含在本次等待中。
+  Future<void> get idle => _tail;
+
   Future<T> enqueue<T>(Future<T> Function() task) {
     if (_pendingTasks >= maxPendingTasks) {
       return Future<T>.error(StateError('串行任务队列已满，拒绝继续堆积任务。'));

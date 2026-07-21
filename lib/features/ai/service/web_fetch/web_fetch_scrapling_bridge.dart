@@ -154,6 +154,10 @@ class WebFetchScraplingBridge {
 
   _ScraplingProcessRuntime? _runtime;
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
+  final Completer<void> _disposeSignal = Completer<void>();
+  Future<void>? _disposeFuture;
+  bool _disposed = false;
+  Process? _runtimeCommandProcess;
   String? _helperPath;
   int _requestSeq = 0;
   WebFetchScraplingProbeStatus _lastProbe = const WebFetchScraplingProbeStatus(
@@ -195,6 +199,7 @@ class WebFetchScraplingBridge {
   }) {
     return _runExclusive(() async {
       final python = await _resolvePythonExecutable(settings);
+      _throwIfDisposed();
       if (python == null) {
         return _lastProbe = _pythonNotFoundProbeStatus();
       }
@@ -228,6 +233,7 @@ class WebFetchScraplingBridge {
   }) {
     return _runExclusive(() async {
       final python = await _resolvePythonExecutable(settings);
+      _throwIfDisposed();
       if (python == null) {
         _lastProbe = _pythonNotFoundProbeStatus();
         throw WebEngineHttpException(_lastProbe.code);
@@ -290,10 +296,50 @@ class WebFetchScraplingBridge {
     });
   }
 
-  Future<void> dispose() => _runExclusive(_killProcess);
+  Future<void> reset() => _runExclusive(_killProcess);
 
-  Future<T> _runExclusive<T>(Future<T> Function() action) =>
-      _operationQueue.enqueue(action);
+  Future<void> dispose() {
+    final active = _disposeFuture;
+    if (active != null) return active;
+    _disposed = true;
+    if (!_disposeSignal.isCompleted) _disposeSignal.complete();
+    return _disposeFuture = _finishDispose();
+  }
+
+  Future<void> _finishDispose() async {
+    await Future.wait<void>(<Future<void>>[
+      _killProcess(),
+      _stopRuntimeCommandProcess(),
+    ]);
+    await runAsyncCleanupBounded(
+      () => _operationQueue.idle,
+      timeout: _processStopTimeout + _processKillTimeout,
+      onError: (error, stack) => silentLog(
+        'web_fetch_scrapling_bridge',
+        '等待 Scrapling 操作队列结束',
+        error,
+        stack,
+      ),
+    );
+    await Future.wait<void>(<Future<void>>[
+      _killProcess(),
+      _stopRuntimeCommandProcess(),
+    ]);
+  }
+
+  Future<T> _runExclusive<T>(Future<T> Function() action) {
+    if (_disposed) return Future<T>.error(_disposedError);
+    return _operationQueue.enqueue(() {
+      _throwIfDisposed();
+      return action();
+    });
+  }
+
+  StateError get _disposedError => StateError('Scrapling 桥接已关闭。');
+
+  void _throwIfDisposed() {
+    if (_disposed) throw _disposedError;
+  }
 
   Future<String?> _resolvePythonExecutable(
     AiWebFetchScraplingSettings settings,
@@ -334,6 +380,7 @@ class WebFetchScraplingBridge {
     required AiWebFetchScraplingSettings settings,
     required String pythonExecutable,
   }) async {
+    _throwIfDisposed();
     final startupTimeout =
         _startupTimeoutOverride ??
         Duration(seconds: settings.startupTimeoutSeconds);
@@ -343,6 +390,7 @@ class WebFetchScraplingBridge {
         current.pythonExecutable == pythonExecutable) {
       try {
         await current.ready.future.timeout(startupTimeout);
+        _throwIfDisposed();
         if (!identical(_runtime, current)) {
           throw WebEngineHttpException('scrapling_bridge_restarted');
         }
@@ -364,6 +412,7 @@ class WebFetchScraplingBridge {
     _ScraplingProcessRuntime? startedRuntime;
     try {
       final helperPath = await _ensureHelperScriptWritten();
+      _throwIfDisposed();
       final startupStopwatch = Stopwatch()..start();
       final processStart = _startBridgeProcess(
         pythonExecutable: pythonExecutable,
@@ -373,6 +422,10 @@ class WebFetchScraplingBridge {
         processStart,
         timeout: _remainingStartupTimeout(startupTimeout, startupStopwatch),
       );
+      if (_disposed) {
+        await _disposeUnclaimedProcess(process);
+        throw _disposedError;
+      }
       final runtime = _ScraplingProcessRuntime(
         process: process,
         pythonExecutable: pythonExecutable,
@@ -380,9 +433,11 @@ class WebFetchScraplingBridge {
       startedRuntime = runtime;
       _runtime = runtime;
       _listenToRuntime(runtime);
+      _throwIfDisposed();
       await runtime.ready.future.timeout(
         _remainingStartupTimeout(startupTimeout, startupStopwatch),
       );
+      _throwIfDisposed();
       if (!identical(_runtime, runtime)) {
         throw WebEngineHttpException('scrapling_bridge_restarted');
       }
@@ -688,6 +743,7 @@ class WebFetchScraplingBridge {
     required Duration timeout,
     Future<void>? cancelSignal,
   }) async {
+    _throwIfDisposed();
     final runtime = _runtime;
     if (runtime == null) {
       throw WebEngineHttpException('scrapling_bridge_not_running');
@@ -706,7 +762,12 @@ class WebFetchScraplingBridge {
       ]);
       final result = await awaitWithCancelSignal(
         commandOutcome,
-        cancelSignal: cancelSignal,
+        cancelSignal: cancelSignal == null
+            ? _disposeSignal.future
+            : Future.any<void>(<Future<void>>[
+                cancelSignal,
+                _disposeSignal.future,
+              ]),
       );
       if (result is _TimeoutToken) {
         runtime.pending.remove(id);
@@ -798,12 +859,14 @@ class WebFetchScraplingBridge {
     required bool runtimeInstalledOnSuccess,
   }) async* {
     final python = await _resolvePythonExecutable(settings);
+    _throwIfDisposed();
     if (python == null) {
       _lastProbe = _pythonNotFoundProbeStatus();
       throw WebEngineHttpException(_lastProbe.code);
     }
 
     await _killProcess();
+    _throwIfDisposed();
     yield const WebFetchScraplingRuntimeEvent(
       type: WebFetchScraplingRuntimeEventType.status,
       line: 'Preparing runtime command...',
@@ -819,11 +882,13 @@ class WebFetchScraplingBridge {
       timeoutSeconds: settings.installTimeoutSeconds,
       tag: tag,
     );
+    _throwIfDisposed();
     for (final event in attempt.events) {
       yield event;
     }
 
     final tlsBundle = await _detectTlsBundle(attempt);
+    _throwIfDisposed();
     if (!attempt.succeeded && tlsBundle != null) {
       yield WebFetchScraplingRuntimeEvent(
         type: WebFetchScraplingRuntimeEventType.status,
@@ -843,6 +908,7 @@ class WebFetchScraplingBridge {
           'CURL_CA_BUNDLE': tlsBundle,
         },
       );
+      _throwIfDisposed();
       for (final event in attempt.events) {
         yield event;
       }
@@ -888,6 +954,7 @@ class WebFetchScraplingBridge {
     Map<String, String>? environment,
   }) async {
     final events = ListQueue<WebFetchScraplingRuntimeEvent>();
+    Process? attemptProcess;
 
     void recordEvent(WebFetchScraplingRuntimeEventType type, String line) {
       if (events.length >= _maxRuntimeEvents) events.removeFirst();
@@ -931,6 +998,11 @@ class WebFetchScraplingBridge {
                   recordEvent(WebFetchScraplingRuntimeEventType.stdout, line),
               onStderrLine: (line) =>
                   recordEvent(WebFetchScraplingRuntimeEventType.stderr, line),
+              onProcessStarted: (process) {
+                attemptProcess = process;
+                _runtimeCommandProcess = process;
+                if (_disposed) unawaited(_stopRuntimeCommandProcess());
+              },
               streamDrainTimeout: _processKillTimeout,
               gracefulTerminationTimeout: _processStopTimeout,
               maxCapturedLinesPerStream: _maxCapturedRuntimeLinesPerStream,
@@ -968,6 +1040,11 @@ class WebFetchScraplingBridge {
         stderr: clipText('$error', _maxRuntimeLineCharacters, suffix: ''),
         events: List<WebFetchScraplingRuntimeEvent>.unmodifiable(events),
       );
+    } finally {
+      final process = attemptProcess;
+      if (process != null && identical(_runtimeCommandProcess, process)) {
+        _runtimeCommandProcess = null;
+      }
     }
   }
 
@@ -1108,6 +1185,16 @@ class WebFetchScraplingBridge {
       runtime,
       cause: WebEngineHttpException('scrapling_bridge_restarted'),
       stackTrace: StackTrace.current,
+    );
+  }
+
+  Future<void> _stopRuntimeCommandProcess() async {
+    final process = _runtimeCommandProcess;
+    if (process == null) return;
+    _runtimeCommandProcess = null;
+    await terminateTrackedProcessTree(
+      process,
+      gracefulTimeout: _processStopTimeout,
     );
   }
 

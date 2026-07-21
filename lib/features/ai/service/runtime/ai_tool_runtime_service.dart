@@ -448,8 +448,11 @@ class AiToolRuntimeService {
   final MachineTerminalService? _machineTerminalService;
   AiSubToolExecutionObserver? _subToolExecutionObserver;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
+  Future<void>? _shutdownFuture;
+  bool _isShuttingDown = false;
 
   void configureSubToolExecutionObserver(AiSubToolExecutionObserver? observer) {
+    if (_isShuttingDown) return;
     _subToolExecutionObserver = observer;
   }
 
@@ -503,7 +506,7 @@ class AiToolRuntimeService {
     required AiWebFetchScraplingSettings settings,
   }) => _scraplingBridge.uninstallRuntimeStreaming(settings: settings);
 
-  Future<void> resetWebFetchScrapling() => _scraplingBridge.dispose();
+  Future<void> resetWebFetchScrapling() => _scraplingBridge.reset();
 
   WebFetchScraplingProbeStatus get lastWebFetchScraplingProbe =>
       _scraplingBridge.lastProbe;
@@ -2611,22 +2614,46 @@ class AiToolRuntimeService {
     };
   }
 
-  void dispose() {
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    _isShuttingDown = true;
+    _subToolExecutionObserver = null;
     _fileTrackers.clear();
+    return _shutdownFuture = _finishShutdown();
+  }
+
+  Future<void> _finishShutdown() async {
+    // 先释放工具实例，再关闭 Scrapling，避免工具销毁过程中继续使用桥接进程。
+    await runAsyncCleanupBounded(
+      _toolRegistry.dispose,
+      onError: (error, stack) =>
+          silentLog('ai_tool_runtime_service', '关闭工具注册表', error, stack),
+    );
+    await runAsyncCleanupBounded(
+      _scraplingBridge.dispose,
+      onError: (error, stack) => silentLog(
+        'ai_tool_runtime_service',
+        '关闭 Scrapling 桥接进程',
+        error,
+        stack,
+      ),
+    );
+    if (_ownsHttpClient) {
+      await runAsyncCleanupBounded(
+        _httpClient.close,
+        onError: (error, stack) =>
+            silentLog('ai_tool_runtime_service', '关闭 HTTP 客户端', error, stack),
+      );
+    }
+  }
+
+  void dispose() {
     unawaited(
-      _toolRegistry.dispose().catchError((Object error, StackTrace stack) {
-        silentLog(
-          'ai_tool_runtime_service',
-          'dispose tool registry',
-          error,
-          stack,
-        );
+      shutdown().catchError((Object error, StackTrace stack) {
+        silentLog('ai_tool_runtime_service', '关闭工具运行时', error, stack);
       }),
     );
-    unawaited(_scraplingBridge.dispose());
-    if (_ownsHttpClient) {
-      _httpClient.close();
-    }
   }
 
   static final List<AiResolvedTool> _builtinTools = <AiResolvedTool>[

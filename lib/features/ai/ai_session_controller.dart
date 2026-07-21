@@ -335,103 +335,168 @@ class AiSessionController extends ChangeNotifier {
         : (mcpToolService ?? DefaultMcpToolDiscoveryService());
     final resolvedToolUsagePromotionStore =
         toolUsagePromotionStore ?? AiToolUsagePromotionStore.shared;
-    await resolvedToolUsagePromotionStore.initialize();
+    final ownsChatClient = chatClient == null;
+    final ownsBackgroundChatClient =
+        backgroundChatClient == null && chatClient == null;
+    final ownsBashToolService = bashToolService == null;
+    final ownsToolRuntimeService = toolRuntimeService == null;
+    final ownsMcpToolService =
+        toolRuntimeService == null && mcpToolService == null;
+    AiToolRuntimeService? initializedToolRuntimeService;
+    AiSessionController? controller;
 
-    final resolvedToolRuntimeService =
-        toolRuntimeService ??
-        AiToolRuntimeService(
-          bashToolService: resolvedBashToolService,
-          hookService: resolvedHookService,
-          mcpToolService: resolvedMcpToolService!,
-          backgroundChatClient: resolvedBackgroundChatClient,
-          skillsDirProvider: skillsDirProvider,
-          memoryControllerProvider: memoryControllerProvider,
-          agentsControllerProvider: agentsControllerProvider,
-          instructionsControllerProvider: instructionsControllerProvider,
-          knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
-          aiModelsProvider: aiModelsProvider,
-          machineTerminalService: machineTerminalService,
-          toolOutputDirectoryProvider:
-              resolvedStore.sessionToolResultsDirectoryPath,
-        );
-    resolvedToolRuntimeService.configureSubToolExecutionObserver((
-      parentContext,
-      subContext,
-      result,
+    Future<void> cleanupCreatedResource(
+      String operation,
+      FutureOr<void> Function() cleanup,
     ) async {
-      await resolvedToolUsagePromotionStore.recordToolCall(
-        sessionId: parentContext.sessionId,
-        catalog: subContext.catalog,
-        toolCall: subContext.toolCall,
-        result: result,
+      await runAsyncCleanupBounded(
+        cleanup,
+        onError: (error, stack) =>
+            silentLog('ai_session_controller', operation, error, stack),
       );
-    });
-    resolvedHookService.configureUsageRecorder((sessionId, records) async {
-      for (final record in records) {
-        await resolvedToolUsagePromotionStore.recordResources(
-          sessionId: sessionId,
-          resources: <AiResourceUsageKind, Iterable<String>>{
-            AiResourceUsageKind.hook: <String>[record.hookId],
-          },
-          subResourceId: record.eventName,
-          toolName: record.eventName,
-          status: record.status,
-          durationMs: record.durationMs,
-          resultSummary: record.resultSummary,
-          errorSummary: record.errorSummary,
-          source: 'claude_hook',
+    }
+
+    try {
+      await resolvedToolUsagePromotionStore.initialize();
+      final resolvedToolRuntimeService =
+          toolRuntimeService ??
+          AiToolRuntimeService(
+            bashToolService: resolvedBashToolService,
+            hookService: resolvedHookService,
+            mcpToolService: resolvedMcpToolService!,
+            backgroundChatClient: resolvedBackgroundChatClient,
+            skillsDirProvider: skillsDirProvider,
+            memoryControllerProvider: memoryControllerProvider,
+            agentsControllerProvider: agentsControllerProvider,
+            instructionsControllerProvider: instructionsControllerProvider,
+            knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+            aiModelsProvider: aiModelsProvider,
+            machineTerminalService: machineTerminalService,
+            toolOutputDirectoryProvider:
+                resolvedStore.sessionToolResultsDirectoryPath,
+          );
+      initializedToolRuntimeService = resolvedToolRuntimeService;
+      resolvedToolRuntimeService.configureSubToolExecutionObserver((
+        parentContext,
+        subContext,
+        result,
+      ) async {
+        await resolvedToolUsagePromotionStore.recordToolCall(
+          sessionId: parentContext.sessionId,
+          catalog: subContext.catalog,
+          toolCall: subContext.toolCall,
+          result: result,
         );
-      }
-    });
-    userHooksExecutor?.configureUsageRecorder((sessionId, records) async {
-      for (final record in records) {
-        await resolvedToolUsagePromotionStore.recordResources(
-          sessionId: sessionId,
-          resources: <AiResourceUsageKind, Iterable<String>>{
-            AiResourceUsageKind.hook: <String>[record.hookId],
-          },
-          subResourceId: record.eventName,
-          toolName: record.eventName,
-          status: record.status,
-          durationMs: record.durationMs,
-          resultSummary: record.resultSummary,
-          errorSummary: record.errorSummary,
-          source: 'user_hook',
+      });
+      resolvedHookService.configureUsageRecorder((sessionId, records) async {
+        for (final record in records) {
+          await resolvedToolUsagePromotionStore.recordResources(
+            sessionId: sessionId,
+            resources: <AiResourceUsageKind, Iterable<String>>{
+              AiResourceUsageKind.hook: <String>[record.hookId],
+            },
+            subResourceId: record.eventName,
+            toolName: record.eventName,
+            status: record.status,
+            durationMs: record.durationMs,
+            resultSummary: record.resultSummary,
+            errorSummary: record.errorSummary,
+            source: 'claude_hook',
+          );
+        }
+      });
+      userHooksExecutor?.configureUsageRecorder((sessionId, records) async {
+        for (final record in records) {
+          await resolvedToolUsagePromotionStore.recordResources(
+            sessionId: sessionId,
+            resources: <AiResourceUsageKind, Iterable<String>>{
+              AiResourceUsageKind.hook: <String>[record.hookId],
+            },
+            subResourceId: record.eventName,
+            toolName: record.eventName,
+            status: record.status,
+            durationMs: record.durationMs,
+            resultSummary: record.resultSummary,
+            errorSummary: record.errorSummary,
+            source: 'user_hook',
+          );
+        }
+      });
+      controller = AiSessionController._(
+        store: resolvedStore,
+        chatClient: resolvedChatClient,
+        backgroundChatClient: resolvedBackgroundChatClient,
+        templateRepository: templateRepository ?? AiPromptTemplateRepository(),
+        promptBuilder: promptBuilder ?? const AiPromptBuilder(),
+        bashToolService: resolvedBashToolService,
+        hookService: resolvedHookService,
+        userHooksExecutor: userHooksExecutor,
+        toolRuntimeService: resolvedToolRuntimeService,
+        toolUsagePromotionStore: resolvedToolUsagePromotionStore,
+        attachmentService:
+            attachmentService ??
+            AiAttachmentService(
+              attachmentsDirectoryPath: resolvedStore.attachmentsDirectoryPath,
+              perSessionAttachmentsDirectoryPath:
+                  resolvedStore.perSessionAttachmentsDirectoryPath,
+            ),
+        ownsChatClient: ownsChatClient,
+        ownsBackgroundChatClient: ownsBackgroundChatClient,
+        ownsBashToolService: ownsBashToolService,
+        ownsToolRuntimeService: ownsToolRuntimeService,
+        ownedMcpToolService: ownsMcpToolService ? resolvedMcpToolService : null,
+        idGenerator: idGenerator ?? const Uuid().v4,
+        clock: clock ?? () => DateTime.now().toUtc(),
+        machineTerminalService: machineTerminalService,
+      );
+      await controller.refresh();
+      return controller;
+    } catch (error, stack) {
+      resolvedHookService.configureUsageRecorder(null);
+      userHooksExecutor?.configureUsageRecorder(null);
+      initializedToolRuntimeService?.configureSubToolExecutionObserver(null);
+      machineTerminalService?.configureMetadataPersister(null);
+      final initializedController = controller;
+      if (initializedController != null) {
+        await cleanupCreatedResource(
+          '回滚 AI 会话控制器初始化',
+          initializedController.shutdown,
         );
+      } else {
+        final initializedRuntime = initializedToolRuntimeService;
+        if (ownsToolRuntimeService && initializedRuntime != null) {
+          await cleanupCreatedResource(
+            '回滚工具运行时初始化',
+            initializedRuntime.shutdown,
+          );
+        }
+        if (ownsBashToolService) {
+          await cleanupCreatedResource(
+            '回滚 Bash 工具服务初始化',
+            resolvedBashToolService.shutdown,
+          );
+        }
+        if (ownsBackgroundChatClient) {
+          await cleanupCreatedResource(
+            '回滚后台聊天客户端初始化',
+            resolvedBackgroundChatClient.dispose,
+          );
+        }
+        if (ownsMcpToolService && resolvedMcpToolService != null) {
+          await cleanupCreatedResource(
+            '回滚 MCP 工具服务初始化',
+            resolvedMcpToolService.dispose,
+          );
+        }
+        if (ownsChatClient) {
+          await cleanupCreatedResource(
+            '回滚聊天客户端初始化',
+            resolvedChatClient.dispose,
+          );
+        }
       }
-    });
-    final controller = AiSessionController._(
-      store: resolvedStore,
-      chatClient: resolvedChatClient,
-      backgroundChatClient: resolvedBackgroundChatClient,
-      templateRepository: templateRepository ?? AiPromptTemplateRepository(),
-      promptBuilder: promptBuilder ?? const AiPromptBuilder(),
-      bashToolService: resolvedBashToolService,
-      hookService: resolvedHookService,
-      userHooksExecutor: userHooksExecutor,
-      toolRuntimeService: resolvedToolRuntimeService,
-      toolUsagePromotionStore: resolvedToolUsagePromotionStore,
-      attachmentService:
-          attachmentService ??
-          AiAttachmentService(
-            attachmentsDirectoryPath: resolvedStore.attachmentsDirectoryPath,
-            perSessionAttachmentsDirectoryPath:
-                resolvedStore.perSessionAttachmentsDirectoryPath,
-          ),
-      ownsChatClient: chatClient == null,
-      ownsBackgroundChatClient:
-          backgroundChatClient == null && chatClient == null,
-      ownsBashToolService: bashToolService == null,
-      ownsToolRuntimeService: toolRuntimeService == null,
-      ownedMcpToolService: toolRuntimeService == null && mcpToolService == null
-          ? resolvedMcpToolService
-          : null,
-      idGenerator: idGenerator ?? const Uuid().v4,
-      clock: clock ?? () => DateTime.now().toUtc(),
-      machineTerminalService: machineTerminalService,
-    );
-    await controller.refresh();
-    return controller;
+      Error.throwWithStackTrace(error, stack);
+    }
   }
 
   // Group D — 标题相关字段已改为 mutable static 以便由 runtime context 在
@@ -849,6 +914,8 @@ class AiSessionController extends ChangeNotifier {
   AiPromptTemplateRepository get templateRepository => _templateRepository;
 
   bool _isDisposed = false;
+  bool _notifierDisposed = false;
+  Future<void>? _shutdownFuture;
   StateError get _disposedError => StateError('$runtimeType is disposed');
   bool _isLoading = false;
   // Header refresh keeps the sidebar responsive; selected transcripts hydrate
@@ -5106,13 +5173,29 @@ class AiSessionController extends ChangeNotifier {
     if (!stopSignal.isCompleted) {
       stopSignal.complete();
     }
-    await Future.wait<void>(<Future<void>>[
-      AiToolExecutionRegistry.instance
-          .cancelSession(sessionId)
-          .catchError((Object _, StackTrace _) {}),
-      if (cancelHandler != null)
-        cancelHandler().catchError((Object _, StackTrace _) {}),
-    ]);
+    final cancellationTasks = <Future<void>>[
+      Future<void>.sync(
+        () => AiToolExecutionRegistry.instance.cancelSession(sessionId),
+      ).catchError((Object error, StackTrace stack) {
+        silentLog('ai_session_controller', '取消会话工具执行：$sessionId', error, stack);
+      }),
+    ];
+    if (cancelHandler != null) {
+      cancellationTasks.add(
+        Future<void>.sync(cancelHandler).catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          silentLog(
+            'ai_session_controller',
+            '取消会话处理器：$sessionId',
+            error,
+            stack,
+          );
+        }),
+      );
+    }
+    await Future.wait<void>(cancellationTasks);
   }
 
   Future<bool> pauseGoal(String sessionId) async {
@@ -6769,57 +6852,141 @@ class AiSessionController extends ChangeNotifier {
     super.notifyListeners();
   }
 
-  @override
-  void dispose() {
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+
+    final completer = Completer<void>();
+    _shutdownFuture = completer.future;
     _isDisposed = true;
     _sessionMessageWindowHydrationTasks.clear();
     _sessionMessageWindowHydrationGenerations.clear();
     _sessionMessageContentLoadTasks.clear();
     _sessionMessageContentLoadGenerations.clear();
-    unawaited(
-      _toolUsagePromotionStore.flush().catchError((
-        Object error,
-        StackTrace stack,
-      ) {
-        silentLog('ai_session_controller', '刷新工具调用统计失败', error, stack);
-      }),
-    );
     _machineTerminalService?.configureMetadataPersister(null);
+    _hookService.configureUsageRecorder(null);
+    _userHooksExecutor?.configureUsageRecorder(null);
+    _toolRuntimeService.configureSubToolExecutionObserver(null);
     for (final stopSignal in _sessionStopSignals.values) {
       if (!stopSignal.isCompleted) {
         stopSignal.complete();
       }
     }
-    final cancelHandlers = _sessionCancelHandlers.values.toList(
+    final cancelHandlers = _sessionCancelHandlers.entries.toList(
       growable: false,
     );
+    final sessionIds = <String>{
+      ..._sessionCancelHandlers.keys,
+      ..._sessionStopSignals.keys,
+      ..._sessionOperationQueues.keys,
+      ..._sessionHeaderOperationQueues.keys,
+      ..._sessionSendPhases.keys,
+      ..._sessionPendingSendOperationIds,
+    };
+    final pendingOperations = <Future<void>>[
+      _operationQueue.idle,
+      ..._sessionOperationQueues.values,
+      ..._sessionHeaderOperationQueues.values,
+    ];
     _sessionCancelHandlers.clear();
     _sessionStopSignals.clear();
+    _sessionOperationQueues.clear();
+    _sessionHeaderOperationQueues.clear();
     _sessionSendPhases.clear();
     _sessionPendingSendOperationIds.clear();
     _approvalPreviousPhases.clear();
-    for (final cancelHandler in cancelHandlers) {
-      unawaited(
-        cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
+    if (!_notifierDisposed) {
+      _notifierDisposed = true;
+      super.dispose();
+    }
+
+    unawaited(
+      _finishShutdown(
+        cancelHandlers: cancelHandlers,
+        sessionIds: sessionIds,
+        pendingOperations: pendingOperations,
+      ).then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) {
+          completer.completeError(error, stack);
+        },
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<void> _finishShutdown({
+    required List<MapEntry<String, Future<void> Function()>> cancelHandlers,
+    required Set<String> sessionIds,
+    required List<Future<void>> pendingOperations,
+  }) async {
+    final cancellationTasks = <Future<void>>[];
+    for (final entry in cancelHandlers) {
+      cancellationTasks.add(
+        _runShutdownCleanup('关闭会话取消处理器：${entry.key}', entry.value),
       );
+    }
+    for (final sessionId in sessionIds) {
+      cancellationTasks.add(
+        _runShutdownCleanup(
+          '关闭会话工具执行：$sessionId',
+          () => AiToolExecutionRegistry.instance.cancelSession(sessionId),
+        ),
+      );
+    }
+    if (cancellationTasks.isNotEmpty) {
+      await Future.wait<void>(cancellationTasks);
+    }
+    if (pendingOperations.isNotEmpty) {
+      await _runShutdownCleanup(
+        '等待会话操作结束',
+        () => Future.wait<void>(pendingOperations),
+      );
+    }
+    await _runShutdownCleanup('刷新工具调用统计', _toolUsagePromotionStore.flush);
+    if (_ownsToolRuntimeService) {
+      await _runShutdownCleanup('关闭工具运行时', _toolRuntimeService.shutdown);
+    }
+    if (_ownsBashToolService) {
+      await _runShutdownCleanup('关闭 Bash 工具服务', _bashToolService.shutdown);
     }
     if (_ownsBackgroundChatClient &&
         !identical(_backgroundChatClient, _chatClient)) {
-      _backgroundChatClient.dispose();
+      await _runShutdownCleanup('关闭后台聊天客户端', _backgroundChatClient.dispose);
     }
-    if (_ownsToolRuntimeService) {
-      _toolRuntimeService.dispose();
+    final ownedMcpToolService = _ownedMcpToolService;
+    if (ownedMcpToolService != null) {
+      await _runShutdownCleanup('关闭 MCP 工具服务', ownedMcpToolService.dispose);
     }
-    if (_ownsBashToolService) {
-      _bashToolService.dispose();
-    }
-    _ownedMcpToolService?.dispose();
     if (_ownsChatClient) {
-      _chatClient.dispose();
+      await _runShutdownCleanup('关闭聊天客户端', _chatClient.dispose);
     }
-    _loadedMcpToolsTracker.dispose();
-    _sessionStreamThrottleSignal.dispose();
-    super.dispose();
+    await _runShutdownCleanup('关闭 MCP 工具跟踪器', _loadedMcpToolsTracker.dispose);
+    await _runShutdownCleanup('关闭会话节流信号', _sessionStreamThrottleSignal.dispose);
+  }
+
+  Future<void> _runShutdownCleanup(
+    String operation,
+    FutureOr<void> Function() cleanup,
+  ) async {
+    await runAsyncCleanupBounded(
+      cleanup,
+      onError: (error, stack) =>
+          silentLog('ai_session_controller', operation, error, stack),
+    );
+  }
+
+  @override
+  void dispose() {
+    if (!_notifierDisposed) {
+      _notifierDisposed = true;
+      super.dispose();
+    }
+    unawaited(
+      shutdown().catchError((Object error, StackTrace stack) {
+        silentLog('ai_session_controller', '关闭AI会话控制器', error, stack);
+      }),
+    );
   }
 
   Future<bool> _runAssistantConversation({

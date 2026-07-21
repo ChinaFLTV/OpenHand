@@ -462,7 +462,7 @@ Future<void> _bootstrap() async {
     ..register('知识库控制器', knowledgeBase.controller.dispose)
     ..register('MCP 控制器', mcp.controller.shutdown)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
-    ..register('AI 会话控制器', aiSessionController.dispose)
+    ..register('AI 会话控制器', aiSessionController.shutdown)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
     ..register('媒体缓存', MediaCacheService.instance.shutdown)
     ..register('机器终端服务', () async {
