@@ -56,9 +56,7 @@ typedef AiSubToolExecutionObserver =
     );
 
 class AiToolRegistry {
-  // ──────────────────────────────────────────────────────────────
-  // 工厂：仅注册无外部 IO 依赖的轻量工具（用于测试和内部组合）
-  // ──────────────────────────────────────────────────────────────
+  // 先注册无外部 IO 依赖的基础工具，供完整注册表继续装配。
   factory AiToolRegistry.lightweightOnly({
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,

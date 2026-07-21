@@ -7,31 +7,18 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 
-/// Harness header 内的 ToolSearch 重放反悔 chip：监听
-/// `ToolSearchReplayDispatcher.pendingDeadlineListenable`，window 内每秒
-/// 重建一次显示剩余秒数（向上取整），idle 时折叠不显示。
-///
-/// 抽到 widgets 以便测试与（潜在的）跨面板复用。
+/// Harness 顶栏的 ToolSearch 重放撤销入口，按截止时间刷新剩余秒数。
 class HarnessPendingReplayBadge extends StatefulWidget {
   const HarnessPendingReplayBadge({
     super.key,
     required this.isZh,
     required this.deadlineListenable,
     this.onCancel,
-    this.tickInterval = const Duration(milliseconds: 250),
-    this.nowProvider,
   });
 
   final bool isZh;
   final ValueListenable<DateTime?> deadlineListenable;
   final VoidCallback? onCancel;
-
-  /// Tick refresh granularity. Default 250 ms gives sub-second redraw smoothness
-  /// while remaining cheap. Tests override this to drive timing deterministically.
-  final Duration tickInterval;
-
-  /// Override "now" for tests. Defaults to `DateTime.now`.
-  final DateTime Function()? nowProvider;
 
   @override
   State<HarnessPendingReplayBadge> createState() =>
@@ -39,9 +26,9 @@ class HarnessPendingReplayBadge extends StatefulWidget {
 }
 
 class _HarnessPendingReplayBadgeState extends State<HarnessPendingReplayBadge> {
-  Timer? _ticker;
+  static const Duration _tickInterval = Duration(milliseconds: 250);
 
-  DateTime _now() => (widget.nowProvider ?? DateTime.now)();
+  Timer? _ticker;
 
   @override
   void initState() {
@@ -74,7 +61,7 @@ class _HarnessPendingReplayBadgeState extends State<HarnessPendingReplayBadge> {
       _ticker = null;
     } else {
       _ticker = startSafePeriodicTimer(
-        widget.tickInterval,
+        _tickInterval,
         (_) {
           if (!mounted) return;
           if (widget.deadlineListenable.value == null) {
@@ -93,7 +80,7 @@ class _HarnessPendingReplayBadgeState extends State<HarnessPendingReplayBadge> {
   int? _remainingSeconds() {
     final dl = widget.deadlineListenable.value;
     if (dl == null) return null;
-    final ms = dl.difference(_now()).inMilliseconds;
+    final ms = dl.difference(DateTime.now()).inMilliseconds;
     if (ms <= 0) return 0;
     return (ms / 1000).ceil();
   }

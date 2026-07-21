@@ -1,5 +1,4 @@
-/// 纯函数辅助库——Web 逆向面板内部使用的小工具，独立成顶层公开 API
-/// 以便 `test/` 直接覆盖（避免拖入 Flutter widget 依赖）。
+/// Web 逆向面板共用的纯函数与数据边界处理。
 library;
 
 import 'dart:convert';

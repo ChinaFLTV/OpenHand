@@ -93,33 +93,13 @@ class StdioProcessInfo {
   }
 }
 
-typedef McpStdioProcessStarter =
-    Future<Process> Function(
-      String executable,
-      List<String> arguments, {
-      Map<String, String>? environment,
-    });
-
-Future<Process> _startMcpStdioProcess(
-  String executable,
-  List<String> arguments, {
-  Map<String, String>? environment,
-}) {
-  return startTrackedProcessInNewGroup(
-    executable,
-    arguments,
-    environment: environment,
-  );
-}
-
 /// 管理 STDIO 类型 MCP 服务的进程生命周期。
 ///
 /// 每个 STDIO MCP 服务可以独立启动/停止，进程日志实时收集，
 /// 应用退出时自动终止所有子进程。
 class McpStdioProcessManager extends ChangeNotifier {
   McpStdioProcessManager._()
-    : _processStarter = _startMcpStdioProcess,
-      _stdinCloseTimeout = _defaultStdinCloseTimeout,
+    : _stdinCloseTimeout = _defaultStdinCloseTimeout,
       _gracefulStopTimeout = _defaultGracefulStopTimeout,
       _forceStopTimeout = _defaultForceStopTimeout,
       _processStartTimeout = _defaultProcessStartTimeout,
@@ -151,7 +131,6 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _runtimeCacheStatTimeout = Duration(milliseconds: 500);
 
   final Map<String, _ManagedProcess> _processes = {};
-  final McpStdioProcessStarter _processStarter;
   final Duration _stdinCloseTimeout;
   final Duration _gracefulStopTimeout;
   final Duration _forceStopTimeout;
@@ -321,11 +300,11 @@ class McpStdioProcessManager extends ChangeNotifier {
             Future.wait<void>(<Future<void>>[
               _cancelSubscriptionBounded(
                 stdoutSubscription,
-                'cancel exited stdout $name',
+                '取消已退出进程 $name 的标准输出订阅',
               ),
               _cancelSubscriptionBounded(
                 stderrSubscription,
-                'cancel exited stderr $name',
+                '取消已退出进程 $name 的标准错误订阅',
               ),
             ]),
           );
@@ -391,7 +370,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     List<String> arguments, {
     Map<String, String>? environment,
   }) async {
-    final startFuture = _processStarter(
+    final startFuture = startTrackedProcessInNewGroup(
       executable,
       arguments,
       environment: environment,
@@ -409,8 +388,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       onTimeout: () {
         timedOut = true;
         throw TimeoutException(
-          'MCP stdio process start timed out after '
-          '${_processStartTimeout.inMilliseconds}ms',
+          'MCP STDIO 进程启动超过 ${_processStartTimeout.inMilliseconds} 毫秒。',
           _processStartTimeout,
         );
       },
@@ -431,12 +409,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           onError: (Object _, StackTrace _) {},
         );
       } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          'attach unmanaged stdout drain',
-          error,
-          stack,
-        );
+        silentLog('mcp_stdio_process_manager', '接管未托管进程标准输出', error, stack);
       }
     }
     if (stderrSubscription == null) {
@@ -446,12 +419,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           onError: (Object _, StackTrace _) {},
         );
       } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          'attach unmanaged stderr drain',
-          error,
-          stack,
-        );
+        silentLog('mcp_stdio_process_manager', '接管未托管进程标准错误', error, stack);
       }
     }
 
@@ -466,24 +434,13 @@ class McpStdioProcessManager extends ChangeNotifier {
         _terminateProcessTreeBounded(process),
       ]);
     } catch (error, stack) {
-      silentLog(
-        'mcp_stdio_process_manager',
-        'clean unmanaged process',
-        error,
-        stack,
-      );
+      silentLog('mcp_stdio_process_manager', '清理未托管进程', error, stack);
     }
     await Future.wait<void>(<Future<void>>[
-      _cancelSubscriptionBounded(stdoutSubscription, 'cancel unmanaged stdout'),
-      _cancelSubscriptionBounded(stderrSubscription, 'cancel unmanaged stderr'),
-      _cancelSubscriptionBounded(
-        rawStdoutSubscription,
-        'cancel raw unmanaged stdout',
-      ),
-      _cancelSubscriptionBounded(
-        rawStderrSubscription,
-        'cancel raw unmanaged stderr',
-      ),
+      _cancelSubscriptionBounded(stdoutSubscription, '取消未托管进程标准输出订阅'),
+      _cancelSubscriptionBounded(stderrSubscription, '取消未托管进程标准错误订阅'),
+      _cancelSubscriptionBounded(rawStdoutSubscription, '取消未托管进程原始标准输出订阅'),
+      _cancelSubscriptionBounded(rawStderrSubscription, '取消未托管进程原始标准错误订阅'),
     ]);
   }
 
@@ -494,12 +451,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     try {
       process.kill();
     } catch (error, stack) {
-      silentLog(
-        'mcp_stdio_process_manager',
-        'signal process before tree cleanup',
-        error,
-        stack,
-      );
+      silentLog('mcp_stdio_process_manager', '清理进程树前发送终止信号', error, stack);
     }
     final totalTimeout = Duration(
       microseconds:
@@ -513,19 +465,9 @@ class McpStdioProcessManager extends ChangeNotifier {
         gracefulTimeout: _gracefulStopTimeout,
       ).timeout(totalTimeout);
     } on TimeoutException catch (error, stack) {
-      silentLog(
-        'mcp_stdio_process_manager',
-        'terminate process tree timed out',
-        error,
-        stack,
-      );
+      silentLog('mcp_stdio_process_manager', '终止进程树超时', error, stack);
     } catch (error, stack) {
-      silentLog(
-        'mcp_stdio_process_manager',
-        'terminate process tree',
-        error,
-        stack,
-      );
+      silentLog('mcp_stdio_process_manager', '终止进程树', error, stack);
     }
   }
 
@@ -594,11 +536,11 @@ class McpStdioProcessManager extends ChangeNotifier {
     await Future.wait<void>(<Future<void>>[
       _cancelSubscriptionBounded(
         managed.stdoutSubscription,
-        'cancel stdout $serverName',
+        '取消 $serverName 标准输出订阅',
       ),
       _cancelSubscriptionBounded(
         managed.stderrSubscription,
-        'cancel stderr $serverName',
+        '取消 $serverName 标准错误订阅',
       ),
     ]);
 
@@ -898,12 +840,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 兜底：紧凑单行
       logs.add(_compactJsonRpcLine(jsonLine));
     } catch (error, stack) {
-      silentLog(
-        'mcp_stdio_process_manager',
-        'summarize json-rpc line',
-        error,
-        stack,
-      );
+      silentLog('mcp_stdio_process_manager', '汇总 JSON-RPC 日志行', error, stack);
       logs.add(_compactJsonRpcLine(jsonLine));
     }
   }
@@ -1078,7 +1015,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           }
         }
       } catch (error, stack) {
-        silentLog('mcp_stdio_process_manager', 'read rss $pid', error, stack);
+        silentLog('mcp_stdio_process_manager', '读取进程 $pid 内存', error, stack);
       }
 
       // 获取线程数
@@ -1094,12 +1031,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           info['线程数'] = '${lines.length - 1}'; // 减去 header 行
         }
       } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          'read thread count $pid',
-          error,
-          stack,
-        );
+        silentLog('mcp_stdio_process_manager', '读取进程 $pid 线程数', error, stack);
       }
     }
 
@@ -1120,12 +1052,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         info['缓存大小'] = '${formatByteSize(usage.totalBytes)}$partialSuffix';
         info['缓存文件数'] = '${usage.fileCount}$partialSuffix';
       } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          'scan cache $cacheRoot',
-          error,
-          stack,
-        );
+        silentLog('mcp_stdio_process_manager', '扫描缓存 $cacheRoot', error, stack);
       }
     }
 
@@ -1158,7 +1085,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   void dispose() {
     unawaited(
       stopAll().catchError((Object error, StackTrace stack) {
-        silentLog('mcp_stdio_process_manager', 'dispose.stopAll', error, stack);
+        silentLog('mcp_stdio_process_manager', '释放时停止全部进程', error, stack);
       }),
     );
     super.dispose();
@@ -1530,12 +1457,7 @@ Future<McpNodePackageResolution?> _resolveNpxPackagePath(
       }
     }
   } catch (error, stack) {
-    silentLog(
-      'mcp_stdio_process_manager',
-      'login shell package probe',
-      error,
-      stack,
-    );
+    silentLog('mcp_stdio_process_manager', '登录 Shell 包探测', error, stack);
   }
 
   return null;

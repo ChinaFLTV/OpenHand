@@ -35,66 +35,8 @@ const int _kMaxPendingLspRequests = 256;
 const int _kMaxOpenLspDocuments = 256;
 final int _maxLspContentLengthDigits = _kMaxLspFrameBytes.toString().length;
 
-typedef WebReverseLspProcessStarter =
-    Future<Process> Function(
-      String executable,
-      List<String> arguments, {
-      required bool runInShell,
-      required Map<String, String> environment,
-    });
-typedef WebReverseLspProcessTerminator = Future<void> Function(Process process);
-
-Future<Process> _startWebReverseLspProcess(
-  String executable,
-  List<String> arguments, {
-  required bool runInShell,
-  required Map<String, String> environment,
-}) {
-  return startTrackedProcess(
-    executable,
-    arguments,
-    runInShell: runInShell,
-    environment: environment,
-  );
-}
-
 class WebReverseLspClient {
-  WebReverseLspClient({
-    this.command,
-    this.args,
-    Duration requestTimeout = _kDefaultLspRequestTimeout,
-    Duration startupTimeout = _kDefaultLspStartupTimeout,
-    WebReverseLspProcessStarter processStarter = _startWebReverseLspProcess,
-    WebReverseLspProcessTerminator processTerminator =
-        terminateTrackedProcessTree,
-  }) : _requestTimeout = requestTimeout,
-       _startupTimeout = startupTimeout,
-       _processStarter = processStarter,
-       _processTerminator = processTerminator {
-    if (requestTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        requestTimeout,
-        'requestTimeout',
-        'Must be positive.',
-      );
-    }
-    if (startupTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        startupTimeout,
-        'startupTimeout',
-        'Must be positive.',
-      );
-    }
-  }
-
-  /// LSP server 可执行命令；默认 'typescript-language-server'。用户可在
-  /// 「LSP 设置」对话框里改。
-  final String? command;
-  final List<String>? args;
-  final Duration _requestTimeout;
-  final Duration _startupTimeout;
-  final WebReverseLspProcessStarter _processStarter;
-  final WebReverseLspProcessTerminator _processTerminator;
+  WebReverseLspClient();
 
   Process? _proc;
   StreamSubscription<List<int>>? _stdoutSub;
@@ -132,8 +74,8 @@ class WebReverseLspClient {
       _completeInitialization(initDone, false);
       return false;
     }
-    final c = cmd ?? command ?? 'typescript-language-server';
-    final a = cmdArgs ?? args ?? const ['--stdio'];
+    final c = cmd ?? 'typescript-language-server';
+    final a = cmdArgs ?? const ['--stdio'];
     late final Future<Process> spawnFuture;
     late final Process process;
     try {
@@ -142,7 +84,7 @@ class WebReverseLspClient {
         _completeInitialization(initDone, false);
         return false;
       }
-      spawnFuture = _processStarter(
+      spawnFuture = startTrackedProcess(
         c,
         a,
         runInShell: true,
@@ -153,7 +95,7 @@ class WebReverseLspClient {
         // 让 typescript-language-server / pyright 等命令能直接跑起来。
         environment: environment,
       );
-      process = await spawnFuture.timeout(_startupTimeout);
+      process = await spawnFuture.timeout(_kDefaultLspStartupTimeout);
     } on TimeoutException {
       if (generation == _lifecycleGeneration) {
         status = WebReverseLspStatus.failed;
@@ -169,7 +111,7 @@ class WebReverseLspClient {
       return false;
     } catch (e, st) {
       if (generation == _lifecycleGeneration) {
-        silentLog('web_reverse_lsp_client', 'spawn', e, st);
+        silentLog('web_reverse_lsp_client', '启动进程', e, st);
         status = WebReverseLspStatus.notInstalled;
         lastError = '$e';
       }
@@ -190,12 +132,7 @@ class WebReverseLspClient {
               generation != _lifecycleGeneration) {
             return;
           }
-          silentLog(
-            'web_reverse_lsp_client',
-            'observe process exit',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_lsp_client', '监听进程退出', error, stack);
           _handleProcessExit(process, generation, null);
         },
       ),
@@ -253,7 +190,7 @@ class WebReverseLspClient {
         if (!identical(_proc, process) || generation != _lifecycleGeneration) {
           return;
         }
-        silentLog('web_reverse_lsp_client', 'stderr stream', error, stack);
+        silentLog('web_reverse_lsp_client', '读取标准错误流', error, stack);
       },
     );
     final initRes = await _request('initialize', {
@@ -394,31 +331,28 @@ class WebReverseLspClient {
         stdoutSub,
         timeout: _kLspStreamCancellationTimeout,
         onError: (error, stack) =>
-            silentLog('web_reverse_lsp_client', 'cancel stdout', error, stack),
+            silentLog('web_reverse_lsp_client', '取消标准输出订阅', error, stack),
       ),
       cancelStreamSubscriptionBounded<List<int>>(
         stderrSub,
         timeout: _kLspStreamCancellationTimeout,
         onError: (error, stack) =>
-            silentLog('web_reverse_lsp_client', 'cancel stderr', error, stack),
+            silentLog('web_reverse_lsp_client', '取消标准错误订阅', error, stack),
       ),
     ]);
   }
 
   Future<void> _terminateDetachedProcess(Process process) async {
     try {
-      await _processTerminator(process).timeout(_kLspTerminationTimeout);
+      await terminateTrackedProcessTree(
+        process,
+      ).timeout(_kLspTerminationTimeout);
     } catch (error, stack) {
-      silentLog('web_reverse_lsp_client', 'terminate process', error, stack);
+      silentLog('web_reverse_lsp_client', '终止进程', error, stack);
       try {
         process.kill(ProcessSignal.sigkill);
       } catch (killError, killStack) {
-        silentLog(
-          'web_reverse_lsp_client',
-          'force kill process',
-          killError,
-          killStack,
-        );
+        silentLog('web_reverse_lsp_client', '强制终止进程', killError, killStack);
       }
     }
   }
@@ -475,7 +409,7 @@ class WebReverseLspClient {
           }
         }
       } catch (error, stack) {
-        silentLog('web_reverse_lsp_client', 'scan nvm path', error, stack);
+        silentLog('web_reverse_lsp_client', '扫描 NVM 路径', error, stack);
       }
     }
     final origin = (base['PATH'] ?? '').split(':');
@@ -623,7 +557,7 @@ class WebReverseLspClient {
     Map<String, Object?> params, {
     Duration? timeout,
   }) async {
-    final effectiveTimeout = timeout ?? _requestTimeout;
+    final effectiveTimeout = timeout ?? _kDefaultLspRequestTimeout;
     if (_pending.length >= _kMaxPendingLspRequests) {
       lastError =
           'LSP has too many pending requests '
@@ -751,7 +685,7 @@ class WebReverseLspClient {
     }
     silentLog(
       'web_reverse_lsp_client',
-      'protocol',
+      '处理协议消息',
       message,
       stack ?? StackTrace.current,
     );

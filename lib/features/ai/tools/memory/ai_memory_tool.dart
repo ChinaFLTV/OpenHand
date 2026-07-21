@@ -49,8 +49,7 @@ class AiMemoryTool extends AiTool {
     return run(context.decodedArguments);
   }
 
-  /// Package-private entry point used by tests to exercise the core logic
-  /// without constructing a full [AiToolExecutionContext].
+  /// 供自主学习调度器直接执行已解析的工具参数。
   Future<AiToolExecutionResult> run(
     Map<String, Object?> args, {
     bool requireUnchangedProfile = false,

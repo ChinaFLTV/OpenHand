@@ -112,13 +112,6 @@ class TemplateRuntimeDependencySpec {
     return pluginIds.any((id) => nullIfBlank(id)?.toLowerCase() == normalized);
   }
 
-  bool matchesMcpText(String raw) {
-    return TemplateRuntimeDependencyRegistry.containsAnyKeyword(
-      raw,
-      mcpKeywords,
-    );
-  }
-
   List<TemplateRuntimeMcpCapabilitySpec> matchingCapabilities(String raw) {
     return mcpCapabilities
         .where(
@@ -460,12 +453,6 @@ class TemplateRuntimeDependencyRegistry {
   static List<TemplateRuntimeDependencySpec> specsForPlugin(String pluginId) {
     return runtimeSpecs
         .where((spec) => spec.matchesPlugin(pluginId))
-        .toList(growable: false);
-  }
-
-  static List<TemplateRuntimeDependencySpec> specsForMcpText(String raw) {
-    return reverseEngineeringSpecs
-        .where((spec) => spec.matchesMcpText(raw))
         .toList(growable: false);
   }
 

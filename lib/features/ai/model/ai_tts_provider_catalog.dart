@@ -8,12 +8,6 @@ class AiTtsCatalogOption {
   final String value;
   final String label;
   final String? enLabel;
-
-  String labelForLocale({required bool chinese}) {
-    final english = nullIfBlank(enLabel);
-    if (!chinese && english != null) return english;
-    return label;
-  }
 }
 
 class AiTtsProviderCatalog {

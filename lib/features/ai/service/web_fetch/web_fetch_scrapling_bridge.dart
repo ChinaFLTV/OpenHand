@@ -37,18 +37,6 @@ class WebFetchScraplingRuntimeEvent {
   final String line;
 }
 
-typedef WebFetchScraplingRuntimeCommandRunner =
-    Future<TrackedProcessLineLogResult> Function({
-      required String executable,
-      required List<String> arguments,
-      required Duration timeout,
-      required String tag,
-      required String workingDirectory,
-      required Map<String, String> environment,
-      required void Function(String line) onStdoutLine,
-      required void Function(String line) onStderrLine,
-    });
-
 class WebFetchScraplingBridgeResult {
   const WebFetchScraplingBridgeResult({
     required this.url,
@@ -86,47 +74,7 @@ class WebFetchScraplingProbeStatus {
 }
 
 class WebFetchScraplingBridge {
-  WebFetchScraplingBridge() : this.withDependencies();
-
-  WebFetchScraplingBridge.withDependencies({
-    Future<String?> Function(AiWebFetchScraplingSettings settings)?
-    pythonExecutableResolver,
-    Future<String> Function()? helperPathProvider,
-    Future<Process> Function(String pythonExecutable, String helperPath)?
-    processStarter,
-    WebFetchScraplingRuntimeCommandRunner? runtimeCommandRunner,
-    Duration? startupTimeoutOverride,
-    Duration processStopTimeout = _defaultProcessStopTimeout,
-    Duration processKillTimeout = _defaultProcessKillTimeout,
-  }) : _pythonExecutableResolver = pythonExecutableResolver,
-       _helperPathProvider = helperPathProvider,
-       _processStarter = processStarter,
-       _runtimeCommandRunner = runtimeCommandRunner,
-       _startupTimeoutOverride = startupTimeoutOverride,
-       _processStopTimeout = processStopTimeout,
-       _processKillTimeout = processKillTimeout {
-    if (startupTimeoutOverride?.isNegative ?? false) {
-      throw ArgumentError.value(
-        startupTimeoutOverride,
-        'startupTimeoutOverride',
-        'Must not be negative.',
-      );
-    }
-    if (processStopTimeout.isNegative) {
-      throw ArgumentError.value(
-        processStopTimeout,
-        'processStopTimeout',
-        'Must not be negative.',
-      );
-    }
-    if (processKillTimeout.isNegative) {
-      throw ArgumentError.value(
-        processKillTimeout,
-        'processKillTimeout',
-        'Must not be negative.',
-      );
-    }
-  }
+  WebFetchScraplingBridge();
 
   static const String _assetPath =
       'assets/tooling/webfetch_scrapling_bridge.py';
@@ -141,16 +89,6 @@ class WebFetchScraplingBridge {
   static const int _maxRuntimeEvents = 400;
   static const int _maxRuntimeLineCharacters = 4000;
   static const int _maxCapturedRuntimeLinesPerStream = 400;
-
-  final Future<String?> Function(AiWebFetchScraplingSettings settings)?
-  _pythonExecutableResolver;
-  final Future<String> Function()? _helperPathProvider;
-  final Future<Process> Function(String pythonExecutable, String helperPath)?
-  _processStarter;
-  final WebFetchScraplingRuntimeCommandRunner? _runtimeCommandRunner;
-  final Duration? _startupTimeoutOverride;
-  final Duration _processStopTimeout;
-  final Duration _processKillTimeout;
 
   _ScraplingProcessRuntime? _runtime;
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
@@ -212,7 +150,7 @@ class WebFetchScraplingBridge {
         _lastProbe = _probeFromResponse(response, fallbackPython: python);
         return _lastProbe;
       } catch (error, stack) {
-        silentLog('web_fetch_scrapling_bridge', 'probe', error, stack);
+        silentLog('web_fetch_scrapling_bridge', '探测运行时', error, stack);
         await _killProcess();
         return _lastProbe = WebFetchScraplingProbeStatus(
           ready: false,
@@ -313,7 +251,7 @@ class WebFetchScraplingBridge {
     ]);
     await runAsyncCleanupBounded(
       () => _operationQueue.idle,
-      timeout: _processStopTimeout + _processKillTimeout,
+      timeout: _defaultProcessStopTimeout + _defaultProcessKillTimeout,
       onError: (error, stack) => silentLog(
         'web_fetch_scrapling_bridge',
         '等待 Scrapling 操作队列结束',
@@ -344,10 +282,6 @@ class WebFetchScraplingBridge {
   Future<String?> _resolvePythonExecutable(
     AiWebFetchScraplingSettings settings,
   ) async {
-    final resolver = _pythonExecutableResolver;
-    if (resolver != null) {
-      return nullIfBlank(await resolver(settings));
-    }
     final custom = nullIfBlank(settings.pythonExecutable) ?? '';
     if (custom.isNotEmpty) {
       final result = await runTrackedProcessOrFailed(
@@ -381,9 +315,7 @@ class WebFetchScraplingBridge {
     required String pythonExecutable,
   }) async {
     _throwIfDisposed();
-    final startupTimeout =
-        _startupTimeoutOverride ??
-        Duration(seconds: settings.startupTimeoutSeconds);
+    final startupTimeout = Duration(seconds: settings.startupTimeoutSeconds);
     final current = _runtime;
     if (current != null &&
         !current.stopHandlingScheduled &&
@@ -475,12 +407,7 @@ class WebFetchScraplingBridge {
       processStart.then<void>(
         _disposeUnclaimedProcess,
         onError: (Object error, StackTrace stack) {
-          silentLog(
-            'web_fetch_scrapling_bridge',
-            'late process start',
-            error,
-            stack,
-          );
+          silentLog('web_fetch_scrapling_bridge', '等待延迟进程启动', error, stack);
         },
       ),
     );
@@ -497,17 +424,13 @@ class WebFetchScraplingBridge {
     }
 
     try {
-      final drainTimeout = _processStopTimeout + _processKillTimeout;
+      final drainTimeout =
+          _defaultProcessStopTimeout + _defaultProcessKillTimeout;
       stdoutSubscription = process.stdout.listen(
         (_) {},
         onError: (Object error, StackTrace stack) {
           complete(stdoutDone);
-          silentLog(
-            'web_fetch_scrapling_bridge',
-            'late process stdout',
-            error,
-            stack,
-          );
+          silentLog('web_fetch_scrapling_bridge', '读取延迟进程标准输出', error, stack);
         },
         onDone: () => complete(stdoutDone),
       );
@@ -515,12 +438,7 @@ class WebFetchScraplingBridge {
         (_) {},
         onError: (Object error, StackTrace stack) {
           complete(stderrDone);
-          silentLog(
-            'web_fetch_scrapling_bridge',
-            'late process stderr',
-            error,
-            stack,
-          );
+          silentLog('web_fetch_scrapling_bridge', '读取延迟进程标准错误', error, stack);
         },
         onDone: () => complete(stderrDone),
       );
@@ -534,24 +452,14 @@ class WebFetchScraplingBridge {
           stderrDone.future,
         ]).timeout(drainTimeout);
       } on TimeoutException catch (error, stack) {
-        silentLog(
-          'web_fetch_scrapling_bridge',
-          'drain late process streams',
-          error,
-          stack,
-        );
+        silentLog('web_fetch_scrapling_bridge', '排空延迟进程输出流', error, stack);
       }
     } catch (error, stack) {
-      silentLog(
-        'web_fetch_scrapling_bridge',
-        'dispose late process',
-        error,
-        stack,
-      );
+      silentLog('web_fetch_scrapling_bridge', '释放延迟进程', error, stack);
     } finally {
       await Future.wait<void>(<Future<void>>[
-        _cancelRuntimeSubscription(stdoutSubscription, 'late stdout'),
-        _cancelRuntimeSubscription(stderrSubscription, 'late stderr'),
+        _cancelRuntimeSubscription(stdoutSubscription, '延迟进程标准输出'),
+        _cancelRuntimeSubscription(stderrSubscription, '延迟进程标准错误'),
       ]);
     }
   }
@@ -560,10 +468,6 @@ class WebFetchScraplingBridge {
     required String pythonExecutable,
     required String helperPath,
   }) {
-    final starter = _processStarter;
-    if (starter != null) {
-      return starter(pythonExecutable, helperPath);
-    }
     return startTrackedProcessInNewGroup(
       pythonExecutable,
       <String>[helperPath],
@@ -580,7 +484,7 @@ class WebFetchScraplingBridge {
           (line) => _handleRuntimeStdoutLine(runtime, line),
           onError: (Object error, StackTrace stack) {
             if (!identical(_runtime, runtime)) return;
-            silentLog('web_fetch_scrapling_bridge', 'stdout', error, stack);
+            silentLog('web_fetch_scrapling_bridge', '读取标准输出', error, stack);
             _handleRuntimeFailure(runtime, error, stack);
           },
           onDone: () {
@@ -605,7 +509,7 @@ class WebFetchScraplingBridge {
               runtime.stderrDone.complete();
             }
             if (!identical(_runtime, runtime)) return;
-            silentLog('web_fetch_scrapling_bridge', 'stderr', error, stack);
+            silentLog('web_fetch_scrapling_bridge', '读取标准错误', error, stack);
             _handleRuntimeFailure(runtime, error, stack);
           },
           onDone: () {
@@ -655,7 +559,7 @@ class WebFetchScraplingBridge {
       _scheduleRuntimeStopped(runtime);
     } catch (error, stack) {
       if (!identical(_runtime, runtime)) return;
-      silentLog('web_fetch_scrapling_bridge', 'exit code', error, stack);
+      silentLog('web_fetch_scrapling_bridge', '读取退出码', error, stack);
       _handleRuntimeFailure(runtime, error, stack);
     }
   }
@@ -668,7 +572,7 @@ class WebFetchScraplingBridge {
 
   Future<void> _finishRuntimeStopped(_ScraplingProcessRuntime runtime) async {
     try {
-      await runtime.stderrDone.future.timeout(_processKillTimeout);
+      await runtime.stderrDone.future.timeout(_defaultProcessKillTimeout);
     } on TimeoutException {
       // Preserve any buffered stderr without letting a broken pipe hang cleanup.
     }
@@ -973,40 +877,26 @@ class WebFetchScraplingBridge {
       };
       final timeout = Duration(seconds: timeoutSeconds);
       final workingDirectory = OpenHandPaths.applicationDirectoryPath();
-      final runner = _runtimeCommandRunner;
-      final result = runner != null
-          ? await runner(
-              executable: python,
-              arguments: command,
-              timeout: timeout,
-              tag: tag,
-              workingDirectory: workingDirectory,
-              environment: mergedEnv,
-              onStdoutLine: (line) =>
-                  recordEvent(WebFetchScraplingRuntimeEventType.stdout, line),
-              onStderrLine: (line) =>
-                  recordEvent(WebFetchScraplingRuntimeEventType.stderr, line),
-            )
-          : await runTrackedProcessWithLineLogging(
-              python,
-              command,
-              timeout: timeout,
-              tag: tag,
-              workingDirectory: workingDirectory,
-              environment: mergedEnv,
-              onStdoutLine: (line) =>
-                  recordEvent(WebFetchScraplingRuntimeEventType.stdout, line),
-              onStderrLine: (line) =>
-                  recordEvent(WebFetchScraplingRuntimeEventType.stderr, line),
-              onProcessStarted: (process) {
-                attemptProcess = process;
-                _runtimeCommandProcess = process;
-                if (_disposed) unawaited(_stopRuntimeCommandProcess());
-              },
-              streamDrainTimeout: _processKillTimeout,
-              gracefulTerminationTimeout: _processStopTimeout,
-              maxCapturedLinesPerStream: _maxCapturedRuntimeLinesPerStream,
-            );
+      final result = await runTrackedProcessWithLineLogging(
+        python,
+        command,
+        timeout: timeout,
+        tag: tag,
+        workingDirectory: workingDirectory,
+        environment: mergedEnv,
+        onStdoutLine: (line) =>
+            recordEvent(WebFetchScraplingRuntimeEventType.stdout, line),
+        onStderrLine: (line) =>
+            recordEvent(WebFetchScraplingRuntimeEventType.stderr, line),
+        onProcessStarted: (process) {
+          attemptProcess = process;
+          _runtimeCommandProcess = process;
+          if (_disposed) unawaited(_stopRuntimeCommandProcess());
+        },
+        streamDrainTimeout: _defaultProcessKillTimeout,
+        gracefulTerminationTimeout: _defaultProcessStopTimeout,
+        maxCapturedLinesPerStream: _maxCapturedRuntimeLinesPerStream,
+      );
       if (result.timedOut) {
         recordEvent(
           WebFetchScraplingRuntimeEventType.warning,
@@ -1031,7 +921,7 @@ class WebFetchScraplingBridge {
         timedOut: result.timedOut,
       );
     } catch (error, stack) {
-      silentLog('web_fetch_scrapling_bridge', tag, error, stack);
+      silentLog('web_fetch_scrapling_bridge', '执行运行时命令：$tag', error, stack);
       recordEvent(WebFetchScraplingRuntimeEventType.stderr, '$error');
       return _RuntimeAttemptResult(
         succeeded: false,
@@ -1089,12 +979,7 @@ class WebFetchScraplingBridge {
         return optionalStringFromValue(result.stdout);
       }
     } catch (error, stack) {
-      silentLog(
-        'web_fetch_scrapling_bridge',
-        'probe certifi bundle',
-        error,
-        stack,
-      );
+      silentLog('web_fetch_scrapling_bridge', '探测 certifi 证书包', error, stack);
     }
     return null;
   }
@@ -1118,14 +1003,6 @@ class WebFetchScraplingBridge {
 
   Future<String> _ensureHelperScriptWritten() async {
     if (_helperPath != null) return _helperPath!;
-    final provider = _helperPathProvider;
-    if (provider != null) {
-      final helperPath = nullIfBlank(await provider());
-      if (helperPath == null) {
-        throw StateError('Scrapling helper path must not be blank.');
-      }
-      return _helperPath = helperPath;
-    }
     final bytes = await rootBundle.load(_assetPath);
     final dir = Directory(
       p.join(
@@ -1150,12 +1027,12 @@ class WebFetchScraplingBridge {
         if (result.exitCode != 0) {
           silentLog(
             'web_fetch_scrapling_bridge',
-            'chmod helper',
-            'exit ${result.exitCode}: ${result.stderr}',
+            '设置辅助脚本权限',
+            '退出码 ${result.exitCode}：${result.stderr}',
           );
         }
       } catch (error, stack) {
-        silentLog('web_fetch_scrapling_bridge', 'chmod helper', error, stack);
+        silentLog('web_fetch_scrapling_bridge', '设置辅助脚本权限', error, stack);
       }
     }
     _helperPath = file.path;
@@ -1194,7 +1071,7 @@ class WebFetchScraplingBridge {
     _runtimeCommandProcess = null;
     await terminateTrackedProcessTree(
       process,
-      gracefulTimeout: _processStopTimeout,
+      gracefulTimeout: _defaultProcessStopTimeout,
     );
   }
 
@@ -1216,12 +1093,7 @@ class WebFetchScraplingBridge {
           stackTrace: stackTrace,
         );
       } catch (error, stack) {
-        silentLog(
-          'web_fetch_scrapling_bridge',
-          'cleanup runtime',
-          error,
-          stack,
-        );
+        silentLog('web_fetch_scrapling_bridge', '清理运行时', error, stack);
       } finally {
         if (!completer.isCompleted) completer.complete();
       }
@@ -1247,8 +1119,8 @@ class WebFetchScraplingBridge {
     runtime.stdoutSubscription = null;
     runtime.stderrSubscription = null;
     await Future.wait<void>(<Future<void>>[
-      _cancelRuntimeSubscription(stdoutSubscription, 'stdout'),
-      _cancelRuntimeSubscription(stderrSubscription, 'stderr'),
+      _cancelRuntimeSubscription(stdoutSubscription, '标准输出'),
+      _cancelRuntimeSubscription(stderrSubscription, '标准错误'),
     ]);
     if (!runtime.stderrDone.isCompleted) {
       runtime.stderrDone.complete();
@@ -1265,10 +1137,10 @@ class WebFetchScraplingBridge {
   ) async {
     await cancelStreamSubscriptionBounded<T>(
       subscription,
-      timeout: _processKillTimeout,
+      timeout: _defaultProcessKillTimeout,
       onError: (error, stack) => silentLog(
         'web_fetch_scrapling_bridge',
-        'cancel $streamName subscription',
+        '取消 $streamName 订阅',
         error,
         stack,
       ),
@@ -1276,54 +1148,19 @@ class WebFetchScraplingBridge {
   }
 
   Future<void> _terminateRuntimeProcess(Process process) async {
-    if (_processStarter != null) {
-      try {
-        process.kill();
-      } catch (error, stack) {
-        silentLog(
-          'web_fetch_scrapling_bridge',
-          'terminate injected process',
-          error,
-          stack,
-        );
-      }
-      if (await _waitForProcessExit(process, _processStopTimeout)) return;
-      try {
-        process.kill(
-          Platform.isWindows ? ProcessSignal.sigterm : ProcessSignal.sigkill,
-        );
-      } catch (error, stack) {
-        silentLog(
-          'web_fetch_scrapling_bridge',
-          'kill injected process',
-          error,
-          stack,
-        );
-      }
-      await _waitForProcessExit(process, _processKillTimeout);
-      return;
-    }
     try {
       await terminateTrackedProcessTree(
         process,
-        gracefulTimeout: _processStopTimeout,
+        gracefulTimeout: _defaultProcessStopTimeout,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_fetch_scrapling_bridge',
-        'terminate process tree',
-        error,
-        stack,
-      );
+      silentLog('web_fetch_scrapling_bridge', '终止进程树', error, stack);
     }
-    if (await _waitForProcessExit(process, _processKillTimeout)) return;
+    if (await _waitForProcessExit(process, _defaultProcessKillTimeout)) return;
     silentLog(
       'web_fetch_scrapling_bridge',
-      'wait after process tree termination',
-      TimeoutException(
-        'Scrapling bridge did not exit after process tree termination.',
-        _processKillTimeout,
-      ),
+      '等待进程树终止',
+      TimeoutException('进程树终止后 Scrapling 桥接仍未退出。', _defaultProcessKillTimeout),
     );
   }
 
@@ -1334,26 +1171,16 @@ class WebFetchScraplingBridge {
     } on TimeoutException {
       return false;
     } catch (error, stack) {
-      silentLog(
-        'web_fetch_scrapling_bridge',
-        'wait for process exit',
-        error,
-        stack,
-      );
+      silentLog('web_fetch_scrapling_bridge', '等待进程退出', error, stack);
       return false;
     }
   }
 
   Future<void> _closeRuntimeStdin(IOSink stdin) async {
     try {
-      await stdin.close().timeout(_processKillTimeout);
+      await stdin.close().timeout(_defaultProcessKillTimeout);
     } catch (error, stack) {
-      silentLog(
-        'web_fetch_scrapling_bridge',
-        'close process stdin',
-        error,
-        stack,
-      );
+      silentLog('web_fetch_scrapling_bridge', '关闭进程标准输入', error, stack);
     }
   }
 }

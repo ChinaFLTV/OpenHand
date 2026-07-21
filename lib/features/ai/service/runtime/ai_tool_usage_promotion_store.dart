@@ -300,18 +300,6 @@ final class AiToolUsageRecord {
   final bool isPromoted;
 }
 
-final class AiToolUsageSessionSnapshot {
-  const AiToolUsageSessionSnapshot({
-    required this.totalCallCount,
-    required this.toolCallCounts,
-    required this.promotedToolIds,
-  });
-
-  final int totalCallCount;
-  final Map<String, int> toolCallCounts;
-  final Set<String> promotedToolIds;
-}
-
 final class AiToolUsagePromotionStore {
   AiToolUsagePromotionStore({
     String? filePath,
@@ -678,30 +666,6 @@ final class AiToolUsagePromotionStore {
         : _sessions[normalizedSessionId];
     return Set<String>.unmodifiable(usage?.promotedToolIds ?? const <String>{});
   }
-
-  AiToolUsageSessionSnapshot? sessionSnapshot(String sessionId) {
-    final normalizedSessionId = _validSessionId(sessionId);
-    final usage = normalizedSessionId == null
-        ? null
-        : _sessions[normalizedSessionId];
-    if (usage == null) return null;
-    return AiToolUsageSessionSnapshot(
-      totalCallCount: usage.totalFor(AiResourceUsageKind.tool),
-      toolCallCounts: Map<String, int>.unmodifiable(
-        usage.countsFor(AiResourceUsageKind.tool),
-      ),
-      promotedToolIds: Set<String>.unmodifiable(usage.promotedToolIds),
-    );
-  }
-
-  Map<String, int> get dayCounts =>
-      _latestCounts(AiResourceUsagePeriod.day, AiResourceUsageKind.tool);
-
-  Map<String, int> get monthCounts =>
-      _latestCounts(AiResourceUsagePeriod.month, AiResourceUsageKind.tool);
-
-  Map<String, int> get yearCounts =>
-      _latestCounts(AiResourceUsagePeriod.year, AiResourceUsageKind.tool);
 
   AiResourceUsageSnapshot snapshot({
     required AiResourceUsageKind kind,
@@ -1134,15 +1098,6 @@ final class AiToolUsagePromotionStore {
     );
     final week = 1 + thursday.difference(firstThursday).inDays ~/ 7;
     return '${fourDigit(thursday.year)}-W${twoDigit(week)}';
-  }
-
-  Map<String, int> _latestCounts(
-    AiResourceUsagePeriod period,
-    AiResourceUsageKind kind,
-  ) {
-    final buckets = _periods[period]!;
-    if (buckets.isEmpty) return const <String, int>{};
-    return Map<String, int>.unmodifiable(buckets.values.last.countsFor(kind));
   }
 
   int _validCount(Object? value) {

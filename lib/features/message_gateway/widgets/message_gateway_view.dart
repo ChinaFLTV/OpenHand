@@ -65,15 +65,13 @@ String _gatewayUnavailable(BuildContext context) {
   );
 }
 
-@visibleForTesting
-int webGatewayOpsFineMetricColumnCount(double maxWidth) => maxWidth < 440
+int _webGatewayOpsFineMetricColumnCount(double maxWidth) => maxWidth < 440
     ? 1
     : maxWidth < 760
     ? 2
     : 4;
 
-@visibleForTesting
-bool webGatewayOpsShouldStackDistribution(double maxWidth) => maxWidth < 300;
+bool _webGatewayOpsShouldStackDistribution(double maxWidth) => maxWidth < 300;
 
 String _gatewayScopeAll(BuildContext context) {
   return openHandLocalizedText(
@@ -4744,7 +4742,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                         ),
                         LayoutBuilder(
                           builder: (context, constraints) {
-                            final columns = webGatewayOpsFineMetricColumnCount(
+                            final columns = _webGatewayOpsFineMetricColumnCount(
                               constraints.maxWidth,
                             );
                             const spacing = 10.0;
@@ -7267,7 +7265,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
                       ),
                   ],
                 );
-                if (webGatewayOpsShouldStackDistribution(
+                if (_webGatewayOpsShouldStackDistribution(
                   constraints.maxWidth,
                 )) {
                   return Column(
@@ -11343,8 +11341,7 @@ const double _trendLineStrokeWidth = 2.6;
 const double _trendPlotHorizontalPadding = 4;
 const double _trendPlotVerticalPadding = 6;
 
-@visibleForTesting
-Rect webGatewayTrendPlotRect(Rect chart) {
+Rect _webGatewayTrendPlotRect(Rect chart) {
   final horizontalInset = math.min(
     _trendPlotHorizontalPadding,
     math.max(0, (chart.width - 1) / 2),
@@ -11392,7 +11389,7 @@ class _TrendLinePainter extends CustomPainter {
       math.max(1, size.width - left - right),
       math.max(1, size.height - top - bottom),
     );
-    final plot = webGatewayTrendPlotRect(chart);
+    final plot = _webGatewayTrendPlotRect(chart);
     final axisPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;

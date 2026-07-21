@@ -241,7 +241,7 @@ class McpKeywordIndexBuildResult {
 }
 
 /// 拉取每个 server 当前可用的 tool 列表的回调，由 [McpController] 注入，
-/// 解耦索引构建与具体的发现实现，便于测试与 mocked discovery。
+/// 用于解耦索引构建与具体的工具发现实现。
 typedef McpServerToolsResolver =
     FutureOr<List<McpTool>> Function(McpServer server);
 

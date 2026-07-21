@@ -13,19 +13,6 @@ const Duration _kRelaunchDelay = Duration(milliseconds: 1800);
 const Duration _kExitRequestTimeout = Duration(seconds: 3);
 const Duration _kRelaunchChmodTimeout = Duration(seconds: 2);
 
-typedef AppRestartProcessStarter =
-    Future<Process> Function(
-      String executable,
-      List<String> arguments, {
-      ProcessStartMode mode,
-      bool runInShell,
-    });
-
-typedef AppRestartExitApplication =
-    Future<ui.AppExitResponse> Function(ui.AppExitType exitType, int exitCode);
-
-typedef AppRestartForceExit = void Function(int exitCode);
-
 enum AppRestartFailure {
   missingExecutable,
   prepareFailed,
@@ -47,12 +34,8 @@ class AppRestartException implements Exception {
 }
 
 class AppRelaunchTicket {
-  AppRelaunchTicket._({
-    required this.scriptPath,
-    required this.pendingFlagPath,
-  });
+  AppRelaunchTicket._({required this.pendingFlagPath});
 
-  final String scriptPath;
   final String pendingFlagPath;
 
   Future<void> cancel() async {
@@ -62,95 +45,52 @@ class AppRelaunchTicket {
         await flag.delete();
       }
     } catch (error, stack) {
-      silentLog('app_restart', 'cancel relaunch ticket', error, stack);
+      silentLog('app_restart', '取消重启任务', error, stack);
     }
   }
 }
 
 class AppRestartService {
-  AppRestartService({
-    String Function()? executablePathProvider,
-    Directory Function()? tempDirectoryProvider,
-    AppRestartProcessStarter? processStarter,
-    AppRestartExitApplication? exitApplication,
-    AppRestartForceExit? forceExit,
-    DateTime Function()? nowProvider,
-    int Function()? pidProvider,
-    bool? isMacOS,
-    bool? isWindows,
-    bool? isLinux,
-    Duration relaunchDelay = _kRelaunchDelay,
-    Duration exitRequestTimeout = _kExitRequestTimeout,
-  }) : _executablePathProvider =
-           executablePathProvider ?? (() => Platform.resolvedExecutable),
-       _tempDirectoryProvider =
-           tempDirectoryProvider ?? (() => Directory.systemTemp),
-       _processStarter = processStarter ?? Process.start,
-       _exitApplication =
-           exitApplication ?? ServicesBinding.instance.exitApplication,
-       _forceExit = forceExit ?? exit,
-       _nowProvider = nowProvider ?? DateTime.now,
-       _pidProvider = pidProvider ?? (() => pid),
-       _isMacOS = isMacOS ?? Platform.isMacOS,
-       _isWindows = isWindows ?? Platform.isWindows,
-       _isLinux = isLinux ?? Platform.isLinux,
-       _relaunchDelay = _nonNegativeDuration(relaunchDelay),
-       _exitRequestTimeout = _positiveDuration(
-         exitRequestTimeout,
-         fallback: _kExitRequestTimeout,
-       );
+  AppRestartService._();
 
-  static final AppRestartService instance = AppRestartService();
-
-  final String Function() _executablePathProvider;
-  final Directory Function() _tempDirectoryProvider;
-  final AppRestartProcessStarter _processStarter;
-  final AppRestartExitApplication _exitApplication;
-  final AppRestartForceExit _forceExit;
-  final DateTime Function() _nowProvider;
-  final int Function() _pidProvider;
-  final bool _isMacOS;
-  final bool _isWindows;
-  final bool _isLinux;
-  final Duration _relaunchDelay;
-  final Duration _exitRequestTimeout;
+  static final AppRestartService instance = AppRestartService._();
 
   Future<AppRelaunchTicket> prepareRelaunch() async {
-    final rawExecutablePath = nullIfBlank(_executablePathProvider());
+    final rawExecutablePath = nullIfBlank(Platform.resolvedExecutable);
     if (rawExecutablePath == null) {
       throw const AppRestartException(AppRestartFailure.missingExecutable);
     }
     final executablePath = p.normalize(rawExecutablePath);
 
-    final tempDir = _tempDirectoryProvider();
+    final tempDir = Directory.systemTemp;
     if (!await tempDir.exists()) {
       await tempDir.create(recursive: true);
     }
 
-    final suffix = '${_pidProvider()}_${_nowProvider().microsecondsSinceEpoch}';
+    final suffix = '${pid}_${DateTime.now().microsecondsSinceEpoch}';
     final pendingFlag = File(p.join(tempDir.path, 'relaunch_$suffix.pending'));
     await pendingFlag.writeAsString('pending', flush: true);
 
-    final script = _isWindows
+    final script = Platform.isWindows
         ? File(p.join(tempDir.path, 'relaunch_$suffix.cmd'))
         : File(p.join(tempDir.path, 'relaunch_$suffix.sh'));
-    final scriptBody = _isWindows
+    final scriptBody = Platform.isWindows
         ? _buildWindowsScript(
             executablePath: executablePath,
             pendingFlagPath: pendingFlag.path,
           )
         : _buildPosixScript(
             executablePath: executablePath,
-            appBundlePath: _isMacOS
-                ? resolveMacOSAppBundle(executablePath)
+            appBundlePath: Platform.isMacOS
+                ? _resolveMacOSAppBundle(executablePath)
                 : null,
             pendingFlagPath: pendingFlag.path,
-            useMacOpen: _isMacOS,
+            useMacOpen: Platform.isMacOS,
           );
 
     try {
       await script.writeAsString(scriptBody, flush: true);
-      if (!_isWindows) {
+      if (!Platform.isWindows) {
         final chmodResult = await runTrackedProcessOrFailed(
           '/bin/chmod',
           <String>['700', script.path],
@@ -168,12 +108,9 @@ class AppRestartService {
         }
       }
       await _startDetachedHelper(script.path);
-      return AppRelaunchTicket._(
-        scriptPath: script.path,
-        pendingFlagPath: pendingFlag.path,
-      );
+      return AppRelaunchTicket._(pendingFlagPath: pendingFlag.path);
     } catch (error, stack) {
-      silentLog('app_restart', 'prepare relaunch', error, stack);
+      silentLog('app_restart', '准备重启', error, stack);
       await _deleteIfExists(script);
       await _deleteIfExists(pendingFlag);
       throw AppRestartException(AppRestartFailure.prepareFailed, cause: error);
@@ -182,22 +119,21 @@ class AppRestartService {
 
   Future<void> exitCurrentProcess({AppRelaunchTicket? ticket}) async {
     try {
-      final response = await _exitApplication(
-        ui.AppExitType.cancelable,
-        0,
-      ).timeout(_exitRequestTimeout);
+      final response = await ServicesBinding.instance
+          .exitApplication(ui.AppExitType.cancelable)
+          .timeout(_kExitRequestTimeout);
       if (response == ui.AppExitResponse.cancel) {
         await ticket?.cancel();
         throw const AppRestartException(AppRestartFailure.exitCanceled);
       }
-      _forceExit(0);
+      exit(0);
     } on TimeoutException {
-      _forceExit(0);
+      exit(0);
     } on AppRestartException {
       rethrow;
     } catch (error, stack) {
-      silentLog('app_restart', 'exit current process', error, stack);
-      _forceExit(0);
+      silentLog('app_restart', '退出当前进程', error, stack);
+      exit(0);
     }
   }
 
@@ -210,22 +146,17 @@ class AppRestartService {
   }
 
   Future<void> _startDetachedHelper(String scriptPath) async {
-    if (_isWindows) {
-      await _processStarter(
-        'cmd.exe',
-        <String>['/c', scriptPath],
-        mode: ProcessStartMode.detached,
-        runInShell: false,
-      );
+    if (Platform.isWindows) {
+      await Process.start('cmd.exe', <String>[
+        '/c',
+        scriptPath,
+      ], mode: ProcessStartMode.detached);
       return;
     }
-    if (_isMacOS || _isLinux) {
-      await _processStarter(
-        '/bin/sh',
-        <String>[scriptPath],
-        mode: ProcessStartMode.detached,
-        runInShell: false,
-      );
+    if (Platform.isMacOS || Platform.isLinux) {
+      await Process.start('/bin/sh', <String>[
+        scriptPath,
+      ], mode: ProcessStartMode.detached);
       return;
     }
     throw const AppRestartException(AppRestartFailure.unsupportedPlatform);
@@ -237,9 +168,8 @@ class AppRestartService {
     required String pendingFlagPath,
     required bool useMacOpen,
   }) {
-    final delaySeconds = (_relaunchDelay.inMilliseconds / 1000).toStringAsFixed(
-      3,
-    );
+    final delaySeconds = (_kRelaunchDelay.inMilliseconds / 1000)
+        .toStringAsFixed(3);
     final quotedFlag = _shellQuote(pendingFlagPath);
     final quotedExecutable = _shellQuote(executablePath);
     final quotedBundle = appBundlePath == null
@@ -268,7 +198,7 @@ class AppRestartService {
     required String executablePath,
     required String pendingFlagPath,
   }) {
-    final timeoutSeconds = (_relaunchDelay.inMilliseconds / 1000).ceil();
+    final timeoutSeconds = (_kRelaunchDelay.inMilliseconds / 1000).ceil();
     return '@echo off\r\n'
         'timeout /t $timeoutSeconds /nobreak >nul\r\n'
         'if not exist "${_escapeWindowsPath(pendingFlagPath)}" exit /b 0\r\n'
@@ -292,7 +222,7 @@ class AppRestartService {
         'for /L %%I in (1,1,256) do set "FLUTTER_ENGINE_SWITCH_%%I="\r\n';
   }
 
-  static String? resolveMacOSAppBundle(String executablePath) {
+  static String? _resolveMacOSAppBundle(String executablePath) {
     final normalized = p.normalize(executablePath);
     final marker = '${p.separator}Contents${p.separator}MacOS${p.separator}';
     final markerIndex = normalized.lastIndexOf(marker);
@@ -315,15 +245,7 @@ class AppRestartService {
         await file.delete();
       }
     } catch (error, stack) {
-      silentLog('app_restart', 'delete ${file.path}', error, stack);
+      silentLog('app_restart', '删除 ${file.path}', error, stack);
     }
   }
-}
-
-Duration _nonNegativeDuration(Duration duration) {
-  return duration < Duration.zero ? Duration.zero : duration;
-}
-
-Duration _positiveDuration(Duration duration, {required Duration fallback}) {
-  return duration > Duration.zero ? duration : fallback;
 }
