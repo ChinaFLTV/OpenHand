@@ -1173,68 +1173,6 @@ void _heSanitizeMarkdownAst(List<md.Node> nodes) {
   }
 }
 
-// _HeOutputLinesDial — mirrors _TokenDial but for CLI output lines
-// Displays total output lines from all phase logs as a proxy for activity.
-class _HeOutputLinesDial extends StatelessWidget {
-  const _HeOutputLinesDial({required this.totalLines});
-
-  final int totalLines;
-
-  String _format(int n) {
-    if (n == 0) return '--';
-    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
-    return '$n';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: _br999,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.terminal_rounded, size: 14, color: colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(
-            _format(totalLines),
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            openHandLocalizedText(
-              context,
-              zh: '行',
-              zhHant: '行',
-              en: 'Lines',
-              fr: 'Lignes',
-              de: 'Zeilen',
-              ja: '行',
-            ),
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // _HeChip — matches _ToolExecutionChip (surface overlay bg, rounded)
 class _HeChip extends StatelessWidget {
   const _HeChip({required this.icon, required this.label});

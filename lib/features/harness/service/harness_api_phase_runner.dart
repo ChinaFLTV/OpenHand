@@ -142,6 +142,7 @@ class HarnessApiPhaseRunner {
     required AiToolRuntimeService toolRuntimeService,
     required AiToolUsagePromotionStore toolUsagePromotionStore,
     required AiPromptTemplateRepository templateRepository,
+    required this.usageSessionId,
     this.confirmWriteCommand,
     this.onToolSearchLoaded,
     this.onPhaseEnded,
@@ -154,6 +155,7 @@ class HarnessApiPhaseRunner {
   final AiToolRuntimeService _toolRuntimeService;
   final AiToolUsagePromotionStore _toolUsagePromotionStore;
   final AiPromptTemplateRepository _templateRepository;
+  final String usageSessionId;
   final Future<BashCommandApprovalDecision> Function(
     BashCommandApprovalRequest request,
   )?
@@ -480,6 +482,7 @@ class HarnessApiPhaseRunner {
           completion = await AiUsageTraceContext.runDerived(
             source: AiUsageSource.harness,
             operation: 'phase_execution',
+            sessionId: usageSessionId,
             threadTemplateId: 'harness_engineering',
             metadata: <String, Object?>{'phase': phase.name},
             body: () => _chatClient.sendMessage(
@@ -950,6 +953,7 @@ class HarnessApiPhaseRunner {
       final completion = await AiUsageTraceContext.runDerived(
         source: AiUsageSource.harness,
         operation: 'context_handoff',
+        sessionId: usageSessionId,
         threadTemplateId: 'harness_engineering',
         metadata: <String, Object?>{'phase': phase.name},
         body: () => _chatClient.sendMessage(

@@ -1,5 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
+const Duration _heTokenUsageRefreshDelay = Duration(milliseconds: 140);
+
 class _HePaneHeader extends StatelessWidget {
   const _HePaneHeader({
     required this.config,
@@ -11,6 +13,8 @@ class _HePaneHeader extends StatelessWidget {
     required this.updatedAtLabel,
     required this.sessionId,
     required this.createdAtLabel,
+    required this.sessionCreatedAt,
+    required this.sessionUpdatedAt,
     required this.onCancel,
     required this.onRestart,
     required this.fullAccessPermission,
@@ -28,6 +32,8 @@ class _HePaneHeader extends StatelessWidget {
   final String? updatedAtLabel;
   final String? sessionId;
   final String? createdAtLabel;
+  final DateTime? sessionCreatedAt;
+  final DateTime? sessionUpdatedAt;
   final VoidCallback onCancel;
   final VoidCallback onRestart;
   final bool fullAccessPermission;
@@ -169,9 +175,7 @@ class _HePaneHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final logs = orchestrator.phaseLogs;
     final reviewRetries = orchestrator.reviewRetryCount;
-    final totalLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
     final effectiveTitle = _effectiveTitle(context);
     final toolbarItems = <Widget>[
       OhPill(
@@ -268,7 +272,12 @@ class _HePaneHeader extends StatelessWidget {
                 ),
           onTap: onRestart,
         ),
-      _HeOutputLinesDial(totalLines: totalLines),
+      _HeTokenUsageDial(
+        key: ValueKey<String>('harness-token-${sessionId ?? ''}'),
+        sessionId: sessionId,
+        legacyStartAt: sessionCreatedAt,
+        legacyEndAt: isRunning ? null : sessionUpdatedAt,
+      ),
     ];
 
     return Container(
@@ -322,6 +331,364 @@ class _HePaneHeader extends StatelessWidget {
           _HeSteeringAssetsDialog(steeringRoot: steeringRoot),
     );
   }
+}
+
+class _HeTokenUsageDial extends StatefulWidget {
+  const _HeTokenUsageDial({
+    super.key,
+    required this.sessionId,
+    required this.legacyStartAt,
+    required this.legacyEndAt,
+  });
+
+  final String? sessionId;
+  final DateTime? legacyStartAt;
+  final DateTime? legacyEndAt;
+
+  @override
+  State<_HeTokenUsageDial> createState() => _HeTokenUsageDialState();
+}
+
+class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
+  final AiUsageTracker _tracker = AiUsageTracker.instance;
+  AiUsageSummary _summary = const AiUsageSummary();
+  Timer? _refreshTimer;
+  int _loadGeneration = 0;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker.changes.addListener(_scheduleRefresh);
+    unawaited(_loadSummary());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeTokenUsageDial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sessionId == widget.sessionId &&
+        oldWidget.legacyStartAt == widget.legacyStartAt &&
+        oldWidget.legacyEndAt == widget.legacyEndAt) {
+      return;
+    }
+    unawaited(_loadSummary());
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration += 1;
+    _refreshTimer?.cancel();
+    _tracker.changes.removeListener(_scheduleRefresh);
+    super.dispose();
+  }
+
+  void _scheduleRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = startSafeTimer(_heTokenUsageRefreshDelay, () {
+      _refreshTimer = null;
+      if (mounted) unawaited(_loadSummary());
+    });
+  }
+
+  Future<void> _loadSummary() async {
+    final generation = ++_loadGeneration;
+    final sessionId = widget.sessionId?.trim() ?? '';
+    if (sessionId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _summary = const AiUsageSummary();
+          _loaded = true;
+        });
+      }
+      return;
+    }
+    try {
+      final summary = await _tracker.loadSessionSummary(
+        sessionId: sessionId,
+        source: AiUsageSource.harness,
+        legacyStartAt: widget.legacyStartAt,
+        legacyEndAt: widget.legacyEndAt,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _summary = summary;
+        _loaded = true;
+      });
+    } catch (error, stack) {
+      if (mounted && generation == _loadGeneration && !_loaded) {
+        setState(() => _loaded = true);
+      }
+      silentLog(
+        'harness_session_dashboard',
+        '加载 Harness Token 统计',
+        error,
+        stack,
+      );
+    }
+  }
+
+  void _showDetails() {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => _HeTokenUsageDialog(summary: _summary),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hasUsage = _summary.requestCount > 0 || _summary.totalTokens > 0;
+    final showCacheHitRate =
+        _loaded &&
+        (_summary.cacheReadTokens > 0 || _summary.cacheCreationTokens > 0);
+    final cacheHitPercent = (_summary.cacheHitRate * 100).round();
+    final tokenLabel = _loaded
+        ? '${_heCompactTokenCount(_summary.totalTokens)} Token'
+        : '-- Token';
+    return Tooltip(
+      message: _loaded
+          ? openHandLocalizedText(
+              context,
+              zh: 'Token 统计：${_heInteger(_summary.totalTokens)}',
+              zhHant: 'Token 統計：${_heInteger(_summary.totalTokens)}',
+              en: 'Token usage: ${_heInteger(_summary.totalTokens)}',
+              fr: 'Utilisation des tokens : ${_heInteger(_summary.totalTokens)}',
+              de: 'Token-Nutzung: ${_heInteger(_summary.totalTokens)}',
+              ja: 'Token 使用量: ${_heInteger(_summary.totalTokens)}',
+            )
+          : openHandLocalizedText(
+              context,
+              zh: '正在加载 Token 统计',
+              zhHant: '正在載入 Token 統計',
+              en: 'Loading token usage',
+              fr: 'Chargement de l’utilisation des tokens',
+              de: 'Token-Nutzung wird geladen',
+              ja: 'Token 使用量を読み込み中',
+            ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: kOpenHandPillBorderRadius,
+        child: InkWell(
+          onTap: _loaded ? _showDetails : null,
+          borderRadius: kOpenHandPillBorderRadius,
+          overlayColor: WidgetStatePropertyAll<Color>(
+            colorScheme.primary.withValues(alpha: 0.08),
+          ),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: showCacheHitRate
+                  ? colorScheme.primary.withValues(alpha: 0.08)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: kOpenHandPillBorderRadius,
+              border: Border.all(
+                color: showCacheHitRate
+                    ? colorScheme.primary.withValues(alpha: 0.38)
+                    : colorScheme.outlineVariant.withValues(alpha: 0.55),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  showCacheHitRate || hasUsage
+                      ? Icons.bolt_rounded
+                      : Icons.confirmation_number_rounded,
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                if (showCacheHitRate) ...[
+                  Text(
+                    '$cacheHitPercent%',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 12,
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    color: colorScheme.outlineVariant,
+                  ),
+                ],
+                Text(
+                  tokenLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeTokenUsageDialog extends StatelessWidget {
+  const _HeTokenUsageDialog({required this.summary});
+
+  final AiUsageSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final cacheHitPercent = (summary.cacheHitRate * 100).toStringAsFixed(1);
+    final metrics = <({String label, String value})>[
+      (
+        label: openHandLocalizedText(
+          context,
+          zh: '总 Token',
+          en: 'Total Tokens',
+        ),
+        value: _heInteger(summary.totalTokens),
+      ),
+      (
+        label: openHandLocalizedText(
+          context,
+          zh: '输入 Token',
+          en: 'Input Tokens',
+        ),
+        value: _heInteger(summary.promptTokens),
+      ),
+      (
+        label: openHandLocalizedText(
+          context,
+          zh: '输出 Token',
+          en: 'Output Tokens',
+        ),
+        value: _heInteger(summary.completionTokens),
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '缓存读取', en: 'Cache Read'),
+        value: _heInteger(summary.cacheReadTokens),
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '缓存创建', en: 'Cache Write'),
+        value: _heInteger(summary.cacheCreationTokens),
+      ),
+      (
+        label: openHandLocalizedText(
+          context,
+          zh: '缓存命中率',
+          en: 'Cache Hit Rate',
+        ),
+        value: '$cacheHitPercent%',
+      ),
+      if (summary.reasoningTokens > 0)
+        (
+          label: openHandLocalizedText(
+            context,
+            zh: '推理 Token',
+            en: 'Reasoning Tokens',
+          ),
+          value: _heInteger(summary.reasoningTokens),
+        ),
+      (
+        label: openHandLocalizedText(context, zh: '模型请求', en: 'Model Requests'),
+        value: _heInteger(summary.requestCount),
+      ),
+    ];
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 680,
+      maxHeight: 560,
+      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.bolt_rounded,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: 'Harness Token 统计',
+                      zhHant: 'Harness Token 統計',
+                      en: 'Harness Token Usage',
+                      fr: 'Utilisation des tokens Harness',
+                      de: 'Harness-Token-Nutzung',
+                      ja: 'Harness Token 使用量',
+                    ),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final metric in metrics)
+                      _HeSummaryTile(label: metric.label, value: metric.value),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(context).pop(),
+                label: openHandCloseLabel(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _heCompactTokenCount(int value) {
+  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
+  return '$value';
+}
+
+String _heInteger(int value) {
+  final text = value.abs().toString();
+  final buffer = StringBuffer(value < 0 ? '-' : '');
+  for (var index = 0; index < text.length; index++) {
+    if (index > 0 && (text.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(text[index]);
+  }
+  return buffer.toString();
 }
 
 // _HeSessionMetadataDialog — full metadata dialog matching _SessionMetadataDialog

@@ -108,6 +108,20 @@ class AiUsageTracker {
     return _store.loadSnapshot(filter);
   }
 
+  Future<AiUsageSummary> loadSessionSummary({
+    required String sessionId,
+    required String source,
+    DateTime? legacyStartAt,
+    DateTime? legacyEndAt,
+  }) {
+    return _store.loadSessionSummary(
+      sessionId: sessionId,
+      source: source,
+      legacyStartAt: legacyStartAt,
+      legacyEndAt: legacyEndAt,
+    );
+  }
+
   void recordSuccess({
     required AiModelConfig model,
     required String apiFamily,

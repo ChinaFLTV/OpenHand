@@ -189,6 +189,44 @@ class AiUsageStore {
     );
   }
 
+  Future<AiUsageSummary> loadSessionSummary({
+    required String sessionId,
+    required String source,
+    DateTime? legacyStartAt,
+    DateTime? legacyEndAt,
+  }) {
+    final normalizedSessionId = sessionId.trim();
+    final normalizedSource = source.trim();
+    if (normalizedSessionId.isEmpty || normalizedSource.isEmpty) {
+      return Future<AiUsageSummary>.value(const AiUsageSummary());
+    }
+    final clauses = <String>['source = ?'];
+    final arguments = <Object?>[normalizedSource];
+    if (legacyStartAt == null) {
+      clauses.add('session_id = ?');
+      arguments.add(normalizedSessionId);
+    } else {
+      final legacyClauses = <String>[
+        "(session_id IS NULL OR session_id = '')",
+        'started_at >= ?',
+      ];
+      final legacyArguments = <Object?>[
+        legacyStartAt.toUtc().toIso8601String(),
+      ];
+      if (legacyEndAt != null) {
+        legacyClauses.add('started_at <= ?');
+        legacyArguments.add(legacyEndAt.toUtc().toIso8601String());
+      }
+      clauses.add('(session_id = ? OR (${legacyClauses.join(' AND ')}))');
+      arguments
+        ..add(normalizedSessionId)
+        ..addAll(legacyArguments);
+    }
+    return _loadSummary(
+      _UsageWhere(sql: 'WHERE ${clauses.join(' AND ')}', arguments: arguments),
+    );
+  }
+
   Future<void> clear() => _db.delete(tableName);
 
   Future<void> prune() async {

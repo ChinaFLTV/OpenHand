@@ -927,6 +927,8 @@ class HarnessSessionPane extends StatefulWidget {
     this.updatedAtLabel,
     this.sessionId,
     this.createdAtLabel,
+    this.sessionCreatedAt,
+    this.sessionUpdatedAt,
     this.controller,
     this.filePathRoots = const [],
     this.replayPendingDeadlineListenable,
@@ -948,6 +950,9 @@ class HarnessSessionPane extends StatefulWidget {
 
   /// 元数据弹窗使用的预格式化创建时间。
   final String? createdAtLabel;
+
+  final DateTime? sessionCreatedAt;
+  final DateTime? sessionUpdatedAt;
 
   /// Called when the user restarts a failed / cancelled / idle session.
   final VoidCallback onRestart;
@@ -2165,6 +2170,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           updatedAtLabel: widget.updatedAtLabel,
           sessionId: widget.sessionId,
           createdAtLabel: widget.createdAtLabel,
+          sessionCreatedAt: widget.sessionCreatedAt,
+          sessionUpdatedAt: widget.sessionUpdatedAt,
           onCancel: () => _requestCancel(context),
           onRestart: widget.onRestart,
           fullAccessPermission: widget.fullAccessPermission,

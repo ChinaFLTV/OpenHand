@@ -3451,7 +3451,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final orchestrator = HarnessOrchestrator(config);
       orchestrator.fullAccessPermission = _heFullAccessPermission;
       orchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
-      _wireHarnessApiMode(orchestrator);
       final now = DateTime.now().toUtc();
       final record = HarnessSessionRecord(
         id: const Uuid().v4(),
@@ -3461,6 +3460,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         createdAt: now,
         updatedAt: now,
       );
+      _wireHarnessApiMode(orchestrator, sessionId: record.id);
       final previousOrchestrator = _activeHarnessOrchestrator;
       previousOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
       _harnessSessionSaveDebouncer.cancel();
@@ -5025,13 +5025,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// Wires API-mode (URL) support on a [HarnessOrchestrator] so that phases
   /// configured with [HarnessExecutionMode.url] can run through the AI
   /// chat infrastructure instead of a CLI tool.
-  void _wireHarnessApiMode(HarnessOrchestrator orchestrator) {
+  void _wireHarnessApiMode(
+    HarnessOrchestrator orchestrator, {
+    required String sessionId,
+  }) {
     final aiCtrl = context.read<AiSessionController>();
     orchestrator.apiPhaseRunner = HarnessApiPhaseRunner(
       chatClient: aiCtrl.chatClient,
       toolRuntimeService: aiCtrl.toolRuntimeService,
       toolUsagePromotionStore: aiCtrl.toolUsagePromotionStore,
       templateRepository: aiCtrl.templateRepository,
+      usageSessionId: sessionId,
       confirmWriteCommand: _confirmHarnessApiWriteCommand,
       onToolSearchLoaded: _handleHarnessToolSearchLoaded,
       onPhaseEnded: _handleHarnessPhaseEnded,
@@ -5067,7 +5071,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
       restoredOrchestrator.onPhaseApprovalRequired =
           _handlePhaseApprovalRequired;
-      _wireHarnessApiMode(restoredOrchestrator);
+      _wireHarnessApiMode(restoredOrchestrator, sessionId: effectiveRecord.id);
       restoredOrchestrator.restoreSnapshot(
         status: effectiveRecord.status,
         phaseLogs: effectiveRecord.phaseLogs,
@@ -9919,6 +9923,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 createdAtLabel: _persistedHarnessSession == null
                     ? null
                     : _formatDateTime(_persistedHarnessSession!.createdAt),
+                sessionCreatedAt: _persistedHarnessSession?.createdAt,
+                sessionUpdatedAt: _persistedHarnessSession?.updatedAt,
                 fullAccessPermission: _heFullAccessPermission,
                 onToggleFullAccessPermission: _handleHeFullAccessToggle,
                 onConfigChanged: _handleHeConfigChanged,
