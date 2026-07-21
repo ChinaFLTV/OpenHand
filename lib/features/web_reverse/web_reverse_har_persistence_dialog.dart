@@ -19,6 +19,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_har_io.dart';
@@ -98,7 +99,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', 'getSaveLocation', e, s);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseHarOpenSaveDialogFail ?? 'Failed to open save dialog',
       );
@@ -121,7 +122,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
               loc1?.webReverseHarExportFailedNoDraft ??
               'Export failed (no HAR draft)',
         );
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           loc1?.webReverseHarExportFailed ?? 'Export failed',
         );
@@ -130,7 +131,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
           () =>
               _status = (loc1?.webReverseHarWrotePrefix ?? 'Wrote: ') + written,
         );
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           loc1?.webReverseHarSaved ?? 'HAR saved',
         );
@@ -144,7 +145,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
             loc1?.webReverseHarExportException(e.toString()) ??
             'Export error: $e',
       );
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc1?.webReverseHarExportErrorShort ?? 'Export error',
       );
@@ -163,7 +164,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', 'openFile', e, s);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseHarOpenFileDialogFail ?? 'Failed to open file dialog',
       );
@@ -183,7 +184,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
           context: context,
         );
         setState(() => _status = message);
-        showWebReverseErrorSnack(context, message);
+        showOpenHandErrorSnack(context, message);
         return;
       }
       final bytes = read.bytes!;
@@ -198,7 +199,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
             loc1?.webReverseHarLoadResult(r.loaded, r.skipped, mode) ??
             'Loaded: ${r.loaded} / skipped ${r.skipped} ($mode)',
       );
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc1?.webReverseHarLoaded ?? 'HAR loaded',
       );
@@ -210,7 +211,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         () => _status =
             loc1?.webReverseHarLoadException(e.toString()) ?? 'Load error: $e',
       );
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc1?.webReverseHarLoadErrorShort ?? 'Load error',
       );
@@ -236,7 +237,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     final loc = AppLocalizations.of(context);
     final folder = _folder;
     if (folder == null || folder.isEmpty) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseHarChooseFolderFirst ?? 'Choose a folder first',
       );
@@ -273,7 +274,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     }, min: _minAutoRotateInterval);
     _interval = interval;
     setState(() {});
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseHarAutoStarted ?? 'Auto-rotate started',
     );
@@ -284,7 +285,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     _autoRotate.timer = null;
     _autoRotate.nextAt = null;
     setState(() {});
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       AppLocalizations.of(context)?.webReverseHarAutoStopped ??
           'Auto-rotate stopped',

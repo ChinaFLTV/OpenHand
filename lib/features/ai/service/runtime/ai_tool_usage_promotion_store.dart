@@ -8,6 +8,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../chat/ai_protocol_adapter.dart';
@@ -1112,11 +1113,10 @@ final class AiToolUsagePromotionStore {
 
   String _periodKey(AiResourceUsagePeriod period, DateTime now) {
     final local = now.toLocal();
-    final year = local.year.toString().padLeft(4, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
+    final year = fourDigit(local.year);
+    final month = twoDigit(local.month);
     return switch (period) {
-      AiResourceUsagePeriod.day => '$year-$month-$day',
+      AiResourceUsagePeriod.day => formatYearMonthDay(local),
       AiResourceUsagePeriod.week => _isoWeekKey(local),
       AiResourceUsagePeriod.month => '$year-$month',
       AiResourceUsagePeriod.quarter => '$year-Q${((local.month - 1) ~/ 3) + 1}',
@@ -1133,7 +1133,7 @@ final class AiToolUsagePromotionStore {
       Duration(days: 4 - firstThursdayBase.weekday),
     );
     final week = 1 + thursday.difference(firstThursday).inDays ~/ 7;
-    return '${thursday.year.toString().padLeft(4, '0')}-W${week.toString().padLeft(2, '0')}';
+    return '${fourDigit(thursday.year)}-W${twoDigit(week)}';
   }
 
   Map<String, int> _latestCounts(

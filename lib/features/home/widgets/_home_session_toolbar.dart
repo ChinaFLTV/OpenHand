@@ -43,7 +43,7 @@ Future<void> _jumpToCacheHitTurn(
   }
   if (targetMessageId.isEmpty) {
     if (context.mounted) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -61,7 +61,7 @@ Future<void> _jumpToCacheHitTurn(
     highlight: true,
   );
   if (!ok && context.mounted) {
-    showHomeInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -4264,8 +4264,8 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       widget.sessionId,
       windowSeconds: _rangeSeconds,
     );
-    if (_listsEqual(next.displaySamples, _displaySamples) &&
-        _listsEqual(next.rawSamples, _rawSamples)) {
+    if (listEquals(next.displaySamples, _displaySamples) &&
+        listEquals(next.rawSamples, _rawSamples)) {
       return;
     }
     // 把上一帧已渲染的插值结果作为起点，向新 snapshot 平滑过渡。
@@ -4525,14 +4525,6 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       ...source,
       for (var i = 0; i < targetLen - source.length; i++) 0.0,
     ];
-  }
-
-  bool _listsEqual(List<int> a, List<int> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 
   @override

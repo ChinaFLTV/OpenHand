@@ -5,6 +5,16 @@ import 'web_engine_telemetry_store_base.dart';
 
 typedef WebEngineSemaphore = OpenHandAsyncSemaphore;
 
+const String webEngineSkippedDiagnosticPrefix = 'skipped: ';
+const String webEngineCooldownSkippedReason =
+    '${webEngineSkippedDiagnosticPrefix}cooldown active';
+const String webEngineThrottleSkippedReason =
+    '${webEngineSkippedDiagnosticPrefix}throttle limit reached';
+
+bool isSkippedWebEngineDiagnostic(String? error) {
+  return error?.startsWith(webEngineSkippedDiagnosticPrefix) ?? false;
+}
+
 /// 单个被跳过的引擎条目（cooldown / throttle）。
 class WebEngineSkippedItem<TConfig> {
   const WebEngineSkippedItem({required this.config, required this.reason});
@@ -62,7 +72,7 @@ filterByCooldownAndThrottle<TConfig, TKind extends Enum>({
     final remaining = await telemetry.cooldownRemaining(kind);
     if (remaining > 0) {
       skipped.add(
-        WebEngineSkippedItem(config: c, reason: 'skipped: cooldown active'),
+        WebEngineSkippedItem(config: c, reason: webEngineCooldownSkippedReason),
       );
       continue;
     }
@@ -72,7 +82,7 @@ filterByCooldownAndThrottle<TConfig, TKind extends Enum>({
         skipped.add(
           WebEngineSkippedItem(
             config: c,
-            reason: 'skipped: throttle limit reached',
+            reason: webEngineThrottleSkippedReason,
           ),
         );
         continue;

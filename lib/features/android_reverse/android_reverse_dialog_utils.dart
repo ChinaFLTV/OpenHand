@@ -46,22 +46,6 @@ Future<T?> showAndroidReverseToolDialog<T>({
   );
 }
 
-void showAndroidReverseInfoSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarInfoDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandInfoSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
-}
-
 Future<bool> copyAndroidReverseTextToClipboard({
   required BuildContext context,
   required String text,

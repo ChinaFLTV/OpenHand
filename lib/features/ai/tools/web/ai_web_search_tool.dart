@@ -12,6 +12,7 @@ import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/chat/ai_transport_diagnostic_messages.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/usage/ai_usage_tracker.dart';
+import '../../service/web_engine/web_engine_concurrency.dart';
 import '../../service/web_engine/web_engine_health_alert_tracker.dart';
 import '../../service/web_engine/web_engine_quality.dart';
 import '../../service/web_search/web_search_cache_store.dart';
@@ -138,7 +139,7 @@ class AiWebSearchTool extends AiTool {
       final perEngine = <WebSearchPerEngineLog>[];
       if (orchestration != null) {
         for (final r in orchestration.engineRuns) {
-          if (_isSkippedWebEngineDiagnostic(r.error)) continue;
+          if (isSkippedWebEngineDiagnostic(r.error)) continue;
           perEngine.add(
             WebSearchPerEngineLog(
               kind: r.kind,
@@ -612,12 +613,7 @@ AiToolExecutionResult _webReverseCdpFirstBlock({
     status: BashToolExecutionStatus.invalidArguments,
     command: 'WebSearch $query',
     workingDirectory: AiToolUtils.defaultWorkingDirectory(),
-    stdout:
-        'cdp_first_required: true\n'
-        'target_origin: ${decision.targetOrigin}\n'
-        'requested_origin: ${decision.requestedOrigin}\n'
-        'cdp_route: ${decision.routeKind}\n'
-        'cdp_tools: ${decision.toolText}',
+    stdout: decision.diagnosticText(),
     stderr: message,
     durationMs: durationMs,
     resultText: 'status: invalid_arguments\nerror: $message',
@@ -641,8 +637,4 @@ class _SummaryPrompts {
   final String system;
   final String user;
   final String rawHits;
-}
-
-bool _isSkippedWebEngineDiagnostic(String? error) {
-  return error?.startsWith('skipped: ') ?? false;
 }

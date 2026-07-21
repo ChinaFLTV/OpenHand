@@ -1093,7 +1093,7 @@ class AiChatService implements AiChatClient {
         return nullIfBlank(reasoning);
       }
     } catch (error, stack) {
-      silentLog('ai_chat_service', 'extract reasoning_content', error, stack);
+      silentLog('ai_chat_service', '提取 reasoning_content', error, stack);
     }
     return null;
   }
@@ -1639,7 +1639,7 @@ class AiChatService implements AiChatClient {
       return responseSubscriptionCancelFuture ??= _cancelStreamSubscription(
         subscription,
         timeout: streamCancellationTimeout,
-        logContext: 'cancel chat response stream',
+        logContext: '取消聊天响应流',
       );
     }
 
@@ -2242,7 +2242,7 @@ class AiChatService implements AiChatClient {
       return responseSubscriptionCancelFuture ??= _cancelStreamSubscription(
         responseSubscription,
         timeout: streamCancellationTimeout,
-        logContext: 'cancel Responses stream',
+        logContext: '取消 Responses 响应流',
       );
     }
 
@@ -2985,7 +2985,7 @@ void _processOpenAiStreamEvent(
       // When the index is missing, fall back to keying by `id`, and only
       // as a last resort assume continuation of the most-recent entry.
       final id = optionalStringFromValue(toolCallMap['id']) ?? '';
-      final rawIndex = _readInt(toolCallMap['index']);
+      final rawIndex = optionalIntegralIntFromValue(toolCallMap['index']);
       final int index;
       if (rawIndex != null) {
         index = rawIndex;
@@ -3109,7 +3109,9 @@ void _processClaudeStreamEvent(
       if (contentBlock is Map<String, Object?>) {
         final blockType = stringFromValue(contentBlock['type']);
         if (blockType == 'tool_use') {
-          final index = _readInt(decoded['index']) ?? toolCalls.length;
+          final index =
+              optionalIntegralIntFromValue(decoded['index']) ??
+              toolCalls.length;
           final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
           final id = optionalStringFromValue(contentBlock['id']);
           if (id != null) entry.id = id;
@@ -3139,7 +3141,8 @@ void _processClaudeStreamEvent(
       } else if (deltaType == 'input_json_delta') {
         // Tool call argument fragment (Claude tool_use streaming).
         final partialJson = '${delta['partial_json'] ?? ''}';
-        final index = _readInt(decoded['index']) ?? toolCalls.length;
+        final index =
+            optionalIntegralIntFromValue(decoded['index']) ?? toolCalls.length;
         final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
         if (partialJson.isNotEmpty) {
           entry.argumentsBuffer.write(partialJson);
@@ -3520,12 +3523,7 @@ Future<String> _readChatHttpErrorBody(
       allowMalformed: true,
     );
   } catch (error, stack) {
-    silentLog(
-      'ai_chat_service',
-      'read bounded HTTP error response',
-      error,
-      stack,
-    );
+    silentLog('ai_chat_service', '读取有界 HTTP 错误响应', error, stack);
     return '';
   }
 }
@@ -3544,7 +3542,7 @@ Future<void> _drainChatHttpResponse(
       totalTimeout: drainTimeout,
     );
   } catch (error, stack) {
-    silentLog('ai_chat_service', 'drain redirect response', error, stack);
+    silentLog('ai_chat_service', '丢弃重定向响应正文', error, stack);
   }
 }
 
@@ -3582,15 +3580,10 @@ Future<void> _cancelLateStreamedResponse(
     await _cancelStreamSubscription(
       subscription,
       timeout: timeout,
-      logContext: 'cancel late streamed response',
+      logContext: '取消延迟返回的流式响应',
     );
   } catch (error, stackTrace) {
-    silentLog(
-      'ai_chat_service',
-      'cancel late streamed response',
-      error,
-      stackTrace,
-    );
+    silentLog('ai_chat_service', '取消延迟返回的流式响应', error, stackTrace);
   }
 }
 
@@ -3645,7 +3638,10 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
     await _drainChatHttpResponse(response, timeout: timeout);
     final redirectedUri = currentUri.resolve(redirectLocation);
     if (isCrossOriginRedirect(currentUri, redirectedUri)) {
-      _stripSensitiveRedirectHeaders(currentHeaders);
+      stripSensitiveRedirectHeaders(
+        currentHeaders,
+        additionalNames: const <String>{'x-api-key', 'api-key'},
+      );
     }
     currentUri = redirectedUri;
     if (response.statusCode == 303 &&
@@ -3655,19 +3651,6 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
       currentBody = null;
     }
   }
-}
-
-void _stripSensitiveRedirectHeaders(Map<String, String> headers) {
-  const sensitiveHeaderNames = <String>{
-    'authorization',
-    'cookie',
-    'proxy-authorization',
-    'x-api-key',
-    'api-key',
-  };
-  headers.removeWhere(
-    (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
-  );
 }
 
 String _extractStreamText(Object? rawContent) {
@@ -3938,8 +3921,4 @@ String? _streamingMediaKindFromType(String value) {
 
 String? _streamingMediaKindFromField(String key) {
   return _streamingMediaKindFromType(key.replaceAll('_', '-'));
-}
-
-int? _readInt(Object? value) {
-  return optionalIntegralIntFromValue(value);
 }

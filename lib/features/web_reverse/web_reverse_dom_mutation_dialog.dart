@@ -20,6 +20,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -269,7 +270,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         });
       }
       if (mounted) {
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ??
               'Recording DOM mutations',
@@ -284,7 +285,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         });
       }
       if (mounted) {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           AppLocalizations.of(
                 context,

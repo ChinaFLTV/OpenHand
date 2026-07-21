@@ -167,7 +167,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     _scheduleConsoleFollow();
     final loc = AppLocalizations.of(context);
     if (r == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseConsoleEvalFailed ?? 'Eval failed',
         duration: const Duration(seconds: 2),

@@ -6,4 +6,5 @@ export 'service/agent_prompt_renderer.dart';
 export 'service/agent_routing_metadata.dart';
 export 'service/agent_runtime_availability.dart';
 export 'service/agent_runtime_context_summary.dart';
+export 'service/agent_sensitive_metadata.dart';
 export 'widgets/agents_view.dart' show AgentsView;

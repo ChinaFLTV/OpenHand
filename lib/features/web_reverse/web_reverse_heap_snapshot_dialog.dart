@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -47,7 +48,7 @@ class _HeapDialogState extends State<_HeapDialog> {
       _busy = false;
       _status = message;
     });
-    showWebReverseErrorSnack(context, message);
+    showOpenHandErrorSnack(context, message);
   }
 
   Future<void> _take() async {
@@ -92,7 +93,7 @@ class _HeapDialogState extends State<_HeapDialog> {
           loc?.webReverseHeapSaved(file.path, mb) ??
           'Saved: ${file.path} ($mb MB)';
     });
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseHeapSavedToast ?? 'Snapshot saved',
     );

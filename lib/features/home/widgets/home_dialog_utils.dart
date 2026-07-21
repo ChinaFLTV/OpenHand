@@ -3,54 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 
-void showHomeSuccessSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarSuccessDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandSuccessSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
-}
-
-void showHomeInfoSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarInfoDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandInfoSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
-}
-
-void showHomeErrorSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarErrorDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandErrorSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
-}
-
 void flashHomeSnack(
   BuildContext context,
   String message, {

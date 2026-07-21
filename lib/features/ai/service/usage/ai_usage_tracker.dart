@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../data/ai_usage_store.dart';
 import '../../model/ai_cost_breakdown.dart';
@@ -200,8 +201,9 @@ class AiUsageTracker {
       traceId: trace.traceId,
       startedAt: startedAt,
       endedAt: endedAt,
-      localDate: _localDate(localStartedAt),
-      localHour: '${_localDate(localStartedAt)}T${_two(localStartedAt.hour)}',
+      localDate: formatYearMonthDay(localStartedAt),
+      localHour:
+          '${formatYearMonthDay(localStartedAt)}T${twoDigit(localStartedAt.hour)}',
       durationMs: endedAt
           .difference(startedAt)
           .inMilliseconds
@@ -310,10 +312,3 @@ String _nextUsageId(String prefix) {
   _usageIdCounter = (_usageIdCounter + 1) & 0x7FFFFFFF;
   return '$prefix-${DateTime.now().microsecondsSinceEpoch}-$_usageIdCounter';
 }
-
-String _localDate(DateTime value) {
-  return '${value.year.toString().padLeft(4, '0')}-'
-      '${_two(value.month)}-${_two(value.day)}';
-}
-
-String _two(int value) => value.toString().padLeft(2, '0');

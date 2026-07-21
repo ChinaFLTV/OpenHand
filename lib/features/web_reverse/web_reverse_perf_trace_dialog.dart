@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -89,7 +90,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       _earlyStop = null;
       _status = message;
     });
-    showWebReverseErrorSnack(context, message);
+    showOpenHandErrorSnack(context, message);
   }
 
   Future<void> _start() async {
@@ -159,7 +160,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
           loc?.webReversePerfSaved(file.path, kb) ??
           'Saved: ${file.path} ($kb KB)';
     });
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReversePerfTraceSaved ?? 'Trace saved',
     );

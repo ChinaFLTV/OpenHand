@@ -135,12 +135,7 @@ AiToolExecutionResult _webReverseBashCdpFirstBlock({
     workingDirectory: workingDirectory.isEmpty
         ? AiToolUtils.defaultWorkingDirectory()
         : AiToolUtils.resolvePath(workingDirectory),
-    stdout:
-        'cdp_first_required: true\n'
-        'target_origin: ${decision.targetOrigin}\n'
-        'requested_origin: ${decision.requestedOrigin}\n'
-        'cdp_route: ${decision.routeKind}\n'
-        'cdp_tools: ${decision.toolText}',
+    stdout: decision.diagnosticText(),
     stderr: message,
     durationMs: 0,
     resultText: 'status: denied\nerror: $message',

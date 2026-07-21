@@ -59,6 +59,7 @@ import '../model/agent_models.dart';
 import '../service/agent_ordering.dart';
 import '../service/agent_routing_metadata.dart';
 import '../service/agent_runtime_availability.dart';
+import '../service/agent_sensitive_metadata.dart';
 
 enum _AgentCardAction {
   edit,
@@ -13662,16 +13663,7 @@ String _agentDateTimeLabel(DateTime? value) {
 }
 
 Map<String, Object?> _agentTaskExtraDisplayJson(Map<String, Object?> extra) {
-  if (extra.isEmpty) return const <String, Object?>{};
-  final sanitized = Map<String, Object?>.from(extra);
-  final prompt = sanitized.remove('agent_system_prompt');
-  if (prompt is String && prompt.isNotEmpty) {
-    sanitized['agent_system_prompt'] = <String, Object?>{
-      'omitted': true,
-      'chars': prompt.length,
-    };
-  }
-  return sanitized;
+  return omitAgentSystemPromptMetadata(extra);
 }
 
 AgentTask? _agentTaskById(AgentProfile agent, String taskId) {

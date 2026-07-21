@@ -32,6 +32,19 @@ class WebReverseCdpFirstDecision {
 
   String get requestedOrigin => _httpOriginLabel(requestedUri);
 
+  String diagnosticText({Iterable<String> contextLines = const <String>[]}) {
+    final output = StringBuffer()..writeln('cdp_first_required: true');
+    for (final line in contextLines) {
+      if (line.isNotEmpty) output.writeln(line);
+    }
+    output
+      ..writeln('target_origin: $targetOrigin')
+      ..writeln('requested_origin: $requestedOrigin')
+      ..writeln('cdp_route: $routeKind')
+      ..write('cdp_tools: $toolText');
+    return output.toString();
+  }
+
   String get nextAction {
     final override = nextActionOverride?.trim();
     if (override != null && override.isNotEmpty) return override;

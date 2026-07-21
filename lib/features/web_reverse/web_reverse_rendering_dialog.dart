@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -181,7 +182,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
       params: {'media': '', 'features': const <Map<String, Object?>>[]},
     );
     if (mounted) {
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         AppLocalizations.of(context)?.webReverseRenderingResetSuccess ??
             'Rendering overrides reset',

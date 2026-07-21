@@ -205,7 +205,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   Future<void> _showQuickOpen() async {
     final scripts = widget.controller.parsedScripts;
     if (scripts.isEmpty) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -271,7 +271,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       if (!mounted) return;
       setState(() => _lspEnabled = false);
       final detail = clipTextWithEllipsis('$error', _kLspSnackErrorMaxChars);
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -320,14 +320,14 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               de: 'LSP fehlgeschlagen: $raw',
               ja: 'LSP 起動に失敗しました: $raw',
             );
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         friendly,
         duration: const Duration(seconds: 6),
       );
       return;
     }
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       openHandLocalizedText(
         context,
@@ -565,7 +565,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         if (!mounted) return;
         setState(() => _lspEnabled = false);
         // 提示用户需要再次点击 LSP 启用以走新配置。
-        showWebReverseInfoSnack(
+        showOpenHandInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -749,7 +749,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final md = await _lsp.hover(uri, line, col);
     if (!mounted) return;
     if (md == null || md.isEmpty) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -785,7 +785,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final r = await _lsp.definition(uri, line, col);
     if (!mounted) return;
     if (r == null) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -806,7 +806,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (r.uri == uri) {
       _scrollToLine(r.line);
     } else {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -854,7 +854,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final edit = await _lsp.rename(uri, line, col, newName);
     if (!mounted) return;
     if (edit == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -961,7 +961,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     }();
     if (matchId == null) {
       if (!mounted) return;
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -992,7 +992,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     // 查看原始源时点行号无法直接转成生成文件行号（需要反向 mapping），
     // 现阶段不支持，直接 SnackBar 提示用户「切回压缩源再下断点」。
     if (_viewingOriginal) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1019,7 +1019,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             .findAncestorStateOfType<_WebReverseDashboardDialogState>()
             ?.persistBreakpoints();
       } else {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -1044,7 +1044,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         context
             .findAncestorStateOfType<_WebReverseDashboardDialogState>()
             ?.persistBreakpoints();
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -1058,7 +1058,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           duration: const Duration(seconds: 1),
         );
       } else {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -2210,7 +2210,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
     if (v.isEmpty) return;
     if (!widget.controller.addWatchExpression(v)) {
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

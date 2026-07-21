@@ -151,7 +151,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         onChanged: (preset) async {
                           final ok = await ctrl.setNetworkThrottling(preset);
                           if (!ok && mounted) {
-                            showWebReverseErrorSnack(
+                            showOpenHandErrorSnack(
                               context,
                               openHandLocalizedText(
                                 context,
@@ -559,7 +559,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -590,7 +590,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     }
     if (!mounted) return;
     if (written == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -604,7 +604,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 3),
       );
     } else {
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -630,7 +630,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         : await ctrl.captureScreenshot();
     if (!mounted) return;
     if (bytes == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -667,7 +667,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -686,7 +686,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     try {
       await File(location.path).writeAsBytes(marked, flush: true);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -707,7 +707,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -806,7 +806,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final read = await readWebReverseHarFile(file);
       if (read.isTooLarge) {
         if (!mounted) return;
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           webReverseHarTooLargeMessage(
             read.tooLargeBytes!,
@@ -820,7 +820,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final bytes = read.bytes!;
       final r = ctrl.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -837,7 +837,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'parse har', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -955,7 +955,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     if (!context.mounted) return;
     final tooLargeBytes = setA?.tooLargeBytes ?? setB?.tooLargeBytes;
     if (tooLargeBytes != null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         webReverseHarTooLargeMessage(
           tooLargeBytes,
@@ -967,7 +967,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       return;
     }
     if (setA == null || setB == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1165,7 +1165,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       await ctrl.blockUrl(e.url);
                     }
                     if (!context.mounted) return;
-                    showWebReverseInfoSnack(
+                    showOpenHandInfoSnack(
                       context,
                       openHandLocalizedText(
                         context,
@@ -1204,7 +1204,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       if (r != null) ok++;
                     }
                     if (!context.mounted) return;
-                    showWebReverseInfoSnack(
+                    showOpenHandInfoSnack(
                       context,
                       openHandLocalizedText(
                         context,

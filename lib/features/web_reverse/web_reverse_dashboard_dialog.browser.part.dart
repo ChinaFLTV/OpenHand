@@ -354,7 +354,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       }
       if (!mounted) return;
       _lastConfiguredSize = null;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -375,7 +375,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _restartFailureMessage(error),
         duration: const Duration(seconds: 5),
@@ -1266,7 +1266,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     if (!mounted) return;
     if (bytes == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1303,7 +1303,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     try {
       await File(location.path).writeAsBytes(bytes, flush: true);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1323,7 +1323,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1368,7 +1368,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     if (!mounted) return;
     if (png == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1385,7 +1385,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     final decoded = img.decodePng(png) ?? img.decodeImage(png);
     if (decoded == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1435,7 +1435,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     try {
       await File(location.path).writeAsBytes(out, flush: true);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1450,7 +1450,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'save crop', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

@@ -187,24 +187,30 @@ class AiTokenUsageParser {
   ///   ephemeral_1h_input_tokens（与上面 cache_creation_input_tokens 等价的
   ///   细分；某些版本只下发其一）。
   static AiTokenUsage? parseClaude(Map<String, Object?> usageMap) {
-    final promptTokens = _readInt(usageMap['input_tokens']);
-    final completionTokens = _readInt(usageMap['output_tokens']);
-    final totalTokens = _readInt(usageMap['total_tokens']);
+    final promptTokens = optionalIntegralIntFromValue(usageMap['input_tokens']);
+    final completionTokens = optionalIntegralIntFromValue(
+      usageMap['output_tokens'],
+    );
+    final totalTokens = optionalIntegralIntFromValue(usageMap['total_tokens']);
 
-    int? cacheCreation = _readInt(usageMap['cache_creation_input_tokens']);
+    int? cacheCreation = optionalIntegralIntFromValue(
+      usageMap['cache_creation_input_tokens'],
+    );
     final creationDetails = _readMap(usageMap['cache_creation']);
     if (creationDetails != null) {
-      final ephemeral5m = _readInt(
+      final ephemeral5m = optionalIntegralIntFromValue(
         creationDetails['ephemeral_5m_input_tokens'],
       );
-      final ephemeral1h = _readInt(
+      final ephemeral1h = optionalIntegralIntFromValue(
         creationDetails['ephemeral_1h_input_tokens'],
       );
       final detailedSum = (ephemeral5m ?? 0) + (ephemeral1h ?? 0);
       // 优先使用平铺 cache_creation_input_tokens；缺失时退到子对象之和。
       cacheCreation ??= detailedSum > 0 ? detailedSum : null;
     }
-    final cacheRead = _readInt(usageMap['cache_read_input_tokens']);
+    final cacheRead = optionalIntegralIntFromValue(
+      usageMap['cache_read_input_tokens'],
+    );
 
     if (promptTokens == null &&
         completionTokens == null &&
@@ -234,14 +240,24 @@ class AiTokenUsageParser {
   /// - Gemini 不暴露独立的 cache write 字段——隐式缓存对调用方免费，
   ///   显式缓存的写入计入 promptTokenCount，与此处无关。
   static AiTokenUsage? parseGemini(Map<String, Object?> usageMap) {
-    final promptTokens = _readInt(usageMap['promptTokenCount']);
-    final completionTokens = _readInt(usageMap['candidatesTokenCount']);
-    final totalTokens = _readInt(usageMap['totalTokenCount']);
+    final promptTokens = optionalIntegralIntFromValue(
+      usageMap['promptTokenCount'],
+    );
+    final completionTokens = optionalIntegralIntFromValue(
+      usageMap['candidatesTokenCount'],
+    );
+    final totalTokens = optionalIntegralIntFromValue(
+      usageMap['totalTokenCount'],
+    );
     // Gemini 2.5 Pro / Flash 思考模型：thoughtsTokenCount 包含在
     // candidatesTokenCount 之内。
-    final reasoning = _readInt(usageMap['thoughtsTokenCount']);
+    final reasoning = optionalIntegralIntFromValue(
+      usageMap['thoughtsTokenCount'],
+    );
 
-    int? cacheRead = _readInt(usageMap['cachedContentTokenCount']);
+    int? cacheRead = optionalIntegralIntFromValue(
+      usageMap['cachedContentTokenCount'],
+    );
     if (cacheRead == null) {
       final details = usageMap['cacheTokensDetails'];
       if (details is List) {
@@ -249,7 +265,7 @@ class AiTokenUsageParser {
         var anyMatched = false;
         for (final entry in details) {
           if (entry is! Map) continue;
-          final value = _readInt(entry['tokenCount']);
+          final value = optionalIntegralIntFromValue(entry['tokenCount']);
           if (value != null) {
             sum += value;
             anyMatched = true;
@@ -330,13 +346,9 @@ class AiTokenUsageParser {
   }
 }
 
-int? _readInt(Object? value) {
-  return optionalIntegralIntFromValue(value);
-}
-
 int? _firstInt(List<Object?> candidates) {
   for (final candidate in candidates) {
-    final value = _readInt(candidate);
+    final value = optionalIntegralIntFromValue(candidate);
     if (value != null) return value;
   }
   return null;

@@ -7,6 +7,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -78,7 +79,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     final urls = allUrls.take(kWebReverseHeadlessBatchMaxUrls).toList();
     final loc0 = AppLocalizations.of(context);
     if (urls.isEmpty || _outDir == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseHeadlessBatchNeedUrlAndDir ??
             'Need at least one http(s):// URL and an output directory',
@@ -87,7 +88,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       return;
     }
     if (allUrls.length > urls.length) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -102,7 +103,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     }
     final cdp = widget.controller.browserCdpForBatch;
     if (cdp == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseHeadlessBatchBrowserNotReady ??
             'Browser is not running yet — start a session first',
@@ -143,7 +144,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         _running = false;
         _runner = null;
       });
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseHeadlessBatchPhaseFailed ?? 'Failed',
         duration: const Duration(seconds: 3),
@@ -160,12 +161,12 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     });
     final ok = results.where((r) => r.ok).length;
     if (cancelled) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         loc1?.webReverseHeadlessBatchPhaseCancelled ?? 'Cancelled',
       );
     } else {
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc1?.webReverseHeadlessBatchFinished(ok, results.length) ??
             'Batch finished: $ok/${results.length} ok',

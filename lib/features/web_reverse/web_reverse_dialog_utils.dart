@@ -7,7 +7,6 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/motion_preference.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 
 const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,
@@ -74,54 +73,6 @@ Future<void> confirmWebReverseDiscardChanges({
   );
   if (!confirmed || !context.mounted) return;
   await onConfirmed();
-}
-
-void showWebReverseSuccessSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarSuccessDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandSuccessSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
-}
-
-void showWebReverseErrorSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarErrorDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandErrorSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
-}
-
-void showWebReverseInfoSnack(
-  BuildContext context,
-  String message, {
-  Duration duration = kOpenHandSnackBarInfoDuration,
-  SnackBarAction? action,
-  int? maxLines,
-}) {
-  showOpenHandInfoSnack(
-    context,
-    message,
-    duration: duration,
-    action: action,
-    maxLines: maxLines,
-  );
 }
 
 Widget buildWebReverseStatusBar(

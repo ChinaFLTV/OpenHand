@@ -12,6 +12,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../model/harness_agent_role.dart';
@@ -632,10 +633,10 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
             ja: '${cli.name} のログアウトに失敗しました：$strippedMessage',
           );
     if (result.success) {
-      showHarnessSuccessSnack(context, snackMessage);
+      showOpenHandSuccessSnack(context, snackMessage);
       _logoutSuccessSignal.value++;
     } else {
-      showHarnessErrorSnack(context, snackMessage);
+      showOpenHandErrorSnack(context, snackMessage);
       _logoutErrorSignal.value++;
     }
 

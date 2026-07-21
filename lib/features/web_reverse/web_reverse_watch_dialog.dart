@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -171,7 +172,7 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   void _addExpr() {
     if (_exprs.length >= _kWatchMaxExpressions) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -188,7 +189,7 @@ class _WatchDialogState extends State<_WatchDialog> {
     final code = _newCode.text.trim();
     if (code.isEmpty) return;
     if (code.length > _kWatchMaxExpressionChars) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

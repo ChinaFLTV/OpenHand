@@ -86,7 +86,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           final path = await controller.exportSessionBundle();
           if (!context.mounted) return;
           if (path == null) {
-            showWebReverseErrorSnack(
+            showOpenHandErrorSnack(
               context,
               tr(
                 zh: '导出失败',
@@ -99,7 +99,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
               duration: const Duration(seconds: 3),
             );
           } else {
-            showWebReverseSuccessSnack(
+            showOpenHandSuccessSnack(
               context,
               tr(
                 zh: '已导出到 $path',
@@ -1500,7 +1500,7 @@ Future<void> _showExtraHeadersDialog(
     if (!context.mounted) return;
     if (saved) {
       final savedCount = ctrl.extraHeaders.length;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1513,7 +1513,7 @@ Future<void> _showExtraHeadersDialog(
         ),
       );
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1706,7 +1706,7 @@ Future<void> _copyRecentRequestsForAi(
 ) async {
   final entries = ctrl.networkRequests.reversed.take(10).toList();
   if (entries.isEmpty) {
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -1786,7 +1786,7 @@ Future<void> _showDiffPicker(
 ) async {
   final all = ctrl.networkRequests;
   if (all.length < 2) {
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2061,7 +2061,7 @@ Future<void> _showServiceWorkersDialog(
               );
               if (!context.mounted) return;
               if (r == null) {
-                showWebReverseErrorSnack(
+                showOpenHandErrorSnack(
                   context,
                   openHandLocalizedText(
                     context,
@@ -2075,7 +2075,7 @@ Future<void> _showServiceWorkersDialog(
                   duration: const Duration(seconds: 2),
                 );
               } else {
-                showWebReverseSuccessSnack(
+                showOpenHandSuccessSnack(
                   context,
                   openHandLocalizedText(
                     context,
@@ -2112,7 +2112,7 @@ Future<void> _toggleHarReplayServer(
   if (running != null) {
     await ctrl.stopHarReplayServer();
     if (!context.mounted) return;
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2130,7 +2130,7 @@ Future<void> _toggleHarReplayServer(
   final r = await ctrl.startHarReplayServer();
   if (!context.mounted) return;
   if (r == null) {
-    showWebReverseErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2145,7 +2145,7 @@ Future<void> _toggleHarReplayServer(
     );
     return;
   }
-  showWebReverseInfoSnack(
+  showOpenHandInfoSnack(
     context,
     openHandLocalizedText(
       context,
@@ -2190,7 +2190,7 @@ Future<void> _toggleMitmproxyBridge(
   if (ctrl.mitmproxyBridge != null) {
     await ctrl.stopMitmproxyBridge();
     if (!context.mounted) return;
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2285,7 +2285,7 @@ Future<void> _toggleMitmproxyBridge(
   final r = await ctrl.startMitmproxyBridge();
   if (!context.mounted) return;
   if (r == null) {
-    showWebReverseErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2300,7 +2300,7 @@ Future<void> _toggleMitmproxyBridge(
     );
     return;
   }
-  showWebReverseSuccessSnack(
+  showOpenHandSuccessSnack(
     context,
     openHandLocalizedText(
       context,
@@ -2323,7 +2323,7 @@ Future<void> _toggleWebRtcCapture(
   final ok = await ctrl.installWebRtcCapture();
   if (!context.mounted) return;
   if (!ok) {
-    showWebReverseErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2586,7 +2586,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     try {
       await File(loc.path).writeAsString(buf.toString());
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2601,7 +2601,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard', 'rtc csv write', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

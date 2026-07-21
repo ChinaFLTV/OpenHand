@@ -935,7 +935,7 @@ class AiSession {
     return List<AiSessionMessage>.unmodifiable(displayMessages);
   }
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeMessages = true}) {
     return <String, Object?>{
       'schema_version': schemaVersion,
       'session': <String, Object?>{
@@ -978,7 +978,10 @@ class AiSession {
       'todo_items': todoItems
           .map((item) => item.toJson())
           .toList(growable: false),
-      'messages': messages.map((item) => item.toJson()).toList(growable: false),
+      if (includeMessages)
+        'messages': messages
+            .map((item) => item.toJson())
+            .toList(growable: false),
       'recent_errors': recentErrors
           .map((item) => item.toJson())
           .toList(growable: false),

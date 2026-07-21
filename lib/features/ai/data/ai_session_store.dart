@@ -15,6 +15,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
+import '../../../shared/util/storage_identifier.dart';
 import '../../knowledge_base/index.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
@@ -154,14 +155,14 @@ class AiSessionStore {
   String sessionAttachmentsDirectoryPath(String sessionId) {
     return p.join(
       attachmentsDirectoryPath,
-      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
+      _requireSafeStorageIdentifier(sessionId, label: '会话标识符'),
     );
   }
 
   String sessionDirectoryPath(String sessionId) {
     return p.join(
       _sessionsDirectoryPath,
-      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
+      _requireSafeStorageIdentifier(sessionId, label: '会话标识符'),
     );
   }
 
@@ -283,12 +284,7 @@ class AiSessionStore {
           metadata = stringKeyedMapFromValue(decoded);
         }
       } catch (error, stack) {
-        silentLog(
-          'ai_session_store',
-          'load compact memory metadata',
-          error,
-          stack,
-        );
+        silentLog('ai_session_store', '加载压缩记忆元数据', error, stack);
       }
     }
     final markdownGeneration = _compactMemoryMarkdownGeneration(markdown);
@@ -297,8 +293,8 @@ class AiSessionStore {
         markdownGeneration != metadataGeneration) {
       silentLog(
         'ai_session_store',
-        'load compact memory sidecar',
-        const FormatException('Compact memory sidecar generation mismatch.'),
+        '加载压缩记忆附属文件',
+        const FormatException('压缩记忆附属文件版本不匹配。'),
         StackTrace.current,
       );
       return null;
@@ -374,7 +370,7 @@ class AiSessionStore {
   String sessionFilePath(String sessionId) {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     return p.join(_sessionsDirectoryPath, 'session-$normalizedSessionId.json');
   }
@@ -383,7 +379,7 @@ class AiSessionStore {
   // Core CRUD
   Future<bool> exists(String sessionId) async {
     final normalizedSessionId = sessionId.trim();
-    if (!_isSafeStorageIdentifier(normalizedSessionId)) {
+    if (!isSafeStorageIdentifier(normalizedSessionId)) {
       return false;
     }
     final rows = await _db.query(
@@ -612,7 +608,7 @@ class AiSessionStore {
   Future<AiSession?> loadHeader(String sessionId) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     final rows = await _db.query(
       'sessions',
@@ -675,7 +671,7 @@ class AiSessionStore {
       final batch = txn.batch();
       for (var i = 0; i < orderedSessionIds.length; i++) {
         final sessionId = orderedSessionIds[i].trim();
-        if (!_isSafeStorageIdentifier(sessionId)) continue;
+        if (!isSafeStorageIdentifier(sessionId)) continue;
         batch.update(
           'sessions',
           <String, Object?>{'display_order': i},
@@ -691,7 +687,7 @@ class AiSessionStore {
   /// to the top of every listing (above any manual `display_order`).
   Future<void> setSessionPinned(String sessionId, bool pinned) async {
     final id = sessionId.trim();
-    if (!_isSafeStorageIdentifier(id)) return;
+    if (!isSafeStorageIdentifier(id)) return;
     await _db.update(
       'sessions',
       <String, Object?>{'pinned': pinned ? 1 : 0},
@@ -705,7 +701,7 @@ class AiSessionStore {
   /// via [loadAll]/[loadAllHeaders] when `includeArchived: true`.
   Future<void> setSessionArchived(String sessionId, bool archived) async {
     final id = sessionId.trim();
-    if (!_isSafeStorageIdentifier(id)) return;
+    if (!isSafeStorageIdentifier(id)) return;
     await _db.update(
       'sessions',
       <String, Object?>{'archived': archived ? 1 : 0},
@@ -806,7 +802,7 @@ class AiSessionStore {
   /// Loads a single session with all its messages.
   Future<AiSession?> loadSession(String sessionId) async {
     final normalizedId = sessionId.trim();
-    if (!_isSafeStorageIdentifier(normalizedId)) return null;
+    if (!isSafeStorageIdentifier(normalizedId)) return null;
     final rows = await _db.query(
       'sessions',
       where: 'id = ?',
@@ -827,7 +823,7 @@ class AiSessionStore {
   /// 加载统计修复所需的轻量会话快照，不传输完整正文与审计大字段。
   Future<AiSession?> loadSessionStatisticsSnapshot(String sessionId) async {
     final normalizedId = sessionId.trim();
-    if (!_isSafeStorageIdentifier(normalizedId)) return null;
+    if (!isSafeStorageIdentifier(normalizedId)) return null;
     final rows = await _db.query(
       'sessions',
       where: 'id = ?',
@@ -857,7 +853,7 @@ class AiSessionStore {
     AiSession? sessionHeader,
   }) async {
     final normalizedId = sessionId.trim();
-    if (!_isSafeStorageIdentifier(normalizedId)) return null;
+    if (!isSafeStorageIdentifier(normalizedId)) return null;
     final reusableHeader = sessionHeader?.id == normalizedId
         ? sessionHeader
         : null;
@@ -1153,12 +1149,7 @@ class AiSessionStore {
         sessions.add(await restoreCompressionCheckpointFromSidecar(session));
         await _yieldAfterSessionDecodeIfNeeded(sessions.length);
       } catch (error, stack) {
-        silentLog(
-          'ai_session_store',
-          'load template session ${row['id']}',
-          error,
-          stack,
-        );
+        silentLog('ai_session_store', '加载模板会话 ${row['id']}', error, stack);
         // Skip rows that fail to decode; loadAllHeaders() surfaces persistence
         // issues for the UI — the scheduler should stay silent.
       }
@@ -1343,11 +1334,11 @@ class AiSessionStore {
   ) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     final normalizedMessageId = _requireSafeStorageIdentifier(
       messageId,
-      label: 'message id',
+      label: '消息标识符',
     );
     final rows = await _db.query(
       'messages',
@@ -1365,8 +1356,8 @@ class AiSessionStore {
   Future<int?> messageOffset(String sessionId, String messageId) async {
     final normalizedSessionId = sessionId.trim();
     final normalizedMessageId = messageId.trim();
-    if (!_isSafeStorageIdentifier(normalizedSessionId) ||
-        !_isSafeStorageIdentifier(normalizedMessageId)) {
+    if (!isSafeStorageIdentifier(normalizedSessionId) ||
+        !isSafeStorageIdentifier(normalizedMessageId)) {
       return null;
     }
     final rows = await _db.query(
@@ -1456,11 +1447,11 @@ class AiSessionStore {
   }) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     final normalizedMessageId = _requireSafeStorageIdentifier(
       messageId,
-      label: 'message id',
+      label: '消息标识符',
     );
     final updated = await _db.update(
       'messages',
@@ -1476,7 +1467,7 @@ class AiSessionStore {
   Future<void> delete(String sessionId) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     await _sessionCleanupQueue.enqueue(() async {
       await _db.transaction((txn) async {
@@ -1501,7 +1492,7 @@ class AiSessionStore {
                   fallback: 0,
                 );
           if (count >= _maxPendingSessionCleanups) {
-            throw StateError('Too many pending session cleanups.');
+            throw StateError('待处理会话清理任务过多。');
           }
           await txn.insert('app_settings', <String, Object?>{
             'key': markerKey,
@@ -1538,21 +1529,11 @@ class AiSessionStore {
             );
             await _deletePendingSessionCleanup(sessionId);
           } catch (error, stack) {
-            silentLog(
-              'ai_session_store',
-              'retry pending session cleanup',
-              error,
-              stack,
-            );
+            silentLog('ai_session_store', '重试待处理会话清理', error, stack);
           }
         }
       } catch (error, stack) {
-        silentLog(
-          'ai_session_store',
-          'process pending session cleanups',
-          error,
-          stack,
-        );
+        silentLog('ai_session_store', '处理待处理会话清理', error, stack);
       }
     });
   }
@@ -1590,7 +1571,7 @@ class AiSessionStore {
       final key = row['key'];
       final value = row['value'];
       final sessionId = value is String ? value.trim() : '';
-      if (!_isSafeStorageIdentifier(sessionId) ||
+      if (!isSafeStorageIdentifier(sessionId) ||
           key != _pendingSessionCleanupSettingKey(sessionId)) {
         if (key is String) {
           await _db.delete(
@@ -1634,7 +1615,7 @@ class AiSessionStore {
       }
       final sessionIds = <String>{
         for (final value in rawIds.take(_maxPendingSessionCleanups))
-          if (value is String && _isSafeStorageIdentifier(value.trim()))
+          if (value is String && isSafeStorageIdentifier(value.trim()))
             value.trim(),
       };
       await _db.transaction((txn) async {
@@ -1647,12 +1628,7 @@ class AiSessionStore {
       });
       await file.delete();
     } catch (error, stack) {
-      silentLog(
-        'ai_session_store',
-        'migrate pending session cleanups',
-        error,
-        stack,
-      );
+      silentLog('ai_session_store', '迁移待处理会话清理', error, stack);
     }
   }
 
@@ -2017,7 +1993,7 @@ class AiSessionStore {
           usage = AiTokenUsage.fromJson(stringKeyedMapFromValue(decoded));
         }
       } catch (error, stack) {
-        silentLog('ai_session_store', 'decode usage_json column', error, stack);
+        silentLog('ai_session_store', '解析 usage_json 列', error, stack);
       }
     }
 
@@ -2084,7 +2060,7 @@ class AiSessionStore {
         final decoded = jsonDecode(raw);
         if (decoded is Map) return stringKeyedMapFromValue(decoded);
       } catch (error, stack) {
-        silentLog('ai_session_store', 'decode json map', error, stack);
+        silentLog('ai_session_store', '解析 JSON 对象', error, stack);
       }
     }
     return const <String, Object?>{};
@@ -2096,7 +2072,7 @@ class AiSessionStore {
         final decoded = jsonDecode(raw);
         if (decoded is List) return decoded;
       } catch (error, stack) {
-        silentLog('ai_session_store', 'decode json list', error, stack);
+        silentLog('ai_session_store', '解析 JSON 列表', error, stack);
       }
     }
     return const <Object?>[];
@@ -2116,24 +2092,12 @@ class AiSessionStore {
   }
 }
 
-final RegExp _unsafeStorageIdentifierPattern = RegExp(
-  r'[\u0000-\u001F\u007F/\\]',
-);
-
 String _requireSafeStorageIdentifier(String value, {required String label}) {
   final normalizedValue = value.trim();
-  if (!_isSafeStorageIdentifier(normalizedValue)) {
-    throw FormatException('Invalid $label: $value');
+  if (!isSafeStorageIdentifier(normalizedValue)) {
+    throw FormatException('$label 无效：$value');
   }
   return normalizedValue;
-}
-
-bool _isSafeStorageIdentifier(String value) {
-  final normalizedValue = value.trim();
-  return normalizedValue.isNotEmpty &&
-      normalizedValue != '.' &&
-      normalizedValue != '..' &&
-      !_unsafeStorageIdentifierPattern.hasMatch(normalizedValue);
 }
 
 void _validateSessionForStorage(
@@ -2141,26 +2105,18 @@ void _validateSessionForStorage(
   Set<String>? seenSessionIds,
   bool checkDuplicateSessionIds = false,
 }) {
-  final sessionId = _requireSafeStorageIdentifier(
-    session.id,
-    label: 'session id',
-  );
+  final sessionId = _requireSafeStorageIdentifier(session.id, label: '会话标识符');
   if (checkDuplicateSessionIds &&
       seenSessionIds != null &&
       !seenSessionIds.add(sessionId)) {
-    throw FormatException('Duplicate session id detected: $sessionId');
+    throw FormatException('检测到重复会话标识符：$sessionId');
   }
 
   final seenMessageIds = <String>{};
   for (final message in session.messages) {
-    final messageId = _requireSafeStorageIdentifier(
-      message.id,
-      label: 'message id',
-    );
+    final messageId = _requireSafeStorageIdentifier(message.id, label: '消息标识符');
     if (!seenMessageIds.add(messageId)) {
-      throw FormatException(
-        'Duplicate message id detected in session $sessionId: $messageId',
-      );
+      throw FormatException('会话 $sessionId 中检测到重复消息标识符：$messageId');
     }
   }
 }

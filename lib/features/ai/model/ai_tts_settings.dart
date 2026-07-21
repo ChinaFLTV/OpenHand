@@ -493,7 +493,10 @@ class AiTtsSettings {
     final rawPriority = json['provider_priority'];
     final rawPriorityValues = stringListFromValueOrJsonText(rawPriority);
     final priority = rawPriorityValues.isNotEmpty
-        ? _uniqueProviders(rawPriorityValues.map(AiTtsProvider.fromStorageKey))
+        ? rawPriorityValues
+              .map(AiTtsProvider.fromStorageKey)
+              .toSet()
+              .toList(growable: false)
         : defaultProviderPriority;
     return AiTtsSettings(
       enabled: boolFromValue(json['enabled']),
@@ -617,23 +620,9 @@ class AiTtsSettings {
   }
 
   static List<AiTtsProvider> _normalizePriority(List<AiTtsProvider> priority) {
-    final seen = <AiTtsProvider>{};
-    final result = <AiTtsProvider>[];
-    for (final provider in priority) {
-      if (seen.add(provider)) result.add(provider);
-    }
-    for (final provider in defaultProviderPriority) {
-      if (seen.add(provider)) result.add(provider);
-    }
-    return result;
+    return <AiTtsProvider>{
+      ...priority,
+      ...defaultProviderPriority,
+    }.toList(growable: false);
   }
-}
-
-List<AiTtsProvider> _uniqueProviders(Iterable<AiTtsProvider> providers) {
-  final seen = <AiTtsProvider>{};
-  final result = <AiTtsProvider>[];
-  for (final provider in providers) {
-    if (seen.add(provider)) result.add(provider);
-  }
-  return result;
 }

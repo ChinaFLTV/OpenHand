@@ -540,24 +540,21 @@ class _EmbeddingRequestContext {
   int? get positiveDimensions => optionalPositiveIntFromValue(dimensions);
   String get normalizedModelId => modelId.toLowerCase();
   String? get trimmedEncodingFormat =>
-      _trimmedOrNull(encodingFormat) ??
-      _trimmedOrNull(profile.embeddingDefaultEncodingFormat);
+      nullIfBlank(encodingFormat) ??
+      nullIfBlank(profile.embeddingDefaultEncodingFormat);
   String? get trimmedInputType =>
-      _trimmedOrNull(inputType) ??
-      _trimmedOrNull(profile.embeddingDefaultInputType);
+      nullIfBlank(inputType) ?? nullIfBlank(profile.embeddingDefaultInputType);
   String? get trimmedOutputDType =>
-      _trimmedOrNull(outputDType) ??
-      _trimmedOrNull(profile.embeddingDefaultOutputDType);
+      nullIfBlank(outputDType) ??
+      nullIfBlank(profile.embeddingDefaultOutputDType);
   String? get trimmedTruncation =>
-      _trimmedOrNull(truncation) ??
-      _trimmedOrNull(profile.embeddingDefaultTruncation);
-  String? get trimmedUser => _trimmedOrNull(user);
+      nullIfBlank(truncation) ??
+      nullIfBlank(profile.embeddingDefaultTruncation);
+  String? get trimmedUser => nullIfBlank(user);
   String? get trimmedTaskType =>
-      _trimmedOrNull(taskType) ??
-      _trimmedOrNull(profile.embeddingDefaultTaskType);
-  String? get trimmedTitle => _trimmedOrNull(title);
-  String? get profileEndpointPath =>
-      _trimmedOrNull(profile.embeddingEndpointPath);
+      nullIfBlank(taskType) ?? nullIfBlank(profile.embeddingDefaultTaskType);
+  String? get trimmedTitle => nullIfBlank(title);
+  String? get profileEndpointPath => nullIfBlank(profile.embeddingEndpointPath);
   bool get shouldConstrainDimensions =>
       positiveDimensions != null &&
       (profile.embeddingSupportsCustomDimensions ||
@@ -1310,7 +1307,3 @@ const Set<String> _deepMergeableEmbeddingBodyKeys = <String>{
   'metadata',
   'parameters',
 };
-
-String? _trimmedOrNull(String? value) {
-  return nullIfBlank(value);
-}

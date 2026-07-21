@@ -79,7 +79,7 @@ Future<void> _deleteExportTempFile(File tempFile) async {
       await tempFile.delete();
     }
   } catch (error, stack) {
-    silentLog('ai_session_jsonl_exporter', 'delete temp file', error, stack);
+    silentLog('ai_session_jsonl_exporter', '删除临时文件', error, stack);
   }
 }
 
@@ -107,12 +107,7 @@ Future<void> _commitExportTempFile(File tempFile, File targetFile) async {
         }
         await backupFile.rename(targetFile.path);
       } catch (error, stack) {
-        silentLog(
-          'ai_session_jsonl_exporter',
-          'restore backup after commit failure',
-          error,
-          stack,
-        );
+        silentLog('ai_session_jsonl_exporter', '提交失败后恢复备份', error, stack);
       }
     }
     rethrow;
@@ -465,52 +460,7 @@ Map<String, Object?> _buildSelectionPayload({
 
 Map<String, Object?> _buildSessionSnapshotPayload(AiSession session) {
   return <String, Object?>{
-    'schema_version': AiSession.schemaVersion,
-    'session': <String, Object?>{
-      'id': session.id,
-      'title': session.title,
-      'template_id': session.templateId,
-      'template_name': session.templateName,
-      'template_icon_name': session.templateIconName,
-      'template_internal_version': session.templateInternalVersion,
-      'created_at': session.createdAt.toUtc().toIso8601String(),
-      'updated_at': session.updatedAt.toUtc().toIso8601String(),
-      'last_used_model_id': session.lastUsedModelId,
-      'last_used_model_label': session.lastUsedModelLabel,
-      'is_title_manually_edited': session.isTitleManuallyEdited,
-      'auto_title_acquired': session.autoTitleAcquired,
-      'auto_title_retry_count': session.autoTitleRetryCount,
-      'auto_title_first_user_content': session.autoTitleFirstUserContent,
-      'auto_title_generated_at': session.autoTitleGeneratedAt
-          ?.toUtc()
-          .toIso8601String(),
-      'auto_title_source_message_id': session.autoTitleSourceMessageId,
-      'latest_compression_checkpoint_message_id':
-          session.latestCompressionCheckpointMessageId,
-      'latest_compression_at': session.latestCompressionAt
-          ?.toUtc()
-          .toIso8601String(),
-      'mode': session.mode.storageValue,
-      'awaiting_plan_approval': session.awaitingPlanApproval,
-      'pending_plan': session.pendingPlan,
-      'pending_plan_allowed_prompts': session.pendingPlanAllowedPrompts
-          .map((item) => item.toJson())
-          .toList(growable: false),
-      'full_access_permission': session.fullAccessPermission,
-    },
-    'metadata': session.metadata,
-    'environment': session.environment.toJson(),
-    'statistics': session.statistics.toJson(),
-    'last_prompt_metadata': session.lastPromptMetadata,
-    'plan_history': session.planHistory
-        .map((item) => item.toJson())
-        .toList(growable: false),
-    'todo_items': session.todoItems
-        .map((item) => item.toJson())
-        .toList(growable: false),
-    'recent_errors': session.recentErrors
-        .map((item) => item.toJson())
-        .toList(growable: false),
+    ...session.toJson(includeMessages: false),
     'messages_omitted_from_snapshot': true,
     'messages_are_streamed_as_jsonl_records': true,
     'message_load_state': session.messageLoadState.name,
@@ -1005,13 +955,13 @@ Future<ExportResult> exportAiSessionToJsonl({
       linesWritten: lines,
     );
   } catch (error, stack) {
-    silentLog('ai_session_jsonl_exporter', 'export', error, stack);
+    silentLog('ai_session_jsonl_exporter', '导出 AI 会话', error, stack);
     try {
       await sink?.close();
     } catch (closeError, closeStack) {
       silentLog(
         'ai_session_jsonl_exporter',
-        'sink close after failure',
+        '导出失败后关闭输出流',
         closeError,
         closeStack,
       );
@@ -1033,7 +983,7 @@ Future<ExportResult> exportAiSessionToJsonl({
       } catch (closeError, closeStack) {
         silentLog(
           'ai_session_jsonl_exporter',
-          'sink close in finally',
+          '最终关闭输出流',
           closeError,
           closeStack,
         );
@@ -1130,13 +1080,13 @@ Future<ExportResult> exportHarnessSessionToJsonl({
       linesWritten: lines,
     );
   } catch (error, stack) {
-    silentLog('ai_session_jsonl_exporter', 'export harness', error, stack);
+    silentLog('ai_session_jsonl_exporter', '导出 Harness 会话', error, stack);
     try {
       await sink?.close();
     } catch (closeError, closeStack) {
       silentLog(
         'ai_session_jsonl_exporter',
-        'sink close after harness failure',
+        'Harness 导出失败后关闭输出流',
         closeError,
         closeStack,
       );
@@ -1156,7 +1106,7 @@ Future<ExportResult> exportHarnessSessionToJsonl({
       } catch (closeError, closeStack) {
         silentLog(
           'ai_session_jsonl_exporter',
-          'sink close in harness finally',
+          '最终关闭 Harness 输出流',
           closeError,
           closeStack,
         );

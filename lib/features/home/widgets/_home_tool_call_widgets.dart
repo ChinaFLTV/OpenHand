@@ -3562,7 +3562,7 @@ void _showMessageLinkOpenError(BuildContext context, Object error) {
   if (!context.mounted) {
     return;
   }
-  showHomeErrorSnack(
+  showOpenHandErrorSnack(
     context,
     AppLocalizations.of(context)!.tlCallFailedToOpenFileLocationError(error),
   );

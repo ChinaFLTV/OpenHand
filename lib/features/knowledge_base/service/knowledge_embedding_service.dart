@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -364,23 +365,21 @@ class KnowledgeEmbeddingService {
     final value = isQuery
         ? profile.embeddingDefaultQueryTaskType
         : profile.embeddingDefaultDocumentTaskType;
-    return _trimmedOrNull(value) ??
-        _trimmedOrNull(profile.embeddingDefaultTaskType);
+    return nullIfBlank(value) ?? nullIfBlank(profile.embeddingDefaultTaskType);
   }
 
   String? _resolvedInputType(AiModelProfile profile, {required bool isQuery}) {
     final value = isQuery
         ? profile.embeddingQueryInputType
         : profile.embeddingDocumentInputType;
-    return _trimmedOrNull(value) ??
-        _trimmedOrNull(profile.embeddingDefaultInputType);
+    return nullIfBlank(value) ?? nullIfBlank(profile.embeddingDefaultInputType);
   }
 
   String? _resolvedTextPrefix(AiModelProfile profile, {required bool isQuery}) {
     final value = isQuery
         ? profile.embeddingQueryTextPrefix
         : profile.embeddingDocumentTextPrefix;
-    return _trimmedOrNull(value);
+    return nullIfBlank(value);
   }
 
   String _resolvedModelId(
@@ -391,7 +390,7 @@ class KnowledgeEmbeddingService {
     final value = isQuery
         ? profile.embeddingQueryModelId
         : profile.embeddingDocumentModelId;
-    return _trimmedOrNull(value) ?? fallbackModelId;
+    return nullIfBlank(value) ?? fallbackModelId;
   }
 
   AiModelConfig _embeddingModelForRequest(
@@ -499,7 +498,7 @@ class KnowledgeEmbeddingService {
   }
 
   List<String> _applyTextPrefix(List<String> inputs, String? prefix) {
-    final normalizedPrefix = _trimmedOrNull(prefix);
+    final normalizedPrefix = nullIfBlank(prefix);
     if (normalizedPrefix == null) return inputs;
     return inputs
         .map((value) => _prefixedText(value, normalizedPrefix))
@@ -525,11 +524,6 @@ class KnowledgeEmbeddingException implements Exception {
   String toString() => message;
 }
 
-String? _trimmedOrNull(String? value) {
-  final trimmed = value?.trim() ?? '';
-  return trimmed.isEmpty ? null : trimmed;
-}
-
 String _embeddingModelLabel(AiModelConfig model) {
-  return _trimmedOrNull(model.modelId) ?? 'embedding model';
+  return nullIfBlank(model.modelId) ?? 'embedding model';
 }

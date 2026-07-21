@@ -93,12 +93,7 @@ Future<String> _readMcpHttpErrorBodyBestEffort(
       allowMalformed: true,
     );
   } catch (error, stack) {
-    silentLog(
-      'mcp_tool_discovery_service',
-      'read bounded HTTP error response',
-      error,
-      stack,
-    );
+    silentLog('mcp_tool_discovery_service', '读取有界 HTTP 错误响应', error, stack);
     return '';
   }
 }
@@ -682,7 +677,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       } catch (error, stack) {
         silentLog(
           'mcp_tool_discovery_service',
-          'check running process ${processInfo.pid}',
+          '检查运行中进程 ${processInfo.pid}',
           error,
           stack,
         );
@@ -1684,9 +1679,12 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
     await _drainMcpHttpResponse(response, timeout: requestTimeout);
     final redirectedUri = currentUri.resolve(redirectLocation);
     if (isCrossOriginRedirect(currentUri, redirectedUri)) {
-      _stripSensitiveRedirectHeaders(
+      stripSensitiveRedirectHeaders(
         currentHeaders,
-        additionalSensitiveHeaderNames,
+        additionalNames: <String>{
+          'mcp-session-id',
+          ...additionalSensitiveHeaderNames,
+        },
       );
     }
     currentUri = redirectedUri;
@@ -1697,22 +1695,6 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
       currentBody = null;
     }
   }
-}
-
-void _stripSensitiveRedirectHeaders(
-  Map<String, String> headers,
-  Set<String> additionalSensitiveHeaderNames,
-) {
-  final sensitiveHeaderNames = <String>{
-    'authorization',
-    'cookie',
-    'mcp-session-id',
-    'proxy-authorization',
-    ...additionalSensitiveHeaderNames.map((item) => item.toLowerCase()),
-  };
-  headers.removeWhere(
-    (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
-  );
 }
 
 String _mcpServerResponseDetail(Object? response) {
@@ -1929,7 +1911,7 @@ class _LegacySseSession {
                 );
           silentLog(
             'mcp_tool_discovery_service',
-            'decode SSE event payload',
+            '解析 SSE 事件载荷',
             surfacedError,
             stack,
           );
@@ -1957,10 +1939,7 @@ class _LegacySseSession {
             if (!messages.isClosed) {
               messages.addError(error, stackTrace);
               unawaited(
-                _closeMcpStreamController(
-                  messages,
-                  where: 'legacy SSE error messages',
-                ),
+                _closeMcpStreamController(messages, where: '旧版 SSE 错误消息流'),
               );
             }
           },
@@ -1974,10 +1953,7 @@ class _LegacySseSession {
             }
             if (!messages.isClosed) {
               unawaited(
-                _closeMcpStreamController(
-                  messages,
-                  where: 'legacy SSE completed messages',
-                ),
+                _closeMcpStreamController(messages, where: '旧版 SSE 完成消息流'),
               );
             }
           },
@@ -1997,14 +1973,8 @@ class _LegacySseSession {
         requestTimeout: requestTimeout,
       );
     } catch (_) {
-      await _cancelMcpStreamSubscription(
-        subscription,
-        where: 'legacy SSE connect',
-      );
-      await _closeMcpStreamController(
-        messages,
-        where: 'legacy SSE connect messages',
-      );
+      await _cancelMcpStreamSubscription(subscription, where: '旧版 SSE 连接');
+      await _closeMcpStreamController(messages, where: '旧版 SSE 连接消息流');
       rethrow;
     }
   }
@@ -2094,14 +2064,8 @@ class _LegacySseSession {
   }
 
   Future<void> close() async {
-    await _cancelMcpStreamSubscription(
-      _subscription,
-      where: 'legacy SSE session',
-    );
-    await _closeMcpStreamController(
-      _messages,
-      where: 'legacy SSE session messages',
-    );
+    await _cancelMcpStreamSubscription(_subscription, where: '旧版 SSE 会话');
+    await _closeMcpStreamController(_messages, where: '旧版 SSE 会话消息流');
   }
 }
 
@@ -2173,16 +2137,11 @@ Future<String> _probeLoginShellPath() {
             break;
           }
         } catch (error, stack) {
-          silentLog(
-            'mcp.stdio',
-            'probeLoginShellPath/$candidate',
-            error,
-            stack,
-          );
+          silentLog('mcp.stdio', '探测登录 Shell 路径/$candidate', error, stack);
         }
       }
     } catch (error, stack) {
-      silentLog('mcp.stdio', 'probeLoginShellPath', error, stack);
+      silentLog('mcp.stdio', '探测登录 Shell 路径', error, stack);
     }
     _cachedLoginShellPath = result;
     completer.complete(result);
@@ -2535,7 +2494,7 @@ class _StdioSession {
           try {
             cb(line);
           } catch (error, stack) {
-            silentLog('mcp.stdio', 'onStderrLine', error, stack);
+            silentLog('mcp.stdio', '处理标准错误输出行', error, stack);
           }
         }
       }
@@ -2544,7 +2503,7 @@ class _StdioSession {
       _process.exitCode.then<void>(
         (code) => _appendTrace('process:exit:$code'),
         onError: (Object error, StackTrace stack) {
-          silentLog('mcp.stdio', 'observe process exit', error, stack);
+          silentLog('mcp.stdio', '监听进程退出', error, stack);
         },
       ),
     );
@@ -2899,7 +2858,7 @@ class _StdioSession {
         await writeMcpJsonLineToStdin(_process.stdin, payload);
       } on StateError catch (error, stack) {
         if (!isExpectedMcpStdioSinkStateError(error)) {
-          silentLog('mcp.stdio', 'write.stdin', error, stack);
+          silentLog('mcp.stdio', '写入进程标准输入', error, stack);
           throw McpToolDiscoveryException(
             'Tool scan failed because stdin became unavailable: $error',
           );
@@ -2931,8 +2890,8 @@ class _StdioSession {
       logWhere: 'close.stdin',
     );
     await _waitForExitOrKill();
-    await _cancelSubscription(_stdoutSubscription, 'close.stdout');
-    await _cancelSubscription(_stderrSubscription, 'close.stderr');
+    await _cancelSubscription(_stdoutSubscription, '关闭标准输出流');
+    await _cancelSubscription(_stderrSubscription, '关闭标准错误流');
   }
 
   Future<void> _waitForExitOrKill() async {
@@ -2953,7 +2912,7 @@ class _StdioSession {
     } on TimeoutException {
       return false;
     } catch (error, stack) {
-      silentLog('mcp.stdio', 'close.exitCode', error, stack);
+      silentLog('mcp.stdio', '关闭时读取进程退出码', error, stack);
       return true;
     }
   }
@@ -2978,7 +2937,7 @@ Future<void> _cancelMcpStreamSubscription<T>(
     subscription,
     timeout: _mcpStreamCleanupTimeout,
     onError: (error, stack) =>
-        silentLog('mcp_tool_discovery_service', 'cancel $where', error, stack),
+        silentLog('mcp_tool_discovery_service', '取消：$where', error, stack),
   );
 }
 
@@ -2990,7 +2949,7 @@ Future<void> _closeMcpStreamController<T>(
   try {
     await controller.close().timeout(_mcpStreamCleanupTimeout);
   } catch (error, stack) {
-    silentLog('mcp_tool_discovery_service', 'close $where', error, stack);
+    silentLog('mcp_tool_discovery_service', '关闭：$where', error, stack);
   }
 }
 
@@ -3023,7 +2982,7 @@ class _BoundedSseEventTransformer
       }
       return sourceCancellation ??= _cancelMcpStreamSubscription(
         active,
-        where: 'legacy SSE response stream',
+        where: '旧版 SSE 响应流',
       );
     }
 

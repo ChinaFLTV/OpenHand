@@ -1,10 +1,13 @@
-/// Shared HTTP-redirect helpers used by both the AI chat client and the MCP
-/// tool-discovery client. Centralised here to avoid drift between the two
-/// hand-rolled redirect loops that previously carried byte-identical copies.
+/// AI 聊天与 MCP 工具发现共用的 HTTP 重定向工具。
 library;
 
-/// Whether [statusCode] belongs to the set of HTTP status codes that must be
-/// followed as a redirect (per RFC 7231 & 7538).
+const Set<String> _sensitiveRedirectHeaderNames = <String>{
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+};
+
+/// 判断状态码是否为需要跟随的重定向响应。
 bool isRedirectStatusCode(int statusCode) {
   return statusCode == 301 ||
       statusCode == 302 ||
@@ -13,17 +16,14 @@ bool isRedirectStatusCode(int statusCode) {
       statusCode == 308;
 }
 
-/// Returns `true` when [target] crosses an origin boundary relative to
-/// [source] (different scheme, host, or effective port). Used to decide
-/// whether to strip sensitive headers before replaying the request.
+/// 判断目标地址是否跨越源、主机或有效端口边界。
 bool isCrossOriginRedirect(Uri source, Uri target) {
   return _normalizedOriginScheme(source) != _normalizedOriginScheme(target) ||
       _normalizedOriginHost(source) != _normalizedOriginHost(target) ||
       effectivePort(source) != effectivePort(target);
 }
 
-/// Validates a browser `Origin` header and compares it with [requestUri].
-/// Only HTTP(S) origins without credentials, query, or fragment are accepted.
+/// 校验浏览器 `Origin` 请求头，并与请求地址比较同源性。
 bool isSameHttpOrigin(Uri requestUri, String? rawOrigin) {
   final value = rawOrigin?.trim() ?? '';
   final origin = value.isEmpty ? null : Uri.tryParse(value);
@@ -48,9 +48,7 @@ String _normalizedOriginScheme(Uri uri) => uri.scheme.toLowerCase();
 
 String _normalizedOriginHost(Uri uri) => uri.host.toLowerCase();
 
-/// Returns the effective port for [uri]: the explicit port if present,
-/// otherwise the scheme's default (80 for http, 443 for https). Unknown
-/// schemes return -1 so equality comparisons never silently match.
+/// 返回显式端口或协议默认端口；未知协议返回 -1。
 int effectivePort(Uri uri) {
   if (uri.hasPort) {
     return uri.port;
@@ -62,9 +60,7 @@ int effectivePort(Uri uri) {
   };
 }
 
-/// Case-insensitive header lookup that returns the trimmed value, or an
-/// empty string when the header is absent. Mirrors the lenient behaviour the
-/// existing redirect loops expected from dart:io headers.
+/// 忽略大小写读取响应头；不存在时返回空字符串。
 String readResponseHeader(Map<String, String> headers, String name) {
   final target = name.toLowerCase();
   for (final entry in headers.entries) {
@@ -73,4 +69,19 @@ String readResponseHeader(Map<String, String> headers, String name) {
     }
   }
   return '';
+}
+
+/// 删除跨域重定向时不得透传的敏感请求头。
+void stripSensitiveRedirectHeaders(
+  Map<String, String> headers, {
+  Iterable<String> additionalNames = const <String>[],
+}) {
+  final normalizedAdditionalNames = additionalNames
+      .map((name) => name.toLowerCase())
+      .toSet();
+  headers.removeWhere((name, _) {
+    final normalizedName = name.toLowerCase();
+    return _sensitiveRedirectHeaderNames.contains(normalizedName) ||
+        normalizedAdditionalNames.contains(normalizedName);
+  });
 }

@@ -6,6 +6,7 @@
 // （用户可拖动），尾部固定一个动态插桩（跟随缓存更新间隔）。
 // 拖拽实时更新本地草稿，松手时提交持久化。
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -51,18 +52,9 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   void didUpdateWidget(covariant PromptCacheBreakpointBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialValues != widget.initialValues &&
-        !_listEqual(oldWidget.initialValues, widget.initialValues)) {
+        !listEquals(oldWidget.initialValues, widget.initialValues)) {
       _draft = List<double>.from(widget.initialValues);
     }
-  }
-
-  bool _listEqual(List<double> a, List<double> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 
   // 与 ai_prompt_builder.dart 中实际编排一一对应；权重为视觉占比（不是

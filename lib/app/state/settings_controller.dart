@@ -1103,7 +1103,7 @@ class SettingsController extends ChangeNotifier {
         optionalUnitIntervalListFromValue(positions, sorted: true) ??
         const <double>[];
     return _commitMutation(() {
-      if (_listEqualsDouble(_aiInputCacheBreakpointPositions, next)) {
+      if (listEquals(_aiInputCacheBreakpointPositions, next)) {
         return _MutationDisposition.successNoChange;
       }
       _aiInputCacheBreakpointPositions = next;
@@ -1126,15 +1126,6 @@ class SettingsController extends ChangeNotifier {
       _aiBudgetUsdPerSession = clamped;
       return _MutationDisposition.apply;
     });
-  }
-
-  static bool _listEqualsDouble(List<double> a, List<double> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 
   Future<bool> updateAiWriteToolSummaryMaxChars(int value) async {
@@ -2810,12 +2801,7 @@ class SettingsController extends ChangeNotifier {
     try {
       _applySnapshot(snapshot);
     } catch (error, stack) {
-      silentLog(
-        'settings_controller',
-        'rollback settings snapshot',
-        error,
-        stack,
-      );
+      silentLog('settings_controller', '回滚设置快照', error, stack);
     }
   }
 

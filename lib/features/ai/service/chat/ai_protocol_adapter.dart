@@ -4031,8 +4031,10 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     try {
       final decoded = jsonDecode(rawResponse);
       if (decoded is! Map<String, Object?>) return null;
-      final promptEval = _readInt(decoded['prompt_eval_count']);
-      final evalCount = _readInt(decoded['eval_count']);
+      final promptEval = optionalIntegralIntFromValue(
+        decoded['prompt_eval_count'],
+      );
+      final evalCount = optionalIntegralIntFromValue(decoded['eval_count']);
       if (promptEval == null && evalCount == null) return null;
       return AiTokenUsage(
         promptTokens: promptEval,
@@ -4520,10 +4522,6 @@ String _audioFormatForMimeType(String mimeType) {
   };
 }
 
-int? _readInt(Object? value) {
-  return optionalIntegralIntFromValue(value);
-}
-
 bool _containsAny(String value, List<String> candidates) {
   final normalized = optionalLowercaseStringFromValue(value);
   if (normalized == null) return false;
@@ -4701,12 +4699,7 @@ Future<String> saveInlineMediaToMarkdown(
         // Preserve the primary decode/write failure.
       }
     }
-    silentLog(
-      'ai_protocol_adapter',
-      'save inline media to markdown',
-      error,
-      stack,
-    );
+    silentLog('ai_protocol_adapter', '保存内联媒体并生成 Markdown', error, stack);
     return '';
   }
 }

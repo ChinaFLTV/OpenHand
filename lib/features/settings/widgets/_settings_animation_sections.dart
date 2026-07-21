@@ -34,12 +34,12 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
                 .restoreDefaultAnimationSettings();
             if (!context.mounted) return;
             if (saved) {
-              _showSettingsSuccessSnack(
+              showOpenHandSuccessSnack(
                 context,
                 l10n.settingsAnimationRestoreSuccess,
               );
             } else {
-              _showSettingsErrorSnack(
+              showOpenHandErrorSnack(
                 context,
                 l10n.settingsPersistenceSaveFailedTitle,
               );

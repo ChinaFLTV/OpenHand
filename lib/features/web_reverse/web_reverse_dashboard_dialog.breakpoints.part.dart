@@ -124,7 +124,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     if (ok) {
       widget.onPersist();
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '取消断点失败',
@@ -248,7 +248,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     );
     if (!mounted) return;
     if (newId == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '更新条件断点失败',
@@ -261,7 +261,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
       );
     } else {
       widget.onPersist();
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         value.trim().isEmpty
             ? _text(
@@ -292,7 +292,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
       _xhrCtrl.clear();
       widget.onPersist();
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '添加 XHR 断点失败',
@@ -338,7 +338,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     final ok = await widget.controller.setPauseOnExceptions(state);
     if (!mounted) return;
     if (!ok) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '设置失败（页面未在调试态）',
@@ -361,7 +361,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
         : await widget.controller.setEventListenerBreakpoint(evt);
     if (!mounted) return;
     if (!ok) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '操作失败（页面未在调试态）',
@@ -389,7 +389,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
       _domSelectorCtrl.clear();
       widget.onPersist();
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '添加失败（选择器无匹配或未附加调试器）',
@@ -419,7 +419,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     final ok = await widget.controller.setCspViolationBreakpoints(next);
     if (!mounted) return;
     if (!ok) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _text(
           zh: '设置失败',

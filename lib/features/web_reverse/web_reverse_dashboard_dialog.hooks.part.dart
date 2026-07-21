@@ -151,7 +151,7 @@ class _HooksBodyState extends State<_HooksBody> {
     if (mounted) {
       setState(() => _dirty = false);
       final loc = AppLocalizations.of(context);
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc?.webReverseHooksSavedToast ?? 'Saved and reloaded',
       );

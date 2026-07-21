@@ -11,6 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -79,7 +80,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
       _busy = false;
       _status = message;
     });
-    showWebReverseErrorSnack(context, message);
+    showOpenHandErrorSnack(context, message);
   }
 
   Future<void> _applyPreset(WebReverseDevicePreset p) async {
@@ -107,7 +108,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
           loc?.webReverseDeviceEmuAppliedPreset(p.label) ??
           'Applied ${p.label}';
     });
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}',
     );
@@ -171,7 +172,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
           loc?.webReverseDeviceEmuAppliedCustomSize(w, h, dpr.toString()) ??
           'Applied $w×$h @ ${dpr}x';
     });
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseDeviceEmuApplied ?? 'Applied',
     );

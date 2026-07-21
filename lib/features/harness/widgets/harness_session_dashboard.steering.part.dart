@@ -616,7 +616,7 @@ class _HeSteeringFileEditorDialogState
         _dirty = false;
         _saving = false;
       });
-      showHarnessSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,

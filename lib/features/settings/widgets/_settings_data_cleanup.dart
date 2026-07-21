@@ -994,7 +994,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       zh: '正在导出全部 ledger…',
       en: 'Exporting all ledger…',
     );
-    _showSettingsInfoSnack(
+    showOpenHandInfoSnack(
       context,
       pendingText,
       duration: const Duration(seconds: 1),

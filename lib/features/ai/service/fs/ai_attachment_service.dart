@@ -15,6 +15,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/storage_identifier.dart';
 import '../../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -88,11 +89,11 @@ class AiAttachmentService {
   }) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     final normalizedMessageId = _requireSafeStorageIdentifier(
       messageId,
-      label: 'message id',
+      label: '消息标识符',
     );
     if (_useModernLayout) {
       // Modern layout: files live as siblings under `{sessionId}/attachments/`
@@ -117,12 +118,7 @@ class AiAttachmentService {
             try {
               await entity.delete();
             } catch (error, stack) {
-              silentLog(
-                'ai_attachment_service',
-                'delete legacy attachment file',
-                error,
-                stack,
-              );
+              silentLog('ai_attachment_service', '删除旧版附件文件', error, stack);
             }
           }
         }
@@ -146,12 +142,7 @@ class AiAttachmentService {
         await directory.delete();
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_attachment_service',
-        'maybe delete empty attachment dir',
-        error,
-        stack,
-      );
+      silentLog('ai_attachment_service', '尝试删除空附件目录', error, stack);
     }
   }
 
@@ -164,11 +155,11 @@ class AiAttachmentService {
   }) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
-      label: 'session id',
+      label: '会话标识符',
     );
     final normalizedMessageId = _requireSafeStorageIdentifier(
       messageId,
-      label: 'message id',
+      label: '消息标识符',
     );
     if (filePaths.isEmpty) {
       return const <AiMessageAttachment>[];
@@ -255,12 +246,7 @@ class AiAttachmentService {
               await file.delete();
             }
           } catch (error, stack) {
-            silentLog(
-              'ai_attachment_service',
-              'rollback created attachment',
-              error,
-              stack,
-            );
+            silentLog('ai_attachment_service', '回滚已创建附件', error, stack);
           }
         }
       } else {
@@ -279,11 +265,11 @@ class AiAttachmentService {
   }) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       targetSessionId,
-      label: 'target session id',
+      label: '目标会话标识符',
     );
     final normalizedMessageId = _requireSafeStorageIdentifier(
       targetMessageId,
-      label: 'target message id',
+      label: '目标消息标识符',
     );
     if (attachments.isEmpty) {
       return const <AiMessageAttachment>[];
@@ -330,12 +316,7 @@ class AiAttachmentService {
           ),
         );
       } catch (error, stack) {
-        silentLog(
-          'ai_attachment_service',
-          'copy fork attachment',
-          error,
-          stack,
-        );
+        silentLog('ai_attachment_service', '复制分支附件', error, stack);
         copied.add(attachment);
       }
     }
@@ -783,13 +764,13 @@ class AiAttachmentService {
     Set<String> usedAttachmentIds,
   ) {
     final preferred = preferredId.trim();
-    if (_isSafeStorageIdentifier(preferred) &&
+    if (isSafeStorageIdentifier(preferred) &&
         usedAttachmentIds.add(preferred)) {
       return preferred;
     }
     for (var attempt = 0; attempt < 32; attempt += 1) {
       final generated = idGenerator().trim();
-      if (_isSafeStorageIdentifier(generated) &&
+      if (isSafeStorageIdentifier(generated) &&
           usedAttachmentIds.add(generated)) {
         return generated;
       }
@@ -1344,22 +1325,10 @@ class _ZipEntry {
   final int localHeaderOffset;
 }
 
-final RegExp _unsafeAttachmentStorageIdentifierPattern = RegExp(
-  r'[\u0000-\u001F\u007F/\\]',
-);
-
 String _requireSafeStorageIdentifier(String value, {required String label}) {
   final normalizedValue = value.trim();
-  if (!_isSafeStorageIdentifier(normalizedValue)) {
-    throw AiAttachmentException('Invalid $label: $value');
+  if (!isSafeStorageIdentifier(normalizedValue)) {
+    throw AiAttachmentException('$label 无效：$value');
   }
   return normalizedValue;
-}
-
-bool _isSafeStorageIdentifier(String value) {
-  final normalizedValue = value.trim();
-  return normalizedValue.isNotEmpty &&
-      normalizedValue != '.' &&
-      normalizedValue != '..' &&
-      !_unsafeAttachmentStorageIdentifierPattern.hasMatch(normalizedValue);
 }

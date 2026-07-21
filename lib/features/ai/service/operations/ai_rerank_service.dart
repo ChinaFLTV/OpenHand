@@ -196,12 +196,12 @@ class AiRerankService {
     for (final item in rawResults) {
       if (item is! Map) continue;
       final itemPayload = AiOperationHttp.stringKeyedMap(item);
-      final index = _intValue(
+      final index = optionalIntFromValue(
         itemPayload['index'] ??
             itemPayload['document_index'] ??
             itemPayload['documentIndex'],
       );
-      final score = _doubleValue(
+      final score = optionalDoubleFromValue(
         itemPayload['relevance_score'] ??
             itemPayload['relevanceScore'] ??
             itemPayload['score'] ??
@@ -298,7 +298,7 @@ class _RerankRequestContext {
   final AiModelProfile profile;
 
   String get normalizedModelId => modelId.toLowerCase();
-  String? get profileEndpointPath => _trimmedOrNull(profile.rerankEndpointPath);
+  String? get profileEndpointPath => nullIfBlank(profile.rerankEndpointPath);
   Map<String, Object?> get textRequestFields => <String, Object?>{
     'model': modelId,
     'query': query,
@@ -314,8 +314,7 @@ class _RerankRequestContext {
 
   bool? get resolvedReturnDocuments => returnDocuments;
   String? get resolvedInstruction =>
-      _trimmedOrNull(instruction) ??
-      _trimmedOrNull(profile.rerankDefaultInstruction);
+      nullIfBlank(instruction) ?? nullIfBlank(profile.rerankDefaultInstruction);
   bool? get resolvedTruncation => truncation ?? profile.rerankDefaultTruncation;
   int? get positiveMaxChunksPerDoc =>
       maxChunksPerDoc == null || maxChunksPerDoc! <= 0 ? null : maxChunksPerDoc;
@@ -627,23 +626,11 @@ Object? _documentAt(List<Object> documents, int index) {
   return documents[index];
 }
 
-int? _intValue(Object? value) {
-  return optionalIntFromValue(value);
-}
-
-double? _doubleValue(Object? value) {
-  return optionalDoubleFromValue(value);
-}
-
 const Set<String> _deepMergeableRerankBodyKeys = <String>{
   'metadata',
   'parameters',
   'input',
 };
-
-String? _trimmedOrNull(String? value) {
-  return nullIfBlank(value);
-}
 
 String _normalizeRerankRequestModelId(AiModelConfig model, String modelId) {
   final trimmed = modelId.trim();

@@ -4,13 +4,13 @@
 /// 显示每条状态与原状态对比，导出 JSON。
 library;
 
-
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -118,7 +118,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
     if (!mounted) return;
     setState(() => _busy = false);
     final okCount = _results.values.where((r) => r.ok).length;
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseReplayDone(okCount, _results.length) ??
           'Replay done: $okCount/${_results.length} ok',

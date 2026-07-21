@@ -892,18 +892,12 @@ String _webReverseBashBackgroundCdpFirstStdout({
   required String action,
   String? handle,
 }) {
-  final out = StringBuffer()
-    ..writeln('cdp_first_required: true')
-    ..writeln('action: $action');
-  if (handle != null && handle.isNotEmpty) {
-    out.writeln('handle: $handle');
-  }
-  out
-    ..writeln('target_origin: ${decision.targetOrigin}')
-    ..writeln('requested_origin: ${decision.requestedOrigin}')
-    ..writeln('cdp_route: ${decision.routeKind}')
-    ..write('cdp_tools: ${decision.toolText}');
-  return out.toString();
+  return decision.diagnosticText(
+    contextLines: <String>[
+      'action: $action',
+      if (handle != null && handle.isNotEmpty) 'handle: $handle',
+    ],
+  );
 }
 
 class _BgSession {

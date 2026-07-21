@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -206,9 +207,9 @@ class _CoverageDialogState extends State<_CoverageDialog> {
 
   void _toast(bool ok, String msg) {
     if (ok) {
-      showWebReverseSuccessSnack(context, msg);
+      showOpenHandSuccessSnack(context, msg);
     } else {
-      showWebReverseErrorSnack(context, msg);
+      showOpenHandErrorSnack(context, msg);
     }
   }
 

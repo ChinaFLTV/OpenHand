@@ -2621,7 +2621,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   Future<void> _openMarkdownImageFile(String path, String title) async {
     if (!await isRegularFilePath(path)) {
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

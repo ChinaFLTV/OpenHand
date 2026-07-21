@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -135,7 +136,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
         _status =
             loc?.webReverseThrottleStatusApplied(body) ?? 'Applied: $body';
       });
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc?.webReverseThrottleConditionsApplied ??
             'Network conditions applied',
@@ -251,7 +252,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
           loc?.webReverseThrottleStatusFailed(effectiveReason) ??
           'Failed: $effectiveReason',
     );
-    showWebReverseErrorSnack(
+    showOpenHandErrorSnack(
       context,
       loc?.webReverseThrottleApplyFailed ?? 'Apply failed',
     );

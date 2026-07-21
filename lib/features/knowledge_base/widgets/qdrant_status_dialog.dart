@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -154,14 +155,14 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final l10n = AppLocalizations.of(context)!;
     final values = splitLooseDelimitedValues(_rawVector.text);
     if (values.isEmpty) {
-      showKnowledgeBaseErrorSnack(context, l10n.qdrantStatusRawVectorEmpty);
+      showOpenHandErrorSnack(context, l10n.qdrantStatusRawVectorEmpty);
       return null;
     }
     final vector = <double>[];
     for (final value in values) {
       final parsed = optionalDoubleFromValue(value);
       if (parsed == null) {
-        showKnowledgeBaseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           l10n.qdrantStatusRawVectorInvalid(value),
         );
@@ -174,7 +175,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         .settings
         .dimensions;
     if (dimensions > 0 && vector.length != dimensions) {
-      showKnowledgeBaseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         l10n.qdrantStatusRawVectorDimensionMismatch(vector.length, dimensions),
       );
@@ -228,7 +229,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   Future<void> _loadPointIds() async {
     final ids = _parseIds();
     if (ids.isEmpty) {
-      showKnowledgeBaseErrorSnack(context, _l10n.qdrantStatusPointIdsEmpty);
+      showOpenHandErrorSnack(context, _l10n.qdrantStatusPointIdsEmpty);
       return;
     }
     await _runOperation((controller) => controller.loadQdrantPointsByIds(ids));
@@ -260,7 +261,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       (controller) => controller.createDefaultQdrantPayloadIndexes(),
     );
     if (!mounted) return;
-    showKnowledgeBaseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       _l10n.qdrantStatusPayloadIndexesSubmitted,
     );
@@ -271,18 +272,12 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final controller = context.read<KnowledgeBaseController>();
     final l10n = _l10n;
     if (!controller.settings.enableDangerousAdminOperations) {
-      showKnowledgeBaseErrorSnack(
-        context,
-        l10n.qdrantStatusDangerousOpsDisabled,
-      );
+      showOpenHandErrorSnack(context, l10n.qdrantStatusDangerousOpsDisabled);
       return;
     }
     final ids = _parseIds();
     if (ids.isEmpty) {
-      showKnowledgeBaseErrorSnack(
-        context,
-        l10n.qdrantStatusDeletePointIdsEmpty,
-      );
+      showOpenHandErrorSnack(context, l10n.qdrantStatusDeletePointIdsEmpty);
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
@@ -300,7 +295,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     try {
       await controller.deleteQdrantPoints(ids);
       if (!mounted) return;
-      showKnowledgeBaseSuccessSnack(context, l10n.qdrantStatusPointsDeleted);
+      showOpenHandSuccessSnack(context, l10n.qdrantStatusPointsDeleted);
       await _refresh(silent: true);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -319,10 +314,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final controller = context.read<KnowledgeBaseController>();
     final l10n = _l10n;
     if (!controller.settings.enableDangerousAdminOperations) {
-      showKnowledgeBaseErrorSnack(
-        context,
-        l10n.qdrantStatusDangerousOpsDisabled,
-      );
+      showOpenHandErrorSnack(context, l10n.qdrantStatusDangerousOpsDisabled);
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
@@ -340,10 +332,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     try {
       await controller.deleteQdrantCollection(collection);
       if (!mounted) return;
-      showKnowledgeBaseSuccessSnack(
-        context,
-        l10n.qdrantStatusCollectionDeleted,
-      );
+      showOpenHandSuccessSnack(context, l10n.qdrantStatusCollectionDeleted);
       await _refresh(silent: true);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');

@@ -176,9 +176,9 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
       _testEndpointCtrl.text = widget.controller.proxySettings.testEndpoint;
     }
     if (saved) {
-      _showSettingsSuccessSnack(context, localizedSaved);
+      showOpenHandSuccessSnack(context, localizedSaved);
     } else {
-      _showSettingsErrorSnack(context, localizedSaved);
+      showOpenHandErrorSnack(context, localizedSaved);
     }
   }
 
@@ -596,9 +596,9 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                         setDialogState(() {
                           restarting = false;
                         });
-                        _showSettingsErrorSnack(dialogContext, message);
+                        showOpenHandErrorSnack(dialogContext, message);
                       } else if (mounted) {
-                        _showSettingsErrorSnack(context, message);
+                        showOpenHandErrorSnack(context, message);
                       }
                     }
                   },
@@ -742,13 +742,13 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
           : l10n.inputRepairDone;
       switch (report.result) {
         case InputRepairResult.success:
-          _showSettingsSuccessSnack(context, detail);
+          showOpenHandSuccessSnack(context, detail);
           unawaited(_showRepairReportDialog(report));
         case InputRepairResult.partialSuccess:
-          _showSettingsInfoSnack(context, detail);
+          showOpenHandInfoSnack(context, detail);
           unawaited(_showRepairReportDialog(report));
         case InputRepairResult.failure:
-          _showSettingsErrorSnack(context, l10n.inputRepairDone);
+          showOpenHandErrorSnack(context, l10n.inputRepairDone);
           unawaited(_showRepairReportDialog(report));
       }
     }

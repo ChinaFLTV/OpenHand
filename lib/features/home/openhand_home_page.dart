@@ -464,7 +464,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _openFileInEditor(String filePath) {
     if (!_openFilePaths.contains(filePath) &&
         _openFilePaths.length >= _maxOpenEditorTabs) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -3109,7 +3109,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (!mounted) return;
       if (outcome.success) {
-        showHomeSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           '${AppLocalizations.of(context)!.fileMutationUndone}: ${r.filePath}',
           action: SnackBarAction(
@@ -3125,9 +3125,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         '${r.filePath}'
                   : AppLocalizations.of(context)!.fileMutationRedoFailed;
               if (redoResult.success) {
-                showHomeSuccessSnack(context, msg);
+                showOpenHandSuccessSnack(context, msg);
               } else {
-                showHomeErrorSnack(context, msg);
+                showOpenHandErrorSnack(context, msg);
               }
             },
           ),
@@ -4819,7 +4819,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final config = WebReverseSessionConfig.fromJson(raw);
     if (config == null) {
       if (mounted) {
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -5529,8 +5529,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
       platformName: Platform.operatingSystem,
       workingDirectory: effectiveWorkingDirectory,
-      todayLocalDate:
-          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      todayLocalDate: formatYearMonthDay(now),
       timeZoneName: now.timeZoneName,
       repositorySnapshot: gitSnapshot,
       memoryEntries: memoryEntries,
@@ -5577,7 +5576,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ...webReverseCdpMcpSnapshot.servers,
     ];
     final now = DateTime.now().toLocal();
-    final todayLocalDate = _formatLocalDate(now);
+    final todayLocalDate = formatYearMonthDay(now);
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{};
     final mcpCatalogKeyParts = <Object?>[];
     for (final server in availableMcpServers) {
@@ -5694,12 +5693,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return preview;
   }
 
-  String _formatLocalDate(DateTime now) {
-    return '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
-  }
-
   int _identityHashAll(Iterable<Object?> values) {
     return Object.hashAll(values.map(identityHashCode));
   }
@@ -5805,7 +5798,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
       platformName: Platform.operatingSystem,
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-      todayLocalDate: _formatLocalDate(localNow),
+      todayLocalDate: formatYearMonthDay(localNow),
       timeZoneName: localNow.timeZoneName,
       memoryEntries: const [],
       allowCommandRules:
@@ -5828,7 +5821,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentSession = sessionController.currentSession;
     if (currentSession == null) {
       if (mode == AiSessionMode.goal) {
-        showHomeInfoSnack(
+        showOpenHandInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -5852,7 +5845,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiSessionGoalStartOptions? pendingGoalStartOptions;
     if (mode == AiSessionMode.goal) {
       if (!aiSessionGoalModeAllowedForTemplate(currentSession.templateId)) {
-        showHomeInfoSnack(
+        showOpenHandInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -5868,7 +5861,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         currentSession,
       );
       if (selectedModel == null) {
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           AppLocalizations.of(context)!.aiModelSelectionRequired,
         );
@@ -6006,7 +5999,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) {
     final queue = _queuedMessagesBySessionId[sessionId];
     if ((queue?.length ?? 0) >= _maxQueuedMessagesPerSession) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6040,7 +6033,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     OpenHandGlobalSnackBarHost.hideCurrent();
-    showHomeInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -6067,14 +6060,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sessionController.currentSession,
     );
     if (selectedModel == null) {
-      showHomeErrorSnack(context, l10n.aiModelSelectionRequired);
+      showOpenHandErrorSnack(context, l10n.aiModelSelectionRequired);
       return;
     }
     final attachmentCapabilities = _selectedModelAttachmentCapabilities(
       selectedModel,
     );
     if (pendingAttachments.isNotEmpty && !attachmentCapabilities.supportsAny) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6119,7 +6112,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final slashCommand = parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
       if (pendingAttachments.isNotEmpty) {
-        showHomeInfoSnack(
+        showOpenHandInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -6269,7 +6262,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '当前目标仍在执行中，请暂停后继续目标或终止目标。',
         en: 'A goal is active. Resume or terminate it before sending manually.',
       );
-      showHomeInfoSnack(activeContext, activeGoalMessage);
+      showOpenHandInfoSnack(activeContext, activeGoalMessage);
       return;
     }
     AiSessionGoalStartOptions? goalStartOptions;
@@ -6676,7 +6669,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return _SubmitTextOutcome.submitted;
       }
       if (sessionController.didCompressInLastSendForSession(targetSessionId)) {
-        showHomeInfoSnack(context, l10n.threadCompressionNotice);
+        showOpenHandInfoSnack(context, l10n.threadCompressionNotice);
       }
       _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
       return _SubmitTextOutcome.submitted;
@@ -6694,7 +6687,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (mounted) {
         final errorMessage = '$error'.trim();
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           errorMessage.isEmpty ? l10n.chatRequestFailed : errorMessage,
         );
@@ -6889,12 +6882,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context.read<AiSessionController>().currentSession,
     );
     if (selectedModel == null) {
-      showHomeErrorSnack(context, l10n.aiModelSelectionRequired);
+      showOpenHandErrorSnack(context, l10n.aiModelSelectionRequired);
       return;
     }
     final capabilities = _selectedModelAttachmentCapabilities(selectedModel);
     if (!capabilities.supportsAny) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6908,7 +6901,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       capabilities,
     );
     if (extensions.isEmpty) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6921,7 +6914,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final remainingSlots =
         aiMessageAttachmentLimit - _pendingAttachments.length;
     if (remainingSlots <= 0) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -7128,7 +7121,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     if (lines.isNotEmpty) {
-      showHomeInfoSnack(context, lines.join('\n'), maxLines: 3);
+      showOpenHandInfoSnack(context, lines.join('\n'), maxLines: 3);
     }
   }
 
@@ -7301,7 +7294,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       currentSession,
     );
     if (selectedModel == null) {
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         AppLocalizations.of(context)!.aiModelSelectionRequired,
       );
@@ -7939,7 +7932,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.status:
         final session = context.read<AiSessionController>().currentSession;
         if (session == null) {
-          showHomeInfoSnack(
+          showOpenHandInfoSnack(
             context,
             openHandLocalizedText(
               context,
@@ -7974,7 +7967,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSessionId != null &&
             _canStopCurrentSessionResponse(sessionController);
         if (!hasActiveResponse) {
-          showHomeInfoSnack(
+          showOpenHandInfoSnack(
             context,
             openHandLocalizedText(
               context,
@@ -7986,7 +7979,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         await _stopResponding();
         if (mounted) {
-          showHomeInfoSnack(
+          showOpenHandInfoSnack(
             context,
             openHandLocalizedText(
               context,
@@ -8083,7 +8076,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'Harness Session',
       ),
     };
-    showHomeInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -8182,7 +8175,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   return;
                 }
                 Navigator.of(dialogContext).pop();
-                showHomeSuccessSnack(context, copiedLabel);
+                showOpenHandSuccessSnack(context, copiedLabel);
               },
               label: openHandLocalizedText(
                 context,
@@ -8217,7 +8210,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || renamed) {
       return;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       controller.lastErrorMessage ??
           openHandLocalizedText(context, zh: '线程重命名失败。', en: 'Rename failed.'),
@@ -8410,7 +8403,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || userCancelled) return;
       await closeProgressDialog();
       if (!mounted || userCancelled) return;
-      showHomeSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(context, zh: '标题生成成功', en: 'Title generated'),
       );
@@ -8453,7 +8446,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final controller = context.read<AiSessionController>();
     final deleted = await controller.deleteSession(session.id);
     if (!mounted || deleted) return;
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       controller.lastErrorMessage ??
           openHandLocalizedText(context, zh: '线程删除失败。', en: 'Delete failed.'),
@@ -8485,7 +8478,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
-    showHomeErrorSnack(context, message, maxLines: 2);
+    showOpenHandErrorSnack(context, message, maxLines: 2);
   }
 
   Future<void> _renameHarnessSession() async {
@@ -8622,7 +8615,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8635,7 +8628,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (loaded == null || !mounted) {
       if (mounted) {
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -8673,7 +8666,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8769,7 +8762,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8843,7 +8836,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final ctx = context;
     switch (result.kind) {
       case ExportResultKind.success:
-        showHomeSuccessSnack(
+        showOpenHandSuccessSnack(
           ctx,
           openHandLocalizedText(
             ctx,
@@ -8855,14 +8848,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         break;
       case ExportResultKind.cancelled:
-        showHomeInfoSnack(
+        showOpenHandInfoSnack(
           ctx,
           openHandLocalizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.'),
         );
         break;
       case ExportResultKind.failure:
         final reason = result.error?.toString() ?? 'unknown error';
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           ctx,
           openHandLocalizedText(
             ctx,
@@ -8931,7 +8924,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           .loadFullSessionMessageContent(sessionId, message.id);
       if (!mounted) return;
       if (loaded == null) {
-        showHomeErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -8976,7 +8969,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       controller.lastErrorMessage ??
           openHandLocalizedText(context, zh: '消息删除失败。', en: 'Delete failed.'),
@@ -9009,7 +9002,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       controller.lastErrorMessage ??
           openHandLocalizedText(context, zh: '批量删除消息失败。', en: 'Delete failed.'),
@@ -9045,7 +9038,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     if (forked == null) {
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         controller.lastErrorMessage ??
             openHandLocalizedText(
@@ -9060,7 +9053,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _selectedSection = AppSection.workspace;
       _armAutoFollowToBottom(notifyPausedState: false);
     });
-    showHomeSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       openHandLocalizedText(context, zh: '已派生新会话。', en: 'Session forked.'),
     );
@@ -9083,7 +9076,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || saved) {
       return;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -9110,7 +9103,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || selected) {
       return;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -9129,7 +9122,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (_displaySendPhaseForSession(controller, session.id) !=
         AiSendPhase.idle) {
-      showHomeInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -9144,7 +9137,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       session,
     );
     if (selectedModel == null) {
-      showHomeErrorSnack(
+      showOpenHandErrorSnack(
         context,
         AppLocalizations.of(context)!.aiModelSelectionRequired,
       );
@@ -9195,7 +9188,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || cancelled) {
       return;
     }
-    showHomeErrorSnack(
+    showOpenHandErrorSnack(
       context,
       controller.lastErrorMessage ??
           openHandLocalizedText(
@@ -9655,7 +9648,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           if (settingsController.aiInputCacheEnabled &&
               session != null &&
               session.statistics.assistantMessageCount > 0) {
-            showHomeInfoSnack(
+            showOpenHandInfoSnack(
               context,
               openHandLocalizedText(
                 context,

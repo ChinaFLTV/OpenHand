@@ -233,7 +233,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     try {
       await File(location.path).writeAsString(buf.toString());
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -253,7 +253,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -290,7 +290,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       _traceEarlyStop = null;
     });
     if (json == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -347,7 +347,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     try {
       await File(location.path).writeAsString(json);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -362,7 +362,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write trace', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1145,6 +1145,18 @@ String _localizedMetricName(BuildContext context, String cdpName) {
   }
 }
 
+List<double> _resampleSparklineValues(List<double> source, int targetLength) {
+  if (source.length == targetLength) return List<double>.from(source);
+  if (source.isEmpty) return List<double>.filled(targetLength, 0);
+  if (source.length > targetLength) {
+    return source.sublist(source.length - targetLength);
+  }
+  return <double>[
+    ...List<double>.filled(targetLength - source.length, source.first),
+    ...source,
+  ];
+}
+
 /// 平滑动画版 Sparkline：当传入 [values] 改变时不再瞬时跳点，
 /// 而是用 240ms 的 easeOutCubic 把"上一组"折线值插值到"下一组"。
 /// 配合 [_PerformancePanelState] 的 2s 周期采样，能让曲线像水波一样滑过。
@@ -1179,8 +1191,11 @@ class _AnimatedSparklineState extends State<_AnimatedSparkline>
   @override
   void didUpdateWidget(covariant _AnimatedSparkline old) {
     super.didUpdateWidget(old);
-    if (!_listEquals(old.values, widget.values)) {
-      _from = _resampleTo(_currentValues(), widget.values.length);
+    if (!listEquals(old.values, widget.values)) {
+      _from = _resampleSparklineValues(
+        _currentValues(),
+        widget.values.length,
+      );
       _to = List<double>.from(widget.values);
       if (widget.reduceMotion) {
         _ac.value = 1;
@@ -1206,27 +1221,6 @@ class _AnimatedSparklineState extends State<_AnimatedSparkline>
       _to.length,
       (i) => _from[i] + (_to[i] - _from[i]) * t,
     );
-  }
-
-  List<double> _resampleTo(List<double> src, int n) {
-    if (src.length == n) return List<double>.from(src);
-    if (src.isEmpty) return List<double>.filled(n, 0);
-    if (src.length > n) {
-      // 缩短：取尾部 n 个，模拟历史窗口左移。
-      return src.sublist(src.length - n);
-    }
-    // 拉长：左侧补首值。
-    final pad = List<double>.filled(n - src.length, src.first);
-    return [...pad, ...src];
-  }
-
-  bool _listEquals(List<double> a, List<double> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 
   @override
@@ -1582,7 +1576,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           now.difference(_lastWarnAt!) > const Duration(seconds: 60)) {
         _lastWarnAt = now;
         if (mounted) {
-          showWebReverseErrorSnack(
+          showOpenHandErrorSnack(
             context,
             openHandLocalizedText(
               context,
@@ -1607,7 +1601,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       if (!mounted) return;
       setState(() => _samplingResult = r);
       if (r == null) {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -1625,7 +1619,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       final ok = await widget.controller.startMemorySampling();
       if (!mounted) return;
       if (!ok) {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -1671,7 +1665,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           ?.persistHeapSnapshots(snapA: _snapA, snapB: _snapB);
     }
     if (r == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1694,7 +1688,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     final a = _snapA;
     final b = _snapB;
     if (a == null || b == null) {
-      showWebReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1759,7 +1753,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     try {
       await File(location.path).writeAsString(r.json);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1774,7 +1768,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write heap', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2250,13 +2244,19 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
     super.didUpdateWidget(old);
     final reduceMotion = !_wrMotionEnabled(context);
     var changed = false;
-    if (!_eq(old.primary, widget.primary)) {
-      _fromPri = _resampleTo(_curPri(), widget.primary.length);
+    if (!listEquals(old.primary, widget.primary)) {
+      _fromPri = _resampleSparklineValues(
+        _curPri(),
+        widget.primary.length,
+      );
       _toPri = List<double>.from(widget.primary);
       changed = true;
     }
-    if (!_eq(old.secondary, widget.secondary)) {
-      _fromSec = _resampleTo(_curSec(), widget.secondary.length);
+    if (!listEquals(old.secondary, widget.secondary)) {
+      _fromSec = _resampleSparklineValues(
+        _curSec(),
+        widget.secondary.length,
+      );
       _toSec = List<double>.from(widget.secondary);
       changed = true;
     }
@@ -2275,23 +2275,6 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
   void dispose() {
     _ac.dispose();
     super.dispose();
-  }
-
-  bool _eq(List<double> a, List<double> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  List<double> _resampleTo(List<double> src, int n) {
-    if (src.length == n) return List<double>.from(src);
-    if (src.isEmpty) return List<double>.filled(n, 0);
-    if (src.length > n) return src.sublist(src.length - n);
-    final pad = List<double>.filled(n - src.length, src.first);
-    return [...pad, ...src];
   }
 
   List<double> _curPri() {
@@ -4119,7 +4102,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
           _skipCount = 0;
         }
       });
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4133,7 +4116,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       );
       await widget.onChanged();
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4183,7 +4166,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (success) {
       await _expand(selected.db, selected.store);
       if (mounted) {
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -4197,7 +4180,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         );
       }
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4219,7 +4202,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final keyRaw = entry['key'];
     final keyParam = _remoteObjectToKey(keyRaw);
     if (keyParam == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4264,7 +4247,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (success) {
       await _expand(selected.db, selected.store);
       if (mounted) {
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -4278,7 +4261,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         );
       }
     } else {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -5168,11 +5151,11 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       await File(location.path).writeAsString(prettyPrintJson(steps));
       if (!mounted) return;
-      showWebReverseSuccessSnack(context, _savedToFileMessage(location.path));
+      showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write recorder', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _saveFailedMessage,
         duration: const Duration(seconds: 2),
@@ -5201,7 +5184,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       );
       if (!mounted) return;
       if (read.isTooLarge) {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           webReverseTextFileTooLargeMessage(
             read.tooLargeBytes!,
@@ -5219,7 +5202,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       widget.controller.setRecorderSteps(steps);
       if (!mounted) return;
       final importedCount = widget.controller.recorderSteps.length;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -5239,7 +5222,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -5260,7 +5243,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     final result = await widget.controller.replaySteps();
     if (!mounted) return;
     setState(() => _replaying = false);
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -5307,7 +5290,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       await File(location.path).writeAsString(code);
       if (!mounted) return;
-      showWebReverseSuccessSnack(context, _savedToFileMessage(location.path));
+      showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -5316,7 +5299,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         stack,
       );
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         _saveFailedMessage,
         duration: const Duration(seconds: 2),

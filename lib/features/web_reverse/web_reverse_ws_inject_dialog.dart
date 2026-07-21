@@ -18,6 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -262,7 +263,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     if (raw.isEmpty) return;
     final loc = AppLocalizations.of(context);
     if (raw.length > _kWsInjectMaxPayloadChars) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         'Payload too large: ${raw.length}/$_kWsInjectMaxPayloadChars',
       );
@@ -302,12 +303,12 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       if (_log.length > _kWsInjectMaxLogEntries) _log.removeLast();
       if (!mounted) return;
       if (ok) {
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           loc?.webReverseWsInjectInjected ?? 'Injected',
         );
       } else {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           loc?.webReverseWsInjectInjectFailed ?? 'Inject failed',
         );
@@ -512,7 +513,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                         ),
                       );
                       if (clipped) {
-                        showWebReverseInfoSnack(
+                        showOpenHandInfoSnack(
                           context,
                           'Pasted payload clipped to $_kWsInjectMaxPayloadChars chars',
                         );

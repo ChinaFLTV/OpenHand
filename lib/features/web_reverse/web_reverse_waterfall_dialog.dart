@@ -16,6 +16,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -780,7 +781,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       final read = await readWebReverseHarFile(file);
       if (read.isTooLarge) {
         if (!mounted) return;
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           webReverseHarTooLargeMessage(read.tooLargeBytes!, context: context),
           duration: const Duration(seconds: 3),
@@ -792,7 +793,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       if (!mounted) return;
       setState(() {});
       final loc2 = AppLocalizations.of(context);
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         merge
             ? (loc2?.webReverseWaterfallLoadMergedResult(r.loaded, r.skipped) ??
@@ -807,7 +808,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     } catch (error, stack) {
       silentLog('web_reverse_waterfall_dialog', 'parse har', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseWaterfallHarParseFailed ?? 'HAR parse failed',
         duration: const Duration(seconds: 3),
@@ -852,14 +853,14 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     if (!mounted) return;
     final loc2 = AppLocalizations.of(context);
     if (written == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc2?.webReverseWaterfallHarSaveFailed ??
             'HAR save failed or timed out',
         duration: const Duration(seconds: 3),
       );
     } else {
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc2?.webReverseWaterfallHarSavedTo(written) ?? 'HAR saved to $written',
         duration: const Duration(seconds: 3),

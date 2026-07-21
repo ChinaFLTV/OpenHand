@@ -956,7 +956,7 @@ class _MachineTerminalHistoryDialogState
         terminalId: terminal.terminalId,
       );
       if (!mounted) return;
-      showHomeSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1075,7 +1075,7 @@ class _MachineTerminalHistoryDialogState
         terminalId: terminal.terminalId,
       );
       if (!mounted) return;
-      showHomeSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(context, zh: '终端会话已删除。', en: 'Terminal deleted.'),
       );

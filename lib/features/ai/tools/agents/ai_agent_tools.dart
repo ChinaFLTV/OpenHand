@@ -4687,18 +4687,11 @@ String _resourcePressureLevel(double pressure) {
 }
 
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
-  if (extra.isEmpty) return const <String, Object?>{};
-  final sanitized = Map<String, Object?>.from(extra);
-  final prompt = sanitized.remove('agent_system_prompt');
-  if (prompt is String && prompt.isNotEmpty) {
-    sanitized['agent_system_prompt'] = <String, Object?>{
-      'omitted': true,
-      'chars': prompt.length,
-      'reason':
-          'Use agent_prompt_snapshot metadata unless full prompt text is explicitly needed.',
-    };
-  }
-  return sanitized;
+  return omitAgentSystemPromptMetadata(
+    extra,
+    reason:
+        'Use agent_prompt_snapshot metadata unless full prompt text is explicitly needed.',
+  );
 }
 
 String? _iso(DateTime? value) => value?.toUtc().toIso8601String();

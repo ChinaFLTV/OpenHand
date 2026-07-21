@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -67,7 +68,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       if (_selected >= _draft.length) _selected = _draft.length - 1;
     });
     final loc = AppLocalizations.of(context);
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseMockRulesSavedCount(_draft.length) ??
           'Saved ${_draft.length} rule(s)',
@@ -125,7 +126,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
             .toList(growable: false);
         _selected = _draft.isEmpty ? -1 : 0;
       });
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc?.webReverseMockRulesImportedCount(_draft.length) ??
             'Imported ${_draft.length}',
@@ -133,7 +134,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     } catch (e, st) {
       silentLog('web_reverse_mock_rules', 'import', e, st);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseMockRulesImportFailed('$e') ?? 'Import failed: $e',
       );

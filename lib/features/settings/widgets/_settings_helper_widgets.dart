@@ -981,7 +981,7 @@ class _AiTranslationProviderCardState
         fallbackModel: settingsController.selectedAiModel,
       );
       if (!mounted) return;
-      _showSettingsSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2192,7 +2192,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         _miniMaxVoiceModelKey = '${model.id}|${model.modelId}';
         _miniMaxVoiceOptions = options;
       });
-      _showSettingsSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2535,7 +2535,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         fallbackModel: fallbackModel,
       );
       if (!mounted) return;
-      _showSettingsSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(context, zh: 'TTS 测试播放完成', en: 'TTS test played'),
       );
@@ -5359,7 +5359,7 @@ class _AiModelTileState extends State<_AiModelTile> {
     if (launched || !mounted) {
       return;
     }
-    _showSettingsErrorSnack(
+    showOpenHandErrorSnack(
       context,
       AppLocalizations.of(context)!.aiModelOpenWebsiteFailure,
     );

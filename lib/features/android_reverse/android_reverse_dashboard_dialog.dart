@@ -1893,7 +1893,7 @@ class _AndroidReverseDashboardDialogState
       final result = await _ctrl.makeEvidenceBundleToArtifacts();
       if (!mounted) return;
       setState(() => _evidenceBundleOutput = _formatAdbResult(result));
-      showAndroidReverseInfoSnack(
+      showOpenHandInfoSnack(
         context,
         result.ok
             ? openHandLocalizedText(
@@ -2670,7 +2670,7 @@ fi
         ja: '実行する adb shell コマンドを入力してください。',
       );
       setState(() => _shellOutputCtrl.text = message);
-      showAndroidReverseInfoSnack(context, message);
+      showOpenHandInfoSnack(context, message);
       return;
     }
     final serial = _targetSerial;

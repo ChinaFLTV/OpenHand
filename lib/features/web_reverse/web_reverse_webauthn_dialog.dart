@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_select_button.dart';
@@ -145,7 +146,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
             ),
           );
           if (mounted) {
-            showWebReverseSuccessSnack(
+            showOpenHandSuccessSnack(
               context,
               AppLocalizations.of(context)?.webReverseWebauthnAdded(id) ??
                   'Added $id',

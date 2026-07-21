@@ -2079,7 +2079,7 @@ class _AiUsageHeatmap extends StatelessWidget {
                                       ),
                                       today: localToday,
                                       bucket:
-                                          byDate[_usageDateKey(
+                                          byDate[formatYearMonthDay(
                                             start.add(
                                               Duration(days: week * 7 + day),
                                             ),
@@ -2179,7 +2179,7 @@ class _AiUsageHeatmapCell extends StatelessWidget {
     if (future) return cell;
     return Tooltip(
       message:
-          '${_usageDateDisplay(date)}\n'
+          '${formatYearMonthDay(date)}\n'
           '${_usageInteger(tokens)} Token · ${bucket?.requestCount ?? 0} '
           '${openHandLocalizedText(context, zh: '次请求', en: 'requests')}\n'
           '${openHandLocalizedText(context, zh: '成本', en: 'Cost')} ${bucket == null || bucket!.pricedRequestCount == 0
@@ -2779,7 +2779,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                 ? value(openHandLocalizedText(context, zh: '请求时间', en: 'Time'))
                 : Tooltip(
                     message: '$traceLabel: ${record!.traceId}',
-                    child: value(_usageDateTime(record.startedAt)),
+                    child: value(formatYearMonthDayHms(record.startedAt)),
                   ),
           ),
           cell(
@@ -3598,17 +3598,3 @@ String _usageMonthLabel(BuildContext context, DateTime date) {
     'Dec',
   ][date.month - 1];
 }
-
-String _usageDateKey(DateTime date) {
-  return '${date.year.toString().padLeft(4, '0')}-'
-      '${date.month.toString().padLeft(2, '0')}-'
-      '${date.day.toString().padLeft(2, '0')}';
-}
-
-String _usageDateDisplay(DateTime date) => _usageDateKey(date);
-
-String _usageDateTime(DateTime date) =>
-    '${_usageDateKey(date)} '
-    '${date.hour.toString().padLeft(2, '0')}:'
-    '${date.minute.toString().padLeft(2, '0')}:'
-    '${date.second.toString().padLeft(2, '0')}';

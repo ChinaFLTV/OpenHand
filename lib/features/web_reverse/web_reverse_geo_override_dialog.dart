@@ -16,6 +16,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -184,13 +185,13 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
           : errors.join('; ');
     });
     if (errors.isEmpty) {
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc?.webReverseGeoEnvOverridesApplied ??
             'Environment overrides applied',
       );
     } else {
-      showWebReverseErrorSnack(context, errors.join('; '));
+      showOpenHandErrorSnack(context, errors.join('; '));
     }
   }
 
@@ -216,13 +217,13 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
           : '${loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared'}: $failure';
     });
     if (failure == null) {
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc?.webReverseGeoEnvOverridesCleared ??
             'Cleared environment overrides',
       );
     } else {
-      showWebReverseErrorSnack(context, '$failure');
+      showOpenHandErrorSnack(context, '$failure');
     }
   }
 

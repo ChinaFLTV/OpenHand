@@ -283,9 +283,10 @@ class AiTranslationSettings {
     final rawPriority = json['provider_priority'];
     final rawPriorityValues = stringListFromValueOrJsonText(rawPriority);
     final priority = rawPriorityValues.isNotEmpty
-        ? _uniqueProviders(
-            rawPriorityValues.map(AiTranslationProvider.fromStorageKey),
-          )
+        ? rawPriorityValues
+              .map(AiTranslationProvider.fromStorageKey)
+              .toSet()
+              .toList(growable: false)
         : defaultProviderPriority;
     return AiTranslationSettings(
       enabled: boolFromValue(json['enabled']),
@@ -471,27 +472,11 @@ class AiTranslationSettings {
   static List<AiTranslationProvider> _normalizePriority(
     List<AiTranslationProvider> priority,
   ) {
-    final seen = <AiTranslationProvider>{};
-    final result = <AiTranslationProvider>[];
-    for (final provider in priority) {
-      if (seen.add(provider)) result.add(provider);
-    }
-    for (final provider in defaultProviderPriority) {
-      if (seen.add(provider)) result.add(provider);
-    }
-    return result;
+    return <AiTranslationProvider>{
+      ...priority,
+      ...defaultProviderPriority,
+    }.toList(growable: false);
   }
-}
-
-List<AiTranslationProvider> _uniqueProviders(
-  Iterable<AiTranslationProvider> providers,
-) {
-  final seen = <AiTranslationProvider>{};
-  final result = <AiTranslationProvider>[];
-  for (final provider in providers) {
-    if (seen.add(provider)) result.add(provider);
-  }
-  return result;
 }
 
 String? _normalizeLanguage(String? value) {

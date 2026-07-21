@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -169,7 +170,7 @@ class _KnowledgeSourceContentDialogState
     final snapshot = _snapshot;
     final path = snapshot?.editablePath;
     if (snapshot == null || path == null) {
-      showKnowledgeBaseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -196,7 +197,7 @@ class _KnowledgeSourceContentDialogState
           lineCount: _lineCount(text),
         );
       });
-      showKnowledgeBaseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -210,7 +211,7 @@ class _KnowledgeSourceContentDialogState
       );
     } catch (error) {
       if (!mounted) return;
-      showKnowledgeBaseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -235,7 +236,7 @@ class _KnowledgeSourceContentDialogState
       ),
       clearHistory: true,
     );
-    showKnowledgeBaseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,

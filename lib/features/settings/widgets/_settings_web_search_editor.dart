@@ -146,7 +146,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.websearch', '导出遥测数据', e, st);
       if (!mounted) return;
-      _showSettingsErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
@@ -287,7 +287,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     setState(() => _clearingCache = false);
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
-    _showSettingsInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,

@@ -13,6 +13,7 @@ import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/chat/ai_transport_diagnostic_messages.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/usage/ai_usage_tracker.dart';
+import '../../service/web_engine/web_engine_concurrency.dart';
 import '../../service/web_engine/web_engine_health_alert_tracker.dart';
 import '../../service/web_fetch/web_fetch_cache_store.dart';
 import '../../service/web_fetch/web_fetch_orchestrator.dart';
@@ -139,7 +140,7 @@ class AiWebFetchTool extends AiTool {
       final perEngine = <WebFetchPerEngineLog>[];
       if (orchestration != null) {
         for (final r in orchestration.engineRuns) {
-          if (_isSkippedWebEngineDiagnostic(r.error)) continue;
+          if (isSkippedWebEngineDiagnostic(r.error)) continue;
           perEngine.add(
             WebFetchPerEngineLog(
               kind: r.kind,
@@ -445,7 +446,7 @@ class AiWebFetchTool extends AiTool {
           },
         );
       } catch (error, stack) {
-        silentLog('ai_web_fetch', 'cache_store', error, stack);
+        silentLog('ai_web_fetch', '写入抓取缓存', error, stack);
       }
     }
 
@@ -525,10 +526,6 @@ class AiWebFetchTool extends AiTool {
   }
 }
 
-bool _isSkippedWebEngineDiagnostic(String? error) {
-  return error?.startsWith('skipped: ') ?? false;
-}
-
 AiToolExecutionResult _webReverseCdpFirstBlock({
   required WebReverseCdpFirstDecision decision,
   required String rawUrl,
@@ -539,12 +536,7 @@ AiToolExecutionResult _webReverseCdpFirstBlock({
     status: BashToolExecutionStatus.invalidArguments,
     command: 'WebFetch $rawUrl',
     workingDirectory: AiToolUtils.defaultWorkingDirectory(),
-    stdout:
-        'cdp_first_required: true\n'
-        'target_origin: ${decision.targetOrigin}\n'
-        'requested_origin: ${decision.requestedOrigin}\n'
-        'cdp_route: ${decision.routeKind}\n'
-        'cdp_tools: ${decision.toolText}',
+    stdout: decision.diagnosticText(),
     stderr: message,
     durationMs: durationMs,
     resultText: 'status: invalid_arguments\nerror: $message',

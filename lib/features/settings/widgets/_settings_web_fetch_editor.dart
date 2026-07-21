@@ -172,7 +172,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       );
       if (!mounted) return;
       if (result == true) {
-        _showSettingsSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -184,7 +184,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.webfetch', '安装 Scrapling 运行时', e, st);
       if (!mounted) return;
-      _showSettingsErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(context, zh: '安装失败：$e', en: 'Install failed: $e'),
       );
@@ -225,7 +225,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       );
       if (!mounted) return;
       if (result == true) {
-        _showSettingsSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -237,7 +237,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.webfetch', '卸载 Scrapling 运行时', e, st);
       if (!mounted) return;
-      _showSettingsErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -286,7 +286,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.webfetch', '导出遥测数据', e, st);
       if (!mounted) return;
-      _showSettingsErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
@@ -408,7 +408,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     setState(() => _clearingCache = false);
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
-    _showSettingsInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -113,13 +114,13 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
     if (!success) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
       );
       return;
     }
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}',
     );
@@ -149,13 +150,13 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     if (!success) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
       );
       return;
     }
-    showWebReverseSuccessSnack(
+    showOpenHandSuccessSnack(
       context,
       loc?.webReverseCookieEditorSaved ?? 'Saved',
     );
@@ -404,7 +405,7 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
     final loc = AppLocalizations.of(context);
     final name = _name.text.trim();
     if (name.isEmpty) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseCookieEditorNameRequired ?? 'name required',
       );

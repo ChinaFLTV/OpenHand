@@ -5,9 +5,9 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/input_value_parsing.dart';
-import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_profile_cleaner.dart';
 
 /// 渐进式解决 profile 冲突的结果，供 UI 决定是否进入冷却期。
@@ -58,11 +58,11 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     if (!context.mounted) return;
     switch (tone) {
       case _ProfileToastTone.error:
-        showWebReverseErrorSnack(context, text, duration: duration);
+        showOpenHandErrorSnack(context, text, duration: duration);
       case _ProfileToastTone.success:
-        showWebReverseSuccessSnack(context, text, duration: duration);
+        showOpenHandSuccessSnack(context, text, duration: duration);
       case _ProfileToastTone.info:
-        showWebReverseInfoSnack(context, text, duration: duration);
+        showOpenHandInfoSnack(context, text, duration: duration);
     }
   }
 

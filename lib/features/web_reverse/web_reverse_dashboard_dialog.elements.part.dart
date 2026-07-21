@@ -201,7 +201,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     if (!mounted) return;
     if (s == null) {
       final loc = AppLocalizations.of(context);
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseElementsSelectorFailed ?? 'Failed to build selector',
       );
@@ -225,7 +225,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     if (!mounted) return;
     if (s == null) {
       final loc = AppLocalizations.of(context);
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseElementsXPathFailed ?? 'Failed to build XPath',
       );

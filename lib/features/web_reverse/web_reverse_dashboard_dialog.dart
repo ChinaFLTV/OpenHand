@@ -28,6 +28,7 @@ import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
@@ -617,7 +618,7 @@ class _WebReverseDashboardDialogState
     if (_cdpMcpToggleBusy) return;
     final updater = widget.onCdpMcpEnabledChanged;
     if (updater == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -648,7 +649,7 @@ class _WebReverseDashboardDialogState
     }
     if (!mounted) return;
     if (!ok) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -663,7 +664,7 @@ class _WebReverseDashboardDialogState
       );
       return;
     }
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       enabled
           ? openHandLocalizedText(
@@ -1339,7 +1340,7 @@ class _WebReverseDashboardDialogState
       await ctrl.startRecording();
     }
     if (!mounted) return;
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       ctrl.isRecording
           ? openHandLocalizedText(
@@ -1649,7 +1650,7 @@ Future<void> _openOfficialDevToolsForController(
   }
   if (!context.mounted) return;
   if (frontendUrl == null) {
-    showWebReverseInfoSnack(
+    showOpenHandInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -1990,7 +1991,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final jsonStr = prettyPrintJson(snap);
       await File(location.path).writeAsString(jsonStr);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2006,7 +2007,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'exportSnapshot', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -2034,7 +2035,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final read = await readWebReverseTextFile(file);
       if (!mounted) return;
       if (read.isTooLarge) {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           webReverseTextFileTooLargeMessage(
             read.tooLargeBytes!,
@@ -2048,7 +2049,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
         if (!mounted) return;
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -2066,7 +2067,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final count = controller.importSnapshot(decoded.cast<String, Object?>());
       if (!mounted) return;
       if (count < 0) {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
@@ -2080,7 +2081,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           duration: const Duration(seconds: 3),
         );
       } else {
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -2097,7 +2098,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'importSnapshot', error, stack);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

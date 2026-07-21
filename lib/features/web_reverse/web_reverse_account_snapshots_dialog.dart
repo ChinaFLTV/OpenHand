@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -60,7 +61,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       if (!mounted) return;
       if (snap != null) {
         _nameCtrl.clear();
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           loc?.webReverseAccountSnapSavedSnapshot(
                 snap.name,
@@ -72,7 +73,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     } catch (e, st) {
       silentLog('web_reverse_account_snapshots_dialog', 'capture', e, st);
       if (mounted) {
-        showWebReverseErrorSnack(context, loc?.tlCallFailed ?? 'Failed');
+        showOpenHandErrorSnack(context, loc?.tlCallFailed ?? 'Failed');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -87,14 +88,14 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       final ok = await widget.controller.restoreAccountSnapshot(snap);
       if (!mounted) return;
       if (ok) {
-        showWebReverseSuccessSnack(
+        showOpenHandSuccessSnack(
           context,
           loc?.webReverseAccountSnapAppliedSnapshot(snap.name) ??
               'Applied "${snap.name}". Refresh the page so JS re-reads it.',
           duration: const Duration(seconds: 4),
         );
       } else {
-        showWebReverseErrorSnack(
+        showOpenHandErrorSnack(
           context,
           loc?.webReverseAccountSnapApplyFailedNoCdp ??
               'Apply failed: no CDP session',
@@ -149,7 +150,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       ];
       widget.controller.setAccountSnapshots(merged);
       if (!mounted) return;
-      showWebReverseSuccessSnack(
+      showOpenHandSuccessSnack(
         context,
         loc?.webReverseAccountSnapImportedCount(entries.length - start) ??
             'Imported ${entries.length - start} snapshots',
@@ -157,7 +158,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     } catch (e, st) {
       silentLog('web_reverse_account_snapshots_dialog', 'import', e, st);
       if (!mounted) return;
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc?.webReverseAccountSnapNotSnapshotJson ??
             'Clipboard is not a snapshot JSON',

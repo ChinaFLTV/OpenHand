@@ -20,6 +20,7 @@ import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
@@ -175,14 +176,14 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     final urlText = _urlCtrl.text.trim();
     final loc0 = AppLocalizations.of(context);
     if (urlText.isEmpty) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseResendRequestUrlEmpty ?? 'URL is required',
       );
       return;
     }
     if (urlText.length > _kMaxUrlCharacters) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -199,7 +200,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
           : total,
     );
     if (headerCharacters > _kMaxHeaderCharacters) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -215,7 +216,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         : utf8.encode(body);
     if (body != null &&
         (bodyBytes == null || bodyBytes.length > _kMaxRequestBodyBytes)) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -232,7 +233,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         throw const FormatException('only http/https');
       }
     } catch (_) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         loc0?.webReverseResendRequestUrlInvalid ?? 'Invalid URL',
       );
@@ -1055,7 +1056,7 @@ print(resp.text[:2000])''';
                       _bodyCtrl.text = prettyPrintJson(v);
                       setState(() {});
                     } catch (_) {
-                      showWebReverseErrorSnack(
+                      showOpenHandErrorSnack(
                         context,
                         loc2?.webReverseResendRequestInvalidJson ??
                             'Body is not valid JSON',

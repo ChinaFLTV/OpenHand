@@ -31,6 +31,7 @@ import '../../../shared/ui/openhand_animated_title_text.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_file_hover_popup.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../../shared/ui/spring_entrance.dart';
 import '../../../shared/util/bounded_directory_io.dart';
@@ -1790,7 +1791,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     if (!mounted) {
       return;
     }
-    showHarnessInfoSnack(context, message);
+    showOpenHandInfoSnack(context, message);
   }
 
   void _clearPendingFeedAutoFollowState() {

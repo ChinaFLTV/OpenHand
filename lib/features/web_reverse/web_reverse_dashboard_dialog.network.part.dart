@@ -853,7 +853,7 @@ class _NetworkRow extends StatelessWidget {
       case 'block':
         await controller.blockUrl(entry.url);
         if (!context.mounted) return;
-        showWebReverseInfoSnack(
+        showOpenHandInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -869,7 +869,7 @@ class _NetworkRow extends StatelessWidget {
       case 'unblock':
         await controller.unblockUrl(entry.url);
         if (!context.mounted) return;
-        showWebReverseInfoSnack(
+        showOpenHandInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -923,7 +923,7 @@ class _NetworkRow extends StatelessWidget {
     );
     if (!context.mounted) return;
     if (result == null) {
-      showWebReverseErrorSnack(
+      showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,

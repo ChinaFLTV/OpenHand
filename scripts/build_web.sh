@@ -306,10 +306,10 @@ if (( ${#missing[@]} > 0 )); then
 fi
 
 # ---- 跨 feature import 边界检查 --------------------------------------------
-# 硬约束：违规即 fail。P0 plan-1/2/3/5 完成后过渡开关已移除。
+# 硬约束：违规即终止。P0 plan-1/2/3/5 完成后过渡开关已移除。
 log "跑 check_imports.dart"
 if ! dart run scripts/check_imports.dart; then
-  fail "FAIL：检测到跨 feature 深路径 import；请走对应 feature 的 barrel"
+  fail "导入检查失败：检测到跨 feature 深路径 import；请走对应 feature 的 barrel"
 fi
 
 BUILD_OK=1

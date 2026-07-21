@@ -8,6 +8,7 @@ import '../model/agent_models.dart';
 import 'agent_ordering.dart';
 import 'agent_routing_metadata.dart';
 import 'agent_runtime_context_summary.dart';
+import 'agent_sensitive_metadata.dart';
 
 class AgentPromptSnapshot {
   const AgentPromptSnapshot({
@@ -109,12 +110,7 @@ class AgentPromptRenderer {
       final content = (await _loader(defaultAssetPath)).trim();
       return content.isEmpty ? _fallbackTemplate : content;
     } catch (error, stack) {
-      silentLog(
-        'agent_prompt_renderer',
-        'load $defaultAssetPath',
-        error,
-        stack,
-      );
+      silentLog('agent_prompt_renderer', '加载 $defaultAssetPath', error, stack);
       return _fallbackTemplate;
     }
   }
@@ -453,18 +449,12 @@ Map<String, Object?> _taskJson(AgentTask task) {
 }
 
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
-  if (extra.isEmpty) return const <String, Object?>{};
-  final sanitized = Map<String, Object?>.from(extra);
-  final prompt = sanitized.remove('agent_system_prompt');
-  if (prompt is String && prompt.isNotEmpty) {
-    sanitized['agent_system_prompt'] = <String, Object?>{
-      'omitted': true,
-      'chars': prompt.length,
-      'reason':
-          'Use agent_prompt_snapshot metadata instead of raw prompt text.',
-    };
-  }
-  return _boundedPromptMap(sanitized);
+  return _boundedPromptMap(
+    omitAgentSystemPromptMetadata(
+      extra,
+      reason: 'Use agent_prompt_snapshot metadata instead of raw prompt text.',
+    ),
+  );
 }
 
 const int _agentPromptTaskTextMaxChars = 1600;
@@ -606,7 +596,7 @@ Map<String, Object?> _promptContextJson(Map<String, Object?> context) {
 }
 
 const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
-  'agent_system_prompt',
+  agentSystemPromptMetadataKey,
   'rendered_prompt',
   'system_prompt',
   'developer_prompt',
