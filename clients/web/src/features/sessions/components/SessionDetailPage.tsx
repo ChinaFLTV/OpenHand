@@ -9725,7 +9725,6 @@ function runtimeGateReasonLabel(reason: string): string {
 function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
   const session = detail.session;
   const [metadataTrendDisplayMode, setMetadataTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
-  const [detailsView, setDetailsView] = useState<'metadata' | 'audit'>('metadata');
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
   const stats = recordFromUnknown(session.statistics);
@@ -10320,82 +10319,38 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           maxHeight: '84vh',
         },
       })}
-      ariaLabel={detailsView === 'metadata' ? t('metadata.currentTitle', '当前会话元数据') : t('topbar.audit', '会话审计')}
+      ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
       <header
         class="flex shrink-0 flex-wrap items-start justify-between gap-3 px-5 py-4"
         style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}
       >
         <div class="min-w-0 flex-1">
-          <h2 class="text-2xl font-extrabold truncate">
-            {detailsView === 'metadata' ? t('metadata.currentTitle', '当前会话元数据') : t('topbar.audit', '会话审计')}
-          </h2>
+          <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
           <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {session.title}
           </p>
         </div>
         <JsonDialogActions
-          json={detailsView === 'metadata' ? metadataSnapshotJson : auditSnapshotJson}
+          json={metadataSnapshotJson}
           requestClose={requestClose}
           surfaceStyle={metadataActionButtonSurface}
           closeTone="secondary"
         />
       </header>
       <div
-        class="flex shrink-0 gap-1.5 overflow-x-auto px-5 py-3"
-        role="tablist"
-        aria-label={t('metadata.views', '会话详情视图')}
-        style={{ borderBottom: '1px solid var(--m3-outline-variant)', scrollbarWidth: 'none' }}
-      >
-        {([
-          ['metadata', 'file', t('topbar.metadata', '会话元数据')],
-          ['audit', 'history', t('topbar.audit', '会话审计')],
-        ] as const).map(([view, icon, label]) => {
-          const selected = detailsView === view;
-          return (
-            <button
-              key={view}
-              id={`session-details-${view}-tab`}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`session-details-${view}-panel`}
-              class="oh-tap-press inline-flex shrink-0 items-center gap-2 rounded-m3-sm px-3 py-2 text-sm font-bold"
-              style={{
-                color: selected ? 'var(--m3-on-secondary-container)' : 'var(--m3-on-surface-variant)',
-                background: selected ? 'var(--m3-secondary-container)' : 'transparent',
-                border: `1px solid ${selected ? 'color-mix(in srgb, var(--m3-secondary) 30%, transparent)' : 'transparent'}`,
-                transition: 'background-color var(--oh-dialog-duration) var(--oh-dialog-curve), color var(--oh-dialog-duration) var(--oh-dialog-curve), transform var(--oh-motion-duration-fast) var(--oh-motion-spring)',
-              }}
-              onClick={() => setDetailsView(view)}
-            >
-              <ComposerIcon name={icon} size={15} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div
         class="min-h-0 flex-1 overflow-auto px-5 py-4 pr-4"
         style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
       >
-        {detailsView === 'metadata' ? (
-          <div
-            key="metadata"
-            id="session-details-metadata-panel"
-            class="oh-session-details-view"
-            role="tabpanel"
-            aria-labelledby="session-details-metadata-tab"
-          >
-            <div class="flex flex-wrap gap-3 mb-4">
-              <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
-              <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
-              <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
-              <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
-              <SummaryTile label="当前模式" value={runtimeModeLabel} />
-              <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
-            </div>
-            <div class="flex flex-col gap-4">
+        <div class="flex flex-wrap gap-3 mb-4">
+          <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
+          <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
+          <SummaryTile label="压缩次数" value={`${stats.compression_run_count ?? 0}`} />
+          <SummaryTile label="总 Token" value={`${stats.total_tokens ?? session.total_tokens ?? 0}`} />
+          <SummaryTile label="当前模式" value={runtimeModeLabel} />
+          <SummaryTile label="运行工具" value={!hasPromptMetadata || runtimeStale ? '待刷新' : `${runtimeToolCount}`} />
+        </div>
+        <div class="flex flex-col gap-4">
           <Section title="会话概览">
             <EntryRow label={metadataFieldLabel('session_id')} value={session.id} />
             <EntryRow label={metadataFieldLabel('template')} value={`${session.template_name || session.template_id} · v${session.template_internal_version ?? '—'}`} />
@@ -10643,20 +10598,23 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           <Section title="Last Prompt Metadata">
             <JsonPanel content={lastPromptMetadata} />
           </Section>
+          <Section title={t('topbar.audit', '会话审计')}>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  {metadataFieldLabel('session_id')}
+                </div>
+                <div class="mt-1 break-all text-sm font-semibold select-text">{session.id}</div>
+              </div>
+              <DialogActionButton
+                tone="secondary"
+                style={{ ...metadataActionButtonSurface, color: 'var(--m3-primary)' }}
+                onClick={() => void copyJsonWithFeedback(auditSnapshotJson)}
+              >
+                <ComposerIcon name="copy" size={14} />
+                <span>{t('common.copy', '复制')}</span>
+              </DialogActionButton>
             </div>
-          </div>
-        ) : (
-          <section
-            key="audit"
-            id="session-details-audit-panel"
-            class="oh-session-details-view flex min-h-0 flex-col rounded-m3-md p-4"
-            role="tabpanel"
-            aria-labelledby="session-details-audit-tab"
-            style={{
-              background: 'var(--m3-surface-container-low)',
-              border: '1px solid var(--m3-outline-variant)',
-            }}
-          >
             <div class="mb-4 flex flex-wrap gap-2">
               {auditSummary.map((item) => (
                 <span
@@ -10673,8 +10631,9 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               ))}
             </div>
             <pre
-              class="min-h-0 flex-1 overflow-auto rounded-m3-sm p-3 text-xs whitespace-pre-wrap select-text"
+              class="overflow-auto rounded-m3-sm p-3 text-xs whitespace-pre-wrap select-text"
               style={{
+                maxHeight: '48vh',
                 background: 'var(--m3-surface)',
                 border: '1px solid var(--m3-outline-variant)',
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -10682,8 +10641,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             >
               {auditSnapshotJson}
             </pre>
-          </section>
-        )}
+          </Section>
+        </div>
       </div>
     </DialogFrame>
   );

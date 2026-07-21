@@ -1603,7 +1603,7 @@ Future<void> _showSessionMetadataDialog(
   final controller = context.read<AiSessionController>();
   return showAnimatedDialog<void>(
     context: context,
-    builder: (dialogContext) => _SessionDetailsDialog(
+    builder: (dialogContext) => _LiveSessionMetadataDialog(
       session: session,
       controller: controller,
       liveRuntimeToolPreview: liveRuntimeToolPreview,

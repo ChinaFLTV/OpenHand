@@ -1436,32 +1436,27 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
   }
 }
 
-/// Session-level audit dialog. Shows structured overview of the session and
-/// exposes CRUD controls for the title, metadata JSON and individual messages.
-class _SessionAuditDialog extends StatefulWidget {
-  const _SessionAuditDialog({
-    super.key,
+/// 会话元数据弹窗中的审计内容，提供标题、元数据和消息的审计操作。
+class _SessionAuditContent extends StatefulWidget {
+  const _SessionAuditContent({
     required this.session,
     required this.controller,
     required this.claudeStyle,
-    required this.onViewChanged,
   });
 
   final AiSession session;
   final AiSessionController controller;
   final bool claudeStyle;
-  final ValueChanged<_SessionDetailsView> onViewChanged;
 
   @override
-  State<_SessionAuditDialog> createState() => _SessionAuditDialogState();
+  State<_SessionAuditContent> createState() => _SessionAuditContentState();
 }
 
-class _SessionAuditDialogState extends State<_SessionAuditDialog> {
+class _SessionAuditContentState extends State<_SessionAuditContent> {
   late TextEditingController _titleController;
   late TextEditingController _metadataController;
   late FocusNode _titleFocusNode;
   late FocusNode _metadataFocusNode;
-  bool _liveSyncScheduled = false;
   String? _metadataError;
   bool _busy = false;
 
@@ -1474,12 +1469,24 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
     );
     _titleFocusNode = FocusNode();
     _metadataFocusNode = FocusNode();
-    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SessionAuditContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_titleFocusNode.hasFocus &&
+        _titleController.text != widget.session.title) {
+      _titleController.text = widget.session.title;
+    }
+    final metadataJson = _auditFormatJson(widget.session.metadata);
+    if (!_metadataFocusNode.hasFocus &&
+        _metadataController.text != metadataJson) {
+      _metadataController.text = metadataJson;
+    }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onControllerChanged);
     _titleController.dispose();
     _metadataController.dispose();
     _titleFocusNode.dispose();
@@ -1487,40 +1494,8 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    if (!mounted) return;
-    if (_liveSyncScheduled) {
-      return;
-    }
-    _liveSyncScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _liveSyncScheduled = false;
-      if (!mounted) return;
-      _syncLiveFieldsAndRebuild();
-    });
-  }
-
-  void _syncLiveFieldsAndRebuild() {
-    final session = _liveSession;
-    if (!_titleFocusNode.hasFocus && _titleController.text != session.title) {
-      _titleController.text = session.title;
-    }
-    final metadataJson = _auditFormatJson(session.metadata);
-    if (!_metadataFocusNode.hasFocus &&
-        _metadataController.text != metadataJson) {
-      _metadataController.text = metadataJson;
-    }
-    // Force rebuild so newly persisted changes reflect instantly.
-    setState(() {});
-  }
-
-  AiSession get _liveSession {
-    final sessions = widget.controller.sessions;
-    for (final item in sessions) {
-      if (item.id == widget.session.id) return item;
-    }
-    return widget.session;
-  }
+  AiSession get _liveSession =>
+      widget.controller.sessionById(widget.session.id) ?? widget.session;
 
   Future<void> _saveTitle() async {
     final trimmed = _titleController.text.trim();
@@ -1550,9 +1525,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
         }
         parsed = stringKeyedMapFromValue(decoded);
       }
-      // Build a diff payload that resets existing keys that were removed by
-      // overlaying `null` onto them; updateSessionMetadata skips equal values
-      // automatically.
+      // 使用 null 清除已删除键；控制器会跳过未变化的字段。
       final currentKeys = _liveSession.metadata.keys.toSet();
       final nextKeys = parsed.keys.toSet();
       final payload = <String, Object?>{};
@@ -1613,21 +1586,15 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final size = MediaQuery.sizeOf(context);
-    final maxWidth = size.width * 0.9;
-    final maxHeight = size.height * 0.9;
     final session = _liveSession;
     final statistics = session.statistics;
 
-    return _AuditDialogSizeAnimator(
-      child: buildOpenHandAlertDialog(
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        surfaceTintColor: Colors.transparent,
-        titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-        title: Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Divider(height: 48),
+        Row(
           children: [
             Icon(Icons.assignment_outlined, color: colorScheme.primary),
             const SizedBox(width: 10),
@@ -1648,278 +1615,227 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2.2),
                 ),
               ),
-            IconButton(
-              tooltip: AppLocalizations.of(context)!.auditClose,
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
           ],
         ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _SessionDetailsViewSwitcher(
-                  selected: _SessionDetailsView.audit,
-                  onChanged: widget.onViewChanged,
+        const SizedBox(height: 16),
+        _AuditSectionCard(
+          icon: Icons.info_outline_rounded,
+          title: AppLocalizations.of(context)!.auditOverview,
+          child: Column(
+            children: [
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditSessionId,
+                value: session.id,
+                mono: true,
+              ),
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditTemplate,
+                value:
+                    '${session.templateName} (${session.templateId}) · v${session.templateInternalVersion}',
+              ),
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditCreatedAt,
+                value: _auditFormatInstant(session.createdAt),
+              ),
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditUpdatedAt,
+                value: _auditFormatInstant(session.updatedAt),
+              ),
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditMessages,
+                value: '${statistics.totalMessageCount}',
+              ),
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditTotalTokens,
+                value: '${statistics.totalTokens ?? 0}',
+              ),
+              if ((statistics.cacheReadTokens ?? 0) > 0)
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.tokenPopupCacheRead,
+                  value: '${statistics.cacheReadTokens}',
                 ),
-                const SizedBox(height: 16),
-                _AuditSectionCard(
-                  icon: Icons.info_outline_rounded,
-                  title: AppLocalizations.of(context)!.auditOverview,
-                  child: Column(
-                    children: [
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditSessionId,
-                        value: session.id,
-                        mono: true,
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditTemplate,
-                        value:
-                            '${session.templateName} (${session.templateId}) · v${session.templateInternalVersion}',
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditCreatedAt,
-                        value: _auditFormatInstant(session.createdAt),
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditUpdatedAt,
-                        value: _auditFormatInstant(session.updatedAt),
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditMessages,
-                        value: '${statistics.totalMessageCount}',
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditTotalTokens,
-                        value: '${statistics.totalTokens ?? 0}',
-                      ),
-                      if ((statistics.cacheReadTokens ?? 0) > 0)
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.tokenPopupCacheRead,
-                          value: '${statistics.cacheReadTokens}',
-                        ),
-                      if ((statistics.cacheCreationTokens ?? 0) > 0)
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.tokenPopupCacheWrite,
-                          value: '${statistics.cacheCreationTokens}',
-                        ),
-                      if ((statistics.reasoningTokens ?? 0) > 0)
-                        _AuditKvRow(
-                          label: AppLocalizations.of(
-                            context,
-                          )!.tokenPopupReasoning,
-                          value: '${statistics.reasoningTokens}',
-                        ),
-                      Builder(
-                        builder: (context) {
-                          // 与 TopBar 胶囊 / 浮窗"Cache 命中率"走同一公式：
-                          // 完整统计趋势点优先，当前消息窗口仅作兜底。
-                          final trend =
-                              SessionCacheHitTrend.fromStatisticsOrSession(
-                                session,
-                                claudeStyle: widget.claudeStyle,
-                              );
-                          final ratio = trend
-                              .displayData(
-                                SessionCacheHitDisplayMode.excludeExpiredMisses,
-                              )
-                              .averageHitRatio;
-                          if (ratio <= 0 &&
-                              (statistics.cacheReadTokens ?? 0) <= 0) {
-                            return const SizedBox.shrink();
-                          }
-                          return _AuditKvRow(
-                            label: AppLocalizations.of(
-                              context,
-                            )!.auditCacheHitRatio,
-                            value: _auditFormatHitRatio(ratio),
-                          );
-                        },
-                      ),
-                      _AuditKvRow(
-                        label: AppLocalizations.of(context)!.auditLastModel,
-                        value: _auditFormatOrDash(
-                          session.lastUsedModelLabel ?? session.lastUsedModelId,
-                        ),
-                      ),
-                    ],
-                  ),
+              if ((statistics.cacheCreationTokens ?? 0) > 0)
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
+                  value: '${statistics.cacheCreationTokens}',
                 ),
-                _AuditSectionCard(
-                  icon: Icons.edit_note_rounded,
-                  title: AppLocalizations.of(context)!.auditTitleEditable,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: _titleController,
-                        focusNode: _titleFocusNode,
-                        decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.auditSessionTitle,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: OpenHandDialogActionButton.primary(
-                          onPressed: _busy ? null : _saveTitle,
-                          icon: Icons.save_outlined,
-                          label: AppLocalizations.of(context)!.auditSaveTitle,
-                        ),
-                      ),
-                    ],
-                  ),
+              if ((statistics.reasoningTokens ?? 0) > 0)
+                _AuditKvRow(
+                  label: AppLocalizations.of(context)!.tokenPopupReasoning,
+                  value: '${statistics.reasoningTokens}',
                 ),
-                _AuditSectionCard(
-                  icon: Icons.data_object_rounded,
-                  title: AppLocalizations.of(
-                    context,
-                  )!.auditSessionMetadataEditableJson,
-                  subtitle: AppLocalizations.of(
-                    context,
-                  )!.auditSaveWritesBackThroughTheSession,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: _metadataController,
-                        focusNode: _metadataFocusNode,
-                        minLines: 6,
-                        maxLines: 16,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'JSON',
-                          errorText: _metadataError,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: OpenHandDialogActionButton.primary(
-                          onPressed: _busy ? null : _saveMetadata,
-                          icon: Icons.save_outlined,
-                          label: AppLocalizations.of(
-                            context,
-                          )!.auditSaveMetadata,
-                        ),
-                      ),
-                    ],
-                  ),
+              Builder(
+                builder: (context) {
+                  // 与 TopBar 胶囊 / 浮窗"Cache 命中率"走同一公式：
+                  // 完整统计趋势点优先，当前消息窗口仅作兜底。
+                  final trend = SessionCacheHitTrend.fromStatisticsOrSession(
+                    session,
+                    claudeStyle: widget.claudeStyle,
+                  );
+                  final ratio = trend
+                      .displayData(
+                        SessionCacheHitDisplayMode.excludeExpiredMisses,
+                      )
+                      .averageHitRatio;
+                  if (ratio <= 0 && (statistics.cacheReadTokens ?? 0) <= 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return _AuditKvRow(
+                    label: AppLocalizations.of(context)!.auditCacheHitRatio,
+                    value: _auditFormatHitRatio(ratio),
+                  );
+                },
+              ),
+              _AuditKvRow(
+                label: AppLocalizations.of(context)!.auditLastModel,
+                value: _auditFormatOrDash(
+                  session.lastUsedModelLabel ?? session.lastUsedModelId,
                 ),
-                _AuditSectionCard(
-                  icon: Icons.route_outlined,
-                  collapsible: true,
-                  initiallyExpanded: false,
-                  title: AppLocalizations.of(
-                    context,
-                  )!.auditRuntimePromptMetadataReadOnly,
-                  subtitle: AppLocalizations.of(
-                    context,
-                  )!.auditUsefulForPromptConstructionTroubleshooti,
-                  child: _AuditJsonBlock(
-                    label: AppLocalizations.of(
-                      context,
-                    )!.auditLastPromptMetadata,
-                    json: session.lastPromptMetadata,
-                    emptyHint: AppLocalizations.of(
-                      context,
-                    )!.auditNoRuntimePromptMetadataYet,
-                  ),
-                ),
-                _AuditSectionCard(
-                  icon: Icons.public_outlined,
-                  title: AppLocalizations.of(context)!.auditEnvironment,
-                  child: _AuditJsonBlock(
-                    label: AppLocalizations.of(
-                      context,
-                    )!.auditEnvironmentSnapshot,
-                    json: _auditSafeMap(session.environment.toJson),
-                    initiallyExpanded: true,
-                  ),
-                ),
-                _AuditSectionCard(
-                  icon: Icons.history_rounded,
-                  title: AppLocalizations.of(context)!
-                      .auditRecentErrorsSessionRecenterrorsLength(
-                        session.recentErrors.length,
-                      ),
-                  child: _AuditJsonBlock(
-                    label: AppLocalizations.of(context)!.auditErrorList,
-                    json: session.recentErrors
-                        .map((error) => _auditSafeMap(error.toJson))
-                        .toList(growable: false),
-                    emptyHint: AppLocalizations.of(
-                      context,
-                    )!.auditNoErrorsRecorded,
-                  ),
-                ),
-                _AuditSectionCard(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  title: AppLocalizations.of(context)!
-                      .auditMessagesSessionMessagesLength(
-                        session.messages.length,
-                      ),
-                  subtitle: AppLocalizations.of(
-                    context,
-                  )!.auditTapARowToInspectA,
-                  child: Column(
-                    children: session.messages.isEmpty
-                        ? <Widget>[
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                AppLocalizations.of(context)!.auditNoMessages,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ]
-                        : session.messages
-                              .map(
-                                (message) => _AuditMessageRow(
-                                  message: message,
-                                  onInspect: () async {
-                                    await _showMessageAuditDialog(
-                                      context,
-                                      message: message,
-                                      session: session,
-                                      controller: widget.controller,
-                                      claudeStyle: widget.claudeStyle,
-                                    );
-                                  },
-                                  onDelete: _busy
-                                      ? null
-                                      : () => _deleteMessage(message),
-                                ),
-                              )
-                              .toList(growable: false),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: AppLocalizations.of(context)!.auditClose,
+        _AuditSectionCard(
+          icon: Icons.edit_note_rounded,
+          title: AppLocalizations.of(context)!.auditTitleEditable,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _titleController,
+                focusNode: _titleFocusNode,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.auditSessionTitle,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OpenHandDialogActionButton.primary(
+                  onPressed: _busy ? null : _saveTitle,
+                  icon: Icons.save_outlined,
+                  label: AppLocalizations.of(context)!.auditSaveTitle,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        _AuditSectionCard(
+          icon: Icons.data_object_rounded,
+          title: AppLocalizations.of(context)!.auditSessionMetadataEditableJson,
+          subtitle: AppLocalizations.of(
+            context,
+          )!.auditSaveWritesBackThroughTheSession,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _metadataController,
+                focusNode: _metadataFocusNode,
+                minLines: 6,
+                maxLines: 16,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+                decoration: InputDecoration(
+                  labelText: 'JSON',
+                  errorText: _metadataError,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OpenHandDialogActionButton.primary(
+                  onPressed: _busy ? null : _saveMetadata,
+                  icon: Icons.save_outlined,
+                  label: AppLocalizations.of(context)!.auditSaveMetadata,
+                ),
+              ),
+            ],
+          ),
+        ),
+        _AuditSectionCard(
+          icon: Icons.route_outlined,
+          collapsible: true,
+          initiallyExpanded: false,
+          title: AppLocalizations.of(
+            context,
+          )!.auditRuntimePromptMetadataReadOnly,
+          subtitle: AppLocalizations.of(
+            context,
+          )!.auditUsefulForPromptConstructionTroubleshooti,
+          child: _AuditJsonBlock(
+            label: AppLocalizations.of(context)!.auditLastPromptMetadata,
+            json: session.lastPromptMetadata,
+            emptyHint: AppLocalizations.of(
+              context,
+            )!.auditNoRuntimePromptMetadataYet,
+          ),
+        ),
+        _AuditSectionCard(
+          icon: Icons.public_outlined,
+          title: AppLocalizations.of(context)!.auditEnvironment,
+          child: _AuditJsonBlock(
+            label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
+            json: _auditSafeMap(session.environment.toJson),
+            initiallyExpanded: true,
+          ),
+        ),
+        _AuditSectionCard(
+          icon: Icons.history_rounded,
+          title: AppLocalizations.of(context)!
+              .auditRecentErrorsSessionRecenterrorsLength(
+                session.recentErrors.length,
+              ),
+          child: _AuditJsonBlock(
+            label: AppLocalizations.of(context)!.auditErrorList,
+            json: session.recentErrors
+                .map((error) => _auditSafeMap(error.toJson))
+                .toList(growable: false),
+            emptyHint: AppLocalizations.of(context)!.auditNoErrorsRecorded,
+          ),
+        ),
+        _AuditSectionCard(
+          icon: Icons.chat_bubble_outline_rounded,
+          title: AppLocalizations.of(
+            context,
+          )!.auditMessagesSessionMessagesLength(session.messages.length),
+          subtitle: AppLocalizations.of(context)!.auditTapARowToInspectA,
+          child: Column(
+            children: session.messages.isEmpty
+                ? <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        AppLocalizations.of(context)!.auditNoMessages,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ]
+                : session.messages
+                      .map(
+                        (message) => _AuditMessageRow(
+                          message: message,
+                          onInspect: () async {
+                            await _showMessageAuditDialog(
+                              context,
+                              message: message,
+                              session: session,
+                              controller: widget.controller,
+                              claudeStyle: widget.claudeStyle,
+                            );
+                          },
+                          onDelete: _busy
+                              ? null
+                              : () => _deleteMessage(message),
+                        ),
+                      )
+                      .toList(growable: false),
+          ),
+        ),
+      ],
     );
   }
 }

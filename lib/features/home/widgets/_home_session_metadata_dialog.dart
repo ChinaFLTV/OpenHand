@@ -1,12 +1,9 @@
 part of '../openhand_home_page.dart';
 
 const Duration _kCacheHitTrendRevealDuration = Duration(milliseconds: 520);
-const Duration _kSessionDetailsViewTransition = Duration(milliseconds: 240);
 
-enum _SessionDetailsView { metadata, audit }
-
-class _SessionDetailsDialog extends StatefulWidget {
-  const _SessionDetailsDialog({
+class _LiveSessionMetadataDialog extends StatelessWidget {
+  const _LiveSessionMetadataDialog({
     required this.session,
     required this.controller,
     this.liveRuntimeToolPreview,
@@ -21,128 +18,34 @@ class _SessionDetailsDialog extends StatefulWidget {
   final bool claudeStyle;
 
   @override
-  State<_SessionDetailsDialog> createState() => _SessionDetailsDialogState();
-}
-
-class _SessionDetailsDialogState extends State<_SessionDetailsDialog> {
-  _SessionDetailsView _view = _SessionDetailsView.metadata;
-
-  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: widget.controller,
+      animation: controller,
       builder: (context, _) {
-        final session =
-            widget.controller.sessionById(widget.session.id) ?? widget.session;
-        return AnimatedSwitcher(
-          duration: openHandMotionDuration(
-            context,
-            _kSessionDetailsViewTransition,
-          ),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          layoutBuilder: (currentChild, previousChildren) =>
-              buildCollisionSafeAnimatedSwitcherLayout(
-                currentChild,
-                previousChildren,
-              ),
-          transitionBuilder: (child, animation) {
-            final fade = openHandBoundedCurveAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            );
-            return FadeTransition(
-              opacity: fade,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.985, end: 1).animate(fade),
-                child: child,
-              ),
-            );
-          },
-          child: switch (_view) {
-            _SessionDetailsView.metadata => _SessionMetadataDialog(
-              key: const ValueKey<String>('session-details-metadata'),
-              session: session,
-              liveRuntimeToolPreview: widget.liveRuntimeToolPreview,
-              activeProfile: widget.activeProfile,
-              claudeStyle: widget.claudeStyle,
-              onViewChanged: _selectView,
-            ),
-            _SessionDetailsView.audit => _SessionAuditDialog(
-              key: const ValueKey<String>('session-details-audit'),
-              session: session,
-              controller: widget.controller,
-              claudeStyle: widget.claudeStyle,
-              onViewChanged: _selectView,
-            ),
-          },
+        final liveSession = controller.sessionById(session.id) ?? session;
+        return _SessionMetadataDialog(
+          session: liveSession,
+          controller: controller,
+          liveRuntimeToolPreview: liveRuntimeToolPreview,
+          activeProfile: activeProfile,
+          claudeStyle: claudeStyle,
         );
       },
-    );
-  }
-
-  void _selectView(_SessionDetailsView view) {
-    if (_view != view) setState(() => _view = view);
-  }
-}
-
-class _SessionDetailsViewSwitcher extends StatelessWidget {
-  const _SessionDetailsViewSwitcher({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final _SessionDetailsView selected;
-  final ValueChanged<_SessionDetailsView> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SegmentedButton<_SessionDetailsView>(
-        showSelectedIcon: false,
-        segments: <ButtonSegment<_SessionDetailsView>>[
-          ButtonSegment<_SessionDetailsView>(
-            value: _SessionDetailsView.metadata,
-            icon: const Icon(Icons.data_object_rounded),
-            label: Text(AppLocalizations.of(context)!.toolbarSessionMetadata),
-          ),
-          ButtonSegment<_SessionDetailsView>(
-            value: _SessionDetailsView.audit,
-            icon: const Icon(Icons.fact_check_outlined),
-            label: Text(AppLocalizations.of(context)!.toolbarSessionAudit),
-          ),
-        ],
-        selected: <_SessionDetailsView>{selected},
-        onSelectionChanged: (selection) {
-          if (selection.isNotEmpty) onChanged(selection.first);
-        },
-        style: ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          textStyle: WidgetStatePropertyAll<TextStyle?>(
-            Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ),
     );
   }
 }
 
 class _SessionMetadataDialog extends StatelessWidget {
   const _SessionMetadataDialog({
-    super.key,
     required this.session,
-    required this.onViewChanged,
+    required this.controller,
     this.liveRuntimeToolPreview,
     this.activeProfile,
     this.claudeStyle = true,
   });
 
   final AiSession session;
-  final ValueChanged<_SessionDetailsView> onViewChanged;
+  final AiSessionController controller;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
@@ -268,11 +171,6 @@ class _SessionMetadataDialog extends StatelessWidget {
                   icon: const Icon(Icons.close_rounded),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            _SessionDetailsViewSwitcher(
-              selected: _SessionDetailsView.metadata,
-              onChanged: onViewChanged,
             ),
             const SizedBox(height: 18),
             Expanded(
@@ -841,6 +739,11 @@ class _SessionMetadataDialog extends StatelessWidget {
                           content: prettyPrintJson(session.lastPromptMetadata),
                         ),
                       ],
+                    ),
+                    _SessionAuditContent(
+                      session: session,
+                      controller: controller,
+                      claudeStyle: claudeStyle,
                     ),
                     const SizedBox(height: 4),
                   ],

@@ -5027,10 +5027,6 @@ button.oh-message-context-capsule {
 }
 .oh-session-capsule-rail::-webkit-scrollbar { display: none; }
 
-.oh-session-details-view {
-  animation: oh-dialog-card-fade-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
-}
-
 .oh-session-capsule-rail > div {
   margin-left: auto;
   transition: gap var(--oh-motion-duration-fast) var(--oh-motion-spring);
