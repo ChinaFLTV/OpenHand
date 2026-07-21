@@ -7056,22 +7056,22 @@ export function SessionDetailPage() {
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
     const tokenStats = recordFromUnknown(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
-    const cacheHitSummary = buildSessionCacheHitSummary(session, tokenStats);
+    const cacheHitSummary = buildSessionCacheHitDisplay(session, tokenStats);
     const sessCacheRead = cacheHitSummary.cacheReadTokens;
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-    const cacheSavingsPercent = cacheHitSummary.cacheHitRatio;
-    const cacheSavingsBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
+    const cacheHitPercent = cacheHitSummary.cacheHitRatio;
+    const cacheHitBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
     const contextWindowUsage = parseContextWindowUsage(session);
     const tokensBadge =
-      sessCacheRead > 0
+      cacheHitSummary.hasCacheHitMetrics
         ? {
-            text: `${cacheSavingsPercent}%`,
-            title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${cacheSavingsBase.toLocaleString()}`,
+            text: `${cacheHitPercent}%`,
+            title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${cacheHitBase.toLocaleString()}`,
             tone: 'primary' as const,
           }
         : undefined;
     const capsules: SessionToolbarCapsule[] = [];
-    capsules.push({
+    const tokensCapsule: SessionToolbarCapsule = {
       key: 'tokens',
       icon: 'tokens',
       label: '',
@@ -7085,7 +7085,7 @@ export function SessionDetailPage() {
         setTokenStatsOpen(true);
         void hydrateCacheStatisticsOnDemand();
       },
-    });
+    };
     const goal = latestGoalRecord(session.goal_state);
     if (goal) {
       const active = isActiveGoalStatus(goal.status);
@@ -7194,6 +7194,7 @@ export function SessionDetailPage() {
         onClick: () => setAndroidReverseDashboardOpen(true),
       });
     }
+    capsules.push(tokensCapsule);
     return capsules;
   }, [session, totalKnown, sessionId, streamThrottle]);
   const pull = usePullToRefresh(mainRef, {
@@ -9501,12 +9502,18 @@ function shouldShowSessionCacheHitMetrics({
   cacheReadTokens,
   cacheWriteTokens,
   trendPointCount,
+  hasCacheUsageTelemetry,
+  hasCacheHitRatio,
 }: {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   trendPointCount: number;
+  hasCacheUsageTelemetry: boolean;
+  hasCacheHitRatio: boolean;
 }): boolean {
-  return cacheReadTokens > 0 ||
+  return hasCacheUsageTelemetry ||
+    hasCacheHitRatio ||
+    cacheReadTokens > 0 ||
     cacheWriteTokens > 0 ||
     trendPointCount > 0;
 }
@@ -9552,17 +9559,6 @@ function resolveSessionCacheHitRatio(
     0,
     1,
   );
-}
-
-function buildSessionCacheHitSummary(
-  session: SessionSummary,
-  stats: Record<string, unknown>,
-): { cacheReadTokens: number; cacheHitRatio: number } {
-  const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
-  return {
-    cacheReadTokens,
-    cacheHitRatio: cacheHitRatioPercent(resolveSessionCacheHitRatio(session, stats)),
-  };
 }
 
 function buildSessionCacheHitDisplay(
@@ -9617,6 +9613,8 @@ function buildSessionCacheHitDisplay(
     cacheReadTokens,
     cacheWriteTokens,
     trendPointCount: trendData?.points.length ?? 0,
+    hasCacheUsageTelemetry,
+    hasCacheHitRatio: stats['cache_hit_ratio'] != null,
   });
   return {
     cacheReadTokens,

@@ -40,8 +40,14 @@ bool shouldShowSessionCacheHitMetrics({
   required int cacheReadTokens,
   required int cacheWriteTokens,
   required bool hasTrendPoints,
+  required bool hasCacheUsageTelemetry,
+  required double? cacheHitRatio,
 }) {
-  return cacheReadTokens > 0 || cacheWriteTokens > 0 || hasTrendPoints;
+  return hasCacheUsageTelemetry ||
+      cacheHitRatio != null ||
+      cacheReadTokens > 0 ||
+      cacheWriteTokens > 0 ||
+      hasTrendPoints;
 }
 
 class SessionCacheHitTurnPoint {

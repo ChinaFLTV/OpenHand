@@ -173,6 +173,103 @@ class _HePaneHeader extends StatelessWidget {
     final reviewRetries = orchestrator.reviewRetryCount;
     final totalLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
     final effectiveTitle = _effectiveTitle(context);
+    final toolbarItems = <Widget>[
+      OhPill(
+        icon: _phaseProgressIcon(),
+        label: _phaseProgressLabel(context),
+        foregroundColor: _phaseProgressColor(colorScheme),
+      ),
+      if (replayPendingDeadlineListenable != null)
+        HarnessPendingReplayBadge(
+          isZh: isZh,
+          deadlineListenable: replayPendingDeadlineListenable!,
+          onCancel: onCancelPendingReplay,
+        ),
+      if (reviewRetries > 0)
+        OhPill(
+          icon: Icons.replay_rounded,
+          label: openHandLocalizedText(
+            context,
+            zh: '重试 $reviewRetries/3',
+            zhHant: '重試 $reviewRetries/3',
+            en: 'Retry $reviewRetries/3',
+            fr: 'Réessai $reviewRetries/3',
+            de: 'Wiederholung $reviewRetries/3',
+            ja: '再試行 $reviewRetries/3',
+          ),
+          foregroundColor: const Color(0xFFF57F17),
+        ),
+      const OhPill(
+        icon: Icons.layers_rounded,
+        label: 'Harness Engineering · v$kHarnessOrchestratorDisplayVersion',
+      ),
+      OhPill(
+        icon: Icons.data_object_rounded,
+        label: openHandLocalizedText(
+          context,
+          zh: '会话元数据',
+          zhHant: '會話中繼資料',
+          en: 'Session Metadata',
+          fr: 'Métadonnées de session',
+          de: 'Sitzungsmetadaten',
+          ja: 'セッションメタデータ',
+        ),
+        onTap: () => _showSessionMetadata(context),
+      ),
+      OhPill(
+        icon: Icons.folder_special_rounded,
+        label: openHandLocalizedText(
+          context,
+          zh: '资产文件',
+          zhHant: '資產檔案',
+          en: 'Steering Assets',
+          fr: 'Ressources de pilotage',
+          de: 'Steuerungsdateien',
+          ja: 'ステアリング資産',
+        ),
+        onTap: () => _showSteeringAssets(context),
+      ),
+      if (isRunning)
+        OhPill(
+          icon: Icons.stop_circle_outlined,
+          label: openHandLocalizedText(
+            context,
+            zh: '中止',
+            zhHant: '中止',
+            en: 'Cancel',
+            fr: 'Annuler',
+            de: 'Abbrechen',
+            ja: '中止',
+          ),
+          foregroundColor: colorScheme.error,
+          onTap: onCancel,
+        ),
+      if (isDone && orchestrator.status != HarnessOrchestratorStatus.completed)
+        OhPill(
+          icon: Icons.restart_alt_rounded,
+          label: orchestrator.status == HarnessOrchestratorStatus.failed
+              ? openHandLocalizedText(
+                  context,
+                  zh: '重试失败阶段',
+                  zhHant: '重試失敗階段',
+                  en: 'Retry Failed Phase',
+                  fr: 'Réessayer la phase échouée',
+                  de: 'Fehlgeschlagene Phase wiederholen',
+                  ja: '失敗したフェーズを再試行',
+                )
+              : openHandLocalizedText(
+                  context,
+                  zh: '重新开始',
+                  zhHant: '重新開始',
+                  en: 'Restart',
+                  fr: 'Redémarrer',
+                  de: 'Neu starten',
+                  ja: '再開',
+                ),
+          onTap: onRestart,
+        ),
+      _HeOutputLinesDial(totalLines: totalLines),
+    ];
 
     return Container(
       width: double.infinity,
@@ -185,154 +282,19 @@ class _HePaneHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: OpenHandAnimatedTitleText(
-                    text: effectiveTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: Row(
-                      children: [
-                        // ── Phase progress (mirrors runtime mode / template pill) ──
-                        OhPill(
-                          icon: _phaseProgressIcon(),
-                          label: _phaseProgressLabel(context),
-                          foregroundColor: _phaseProgressColor(colorScheme),
-                        ),
-                        if (replayPendingDeadlineListenable != null) ...[
-                          const SizedBox(width: 8),
-                          HarnessPendingReplayBadge(
-                            isZh: isZh,
-                            deadlineListenable:
-                                replayPendingDeadlineListenable!,
-                            onCancel: onCancelPendingReplay,
-                          ),
-                        ],
-                        if (reviewRetries > 0) ...[
-                          const SizedBox(width: 8),
-                          // ── Review retry counter ──
-                          OhPill(
-                            icon: Icons.replay_rounded,
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '重试 $reviewRetries/3',
-                              zhHant: '重試 $reviewRetries/3',
-                              en: 'Retry $reviewRetries/3',
-                              fr: 'Réessai $reviewRetries/3',
-                              de: 'Wiederholung $reviewRetries/3',
-                              ja: '再試行 $reviewRetries/3',
-                            ),
-                            foregroundColor: const Color(0xFFF57F17), // amber
-                          ),
-                        ],
-                        const SizedBox(width: 8),
-                        const OhPill(
-                          icon: Icons.layers_rounded,
-                          label:
-                              'Harness Engineering · v$kHarnessOrchestratorDisplayVersion',
-                        ),
-                        const SizedBox(width: 8),
-                        OhPill(
-                          icon: Icons.data_object_rounded,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '会话元数据',
-                            zhHant: '會話中繼資料',
-                            en: 'Session Metadata',
-                            fr: 'Métadonnées de session',
-                            de: 'Sitzungsmetadaten',
-                            ja: 'セッションメタデータ',
-                          ),
-                          onTap: () => _showSessionMetadata(context),
-                        ),
-                        const SizedBox(width: 8),
-                        OhPill(
-                          icon: Icons.folder_special_rounded,
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '资产文件',
-                            zhHant: '資產檔案',
-                            en: 'Steering Assets',
-                            fr: 'Ressources de pilotage',
-                            de: 'Steuerungsdateien',
-                            ja: 'ステアリング資産',
-                          ),
-                          onTap: () => _showSteeringAssets(context),
-                        ),
-                        if (updatedAtLabel?.isNotEmpty == true) ...[
-                          const SizedBox(width: 8),
-                          OhPill(
-                            icon: Icons.update_rounded,
-                            label: updatedAtLabel!,
-                          ),
-                        ],
-                        if (isRunning) ...[
-                          const SizedBox(width: 8),
-                          OhPill(
-                            icon: Icons.stop_circle_outlined,
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '中止',
-                              zhHant: '中止',
-                              en: 'Cancel',
-                              fr: 'Annuler',
-                              de: 'Abbrechen',
-                              ja: '中止',
-                            ),
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                            onTap: onCancel,
-                          ),
-                        ],
-                        if (isDone &&
-                            orchestrator.status !=
-                                HarnessOrchestratorStatus.completed) ...[
-                          const SizedBox(width: 8),
-                          OhPill(
-                            icon: Icons.restart_alt_rounded,
-                            label:
-                                orchestrator.status ==
-                                    HarnessOrchestratorStatus.failed
-                                ? openHandLocalizedText(
-                                    context,
-                                    zh: '重试失败阶段',
-                                    zhHant: '重試失敗階段',
-                                    en: 'Retry Failed Phase',
-                                    fr: 'Réessayer la phase échouée',
-                                    de: 'Fehlgeschlagene Phase wiederholen',
-                                    ja: '失敗したフェーズを再試行',
-                                  )
-                                : openHandLocalizedText(
-                                    context,
-                                    zh: '重新开始',
-                                    zhHant: '重新開始',
-                                    en: 'Restart',
-                                    fr: 'Redémarrer',
-                                    de: 'Neu starten',
-                                    ja: '再開',
-                                  ),
-                            onTap: onRestart,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            flex: 2,
+            child: OpenHandAnimatedTitleText(
+              text: effectiveTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(width: 10),
-          _HeOutputLinesDial(totalLines: totalLines),
+          Expanded(
+            flex: 3,
+            child: OpenHandTrailingToolbar(children: toolbarItems),
+          ),
         ],
       ),
     );

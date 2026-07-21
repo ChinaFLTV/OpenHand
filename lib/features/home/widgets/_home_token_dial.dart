@@ -15,8 +15,6 @@ class _TokenDial extends StatefulWidget {
   final bool claudeStyle;
   final ValueChanged<SessionCacheHitTurnPoint>? onCacheHitTrendPointSelected;
 
-  int? get cacheReadTokens => statistics.cacheReadTokens;
-
   @override
   State<_TokenDial> createState() => _TokenDialState();
 }
@@ -215,10 +213,16 @@ class _TokenDialState extends State<_TokenDial>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final hasCache = (widget.cacheReadTokens ?? 0) > 0;
     final cacheHitRatio = _tokenDialSummaryCacheHitRatio(
       widget.statistics,
       claudeStyle: widget.claudeStyle,
+    );
+    final showCacheHitRate = shouldShowSessionCacheHitMetrics(
+      cacheReadTokens: widget.statistics.cacheReadTokens ?? 0,
+      cacheWriteTokens: widget.statistics.cacheCreationTokens ?? 0,
+      hasTrendPoints: widget.statistics.cacheHitTrendPoints.isNotEmpty,
+      hasCacheUsageTelemetry: widget.statistics.hasCacheUsageTelemetry,
+      cacheHitRatio: widget.statistics.cacheHitRatio,
     );
     final contextWindowUsage = AiContextWindowUsage.fromMetadata(
       widget.session.lastPromptMetadata,
@@ -274,12 +278,12 @@ class _TokenDialState extends State<_TokenDial>
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: hasCache
+              color: showCacheHitRate
                   ? colorScheme.primary.withValues(alpha: 0.08)
                   : colorScheme.surfaceContainerHighest,
               borderRadius: _borderRadius999,
               border: Border.all(
-                color: hasCache
+                color: showCacheHitRate
                     ? colorScheme.primary.withValues(alpha: 0.38)
                     : colorScheme.outlineVariant.withValues(alpha: 0.55),
               ),
@@ -288,15 +292,15 @@ class _TokenDialState extends State<_TokenDial>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  hasCache
+                  showCacheHitRate
                       ? Icons.bolt_rounded
                       : Icons.confirmation_number_rounded,
                   size: 14,
                   color: colorScheme.primary,
                 ),
                 const SizedBox(width: 6),
-                if (hasCache) ...[
-                  _CacheSavingsBadge(percent: cacheHitRatio),
+                if (showCacheHitRate) ...[
+                  _CacheHitRateBadge(percent: cacheHitRatio),
                   Container(
                     width: 1,
                     height: 12,
@@ -712,6 +716,8 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       cacheReadTokens: cacheRead,
       cacheWriteTokens: cacheWrite,
       hasTrendPoints: trend.points.isNotEmpty,
+      hasCacheUsageTelemetry: hasCacheUsageTelemetry,
+      cacheHitRatio: widget.statistics.cacheHitRatio,
     );
     final fallbackUncachedPromptTokens = computeUncachedPromptTokens(
       promptTokens: cacheEligiblePromptTokens,
@@ -1771,10 +1777,9 @@ class _CostPopupRowState extends State<_CostPopupRow> {
   }
 }
 
-/// TopBar Token 胶囊里的常驻「缓存收益」徽标：闪电图标 + 百分比。
-/// 跟随当前主题主色，避免在不同主题下出现割裂的固定绿色。
-class _CacheSavingsBadge extends StatelessWidget {
-  const _CacheSavingsBadge({required this.percent});
+/// TopBar Token 胶囊里的常驻缓存命中率徽标。
+class _CacheHitRateBadge extends StatelessWidget {
+  const _CacheHitRateBadge({required this.percent});
 
   /// 0..1 之间的命中率。
   final double percent;

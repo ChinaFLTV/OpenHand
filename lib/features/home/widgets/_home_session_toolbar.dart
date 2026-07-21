@@ -116,6 +116,107 @@ class _SessionToolbar extends StatelessWidget {
     );
     final showPlanTimelineToggle =
         planTimeline != null && onPlanTimelineCollapsedChanged != null;
+    final goalRecord = _toolbarGoalRecord(session);
+    final toolbarItems = <Widget>[
+      if (runtimeStatus.notices.isNotEmpty) ...[
+        ..._buildMcpLazyLoadingPills(context, runtimeStatus.notices),
+        _ToolbarPill(
+          icon: Icons.info_outline_rounded,
+          label: AppLocalizations.of(
+            context,
+          )!.toolbarRuntimeNotices(runtimeStatus.notices.length),
+        ),
+      ],
+      _ToolbarPill(
+        icon: Icons.layers_rounded,
+        label: '${session.templateName} · v${session.templateInternalVersion}',
+      ),
+      if (goalRecord != null)
+        _ToolbarPill(
+          icon: Icons.flag_outlined,
+          label: _goalToolbarLabel(context, goalRecord),
+          onTap: () => _showGoalDetailsDialog(context, session),
+        ),
+      if (session.templateId == 'hermes_talker')
+        const _HermesSelfLearningWarningPill(),
+      if (session.templateId == 'web_reverse_expert')
+        _WebReverseDebugPill(sessionId: session.id),
+      if (session.templateId == 'android_reverse_expert')
+        _AndroidReverseDebugPill(session: session),
+      _ToolbarPill(
+        icon: Icons.data_object_rounded,
+        label: AppLocalizations.of(context)!.toolbarSessionMetadata,
+        onTap: () {
+          _showSessionMetadataDialog(
+            context,
+            session,
+            liveRuntimeToolPreview: liveRuntimeToolPreview,
+            activeProfile: activeProfile,
+            claudeStyle: claudeStyle,
+          );
+        },
+      ),
+      _StreamThrottlePill(sessionId: session.id),
+      if (showPlanTimelineToggle && planTimelineCollapsed)
+        AnimatedSwitcher(
+          duration: openHandMotionDuration(
+            context,
+            _kSessionToolbarCompactSwitchDuration,
+          ),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: _ToolbarPill(
+            key: ValueKey<bool>(planTimelineCollapsed),
+            icon: Icons.unfold_more_rounded,
+            label: AppLocalizations.of(context)!.toolbarShowPlan,
+            onTap: () => onPlanTimelineCollapsedChanged?.call(false),
+          ),
+        ),
+      if (onFileExplorerToggled != null)
+        _ToolbarPill(
+          icon: fileExplorerVisible
+              ? Icons.folder_open_rounded
+              : Icons.folder_outlined,
+          label: _localizedFilesToggle(context, fileExplorerVisible),
+          onTap: onFileExplorerToggled,
+        ),
+      if (onMachineTerminalPanelToggled != null)
+        AnimatedSwitcher(
+          duration: openHandMotionDuration(
+            context,
+            _kSessionToolbarCompactSwitchDuration,
+          ),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: _ToolbarPill(
+            key: ValueKey<bool>(machineTerminalPanelVisible),
+            icon: machineTerminalPanelVisible
+                ? Icons.terminal_rounded
+                : Icons.terminal_outlined,
+            label: _localizedMachineTerminalToggle(
+              context,
+              machineTerminalPanelVisible,
+            ),
+            onTap: onMachineTerminalPanelToggled,
+          ),
+        ),
+      _TokenDial(
+        session: session,
+        statistics: session.statistics,
+        activeProfile: activeProfile,
+        claudeStyle: claudeStyle,
+        onCacheHitTrendPointSelected: (point) {
+          unawaited(
+            _jumpToCacheHitTurn(
+              context,
+              session: session,
+              point: point,
+              claudeStyle: claudeStyle,
+            ),
+          );
+        },
+      ),
+    ];
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(minHeight: 48),
@@ -130,161 +231,18 @@ class _SessionToolbar extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OpenHandAnimatedTitleText(
-                        text: session.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const ClampingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            if (runtimeStatus.notices.isNotEmpty) ...[
-                              ..._buildMcpLazyLoadingPills(
-                                context,
-                                runtimeStatus.notices,
-                              ),
-                              const SizedBox(width: 8),
-                              _ToolbarPill(
-                                icon: Icons.info_outline_rounded,
-                                label: AppLocalizations.of(context)!
-                                    .toolbarRuntimeNotices(
-                                      runtimeStatus.notices.length,
-                                    ),
-                              ),
-                            ],
-                            const SizedBox(width: 8),
-                            _ToolbarPill(
-                              icon: Icons.layers_rounded,
-                              label:
-                                  '${session.templateName} · v${session.templateInternalVersion}',
-                            ),
-                            if (_toolbarGoalRecord(session) != null) ...[
-                              const SizedBox(width: 8),
-                              _ToolbarPill(
-                                icon: Icons.flag_outlined,
-                                label: _goalToolbarLabel(
-                                  context,
-                                  _toolbarGoalRecord(session)!,
-                                ),
-                                onTap: () {
-                                  _showGoalDetailsDialog(context, session);
-                                },
-                              ),
-                            ],
-                            if (session.templateId == 'hermes_talker')
-                              const _HermesSelfLearningWarningPill(),
-                            if (session.templateId == 'web_reverse_expert')
-                              _WebReverseDebugPill(sessionId: session.id),
-                            if (session.templateId == 'android_reverse_expert')
-                              _AndroidReverseDebugPill(session: session),
-                            const SizedBox(width: 8),
-                            _ToolbarPill(
-                              icon: Icons.data_object_rounded,
-                              label: AppLocalizations.of(
-                                context,
-                              )!.toolbarSessionMetadata,
-                              onTap: () {
-                                _showSessionMetadataDialog(
-                                  context,
-                                  session,
-                                  liveRuntimeToolPreview:
-                                      liveRuntimeToolPreview,
-                                  activeProfile: activeProfile,
-                                  claudeStyle: claudeStyle,
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _StreamThrottlePill(sessionId: session.id),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                flex: 2,
+                child: OpenHandAnimatedTitleText(
+                  text: session.title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              if (showPlanTimelineToggle && planTimelineCollapsed) ...[
-                const SizedBox(width: 10),
-                AnimatedSwitcher(
-                  duration: openHandMotionDuration(
-                    context,
-                    _kSessionToolbarCompactSwitchDuration,
-                  ),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: _ToolbarPill(
-                    key: ValueKey<bool>(planTimelineCollapsed),
-                    icon: planTimelineCollapsed
-                        ? Icons.unfold_more_rounded
-                        : Icons.unfold_less_rounded,
-                    label: planTimelineCollapsed
-                        ? AppLocalizations.of(context)!.toolbarShowPlan
-                        : AppLocalizations.of(context)!.toolbarHidePlan,
-                    onTap: () {
-                      onPlanTimelineCollapsedChanged?.call(
-                        !planTimelineCollapsed,
-                      );
-                    },
-                  ),
-                ),
-              ],
               const SizedBox(width: 10),
-              if (onFileExplorerToggled != null) ...[
-                _ToolbarPill(
-                  icon: fileExplorerVisible
-                      ? Icons.folder_open_rounded
-                      : Icons.folder_outlined,
-                  label: _localizedFilesToggle(context, fileExplorerVisible),
-                  onTap: onFileExplorerToggled,
-                ),
-                const SizedBox(width: 10),
-              ],
-              if (onMachineTerminalPanelToggled != null) ...[
-                AnimatedSwitcher(
-                  duration: openHandMotionDuration(
-                    context,
-                    _kSessionToolbarCompactSwitchDuration,
-                  ),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: _ToolbarPill(
-                    key: ValueKey<bool>(machineTerminalPanelVisible),
-                    icon: machineTerminalPanelVisible
-                        ? Icons.terminal_rounded
-                        : Icons.terminal_outlined,
-                    label: _localizedMachineTerminalToggle(
-                      context,
-                      machineTerminalPanelVisible,
-                    ),
-                    onTap: onMachineTerminalPanelToggled,
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
-              _TokenDial(
-                session: session,
-                statistics: session.statistics,
-                activeProfile: activeProfile,
-                claudeStyle: claudeStyle,
-                onCacheHitTrendPointSelected: (point) {
-                  unawaited(
-                    _jumpToCacheHitTurn(
-                      context,
-                      session: session,
-                      point: point,
-                      claudeStyle: claudeStyle,
-                    ),
-                  );
-                },
+              Expanded(
+                flex: 3,
+                child: OpenHandTrailingToolbar(children: toolbarItems),
               ),
             ],
           ),
@@ -2539,10 +2497,7 @@ String _composerModeTooltip(
   return AppLocalizations.of(context)!.toolbarGatePlanModeSwitchChat;
 }
 
-/// Parses the MCP lazy-loading notice (format produced by
-/// `McpLazyLoadingApplier`) and renders a compact pill showing how many MCP
-/// tools are currently loaded vs total. Returns an empty list when the
-/// notice is absent (i.e. lazy loading is disabled or no MCP tools exist).
+/// 解析 MCP 懒加载通知并生成已加载工具数量胶囊。
 final RegExp _mcpLazyLoadingNoticePattern = RegExp(
   r'MCP tool lazy loading active.*?(\d+)\s+of\s+(\d+)\s+MCP tool',
 );
@@ -2559,7 +2514,6 @@ List<Widget> _buildMcpLazyLoadingPills(
     if (deferred == null || total == null) continue;
     final loaded = (total - deferred).clamp(0, total);
     return <Widget>[
-      const SizedBox(width: 8),
       Tooltip(
         message: notice,
         child: _ToolbarPill(

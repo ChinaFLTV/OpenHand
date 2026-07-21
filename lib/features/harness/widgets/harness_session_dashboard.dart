@@ -33,6 +33,7 @@ import '../../../shared/ui/openhand_file_hover_popup.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_sweep_shimmer.dart';
+import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/spring_entrance.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -939,13 +940,13 @@ class HarnessSessionPane extends StatefulWidget {
   /// AI-generated or task-derived title shown in the session header.
   final String? sessionTitle;
 
-  /// Pre-formatted updated time used in the toolbar, matching other threads.
+  /// 元数据弹窗使用的预格式化更新时间。
   final String? updatedAtLabel;
 
-  /// Unique session identifier for the metadata dialog.
+  /// 元数据弹窗使用的会话标识。
   final String? sessionId;
 
-  /// Pre-formatted creation time for the metadata dialog.
+  /// 元数据弹窗使用的预格式化创建时间。
   final String? createdAtLabel;
 
   /// Called when the user restarts a failed / cancelled / idle session.

@@ -28,7 +28,7 @@ export interface SessionToolbarCapsule {
   label: string;
   title?: string;
   tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'muted';
-  /** 胶囊右侧常驻徽标，用于展示缓存节省比例等紧凑状态。 */
+  /** 胶囊右侧常驻徽标，用于展示缓存命中率等紧凑状态。 */
   badge?: {
     text: string;
     title?: string;
