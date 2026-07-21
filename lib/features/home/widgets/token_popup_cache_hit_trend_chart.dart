@@ -494,6 +494,7 @@ class _TokenPopupCacheHitTrendChartState
             cacheRead: displayData.cacheReadTokens,
             cacheWrite: displayData.cacheWriteTokens,
             uncachedPrompt: displayData.uncachedPromptTokens,
+            averageRatio: displayData.averageHitRatio,
           ),
           const SizedBox(height: 12),
           Row(
@@ -1297,11 +1298,13 @@ class _CacheHitCompositionSummary extends StatelessWidget {
     required this.cacheRead,
     required this.cacheWrite,
     required this.uncachedPrompt,
+    required this.averageRatio,
   });
 
   final int cacheRead;
   final int cacheWrite;
   final int uncachedPrompt;
+  final double averageRatio;
 
   String _compact(int value) {
     if (value < 1000) return '$value';
@@ -1315,8 +1318,11 @@ class _CacheHitCompositionSummary extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final total = cacheRead + cacheWrite + uncachedPrompt;
-    final readRatio = total <= 0 ? 0.0 : cacheRead / total;
-    final cachedRatio = total <= 0 ? 0.0 : (cacheRead + cacheWrite) / total;
+    final fallbackRatio = clampUnitInterval(averageRatio);
+    final readRatio = total <= 0 ? fallbackRatio : cacheRead / total;
+    final cachedRatio = total <= 0
+        ? fallbackRatio
+        : (cacheRead + cacheWrite) / total;
     final readColor = colorScheme.primary;
     final writeColor = Color.lerp(
       colorScheme.primary,
@@ -1355,6 +1361,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
                             widthFactor: animatedCached.clamp(0.0, 1.0),
+                            heightFactor: 1,
                             child: ColoredBox(color: writeColor),
                           ),
                         ),
@@ -1362,6 +1369,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
                             widthFactor: animatedRead.clamp(0.0, 1.0),
+                            heightFactor: 1,
                             child: ColoredBox(color: readColor),
                           ),
                         ),

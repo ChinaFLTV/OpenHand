@@ -1848,7 +1848,9 @@ class _CompactCacheHitSparkline extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final hitPercent = (cacheHitRatio * 100).round();
     final total = cacheRead + cacheWrite + promptTokens;
-    final readFrac = total == 0 ? 0.0 : cacheRead / total;
+    final readFrac = total == 0
+        ? finiteUnitInterval(cacheHitRatio)
+        : cacheRead / total;
     final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
     final uncachedLabel = l10n.tokenPopupUncached;
     final readColor = colorScheme.primary;
@@ -1916,6 +1918,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
                             widthFactor: cached.clamp(0.0, 1.0),
+                            heightFactor: 1,
                             child: ColoredBox(color: writeColor),
                           ),
                         ),
@@ -1923,6 +1926,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: FractionallySizedBox(
                             widthFactor: read.clamp(0.0, 1.0),
+                            heightFactor: 1,
                             child: ColoredBox(color: readColor),
                           ),
                         ),

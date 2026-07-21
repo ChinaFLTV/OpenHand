@@ -138,10 +138,12 @@ function compactTokenCount(value: number): string {
 
 function CacheHitCompositionSummary({
   composition,
+  averageRatio,
   progress,
   t,
 }: {
   composition: CacheHitComposition;
+  averageRatio: number;
   progress: number;
   t: (key: string, fallback: string) => string;
 }) {
@@ -149,8 +151,9 @@ function CacheHitCompositionSummary({
   const write = Math.max(0, composition.cacheWriteTokens);
   const miss = Math.max(0, composition.uncachedPromptTokens);
   const total = read + write + miss;
-  const readRatio = total > 0 ? read / total : 0;
-  const cachedRatio = total > 0 ? (read + write) / total : 0;
+  const fallbackRatio = clampNumber(averageRatio, 0, 1);
+  const readRatio = total > 0 ? read / total : fallbackRatio;
+  const cachedRatio = total > 0 ? (read + write) / total : fallbackRatio;
   const animatedProgress = easeOutCubic(clampNumber(progress, 0, 1));
   const readColor = 'var(--m3-primary)';
   const writeColor = 'color-mix(in srgb, var(--m3-primary) 52%, var(--m3-surface-container-highest))';
@@ -185,17 +188,21 @@ function CacheHitCompositionSummary({
         <span
           class="absolute inset-y-0 left-0 rounded-full"
           style={{
-            width: `${cachedRatio * animatedProgress * 100}%`,
+            width: '100%',
             background: writeColor,
-            transition: 'width var(--oh-dialog-duration) var(--oh-dialog-curve)',
+            transform: `scaleX(${cachedRatio * animatedProgress})`,
+            transformOrigin: 'left center',
+            transition: 'transform var(--oh-dialog-duration) var(--oh-dialog-curve)',
           }}
         />
         <span
           class="absolute inset-y-0 left-0 rounded-full"
           style={{
-            width: `${readRatio * animatedProgress * 100}%`,
+            width: '100%',
             background: readColor,
-            transition: 'width var(--oh-dialog-duration) var(--oh-dialog-curve)',
+            transform: `scaleX(${readRatio * animatedProgress})`,
+            transformOrigin: 'left center',
+            transition: 'transform var(--oh-dialog-duration) var(--oh-dialog-curve)',
           }}
         />
       </div>
@@ -260,17 +267,21 @@ export default function CacheHitTrendChart({
   );
   const filteredPoints = displayData.points;
   const displayedAverageRatio = displayData.averageRatio;
-  const composition = displayData.averagePointCount > 0
-    ? {
-        cacheReadTokens: displayData.cacheReadTokens,
-        cacheWriteTokens: displayData.cacheWriteTokens,
-        uncachedPromptTokens: displayData.uncachedPromptTokens,
-      }
-    : fallbackComposition ?? {
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        uncachedPromptTokens: 0,
-      };
+  const displayCompositionTotal = displayData.cacheReadTokens +
+    displayData.cacheWriteTokens +
+    displayData.uncachedPromptTokens;
+  const composition =
+    displayData.averagePointCount > 0 && displayCompositionTotal > 0
+      ? {
+          cacheReadTokens: displayData.cacheReadTokens,
+          cacheWriteTokens: displayData.cacheWriteTokens,
+          uncachedPromptTokens: displayData.uncachedPromptTokens,
+        }
+      : fallbackComposition ?? {
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          uncachedPromptTokens: 0,
+        };
   const hasDrawablePoints = filteredPoints.length >= 1;
   const modeOptions = useMemo(
     () =>
@@ -533,6 +544,7 @@ export default function CacheHitTrendChart({
         </div>
         <CacheHitCompositionSummary
           composition={composition}
+          averageRatio={displayedAverageRatio}
           progress={animProgress}
           t={t2}
         />
@@ -662,6 +674,7 @@ export default function CacheHitTrendChart({
 
       <CacheHitCompositionSummary
         composition={composition}
+        averageRatio={displayedAverageRatio}
         progress={animProgress}
         t={t2}
       />
