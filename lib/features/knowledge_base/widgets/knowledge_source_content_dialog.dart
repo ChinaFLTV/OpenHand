@@ -18,6 +18,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
@@ -1576,7 +1577,7 @@ class _KnowledgeSourceContentSnapshot {
               : null,
         );
       } catch (_) {
-        // Fall through to indexed chunks.
+        // 文件读取失败时回退到已索引分块。
       }
     }
 
@@ -1628,54 +1629,7 @@ bool _shouldReadFile(KnowledgeSource source) {
   }.contains(kind)) {
     return true;
   }
-  final extension = p
-      .extension(source.originalPath)
-      .replaceFirst('.', '')
-      .trim()
-      .toLowerCase();
-  return const <String>{
-    'md',
-    'markdown',
-    'txt',
-    'text',
-    'log',
-    'html',
-    'htm',
-    'csv',
-    'json',
-    'toml',
-    'yaml',
-    'yml',
-    'dart',
-    'js',
-    'jsx',
-    'ts',
-    'tsx',
-    'py',
-    'java',
-    'kt',
-    'kts',
-    'swift',
-    'go',
-    'rs',
-    'c',
-    'cc',
-    'cpp',
-    'h',
-    'hpp',
-    'cs',
-    'php',
-    'rb',
-    'sh',
-    'bash',
-    'zsh',
-    'fish',
-    'sql',
-    'xml',
-    'css',
-    'scss',
-    'less',
-  }.contains(extension);
+  return ReaderFileType.isTextLikeExtension(p.extension(source.originalPath));
 }
 
 Future<Uint8List> _readPreviewBytes(File file) {

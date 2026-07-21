@@ -13,6 +13,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../service/bash/ai_bash_tool_service.dart';
@@ -157,7 +158,7 @@ class AiToolUtils {
       }
       return best?.path;
     } catch (error, stack) {
-      silentLog('ai_tool_utils', 'suggest missing sibling path', error, stack);
+      silentLog('AI工具', '查找缺失文件的同级候选路径', error, stack);
       return null;
     } finally {
       stopwatch.stop();
@@ -270,24 +271,19 @@ class AiToolUtils {
         );
       }
     } catch (error, stack) {
-      silentLog('ai_tool_utils', 'decode tool arguments JSON', error, stack);
+      silentLog('AI工具', '解析工具参数 JSON', error, stack);
     }
     return const <String, Object?>{};
   }
 
-  /// Heuristic post-processor that "unwraps" common malformed argument
-  /// shapes produced by less-capable models, so downstream tools see a
-  /// schema-compliant payload on first call:
+  /// 修正常见的模型参数嵌套错误，使下游工具首次调用即可收到符合结构的参数：
   ///
   ///   1. `{"_raw": "<query>foo</query>"}`
-  ///         → parses inline XML/CDATA tags and lifts each into top-level
-  ///           keys (e.g. `{query: "foo"}`).
+  ///         → 解析 XML/CDATA 并提升为顶层键，如 `{query: "foo"}`。
   ///   2. `{"todos": {"item": [...]}}`
-  ///         → flattens single-key XML-style array wrappers
-  ///           (`item` / `items` / `entry` / `entries` / `value` / `values`)
-  ///           into a plain list (e.g. `{todos: [...]}`).
+  ///         → 将单键 XML 数组包装展平为普通列表，如 `{todos: [...]}`。
   ///   3. `{"query": "<![CDATA[foo]]>"}`
-  ///         → strips CDATA wrappers from string values.
+  ///         → 移除字符串值的 CDATA 包装。
   static Map<String, Object?> _coerceArgumentMap(
     Map<String, Object?> input, {
     Map<String, Object?>? parameters,
@@ -305,14 +301,11 @@ class AiToolUtils {
         schema: propertySchemas[entry.key],
       );
     }
-    // Merge _raw-extracted keys without overwriting explicit keys.
+    // 合并 `_raw` 中的键，但不覆盖显式参数。
     for (final entry in rawExtracted.entries) {
       result.putIfAbsent(entry.key, () => entry.value);
     }
-    // tolerance — weaker models often over-wrap parameter
-    // payloads as `{key: {key: [...]}}` (e.g. `todos: {todos: [...]}`)
-    // when shoe-horning JSON into DSML parameters. Detect this single
-    // case and unwrap once so downstream tools see the canonical shape.
+    // 部分模型会生成 `{key: {key: [...]}}`，仅展开这一层重复包装。
     final unwrapped = <String, Object?>{};
     var didUnwrap = false;
     for (final entry in result.entries) {
@@ -339,12 +332,7 @@ class AiToolUtils {
   }) {
     if (value is String) {
       final stripped = _stripCdata(value);
-      // tolerance — weaker models frequently emit JSON-shaped
-      // strings (`"[{...}, ...]"`, `"{\"todos\":[...]}"`) inside DSML
-      // parameter slots that the downstream tool expects to receive as
-      // a typed List/Map. Decode only when the current tool schema asks for
-      // a non-string shape; otherwise JSON file contents for tools like Write
-      // must remain exact strings.
+      // 仅在结构要求数组或对象时解析 JSON 字符串，避免改写文件正文。
       final trimmed = stripped.trim();
       final schemaType = _schemaType(schema);
       if (schemaType == 'array' || schemaType == 'object') {
@@ -368,7 +356,7 @@ class AiToolUtils {
     }
     if (value is Map) {
       final asMap = stringKeyedMapFromValue(value);
-      // Single-key XML-style array wrappers: {item:[...]} → [...]
+      // 展平单键 XML 数组包装：`{item:[...]}` → `[...]`。
       if (asMap.length == 1) {
         final onlyKey = asMap.keys.first.toLowerCase();
         const arrayWrapperKeys = <String>{
@@ -445,10 +433,7 @@ class AiToolUtils {
     return value.replaceAllMapped(cdataPattern, (m) => m.group(1) ?? '');
   }
 
-  /// Best-effort extraction of `<key>value</key>` (and `<key/>`) pairs from
-  /// a free-form XML blob. CDATA wrappers are stripped. Mismatched closing
-  /// tags are tolerated by collecting the inner text up to the next
-  /// `</something>` token.
+  /// 从自由格式 XML 中提取键值并移除 CDATA；闭合标签不匹配时读取到下一闭合标签。
   static Map<String, Object?> _extractFromXmlBlob(String blob) {
     final out = <String, Object?>{};
     final tagPattern = RegExp(
@@ -781,7 +766,7 @@ class AiToolUtils {
         final currentSize = await file.length();
         if (currentSize > maxEditableTextFileBytes) sizeBytes = currentSize;
       } on FileSystemException {
-        // Preserve the deterministic size-limit error from the bounded read.
+        // 保留有界读取产生的确定性大小超限错误。
       }
       throw AiEditableTextFileTooLargeException(
         filePath: file.path,
@@ -1033,7 +1018,7 @@ class AiToolUtils {
       if (!await f.exists()) return null;
       return await readBoundedFileString(f, maxBytes: maxLedgerCaptureBytes);
     } catch (error, stack) {
-      silentLog('ai_tool_utils', 'readFileContentForLedger', error, stack);
+      silentLog('AI工具', '读取文件变更账本快照', error, stack);
       return null;
     }
   }
@@ -1073,16 +1058,12 @@ class AiToolUtils {
       if (!await tempFile.exists()) rethrow;
       await _replaceTextFileWithTemporaryBackup(file, tempFile);
     } catch (_) {
-      await _deleteFileIfExistsBestEffort(tempFile, 'cleanup safe write temp');
+      await _deleteFileIfExistsBestEffort(tempFile, '清理安全写入临时文件');
       rethrow;
     }
   }
 
-  /// Performs the last read-before-write guard immediately before writing.
-  ///
-  /// Tools may still run an earlier validation to fail fast. This final guard
-  /// stays adjacent to the disk write so confirmation dialogs, history capture,
-  /// or ledger reads cannot leave a stale write window unprotected.
+  /// 写入前执行最终读取校验，避免确认或历史记录流程形成过期写入窗口。
   static Future<AiToolExecutionResult?> writeTextFileWithMutationGuard({
     required String toolName,
     required File file,
@@ -1231,7 +1212,7 @@ class AiToolUtils {
         await file.delete();
       }
     } catch (error, stack) {
-      silentLog('ai_tool_utils', where, error, stack);
+      silentLog('AI工具', where, error, stack);
     }
   }
 
@@ -1252,33 +1233,22 @@ class AiToolUtils {
         await backupFile.delete();
       }
     } catch (_) {
-      await _deleteFileIfExistsBestEffort(
-        tempFile,
-        'cleanup backup write temp',
-      );
+      await _deleteFileIfExistsBestEffort(tempFile, '清理备份写入临时文件');
       if (movedExistingFile &&
           backupFile != null &&
           await backupFile.exists()) {
-        await _deleteFileIfExistsBestEffort(
-          targetFile,
-          'cleanup failed target before rollback',
-        );
+        await _deleteFileIfExistsBestEffort(targetFile, '回滚前清理失败的目标文件');
         try {
           await backupFile.rename(targetFile.path);
         } on FileSystemException catch (error, stack) {
-          silentLog(
-            'ai_tool_utils',
-            'rollback safe write backup',
-            error,
-            stack,
-          );
+          silentLog('AI工具', '回滚安全写入备份', error, stack);
         }
       }
       rethrow;
     }
   }
 
-  /// Performs the last read-before-delete guard immediately before deletion.
+  /// 删除前执行最终读取校验。
   static Future<AiToolExecutionResult?> deleteFileWithMutationGuard({
     required String toolName,
     required File file,
@@ -1391,53 +1361,7 @@ class AiToolUtils {
   }
 
   static bool isKnownTextExtension(String extension) {
-    if (extension.isEmpty) return false;
-    return const <String>{
-      '.txt',
-      '.md',
-      '.markdown',
-      '.json',
-      '.yaml',
-      '.yml',
-      '.toml',
-      '.xml',
-      '.html',
-      '.htm',
-      '.css',
-      '.scss',
-      '.sass',
-      '.js',
-      '.jsx',
-      '.ts',
-      '.tsx',
-      '.dart',
-      '.go',
-      '.py',
-      '.java',
-      '.kt',
-      '.kts',
-      '.rb',
-      '.rs',
-      '.c',
-      '.cc',
-      '.cpp',
-      '.h',
-      '.hpp',
-      '.sh',
-      '.zsh',
-      '.bash',
-      '.fish',
-      '.sql',
-      '.csv',
-      '.tsv',
-      '.env',
-      '.ini',
-      '.cfg',
-      '.conf',
-      '.log',
-      '.svg',
-      '.vue',
-    }.contains(extension);
+    return ReaderFileType.isTextLikeExtension(extension);
   }
 
   static bool looksLikeTimeoutMessage(String message) {
@@ -1531,12 +1455,7 @@ class AiToolUtils {
         if (machine == 'x86_64' || machine == 'i386') return false;
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_tool_utils',
-        'detect Apple Silicon via uname',
-        error,
-        stack,
-      );
+      silentLog('AI工具', '通过 uname 检测 Apple Silicon', error, stack);
     }
 
     // 回退:Homebrew 在 Apple Silicon 上默认安装到 /opt/homebrew
@@ -1634,20 +1553,15 @@ class AiToolUtils {
               );
               if (chmodResult.exitCode != 0) {
                 silentLog(
-                  'ai_tool_utils',
-                  'chmod embedded rg',
+                  'AI工具',
+                  '设置内置 rg 的执行权限',
                   'exit ${chmodResult.exitCode}: ${chmodResult.stderr}',
                 );
                 continue;
               }
             }
           } catch (error, stack) {
-            silentLog(
-              'ai_tool_utils',
-              'check embedded rg permission',
-              error,
-              stack,
-            );
+            silentLog('AI工具', '检查内置 rg 的执行权限', error, stack);
             continue;
           }
         }
@@ -1720,7 +1634,7 @@ class AiToolUtils {
         }
       }
     } catch (error, stack) {
-      silentLog('ai_tool_utils', 'resolve rg via PATH', error, stack);
+      silentLog('AI工具', '通过 PATH 查找 rg', error, stack);
     }
 
     // 3. 直接检查常见系统安装路径（非 Windows）
@@ -1753,7 +1667,7 @@ class AiToolUtils {
           }
         }
       } catch (error, stack) {
-        silentLog('ai_tool_utils', 'resolve rg via login shell', error, stack);
+        silentLog('AI工具', '通过登录 Shell 查找 rg', error, stack);
       }
     }
 

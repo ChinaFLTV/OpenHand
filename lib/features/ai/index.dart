@@ -1,14 +1,9 @@
-// Wide barrel for the AI feature's supported cross-feature API.
-// Keep internal implementation files private unless another feature has a
-// proven need for them; re-narrow with `show` clauses at call sites when useful.
+// AI 功能对外接口。内部实现仅在存在跨功能依赖时导出。
 
 export 'ai_module.dart';
 export 'ai_session_controller.dart';
 
-// data
-export 'data/ai_session_store.dart';
-
-// model
+// 模型
 export 'model/ai_allow_command_rule.dart';
 export 'model/ai_api_dialect.dart';
 export 'model/ai_api_family.dart';
@@ -22,7 +17,6 @@ export 'model/ai_creation_mode.dart';
 export 'model/ai_deny_command_rule.dart';
 export 'model/ai_endpoint_override.dart';
 export 'model/ai_input_cache_policy.dart';
-export 'model/ai_input_cache_runtime_config.dart';
 export 'model/ai_lsp_backend_catalog.dart';
 export 'model/ai_lsp_language_settings.dart';
 export 'model/ai_message_content_format.dart';
@@ -36,7 +30,6 @@ export 'model/ai_session.dart';
 export 'model/ai_session_goal.dart';
 export 'model/ai_session_message.dart';
 export 'model/ai_session_runtime_context.dart';
-export 'model/ai_stream_throttle_override.dart';
 export 'model/ai_thread_template.dart';
 export 'model/ai_token_usage.dart';
 export 'model/ai_translation_provider_catalog.dart';
@@ -48,47 +41,37 @@ export 'model/ai_web_engine_resilience.dart';
 export 'model/ai_web_fetch_settings.dart';
 export 'model/ai_web_search_settings.dart';
 
-// service (root + nested)
+// 服务
 export 'service/bash/ai_bash_tool_service.dart';
 export 'service/chat/ai_chat_service.dart';
 export 'service/chat/ai_protocol_adapter.dart';
 export 'service/chat/ai_transport_diagnostic_messages.dart';
-export 'service/dsml/ai_dsml_partial_stream_scanner.dart';
-export 'service/dsml/ai_dsml_tool_call_parser.dart';
 export 'service/fs/ai_attachment_input_capabilities.dart';
-export 'service/fs/ai_attachment_service.dart';
 export 'service/fs/ai_file_history_service.dart';
 export 'service/fs/ai_file_mutation_ledger.dart';
-export 'service/fs/ai_file_tracker_service.dart';
 export 'service/git/ai_git_snapshot_service.dart';
 export 'service/hook/ai_claude_hook_service.dart';
 export 'service/lsp/ai_lsp_managed_install_service.dart';
 export 'service/lsp/lsp_client_service.dart';
 export 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 export 'service/media/ai_image_generation_service.dart';
-export 'service/media/ai_image_summary_extractor.dart';
 export 'service/media/media_cache_service.dart';
 export 'service/model_registry/ai_model_scanner.dart';
 export 'service/model_registry/ai_title_model_resolver.dart';
 export 'service/operations/ai_embeddings_service.dart';
 export 'service/operations/ai_minimax_voice_service.dart';
 export 'service/operations/ai_rerank_service.dart';
-export 'service/operations/ai_responses_service.dart';
 export 'service/operations/ai_translation_service.dart';
 export 'service/operations/ai_tts_playback_service.dart';
 export 'service/prompt/ai_output_format_prompts.dart';
 export 'service/prompt/ai_prompt_builder.dart';
 export 'service/prompt/ai_prompt_template_assembly.dart';
 export 'service/prompt/ai_prompt_template_repository.dart';
-export 'service/prompt/machine_expert_prompts.dart';
-export 'service/prompt/programming_expert_prompts.dart';
 export 'service/runtime/ai_builtin_tool_lazy_loading_applier.dart';
 export 'service/runtime/ai_endpoint_router.dart';
-export 'service/runtime/ai_plan_approval_detector.dart';
 export 'service/runtime/ai_tool_execution_registry.dart';
 export 'service/runtime/ai_tool_runtime_service.dart';
 export 'service/runtime/ai_tool_usage_promotion_store.dart';
-export 'service/sandbox/ai_sandbox_proxy_service.dart';
 export 'service/sandbox/ai_sandbox_service.dart';
 export 'service/self_learning/self_learning_dispatcher.dart';
 export 'service/self_learning/self_learning_runner.dart';
@@ -97,64 +80,22 @@ export 'service/session_io/ai_session_jsonl_exporter.dart';
 export 'service/session_io/ai_token_usage_parser.dart';
 export 'service/usage/ai_usage_tracker.dart';
 export 'service/web_engine/web_engine_base.dart';
-export 'service/web_engine/web_engine_cache_store_base.dart';
-export 'service/web_engine/web_engine_concurrency.dart';
-export 'service/web_engine/web_engine_http_exception.dart';
-export 'service/web_engine/web_engine_json_utils.dart';
-export 'service/web_engine/web_engine_quality.dart';
 export 'service/web_engine/web_engine_telemetry_store_base.dart';
 export 'service/web_fetch/web_fetch_cache_store.dart';
-export 'service/web_fetch/web_fetch_direct_engines.dart';
-export 'service/web_fetch/web_fetch_engine.dart';
-export 'service/web_fetch/web_fetch_orchestrator.dart';
-export 'service/web_fetch/web_fetch_scrape_engines.dart';
 export 'service/web_fetch/web_fetch_scrapling_bridge.dart';
-export 'service/web_fetch/web_fetch_search_engines.dart';
 export 'service/web_fetch/web_fetch_telemetry_store.dart';
 export 'service/web_reverse_runtime_metadata.dart';
-export 'service/web_search/web_search_api_engines.dart';
 export 'service/web_search/web_search_cache_store.dart';
-export 'service/web_search/web_search_engine.dart';
-export 'service/web_search/web_search_html_engines.dart';
-export 'service/web_search/web_search_orchestrator.dart';
-export 'service/web_search/web_search_provider_engines.dart';
 export 'service/web_search/web_search_telemetry_store.dart';
 export 'service/workspace/ai_workspace_instruction_service.dart';
 
-// tools
-export 'tools/ai_tool.dart';
+// 工具
 export 'tools/ai_tool_execution_context.dart';
-export 'tools/ai_tool_registry.dart';
-export 'tools/ai_tool_utils.dart';
 export 'tools/android_reverse_adb_command_guard.dart';
-export 'tools/bash/ai_bash_background_tool.dart';
-export 'tools/bash/ai_bash_tool.dart';
-export 'tools/fs/ai_apply_file_diffs_tool.dart';
-export 'tools/fs/ai_delete_file_tool.dart';
-export 'tools/fs/ai_edit_tool.dart';
-export 'tools/fs/ai_file_read_renderer.dart';
-export 'tools/fs/ai_glob_tool.dart';
-export 'tools/fs/ai_ls_tool.dart';
-export 'tools/fs/ai_multi_edit_tool.dart';
-export 'tools/fs/ai_notebook_edit_tool.dart';
-export 'tools/fs/ai_read_tool.dart';
-export 'tools/fs/ai_write_tool.dart';
-export 'tools/git/ai_git_tool.dart';
-export 'tools/lsp/ai_lsp_tool.dart';
-export 'tools/lsp/ai_read_lints_tool.dart';
-export 'tools/memory/ai_memory_tool.dart';
 export 'tools/planning/ai_ask_user_choice_tool.dart';
-export 'tools/planning/ai_exit_plan_mode_tool.dart';
-export 'tools/planning/ai_task_tool.dart';
-export 'tools/planning/ai_todo_write_tool.dart';
-export 'tools/search/ai_codebase_search_tool.dart';
-export 'tools/search/ai_grep_tool.dart';
 export 'tools/search/ai_tool_search_tool.dart';
-export 'tools/skill/ai_skill_manager_tool.dart';
-export 'tools/web/ai_web_fetch_tool.dart';
-export 'tools/web/ai_web_search_tool.dart';
 
-// util
+// 工具函数
 export 'util/agent_builtin_tool_display.dart';
 export 'widgets/resource_usage_statistics_dialog.dart'
     show

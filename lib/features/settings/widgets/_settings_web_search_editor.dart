@@ -76,7 +76,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = bytes);
     } catch (e, st) {
-      silentLog('settings.websearch', '刷新磁盘缓存大小', e, st);
+      silentLog('Web 搜索设置', '刷新磁盘缓存大小', e, st);
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
@@ -105,7 +105,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         _telemetryLoading = false;
       });
     } catch (e, st) {
-      silentLog('settings.websearch', '刷新遥测数据', e, st);
+      silentLog('Web 搜索设置', '刷新遥测数据', e, st);
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
@@ -122,7 +122,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchTelemetryStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.websearch', '清空遥测数据', e, st);
+      silentLog('Web 搜索设置', '清空遥测数据', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
@@ -144,7 +144,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         encodeCsv: _callsToCsv,
       );
     } catch (e, st) {
-      silentLog('settings.websearch', '导出遥测数据', e, st);
+      silentLog('Web 搜索设置', '导出遥测数据', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -201,7 +201,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchTelemetryStore.instance.clearEngineCooldown(kind);
     } catch (e, st) {
-      silentLog('settings.websearch', '重置引擎冷却状态', e, st);
+      silentLog('Web 搜索设置', '重置引擎冷却状态', e, st);
     }
     await _refreshTelemetry();
   }
@@ -209,49 +209,37 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   @override
   void didUpdateWidget(covariant _WebSearchSettingsEditor old) {
     super.didUpdateWidget(old);
-    if (old.value.resultCount != widget.value.resultCount &&
-        _resultCountController.text != '${widget.value.resultCount}') {
-      _syncControllerText(
-        _resultCountController,
-        '${widget.value.resultCount}',
-      );
-    }
-    if (old.value.summaryMinChars != widget.value.summaryMinChars &&
-        _summaryMinController.text != '${widget.value.summaryMinChars}') {
-      _syncControllerText(
-        _summaryMinController,
-        '${widget.value.summaryMinChars}',
-      );
-    }
-    if (old.value.summaryMaxChars != widget.value.summaryMaxChars &&
-        _summaryMaxController.text != '${widget.value.summaryMaxChars}') {
-      _syncControllerText(
-        _summaryMaxController,
-        '${widget.value.summaryMaxChars}',
-      );
-    }
-    if (old.value.cacheTtlSeconds != widget.value.cacheTtlSeconds &&
-        _cacheTtlController.text != '${widget.value.cacheTtlSeconds}') {
-      _syncControllerText(
-        _cacheTtlController,
-        '${widget.value.cacheTtlSeconds}',
-      );
-    }
-    if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
-        _cacheMaxBytesController.text !=
-            formatMegabytesInput(widget.value.cacheMaxBytes)) {
-      _syncControllerText(
-        _cacheMaxBytesController,
-        formatMegabytesInput(widget.value.cacheMaxBytes),
-      );
-    }
-    if (old.value.parallelWorkers != widget.value.parallelWorkers &&
-        _parallelWorkersController.text != '${widget.value.parallelWorkers}') {
-      _syncControllerText(
-        _parallelWorkersController,
-        '${widget.value.parallelWorkers}',
-      );
-    }
+    _syncControllerValue(
+      _resultCountController,
+      old.value.resultCount,
+      widget.value.resultCount,
+    );
+    _syncControllerValue(
+      _summaryMinController,
+      old.value.summaryMinChars,
+      widget.value.summaryMinChars,
+    );
+    _syncControllerValue(
+      _summaryMaxController,
+      old.value.summaryMaxChars,
+      widget.value.summaryMaxChars,
+    );
+    _syncControllerValue(
+      _cacheTtlController,
+      old.value.cacheTtlSeconds,
+      widget.value.cacheTtlSeconds,
+    );
+    _syncControllerValue(
+      _cacheMaxBytesController,
+      old.value.cacheMaxBytes,
+      widget.value.cacheMaxBytes,
+      format: formatMegabytesInput,
+    );
+    _syncControllerValue(
+      _parallelWorkersController,
+      old.value.parallelWorkers,
+      widget.value.parallelWorkers,
+    );
   }
 
   @override
@@ -281,7 +269,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchCacheStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.websearch', '清空本地缓存', e, st);
+      silentLog('Web 搜索设置', '清空本地缓存', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingCache = false);
@@ -342,11 +330,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   }
 
   void _reorderEngines(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex -= 1;
-    final list = List<AiWebSearchEngineConfig>.from(widget.value.engines);
-    final moved = list.removeAt(oldIndex);
-    list.insert(newIndex, moved);
-    _emit(widget.value.copyWith(engines: list));
+    _emit(
+      widget.value.copyWith(
+        engines: _reorderedCopy(widget.value.engines, oldIndex, newIndex),
+      ),
+    );
   }
 
   void _updateEngine(int index, AiWebSearchEngineConfig next) {
@@ -860,7 +848,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         style: theme.textTheme.titleSmall,
       ),
       const SizedBox(height: 8),
-      // cooldown 三档
+      // 三档冷却阈值
       Text(
         openHandLocalizedText(
           context,
@@ -872,7 +860,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
       ),
       const SizedBox(height: 6),
-      _AdvancedCooldownTierRow(
+      _ToolAdvancedCooldownTierRow(
         label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
         failures: v.cooldownTier1Failures,
         seconds: v.cooldownTier1Seconds,
@@ -881,7 +869,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         onChangedSeconds: (n) =>
             _updateAdvanced(v.copyWith(cooldownTier1Seconds: n)),
       ),
-      _AdvancedCooldownTierRow(
+      _ToolAdvancedCooldownTierRow(
         label: openHandLocalizedText(context, zh: '二级', en: 'Tier 2'),
         failures: v.cooldownTier2Failures,
         seconds: v.cooldownTier2Seconds,
@@ -890,7 +878,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         onChangedSeconds: (n) =>
             _updateAdvanced(v.copyWith(cooldownTier2Seconds: n)),
       ),
-      _AdvancedCooldownTierRow(
+      _ToolAdvancedCooldownTierRow(
         label: openHandLocalizedText(context, zh: '三级', en: 'Tier 3'),
         failures: v.cooldownTier3Failures,
         seconds: v.cooldownTier3Seconds,
@@ -974,7 +962,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Telemetry UI（调用日志 + 引擎健康度）
+  // 遥测界面（调用日志和引擎健康度）
   // ───────────────────────────────────────────────────────────────────────────
   List<Widget> _buildTelemetrySection(
     BuildContext context,
@@ -1133,8 +1121,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             quotaError: stat.lastQuotaError,
             onResetCooldown: () => _resetEngineCooldown(kind),
             samples: samples,
-            durationOf: _webSearchSampleDuration,
-            successOf: _webSearchSampleSucceeded,
           ),
         ],
       ),
@@ -1242,76 +1228,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     );
   }
 }
-
-class _AdvancedCooldownTierRow extends StatelessWidget {
-  const _AdvancedCooldownTierRow({
-    required this.label,
-    required this.failures,
-    required this.seconds,
-    required this.onChangedFailures,
-    required this.onChangedSeconds,
-  });
-
-  final String label;
-  final int failures;
-  final int seconds;
-  final ValueChanged<int> onChangedFailures;
-  final ValueChanged<int> onChangedSeconds;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 56,
-            child: Text(label, style: theme.textTheme.bodySmall),
-          ),
-          Text(
-            openHandLocalizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
-            style: theme.textTheme.bodySmall,
-          ),
-          SizedBox(
-            width: 60,
-            child: _SettingsIntField(
-              value: failures,
-              min: AiWebEngineResiliencePolicy.minCooldownFailures,
-              max: AiWebEngineResiliencePolicy.maxCooldownFailures,
-              onChanged: onChangedFailures,
-            ),
-          ),
-          Text(
-            openHandLocalizedText(
-              context,
-              zh: ' 次  →  冷却 ',
-              en: '  →  cooldown ',
-            ),
-            style: theme.textTheme.bodySmall,
-          ),
-          SizedBox(
-            width: 80,
-            child: _SettingsIntField(
-              value: seconds,
-              min: AiWebEngineResiliencePolicy.minCooldownSeconds,
-              max: AiWebEngineResiliencePolicy.maxCooldownSeconds,
-              onChanged: onChangedSeconds,
-            ),
-          ),
-          Text(
-            openHandLocalizedText(context, zh: ' 秒', en: ' s'),
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-int _webSearchSampleDuration(WebSearchEngineSample sample) => sample.durationMs;
-
-bool _webSearchSampleSucceeded(WebSearchEngineSample sample) => sample.success;
 
 String _summaryDetailLabel(BuildContext context, AiWebSearchSummaryDetail d) {
   return switch (d) {

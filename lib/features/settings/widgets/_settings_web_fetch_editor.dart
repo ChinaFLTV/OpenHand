@@ -81,7 +81,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = bytes);
     } catch (e, st) {
-      silentLog('settings.webfetch', '刷新磁盘缓存大小', e, st);
+      silentLog('Web 抓取设置', '刷新磁盘缓存大小', e, st);
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
@@ -109,7 +109,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         _telemetryLoading = false;
       });
     } catch (e, st) {
-      silentLog('settings.webfetch', '刷新遥测数据', e, st);
+      silentLog('Web 抓取设置', '刷新遥测数据', e, st);
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
@@ -132,7 +132,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         _scraplingProbeLoading = false;
       });
     } catch (e, st) {
-      silentLog('settings.webfetch', '刷新 Scrapling 探测状态', e, st);
+      silentLog('Web 抓取设置', '刷新 Scrapling 探测状态', e, st);
       if (!mounted) return;
       setState(() {
         _scraplingProbe = WebFetchScraplingProbeStatus(
@@ -153,7 +153,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           .toolRuntimeService
           .resetWebFetchScrapling();
     } catch (e, st) {
-      silentLog('settings.webfetch', '重置 Scrapling 运行时', e, st);
+      silentLog('Web 抓取设置', '重置 Scrapling 运行时', e, st);
     }
     await _refreshScraplingProbe();
   }
@@ -182,7 +182,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         );
       }
     } catch (e, st) {
-      silentLog('settings.webfetch', '安装 Scrapling 运行时', e, st);
+      silentLog('Web 抓取设置', '安装 Scrapling 运行时', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -235,7 +235,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         );
       }
     } catch (e, st) {
-      silentLog('settings.webfetch', '卸载 Scrapling 运行时', e, st);
+      silentLog('Web 抓取设置', '卸载 Scrapling 运行时', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -262,7 +262,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchTelemetryStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.webfetch', '清空遥测数据', e, st);
+      silentLog('Web 抓取设置', '清空遥测数据', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
@@ -284,7 +284,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         encodeCsv: _callsToCsv,
       );
     } catch (e, st) {
-      silentLog('settings.webfetch', '导出遥测数据', e, st);
+      silentLog('Web 抓取设置', '导出遥测数据', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -338,7 +338,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchTelemetryStore.instance.clearEngineCooldown(kind);
     } catch (e, st) {
-      silentLog('settings.webfetch', '重置引擎冷却状态', e, st);
+      silentLog('Web 抓取设置', '重置引擎冷却状态', e, st);
     }
     await _refreshTelemetry();
   }
@@ -346,35 +346,27 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   @override
   void didUpdateWidget(covariant _WebFetchSettingsEditor old) {
     super.didUpdateWidget(old);
-    if (old.value.resultCount != widget.value.resultCount &&
-        _resultCountController.text != '${widget.value.resultCount}') {
-      _syncControllerText(
-        _resultCountController,
-        '${widget.value.resultCount}',
-      );
-    }
-    if (old.value.cacheTtlSeconds != widget.value.cacheTtlSeconds &&
-        _cacheTtlController.text != '${widget.value.cacheTtlSeconds}') {
-      _syncControllerText(
-        _cacheTtlController,
-        '${widget.value.cacheTtlSeconds}',
-      );
-    }
-    if (old.value.cacheMaxBytes != widget.value.cacheMaxBytes &&
-        _cacheMaxBytesController.text !=
-            formatMegabytesInput(widget.value.cacheMaxBytes)) {
-      _syncControllerText(
-        _cacheMaxBytesController,
-        formatMegabytesInput(widget.value.cacheMaxBytes),
-      );
-    }
-    if (old.value.parallelWorkers != widget.value.parallelWorkers &&
-        _parallelWorkersController.text != '${widget.value.parallelWorkers}') {
-      _syncControllerText(
-        _parallelWorkersController,
-        '${widget.value.parallelWorkers}',
-      );
-    }
+    _syncControllerValue(
+      _resultCountController,
+      old.value.resultCount,
+      widget.value.resultCount,
+    );
+    _syncControllerValue(
+      _cacheTtlController,
+      old.value.cacheTtlSeconds,
+      widget.value.cacheTtlSeconds,
+    );
+    _syncControllerValue(
+      _cacheMaxBytesController,
+      old.value.cacheMaxBytes,
+      widget.value.cacheMaxBytes,
+      format: formatMegabytesInput,
+    );
+    _syncControllerValue(
+      _parallelWorkersController,
+      old.value.parallelWorkers,
+      widget.value.parallelWorkers,
+    );
   }
 
   @override
@@ -402,7 +394,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchCacheStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.webfetch', '清空本地缓存', e, st);
+      silentLog('Web 抓取设置', '清空本地缓存', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingCache = false);
@@ -422,11 +414,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   void _emit(AiWebFetchSettings next) => widget.onChanged(next);
 
   void _reorderEngines(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex -= 1;
-    final list = List<AiWebFetchEngineConfig>.from(widget.value.engines);
-    final moved = list.removeAt(oldIndex);
-    list.insert(newIndex, moved);
-    _emit(widget.value.copyWith(engines: list));
+    _emit(
+      widget.value.copyWith(
+        engines: _reorderedCopy(widget.value.engines, oldIndex, newIndex),
+      ),
+    );
   }
 
   void _updateEngine(int index, AiWebFetchEngineConfig next) {
@@ -775,7 +767,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         style: theme.textTheme.titleSmall,
       ),
       const SizedBox(height: 8),
-      // cooldown 三档
+      // 三档冷却阈值
       Text(
         openHandLocalizedText(
           context,
@@ -787,7 +779,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
       ),
       const SizedBox(height: 6),
-      _FetchAdvancedCooldownTierRow(
+      _ToolAdvancedCooldownTierRow(
         label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
         failures: v.cooldownTier1Failures,
         seconds: v.cooldownTier1Seconds,
@@ -796,7 +788,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         onChangedSeconds: (n) =>
             _updateAdvanced(v.copyWith(cooldownTier1Seconds: n)),
       ),
-      _FetchAdvancedCooldownTierRow(
+      _ToolAdvancedCooldownTierRow(
         label: openHandLocalizedText(context, zh: '二级', en: 'Tier 2'),
         failures: v.cooldownTier2Failures,
         seconds: v.cooldownTier2Seconds,
@@ -805,7 +797,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         onChangedSeconds: (n) =>
             _updateAdvanced(v.copyWith(cooldownTier2Seconds: n)),
       ),
-      _FetchAdvancedCooldownTierRow(
+      _ToolAdvancedCooldownTierRow(
         label: openHandLocalizedText(context, zh: '三级', en: 'Tier 3'),
         failures: v.cooldownTier3Failures,
         seconds: v.cooldownTier3Seconds,
@@ -889,7 +881,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Telemetry UI（调用日志 + 引擎健康度）
+  // 遥测界面（调用日志和引擎健康度）
   // ───────────────────────────────────────────────────────────────────────────
   List<Widget> _buildTelemetrySection(
     BuildContext context,
@@ -1048,8 +1040,6 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             quotaError: stat.lastQuotaError,
             onResetCooldown: () => _resetEngineCooldown(kind),
             samples: samples,
-            durationOf: _webFetchSampleDuration,
-            successOf: _webFetchSampleSucceeded,
           ),
         ],
       ),
@@ -1638,76 +1628,6 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
     ),
   };
 }
-
-class _FetchAdvancedCooldownTierRow extends StatelessWidget {
-  const _FetchAdvancedCooldownTierRow({
-    required this.label,
-    required this.failures,
-    required this.seconds,
-    required this.onChangedFailures,
-    required this.onChangedSeconds,
-  });
-
-  final String label;
-  final int failures;
-  final int seconds;
-  final ValueChanged<int> onChangedFailures;
-  final ValueChanged<int> onChangedSeconds;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 56,
-            child: Text(label, style: theme.textTheme.bodySmall),
-          ),
-          Text(
-            openHandLocalizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
-            style: theme.textTheme.bodySmall,
-          ),
-          SizedBox(
-            width: 60,
-            child: _SettingsIntField(
-              value: failures,
-              min: AiWebEngineResiliencePolicy.minCooldownFailures,
-              max: AiWebEngineResiliencePolicy.maxCooldownFailures,
-              onChanged: onChangedFailures,
-            ),
-          ),
-          Text(
-            openHandLocalizedText(
-              context,
-              zh: ' 次  →  冷却 ',
-              en: '  →  cooldown ',
-            ),
-            style: theme.textTheme.bodySmall,
-          ),
-          SizedBox(
-            width: 80,
-            child: _SettingsIntField(
-              value: seconds,
-              min: AiWebEngineResiliencePolicy.minCooldownSeconds,
-              max: AiWebEngineResiliencePolicy.maxCooldownSeconds,
-              onChanged: onChangedSeconds,
-            ),
-          ),
-          Text(
-            openHandLocalizedText(context, zh: ' 秒', en: ' s'),
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-int _webFetchSampleDuration(WebFetchEngineSample sample) => sample.durationMs;
-
-bool _webFetchSampleSucceeded(WebFetchEngineSample sample) => sample.success;
 
 String _fetchEngineDisplayName(AiWebFetchEngineKind kind) {
   return switch (kind) {

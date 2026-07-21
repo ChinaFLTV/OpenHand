@@ -103,6 +103,106 @@ class AiReasoningEffortOption {
     );
   }
 
+  static const _none = AiReasoningEffortOption(
+    value: 'none',
+    label: '无',
+    labelZhHans: '无',
+    labelZhHant: '無',
+    labelEn: 'None',
+    labelFr: 'Aucun',
+    labelDe: 'Keine',
+    labelJa: 'なし',
+  );
+  static const _minimal = AiReasoningEffortOption(
+    value: 'minimal',
+    label: '极低',
+    labelZhHans: '极低',
+    labelZhHant: '極低',
+    labelEn: 'Minimal',
+    labelFr: 'Minimal',
+    labelDe: 'Minimal',
+    labelJa: '最小',
+  );
+  static const _low = AiReasoningEffortOption(
+    value: 'low',
+    label: '低',
+    labelZhHans: '低',
+    labelZhHant: '低',
+    labelEn: 'Low',
+    labelFr: 'Faible',
+    labelDe: 'Niedrig',
+    labelJa: '低',
+  );
+  static const _medium = AiReasoningEffortOption(
+    value: 'medium',
+    label: '中',
+    labelZhHans: '中',
+    labelZhHant: '中',
+    labelEn: 'Medium',
+    labelFr: 'Moyen',
+    labelDe: 'Mittel',
+    labelJa: '中',
+  );
+  static const _high = AiReasoningEffortOption(
+    value: 'high',
+    label: '高',
+    labelZhHans: '高',
+    labelZhHant: '高',
+    labelEn: 'High',
+    labelFr: 'Élevé',
+    labelDe: 'Hoch',
+    labelJa: '高',
+  );
+  static const _xHigh = AiReasoningEffortOption(
+    value: 'xhigh',
+    label: '极高',
+    labelZhHans: '极高',
+    labelZhHant: '極高',
+    labelEn: 'X-High',
+    labelFr: 'Très élevé',
+    labelDe: 'Sehr hoch',
+    labelJa: '最高',
+  );
+  static const _max = AiReasoningEffortOption(
+    value: 'max',
+    label: '最高',
+    labelZhHans: '最高',
+    labelZhHant: '最高',
+    labelEn: 'Max',
+    labelFr: 'Maximum',
+    labelDe: 'Maximal',
+    labelJa: '最大',
+  );
+
+  static const lowMediumHigh = <AiReasoningEffortOption>[_low, _medium, _high];
+
+  static const minimalLowMediumHigh = <AiReasoningEffortOption>[
+    _minimal,
+    ...lowMediumHigh,
+  ];
+
+  static const lowMediumHighMax = <AiReasoningEffortOption>[
+    ...lowMediumHigh,
+    _max,
+  ];
+
+  static const lowMediumHighXHighMax = <AiReasoningEffortOption>[
+    ...lowMediumHigh,
+    _xHigh,
+    _max,
+  ];
+
+  static const openAiGpt5 = <AiReasoningEffortOption>[
+    _none,
+    ...minimalLowMediumHigh,
+    _xHigh,
+  ];
+
+  static const openAiGpt56 = <AiReasoningEffortOption>[
+    _none,
+    ...lowMediumHighXHighMax,
+  ];
+
   final String value;
   final String label;
   final bool enabled;
@@ -171,9 +271,7 @@ class AiReasoningEffortOption {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Enums
-// ─────────────────────────────────────────────────────────────────────────────
+// 枚举
 
 enum AiAuthScheme {
   none('none'),
@@ -284,11 +382,9 @@ enum AiProtocolType {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Per-model profile (user-configurable metadata)
-// ─────────────────────────────────────────────────────────────────────────────
+// 模型配置档案
 
-/// Input/output modalities a model may support.
+/// 模型支持的输入输出模态。
 enum AiModelModality {
   text('text'),
   image('image'),
@@ -308,7 +404,7 @@ enum AiModelModality {
   }
 }
 
-/// Creative / generative capabilities a model may expose.
+/// 模型支持的生成能力。
 enum AiModelCapability {
   imageGeneration('image_generation'),
   videoGeneration('video_generation'),
@@ -331,10 +427,7 @@ enum AiModelCapability {
   }
 }
 
-/// User-configurable per-model metadata that overrides hardcoded heuristics.
-///
-/// When a field is `null` the system falls back to the default detection logic
-/// (pattern matching on model ID, protocol-level flags, etc.).
+/// 用户可配置的模型元数据；字段为 `null` 时使用目录或协议推断值。
 class AiModelProfile {
   const AiModelProfile({
     this.displayName,
@@ -558,52 +651,43 @@ class AiModelProfile {
   static const String _reasoningEffortOptionsJsonKey =
       'reasoning_effort_options';
 
-  /// User-friendly display name (e.g. "GPT-4o" instead of "gpt-4o-2024-11-20").
+  /// 面向用户的模型名称。
   final String? displayName;
 
-  /// Short model description (free-form text).
+  /// 模型简要说明。
   final String? description;
 
-  /// Explicit multimodal toggle. When `null`, inferred from adapter heuristics.
+  /// 多模态开关；为 `null` 时自动推断。
   final bool? isMultimodal;
 
-  /// Which modalities this model can handle. Empty set = use defaults.
+  /// 支持的模态；空集合表示使用默认值。
   final Set<AiModelModality> supportedModalities;
 
-  /// Token limits. `null` means "use provider/adapter defaults".
+  /// Token 限制；为 `null` 时使用服务商或适配器默认值。
   final int? maxContextLength;
   final int? maxSummaryLength;
   final int? maxOutputLength;
   final int? maxThinkingLength;
 
-  /// Whether request-time thinking / reasoning mode is enabled for this model.
-  ///
-  /// `null` means "derive from catalog metadata and model/provider heuristics".
+  /// 是否启用思考模式；为 `null` 时根据目录和模型推断。
   final bool? thinkingEnabled;
 
-  /// Whether request-time reasoning strength should be sent when possible.
-  ///
-  /// Defaults to false unless the catalog or user profile explicitly enables
-  /// it. The raw [reasoningEffort] value is provider-native.
+  /// 是否发送推理强度；[reasoningEffort] 保留服务商原始值。
   final bool? reasoningEffortControlEnabled;
   final String? reasoningEffort;
   final List<AiReasoningEffortOption> reasoningEffortOptions;
 
-  /// Whether follow-up requests must echo prior reasoning_content. When null,
-  /// the runtime falls back to provider/model-name heuristics.
+  /// 后续请求是否必须回传历史 `reasoning_content`；为 `null` 时自动推断。
   final bool? requiresReasoningEcho;
 
-  /// Creative capabilities this model supports. Empty set = use defaults.
+  /// 支持的生成能力；空集合表示使用默认值。
   final Set<AiModelCapability> capabilities;
 
-  /// Explicit “supports attachments” toggle. `null` = inherit from catalog
-  /// / heuristics (image-modality or multimodal flag enables attachments).
-  /// `true` / `false` = user override.
+  /// 附件开关；为 `null` 时使用默认值。
   final bool? supportsAttachments;
 
   /// 成本控制：每百万 token 的价格（单位 USD）。
-  /// `null` = 未配置，成本推算将被跳过。由用户手动填入厄商官方
-  /// pricing 页的数据，应避免 LLM 凭空估算。
+  /// `null` 表示未配置并跳过成本推算，应填写厂商官方价格。
   final double? inputUsdPer1M;
   final double? outputUsdPer1M;
 
@@ -613,7 +697,7 @@ class AiModelProfile {
   /// 缓存创建写入价（一般为输入价的 1.25）。
   final double? cacheWriteUsdPer1M;
 
-  /// OpenRouter raw fields mirrored 1:1 where available.
+  /// 可用时原样保留 OpenRouter 字段。
   final String? canonicalSlug;
   final String? huggingFaceId;
   final int? created;
@@ -625,10 +709,7 @@ class AiModelProfile {
   final String? expirationDate;
   final AiModelLinksMetadata? links;
 
-  /// Whether this concrete model is the app-wide title-generation fallback.
-  ///
-  /// This belongs to the per-model profile because one provider can expose
-  /// text, image, video, and audio models at the same time.
+  /// 是否作为应用级标题生成备用模型。
   final bool isGlobalDefaultTitleModel;
 
   final int? embeddingDimensions;
@@ -701,7 +782,7 @@ class AiModelProfile {
         supportsReaderTargetType(targetType);
   }
 
-  /// Whether user explicitly configured this profile (not just empty defaults).
+  /// 用户是否显式配置过此档案。
   bool get hasUserOverrides =>
       displayName != null ||
       description != null ||
@@ -1297,9 +1378,7 @@ class AiModelProfile {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Provider configuration
-// ─────────────────────────────────────────────────────────────────────────────
+// 服务商配置
 
 class AiModelConfig {
   factory AiModelConfig.fromJson(Map<String, Object?> json) {
@@ -1414,149 +1493,6 @@ class AiModelConfig {
     'deepseek-chat',
   };
   static const List<AiReasoningEffortOption>
-  _defaultLowMediumHighEffortOptions = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'low',
-      label: '低',
-      labelZhHans: '低',
-      labelZhHant: '低',
-      labelEn: 'Low',
-      labelFr: 'Faible',
-      labelDe: 'Niedrig',
-      labelJa: '低',
-    ),
-    AiReasoningEffortOption(
-      value: 'medium',
-      label: '中',
-      labelZhHans: '中',
-      labelZhHant: '中',
-      labelEn: 'Medium',
-      labelFr: 'Moyen',
-      labelDe: 'Mittel',
-      labelJa: '中',
-    ),
-    AiReasoningEffortOption(
-      value: 'high',
-      label: '高',
-      labelZhHans: '高',
-      labelZhHant: '高',
-      labelEn: 'High',
-      labelFr: 'Élevé',
-      labelDe: 'Hoch',
-      labelJa: '高',
-    ),
-  ];
-  static const List<AiReasoningEffortOption>
-  _defaultMinimalLowMediumHighEffortOptions = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'minimal',
-      label: '极低',
-      labelZhHans: '极低',
-      labelZhHant: '極低',
-      labelEn: 'Minimal',
-      labelFr: 'Minimal',
-      labelDe: 'Minimal',
-      labelJa: '最小',
-    ),
-    ..._defaultLowMediumHighEffortOptions,
-  ];
-  static const List<AiReasoningEffortOption>
-  _defaultLowMediumHighMaxEffortOptions = <AiReasoningEffortOption>[
-    ..._defaultLowMediumHighEffortOptions,
-    AiReasoningEffortOption(
-      value: 'max',
-      label: '最高',
-      labelZhHans: '最高',
-      labelZhHant: '最高',
-      labelEn: 'Max',
-      labelFr: 'Maximum',
-      labelDe: 'Maximal',
-      labelJa: '最大',
-    ),
-  ];
-  static const List<AiReasoningEffortOption>
-  _defaultLowMediumHighXHighMaxEffortOptions = <AiReasoningEffortOption>[
-    ..._defaultLowMediumHighEffortOptions,
-    AiReasoningEffortOption(
-      value: 'xhigh',
-      label: '极高',
-      labelZhHans: '极高',
-      labelZhHant: '極高',
-      labelEn: 'X-High',
-      labelFr: 'Très élevé',
-      labelDe: 'Sehr hoch',
-      labelJa: '最高',
-    ),
-    AiReasoningEffortOption(
-      value: 'max',
-      label: '最高',
-      labelZhHans: '最高',
-      labelZhHant: '最高',
-      labelEn: 'Max',
-      labelFr: 'Maximum',
-      labelDe: 'Maximal',
-      labelJa: '最大',
-    ),
-  ];
-  static const List<AiReasoningEffortOption> _defaultOpenAiGpt5EffortOptions =
-      <AiReasoningEffortOption>[
-        AiReasoningEffortOption(
-          value: 'none',
-          label: '无',
-          labelZhHans: '无',
-          labelZhHant: '無',
-          labelEn: 'None',
-          labelFr: 'Aucun',
-          labelDe: 'Keine',
-          labelJa: 'なし',
-        ),
-        ..._defaultMinimalLowMediumHighEffortOptions,
-        AiReasoningEffortOption(
-          value: 'xhigh',
-          label: '极高',
-          labelZhHans: '极高',
-          labelZhHant: '極高',
-          labelEn: 'X-High',
-          labelFr: 'Très élevé',
-          labelDe: 'Sehr hoch',
-          labelJa: '最高',
-        ),
-      ];
-  static const List<AiReasoningEffortOption> _defaultOpenAiGpt56EffortOptions =
-      <AiReasoningEffortOption>[
-        AiReasoningEffortOption(
-          value: 'none',
-          label: '无',
-          labelZhHans: '无',
-          labelZhHant: '無',
-          labelEn: 'None',
-          labelFr: 'Aucun',
-          labelDe: 'Keine',
-          labelJa: 'なし',
-        ),
-        ..._defaultLowMediumHighEffortOptions,
-        AiReasoningEffortOption(
-          value: 'xhigh',
-          label: '极高',
-          labelZhHans: '极高',
-          labelZhHant: '極高',
-          labelEn: 'X-High',
-          labelFr: 'Très élevé',
-          labelDe: 'Sehr hoch',
-          labelJa: '最高',
-        ),
-        AiReasoningEffortOption(
-          value: 'max',
-          label: '最高',
-          labelZhHans: '最高',
-          labelZhHant: '最高',
-          labelEn: 'Max',
-          labelFr: 'Maximum',
-          labelDe: 'Maximal',
-          labelJa: '最大',
-        ),
-      ];
-  static const List<AiReasoningEffortOption>
   _defaultGrokReasoningEffortOptions = <AiReasoningEffortOption>[
     AiReasoningEffortOption(
       value: 'none',
@@ -1646,12 +1582,10 @@ class AiModelConfig {
 
   final String id;
 
-  /// User-defined display name for this provider (e.g. "DeepSeek", "本地 Ollama").
-  /// When empty, [providerLabel] falls back to extracting the host from [baseUrl].
+  /// 服务商显示名称；为空时从 [baseUrl] 提取主机名。
   final String name;
 
-  /// Optional provider homepage shown in settings. Only valid http(s) values
-  /// are surfaced to UI actions.
+  /// 设置页展示的服务商主页，仅接受 HTTP(S) 地址。
   final String officialWebsiteUrl;
 
   final String baseUrl;
@@ -1659,52 +1593,42 @@ class AiModelConfig {
   final AiAuthScheme authScheme;
   final String token;
 
-  /// The currently active model ID for this provider.
+  /// 当前启用的模型 ID。
   final String modelId;
   final AiProtocolType protocolType;
   final AiApiDialect apiDialect;
   final AiProviderKind providerKind;
 
-  /// Claude native prompt-cache markers are opt-in at provider level and are
-  /// still gated by the global cost-control input-cache switch at runtime.
+  /// Claude 原生提示词缓存需同时通过服务商配置和全局成本控制开关启用。
   final bool explicitPromptCacheEnabled;
 
   final int? maxContextTokens;
 
-  /// All known model IDs for this provider (auto-scanned + manually added).
+  /// 自动扫描和手动添加的模型 ID。
   final List<String> availableModelIds;
 
-  /// Provider-level fallback model used only for session title generation.
-  ///
-  /// This lets non-text generation models (image / video / audio) keep using
-  /// their own provider credentials while delegating title synthesis to a
-  /// text-capable sibling model from the same provider.
+  /// 仅用于会话标题生成的服务商级备用模型。
   final String defaultTitleModelId;
 
-  /// Legacy provider-level app-wide title fallback marker.
-  ///
-  /// New UI writes this setting to [AiModelProfile.isGlobalDefaultTitleModel]
-  /// because the fallback belongs to one concrete text-capable model. This
-  /// field remains readable so older settings files keep working.
+  /// 旧版服务商级标题模型标记，仅用于兼容历史设置。
   final bool isGlobalDefaultTitleModel;
 
-  /// User-defined custom HTTP headers to include in API requests.
+  /// API 请求附带的自定义 HTTP 头。
   final Map<String, String> customHeaders;
 
-  /// HTTP request method (default: POST).
+  /// HTTP 请求方法，默认为 POST。
   final String requestMethod;
 
-  /// Maximum tokens for the response. When null, uses the adapter default.
+  /// 最大响应 Token 数；为 `null` 时使用适配器默认值。
   final int? maxTokens;
 
-  /// Temperature for response generation. When null, uses the adapter default (0.7).
+  /// 生成温度；为 `null` 时使用适配器默认值。
   final double? temperature;
 
-  /// Whether to use server-sent events (SSE) streaming for responses.
+  /// 是否使用 SSE 流式响应。
   final bool streamEnabled;
 
-  /// Per-model user-configurable profiles, keyed by model ID.
-  /// Overrides hardcoded heuristics for vision detection, capabilities, etc.
+  /// 按模型 ID 存储的用户配置档案。
   final Map<String, AiModelProfile> modelProfiles;
 
   final Map<AiApiFamily, AiEndpointOverride> endpointOverrides;
@@ -1713,15 +1637,7 @@ class AiModelConfig {
   final Map<String, Object?> operationExtras;
   final AiRealtimeConfig realtime;
 
-  /// Returns the effective [AiModelProfile] for the given [id].
-  ///
-  /// Resolution order:
-  /// 1. User-saved per-model overrides from [modelProfiles]
-  /// 2. Built-in catalog defaults from [AiModelCatalog]
-  /// 3. Empty profile when neither exists
-  ///
-  /// When both (1) and (2) exist, the user profile wins field-by-field while
-  /// leaving catalog defaults in place for any fields the user did not set.
+  /// 合并用户配置与内置目录，用户显式字段优先。
   AiModelProfile profileFor(String id) {
     final trimmedId = nullIfBlank(id) ?? '';
     final override = modelProfiles[trimmedId];
@@ -1941,15 +1857,15 @@ class AiModelConfig {
   }) {
     final normalizedModelId = _normalizeReasoningModelId(modelId);
     if (normalizedModelId.contains('gpt-5-6')) {
-      return _defaultOpenAiGpt56EffortOptions;
+      return AiReasoningEffortOption.openAiGpt56;
     }
     if (normalizedModelId.startsWith('gpt-5') ||
         normalizedModelId.contains('gpt-5')) {
-      return _defaultOpenAiGpt5EffortOptions;
+      return AiReasoningEffortOption.openAiGpt5;
     }
     if (normalizedModelId.contains('grok-4-5') ||
         normalizedModelId.contains('grok-build-latest')) {
-      return _defaultLowMediumHighEffortOptions;
+      return AiReasoningEffortOption.lowMediumHigh;
     }
     if (protocolType == AiProtocolType.grok ||
         normalizedModelId.startsWith('grok')) {
@@ -1963,15 +1879,15 @@ class AiModelConfig {
     }
     if (protocolType == AiProtocolType.gemini ||
         normalizedModelId.startsWith('gemini')) {
-      return _defaultLowMediumHighEffortOptions;
+      return AiReasoningEffortOption.lowMediumHigh;
     }
     if (protocolType == AiProtocolType.claude ||
         normalizedModelId.contains('claude')) {
       return _looksLikeClaudeXHighEffortModel(normalizedModelId)
-          ? _defaultLowMediumHighXHighMaxEffortOptions
+          ? AiReasoningEffortOption.lowMediumHighXHighMax
           : _looksLikeClaudeOutputEffortModel(normalizedModelId)
-          ? _defaultLowMediumHighMaxEffortOptions
-          : _defaultLowMediumHighEffortOptions;
+          ? AiReasoningEffortOption.lowMediumHighMax
+          : AiReasoningEffortOption.lowMediumHigh;
     }
     if (protocolType == AiProtocolType.deepseek ||
         normalizedModelId.startsWith('deepseek') ||
@@ -1994,7 +1910,7 @@ class AiModelConfig {
                 normalizedModelId.contains('xfyun')) &&
             (normalizedModelId.contains('x1') ||
                 normalizedModelId.contains('x2')))) {
-      return _defaultLowMediumHighEffortOptions;
+      return AiReasoningEffortOption.lowMediumHigh;
     }
     return const <AiReasoningEffortOption>[];
   }
@@ -2049,27 +1965,9 @@ class AiModelConfig {
         normalizedModelId.contains('4-7-opus');
   }
 
-  /// Resolves whether the *current* model accepts user-uploaded attachments.
-  ///
-  /// Resolution order:
-  /// 1. Explicit user override on the per-model profile (`supportsAttachments`).
-  /// 2. Heuristic: `isMultimodal == true` or the resolved supported modalities
-  ///    include [AiModelModality.image] / [AiModelModality.file].
-  /// 3. Default `true` — most providers can accept text-style attachments
-  ///    (PDF, code, spreadsheets) inlined into the prompt regardless of
-  ///    vision capability; image attachments will simply be rejected by the
-  ///    adapter when the model truly can't ingest them.
-  bool get resolvedSupportsAttachments {
-    final profile = profileFor(modelId);
-    final explicit = profile.supportsAttachments;
-    if (explicit != null) return explicit;
-    if (profile.isMultimodal == true) return true;
-    if (profile.supportedModalities.contains(AiModelModality.image) ||
-        profile.supportedModalities.contains(AiModelModality.file)) {
-      return true;
-    }
-    return true;
-  }
+  /// 是否允许附件；用户未显式配置时默认允许，由协议适配器校验具体类型。
+  bool get resolvedSupportsAttachments =>
+      profileFor(modelId).supportsAttachments ?? true;
 
   bool get supportsExplicitPromptCacheControl =>
       protocolType == AiProtocolType.claude ||
@@ -2235,10 +2133,7 @@ class AiModelConfig {
         )) {
       return true;
     }
-    // xAI multi-turn prompt caching requires reasoning models to receive the
-    // exact prior `reasoning_content`. This is a protocol/history capability,
-    // not a template or user-message heuristic, so apply it uniformly to
-    // native Grok and Grok models exposed through compatible gateways.
+    // xAI 多轮缓存要求推理模型原样接收历史 `reasoning_content`。
     if (_looksLikeGrokReasoningModel(normalizedModelId)) {
       return true;
     }
@@ -2469,9 +2364,7 @@ class AiModelConfig {
     return nullIfBlank(capabilityOverrides[family]);
   }
 
-  /// Short display label for the provider.
-  /// Prefers the user-defined [name]; falls back to the base URL host;
-  /// falls back to the protocol type.
+  /// 服务商短名称：依次使用自定义名称、主机名和协议类型。
   String get providerLabel {
     final trimmedName = nullIfBlank(name);
     if (trimmedName != null) return trimmedName;
@@ -2495,8 +2388,7 @@ class AiModelConfig {
     return '${'*' * (trimmedToken.length - 4)}$visibleSuffix';
   }
 
-  /// Returns a deduplicated, sorted list merging [availableModelIds] and
-  /// the current [modelId] (if non-empty).
+  /// 返回合并当前模型与可用模型后的去重有序列表。
   List<String> get allModelIds {
     final normalizedModelId = nullIfBlank(modelId);
     final normalizedTitleModelId = nullIfBlank(defaultTitleModelId);
@@ -2701,10 +2593,7 @@ class AiModelConfig {
     return value is bool ? value : true;
   }
 
-  /// Parses `available_model_ids` which may be:
-  /// - a `List<dynamic>` (from JSON deserialization)
-  /// - a `String` (double-JSON-encoded from TOML storage)
-  /// - null or other (returns empty list)
+  /// 解析列表或 TOML 中二次 JSON 编码的 `available_model_ids`。
   static List<String> _parseAvailableModelIds(Object? value) {
     if (value == null) {
       return const <String>[];
@@ -2721,7 +2610,7 @@ class AiModelConfig {
           return normalizeModelIds(trimmedNonEmptyStrings(decoded));
         }
       } catch (_) {
-        // Not valid JSON — ignore.
+        // 无效 JSON，忽略。
       }
     }
     return const <String>[];
@@ -2749,7 +2638,7 @@ class AiModelConfig {
           return _parseCustomHeaders(decoded);
         }
       } catch (_) {
-        // Not valid JSON — ignore.
+        // 无效 JSON，忽略。
       }
     }
     return const <String, String>{};
@@ -2779,7 +2668,7 @@ class AiModelConfig {
           map = stringKeyedMapFromValue(decoded);
         }
       } catch (_) {
-        // Not valid JSON — ignore.
+        // 无效 JSON，忽略。
       }
     }
     if (map == null) return const <String, AiModelProfile>{};
@@ -2821,7 +2710,7 @@ class AiModelConfig {
           return Map<String, Object?>.of(stringKeyedMapFromValue(decoded));
         }
       } catch (_) {
-        // Not valid JSON — ignore.
+        // 无效 JSON，忽略。
       }
     }
     return const <String, Object?>{};

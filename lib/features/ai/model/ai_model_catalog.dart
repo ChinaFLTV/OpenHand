@@ -3,30 +3,15 @@ import '../../../shared/util/reader_file_type.dart';
 import 'ai_model_config.dart';
 import 'openrouter_exact_model_catalog.dart';
 
-/// Hardcoded catalog of mainstream AI model specifications.
-///
-/// Provides sensible pre-fill defaults for [AiModelProfile] when users
-/// configure a model profile for the first time.  Entries are organized by
-/// [AiProtocolType] and matched against model-ID patterns (case-insensitive,
-/// most-specific first).
-///
-/// ## Maintenance
-///
-/// * Find the provider section (e.g. `_openai`, `_claude`).
-/// * Insert/update entries – keep **more specific patterns above** less
-///   specific ones so that `gpt-4o-mini` matches before `gpt-4o`.
-/// * Use the [_p] helper to construct entries concisely.
+/// 主流 AI 模型规格目录。按协议匹配模型 ID，具体规则必须位于通用规则之前。
 class AiModelCatalog {
   AiModelCatalog._();
 
   static final RegExp _stepContextPattern = RegExp(r'(\d+)k');
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Public API
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 对外接口
 
-  /// Returns a pre-filled [AiModelProfile] for [modelId] under the given
-  /// [protocolType], or `null` if no catalog entry matches.
+  /// 返回匹配 [modelId] 与 [protocolType] 的预设档案，未匹配时返回 `null`。
   static AiModelProfile? lookup(String modelId, AiProtocolType protocolType) {
     final id = optionalLowercaseStringFromValue(modelId);
     if (id == null) return null;
@@ -46,7 +31,7 @@ class AiModelCatalog {
       return exact;
     }
 
-    // Protocol-specific lookup.
+    // 优先按协议匹配。
     final result = switch (protocolType) {
       AiProtocolType.openai => _openai(id),
       AiProtocolType.claude => _claude(id),
@@ -66,7 +51,7 @@ class AiModelCatalog {
       AiProtocolType.grok => _grok(id),
       AiProtocolType.hunyuan => _hunyuan(id),
       AiProtocolType.mimo => _mimo(id),
-      // Local inference frameworks serve arbitrary open-source models.
+      // 本地推理框架可承载任意开源模型，不做固定匹配。
       AiProtocolType.ollama ||
       AiProtocolType.vllm ||
       AiProtocolType.sglang => null,
@@ -76,9 +61,7 @@ class AiModelCatalog {
     final gatewayOperationProfile = _gatewayOperationProfile(id);
     if (gatewayOperationProfile != null) return gatewayOperationProfile;
 
-    // Cross-protocol fallback: try all providers for well-known model-ID
-    // patterns.  Handles cases like DeepSeek models served via Aliyun/Qwen,
-    // or GLM models accessed through OpenAI-compatible endpoints.
+    // 跨协议匹配已知模型 ID，兼容通过其他服务商网关接入的模型。
     return _openai(id) ??
         _gemini(id) ??
         _mistral(id) ??
@@ -153,9 +136,7 @@ class AiModelCatalog {
     return false;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Helpers & common modality / capability constants
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 公共模态与能力常量
 
   static const _textImage = <AiModelModality>{
     AiModelModality.text,
@@ -196,151 +177,6 @@ class AiModelCatalog {
   static const _readerConversion = <AiModelCapability>{
     AiModelCapability.readerConversion,
   };
-
-  static const _effortLowMediumHigh = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'low',
-      label: '低',
-      labelZhHans: '低',
-      labelZhHant: '低',
-      labelEn: 'Low',
-      labelFr: 'Faible',
-      labelDe: 'Niedrig',
-      labelJa: '低',
-    ),
-    AiReasoningEffortOption(
-      value: 'medium',
-      label: '中',
-      labelZhHans: '中',
-      labelZhHant: '中',
-      labelEn: 'Medium',
-      labelFr: 'Moyen',
-      labelDe: 'Mittel',
-      labelJa: '中',
-    ),
-    AiReasoningEffortOption(
-      value: 'high',
-      label: '高',
-      labelZhHans: '高',
-      labelZhHant: '高',
-      labelEn: 'High',
-      labelFr: 'Élevé',
-      labelDe: 'Hoch',
-      labelJa: '高',
-    ),
-  ];
-
-  static const _effortMinimalLowMediumHigh = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'minimal',
-      label: '极低',
-      labelZhHans: '极低',
-      labelZhHant: '極低',
-      labelEn: 'Minimal',
-      labelFr: 'Minimal',
-      labelDe: 'Minimal',
-      labelJa: '最小',
-    ),
-    ..._effortLowMediumHigh,
-  ];
-
-  static const _effortLowMediumHighMax = <AiReasoningEffortOption>[
-    ..._effortLowMediumHigh,
-    AiReasoningEffortOption(
-      value: 'max',
-      label: '最高',
-      labelZhHans: '最高',
-      labelZhHant: '最高',
-      labelEn: 'Max',
-      labelFr: 'Maximum',
-      labelDe: 'Maximal',
-      labelJa: '最大',
-    ),
-  ];
-
-  static const _effortLowMediumHighXHighMax = <AiReasoningEffortOption>[
-    ..._effortLowMediumHigh,
-    AiReasoningEffortOption(
-      value: 'xhigh',
-      label: '极高',
-      labelZhHans: '极高',
-      labelZhHant: '極高',
-      labelEn: 'X-High',
-      labelFr: 'Très élevé',
-      labelDe: 'Sehr hoch',
-      labelJa: '最高',
-    ),
-    AiReasoningEffortOption(
-      value: 'max',
-      label: '最高',
-      labelZhHans: '最高',
-      labelZhHant: '最高',
-      labelEn: 'Max',
-      labelFr: 'Maximum',
-      labelDe: 'Maximal',
-      labelJa: '最大',
-    ),
-  ];
-
-  static const _effortOpenAiGpt5 = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'none',
-      label: '无',
-      labelZhHans: '无',
-      labelZhHant: '無',
-      labelEn: 'None',
-      labelFr: 'Aucun',
-      labelDe: 'Keine',
-      labelJa: 'なし',
-    ),
-    ..._effortMinimalLowMediumHigh,
-    AiReasoningEffortOption(
-      value: 'xhigh',
-      label: '极高',
-      labelZhHans: '极高',
-      labelZhHant: '極高',
-      labelEn: 'X-High',
-      labelFr: 'Très élevé',
-      labelDe: 'Sehr hoch',
-      labelJa: '最高',
-    ),
-  ];
-
-  /// GPT-5.6 removed `minimal` and added `max`; keep this separate from
-  /// earlier GPT-5 generations so the UI never offers an API-invalid value.
-  static const _effortOpenAiGpt56 = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'none',
-      label: '无',
-      labelZhHans: '无',
-      labelZhHant: '無',
-      labelEn: 'None',
-      labelFr: 'Aucun',
-      labelDe: 'Keine',
-      labelJa: 'なし',
-    ),
-    ..._effortLowMediumHigh,
-    AiReasoningEffortOption(
-      value: 'xhigh',
-      label: '极高',
-      labelZhHans: '极高',
-      labelZhHant: '極高',
-      labelEn: 'X-High',
-      labelFr: 'Très élevé',
-      labelDe: 'Sehr hoch',
-      labelJa: '最高',
-    ),
-    AiReasoningEffortOption(
-      value: 'max',
-      label: '最高',
-      labelZhHans: '最高',
-      labelZhHant: '最高',
-      labelEn: 'Max',
-      labelFr: 'Maximum',
-      labelDe: 'Maximal',
-      labelJa: '最大',
-    ),
-  ];
 
   static const _openAiEmbeddingParameters = <String>[
     'input',
@@ -542,7 +378,7 @@ class AiModelCatalog {
   static final Map<String, AiModelProfile> _exactModelProfiles =
       openRouterExactModelProfiles;
 
-  /// Shorthand [AiModelProfile] builder for catalog entries.
+  /// 模型目录条目的简写构造器。
   static AiModelProfile _p({
     required String name,
     String? desc,
@@ -878,7 +714,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // OpenAI
+  // OpenAI 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _openai(String id) {
@@ -900,7 +736,7 @@ class AiModelCatalog {
       'speed',
     ];
 
-    // ── Video / audio generation ─────────────────────────────────────────
+    // ── 视频与音频生成 ───────────────────────────────────────────────────
     if (id.startsWith('sora')) {
       return _p(
         name: 'Sora',
@@ -918,7 +754,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Image generation ─────────────────────────────────────────────────
+    // ── 图像生成 ─────────────────────────────────────────────────────────
     if (id.startsWith('gpt-image') || id.startsWith('dall-e')) {
       return _p(
         name: id.startsWith('dall-e') ? 'DALL·E 3' : 'GPT Image',
@@ -928,7 +764,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Embedding ────────────────────────────────────────────────────────
+    // ── 嵌入模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('text-embedding-3-large')) {
       return _embeddingP(
         name: 'text-embedding-3-large',
@@ -995,7 +831,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Reasoning (o-series) — most specific first ───────────────────────
+    // ── 推理模型（o 系列，具体规则优先）─────────────────────────────────
     if (id.startsWith('o4-mini')) {
       return _p(
         name: 'o4-mini',
@@ -1008,7 +844,7 @@ class AiModelCatalog {
         thinking: 100000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 1.10,
         outputUsdPer1M: 4.40,
         cacheReadUsdPer1M: 0.275,
@@ -1023,7 +859,7 @@ class AiModelCatalog {
         thinking: 100000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
     if (id.startsWith('o3')) {
@@ -1038,7 +874,7 @@ class AiModelCatalog {
         thinking: 100000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 2.00,
         outputUsdPer1M: 8.00,
         cacheReadUsdPer1M: 0.50,
@@ -1055,7 +891,7 @@ class AiModelCatalog {
         thinking: 100000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
     if (id.startsWith('o1-mini')) {
@@ -1067,7 +903,7 @@ class AiModelCatalog {
         thinking: 65536,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
     if (id.startsWith('o1')) {
@@ -1081,11 +917,11 @@ class AiModelCatalog {
         thinking: 100000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
 
-    // ── GPT-5.6 series ──────────────────────────────────────────────────
+    // ── GPT-5.6 系列 ───────────────────────────────────────────────────
     if (id.startsWith('gpt-5.6-luna')) {
       return _p(
         name: 'GPT-5.6 Luna',
@@ -1098,7 +934,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt56,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
         inputUsdPer1M: 1.00,
         outputUsdPer1M: 6.00,
       );
@@ -1115,7 +951,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt56,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
         inputUsdPer1M: 2.50,
         outputUsdPer1M: 15.00,
       );
@@ -1132,13 +968,13 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt56,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
         inputUsdPer1M: 5.00,
         outputUsdPer1M: 30.00,
       );
     }
 
-    // ── GPT-5.5 / GPT-5.4 series ────────────────────────────────────────
+    // ── GPT-5.5 / GPT-5.4 系列 ─────────────────────────────────────────
     if (id.startsWith('gpt-5.5')) {
       return _p(
         name: 'GPT-5.5',
@@ -1150,7 +986,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt5,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt5,
       );
     }
     if (id.startsWith('gpt-5.4-nano')) {
@@ -1162,7 +998,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt5,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt5,
       );
     }
     if (id.startsWith('gpt-5.4-mini')) {
@@ -1176,7 +1012,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt5,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt5,
       );
     }
     if (id.startsWith('gpt-5.4')) {
@@ -1190,7 +1026,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt5,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt5,
       );
     }
     if (id.startsWith('gpt-5')) {
@@ -1204,11 +1040,11 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortOpenAiGpt5,
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt5,
       );
     }
 
-    // ── GPT-4.1 series ───────────────────────────────────────────────────
+    // ── GPT-4.1 系列 ─────────────────────────────────────────────────────
     if (id.startsWith('gpt-4.1-nano')) {
       return _p(
         name: 'GPT-4.1 Nano',
@@ -1242,7 +1078,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── GPT-4o series ────────────────────────────────────────────────────
+    // ── GPT-4o 系列 ──────────────────────────────────────────────────────
     if (id.startsWith('gpt-4o-mini')) {
       return _p(
         name: 'GPT-4o Mini',
@@ -1276,7 +1112,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Legacy GPT-4 ─────────────────────────────────────────────────────
+    // ── 旧版 GPT-4 ───────────────────────────────────────────────────────
     if (id.startsWith('gpt-4')) {
       return _p(
         name: 'GPT-4',
@@ -1300,7 +1136,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Anthropic / Claude
+  // Anthropic / Claude 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _claude(String id) {
@@ -1318,7 +1154,7 @@ class AiModelCatalog {
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 10.00,
         outputUsdPer1M: 50.00,
       );
@@ -1336,7 +1172,7 @@ class AiModelCatalog {
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 10.00,
         outputUsdPer1M: 50.00,
       );
@@ -1351,7 +1187,7 @@ class AiModelCatalog {
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
       );
     }
     if (id.contains('sonnet-5')) {
@@ -1367,7 +1203,7 @@ class AiModelCatalog {
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
       );
@@ -1385,7 +1221,7 @@ class AiModelCatalog {
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 5.00,
         outputUsdPer1M: 25.00,
       );
@@ -1403,7 +1239,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
       );
     }
     if (id.contains('sonnet-4-6') || id.contains('4.6-sonnet')) {
@@ -1418,7 +1254,7 @@ class AiModelCatalog {
         thinking: 64000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHighMax,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighMax,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
       );
@@ -1434,7 +1270,7 @@ class AiModelCatalog {
         thinking: 64000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
 
@@ -1450,7 +1286,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
     if (id.startsWith('claude-4-sonnet') || id.startsWith('claude-sonnet-4')) {
@@ -1465,7 +1301,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
       );
@@ -1483,7 +1319,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
 
@@ -1545,11 +1381,11 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Google Gemini
+  // Google Gemini 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _gemini(String id) {
-    // ── Embedding ────────────────────────────────────────────────────────
+    // ── 嵌入模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('gemini-embedding-2')) {
       return _embeddingP(
         name: 'Gemini Embedding 2',
@@ -1720,7 +1556,7 @@ class AiModelCatalog {
         thinking: 65536,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 1.25,
         outputUsdPer1M: 10.00,
       );
@@ -1747,7 +1583,7 @@ class AiModelCatalog {
         thinking: 65536,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 0.30,
         outputUsdPer1M: 2.50,
       );
@@ -1788,9 +1624,9 @@ class AiModelCatalog {
       );
     }
 
-    // ── Catch-all for newer Gemini versions (3.x+) ──────────────────────
+    // 兼容更新的 Gemini 版本。
     if (id.startsWith('gemini-')) {
-      // Default multimodal profile for unknown Gemini models.
+      // 未知 Gemini 模型使用默认多模态档案。
       return _p(
         name: 'Gemini',
         desc: 'Google multimodal model',
@@ -1801,7 +1637,7 @@ class AiModelCatalog {
         thinking: 65536,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
 
@@ -1809,11 +1645,11 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DeepSeek
+  // DeepSeek 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _deepseek(String id) {
-    // ── V4 family ───────────────────────────────────────────────────────
+    // ── V4 系列 ──────────────────────────────────────────────────────────
     if (id.startsWith('deepseek-v4-flash')) {
       return _p(
         name: 'DeepSeek V4 Flash',
@@ -1845,7 +1681,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Distilled models ─────────────────────────────────────────────────
+    // ── 蒸馏模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('deepseek-r1-distill')) {
       return _p(
         name: 'DeepSeek R1 Distill',
@@ -1856,7 +1692,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Reasoning models ─────────────────────────────────────────────────
+    // ── 推理模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('deepseek-reasoner') || id.startsWith('deepseek-r1')) {
       return _p(
         name: id.startsWith('deepseek-reasoner')
@@ -1871,7 +1707,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── V3.2 (latest) ────────────────────────────────────────────────────
+    // ── V3.2（最新）─────────────────────────────────────────────────────
     if (id.startsWith('deepseek-v3.2') || id.startsWith('deepseek-v3-2')) {
       return _p(
         name: 'DeepSeek V3.2',
@@ -1902,7 +1738,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Generic chat ─────────────────────────────────────────────────────
+    // ── 通用对话 ─────────────────────────────────────────────────────────
     if (id.startsWith('deepseek-chat')) {
       return _p(
         name: 'DeepSeek Chat',
@@ -1916,7 +1752,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Qwen (Alibaba Cloud / 通义千问)
+  // Qwen（阿里云 / 通义千问）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _qwen(String id) {
@@ -1947,7 +1783,7 @@ class AiModelCatalog {
       'parameters.sample_rate',
     ];
 
-    // ── Rerank ───────────────────────────────────────────────────────────
+    // ── 重排模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('qwen3-rerank')) {
       return _rerankP(
         name: 'Qwen3 Rerank',
@@ -1986,7 +1822,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Embedding ────────────────────────────────────────────────────────
+    // ── 嵌入模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('text-embedding-v4')) {
       return _embeddingP(
         name: 'text-embedding-v4',
@@ -2097,7 +1933,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Image / video / audio generation ─────────────────────────────────
+    // ── 图像、视频与音频生成 ─────────────────────────────────────────────
     if (id.startsWith('qwen-image')) {
       return _p(
         name: 'Qwen Image',
@@ -2126,7 +1962,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Omni (text + image + video + audio) ──────────────────────────────
+    // ── 全模态（文本、图像、视频与音频）────────────────────────────────
     if (id.startsWith('qwen3.5-omni')) {
       return _p(
         name: id.contains('flash') ? 'Qwen3.5 Omni Flash' : 'Qwen3.5 Omni Plus',
@@ -2149,7 +1985,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Visual reasoning (QVQ) ───────────────────────────────────────────
+    // ── 视觉推理（QVQ）──────────────────────────────────────────────────
     if (id.startsWith('qvq-max') || id.startsWith('qvq-plus')) {
       return _p(
         name: id.startsWith('qvq-max') ? 'QVQ-Max' : 'QVQ-Plus',
@@ -2173,7 +2009,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Vision (千问VL) ──────────────────────────────────────────────────
+    // ── 视觉模型（千问 VL）──────────────────────────────────────────────
     if (id.startsWith('qwen3-vl-plus')) {
       return _p(
         name: 'Qwen3-VL Plus',
@@ -2207,7 +2043,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── OCR ──────────────────────────────────────────────────────────────
+    // ── 光学字符识别 ─────────────────────────────────────────────────────
     if (id.startsWith('qwen-vl-ocr')) {
       return _p(
         name: 'Qwen-VL OCR',
@@ -2219,7 +2055,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Audio ────────────────────────────────────────────────────────────
+    // ── 音频模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('qwen-audio') || id.startsWith('qwen3-audio')) {
       return _p(
         name: 'Qwen Audio',
@@ -2234,7 +2070,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Reasoning (QwQ) ──────────────────────────────────────────────────
+    // ── 推理模型（QwQ）──────────────────────────────────────────────────
     if (id.startsWith('qwq-plus')) {
       return _p(
         name: 'QwQ-Plus',
@@ -2254,7 +2090,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Coder ────────────────────────────────────────────────────────────
+    // ── 编程模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('qwen3-coder')) {
       return _p(
         name: id.contains('flash') ? 'Qwen3 Coder Flash' : 'Qwen3 Coder Plus',
@@ -2264,7 +2100,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Max (flagship text) ──────────────────────────────────────────────
+    // ── Max（旗舰文本）──────────────────────────────────────────────────
     if (id.startsWith('qwen3-max')) {
       return _p(
         name: 'Qwen3-Max',
@@ -2276,7 +2112,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Plus (text or multimodal) ────────────────────────────────────────
+    // ── Plus（文本或多模态）─────────────────────────────────────────────
     if (id.startsWith('qwen3.6-plus')) {
       return _p(
         name: 'Qwen3.6-Plus',
@@ -2311,7 +2147,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Flash (fast text) ────────────────────────────────────────────────
+    // ── Flash（快速文本）────────────────────────────────────────────────
     if (id.startsWith('qwen3.6-flash')) {
       return _p(
         name: 'Qwen3.6-Flash',
@@ -2361,7 +2197,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Open-source Qwen3 sizes ──────────────────────────────────────────
+    // ── 开源 Qwen3 尺寸变体 ─────────────────────────────────────────────
     if (id.startsWith('qwen3-235b') || id.startsWith('qwen3-next')) {
       return _p(
         name: 'Qwen3-235B',
@@ -2393,7 +2229,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Open-source Qwen3.5/3.6 ─────────────────────────────────────────
+    // ── 开源 Qwen3.5/3.6 ────────────────────────────────────────────────
     if (id.startsWith('qwen3.6-') || id.startsWith('qwen3.5-')) {
       return _p(
         name: id.startsWith('qwen3.6') ? 'Qwen3.6' : 'Qwen3.5',
@@ -2404,7 +2240,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Qwen2.5 (previous gen) ───────────────────────────────────────────
+    // ── Qwen2.5（上一代）────────────────────────────────────────────────
     if (id.startsWith('qwen2.5-')) {
       return _p(
         name: 'Qwen2.5',
@@ -2418,11 +2254,11 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // GLM (Zhipu AI / 智谱)
+  // GLM（智谱 AI）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _glm(String id) {
-    // ── Embedding ────────────────────────────────────────────────────────
+    // ── 嵌入模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('embedding-3')) {
       return _embeddingP(
         name: 'Embedding-3',
@@ -2456,7 +2292,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Image / Video generation ─────────────────────────────────────────
+    // ── 图像与视频生成 ───────────────────────────────────────────────────
     if (id.startsWith('cogview')) {
       return _p(
         name: 'CogView',
@@ -2479,7 +2315,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Vision models ────────────────────────────────────────────────────
+    // ── 视觉模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('glm-5v')) {
       return _p(
         name: 'GLM-5V Turbo',
@@ -2536,7 +2372,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Code model ───────────────────────────────────────────────────────
+    // ── 编程模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('codegeex')) {
       return _p(
         name: 'CodeGeeX-4',
@@ -2546,7 +2382,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Text models (newest first) ───────────────────────────────────────
+    // ── 文本模型（新版本优先）──────────────────────────────────────────
     if (id.startsWith('glm-5.1') || id.startsWith('glm-5-1')) {
       return _p(
         name: 'GLM-5.1',
@@ -2650,7 +2486,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Kimi / Moonshot (月之暗面)
+  // Kimi / Moonshot（月之暗面）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _kimi(String id) {
@@ -2726,7 +2562,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Seed / Doubao (火山引擎 / 字节跳动)
+  // Seed / Doubao（火山引擎 / 字节跳动）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _seed(String id) {
@@ -2757,7 +2593,7 @@ class AiModelCatalog {
       'mode',
     ];
 
-    // ── Image generation ─────────────────────────────────────────────────
+    // ── 图像生成 ─────────────────────────────────────────────────────────
     if (id.contains('seedream')) {
       return _p(
         name: 'Seedream',
@@ -2767,7 +2603,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Video generation ─────────────────────────────────────────────────
+    // ── 视频生成 ─────────────────────────────────────────────────────────
     if (id.contains('seedance')) {
       return _p(
         name: 'Seedance',
@@ -2777,7 +2613,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Seed 2.0 (latest flagship) ───────────────────────────────────────
+    // ── Seed 2.0（最新旗舰）─────────────────────────────────────────────
     if (id.contains('seed-2-0') || id.contains('seed-2.0')) {
       final String suffix;
       if (id.contains('code')) {
@@ -2815,7 +2651,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Seed 1.6 vision ──────────────────────────────────────────────────
+    // ── Seed 1.6 视觉模型 ───────────────────────────────────────────────
     if (id.contains('seed-1-6-vision') || id.contains('seed-1.6-vision')) {
       return _p(
         name: 'Doubao Seed 1.6 Vision',
@@ -2828,7 +2664,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Seed 1.6 variants ────────────────────────────────────────────────
+    // ── Seed 1.6 变体 ───────────────────────────────────────────────────
     if (id.contains('seed-1-6') || id.contains('seed-1.6')) {
       final String suffix;
       if (id.contains('flash')) {
@@ -2852,7 +2688,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Seed code preview ────────────────────────────────────────────────
+    // ── Seed 编程预览模型 ───────────────────────────────────────────────
     if (id.contains('seed-code')) {
       return _p(
         name: 'Doubao Seed Code',
@@ -2865,7 +2701,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Character model ──────────────────────────────────────────────────
+    // ── 角色模型 ─────────────────────────────────────────────────────────
     if (id.contains('character')) {
       return _p(
         name: 'Doubao Character',
@@ -2875,7 +2711,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Doubao 1.5 series ────────────────────────────────────────────────
+    // ── Doubao 1.5 系列 ─────────────────────────────────────────────────
     if (id.contains('1-5-vision') || id.contains('1.5-vision')) {
       return _p(
         name: 'Doubao 1.5 Vision Pro',
@@ -2904,7 +2740,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Embedding ────────────────────────────────────────────────────────
+    // ── 嵌入模型 ─────────────────────────────────────────────────────────
     if (id.contains('doubao-embedding') ||
         id.contains('embedding-text') ||
         id.contains('embedding-vision')) {
@@ -2926,7 +2762,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // StepFun (阶跃星辰)
+  // StepFun（阶跃星辰）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _stepfun(String id) {
@@ -2974,7 +2810,7 @@ class AiModelCatalog {
         supportedParameters: audioParameters,
       );
     }
-    // ── Vision models (check before text) ────────────────────────────────
+    // ── 视觉模型（优先于文本模型匹配）──────────────────────────────────
     if (id.startsWith('step-3.7') || id.startsWith('step-3-7')) {
       return _p(
         name: 'Step 3.7 Flash',
@@ -3022,7 +2858,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Text models ──────────────────────────────────────────────────────
+    // ── 文本模型 ─────────────────────────────────────────────────────────
     if (id.startsWith('step-3')) {
       return _p(
         name: 'Step-3',
@@ -3053,7 +2889,7 @@ class AiModelCatalog {
     return null;
   }
 
-  /// Extract context size from StepFun model IDs like `step-2-16k`.
+  /// 从 `step-2-16k` 等 StepFun 模型 ID 提取上下文大小。
   static int? _parseStepContext(String id) {
     final match = _stepContextPattern.firstMatch(id);
     if (match == null) return null;
@@ -3061,7 +2897,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Mistral AI
+  // Mistral AI 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mistral(String id) {
@@ -3074,7 +2910,7 @@ class AiModelCatalog {
         thinking: 40000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
     if (id.startsWith('codestral-embed')) {
@@ -3128,7 +2964,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Cohere
+  // Cohere 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile _cohereTextEmbedV3({
@@ -3258,7 +3094,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Voyage AI
+  // Voyage AI 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _voyage(String id) {
@@ -3362,7 +3198,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Jina AI
+  // Jina AI 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _jina(String id) {
@@ -3586,7 +3422,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Open-source / OpenAI-compatible embedding model IDs
+  // 开源或兼容 OpenAI 的嵌入模型 ID
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile _openSourceTextEmbeddingP({
@@ -4131,13 +3967,11 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Grok (xAI)
+  // Grok（xAI）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _grok(String id) {
-    // Grok video is only reachable through OpenAI-compatible gateways such
-    // as `chenyme/grok2api`, which exposes `POST /v1/videos` (multipart) for
-    // `grok-imagine-video`. xAI's native API has no public video endpoint.
+    // Grok 视频仅可通过 grok2api 等兼容网关访问，xAI 原生 API 暂无公开端点。
     if (id.startsWith('grok-imagine-video') || id == 'grok-video') {
       return _p(
         name: 'Grok Imagine Video',
@@ -4167,7 +4001,7 @@ class AiModelCatalog {
         requiresReasoningEcho: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: _effortLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 2.00,
         outputUsdPer1M: 6.00,
         cacheReadUsdPer1M: 0.50,
@@ -4248,11 +4082,11 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Hunyuan (Tencent / 腾讯混元)
+  // Hunyuan（腾讯混元）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _hunyuan(String id) {
-    // ── Embedding ────────────────────────────────────────────────────────
+    // ── 嵌入模型 ─────────────────────────────────────────────────────────
     if (id.contains('embedding') || id.contains('embed')) {
       return _embeddingP(
         name: 'Hunyuan Embedding',
@@ -4265,7 +4099,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Vision models ────────────────────────────────────────────────────
+    // ── 视觉模型 ─────────────────────────────────────────────────────────
     if (id.contains('vision-video')) {
       return _p(
         name: 'Hunyuan Vision Video',
@@ -4294,7 +4128,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Thinking models ──────────────────────────────────────────────────
+    // ── 思考模型 ─────────────────────────────────────────────────────────
     if (id.contains('t1') || id.contains('think')) {
       return _p(
         name: 'Hunyuan T1',
@@ -4305,7 +4139,7 @@ class AiModelCatalog {
       );
     }
 
-    // ── Text models ──────────────────────────────────────────────────────
+    // ── 文本模型 ─────────────────────────────────────────────────────────
     if (id.contains('turbos')) {
       return _p(name: 'Hunyuan TurboS', desc: 'Fast text model');
     }
@@ -4348,7 +4182,7 @@ class AiModelCatalog {
       return _p(name: 'Hunyuan Standard', desc: 'Standard text model');
     }
 
-    // Fallback for any hunyuan model ID
+    // 混元模型通用回退。
     if (id.startsWith('hunyuan')) {
       return _p(name: 'Hunyuan', desc: 'Tencent Hunyuan model');
     }
@@ -4357,7 +4191,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // iFlytek Spark / 讯飞星火 (usually OpenAI-compatible gateway)
+  // 讯飞星火模型，通常通过兼容 OpenAI 的网关接入。
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _spark(String id) {
@@ -4427,7 +4261,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Kling / 可灵 (usually exposed through OpenAI-compatible media gateways)
+  // Kling / 可灵模型，通常通过兼容 OpenAI 的媒体网关接入。
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _kling(String id) {
@@ -4478,7 +4312,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Sakana AI
+  // Sakana AI 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _sakana(String id) {
@@ -4492,7 +4326,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // MiniMax
+  // MiniMax 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _minimax(String id) {
@@ -4621,7 +4455,7 @@ class AiModelCatalog {
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortMinimalLowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.minimalLowMediumHigh,
         supportedParameters: const <String>[
           'service_tier',
           'thinking',
@@ -4682,7 +4516,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Agnes (Sapiens AI)
+  // Agnes（Sapiens AI）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _agnes(String id) {
@@ -4828,7 +4662,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // LongCat
+  // LongCat 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _longcat(String id) {
@@ -4866,7 +4700,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // JoyCode / JoyCoder
+  // JoyCode / JoyCoder 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _joycode(String id) {
@@ -4882,7 +4716,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Wenxin / ERNIE (Baidu 文心一言)
+  // Wenxin / ERNIE（百度文心一言）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _wenxin(String id) {
@@ -5075,7 +4909,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Meta AI / Llama
+  // Meta AI / Llama 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _meta(String id) {
@@ -5152,7 +4986,7 @@ class AiModelCatalog {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // MiMo (Xiaomi / 小米)
+  // MiMo（小米）模型
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mimo(String id) {

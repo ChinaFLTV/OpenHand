@@ -72,6 +72,58 @@ class ReaderFileType {
     rtf,
   };
 
+  static const textLikeExtensions = <String>{
+    '.txt',
+    '.text',
+    '.md',
+    '.markdown',
+    '.json',
+    '.yaml',
+    '.yml',
+    '.toml',
+    '.xml',
+    '.html',
+    '.htm',
+    '.css',
+    '.scss',
+    '.sass',
+    '.less',
+    '.js',
+    '.jsx',
+    '.ts',
+    '.tsx',
+    '.dart',
+    '.go',
+    '.py',
+    '.java',
+    '.kt',
+    '.kts',
+    '.swift',
+    '.rb',
+    '.rs',
+    '.c',
+    '.cc',
+    '.cpp',
+    '.h',
+    '.hpp',
+    '.cs',
+    '.php',
+    '.sh',
+    '.zsh',
+    '.bash',
+    '.fish',
+    '.sql',
+    '.csv',
+    '.tsv',
+    '.env',
+    '.ini',
+    '.cfg',
+    '.conf',
+    '.log',
+    '.svg',
+    '.vue',
+  };
+
   static const Map<String, String> _normalizedAliases = <String, String>{
     'plaintext': text,
     'text/plain': text,
@@ -163,7 +215,13 @@ class ReaderFileType {
       'sql' ||
       'css' ||
       'scss' ||
-      'less' => code,
+      'sass' ||
+      'less' ||
+      'env' ||
+      'ini' ||
+      'cfg' ||
+      'conf' ||
+      'vue' => code,
       _ => normalized,
     };
   }
@@ -181,6 +239,13 @@ class ReaderFileType {
 
   static bool isTextLikeSource(String value) {
     return textLikeSourceTypes.contains(normalize(value));
+  }
+
+  static bool isTextLikeExtension(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    final extension = normalized.startsWith('.') ? normalized : '.$normalized';
+    return textLikeExtensions.contains(extension);
   }
 
   static String label(String value, AppLocalizations l10n) {

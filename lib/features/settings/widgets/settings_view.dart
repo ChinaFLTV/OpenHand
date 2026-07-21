@@ -140,6 +140,23 @@ void _syncControllerText(TextEditingController controller, String text) {
   );
 }
 
+void _syncControllerValue<T>(
+  TextEditingController controller,
+  T previous,
+  T current, {
+  String Function(T value)? format,
+}) {
+  if (previous == current) return;
+  _syncControllerText(controller, format?.call(current) ?? '$current');
+}
+
+List<T> _reorderedCopy<T>(List<T> values, int oldIndex, int newIndex) {
+  final adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+  final result = List<T>.of(values);
+  result.insert(adjustedIndex, result.removeAt(oldIndex));
+  return result;
+}
+
 Future<bool> _confirmClearLocalCache({
   required BuildContext context,
   required String toolLabel,
@@ -448,15 +465,13 @@ Widget _buildToolCacheActions({
   );
 }
 
-List<Widget> _buildToolEngineStatusDetails<T>({
+List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
   required BuildContext context,
   required bool inCooldown,
   required int? cooldownUntilMs,
   required String? quotaError,
   required VoidCallback onResetCooldown,
   required List<T> samples,
-  required int Function(T sample) durationOf,
-  required bool Function(T sample) successOf,
 }) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
@@ -524,8 +539,6 @@ List<Widget> _buildToolEngineStatusDetails<T>({
           child: CustomPaint(
             painter: _ToolTelemetrySparklinePainter<T>(
               samples: samples,
-              durationOf: durationOf,
-              successOf: successOf,
               successColor: Colors.green.shade600,
               failureColor: colorScheme.error,
               lineColor: colorScheme.primary.withValues(alpha: 0.6),
@@ -613,11 +626,73 @@ class _ToolAdvancedNumberRow extends StatelessWidget {
   }
 }
 
-class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
+class _ToolAdvancedCooldownTierRow extends StatelessWidget {
+  const _ToolAdvancedCooldownTierRow({
+    required this.label,
+    required this.failures,
+    required this.seconds,
+    required this.onChangedFailures,
+    required this.onChangedSeconds,
+  });
+
+  final String label;
+  final int failures;
+  final int seconds;
+  final ValueChanged<int> onChangedFailures;
+  final ValueChanged<int> onChangedSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.bodySmall;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(width: 56, child: Text(label, style: textStyle)),
+          Text(
+            openHandLocalizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
+            style: textStyle,
+          ),
+          SizedBox(
+            width: 60,
+            child: _SettingsIntField(
+              value: failures,
+              min: AiWebEngineResiliencePolicy.minCooldownFailures,
+              max: AiWebEngineResiliencePolicy.maxCooldownFailures,
+              onChanged: onChangedFailures,
+            ),
+          ),
+          Text(
+            openHandLocalizedText(
+              context,
+              zh: ' 次  →  冷却 ',
+              en: '  →  cooldown ',
+            ),
+            style: textStyle,
+          ),
+          SizedBox(
+            width: 80,
+            child: _SettingsIntField(
+              value: seconds,
+              min: AiWebEngineResiliencePolicy.minCooldownSeconds,
+              max: AiWebEngineResiliencePolicy.maxCooldownSeconds,
+              onChanged: onChangedSeconds,
+            ),
+          ),
+          Text(
+            openHandLocalizedText(context, zh: ' 秒', en: ' s'),
+            style: textStyle,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolTelemetrySparklinePainter<T extends WebEngineSampleBase>
+    extends CustomPainter {
   const _ToolTelemetrySparklinePainter({
     required this.samples,
-    required this.durationOf,
-    required this.successOf,
     required this.successColor,
     required this.failureColor,
     required this.lineColor,
@@ -629,8 +704,6 @@ class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
   static const double _dotRadius = 1.6;
 
   final List<T> samples;
-  final int Function(T sample) durationOf;
-  final bool Function(T sample) successOf;
   final Color successColor;
   final Color failureColor;
   final Color lineColor;
@@ -642,7 +715,7 @@ class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
         ? samples.sublist(samples.length - _maxSamples)
         : samples;
     final maxDuration = tail.fold<int>(0, (current, sample) {
-      final duration = durationOf(sample);
+      final duration = sample.durationMs;
       return duration > current ? duration : current;
     });
     final scaleY = maxDuration == 0
@@ -652,7 +725,7 @@ class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
 
     Offset pointAt(int index) => Offset(
       index * stepX,
-      size.height - _verticalInset - durationOf(tail[index]) * scaleY,
+      size.height - _verticalInset - tail[index].durationMs * scaleY,
     );
 
     final firstPoint = pointAt(0);
@@ -675,7 +748,7 @@ class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
       canvas.drawCircle(
         pointAt(index),
         _dotRadius,
-        successOf(tail[index]) ? successPaint : failurePaint,
+        tail[index].success ? successPaint : failurePaint,
       );
     }
   }
@@ -683,8 +756,6 @@ class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ToolTelemetrySparklinePainter<T> old) {
     return old.samples != samples ||
-        old.durationOf != durationOf ||
-        old.successOf != successOf ||
         old.successColor != successColor ||
         old.failureColor != failureColor ||
         old.lineColor != lineColor;
@@ -716,10 +787,7 @@ class SettingsView extends StatefulWidget {
   State<SettingsView> createState() => _SettingsViewState();
 }
 
-/// Public launcher for the AI model editor dialog so non-settings surfaces
-/// (e.g. the composer's quick-edit gear button) can re-use the exact same
-/// editor without copying its UI. Returns `true` when the user saved a
-/// change, otherwise `false`.
+/// 打开统一的 AI 模型编辑弹窗；保存后返回 `true`。
 Future<bool> showAiModelEditorDialog(
   BuildContext context, {
   AiModelConfig? initialModel,
@@ -1375,11 +1443,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
-          // Top-edge highlight pulse fired whenever any settings mutation
-          // is successfully persisted. Subscribes to the controller's
-          // `saveSuccessSignal` so individual `_save*` paths don't have
-          // to wire up per-row notifiers. Honors global motion settings via the
-          // pulse widget itself.
+          // 保存成功后统一触发顶部高亮，并遵循全局动效设置。
           Positioned(
             top: 0,
             left: 0,
@@ -4099,7 +4163,7 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Builtin Tool Settings – builder & dialog methods
+  // 内置工具设置
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildBuiltinToolsSection(
@@ -5219,12 +5283,7 @@ class _SettingsViewState extends State<SettingsView> {
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'settings_view',
-        '_exportAiStreamThrottleConfig.getSaveLocation',
-        error,
-        stack,
-      );
+      silentLog('设置', '打开节流配置保存位置', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -5252,12 +5311,7 @@ class _SettingsViewState extends State<SettingsView> {
       );
       await file.saveTo(location.path);
     } catch (error, stack) {
-      silentLog(
-        'settings_view',
-        '_exportAiStreamThrottleConfig.write',
-        error,
-        stack,
-      );
+      silentLog('设置', '写入节流配置', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -5298,12 +5352,7 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       file = await openFile(acceptedTypeGroups: const <XTypeGroup>[typeGroup]);
     } catch (error, stack) {
-      silentLog(
-        'settings_view',
-        '_importAiStreamThrottleConfig.openFile',
-        error,
-        stack,
-      );
+      silentLog('设置', '打开节流配置文件', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -5330,16 +5379,11 @@ class _SettingsViewState extends State<SettingsView> {
       final raw = utf8.decode(bytes);
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        throw const FormatException('Root must be a JSON object');
+        throw const FormatException('JSON 根节点必须是对象');
       }
       nextDoc = stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
-      silentLog(
-        'settings_view',
-        '_importAiStreamThrottleConfig.parse',
-        error,
-        stack,
-      );
+      silentLog('设置', '解析节流配置', error, stack);
       if (!context.mounted) return;
       final maxSize = formatByteSize(_kThrottleConfigImportMaxBytes);
       flashOpenHandSnack(
@@ -5451,12 +5495,7 @@ class _SettingsViewState extends State<SettingsView> {
             : OpenHandSnackKind.success,
       );
     } catch (error, stack) {
-      silentLog(
-        'settings_view',
-        '_importAiStreamThrottleConfig.apply',
-        error,
-        stack,
-      );
+      silentLog('设置', '应用节流配置', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -6207,7 +6246,7 @@ class _SettingsViewState extends State<SettingsView> {
         kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
-      silentLog('settings.mcp', 'resetStdioPackageCache', error, stack);
+      silentLog('MCP设置', '重置标准输入输出软件包缓存', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -6618,7 +6657,7 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dialog animation settings section
+// 弹窗动画设置
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _McpStdioMirrorModeControl extends StatelessWidget {
@@ -7141,8 +7180,7 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
         if (!mounted) return;
         setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
       },
-      onError: (error, stack) =>
-          silentLog('settings', 'auto mode fps ticker', error, stack),
+      onError: (error, stack) => silentLog('设置', '刷新自动模式帧率', error, stack),
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/reader_file_type.dart';
 
 enum AiAttachmentKind {
   image('image'),
@@ -29,10 +30,7 @@ enum AiAttachmentKind {
 const String aiSessionMessageAttachmentsMetadataKey = 'attachments';
 const int aiMessageAttachmentLimit = 20;
 
-/// Maximum size in bytes for any single attachment a user adds via the
-/// composer (paste / file picker). 10 MB matches the user-facing contract
-/// "每个附件的尺寸不超过 10MB". The cap is enforced at pick time so
-/// oversize files never reach the per-protocol encoding pipeline.
+/// 单个消息附件的最大字节数。文件选择阶段即执行限制，避免超限文件进入协议编码链路。
 const int aiMessageAttachmentMaxFileBytes = 10 * kBytesPerMiB;
 
 List<String> aiAttachmentPickerExtensions() {
@@ -40,7 +38,7 @@ List<String> aiAttachmentPickerExtensions() {
     ..._imageExtensions,
     ..._videoExtensions,
     ..._audioExtensions,
-    ..._textExtensions,
+    ...ReaderFileType.textLikeExtensions,
     ..._spreadsheetExtensions,
     '.pdf',
   };
@@ -99,19 +97,13 @@ class AiMessageAttachment {
   final int? width;
   final int? height;
 
-  /// Absolute path to the original (pre-compression / pre-edit) source file the
-  /// user picked, when known. Useful for the `[图片附件；原始图片路径…]`
-  /// history-message placeholder so the model can still reason about provenance
-  /// after the resized copy has replaced the inline image part.
+  /// 用户所选原始文件的绝对路径，用于压缩或编辑后保留来源信息。
   final String? originalSourcePath;
 
-  /// Total pixel count (`width * height`) of the stored image, when known.
-  /// Independent of `width` / `height` so callers can populate it when the
-  /// dimensions themselves are unavailable (e.g. SVG, partially decoded).
+  /// 已存图片的像素总数；尺寸未知时也可单独提供。
   final int? pixelCount;
 
-  /// Ratio of stored size relative to the original source size, in `[0, 1]`.
-  /// `null` for non-image attachments or when the original size is unknown.
+  /// 存储大小与原始大小之比，范围为 `[0, 1]`。
   final double? compressionRatio;
 
   bool get isImage => kind == AiAttachmentKind.image;
@@ -206,7 +198,7 @@ AiAttachmentKind aiAttachmentKindForPath(String path) {
   if (_audioExtensions.contains(extension)) {
     return AiAttachmentKind.audio;
   }
-  if (_textExtensions.contains(extension)) {
+  if (ReaderFileType.isTextLikeExtension(extension)) {
     return AiAttachmentKind.text;
   }
   if (_spreadsheetExtensions.contains(extension)) {
@@ -291,52 +283,6 @@ const Set<String> _audioExtensions = <String>{
   '.flac',
   '.m4a',
   '.ogg',
-};
-
-const Set<String> _textExtensions = <String>{
-  '.txt',
-  '.md',
-  '.markdown',
-  '.json',
-  '.yaml',
-  '.yml',
-  '.toml',
-  '.xml',
-  '.html',
-  '.htm',
-  '.css',
-  '.scss',
-  '.sass',
-  '.js',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.dart',
-  '.go',
-  '.py',
-  '.java',
-  '.kt',
-  '.kts',
-  '.rb',
-  '.rs',
-  '.c',
-  '.cc',
-  '.cpp',
-  '.h',
-  '.hpp',
-  '.sh',
-  '.zsh',
-  '.bash',
-  '.fish',
-  '.sql',
-  '.csv',
-  '.tsv',
-  '.env',
-  '.ini',
-  '.cfg',
-  '.conf',
-  '.log',
-  '.vue',
 };
 
 const Set<String> _spreadsheetExtensions = <String>{'.xlsx', '.xls'};
