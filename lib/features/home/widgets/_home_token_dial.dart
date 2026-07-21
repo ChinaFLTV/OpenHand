@@ -822,9 +822,8 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 const TextStyle(),
           ),
         ),
-        _TokenPopupAnimatedSection(
-          present: contextUsage?.hasData ?? false,
-          settings: sectionMotionSettings,
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
           child: _ContextUsageOverview(
             usage: contextUsage,
             windowUsage: contextWindowUsage,
@@ -1183,6 +1182,7 @@ class _ContextUsageOverview extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final hasData = usage?.hasData ?? false;
+    final hasWindowData = windowUsage.windowTokens > 0;
     final items = hasData ? usage!.items : const <AiContextUsageItem>[];
     final activeItems = items
         .where((item) => item.tokenCount > 0)
@@ -1213,17 +1213,17 @@ class _ContextUsageOverview extends StatelessWidget {
                         color: colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      hasData
-                          ? usage!.tokenSource == AiContextTokenSource.provider
-                                ? l10n.tokenPopupContextMeasured
-                                : l10n.tokenPopupContextEstimated
-                          : l10n.tokenPopupContextEmpty,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    if (hasData) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        usage!.tokenSource == AiContextTokenSource.provider
+                            ? l10n.tokenPopupContextMeasured
+                            : l10n.tokenPopupContextEstimated,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -1254,7 +1254,7 @@ class _ContextUsageOverview extends StatelessWidget {
               ],
             ],
           ),
-          if (hasData) ...[
+          if (hasWindowData) ...[
             const SizedBox(height: 12),
             _ContextWindowUsageBar(usage: windowUsage),
             AnimatedAppearance(
@@ -1281,6 +1281,8 @@ class _ContextUsageOverview extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+          if (hasData) ...[
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: _borderRadius999,
@@ -1329,6 +1331,39 @@ class _ContextUsageOverview extends StatelessWidget {
                       .toList(growable: false),
                 );
               },
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.46,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.46),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.tokenPopupContextEmpty,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],

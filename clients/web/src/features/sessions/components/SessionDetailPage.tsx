@@ -9031,6 +9031,7 @@ function ContextUsageOverview({
     : windowUsage.ratio >= 0.7
       ? 'var(--m3-tertiary)'
       : 'var(--m3-primary)';
+  const hasWindowData = windowUsage.windowTokens > 0;
   const showCompact = canCompact || compacting;
   return (
     <section
@@ -9045,13 +9046,13 @@ function ContextUsageOverview({
           <h3 class="text-xs font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
             {t('tokenPopup.context.title', '上下文数据概览')}
           </h3>
-          <p class="mt-0.5 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {usage
-              ? usage.measured
+          {usage ? (
+            <p class="mt-0.5 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              {usage.measured
                 ? t('tokenPopup.context.measured', '总量实测 · 分类折算')
-                : t('tokenPopup.context.estimated', '按请求内容估算')
-              : t('tokenPopup.context.empty', '发送下一条消息后生成概览')}
-          </p>
+                : t('tokenPopup.context.estimated', '按请求内容估算')}
+            </p>
+          ) : null}
         </div>
         {usage ? (
           <div class="shrink-0 text-right">
@@ -9062,66 +9063,68 @@ function ContextUsageOverview({
           </div>
         ) : null}
       </div>
+      {hasWindowData ? (
+        <div
+          class="mt-3 rounded-m3-sm px-2.5 py-2.5"
+          style={{
+            background: `color-mix(in srgb, ${contextColor} 7%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${contextColor} 20%, transparent)`,
+          }}
+        >
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+              {t('tokenPopup.context.window', '上下文窗口')}
+            </span>
+            <span class="ml-auto text-xs font-black tabular-nums" style={{ color: contextColor }}>
+              <RollingText text={`${windowUsage.percent}%`} />
+            </span>
+          </div>
+          <div class="mt-2 h-[7px] overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-container-highest)' }}>
+            <div
+              class="h-full rounded-full"
+              style={{
+                width: `${windowUsage.ratio * 100}%`,
+                background: contextColor,
+                transition: 'width 680ms cubic-bezier(.34, 1.56, .64, 1), background 240ms ease-out',
+              }}
+            />
+          </div>
+          <div class="mt-1.5 text-right text-[10px] tabular-nums" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {windowUsage.usedTokens.toLocaleString()} / {windowUsage.windowTokens.toLocaleString()} Token
+          </div>
+        </div>
+      ) : null}
+      {hasWindowData || compacting ? (
+        <div
+          aria-hidden={!showCompact}
+          style={{
+            maxHeight: showCompact ? '48px' : '0px',
+            marginTop: showCompact ? '10px' : '0px',
+            opacity: showCompact ? 1 : 0,
+            transform: showCompact ? 'translateY(0) scale(1)' : 'translateY(-5px) scale(.96)',
+            overflow: 'hidden',
+            pointerEvents: showCompact ? 'auto' : 'none',
+            transition: 'max-height var(--oh-dialog-duration) var(--oh-dialog-curve), margin var(--oh-dialog-duration) var(--oh-dialog-curve), opacity var(--oh-dialog-duration) ease-out, transform var(--oh-dialog-duration) cubic-bezier(.34, 1.56, .64, 1)',
+          }}
+        >
+          <button
+            type="button"
+            class="oh-tap-press ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-60"
+            style={{
+              color: 'var(--m3-on-primary-container)',
+              background: 'var(--m3-primary-container)',
+              border: '1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent)',
+            }}
+            disabled={compacting}
+            onClick={onCompact}
+          >
+            {compacting ? <span class="oh-spin"><ComposerIcon name="refresh" size={14} /></span> : null}
+            <span>{compacting ? t('tokenPopup.context.compacting', '正在压缩…') : t('tokenPopup.context.compactNow', '主动压缩')}</span>
+          </button>
+        </div>
+      ) : null}
       {usage ? (
         <>
-          {windowUsage.windowTokens > 0 ? (
-            <div
-              class="mt-3 rounded-m3-sm px-2.5 py-2.5"
-              style={{
-                background: `color-mix(in srgb, ${contextColor} 7%, transparent)`,
-                border: `1px solid color-mix(in srgb, ${contextColor} 20%, transparent)`,
-              }}
-            >
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
-                  {t('tokenPopup.context.window', '上下文窗口')}
-                </span>
-                <span class="ml-auto text-xs font-black tabular-nums" style={{ color: contextColor }}>
-                  <RollingText text={`${windowUsage.percent}%`} />
-                </span>
-              </div>
-              <div class="mt-2 h-[7px] overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-container-highest)' }}>
-                <div
-                  class="h-full rounded-full"
-                  style={{
-                    width: `${windowUsage.ratio * 100}%`,
-                    background: contextColor,
-                    transition: 'width 680ms cubic-bezier(.34, 1.56, .64, 1), background 240ms ease-out',
-                  }}
-                />
-              </div>
-              <div class="mt-1.5 text-right text-[10px] tabular-nums" style={{ color: 'var(--m3-on-surface-variant)' }}>
-                {windowUsage.usedTokens.toLocaleString()} / {windowUsage.windowTokens.toLocaleString()} Token
-              </div>
-            </div>
-          ) : null}
-          <div
-            aria-hidden={!showCompact}
-            style={{
-              maxHeight: showCompact ? '48px' : '0px',
-              marginTop: showCompact ? '10px' : '0px',
-              opacity: showCompact ? 1 : 0,
-              transform: showCompact ? 'translateY(0) scale(1)' : 'translateY(-5px) scale(.96)',
-              overflow: 'hidden',
-              pointerEvents: showCompact ? 'auto' : 'none',
-              transition: 'max-height var(--oh-dialog-duration) var(--oh-dialog-curve), margin var(--oh-dialog-duration) var(--oh-dialog-curve), opacity var(--oh-dialog-duration) ease-out, transform var(--oh-dialog-duration) cubic-bezier(.34, 1.56, .64, 1)',
-            }}
-          >
-            <button
-              type="button"
-              class="oh-tap-press ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-60"
-              style={{
-                color: 'var(--m3-on-primary-container)',
-                background: 'var(--m3-primary-container)',
-                border: '1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent)',
-              }}
-              disabled={compacting}
-              onClick={onCompact}
-            >
-              {compacting ? <span class="oh-spin"><ComposerIcon name="refresh" size={14} /></span> : null}
-              <span>{compacting ? t('tokenPopup.context.compacting', '正在压缩…') : t('tokenPopup.context.compactNow', '主动压缩')}</span>
-            </button>
-          </div>
           <div class="mt-3 flex h-[7px] overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-container-highest)' }}>
             {activeItems.map((item) => (
               <span
@@ -9167,7 +9170,21 @@ function ContextUsageOverview({
             })}
           </div>
         </>
-      ) : null}
+      ) : (
+        <div
+          class="mt-3 flex items-center gap-2 rounded-m3-sm px-2.5 py-2.5 text-[11px] font-semibold"
+          style={{
+            color: 'var(--m3-on-surface-variant)',
+            background: 'color-mix(in srgb, var(--m3-surface-container-highest) 46%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 46%, transparent)',
+          }}
+        >
+          <span class="shrink-0" style={{ color: 'var(--m3-primary)' }}>
+            <ComposerIcon name="history" size={16} />
+          </span>
+          <span>{t('tokenPopup.context.empty', '发送下一条消息后生成概览')}</span>
+        </div>
+      )}
     </section>
   );
 }
