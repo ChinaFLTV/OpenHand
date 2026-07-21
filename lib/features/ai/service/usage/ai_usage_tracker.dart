@@ -2,15 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../data/ai_usage_store.dart';
 import '../../model/ai_cost_breakdown.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../../model/ai_usage_analytics.dart';
+import '../runtime/ai_transport_client.dart';
 
 abstract final class AiUsageSource {
   static const String thread = 'thread';
@@ -89,6 +92,7 @@ class AiUsageTracker {
   static final AiUsageTracker instance = AiUsageTracker._();
   static const int _defaultEstimatedCharactersPerToken = 4;
   static const int _pruneInterval = 256;
+  static const int _maxErrorMessageCharacters = 8000;
 
   final AiUsageStore _store = const AiUsageStore();
   final SerialTaskQueue _writes = SerialTaskQueue(maxPendingTasks: 2048);
@@ -127,7 +131,7 @@ class AiUsageTracker {
         startedAt: startedAt,
         endedAt: endedAt,
         firstTokenMs: firstTokenMs,
-        status: 'success',
+        status: AiUsageRequestStatus.success,
         usage: effectiveUsage.usage,
         usageEstimated: effectiveUsage.estimated,
         metadata: metadata,
@@ -144,16 +148,26 @@ class AiUsageTracker {
     required DateTime endedAt,
     required Object error,
     bool cancelled = false,
+    Duration? timeout,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
     try {
+      final failure = _failureDetails(
+        error,
+        cancelled: cancelled,
+        timeout: timeout,
+      );
       _record(
         model: model,
         apiFamily: apiFamily,
         startedAt: startedAt,
         endedAt: endedAt,
-        status: cancelled ? 'cancelled' : 'failed',
-        errorType: error.runtimeType.toString(),
+        status: failure.status,
+        errorType: failure.errorType,
+        errorMessage: failure.errorMessage,
+        httpStatusCode: failure.httpStatusCode,
+        timeoutMs: failure.timeoutMs,
+        timeoutPhase: failure.timeoutPhase,
         usage: const AiTokenUsage(totalTokens: 0),
         usageEstimated: false,
         metadata: metadata,
@@ -182,12 +196,16 @@ class AiUsageTracker {
     required bool usageEstimated,
     int? firstTokenMs,
     String? errorType,
+    String? errorMessage,
+    int? httpStatusCode,
+    int? timeoutMs,
+    String? timeoutPhase,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
     final trace = AiUsageTraceContext.current ?? AiUsageTraceContext();
     final localStartedAt = startedAt.toLocal();
     final profile = model.profileFor(model.modelId);
-    final cost = status == 'success'
+    final cost = status == AiUsageRequestStatus.success
         ? AiCostBreakdown.compute(
             usage: usage,
             profile: profile,
@@ -211,6 +229,10 @@ class AiUsageTracker {
       firstTokenMs: firstTokenMs,
       status: status,
       errorType: errorType,
+      errorMessage: errorMessage,
+      httpStatusCode: httpStatusCode,
+      timeoutMs: timeoutMs,
+      timeoutPhase: timeoutPhase,
       surface: trace.surface,
       source: trace.source,
       operation: trace.operation,
@@ -294,6 +316,179 @@ class AiUsageTracker {
   int _estimateTokens(int characters) {
     if (characters <= 0) return 0;
     return (characters / _estimatedCharactersPerToken).ceil();
+  }
+
+  ({
+    String status,
+    String errorType,
+    String errorMessage,
+    int? httpStatusCode,
+    int? timeoutMs,
+    String? timeoutPhase,
+  })
+  _failureDetails(
+    Object error, {
+    required bool cancelled,
+    required Duration? timeout,
+  }) {
+    final errorType = error.runtimeType.toString();
+    final message = _sanitizeErrorMessage('$error', fallback: errorType);
+    final normalized = message.toLowerCase();
+    final httpStatusCode = _httpStatusCode(error, normalized);
+    final wasCancelled =
+        cancelled ||
+        error is http.RequestAbortedException ||
+        errorType.toLowerCase().contains('cancelled') ||
+        errorType.toLowerCase().contains('canceled');
+    final timedOut = !wasCancelled && _isTimeout(error, normalized);
+    final String status;
+    if (wasCancelled) {
+      status = AiUsageRequestStatus.cancelled;
+    } else if (timedOut) {
+      status = AiUsageRequestStatus.timeout;
+    } else if (httpStatusCode != null) {
+      status = AiUsageRequestStatus.failed;
+    } else if (_isTransportError(error, normalized)) {
+      status = AiUsageRequestStatus.error;
+    } else if (_isProviderFailure(normalized)) {
+      status = AiUsageRequestStatus.failed;
+    } else {
+      status = AiUsageRequestStatus.error;
+    }
+    Duration? effectiveTimeout;
+    if (timedOut) {
+      effectiveTimeout = timeout;
+      if (error is TimeoutException) {
+        effectiveTimeout = error.duration ?? effectiveTimeout;
+      }
+    }
+    return (
+      status: status,
+      errorType: errorType,
+      errorMessage: message,
+      httpStatusCode: httpStatusCode,
+      timeoutMs: effectiveTimeout?.inMilliseconds.clamp(0, 1 << 31),
+      timeoutPhase: timedOut ? _timeoutPhase(normalized) : null,
+    );
+  }
+
+  bool _isTimeout(Object error, String message) {
+    if (error is TimeoutException) return true;
+    return const <String>[
+      'timeout',
+      'timed out',
+      'time limit',
+      '超时',
+      '逾时',
+    ].any(message.contains);
+  }
+
+  int? _httpStatusCode(Object error, String message) {
+    if (error is AiTransportResponseException) return error.statusCode;
+    final match = RegExp(
+      r'(?:http|status(?: code)?|状态码)\s*[:=#-]?\s*(\d{3})',
+      caseSensitive: false,
+    ).firstMatch(message);
+    final value = int.tryParse(match?.group(1) ?? '');
+    return value != null && value >= 100 && value <= 599 ? value : null;
+  }
+
+  bool _isProviderFailure(String message) {
+    return const <String>[
+      'request failed',
+      'provider request failed',
+      'response failed',
+      'translation failed',
+      'generation failed',
+      ' failed (',
+      ' failed:',
+      'rejected',
+      'empty response',
+      'invalid response',
+      '返回失败',
+      '请求失败',
+      '生成失败',
+      '翻译失败',
+      '服务端拒绝',
+      '返回空',
+      '响应无效',
+      '失败',
+    ].any(message.contains);
+  }
+
+  bool _isTransportError(Object error, String message) {
+    if (error is http.ClientException) return true;
+    return const <String>[
+      'network',
+      'socket',
+      'connection',
+      'handshake',
+      'tls',
+      'dns',
+      '网络',
+      '连接',
+      '握手',
+      '证书',
+    ].any(message.contains);
+  }
+
+  String _timeoutPhase(String message) {
+    if (const <String>[
+      'stream idle',
+      'streaming idle',
+      '流式响应',
+      '流空闲',
+    ].any(message.contains)) {
+      return 'stream_idle';
+    }
+    if (const <String>['response header', '响应头'].any(message.contains)) {
+      return 'response_headers';
+    }
+    if (const <String>[
+      'connect',
+      'connection',
+      'handshake',
+      'dns',
+      '连接',
+      '握手',
+    ].any(message.contains)) {
+      return 'connection';
+    }
+    if (const <String>[
+      'response body',
+      'read response',
+      'download',
+      '响应体',
+      '读取响应',
+      '下载',
+    ].any(message.contains)) {
+      return 'response_body';
+    }
+    return 'request';
+  }
+
+  String _sanitizeErrorMessage(String value, {required String fallback}) {
+    var message = value.trim();
+    if (message.isEmpty) message = fallback;
+    message = message.replaceAllMapped(
+      RegExp(r'\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+', caseSensitive: false),
+      (match) => '${match.group(1)} [已脱敏]',
+    );
+    message = message.replaceAllMapped(
+      RegExp(
+        r'''(["']?(?:api[_-]?key|access[_-]?token|authorization|token)["']?\s*[:=]\s*["']?)[^"'\s,}]+''',
+        caseSensitive: false,
+      ),
+      (match) => '${match.group(1)}[已脱敏]',
+    );
+    message = message.replaceAllMapped(
+      RegExp(
+        r'([?&](?:key|api_key|access_token|token)=)[^&\s]+',
+        caseSensitive: false,
+      ),
+      (match) => '${match.group(1)}[已脱敏]',
+    );
+    return clipTextWithEllipsis(message, _maxErrorMessageCharacters);
   }
 
   String _encodeMetadata(Map<String, Object?> metadata) {

@@ -731,6 +731,7 @@ class AiChatService implements AiChatClient {
         startedAt: startedAt,
         endedAt: DateTime.now().toUtc(),
         error: error,
+        timeout: timeout,
         cancelled:
             error is AiChatCancelledException ||
             error is http.RequestAbortedException,
@@ -1142,6 +1143,7 @@ class AiChatService implements AiChatClient {
         startedAt: startedAt,
         endedAt: DateTime.now().toUtc(),
         error: error,
+        timeout: timeout,
         cancelled:
             error is AiChatCancelledException ||
             error is http.RequestAbortedException,
@@ -1224,6 +1226,7 @@ class AiChatService implements AiChatClient {
           startedAt: startedAt,
           endedAt: DateTime.now().toUtc(),
           error: error,
+          timeout: streamIdleTimeout,
           cancelled:
               error is AiChatCancelledException ||
               error is http.RequestAbortedException,

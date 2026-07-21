@@ -31,6 +31,10 @@ class AiUsageStorageRecord {
     this.knowledgeBaseId,
     this.firstTokenMs,
     this.errorType,
+    this.errorMessage,
+    this.httpStatusCode,
+    this.timeoutMs,
+    this.timeoutPhase,
     this.inputCostUsd,
     this.outputCostUsd,
     this.cacheReadCostUsd,
@@ -49,6 +53,10 @@ class AiUsageStorageRecord {
   final int? firstTokenMs;
   final String status;
   final String? errorType;
+  final String? errorMessage;
+  final int? httpStatusCode;
+  final int? timeoutMs;
+  final String? timeoutPhase;
   final String surface;
   final String source;
   final String operation;
@@ -80,6 +88,10 @@ class AiUsageStorageRecord {
     'first_token_ms': firstTokenMs,
     'status': status,
     'error_type': errorType,
+    'error_message': errorMessage,
+    'http_status_code': httpStatusCode,
+    'timeout_ms': timeoutMs,
+    'timeout_phase': timeoutPhase,
     'surface': surface,
     'source': source,
     'operation': operation,
@@ -207,6 +219,10 @@ class AiUsageStore {
         COUNT(*) AS request_count,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success_count,
         SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS failure_count,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed_count,
+        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count,
+        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count,
         SUM(usage_estimated) AS estimated_count,
         SUM(CASE WHEN total_cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS priced_count,
         SUM(prompt_tokens) AS prompt_tokens,
@@ -229,6 +245,10 @@ class AiUsageStore {
       requestCount: _int(row['request_count']),
       successCount: _int(row['success_count']),
       failureCount: _int(row['failure_count']),
+      failedCount: _int(row['failed_count']),
+      timeoutCount: _int(row['timeout_count']),
+      errorCount: _int(row['error_count']),
+      cancelledCount: _int(row['cancelled_count']),
       estimatedCount: _int(row['estimated_count']),
       pricedRequestCount: _int(row['priced_count']),
       promptTokens: _int(row['prompt_tokens']),
@@ -410,6 +430,10 @@ class AiUsageStore {
       firstTokenMs: _nullableInt(row['first_token_ms']),
       status: '${row['status'] ?? ''}',
       errorType: _nullableString(row['error_type']),
+      errorMessage: _nullableString(row['error_message']),
+      httpStatusCode: _nullableInt(row['http_status_code']),
+      timeoutMs: _nullableInt(row['timeout_ms']),
+      timeoutPhase: _nullableString(row['timeout_phase']),
       surface: '${row['surface'] ?? ''}',
       source: '${row['source'] ?? ''}',
       operation: '${row['operation'] ?? ''}',

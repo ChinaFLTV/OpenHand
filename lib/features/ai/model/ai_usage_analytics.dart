@@ -1,5 +1,13 @@
 import 'ai_token_usage.dart';
 
+abstract final class AiUsageRequestStatus {
+  static const String success = 'success';
+  static const String failed = 'failed';
+  static const String timeout = 'timeout';
+  static const String error = 'error';
+  static const String cancelled = 'cancelled';
+}
+
 enum AiUsageRange {
   today,
   sevenDays,
@@ -65,6 +73,10 @@ class AiUsageSummary {
     this.requestCount = 0,
     this.successCount = 0,
     this.failureCount = 0,
+    this.failedCount = 0,
+    this.timeoutCount = 0,
+    this.errorCount = 0,
+    this.cancelledCount = 0,
     this.estimatedCount = 0,
     this.pricedRequestCount = 0,
     this.promptTokens = 0,
@@ -85,6 +97,10 @@ class AiUsageSummary {
   final int requestCount;
   final int successCount;
   final int failureCount;
+  final int failedCount;
+  final int timeoutCount;
+  final int errorCount;
+  final int cancelledCount;
   final int estimatedCount;
   final int pricedRequestCount;
   final int promptTokens;
@@ -182,6 +198,10 @@ class AiUsageRequestRecord {
     this.threadTemplateId,
     this.firstTokenMs,
     this.errorType,
+    this.errorMessage,
+    this.httpStatusCode,
+    this.timeoutMs,
+    this.timeoutPhase,
   });
 
   final String id;
@@ -202,6 +222,10 @@ class AiUsageRequestRecord {
   final String? threadTemplateId;
   final int? firstTokenMs;
   final String? errorType;
+  final String? errorMessage;
+  final int? httpStatusCode;
+  final int? timeoutMs;
+  final String? timeoutPhase;
 }
 
 class AiUsageSnapshot {

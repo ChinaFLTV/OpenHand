@@ -575,6 +575,7 @@ class AiTtsPlaybackService {
       operation: 'speech_synthesis',
       body: () async {
         final startedAt = DateTime.now().toUtc();
+        final requestTimeout = operation.remainingSynthesisTime();
         try {
           final generated = await operation.runTrackedActivity(
             () => _mediaGenerationService.generateAudio(
@@ -621,7 +622,7 @@ class AiTtsPlaybackService {
                     ? stringKeyedMapFromValue(settings.extra['voice_modify'])
                     : const <String, Object?>{},
               ),
-              timeout: operation.remainingSynthesisTime(),
+              timeout: requestTimeout,
               cancelSignal: operation.cancelSignal,
             ),
           );
@@ -635,7 +636,15 @@ class AiTtsPlaybackService {
             usage: generated.usage,
           );
           return generated;
-        } on AiMediaGenerationCancelledException {
+        } on AiMediaGenerationCancelledException catch (error) {
+          AiUsageTracker.instance.recordFailure(
+            model: model,
+            apiFamily: AiApiFamily.audioSpeech.storageValue,
+            startedAt: startedAt,
+            endedAt: DateTime.now().toUtc(),
+            error: error,
+            cancelled: true,
+          );
           operation.throwIfCancelled();
           rethrow;
         } catch (error) {
@@ -645,6 +654,7 @@ class AiTtsPlaybackService {
             startedAt: startedAt,
             endedAt: DateTime.now().toUtc(),
             error: error,
+            timeout: requestTimeout,
           );
           rethrow;
         }

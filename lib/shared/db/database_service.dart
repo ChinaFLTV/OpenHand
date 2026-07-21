@@ -15,7 +15,7 @@ class DatabaseService {
   Database? _database;
   RandomAccessFile? _instanceLock;
 
-  static const int schemaVersion = 10;
+  static const int schemaVersion = 11;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -451,6 +451,10 @@ class DatabaseService {
         first_token_ms INTEGER,
         status TEXT NOT NULL DEFAULT 'success',
         error_type TEXT,
+        error_message TEXT,
+        http_status_code INTEGER,
+        timeout_ms INTEGER,
+        timeout_phase TEXT,
         surface TEXT NOT NULL DEFAULT 'app',
         source TEXT NOT NULL DEFAULT 'other',
         operation TEXT NOT NULL DEFAULT 'chat',
@@ -580,6 +584,20 @@ class DatabaseService {
       final batch = db.batch();
       _createAiUsageSchema(batch);
       await batch.commit(noResult: true);
+    }
+    if (oldVersion == 10) {
+      await db.execute(
+        'ALTER TABLE ai_usage_records ADD COLUMN error_message TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE ai_usage_records ADD COLUMN http_status_code INTEGER',
+      );
+      await db.execute(
+        'ALTER TABLE ai_usage_records ADD COLUMN timeout_ms INTEGER',
+      );
+      await db.execute(
+        'ALTER TABLE ai_usage_records ADD COLUMN timeout_phase TEXT',
+      );
     }
   }
 

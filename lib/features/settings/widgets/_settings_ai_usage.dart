@@ -492,6 +492,17 @@ class _AiUsageHero extends StatelessWidget {
                 icon: Icons.verified_outlined,
                 color: OpenHandStatusColors.success,
               ),
+              if (summary.failureCount > 0)
+                _AiUsageHeroPill(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '未成功',
+                    en: 'Unsuccessful',
+                  ),
+                  value: _usageInteger(summary.failureCount),
+                  icon: Icons.error_outline_rounded,
+                  color: OpenHandStatusColors.error,
+                ),
             ],
           );
           final alignedSide = Align(
@@ -673,6 +684,25 @@ class _AiUsageMetricGrid extends StatelessWidget {
               'Video ${_usageCompactNumber(summary.videoInputTokens)}',
           icon: Icons.perm_media_outlined,
           color: colorScheme.secondary,
+        ),
+      );
+    }
+    if (summary.failureCount > 0) {
+      metrics.add(
+        _AiUsageMetricData(
+          label: openHandLocalizedText(
+            context,
+            zh: '未成功请求',
+            en: 'Unsuccessful Requests',
+          ),
+          value: _usageInteger(summary.failureCount),
+          detail: openHandLocalizedText(
+            context,
+            zh: '失败 ${summary.failedCount} · 超时 ${summary.timeoutCount} · 异常 ${summary.errorCount} · 取消 ${summary.cancelledCount}',
+            en: '${summary.failedCount} failed · ${summary.timeoutCount} timed out · ${summary.errorCount} errors · ${summary.cancelledCount} cancelled',
+          ),
+          icon: Icons.monitor_heart_outlined,
+          color: OpenHandStatusColors.error,
         ),
       );
     }
@@ -2759,166 +2789,649 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
     final promptTokens = record?.usage.promptTokens ?? 0;
     final completionTokens = record?.usage.completionTokens ?? 0;
     final cacheReadTokens = record?.usage.cacheReadTokens ?? 0;
-    final statusColor = record?.status == 'success'
-        ? OpenHandStatusColors.success
-        : record?.status == 'cancelled'
-        ? colorScheme.onSurfaceVariant
-        : colorScheme.error;
+    final statusColor = _usageRequestStatusColor(
+      colorScheme,
+      record?.status ?? '',
+    );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.7),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: header || record == null ? null : () => _showDetails(record),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.7),
+            ),
+          ),
+          child: Row(
+            children: [
+              cell(
+                flex: 20,
+                child: header
+                    ? value(
+                        openHandLocalizedText(context, zh: '请求时间', en: 'Time'),
+                      )
+                    : Tooltip(
+                        message: '$traceLabel: ${record!.traceId}',
+                        child: value(formatYearMonthDayHms(record.startedAt)),
+                      ),
+              ),
+              cell(
+                flex: 20,
+                child: header
+                    ? value(
+                        openHandLocalizedText(context, zh: '模型', en: 'Model'),
+                      )
+                    : details(record!.modelId, record.providerName),
+              ),
+              cell(
+                flex: 20,
+                child: header
+                    ? value(
+                        openHandLocalizedText(context, zh: '来源', en: 'Source'),
+                      )
+                    : details(
+                        _usageSourceLabel(context, record!.source),
+                        '${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
+                      ),
+              ),
+              cell(
+                flex: 18,
+                child: header
+                    ? value(
+                        openHandLocalizedText(
+                          context,
+                          zh: '协议',
+                          en: 'Protocol',
+                        ),
+                      )
+                    : Tooltip(
+                        message: protocolLabel,
+                        child: value(protocolLabel),
+                      ),
+              ),
+              cell(
+                flex: 23,
+                alignment: Alignment.centerRight,
+                child: header
+                    ? value('Token', align: TextAlign.right)
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          value(
+                            '${_usageInteger(record!.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
+                            align: TextAlign.right,
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 2,
+                            alignment: WrapAlignment.end,
+                            children: [
+                              tokenPart('↑', promptTokens, colorScheme.primary),
+                              tokenPart(
+                                '↓',
+                                completionTokens,
+                                colorScheme.tertiary,
+                              ),
+                              if (cacheReadTokens > 0)
+                                tokenPart(
+                                  '↻',
+                                  cacheReadTokens,
+                                  OpenHandStatusColors.success,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+              cell(
+                flex: 12,
+                alignment: Alignment.centerRight,
+                child: value(
+                  header
+                      ? openHandLocalizedText(context, zh: '成本', en: 'Cost')
+                      : record!.totalCostUsd == null
+                      ? '—'
+                      : _usageMoney(record.totalCostUsd!),
+                  align: TextAlign.right,
+                ),
+              ),
+              cell(
+                flex: 12,
+                alignment: Alignment.centerRight,
+                child: header
+                    ? value(
+                        openHandLocalizedText(context, zh: '耗时', en: 'Latency'),
+                        align: TextAlign.right,
+                      )
+                    : details(
+                        _usageDuration(record!.durationMs.toDouble()),
+                        '${openHandLocalizedText(context, zh: '首字', en: 'First')} '
+                        '${record.firstTokenMs == null ? '—' : _usageDuration(record.firstTokenMs!.toDouble())}',
+                        alignEnd: true,
+                      ),
+              ),
+              cell(
+                flex: 12,
+                alignment: Alignment.center,
+                child: header
+                    ? value(
+                        openHandLocalizedText(context, zh: '状态', en: 'Status'),
+                        align: TextAlign.center,
+                      )
+                    : Tooltip(
+                        message:
+                            '${openHandLocalizedText(context, zh: '状态', en: 'Status')}: ${_usageRequestStatusLabel(context, record!.status)}'
+                            '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
+                            '\n$traceLabel: ${record.traceId}',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.28),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _usageRequestStatusLabel(
+                                  context,
+                                  record.status,
+                                ),
+                                maxLines: 1,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
-      child: Row(
+    );
+  }
+
+  Future<void> _showDetails(AiUsageRequestRecord record) {
+    return showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => _AiUsageRequestDetailsDialog(record: record),
+    );
+  }
+}
+
+class _AiUsageRequestDetailsDialog extends StatelessWidget {
+  const _AiUsageRequestDetailsDialog({required this.record});
+
+  final AiUsageRequestRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final size = MediaQuery.sizeOf(context);
+    final statusColor = _usageRequestStatusColor(colorScheme, record.status);
+    final unsuccessful = record.status != AiUsageRequestStatus.success;
+    final endedAt = record.startedAt.add(
+      Duration(milliseconds: record.durationMs),
+    );
+    final requestRows = <({String label, String value})>[
+      (
+        label: openHandLocalizedText(context, zh: '模型', en: 'Model'),
+        value: record.modelId,
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '供应商', en: 'Provider'),
+        value: record.providerName,
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '来源', en: 'Source'),
+        value:
+            '${_usageSourceLabel(context, record.source)} · ${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '协议', en: 'Protocol'),
+        value: record.apiFamily.replaceAll('_', ' '),
+      ),
+    ];
+    final diagnosticRows = <({String label, String value})>[
+      if (record.errorType case final value?)
+        (
+          label: openHandLocalizedText(
+            context,
+            zh: '异常类型',
+            en: 'Exception Type',
+          ),
+          value: value,
+        ),
+      if (record.httpStatusCode case final value?)
+        (label: 'HTTP', value: '$value'),
+      if (record.timeoutMs case final value?)
+        (
+          label: openHandLocalizedText(
+            context,
+            zh: '超时阈值',
+            en: 'Timeout Limit',
+          ),
+          value: _usageDuration(value.toDouble()),
+        ),
+      if (record.timeoutPhase case final value?)
+        (
+          label: openHandLocalizedText(
+            context,
+            zh: '超时阶段',
+            en: 'Timeout Phase',
+          ),
+          value: _usageTimeoutPhaseLabel(context, value),
+        ),
+    ];
+    return buildOpenHandDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      maxWidth: 780,
+      maxHeight: math.min(780, size.height * 0.88),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          cell(
-            flex: 20,
-            child: header
-                ? value(openHandLocalizedText(context, zh: '请求时间', en: 'Time'))
-                : Tooltip(
-                    message: '$traceLabel: ${record!.traceId}',
-                    child: value(formatYearMonthDayHms(record.startedAt)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 10, 15),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-          ),
-          cell(
-            flex: 20,
-            child: header
-                ? value(openHandLocalizedText(context, zh: '模型', en: 'Model'))
-                : details(record!.modelId, record.providerName),
-          ),
-          cell(
-            flex: 20,
-            child: header
-                ? value(openHandLocalizedText(context, zh: '来源', en: 'Source'))
-                : details(
-                    _usageSourceLabel(context, record!.source),
-                    '${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
+                  child: Icon(
+                    _usageRequestStatusIcon(record.status),
+                    color: statusColor,
                   ),
-          ),
-          cell(
-            flex: 18,
-            child: header
-                ? value(
-                    openHandLocalizedText(context, zh: '协议', en: 'Protocol'),
-                  )
-                : Tooltip(message: protocolLabel, child: value(protocolLabel)),
-          ),
-          cell(
-            flex: 23,
-            alignment: Alignment.centerRight,
-            child: header
-                ? value('Token', align: TextAlign.right)
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      value(
-                        '${_usageInteger(record!.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
-                        align: TextAlign.right,
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '请求诊断',
+                          en: 'Request Diagnostics',
+                        ),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      const SizedBox(height: 3),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 2,
-                        alignment: WrapAlignment.end,
-                        children: [
-                          tokenPart('↑', promptTokens, colorScheme.primary),
-                          tokenPart(
-                            '↓',
-                            completionTokens,
-                            colorScheme.tertiary,
-                          ),
-                          if (cacheReadTokens > 0)
-                            tokenPart(
-                              '↻',
-                              cacheReadTokens,
-                              OpenHandStatusColors.success,
-                            ),
-                        ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '${formatYearMonthDayHms(record.startedAt)} · ${_usageRequestStatusLabel(context, record.status)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
-          ),
-          cell(
-            flex: 12,
-            alignment: Alignment.centerRight,
-            child: value(
-              header
-                  ? openHandLocalizedText(context, zh: '成本', en: 'Cost')
-                  : record!.totalCostUsd == null
-                  ? '—'
-                  : _usageMoney(record.totalCostUsd!),
-              align: TextAlign.right,
+                ),
+                IconButton(
+                  onPressed: () => unawaited(
+                    _copySettingsTextToClipboard(
+                      context: context,
+                      text: _diagnosticJson(),
+                      successMessage: openHandLocalizedText(
+                        context,
+                        zh: '请求诊断已复制',
+                        en: 'Request diagnostics copied',
+                      ),
+                      logAction: '复制 AI 请求诊断',
+                    ),
+                  ),
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '复制诊断',
+                    en: 'Copy diagnostics',
+                  ),
+                  icon: const Icon(Icons.copy_all_outlined),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '关闭',
+                    en: 'Close',
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
             ),
           ),
-          cell(
-            flex: 12,
-            alignment: Alignment.centerRight,
-            child: header
-                ? value(
-                    openHandLocalizedText(context, zh: '耗时', en: 'Latency'),
-                    align: TextAlign.right,
-                  )
-                : details(
-                    _usageDuration(record!.durationMs.toDouble()),
-                    '${openHandLocalizedText(context, zh: '首字', en: 'First')} '
-                    '${record.firstTokenMs == null ? '—' : _usageDuration(record.firstTokenMs!.toDouble())}',
-                    alignEnd: true,
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columns = constraints.maxWidth >= 540 ? 2 : 1;
+                      final width =
+                          (constraints.maxWidth - (columns - 1) * 10) / columns;
+                      return Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _AiUsageDetailMetric(
+                            width: width,
+                            icon: Icons.timer_outlined,
+                            label: openHandLocalizedText(
+                              context,
+                              zh: '请求耗时',
+                              en: 'Duration',
+                            ),
+                            value: _usageDuration(record.durationMs.toDouble()),
+                          ),
+                          _AiUsageDetailMetric(
+                            width: width,
+                            icon: Icons.data_usage_rounded,
+                            label: 'Token',
+                            value: _usageInteger(record.usage.totalTokens ?? 0),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-          ),
-          cell(
-            flex: 12,
-            alignment: Alignment.center,
-            child: header
-                ? value(
-                    openHandLocalizedText(context, zh: '状态', en: 'Status'),
-                    align: TextAlign.center,
-                  )
-                : Tooltip(
-                    message:
-                        '${openHandLocalizedText(context, zh: '状态', en: 'Status')}: ${_usageRequestStatusLabel(context, record!.status)}'
-                        '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
-                        '\n$traceLabel: ${record.traceId}',
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
+                  if (unsuccessful) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
+                        color: statusColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: statusColor.withValues(alpha: 0.28),
+                          color: statusColor.withValues(alpha: 0.24),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: statusColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
                           Text(
-                            _usageRequestStatusLabel(context, record.status),
-                            maxLines: 1,
-                            style: theme.textTheme.labelMedium?.copyWith(
+                            openHandLocalizedText(
+                              context,
+                              zh: '错误摘要',
+                              en: 'Error Summary',
+                            ),
+                            style: theme.textTheme.labelLarge?.copyWith(
                               color: statusColor,
                               fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SelectableText(
+                            record.errorMessage ??
+                                record.errorType ??
+                                openHandLocalizedText(
+                                  context,
+                                  zh: '底层请求未提供错误正文。',
+                                  en: 'The underlying request did not provide an error message.',
+                                ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.45,
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                  if (diagnosticRows.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _AiUsageDetailSection(
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '诊断信息',
+                        en: 'Diagnostics',
+                      ),
+                      rows: diagnosticRows,
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  _AiUsageDetailSection(
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '请求上下文',
+                      en: 'Request Context',
+                    ),
+                    rows: requestRows,
                   ),
+                  const SizedBox(height: 12),
+                  _AiUsageDetailSection(
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '追踪标识',
+                      en: 'Trace Identity',
+                    ),
+                    rows: <({String label, String value})>[
+                      (
+                        label: openHandLocalizedText(
+                          context,
+                          zh: '开始时间',
+                          en: 'Started',
+                        ),
+                        value: formatYearMonthDayHms(record.startedAt),
+                      ),
+                      (
+                        label: openHandLocalizedText(
+                          context,
+                          zh: '结束时间',
+                          en: 'Ended',
+                        ),
+                        value: formatYearMonthDayHms(endedAt),
+                      ),
+                      (label: 'Trace ID', value: record.traceId),
+                      if (record.sessionId case final value?)
+                        (label: 'Session ID', value: value),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  String _diagnosticJson() {
+    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+      'trace_id': record.traceId,
+      'started_at': record.startedAt.toIso8601String(),
+      'duration_ms': record.durationMs,
+      'status': record.status,
+      'error_type': record.errorType,
+      'error_message': record.errorMessage,
+      'http_status_code': record.httpStatusCode,
+      'timeout_ms': record.timeoutMs,
+      'timeout_phase': record.timeoutPhase,
+      'source': record.source,
+      'operation': record.operation,
+      'surface': record.surface,
+      'provider': record.providerName,
+      'model': record.modelId,
+      'api_family': record.apiFamily,
+      'session_id': record.sessionId,
+    });
+  }
+}
+
+class _AiUsageDetailMetric extends StatelessWidget {
+  const _AiUsageDetailMetric({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageDetailSection extends StatelessWidget {
+  const _AiUsageDetailSection({required this.title, required this.rows});
+
+  final String title;
+  final List<({String label, String value})> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (var index = 0; index < rows.length; index++) ...[
+            _AiUsageDetailRow(
+              label: rows[index].label,
+              value: rows[index].value,
+            ),
+            if (index < rows.length - 1)
+              Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageDetailRow extends StatelessWidget {
+  const _AiUsageDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 480;
+          final label = Text(
+            this.label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          );
+          final value = SelectableText(
+            this.value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 4), value],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 138, child: label),
+              const SizedBox(width: 12),
+              Expanded(child: value),
+            ],
+          );
+        },
       ),
     );
   }
@@ -3516,13 +4029,83 @@ String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
 
 String _usageRequestStatusLabel(BuildContext context, String status) {
   return switch (status) {
-    'success' => openHandLocalizedText(context, zh: '成功', en: 'Success'),
-    'cancelled' => openHandLocalizedText(context, zh: '已取消', en: 'Cancelled'),
-    'failed' => openHandLocalizedText(context, zh: '失败', en: 'Failed'),
+    AiUsageRequestStatus.success => openHandLocalizedText(
+      context,
+      zh: '成功',
+      en: 'Success',
+    ),
+    AiUsageRequestStatus.failed => openHandLocalizedText(
+      context,
+      zh: '失败',
+      en: 'Failed',
+    ),
+    AiUsageRequestStatus.timeout => openHandLocalizedText(
+      context,
+      zh: '超时',
+      en: 'Timed Out',
+    ),
+    AiUsageRequestStatus.error => openHandLocalizedText(
+      context,
+      zh: '异常',
+      en: 'Error',
+    ),
+    AiUsageRequestStatus.cancelled => openHandLocalizedText(
+      context,
+      zh: '已取消',
+      en: 'Cancelled',
+    ),
     _ =>
       status.isEmpty
           ? openHandLocalizedText(context, zh: '未知', en: 'Unknown')
           : status,
+  };
+}
+
+Color _usageRequestStatusColor(ColorScheme colors, String status) {
+  return switch (status) {
+    AiUsageRequestStatus.success => OpenHandStatusColors.success,
+    AiUsageRequestStatus.timeout => OpenHandStatusColors.warning,
+    AiUsageRequestStatus.cancelled => colors.onSurfaceVariant,
+    AiUsageRequestStatus.failed ||
+    AiUsageRequestStatus.error => OpenHandStatusColors.error,
+    _ => colors.onSurfaceVariant,
+  };
+}
+
+IconData _usageRequestStatusIcon(String status) {
+  return switch (status) {
+    AiUsageRequestStatus.success => Icons.check_circle_outline_rounded,
+    AiUsageRequestStatus.timeout => Icons.timer_off_outlined,
+    AiUsageRequestStatus.cancelled => Icons.block_rounded,
+    AiUsageRequestStatus.failed => Icons.cancel_outlined,
+    AiUsageRequestStatus.error => Icons.report_problem_outlined,
+    _ => Icons.help_outline_rounded,
+  };
+}
+
+String _usageTimeoutPhaseLabel(BuildContext context, String phase) {
+  return switch (phase) {
+    'connection' => openHandLocalizedText(
+      context,
+      zh: '连接建立',
+      en: 'Connection',
+    ),
+    'response_headers' => openHandLocalizedText(
+      context,
+      zh: '等待响应头',
+      en: 'Response Headers',
+    ),
+    'response_body' => openHandLocalizedText(
+      context,
+      zh: '读取响应体',
+      en: 'Response Body',
+    ),
+    'stream_idle' => openHandLocalizedText(
+      context,
+      zh: '流式响应空闲',
+      en: 'Stream Idle',
+    ),
+    _ => openHandLocalizedText(context, zh: '完整请求', en: 'Request'),
   };
 }
 

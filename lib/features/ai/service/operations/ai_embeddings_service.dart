@@ -140,6 +140,7 @@ class AiEmbeddingsService {
         startedAt: startedAt,
         endedAt: DateTime.now().toUtc(),
         error: error,
+        timeout: timeout,
       );
       rethrow;
     }
