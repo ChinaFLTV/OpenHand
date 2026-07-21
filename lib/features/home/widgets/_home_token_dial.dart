@@ -1385,23 +1385,24 @@ class _ContextWindowUsageBar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 7),
-          ClipRRect(
-            borderRadius: _borderRadius999,
-            child: ColoredBox(
-              color: colorScheme.surfaceContainerHighest,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: usage.ratio),
-                duration: openHandMotionDuration(
-                  context,
-                  const Duration(milliseconds: 680),
-                ),
-                curve: Curves.easeOutBack,
-                builder: (context, value, _) => Align(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: 1,
-                  child: FractionallySizedBox(
+          SizedBox(
+            width: double.infinity,
+            height: 7,
+            child: ClipRRect(
+              borderRadius: _borderRadius999,
+              child: ColoredBox(
+                color: colorScheme.surfaceContainerHighest,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: usage.ratio),
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 680),
+                  ),
+                  curve: Curves.easeOutBack,
+                  builder: (context, value, _) => FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
                     widthFactor: value.clamp(0.0, 1.0),
-                    child: SizedBox(height: 7, child: ColoredBox(color: color)),
+                    child: ColoredBox(color: color),
                   ),
                 ),
               ),
