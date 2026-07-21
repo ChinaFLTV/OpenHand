@@ -565,13 +565,11 @@ class AiLspClientService {
     );
   }
 
-  Future<Object?> request({
-    required String operation,
+  Future<({AiLspBackendResolution backend, _AiLspSession? session})>
+  _resolveSyncedSessionForFile({
     required String filePath,
-    required int line,
-    required int character,
+    required String? documentText,
     String? language,
-    String? documentText,
   }) async {
     if (documentText != null) {
       _validateLspDocumentText(filePath, documentText);
@@ -580,15 +578,33 @@ class AiLspClientService {
       filePath: filePath,
       language: language,
     );
-    if (!backend.isAvailable) {
-      throw StateError(_resolutionErrorMessage(backend));
-    }
+    if (!backend.isAvailable) return (backend: backend, session: null);
     final session = await _getOrCreateSession(backend);
     await session.ensureDocumentSynced(
       filePath: filePath,
       language: backend.language,
       text: documentText,
     );
+    return (backend: backend, session: session);
+  }
+
+  Future<Object?> request({
+    required String operation,
+    required String filePath,
+    required int line,
+    required int character,
+    String? language,
+    String? documentText,
+  }) async {
+    final resolved = await _resolveSyncedSessionForFile(
+      filePath: filePath,
+      language: language,
+      documentText: documentText,
+    );
+    final session = resolved.session;
+    if (session == null) {
+      throw StateError(_resolutionErrorMessage(resolved.backend));
+    }
     return session.request(
       operation: operation,
       filePath: filePath,
@@ -667,22 +683,15 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
-    if (documentText != null) {
-      _validateLspDocumentText(filePath, documentText);
-    }
-    final backend = await resolveBackendForFile(
+    final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
+      documentText: documentText,
     );
-    if (!backend.isAvailable) {
-      throw StateError(_resolutionErrorMessage(backend));
+    final session = resolved.session;
+    if (session == null) {
+      throw StateError(_resolutionErrorMessage(resolved.backend));
     }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
-    );
     final result = await session.prepareRename(
       filePath: filePath,
       line: line,
@@ -699,22 +708,15 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
-    if (documentText != null) {
-      _validateLspDocumentText(filePath, documentText);
-    }
-    final backend = await resolveBackendForFile(
+    final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
+      documentText: documentText,
     );
-    if (!backend.isAvailable) {
-      throw StateError(_resolutionErrorMessage(backend));
+    final session = resolved.session;
+    if (session == null) {
+      throw StateError(_resolutionErrorMessage(resolved.backend));
     }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
-    );
     final result = await session.rename(
       filePath: filePath,
       line: line,
@@ -751,22 +753,15 @@ class AiLspClientService {
     String? triggerCharacter,
     bool isRetrigger = false,
   }) async {
-    if (documentText != null) {
-      _validateLspDocumentText(filePath, documentText);
-    }
-    final backend = await resolveBackendForFile(
+    final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
+      documentText: documentText,
     );
-    if (!backend.isAvailable) {
+    final session = resolved.session;
+    if (session == null) {
       return const <AiLspCompletionItem>[];
     }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
-    );
     final result = await session.completion(
       filePath: filePath,
       line: line,
@@ -786,22 +781,13 @@ class AiLspClientService {
     String? triggerCharacter,
     bool isRetrigger = false,
   }) async {
-    if (documentText != null) {
-      _validateLspDocumentText(filePath, documentText);
-    }
-    final backend = await resolveBackendForFile(
+    final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
+      documentText: documentText,
     );
-    if (!backend.isAvailable) {
-      return null;
-    }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
-    );
+    final session = resolved.session;
+    if (session == null) return null;
     final result = await session.signatureHelp(
       filePath: filePath,
       line: line,
@@ -835,22 +821,15 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
-    if (documentText != null) {
-      _validateLspDocumentText(filePath, documentText);
-    }
-    final backend = await resolveBackendForFile(
+    final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
+      documentText: documentText,
     );
-    if (!backend.isAvailable) {
+    final session = resolved.session;
+    if (session == null) {
       return const <AiLspCodeAction>[];
     }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
-    );
     final result = await session.codeActions(
       filePath: filePath,
       range: range,
@@ -866,22 +845,15 @@ class AiLspClientService {
     String? documentText,
     bool insertSpaces = true,
   }) async {
-    if (documentText != null) {
-      _validateLspDocumentText(filePath, documentText);
-    }
-    final backend = await resolveBackendForFile(
+    final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
+      documentText: documentText,
     );
-    if (!backend.isAvailable) {
+    final session = resolved.session;
+    if (session == null) {
       return const <AiLspTextEdit>[];
     }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
-    );
     final result = await session.formatDocument(
       filePath: filePath,
       tabSize: tabSize,
@@ -953,19 +925,10 @@ class AiLspClientService {
     required String documentText,
     String? language,
   }) async {
-    _validateLspDocumentText(filePath, documentText);
-    final backend = await resolveBackendForFile(
+    await _resolveSyncedSessionForFile(
       filePath: filePath,
       language: language,
-    );
-    if (!backend.isAvailable) {
-      return;
-    }
-    final session = await _getOrCreateSession(backend);
-    await session.ensureDocumentSynced(
-      filePath: filePath,
-      language: backend.language,
-      text: documentText,
+      documentText: documentText,
     );
   }
 
