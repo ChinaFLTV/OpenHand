@@ -134,8 +134,11 @@ class AiTtsPlaybackService {
   _AiTtsOperation? _activeOperation;
   Future<void>? _stalePlaybackCleanupFuture;
   Future<Set<String>>? _macOsVoiceNamesFuture;
+  Future<void>? _disposeFuture;
+  bool _disposed = false;
 
   bool isPlayingMessage(String messageId) {
+    if (_disposed) return false;
     final snapshot = state.value;
     return snapshot.playing && snapshot.messageId == messageId;
   }
@@ -147,6 +150,7 @@ class AiTtsPlaybackService {
     List<AiModelConfig> availableModels = const <AiModelConfig>[],
     AiModelConfig? fallbackModel,
   }) async {
+    _throwIfDisposed();
     if (isPlayingMessage(messageId)) {
       await stop();
       return;
@@ -167,12 +171,13 @@ class AiTtsPlaybackService {
     List<AiModelConfig> availableModels = const <AiModelConfig>[],
     AiModelConfig? fallbackModel,
   }) async {
-    await stop();
+    final reservation = _reservePlayback();
+    if (!await _prepareReservedPlayback(reservation)) return;
     final normalized = settings.normalized();
     if (!normalized.enabled) return;
     final content = _normalizeText(text, normalized.maxTextCharacters);
     if (content.isEmpty) return;
-    final generation = ++_generation;
+    final generation = reservation.generation;
     final synthesisTimeout = Duration(seconds: normalized.timeoutSeconds);
     Object? lastError;
     StackTrace? lastStack;
@@ -188,16 +193,22 @@ class AiTtsPlaybackService {
       );
       _activeOperation = operation;
       bool isCurrent() {
-        return generation == _generation &&
+        return _isCurrentGeneration(generation) &&
             identical(_activeOperation, operation) &&
             !operation.isCancelled;
       }
 
-      state.value = AiTtsPlaybackSnapshot(
-        playing: true,
-        messageId: messageId,
-        provider: provider,
-      );
+      if (!_publishState(
+        generation,
+        AiTtsPlaybackSnapshot(
+          playing: true,
+          messageId: messageId,
+          provider: provider,
+        ),
+      )) {
+        await _releaseOperation(operation);
+        return;
+      }
       try {
         await _speakWithProvider(
           providerSettings,
@@ -212,62 +223,71 @@ class AiTtsPlaybackService {
       } catch (error, stack) {
         await _releaseOperation(operation);
         if (error is _AiTtsPlaybackCancelled) return;
-        if (generation != _generation) return;
+        if (!_isCurrentGeneration(generation)) return;
         lastError = error;
         lastStack = stack;
         if (!isAiTtsConfigurationError(error)) {
-          silentLog('tts', 'provider ${provider.storageKey}', error, stack);
+          silentLog('tts', '调用供应商 ${provider.storageKey}', error, stack);
         }
       }
     }
-    if (generation == _generation) {
+    if (_isCurrentGeneration(generation)) {
       final error =
           lastError ??
           StateError(
-            attemptedProvider
-                ? 'All configured TTS providers failed.'
-                : 'No enabled TTS provider is available.',
+            attemptedProvider ? '所有已配置的 TTS 供应商均调用失败。' : '没有可用的已启用 TTS 供应商。',
           );
-      state.value = AiTtsPlaybackSnapshot(
-        messageId: messageId,
-        error: _playbackFailureMessage(error),
-        failureId: ++_failureSerial,
+      _publishState(
+        generation,
+        AiTtsPlaybackSnapshot(
+          messageId: messageId,
+          error: _playbackFailureMessage(error),
+          failureId: ++_failureSerial,
+        ),
       );
       Error.throwWithStackTrace(error, lastStack ?? StackTrace.current);
     }
   }
 
-  Future<void> testProvider({
+  Future<bool> testProvider({
     required AiTtsSettings settings,
     required AiTtsProvider provider,
     String text = settingsTestText,
     List<AiModelConfig> availableModels = const <AiModelConfig>[],
     AiModelConfig? fallbackModel,
   }) async {
-    await stop();
+    final reservation = _reservePlayback();
+    if (!await _prepareReservedPlayback(reservation)) return false;
     final normalized = settings.normalized();
     final content = _normalizeText(text, normalized.maxTextCharacters);
     if (content.isEmpty) {
-      throw StateError('TTS test text is empty.');
+      throw StateError('TTS 测试文本不能为空。');
     }
     final providerSettings = normalized.provider(provider);
-    final generation = ++_generation;
+    final generation = reservation.generation;
     final operation = _AiTtsOperation(
       timeout: Duration(seconds: normalized.timeoutSeconds),
       transport: _transportFactory(),
     );
     _activeOperation = operation;
     bool isCurrent() {
-      return generation == _generation &&
+      return _isCurrentGeneration(generation) &&
           identical(_activeOperation, operation) &&
           !operation.isCancelled;
     }
 
-    state.value = AiTtsPlaybackSnapshot(
-      playing: true,
-      messageId: settingsTestMessageId,
-      provider: provider,
-    );
+    if (!_publishState(
+      generation,
+      AiTtsPlaybackSnapshot(
+        playing: true,
+        messageId: settingsTestMessageId,
+        provider: provider,
+      ),
+    )) {
+      await _releaseOperation(operation);
+      return false;
+    }
+    var completed = false;
     try {
       await _speakWithProvider(
         providerSettings,
@@ -277,40 +297,110 @@ class AiTtsPlaybackService {
         fallbackModel: fallbackModel,
         isCurrent: isCurrent,
       );
+      completed = isCurrent();
     } on _AiTtsPlaybackCancelled {
-      return;
+      return false;
     } catch (_) {
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       rethrow;
     } finally {
       await _releaseOperation(operation);
-      if (generation == _generation) {
-        state.value = const AiTtsPlaybackSnapshot();
+      _publishState(generation, const AiTtsPlaybackSnapshot());
+    }
+    return completed && _isCurrentGeneration(generation);
+  }
+
+  Future<void> stop() {
+    if (_disposed) return _disposeFuture ?? Future<void>.value();
+    final generation = ++_generation;
+    final operation = _activeOperation;
+    _publishState(generation, const AiTtsPlaybackSnapshot());
+    return operation == null
+        ? Future<void>.value()
+        : _releaseOperation(operation);
+  }
+
+  Future<void> _releaseOperation(_AiTtsOperation operation) async {
+    try {
+      await operation.close();
+    } finally {
+      if (identical(_activeOperation, operation)) {
+        _activeOperation = null;
       }
     }
   }
 
-  Future<void> stop() async {
+  ({int generation, _AiTtsOperation? previous}) _reservePlayback() {
+    _throwIfDisposed();
+    final previous = _activeOperation;
+    final generation = ++_generation;
+    _publishState(generation, const AiTtsPlaybackSnapshot());
+    return (generation: generation, previous: previous);
+  }
+
+  Future<bool> _prepareReservedPlayback(
+    ({int generation, _AiTtsOperation? previous}) reservation,
+  ) async {
+    final previous = reservation.previous;
+    if (previous != null) {
+      await _releaseOperation(previous);
+    }
+    return _isCurrentGeneration(reservation.generation);
+  }
+
+  bool _isCurrentGeneration(int generation) {
+    return !_disposed && generation == _generation;
+  }
+
+  bool _publishState(int generation, AiTtsPlaybackSnapshot snapshot) {
+    if (!_isCurrentGeneration(generation)) return false;
+    state.value = snapshot;
+    return _isCurrentGeneration(generation);
+  }
+
+  void _throwIfDisposed() {
+    if (_disposed) throw StateError('TTS 播放服务已关闭。');
+  }
+
+  Future<void> dispose() {
+    final active = _disposeFuture;
+    if (active != null) return active;
+    final completer = Completer<void>();
+    _disposeFuture = completer.future;
+    _disposed = true;
     _generation += 1;
-    final operation = _activeOperation;
-    _activeOperation = null;
-    if (operation != null) await operation.close();
     state.value = const AiTtsPlaybackSnapshot();
+    final operation = _activeOperation;
+    unawaited(
+      _finishDispose(operation).then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) {
+          silentLog('tts', '关闭播放服务', error, stack);
+          completer.complete();
+        },
+      ),
+    );
+    return completer.future;
   }
 
-  Future<void> _releaseOperation(_AiTtsOperation operation) async {
-    if (identical(_activeOperation, operation)) {
-      _activeOperation = null;
+  Future<void> _finishDispose(_AiTtsOperation? operation) async {
+    if (operation != null) {
+      await runAsyncCleanupBounded(
+        () => _releaseOperation(operation),
+        timeout: const Duration(seconds: 8),
+        onError: (error, stack) => silentLog('tts', '关闭当前播放任务', error, stack),
+      );
     }
-    await operation.close();
-  }
-
-  Future<void> dispose() async {
-    await stop();
     if (_ownsMediaGenerationService) {
-      _mediaGenerationService.dispose();
+      await runAsyncCleanupBounded(
+        _mediaGenerationService.dispose,
+        onError: (error, stack) => silentLog('tts', '关闭媒体生成服务', error, stack),
+      );
     }
-    state.dispose();
+    await runAsyncCleanupBounded(
+      state.dispose,
+      onError: (error, stack) => silentLog('tts', '关闭播放状态', error, stack),
+    );
   }
 
   static bool supportsAudioGenerationModel(
@@ -427,7 +517,7 @@ class AiTtsPlaybackService {
         );
       case AiTtsProvider.system:
       case AiTtsProvider.apple:
-        throw StateError('System TTS is not cacheable.');
+        throw StateError('系统 TTS 不支持缓存。');
       case AiTtsProvider.xfyun:
         return _synthesizeWithXfyun(provider, text, operation: operation);
       case AiTtsProvider.baidu:
@@ -458,10 +548,10 @@ class AiTtsPlaybackService {
       fallbackModel: fallbackModel,
     );
     if (model == null) {
-      throw StateError('AI TTS model is empty.');
+      throw StateError('AI TTS 模型不能为空。');
     }
     if (!supportsAudioGenerationModel(model, model.modelId)) {
-      throw StateError('AI TTS model does not support audio generation.');
+      throw StateError('AI TTS 模型不支持音频生成。');
     }
     final requestedFormat = _extraString(
       settings,
@@ -486,51 +576,54 @@ class AiTtsPlaybackService {
       body: () async {
         final startedAt = DateTime.now().toUtc();
         try {
-          final generated = await _mediaGenerationService.generateAudio(
-            model: model,
-            prompt: text,
-            options: AiCreationOptions(
-              voice: nullIfBlank(voice),
-              speed: settings.speed,
-              volume: settings.volume,
-              pitch: settings.pitch,
-              outputFormat: outputFormat,
-              sampleRate: _extraInt(
-                settings,
-                'sample_rate',
-                fallback: _defaultAiTtsSampleRate,
+          final generated = await operation.runTrackedActivity(
+            () => _mediaGenerationService.generateAudio(
+              model: model,
+              prompt: text,
+              options: AiCreationOptions(
+                voice: nullIfBlank(voice),
+                speed: settings.speed,
+                volume: settings.volume,
+                pitch: settings.pitch,
+                outputFormat: outputFormat,
+                sampleRate: _extraInt(
+                  settings,
+                  'sample_rate',
+                  fallback: _defaultAiTtsSampleRate,
+                ),
+                bitrate: _extraInt(
+                  settings,
+                  'bit_rate',
+                  fallback: _defaultAiTtsBitRate,
+                ),
+                languageBoost: _extraString(settings, 'language_boost'),
+                emotion: _extraString(settings, 'emotion'),
+                textNormalization: _extraBool(settings, 'text_normalization'),
+                latexRead: _extraBool(settings, 'latex_read'),
+                channel: _extraInt(settings, 'channel', fallback: 1),
+                forceCbr: _extraBool(settings, 'force_cbr'),
+                subtitleEnable: _extraBool(settings, 'subtitle_enable'),
+                subtitleType: _extraString(
+                  settings,
+                  'subtitle_type',
+                  fallback: 'sentence',
+                ),
+                pronunciationTone: stringListFromListValue(
+                  settings.extra['pronunciation_tone'],
+                ),
+                timbreWeights: settings.extra['timbre_weights'] is List
+                    ? (settings.extra['timbre_weights'] as List)
+                          .whereType<Map>()
+                          .map(stringKeyedMapFromValue)
+                          .toList(growable: false)
+                    : const <Map<String, Object?>>[],
+                voiceModify: settings.extra['voice_modify'] is Map
+                    ? stringKeyedMapFromValue(settings.extra['voice_modify'])
+                    : const <String, Object?>{},
               ),
-              bitrate: _extraInt(
-                settings,
-                'bit_rate',
-                fallback: _defaultAiTtsBitRate,
-              ),
-              languageBoost: _extraString(settings, 'language_boost'),
-              emotion: _extraString(settings, 'emotion'),
-              textNormalization: _extraBool(settings, 'text_normalization'),
-              latexRead: _extraBool(settings, 'latex_read'),
-              channel: _extraInt(settings, 'channel', fallback: 1),
-              forceCbr: _extraBool(settings, 'force_cbr'),
-              subtitleEnable: _extraBool(settings, 'subtitle_enable'),
-              subtitleType: _extraString(
-                settings,
-                'subtitle_type',
-                fallback: 'sentence',
-              ),
-              pronunciationTone: stringListFromListValue(
-                settings.extra['pronunciation_tone'],
-              ),
-              timbreWeights: settings.extra['timbre_weights'] is List
-                  ? (settings.extra['timbre_weights'] as List)
-                        .whereType<Map>()
-                        .map(stringKeyedMapFromValue)
-                        .toList(growable: false)
-                  : const <Map<String, Object?>>[],
-              voiceModify: settings.extra['voice_modify'] is Map
-                  ? stringKeyedMapFromValue(settings.extra['voice_modify'])
-                  : const <String, Object?>{},
+              timeout: operation.remainingSynthesisTime(),
+              cancelSignal: operation.cancelSignal,
             ),
-            timeout: operation.remainingSynthesisTime(),
           );
           AiUsageTracker.instance.recordSuccess(
             model: model,
@@ -542,6 +635,9 @@ class AiTtsPlaybackService {
             usage: generated.usage,
           );
           return generated;
+        } on AiMediaGenerationCancelledException {
+          operation.throwIfCancelled();
+          rethrow;
         } catch (error) {
           AiUsageTracker.instance.recordFailure(
             model: model,
@@ -557,7 +653,7 @@ class AiTtsPlaybackService {
     operation.throwIfCancelled();
     final audioReference = _firstMediaReference(result.markdown);
     if (audioReference.isEmpty) {
-      throw StateError('AI TTS returned no playable audio.');
+      throw StateError('AI TTS 未返回可播放音频。');
     }
     return _audioPayloadFromReference(
       audioReference,
@@ -737,7 +833,7 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
-      throw StateError('Mimo TTS API key is empty.');
+      throw StateError('Mimo TTS API 密钥不能为空。');
     }
     final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint);
@@ -760,7 +856,7 @@ class AiTtsPlaybackService {
     };
     if (_mimoUsesPresetVoice(model) &&
         (audio['voice'] as String?)?.isEmpty != false) {
-      throw StateError('Mimo TTS voice is empty.');
+      throw StateError('Mimo TTS 音色不能为空。');
     }
     final response = await operation.transport.sendJson(
       uri: uri,
@@ -811,11 +907,11 @@ class AiTtsPlaybackService {
   }) async {
     final path = _extraString(settings, 'voice_sample_path');
     if (path.isEmpty) {
-      throw StateError('Mimo TTS voice sample path is empty.');
+      throw StateError('Mimo TTS 音色样本路径不能为空。');
     }
     final mimeType = _mimoVoiceSampleMimeType(path);
     if (mimeType == null) {
-      throw StateError('Mimo TTS voice sample format must be mp3 or wav.');
+      throw StateError('Mimo TTS 音色样本格式必须为 MP3 或 WAV。');
     }
     final file = File(path);
     final remaining = operation.remainingSynthesisTime();
@@ -830,7 +926,7 @@ class AiTtsPlaybackService {
     );
     operation.throwIfCancelled();
     if (bytes.isEmpty) {
-      throw StateError('Mimo TTS voice sample file is empty.');
+      throw StateError('Mimo TTS 音色样本文件不能为空。');
     }
     return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
@@ -841,11 +937,11 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
-      throw StateError('Doubao TTS API key is empty.');
+      throw StateError('豆包 TTS API 密钥不能为空。');
     }
     final speaker = settings.voice.trim();
     if (speaker.isEmpty) {
-      throw StateError('Doubao TTS speaker is empty.');
+      throw StateError('豆包 TTS 发音人不能为空。');
     }
     final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint);
@@ -993,7 +1089,7 @@ class AiTtsPlaybackService {
       );
       return;
     }
-    throw UnsupportedError('System TTS is not available on this platform.');
+    throw UnsupportedError('当前平台不支持系统 TTS。');
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithXfyun(
@@ -1004,7 +1100,7 @@ class AiTtsPlaybackService {
     if (settings.appId.isEmpty ||
         settings.apiKey.isEmpty ||
         settings.apiSecret.isEmpty) {
-      throw StateError('Xfyun TTS credentials are incomplete.');
+      throw StateError('讯飞 TTS 凭据不完整。');
     }
     final endpoint = _endpointOrDefault(settings);
     final uri = _xfyunAuthorizedUri(Uri.parse(endpoint), settings);
@@ -1053,17 +1149,13 @@ class AiTtsPlaybackService {
           operation.throwIfCancelled();
           if (event is String) {
             if (event.length > _maxWebSocketEventChars) {
-              throw const FormatException(
-                'Xfyun TTS event exceeds the safety limit.',
-              );
+              throw const FormatException('讯飞 TTS 事件超过安全上限。');
             }
             final decoded = jsonDecode(event);
             if (decoded is! Map) continue;
             final code = decoded['code'];
             if (code is int && code != 0) {
-              throw StateError(
-                'Xfyun TTS failed: ${decoded['message'] ?? code}',
-              );
+              throw StateError('讯飞 TTS 调用失败：${decoded['message'] ?? code}');
             }
             final data = decoded['data'];
             if (data is Map) {
@@ -1079,9 +1171,7 @@ class AiTtsPlaybackService {
             }
           } else if (event is List<int> &&
               event.length > _maxWebSocketEventChars) {
-            throw const FormatException(
-              'Xfyun TTS event exceeds the safety limit.',
-            );
+            throw const FormatException('讯飞 TTS 事件超过安全上限。');
           }
         }
       }
@@ -1089,10 +1179,8 @@ class AiTtsPlaybackService {
       final totalRemaining = operation.remainingSynthesisTime();
       await consumeEvents().timeout(
         totalRemaining,
-        onTimeout: () => throw TimeoutException(
-          'Xfyun TTS exceeded its total time limit.',
-          totalRemaining,
-        ),
+        onTimeout: () =>
+            throw TimeoutException('讯飞 TTS 超过总时限。', totalRemaining),
       );
       operation.throwIfCancelled();
       return _AiTtsAudioPayload(
@@ -1144,7 +1232,7 @@ class AiTtsPlaybackService {
     }
     final contentType = response.headers['content-type'] ?? '';
     if (!contentType.startsWith('audio/')) {
-      throw StateError('Baidu TTS returned non-audio response.');
+      throw StateError('百度 TTS 返回了非音频响应。');
     }
     operation.throwIfCancelled();
     return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
@@ -1156,7 +1244,7 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
-      throw StateError('Google TTS API key is empty.');
+      throw StateError('Google TTS API 密钥不能为空。');
     }
     final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint).replace(
@@ -1203,7 +1291,7 @@ class AiTtsPlaybackService {
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map || decoded['audioContent'] is! String) {
-      throw StateError('Google TTS returned invalid audio payload.');
+      throw StateError('Google TTS 返回了无效音频数据。');
     }
     operation.throwIfCancelled();
     return _AiTtsAudioPayload(
@@ -1221,12 +1309,12 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
-      throw StateError('Bing TTS subscription key is empty.');
+      throw StateError('Bing TTS 订阅密钥不能为空。');
     }
     final region = nullIfBlank(settings.region);
     final configuredEndpoint = nullIfBlank(settings.endpoint);
     if (region == null && configuredEndpoint == null) {
-      throw StateError('Bing TTS region is empty.');
+      throw StateError('Bing TTS 区域不能为空。');
     }
     final endpoint =
         configuredEndpoint ??
@@ -1270,7 +1358,7 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
-      throw StateError('Youdao TTS credentials are incomplete.');
+      throw StateError('有道 TTS 凭据不完整。');
     }
     final endpoint = _endpointOrDefault(settings);
     final salt = DateTime.now().microsecondsSinceEpoch.toString();
@@ -1313,7 +1401,7 @@ class AiTtsPlaybackService {
     }
     final contentType = response.headers['content-type'] ?? '';
     if (!contentType.startsWith('audio/')) {
-      throw StateError('Youdao TTS returned non-audio response.');
+      throw StateError('有道 TTS 返回了非音频响应。');
     }
     operation.throwIfCancelled();
     return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
@@ -1330,9 +1418,9 @@ class AiTtsPlaybackService {
   }) {
     return operation.runTrackedActivity(() async {
       if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
-      if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
+      if (bytes.isEmpty) throw StateError('TTS 返回了空音频。');
       if (!Platform.isMacOS) {
-        throw UnsupportedError('Audio playback is only wired for macOS now.');
+        throw UnsupportedError('音频播放当前仅支持 macOS。');
       }
       final dir = Directory(
         p.join(OpenHandPaths.defaultCacheDirectoryPath(), 'tts'),
@@ -1383,7 +1471,7 @@ class AiTtsPlaybackService {
             await file.delete().timeout(_resourceCloseTimeout);
           }
         } catch (_) {
-          // Cache cleanup is best effort and must not hide playback failures.
+          // 缓存清理仅尽力执行，不能覆盖播放失败。
         }
       }
     });
@@ -1399,7 +1487,7 @@ class AiTtsPlaybackService {
           _stalePlaybackCleanupTimeout.inMicroseconds -
           stopwatch.elapsedMicroseconds;
       if (value <= 0) {
-        throw TimeoutException('TTS stale-file cleanup timed out.');
+        throw TimeoutException('TTS 过期文件清理超时。');
       }
       return Duration(microseconds: value);
     }
@@ -1425,7 +1513,7 @@ class AiTtsPlaybackService {
         deleted += 1;
       }
     } catch (_) {
-      // Startup hygiene is best effort and strictly bounded.
+      // 启动清理仅尽力执行，并受严格时限约束。
     } finally {
       stopwatch.stop();
       await runAsyncCleanupBounded(iterator.cancel);
@@ -1439,14 +1527,14 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (!Platform.isMacOS) {
-      throw UnsupportedError('Audio playback is only wired for macOS now.');
+      throw UnsupportedError('音频播放当前仅支持 macOS。');
     }
     final file = File(path);
     final metadataTimeout = timeout < _playbackFileIoTimeout
         ? timeout
         : _playbackFileIoTimeout;
     if (!await file.exists().timeout(metadataTimeout)) {
-      throw StateError('TTS audio file is missing.');
+      throw StateError('TTS 音频文件不存在。');
     }
     operation.throwIfCancelled();
     await _runSpeechProcess(
@@ -1490,12 +1578,7 @@ class AiTtsPlaybackService {
       if (result.exitCode != 0) return null;
       return _parseAfinfoDuration('${result.stdout}\n${result.stderr}');
     } catch (error, stack) {
-      silentLog(
-        'ai_tts_playback_service',
-        'probe audio duration',
-        error,
-        stack,
-      );
+      silentLog('ai_tts_playback_service', '探测音频时长', error, stack);
       return null;
     }
   }
@@ -1507,7 +1590,7 @@ class AiTtsPlaybackService {
   }) async {
     final normalized = reference.trim();
     if (normalized.isEmpty) {
-      throw StateError('TTS audio reference is empty.');
+      throw StateError('TTS 音频引用不能为空。');
     }
     final uri = Uri.tryParse(normalized);
     if (uri != null && uri.hasScheme) {
@@ -1525,7 +1608,7 @@ class AiTtsPlaybackService {
           operation: operation,
         );
       }
-      throw StateError('AI TTS returned unsupported audio reference.');
+      throw StateError('AI TTS 返回了不支持的音频引用。');
     }
     return _audioPayloadFromFile(
       normalized,
@@ -1576,7 +1659,7 @@ class AiTtsPlaybackService {
     }
     final contentType = _responseContentType(response.headers);
     if (!_isPlayableAudioContentType(contentType)) {
-      throw StateError('AI TTS audio URL returned non-audio content.');
+      throw StateError('AI TTS 音频地址返回了非音频内容。');
     }
     operation.throwIfCancelled();
     return _AiTtsAudioPayload(
@@ -1630,7 +1713,7 @@ class AiTtsPlaybackService {
       final cancelled = operation.isCancelled;
       await operation.terminateProcess(process);
       if (cancelled) throw const _AiTtsPlaybackCancelled();
-      throw TimeoutException('TTS process timed out.', timeout);
+      throw TimeoutException('TTS 进程执行超时。', timeout);
     } finally {
       operation.unregisterProcess(process);
       await Future.wait<void>(<Future<void>>[
@@ -1675,7 +1758,7 @@ class AiTtsPlaybackService {
     required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
-      throw StateError('Baidu TTS API key or secret is empty.');
+      throw StateError('百度 TTS API 密钥或密文不能为空。');
     }
     final uri = Uri.parse('https://aip.baidubce.com/oauth/2.0/token').replace(
       queryParameters: <String, String>{
@@ -1700,7 +1783,7 @@ class AiTtsPlaybackService {
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map || decoded['access_token'] is! String) {
-      throw StateError('Baidu token response is invalid.');
+      throw StateError('百度 TTS 令牌响应无效。');
     }
     operation.throwIfCancelled();
     return decoded['access_token'] as String;
@@ -1739,12 +1822,7 @@ class AiTtsPlaybackService {
             ),
       ).toSet();
     } catch (error, stack) {
-      silentLog(
-        'ai_tts_playback_service',
-        'load macOS voice names',
-        error,
-        stack,
-      );
+      silentLog('ai_tts_playback_service', '加载 macOS 语音名称', error, stack);
       return const <String>{};
     }
   }
@@ -1965,7 +2043,7 @@ class AiTtsPlaybackService {
     if (decoded is! Map) return;
     final code = decoded['code'];
     if (code is int && code != 0 && code != _doubaoTtsSuccessCode) {
-      throw StateError('Doubao TTS failed: ${decoded['message'] ?? code}');
+      throw StateError('豆包 TTS 调用失败：${decoded['message'] ?? code}');
     }
     if (code == _doubaoTtsSuccessCode) return;
     final data = decoded['data'];
@@ -1984,19 +2062,15 @@ class AiTtsPlaybackService {
     required int maxBytes,
   }) {
     if (maxBytes < 1) {
-      throw StateError('TTS audio exceeds the configured safety limit.');
+      throw StateError('TTS 音频超过配置的安全上限。');
     }
     final maxEncodedChars = ((maxBytes + 2) ~/ 3) * 4 + 4096;
     if (encoded.length > maxEncodedChars) {
-      throw StateError(
-        'TTS audio exceeds the ${formatByteSize(maxBytes)} safety limit.',
-      );
+      throw StateError('TTS 音频超过 ${formatByteSize(maxBytes)} 的安全上限。');
     }
     final decoded = base64Decode(encoded);
     if (decoded.length > maxBytes) {
-      throw StateError(
-        'TTS audio exceeds the ${formatByteSize(maxBytes)} safety limit.',
-      );
+      throw StateError('TTS 音频超过 ${formatByteSize(maxBytes)} 的安全上限。');
     }
     return decoded;
   }
@@ -2015,7 +2089,7 @@ class AiTtsPlaybackService {
     try {
       await socket.close().timeout(_resourceCloseTimeout);
     } catch (_) {
-      // The operation-owned HttpClient is force-closed by its owner.
+      // 操作自有的 HttpClient 由其所有者强制关闭。
     }
   }
 
@@ -2029,17 +2103,17 @@ class AiTtsPlaybackService {
         ? input['max_audio_bytes'] as int
         : _maxAudioResponseBytes;
     if (body is! String || nullIfBlank(body) == null) {
-      throw StateError('Mimo TTS returned empty response.');
+      throw StateError('Mimo TTS 返回了空响应。');
     }
     final Object? decoded;
     try {
       decoded = jsonDecode(body);
     } on FormatException catch (error) {
-      throw StateError('Mimo TTS returned invalid JSON: ${error.message}');
+      throw StateError('Mimo TTS 返回了无效 JSON：${error.message}');
     }
     final businessError = _mimoBusinessError(decoded);
     if (businessError != null) {
-      throw StateError('Mimo TTS failed: $businessError');
+      throw StateError('Mimo TTS 调用失败：$businessError');
     }
     final pcm16 = _isPcm16Format(format);
     final encoded = _chatCompletionAudioData(decoded, providerName: 'Mimo TTS');
@@ -2050,7 +2124,7 @@ class AiTtsPlaybackService {
         maxBytes: pcm16 ? maxAudioBytes - _minimumWavBytes : maxAudioBytes,
       );
     } on FormatException {
-      throw StateError('Mimo TTS returned invalid Base64 audio.');
+      throw StateError('Mimo TTS 返回了无效 Base64 音频。');
     }
     if (pcm16) {
       _validatePcm16Audio(bytes, providerName: 'Mimo TTS');
@@ -2091,7 +2165,7 @@ class AiTtsPlaybackService {
         }
       }
     }
-    throw StateError('$providerName returned invalid audio payload.');
+    throw StateError('$providerName 返回了无效音频数据。');
   }
 
   static String? _audioDataFromObject(Object? audio) {
@@ -2108,7 +2182,7 @@ class AiTtsPlaybackService {
       return extractApiErrorMessage(
         jsonEncode(<String, Object?>{'error': error}),
         maxLength: 500,
-        emptyFallback: 'unknown service error',
+        emptyFallback: '未知服务错误',
       );
     }
     final choices = decoded['choices'];
@@ -2133,7 +2207,7 @@ class AiTtsPlaybackService {
         ? ''
         : normalized.substring(0, separator).toLowerCase();
     if (separator < 0 || !metadata.contains(';base64')) {
-      throw const FormatException('Invalid audio data URL.');
+      throw const FormatException('音频 Data URL 无效。');
     }
     return normalized.substring(separator + 1).trim();
   }
@@ -2143,25 +2217,25 @@ class AiTtsPlaybackService {
     required String providerName,
   }) {
     if (bytes.length < _pcm16BytesPerSample || bytes.length.isOdd) {
-      throw StateError('$providerName returned invalid PCM16 audio.');
+      throw StateError('$providerName 返回了无效 PCM16 音频。');
     }
     final data = ByteData.sublistView(bytes);
     for (var offset = 0; offset < bytes.length; offset += 2) {
       if (data.getInt16(offset, Endian.little) != 0) return;
     }
-    throw StateError('$providerName returned silent PCM16 audio.');
+    throw StateError('$providerName 返回了静音 PCM16 音频。');
   }
 
   static void _validateMimoWavAudio(Uint8List bytes) {
     if (bytes.length < _minimumWavBytes ||
         !_asciiEquals(bytes, 0, 'RIFF') ||
         !_asciiEquals(bytes, 8, 'WAVE')) {
-      throw StateError('Mimo TTS returned invalid WAV audio.');
+      throw StateError('Mimo TTS 返回了无效 WAV 音频。');
     }
     final data = ByteData.sublistView(bytes);
     final riffEnd = data.getUint32(4, Endian.little) + 8;
     if (riffEnd < _minimumWavBytes || riffEnd > bytes.length) {
-      throw StateError('Mimo TTS returned truncated WAV audio.');
+      throw StateError('Mimo TTS 返回了截断的 WAV 音频。');
     }
     var offset = 12;
     var pcmFormat = false;
@@ -2174,11 +2248,11 @@ class AiTtsPlaybackService {
       final chunkDataOffset = offset + 8;
       final chunkEnd = chunkDataOffset + chunkSize;
       if (chunkEnd > riffEnd) {
-        throw StateError('Mimo TTS returned malformed WAV chunks.');
+        throw StateError('Mimo TTS 返回了格式错误的 WAV 数据块。');
       }
       if (_asciiEquals(bytes, offset, 'fmt ')) {
         if (chunkSize < 16) {
-          throw StateError('Mimo TTS returned invalid WAV format metadata.');
+          throw StateError('Mimo TTS 返回了无效 WAV 格式元数据。');
         }
         final formatTag = data.getUint16(chunkDataOffset, Endian.little);
         final channels = data.getUint16(chunkDataOffset + 2, Endian.little);
@@ -2191,7 +2265,7 @@ class AiTtsPlaybackService {
             byteRate == 0 ||
             blockAlign == 0 ||
             bitsPerSample == 0) {
-          throw StateError('Mimo TTS returned unusable WAV metadata.');
+          throw StateError('Mimo TTS 返回了不可用的 WAV 元数据。');
         }
         pcmFormat = formatTag == 1;
       } else if (_asciiEquals(bytes, offset, 'data') && chunkSize > 0) {
@@ -2204,7 +2278,7 @@ class AiTtsPlaybackService {
         dataOffset < 0 ||
         dataLength < blockAlign ||
         dataLength % blockAlign != 0) {
-      throw StateError('Mimo TTS returned empty or incomplete WAV audio.');
+      throw StateError('Mimo TTS 返回了空或不完整的 WAV 音频。');
     }
     if (pcmFormat && bitsPerSample == 16) {
       final audio = ByteData.sublistView(
@@ -2215,19 +2289,19 @@ class AiTtsPlaybackService {
       for (var sample = 0; sample < dataLength; sample += 2) {
         if (audio.getInt16(sample, Endian.little) != 0) return;
       }
-      throw StateError('Mimo TTS returned silent WAV audio.');
+      throw StateError('Mimo TTS 返回了静音 WAV 音频。');
     }
   }
 
   static void _validateMimoMp3Audio(Uint8List bytes) {
     if (bytes.length < 4) {
-      throw StateError('Mimo TTS returned truncated MP3 audio.');
+      throw StateError('Mimo TTS 返回了截断的 MP3 音频。');
     }
     final hasId3Header =
         bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33;
     final hasFrameSync = bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0;
     if (!hasId3Header && !hasFrameSync) {
-      throw StateError('Mimo TTS returned invalid MP3 audio.');
+      throw StateError('Mimo TTS 返回了无效 MP3 音频。');
     }
   }
 
@@ -2459,14 +2533,11 @@ class AiTtsPlaybackService {
       StateError() => error.message,
       HttpException() => error.message,
       ProcessException() => error.message,
-      TimeoutException() => error.message ?? 'TTS operation timed out.',
+      TimeoutException() => error.message ?? 'TTS 操作超时。',
       _ => error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), ''),
     };
     final normalized = collapseInlineWhitespace(raw);
-    return clipText(
-      normalized.isEmpty ? 'TTS playback failed.' : normalized,
-      400,
-    );
+    return clipText(normalized.isEmpty ? 'TTS 播放失败。' : normalized, 400);
   }
 
   static String _appleScriptString(String value) {
@@ -2543,9 +2614,7 @@ class _DoubaoJsonObjectParser {
 
       _current.writeCharCode(code);
       if (_current.length > maxObjectChars) {
-        throw FormatException(
-          'Doubao TTS event exceeds the $maxObjectChars character limit.',
-        );
+        throw FormatException('豆包 TTS 事件超过 $maxObjectChars 个字符上限。');
       }
       if (_inString) {
         if (_escaped) {
@@ -2574,7 +2643,7 @@ class _DoubaoJsonObjectParser {
 
   void finish() {
     if (_depth != 0 || _current.isNotEmpty) {
-      throw const FormatException('Doubao TTS returned incomplete JSON.');
+      throw const FormatException('豆包 TTS 返回了不完整 JSON。');
     }
   }
 }
@@ -2598,10 +2667,12 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
       <RandomAccessFile, Future<void>>{};
   final Set<Future<void>> _pendingAcquisitions = <Future<void>>{};
   final Set<Future<void>> _activeActivities = <Future<void>>{};
+  final Completer<void> _cancelCompleter = Completer<void>();
   bool _cancelled = false;
   Future<void>? _closeFuture;
 
   bool get isCancelled => _cancelled;
+  Future<void> get cancelSignal => _cancelCompleter.future;
 
   void throwIfCancelled() {
     if (_cancelled) throw const _AiTtsPlaybackCancelled();
@@ -2611,7 +2682,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     throwIfCancelled();
     final remaining = timeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
     if (remaining <= 0) {
-      throw TimeoutException('TTS synthesis exceeded its total time limit.');
+      throw TimeoutException('TTS 合成超过总时限。');
     }
     return Duration(microseconds: remaining);
   }
@@ -2646,10 +2717,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
                 onError: (Object _, StackTrace _) {},
               ),
             );
-            throw TimeoutException(
-              'TTS WebSocket handshake timed out.',
-              timeout,
-            );
+            throw TimeoutException('TTS WebSocket 握手超时。', timeout);
           },
         );
       } catch (_) {
@@ -2691,7 +2759,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
                 onError: (Object _, StackTrace _) {},
               ),
             );
-            throw TimeoutException('TTS file open timed out.', timeout);
+            throw TimeoutException('TTS 文件打开超时。', timeout);
           },
         );
       } catch (_) {
@@ -2746,7 +2814,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
                 onError: (Object _, StackTrace _) {},
               ),
             );
-            throw TimeoutException('TTS process start timed out.', timeout);
+            throw TimeoutException('TTS 进程启动超时。', timeout);
           },
         );
       } catch (_) {
@@ -2787,6 +2855,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
   Future<void> close() {
     if (!_cancelled) {
       _cancelled = true;
+      _cancelCompleter.complete();
       _stopwatch.stop();
       transport.dispose();
       for (final client in _httpClients) {
@@ -2837,7 +2906,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     try {
       await file.close().timeout(AiTtsPlaybackService._resourceCloseTimeout);
     } catch (_) {
-      // The operation is already stopping; cleanup remains bounded.
+      // 操作已进入停止流程，清理仍受时限约束。
     }
   }
 
@@ -2874,7 +2943,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
         gracefulTimeout: AiTtsPlaybackService._speechProcessTerminateGrace,
       );
     } catch (_) {
-      // Cancellation cleanup is best effort and bounded by the caller.
+      // 取消清理仅尽力执行，并受调用方时限约束。
     }
   }
 }
@@ -2889,10 +2958,10 @@ class _AiTtsAudioPayload {
           ? sourceBytes
           : Uint8List.fromList(sourceBytes),
       extension = _normalizeExtension(extension) {
-    if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
+    if (bytes.isEmpty) throw StateError('TTS 返回了空音频。');
     if (bytes.length > AiTtsPlaybackService._maxAudioResponseBytes) {
       throw StateError(
-        'TTS audio exceeds the ${formatByteSize(AiTtsPlaybackService._maxAudioResponseBytes)} safety limit.',
+        'TTS 音频超过 ${formatByteSize(AiTtsPlaybackService._maxAudioResponseBytes)} 的安全上限。',
       );
     }
   }

@@ -2526,7 +2526,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     }
     setState(() => _testing = true);
     try {
-      await widget.playbackService.testProvider(
+      final completed = await widget.playbackService.testProvider(
         settings: _settingsWithProvider(
           _effectiveProviderSettings,
         ).copyWith(enabled: true),
@@ -2534,7 +2534,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         availableModels: widget.availableModels,
         fallbackModel: fallbackModel,
       );
-      if (!mounted) return;
+      if (!mounted || !completed) return;
       showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(context, zh: 'TTS 测试播放完成', en: 'TTS test played'),

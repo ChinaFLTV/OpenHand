@@ -275,6 +275,7 @@ class WebMessagePlatformService {
   Future<void>? _disposeFuture;
   Future<void>? _startupCleanupFuture;
   bool _disposed = false;
+  int _runtimeGeneration = 0;
   WebGatewayRuntimeState _state = WebGatewayRuntimeState.stopped;
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   WebGatewayThemeSnapshot _theme = const WebGatewayThemeSnapshot();
@@ -292,7 +293,7 @@ class WebMessagePlatformService {
   int _nextLogId = 1;
   String _lastError = '';
   // 扩展运维指标。遵循 SRE 四黄金信号和 OpenTelemetry HTTP 指标思路：
-  // latency / traffic / errors / saturation 全部在进程内轻量采样，路由使用
+  // 延迟 / 流量 / 错误 / 饱和度均在进程内轻量采样，路由使用
   // 低基数字段，避免被 query 或动态 ID 撑爆。
   static const int _maxRouteEntries = 32;
   static const int _maxMetricDistributionKeys = 128;
@@ -395,12 +396,8 @@ class WebMessagePlatformService {
   _LinuxCpuSample? _previousLinuxCpuSample;
   late final OpenHandDebouncer _opsPersistDebouncer = OpenHandDebouncer(
     delay: const Duration(milliseconds: 900),
-    onError: (error, stack) => silentLog(
-      'web_message_platform_service',
-      'persist ops data',
-      error,
-      stack,
-    ),
+    onError: (error, stack) =>
+        silentLog('web_message_platform_service', '持久化运维数据', error, stack),
   );
   final SerialTaskQueue _opsPersistenceQueue = SerialTaskQueue();
   Future<void>? _opsDataLoadFuture;
@@ -1171,6 +1168,14 @@ class WebMessagePlatformService {
   Future<void> stop() => _enqueueLifecycle(_stop);
 
   Future<void> _stop() async {
+    _runtimeGeneration += 1;
+    final server = _server;
+    _state = server == null
+        ? WebGatewayRuntimeState.stopped
+        : WebGatewayRuntimeState.stopping;
+    if (server != null) {
+      _log(WebGatewayLogLevel.warn, 'OPS', '正在停止 Web 服务');
+    }
     _resolvePendingWriteApprovals(
       decision: BashCommandApprovalDecision.cancelled,
       source: 'service_stop',
@@ -1192,14 +1197,10 @@ class WebMessagePlatformService {
     _activeSseSubscriptions = 0;
     _activeSseSubscriptionsByClient.clear();
     _activeSseSubscriptionsBySession.clear();
-    final server = _server;
     if (server == null) {
-      _state = WebGatewayRuntimeState.stopped;
       _clearStoppedRuntimeState();
       return;
     }
-    _state = WebGatewayRuntimeState.stopping;
-    _log(WebGatewayLogLevel.warn, 'OPS', '正在停止 Web 服务');
     Object? closeError;
     final closed = await _closeServer(
       server,
@@ -1514,12 +1515,7 @@ class WebMessagePlatformService {
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'observe metrics',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '采集运行指标', error, stack);
     }
   }
 
@@ -1765,12 +1761,7 @@ class WebMessagePlatformService {
     try {
       return Platform.localHostname;
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'read local hostname',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '读取本地主机名', error, stack);
       return '';
     }
   }
@@ -1832,12 +1823,7 @@ class WebMessagePlatformService {
       _localAddressesAt = DateTime.now().toUtc();
       return changed;
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'refresh local addresses',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '刷新本地地址', error, stack);
       return false;
     }
   }
@@ -1895,7 +1881,7 @@ class WebMessagePlatformService {
       return result;
     } catch (error, stack) {
       stopwatch.stop();
-      silentLog('web_message_platform_service', 'health check', error, stack);
+      silentLog('web_message_platform_service', '执行健康检查', error, stack);
       final result = WebGatewayHealthResult(
         ok: false,
         statusCode: 0,
@@ -2002,12 +1988,7 @@ class WebMessagePlatformService {
         } catch (error, stack) {
           probeStarted.stop();
           if (error is! TimeoutException) {
-            silentLog(
-              'web_message_platform_service',
-              'connectivity probe',
-              error,
-              stack,
-            );
+            silentLog('web_message_platform_service', '执行连通性探测', error, stack);
           }
           addLog(
             '探测失败 ${endpoint.host}:${endpoint.port} · ${probeStarted.elapsedMilliseconds}ms · $error',
@@ -2739,12 +2720,7 @@ class WebMessagePlatformService {
             suffix: '',
           );
           _lastError = errorText;
-          silentLog(
-            'web_message_platform_service',
-            'handle request',
-            error,
-            stack,
-          );
+          silentLog('web_message_platform_service', '处理请求', error, stack);
           final fallback = _json(
             HttpStatus.internalServerError,
             const <String, Object?>{'error': 'internal_error'},
@@ -3147,12 +3123,7 @@ class WebMessagePlatformService {
         'distribution': distribution.toJson(),
       });
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'knowledge vector distribution',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '读取知识向量分布', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'knowledge_vector_distribution_failed',
         'message': '$error',
@@ -3207,12 +3178,7 @@ class WebMessagePlatformService {
         'chunk': _knowledgeChunkPayload(chunk),
       });
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'knowledge hit detail',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '读取知识命中详情', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'knowledge_hit_detail_failed',
         'message': '$error',
@@ -3275,7 +3241,7 @@ class WebMessagePlatformService {
         'record': record?.toJson(),
       });
     } catch (e, st) {
-      silentLog('web_gateway', 'harness_session_load_failed', e, st);
+      silentLog('web_gateway', '加载 Harness 会话', e, st);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'harness_load_failed',
         'message': e.toString(),
@@ -3417,7 +3383,7 @@ class WebMessagePlatformService {
     });
   }
 
-  // ─── Plugin Service Handlers ───────────────────────────────────────────────
+  // 插件服务处理器
 
   Map<String, Object?> _pluginPayload(PluginInfo p) {
     return <String, Object?>{
@@ -4585,7 +4551,7 @@ class WebMessagePlatformService {
         messageTotalCount: messages.length,
       );
     } catch (error, stack) {
-      silentLog('WebGateway', 'load export session snapshot', error, stack);
+      silentLog('WebGateway', '加载导出会话快照', error, stack);
       return session;
     }
   }
@@ -4662,7 +4628,7 @@ class WebMessagePlatformService {
     try {
       manifestContent = await _skillsController.readSkillManifest(selected);
     } catch (error, stack) {
-      silentLog('WebGateway', 'selectedSkill.readManifest', error, stack);
+      silentLog('WebGateway', '读取所选技能清单', error, stack);
     }
     final manifest = (manifestContent ?? '').trim();
     final fallbackDescription = selected.description.trim();
@@ -4940,7 +4906,7 @@ class WebMessagePlatformService {
             revealUserMessageBeforePreflight: true,
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog('WebGateway', 'sendMessage.async', error, stack);
+            silentLog('WebGateway', '异步发送消息', error, stack);
             return false;
           }),
     );
@@ -5109,7 +5075,7 @@ class WebMessagePlatformService {
         'provider': error.provider?.storageKey,
       });
     } catch (error, stack) {
-      silentLog('WebGateway', 'translate message', error, stack);
+      silentLog('WebGateway', '翻译消息', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'ok': false,
         'error': 'message_translation_failed',
@@ -5145,6 +5111,10 @@ class WebMessagePlatformService {
     String sessionId,
     String messageId,
   ) async {
+    final runtimeGeneration = _runtimeGeneration;
+    if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
+      return _runtimeUnavailableResponse();
+    }
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) {
       return _json(HttpStatus.notFound, <String, Object?>{
@@ -5152,6 +5122,9 @@ class WebMessagePlatformService {
       });
     }
     final message = await _loadMessageForWebOperation(session, messageId);
+    if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
+      return _runtimeUnavailableResponse();
+    }
     if (message == null) {
       return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'message_not_found',
@@ -5159,6 +5132,9 @@ class WebMessagePlatformService {
     }
     if (_ttsPlaybackService.isPlayingMessage(message.id)) {
       await _ttsPlaybackService.stop();
+      if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
+        return _runtimeUnavailableResponse();
+      }
       return _json(HttpStatus.ok, <String, Object?>{
         'ok': true,
         'playback': _ttsPlaybackPayload(),
@@ -5190,6 +5166,7 @@ class WebMessagePlatformService {
         _resolveModel(_lastModelKeyForSession(session) ?? '') ??
         _settingsController.selectedAiModel;
     unawaited(() async {
+      if (!_isRuntimeRequestCurrent(runtimeGeneration)) return;
       try {
         await _ttsPlaybackService.speak(
           messageId: message.id,
@@ -5199,10 +5176,13 @@ class WebMessagePlatformService {
           fallbackModel: fallbackModel,
         );
       } catch (error, stack) {
-        silentLog('WebGateway', 'toggle message tts', error, stack);
+        silentLog('WebGateway', '切换消息朗读', error, stack);
       }
     }());
     await Future<void>.delayed(const Duration(milliseconds: 16));
+    if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
+      return _runtimeUnavailableResponse();
+    }
     _log(
       WebGatewayLogLevel.info,
       'MESSAGE',
@@ -5212,6 +5192,16 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'playback': _ttsPlaybackPayload(),
+    });
+  }
+
+  bool _isRuntimeRequestCurrent(int generation) {
+    return !_disposed && generation == _runtimeGeneration && isRunning;
+  }
+
+  shelf.Response _runtimeUnavailableResponse() {
+    return _json(HttpStatus.serviceUnavailable, const <String, Object?>{
+      'error': 'service_stopping',
     });
   }
 
@@ -5297,7 +5287,7 @@ class WebMessagePlatformService {
                 _confirmWebWriteCommand(session.id, request),
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog('WebGateway', 'regenerateMessage.async', error, stack);
+            silentLog('WebGateway', '异步重新生成消息', error, stack);
             return false;
           }),
     );
@@ -5483,7 +5473,7 @@ class WebMessagePlatformService {
                 _confirmWebWriteCommand(session.id, request),
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog('WebGateway', 'resumeGoal.async', error, stack);
+            silentLog('WebGateway', '异步恢复目标', error, stack);
             return false;
           }),
     );
@@ -5577,12 +5567,7 @@ class WebMessagePlatformService {
     try {
       body = await _readJsonBody(request);
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'read compact body',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '读取压缩请求体', error, stack);
     }
     final model = _resolveModel(_string(body['model_key'], ''));
     if (model == null) {
@@ -6009,7 +5994,7 @@ class WebMessagePlatformService {
         controller.add(bytes);
         _recordStreamingOutboundBytes(bytes.length);
       } catch (error, stack) {
-        silentLog('WebGateway', 'sse.emit', error, stack);
+        silentLog('WebGateway', '发送 SSE 事件', error, stack);
       }
     }
 
@@ -6086,7 +6071,7 @@ class WebMessagePlatformService {
             lastSnapshotHash = hash;
             emit('snapshot', snapshot);
           } catch (error, stack) {
-            silentLog('WebGateway', 'sse.snapshot', error, stack);
+            silentLog('WebGateway', '生成 SSE 快照', error, stack);
           } finally {
             snapshotInFlight = false;
             if (!disposed && snapshotQueued) {
@@ -6096,7 +6081,7 @@ class WebMessagePlatformService {
           }
         },
         onError: (error, stack) {
-          silentLog('WebGateway', 'sse.snapshotTimer', error, stack);
+          silentLog('WebGateway', '调度 SSE 快照', error, stack);
         },
       );
     }
@@ -6148,11 +6133,11 @@ class WebMessagePlatformService {
           controller.add(bytes);
           _recordStreamingOutboundBytes(bytes.length);
         } catch (error, stack) {
-          silentLog('WebGateway', 'sse.keepalive', error, stack);
+          silentLog('WebGateway', '发送 SSE 保活消息', error, stack);
         }
       },
       onError: (error, stack) {
-        silentLog('WebGateway', 'sse.keepalive.timer', error, stack);
+        silentLog('WebGateway', '调度 SSE 保活消息', error, stack);
       },
     );
 
@@ -7065,7 +7050,7 @@ class WebMessagePlatformService {
         normalizedMessageId,
       );
     } catch (error, stack) {
-      silentLog('WebGateway', 'load message for web operation', error, stack);
+      silentLog('WebGateway', '加载 Web 操作消息', error, stack);
       return null;
     }
   }
@@ -7662,7 +7647,7 @@ class WebMessagePlatformService {
       }
       return window;
     } catch (error, stack) {
-      silentLog('WebGateway', 'load stored message window', error, stack);
+      silentLog('WebGateway', '加载已存消息窗口', error, stack);
       final cheapDisplayMessages = _displayMessagesIfCheap(session);
       if (cheapDisplayMessages.isNotEmpty) {
         return _messageWindowFromDisplayMessages(
@@ -7931,7 +7916,7 @@ class WebMessagePlatformService {
         await _sessionController.store.countMessages(session.id),
       );
     } catch (error, stack) {
-      silentLog('WebGateway', 'count stored messages', error, stack);
+      silentLog('WebGateway', '统计已存消息', error, stack);
     }
     final liveDisplayMessages = _displayMessagesIfCheap(session);
     return _sessionSummary(
@@ -8667,12 +8652,7 @@ class WebMessagePlatformService {
           await file.delete();
         }
       } catch (error, stack) {
-        silentLog(
-          'web_message_platform_service',
-          'delete materialized attachment',
-          error,
-          stack,
-        );
+        silentLog('web_message_platform_service', '删除已落盘附件', error, stack);
       }
     }
   }
@@ -8695,7 +8675,7 @@ class WebMessagePlatformService {
         bytesFreed: usage.totalBytes,
       );
       if (usage.truncated) {
-        _logUploadCacheScanLimit('measure before full cleanup');
+        _logUploadCacheScanLimit('全量清理前统计');
       }
       await deletePathBounded(
         p.absolute(root.path),
@@ -8717,19 +8697,11 @@ class WebMessagePlatformService {
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
         _rememberUploadParent(parentDirectories, entity.parent.path);
       } catch (error, stack) {
-        silentLog(
-          'web_message_platform_service',
-          'cleanup upload cache',
-          error,
-          stack,
-        );
+        silentLog('web_message_platform_service', '清理上传缓存', error, stack);
       }
     });
     if (!scan.complete) {
-      _logUploadCacheScanLimit(
-        'remove expired uploads',
-        scannedEntries: scan.scannedEntries,
-      );
+      _logUploadCacheScanLimit('删除过期上传文件', scannedEntries: scan.scannedEntries);
     }
     stats += await _deleteEmptyUploadDirectories(root, parentDirectories);
     return stats + await _enforceUploadCacheMaxBytes();
@@ -8768,12 +8740,7 @@ class WebMessagePlatformService {
           stats += _CleanupStats(deletedFiles: 1, bytesFreed: candidate.size);
           _rememberUploadParent(parentDirectories, candidate.file.parent.path);
         } catch (error, stack) {
-          silentLog(
-            'web_message_platform_service',
-            'enforce upload cache max bytes',
-            error,
-            stack,
-          );
+          silentLog('web_message_platform_service', '限制上传缓存容量', error, stack);
         }
       }
       candidates = retained;
@@ -8793,17 +8760,14 @@ class WebMessagePlatformService {
       } catch (error, stack) {
         silentLog(
           'web_message_platform_service',
-          'stat upload cache ${entity.path}',
+          '读取上传缓存状态 ${entity.path}',
           error,
           stack,
         );
       }
     });
     if (!scan.complete) {
-      _logUploadCacheScanLimit(
-        'enforce upload cache capacity',
-        scannedEntries: scan.scannedEntries,
-      );
+      _logUploadCacheScanLimit('限制上传缓存容量', scannedEntries: scan.scannedEntries);
     }
     await pruneCandidates(enforceByteLimit: true);
     return stats + await _deleteEmptyUploadDirectories(root, parentDirectories);
@@ -8837,7 +8801,7 @@ class WebMessagePlatformService {
       complete = false;
       silentLog(
         'web_message_platform_service',
-        'scan upload cache ${root.path}',
+        '扫描上传缓存 ${root.path}',
         error,
         stack,
       );
@@ -8885,12 +8849,7 @@ class WebMessagePlatformService {
           deletedDirectories += 1;
         }
       } catch (error, stack) {
-        silentLog(
-          'web_message_platform_service',
-          'delete empty upload cache directory',
-          error,
-          stack,
-        );
+        silentLog('web_message_platform_service', '删除空上传缓存目录', error, stack);
       }
     }
     return _CleanupStats(deletedDirectories: deletedDirectories);
@@ -8993,12 +8952,7 @@ class WebMessagePlatformService {
       final html = await rootBundle.loadString('assets/web/index.html');
       return _html(html);
     } catch (e, stack) {
-      silentLog(
-        'web_gateway_service',
-        '_serveWebShell.missing_bundle',
-        e,
-        stack,
-      );
+      silentLog('web_gateway_service', '加载 Web 页面构建产物', e, stack);
       return _html(_missingBundleHtml(), status: HttpStatus.serviceUnavailable);
     }
   }
@@ -9039,7 +8993,7 @@ class WebMessagePlatformService {
         },
       );
     } catch (e, stack) {
-      silentLog('web_gateway_service', '_serveBundleAsset:$key', e, stack);
+      silentLog('web_gateway_service', '加载 Web 构建资源：$key', e, stack);
       return shelf.Response.notFound('asset_not_found: $key');
     }
   }
@@ -9300,12 +9254,7 @@ class WebMessagePlatformService {
         _processDiagnostics = await _sampleLinuxProcessDiagnostics();
       }
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'process diagnostics',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '采集进程诊断信息', error, stack);
     }
   }
 
@@ -9371,12 +9320,7 @@ class WebMessagePlatformService {
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'read proc status',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '读取进程状态', error, stack);
     }
     int? fileHandleCount;
     try {
@@ -9388,12 +9332,7 @@ class WebMessagePlatformService {
       );
       fileHandleCount = listing.entries.length;
     } catch (error, stack) {
-      silentLog(
-        'web_message_platform_service',
-        'count file handles',
-        error,
-        stack,
-      );
+      silentLog('web_message_platform_service', '统计文件句柄', error, stack);
     }
     return _ProcessDiagnostics(
       cpuPercent: cpuPercent,
@@ -9455,7 +9394,7 @@ class WebMessagePlatformService {
     } catch (error, stack) {
       silentLog(
         'web_message_platform_service',
-        'read linux cpu sample',
+        '读取 Linux CPU 样本',
         error,
         stack,
       );
