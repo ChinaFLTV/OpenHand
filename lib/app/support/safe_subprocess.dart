@@ -30,10 +30,14 @@ int safeSubprocessDefaultGracefulShutdownMs = 500;
 ///   1) `Process.kill(SIGKILL)` 不需要再 lookup，无 pid 复用风险；
 ///   2) `exitCode` 已被组件代码 await 时，我们也能并行听到。
 final Map<int, Process> _trackedChildren = <int, Process>{};
+final Map<int, Process> _trackedProcessGroups = <int, Process>{};
 final Expando<bool> _trackedProcessGroupLeaders = Expando<bool>(
   'openhand.processGroupLeader',
 );
 Future<_ProcessGroupLauncher?>? _processGroupLauncherProbe;
+Timer? _processGroupPruneTimer;
+bool _processGroupPruneRunning = false;
+Future<void>? _trackedChildrenCleanupFuture;
 
 const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
@@ -41,6 +45,9 @@ const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _windowsTaskkillTimeout = Duration(seconds: 2);
 const Duration _processExecutableProbeTimeout = Duration(milliseconds: 500);
+const Duration _processGroupPruneInterval = Duration(seconds: 5);
+const Duration _processGroupProbeTimeout = Duration(milliseconds: 500);
+const int _processGroupProbeConcurrency = 4;
 const int _maxDescendantProcesses = 256;
 const int _maxCapturedProcessBytesPerStream = 16 * 1024 * 1024;
 
@@ -75,6 +82,60 @@ void _registerTrackedChild(Process process) {
       },
     ),
   );
+}
+
+void _ensureProcessGroupPruner() {
+  if (_processGroupPruneTimer?.isActive ?? false) return;
+  _processGroupPruneTimer = Timer.periodic(
+    _processGroupPruneInterval,
+    (_) => unawaited(_pruneExitedProcessGroups()),
+  );
+}
+
+void _stopProcessGroupPrunerIfIdle() {
+  if (_trackedProcessGroups.isNotEmpty) return;
+  _processGroupPruneTimer?.cancel();
+  _processGroupPruneTimer = null;
+}
+
+Future<void> _pruneExitedProcessGroups() async {
+  if (_processGroupPruneRunning) return;
+  if (_trackedProcessGroups.isEmpty) {
+    _stopProcessGroupPrunerIfIdle();
+    return;
+  }
+  _processGroupPruneRunning = true;
+  final snapshot = _trackedProcessGroups.entries.toList(growable: false);
+  try {
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: snapshot.length,
+      maxConcurrency: _processGroupProbeConcurrency,
+      task: (index) async {
+        final entry = snapshot[index];
+        if (await _isProcessGroupAlive(entry.key)) return;
+        if (identical(_trackedProcessGroups[entry.key], entry.value)) {
+          _trackedProcessGroups.remove(entry.key);
+        }
+      },
+    );
+  } finally {
+    _processGroupPruneRunning = false;
+    _stopProcessGroupPrunerIfIdle();
+  }
+}
+
+Future<bool> _isProcessGroupAlive(int processGroupId) async {
+  if (Platform.isWindows || processGroupId <= 0) return false;
+  final result = await runBinaryProcessWithTimeout(
+    '/bin/kill',
+    <String>['-0', '-$processGroupId'],
+    timeout: _processGroupProbeTimeout,
+    maxStdoutBytes: 0,
+    maxStderrBytes: 0,
+    tag: 'safe_subprocess.probe_group',
+  );
+  // 探针启动失败时保守保留登记，避免误丢仍存活的进程组。
+  return result == null || result.exitCode == 0;
 }
 
 /// 启动一个长驻子进程（LSP / mitmdump / Hook / Cron / MCP 调试探针等）并
@@ -190,10 +251,23 @@ Future<_TrackedProcessLaunch> _startTrackedProcessInNewGroup(
     includeParentEnvironment: includeParentEnvironment,
     mode: mode,
   );
-  // Keep group identity on the Process handle even after the leader exits.
-  // Descendants may still own inherited pipes at that point; an Expando
-  // avoids both PID-reuse ambiguity and a global set that grows forever.
   _trackedProcessGroupLeaders[process] = true;
+  _trackedProcessGroups[process.pid] = process;
+  unawaited(
+    process.exitCode.then<void>(
+      (_) {
+        if (identical(_trackedProcessGroups[process.pid], process)) {
+          _ensureProcessGroupPruner();
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (identical(_trackedProcessGroups[process.pid], process)) {
+          _ensureProcessGroupPruner();
+        }
+        silentLog('safe_subprocess', '监听进程组长退出', error, stack);
+      },
+    ),
+  );
   return _TrackedProcessLaunch(process: process, isProcessGroupLeader: true);
 }
 
@@ -324,6 +398,12 @@ Future<void> _terminateTrackedProcessTree(
   } catch (error, stack) {
     silentLog('safe_subprocess', 'final process exit wait', error, stack);
   }
+  if (isGroupLeader &&
+      !await _isProcessGroupAlive(pid) &&
+      identical(_trackedProcessGroups[pid], process)) {
+    _trackedProcessGroups.remove(pid);
+    _stopProcessGroupPrunerIfIdle();
+  }
 }
 
 Future<void> _runWindowsTaskkillTree(
@@ -411,11 +491,33 @@ void _signalProcessIds(
 /// 退出兜底路径，不能再抛新异常。
 Future<void> killAllTrackedChildren({
   Duration gracefulTimeout = const Duration(milliseconds: 400),
+}) {
+  final active = _trackedChildrenCleanupFuture;
+  if (active != null) return active;
+  late final Future<void> cleanupFuture;
+  cleanupFuture = _killAllTrackedChildren(gracefulTimeout: gracefulTimeout)
+      .whenComplete(() {
+        if (identical(_trackedChildrenCleanupFuture, cleanupFuture)) {
+          _trackedChildrenCleanupFuture = null;
+        }
+      });
+  _trackedChildrenCleanupFuture = cleanupFuture;
+  return cleanupFuture;
+}
+
+Future<void> _killAllTrackedChildren({
+  Duration gracefulTimeout = const Duration(milliseconds: 400),
 }) async {
-  if (_trackedChildren.isEmpty) return;
+  if (_trackedChildren.isEmpty && _trackedProcessGroups.isEmpty) return;
   // 拷贝快照，避免迭代过程中 exitCode 回调修改原 map 触发
   // ConcurrentModificationError。
-  final snapshot = List<Process>.of(_trackedChildren.values);
+  final snapshotByPid = <int, Process>{
+    ..._trackedProcessGroups,
+    ..._trackedChildren,
+  };
+  final snapshot = snapshotByPid.values.toList(growable: false);
+  final processGroupIds = _trackedProcessGroups.keys.toSet();
+  final termGroupSignals = <Future<void>>[];
   for (final p in snapshot) {
     try {
       p.kill();
@@ -423,27 +525,70 @@ Future<void> killAllTrackedChildren({
       // 已退出会抛，忽略即可。
       silentLog('safe_subprocess', 'sigterm tracked child', error, stack);
     }
-    if (_trackedProcessGroupLeaders[p] ?? false) {
-      unawaited(_sendSignalToProcessGroup(p.pid, 'TERM'));
+    if (processGroupIds.contains(p.pid)) {
+      termGroupSignals.add(_sendSignalToProcessGroup(p.pid, 'TERM'));
     }
   }
+  await Future.wait<void>(termGroupSignals);
   // 给整个批次一次性 grace，而不是每个进程 400ms 串行等。
-  await Future<void>.delayed(gracefulTimeout);
+  final boundedGracefulTimeout = gracefulTimeout.isNegative
+      ? Duration.zero
+      : gracefulTimeout;
+  if (boundedGracefulTimeout > Duration.zero) {
+    await Future<void>.delayed(boundedGracefulTimeout);
+  }
+  final killGroupSignals = <Future<void>>[];
   for (final p in snapshot) {
     try {
       p.kill(ProcessSignal.sigkill);
     } catch (error, stack) {
       silentLog('safe_subprocess', 'sigkill on graceful exit', error, stack);
     }
-    if (_trackedProcessGroupLeaders[p] ?? false) {
-      unawaited(_sendSignalToProcessGroup(p.pid, 'KILL'));
+    if (processGroupIds.contains(p.pid)) {
+      killGroupSignals.add(_sendSignalToProcessGroup(p.pid, 'KILL'));
     }
   }
+  await Future.wait<void>(killGroupSignals);
+  final exitedProcessIds = <int>{};
+  await Future.wait<void>(<Future<void>>[
+    for (final entry in snapshotByPid.entries)
+      entry.value.exitCode
+          .then<void>((_) => exitedProcessIds.add(entry.key))
+          .timeout(_processTreeFinalWait)
+          .catchError((Object error, StackTrace stack) {
+            silentLog('safe_subprocess', '等待已跟踪子进程退出', error, stack);
+          }),
+  ]);
+  final liveProcessGroupIds = <int>{};
+  final processGroupIdList = processGroupIds.toList(growable: false);
+  await forEachIndexWithConcurrencyLimit(
+    itemCount: processGroupIdList.length,
+    maxConcurrency: _processGroupProbeConcurrency,
+    task: (index) async {
+      final processGroupId = processGroupIdList[index];
+      if (await _isProcessGroupAlive(processGroupId)) {
+        liveProcessGroupIds.add(processGroupId);
+      }
+    },
+  );
+  for (final entry in snapshotByPid.entries) {
+    if (exitedProcessIds.contains(entry.key) &&
+        identical(_trackedChildren[entry.key], entry.value)) {
+      _trackedChildren.remove(entry.key);
+    }
+    if (!liveProcessGroupIds.contains(entry.key) &&
+        identical(_trackedProcessGroups[entry.key], entry.value)) {
+      _trackedProcessGroups.remove(entry.key);
+    }
+  }
+  _stopProcessGroupPrunerIfIdle();
 }
 
 /// 当前仍由应用跟踪的子进程 PID 快照。
-List<int> trackedChildPidsSnapshot() =>
-    List<int>.unmodifiable(_trackedChildren.keys);
+List<int> trackedChildPidsSnapshot() => List<int>.unmodifiable(<int>{
+  ..._trackedChildren.keys,
+  ..._trackedProcessGroups.keys,
+});
 
 Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
   if (_processGroupLauncherProbe != null) return _processGroupLauncherProbe!;
