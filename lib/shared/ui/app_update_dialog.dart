@@ -341,7 +341,9 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             ],
             const SizedBox(height: 12),
             Text(
-              l10n.appUpdatePublished(_formatDate(_release!.publishedAt)),
+              l10n.appUpdatePublished(
+                formatYearMonthDay(_release!.publishedAt.toLocal()),
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.outline,
               ),
@@ -537,9 +539,5 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         ),
       ],
     };
-  }
-
-  String _formatDate(DateTime date) {
-    return formatYearMonthDay(date);
   }
 }

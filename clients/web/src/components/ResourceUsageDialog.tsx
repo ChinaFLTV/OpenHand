@@ -12,6 +12,7 @@ import {
 import { useAsyncPolling } from '../hooks/useAsyncPolling';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
+import { formatLocalDateTimeSecond } from '../shared/util/date_time';
 import { describeApiError } from '../utils/api_error';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
@@ -63,14 +64,6 @@ function formatDuration(milliseconds: number): string {
   if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
   if (milliseconds < 60000) return `${(milliseconds / 1000).toFixed(1)} s`;
   return `${(milliseconds / 60000).toFixed(1)} min`;
-}
-
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-  }).format(date);
 }
 
 export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsageDialogProps) {
@@ -128,7 +121,7 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
           <h2>{kindLabel(kind)} {t('resourceUsage.title', '使用统计')}</h2>
           <p>{t('resourceUsage.subtitle', '细粒度调用、状态、耗时与会话洞察')}</p>
         </div>
-        <span class="oh-resource-usage-live"><i />{snapshot ? formatTimestamp(snapshot.generated_at) : t('common.loading', '加载中…')}</span>
+        <span class="oh-resource-usage-live"><i />{snapshot ? formatLocalDateTimeSecond(snapshot.generated_at, '—') : t('common.loading', '加载中…')}</span>
         <button type="button" class="oh-resource-usage-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
           <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
@@ -347,7 +340,7 @@ function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; la
               <MetricPill label={`! ${resource.failures}`} error={resource.failures > 0} />
               <MetricPill label={`◷ ${formatDuration(resource.average_duration_ms)}`} />
               <MetricPill label={`◇ ${resource.session_count}`} />
-              {resource.last_called_at ? <MetricPill label={`◴ ${formatTimestamp(resource.last_called_at)}`} /> : null}
+              {resource.last_called_at ? <MetricPill label={`◴ ${formatLocalDateTimeSecond(resource.last_called_at, '—')}`} /> : null}
             </div>
             {resource.sub_resources.length > 0 ? (
               <div class="oh-resource-usage-subresources">
@@ -384,7 +377,7 @@ function RecentEvents({ events }: { events: ResourceUsageEvent[] }) {
             <b>{statusLabel(event.status)}</b>
           </header>
           <div class="oh-resource-usage-event-meta">
-            <span>◴ {formatTimestamp(event.occurred_at)}</span>
+            <span>◴ {formatLocalDateTimeSecond(event.occurred_at, '—')}</span>
             <span>◷ {formatDuration(event.duration_ms)}</span>
             <span title={event.session_id}>◇ {shortBucket(event.session_id)}</span>
             {event.source ? <span>↗ {event.source}</span> : null}

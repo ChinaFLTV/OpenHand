@@ -90,10 +90,10 @@ class _ThreadSessionManagementDialogState
   // controller delete fires.
   final Set<String> _animatingOutIds = <String>{};
 
-  // Currently-previewed session in the right-side drawer (loaded with
-  // messages on demand so the dialog opens fast).
+  // 右侧抽屉按需加载完整消息，避免阻塞弹窗打开。
   AiSession? _previewSession;
   bool _previewLoading = false;
+  int _previewGeneration = 0;
 
   // Outcome pulse signals — drive a green/red HighlightPulse bar at the
   // top of the dialog when a high-value action (export, batch export,
@@ -178,8 +178,7 @@ class _ThreadSessionManagementDialogState
     }
   }
 
-  // Helpers
-  String _formatDateTime(BuildContext context, DateTime dt) {
+  String _formatDateTime(DateTime dt) {
     return formatYearMonthDayHm(dt.toLocal());
   }
 
@@ -273,9 +272,11 @@ class _ThreadSessionManagementDialogState
     if (mounted) {
       setState(() {
         _animatingOutIds.addAll(ids);
-        // If we're previewing one of the rows being deleted, close it.
+        // 删除当前预览会话时同步关闭抽屉并使未完成加载失效。
         if (_previewSession != null && ids.contains(_previewSession!.id)) {
+          _previewGeneration++;
           _previewSession = null;
+          _previewLoading = false;
         }
       });
       await Future<void>.delayed(const Duration(milliseconds: 240));
@@ -646,12 +647,13 @@ class _ThreadSessionManagementDialogState
     if (ok) {
       setState(() {
         _localOrder = null;
-        // If we're previewing this session and it just got archived
-        // while archived rows are hidden, close the drawer.
+        // 隐藏归档会话时同步关闭当前预览抽屉。
         if (_previewSession?.id == session.id &&
             !wasArchived &&
             !_showArchived) {
+          _previewGeneration++;
           _previewSession = null;
+          _previewLoading = false;
         }
       });
       await _refreshFlags();
@@ -666,6 +668,7 @@ class _ThreadSessionManagementDialogState
   }
 
   Future<void> _openPreview(AiSession session) async {
+    final generation = ++_previewGeneration;
     setState(() {
       _previewLoading = true;
       _previewSession = session;
@@ -682,16 +685,16 @@ class _ThreadSessionManagementDialogState
         stack,
       );
     }
-    if (!mounted) return;
+    if (!mounted || generation != _previewGeneration) return;
     setState(() {
       _previewLoading = false;
-      // Keep the placeholder header visible if the load failed; show
-      // full messages once available.
+      // 加载失败时保留概要，成功后再替换为完整消息。
       if (full != null) _previewSession = full;
     });
   }
 
   void _closePreview() {
+    _previewGeneration++;
     setState(() {
       _previewSession = null;
       _previewLoading = false;
@@ -1124,8 +1127,24 @@ class _ThreadSessionManagementDialogState
               _showArchived ? Icons.inventory_2 : Icons.inventory_2_outlined,
             ),
             onPressed: () {
-              setState(() => _showArchived = !_showArchived);
-              _refreshFlags();
+              final showArchived = !_showArchived;
+              setState(() {
+                _showArchived = showArchived;
+                if (!showArchived) {
+                  final archivedIds = _flags.entries
+                      .where((entry) => entry.value.archived)
+                      .map((entry) => entry.key)
+                      .toSet();
+                  _selectedIds.removeAll(archivedIds);
+                  if (_previewSession != null &&
+                      archivedIds.contains(_previewSession!.id)) {
+                    _previewGeneration++;
+                    _previewSession = null;
+                    _previewLoading = false;
+                  }
+                }
+              });
+              unawaited(_refreshFlags());
             },
           ),
           const SizedBox(width: 6),
@@ -1377,7 +1396,7 @@ class _SessionRow extends StatelessWidget {
   final bool denseMode;
   final bool showDragHandle;
   final int? diskBytes;
-  final String Function(BuildContext, DateTime) formatDateTime;
+  final String Function(DateTime) formatDateTime;
   final String Function(int) formatBytes;
   final int Function(AiSession) estimateBytes;
   final ValueChanged<bool?> onToggleSelect;
@@ -1492,12 +1511,12 @@ class _SessionRow extends StatelessWidget {
                           _MetaChip(
                             icon: Icons.add_circle_outline,
                             label: l10n.tsmRowCreated,
-                            value: formatDateTime(context, session.createdAt),
+                            value: formatDateTime(session.createdAt),
                           ),
                           _MetaChip(
                             icon: Icons.update,
                             label: l10n.tsmRowUpdated,
-                            value: formatDateTime(context, session.updatedAt),
+                            value: formatDateTime(session.updatedAt),
                           ),
                           _MetaChip(
                             icon: Icons.storage_outlined,

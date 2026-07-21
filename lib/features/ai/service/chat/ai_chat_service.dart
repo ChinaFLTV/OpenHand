@@ -2727,7 +2727,9 @@ class AiChatService implements AiChatClient {
         responseModalities: responseModalities,
         creationRequest: request,
       );
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_chat_service', '判断用量接口类型', error, stack);
+    }
     if (responsesSelected &&
         !requestFallbacks.contains(aiChatRequestFallbackResponsesUnsupported)) {
       return AiApiFamily.responses.storageValue;
