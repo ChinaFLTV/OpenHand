@@ -205,9 +205,8 @@ class OpenHandHomePage extends StatefulWidget {
 
 class _OpenHandHomePageState extends State<OpenHandHomePage>
     with WidgetsBindingObserver {
-  /// 当前活跃的 home state 实例引用——`part of` 文件（例如
-  /// [_home_session_toolbar.dart] 中的 [_showContextStatsDialog]）需要
-  /// 通过它取到 [_buildRuntimeContext]、[AiSessionController] 等私有 API。
+  /// 当前活跃的 home state 实例引用——`part of` 文件需要通过它取到
+  /// [_buildRuntimeContext]、[AiSessionController] 等私有 API。
   /// 同一时刻只会存在一个 OpenHand home page。
   static _OpenHandHomePageState? _activeHomeState;
   static const int _navigationSessionPageSize = 64;

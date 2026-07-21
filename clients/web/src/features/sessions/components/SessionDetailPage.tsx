@@ -62,7 +62,6 @@ import {
   writeMachineTerminal,
   type MachineTerminalSnapshot,
   type MachineTerminalWorkspace,
-  type CompactSessionResponse,
   type CompactSessionStatus,
   type GoalStartOptions,
   type MessageTtsPlaybackState,
@@ -279,7 +278,6 @@ const THROTTLE_BUCKET_TICK_MS = 1000;
 const AUTO_TITLE_FOLLOW_UP_DELAYS_MS = [1200, 3200, 7000, 14000, 24000] as const;
 const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
 const TOKEN_STATS_DIALOG_MAX_HEIGHT = 'min(720px, calc(100vh - 32px))';
-const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
 const EMPTY_SESSION_MESSAGES: SessionMessage[] = [];
@@ -3525,7 +3523,6 @@ export function SessionDetailPage() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
-  const [contextStatsOpen, setContextStatsOpen] = useState(false);
   const [goalDetailsOpen, setGoalDetailsOpen] = useState(false);
   const [goalStartOptionsOpen, setGoalStartOptionsOpen] = useState(false);
   const [pendingGoalOptionsBySessionId, setPendingGoalOptionsBySessionId] = useState<Record<string, GoalStartOptions>>({});
@@ -3640,7 +3637,6 @@ export function SessionDetailPage() {
     setAtMentionFilePickerQuery('');
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
-    setContextStatsOpen(false);
     setGoalDetailsOpen(false);
     setGoalStartOptionsOpen(false);
     setGoalControlBusy(null);
@@ -7045,7 +7041,6 @@ export function SessionDetailPage() {
     const lastPromptMetadata = recordFromUnknown(session.last_prompt_metadata);
     const runtimeNotices = stringListFromUnknown(lastPromptMetadata['runtime_tool_catalog_notices']);
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
-    const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
     const tokenStats = recordFromUnknown(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
     const cacheHitSummary = buildSessionCacheHitSummary(session, tokenStats);
@@ -7129,14 +7124,6 @@ export function SessionDetailPage() {
       title: `${totalKnown} ${t('sessions.messageUnit', '条消息')} · ${session.tool_message_count ?? 0} tool`,
       onClick: () => void openSessionMetadataDialog(),
     });
-    if (contextBudgetLabel) {
-      capsules.push({
-        key: 'context-budget',
-        icon: 'runtime',
-        label: contextBudgetLabel,
-        onClick: () => setContextStatsOpen(true),
-      });
-    }
     // TopBar 节流指示胶囊：绿色 = 字符与卡片限速都开着；
     // 灰色 = 任一被关闭或当前生效值为 0；duration_expired 时也变灰，
     // 表示节流时长已耗尽、剩余响应正按 AI 真实速率追加。
@@ -8141,18 +8128,6 @@ export function SessionDetailPage() {
           onClose={() => setTokenStatsOpen(false)}
           onCompacted={() => void refresh()}
           onPointSelected={(point) => void revealCacheHitTurn(point)}
-        />
-      ) : null}
-      {contextStatsOpen && detail ? (
-        <SessionContextStatsDialog
-          detail={detail}
-          messages={sortedMessages}
-          modelKey={composerModelKey}
-          onClose={() => setContextStatsOpen(false)}
-          onCompacted={() => {
-            // 压缩成功后由 SSE 推送会话快照，但拉一遍 detail 仍然是稳妥的兜底。
-            void refresh();
-          }}
         />
       ) : null}
       {webReverseDashboardOpen && session ? <WebReverseDashboardDialog session={session} onClose={() => setWebReverseDashboardOpen(false)} /> : null}
@@ -9407,43 +9382,6 @@ function SessionTokenStatsDialog({
   );
 }
 
-interface ContextStatsBreakdown {
-  userChars: number;
-  assistantChars: number;
-  toolChars: number;
-  otherChars: number;
-}
-
-function computeContextBreakdown(messages: SessionMessage[]): ContextStatsBreakdown {
-  let userChars = 0;
-  let assistantChars = 0;
-  let toolChars = 0;
-  let otherChars = 0;
-  for (const msg of messages) {
-    if ((msg as { is_deleted?: boolean }).is_deleted) continue;
-    const chars = typeof msg.character_count === 'number' && msg.character_count >= 0 ? msg.character_count : (msg.content ?? '').length;
-    switch (msg.kind) {
-      case 'user':
-        userChars += chars;
-        break;
-      case 'assistant':
-      case 'reasoning':
-        assistantChars += chars;
-        break;
-      case 'tool_call':
-      case 'tool':
-      case 'mcp':
-      case 'skill':
-      case 'hook':
-        toolChars += chars;
-        break;
-      default:
-        otherChars += chars;
-    }
-  }
-  return { userChars, assistantChars, toolChars, otherChars };
-}
-
 function compactStatusMessage(status: CompactSessionStatus, retryAfterMs?: number): string {
   switch (status) {
     case 'success':
@@ -9467,270 +9405,6 @@ function compactStatusMessage(status: CompactSessionStatus, retryAfterMs?: numbe
     default:
       return status;
   }
-}
-
-function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onCompacted }: { detail: SessionDetailResponse; messages: SessionMessage[]; modelKey: string; onClose: () => void; onCompacted: () => void }) {
-  const session = detail.session;
-  const meta = recordFromUnknown(session.last_prompt_metadata);
-  const estimatedTokens = integerFromUnknown(meta['context_budget_estimated_prompt_tokens']);
-  const percentLeftRaw = meta['context_budget_percent_left'];
-  const percentLeft = typeof percentLeftRaw === 'number' ? percentLeftRaw : -1;
-  const usagePercent = integerFromUnknown(meta['context_budget_usage_percent']);
-  const effectiveWindow = integerFromUnknown(meta['context_budget_effective_window_tokens']);
-  const remainingTokens = integerFromUnknown(meta['context_budget_remaining_tokens']);
-  const inferred = meta['context_budget_window_inferred'] === true;
-  const status = metadataString(meta['context_budget_status']);
-
-  const breakdown = useMemo(() => computeContextBreakdown(messages), [messages]);
-  const totalChars = breakdown.userChars + breakdown.assistantChars + breakdown.toolChars + breakdown.otherChars;
-  const stats = session.statistics ?? {};
-  const cumulativePromptTokens = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens ?? 0);
-  const cumulativeCompletionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens ?? 0);
-  const cumulativeTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? cumulativePromptTokens + cumulativeCompletionTokens);
-  const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
-  const [contextTrendDisplayMode, setContextTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
-
-  const [busy, setBusy] = useState(false);
-  const [resultMessage, setResultMessage] = useState<string | null>(null);
-  const [resultIsError, setResultIsError] = useState(false);
-  const { closing, requestClose } = useDialogExitMotion(onClose);
-
-  const contextWindowUsage = parseContextWindowUsage(session);
-  const showCompact =
-    contextWindowUsage.canManuallyCompact &&
-    (!isRunningPhase(detail.runtime.send_phase) || busy);
-
-  const statusBadge =
-    status === 'critical'
-      ? {
-          color: 'var(--m3-error)',
-          label: t('topbar.contextBudget.critical', '危险'),
-        }
-      : status === 'auto_compact'
-        ? {
-            color: 'var(--m3-tertiary)',
-            label: t('topbar.contextBudget.compact', '压缩'),
-          }
-        : status === 'warning'
-          ? {
-              color: '#e07a00',
-              label: t('topbar.contextBudget.warning', '偏高'),
-            }
-          : status === 'ok'
-            ? {
-                color: 'var(--m3-primary)',
-                label: t('topbar.contextBudget.ok', '正常'),
-              }
-            : {
-                color: 'var(--m3-outline)',
-                label: t('topbar.contextBudget.unknown', '未知'),
-              };
-
-  async function handleCompactPressed() {
-    if (busy) return;
-    setBusy(true);
-    setResultMessage(null);
-    setResultIsError(false);
-    try {
-      const response: CompactSessionResponse = await compactSession(session.id, { modelKey });
-      setResultMessage(compactStatusMessage(response.status, response.retry_after_ms));
-      setResultIsError(!response.ok);
-      if (response.ok) onCompacted();
-    } catch (error) {
-      setResultMessage(t('contextStats.error', '压缩请求失败：{detail}').replace('{detail}', error instanceof Error ? error.message : String(error)));
-      setResultIsError(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const breakdownRows = [
-    {
-      key: 'user',
-      label: t('contextStats.user', '用户'),
-      chars: breakdown.userChars,
-      color: 'var(--m3-primary)',
-    },
-    {
-      key: 'assistant',
-      label: t('contextStats.assistant', 'AI 回复'),
-      chars: breakdown.assistantChars,
-      color: 'var(--m3-secondary)',
-    },
-    {
-      key: 'tool',
-      label: t('contextStats.tool', '工具'),
-      chars: breakdown.toolChars,
-      color: 'var(--m3-tertiary)',
-    },
-    {
-      key: 'other',
-      label: t('contextStats.other', '附件 / 其他'),
-      chars: breakdown.otherChars,
-      color: 'var(--m3-outline)',
-    },
-  ];
-
-  return (
-    <DialogFrame
-      closing={closing}
-      onRequestClose={requestClose}
-      {...createStandardDialogFrameAppearance({
-        overlayTone: 'soft',
-        panelClassName: 'w-full max-w-xl rounded-m3-xl p-0 flex flex-col overflow-hidden',
-        panelSurface: {
-          maxHeight: 'min(820px, calc(100vh - 32px))',
-        },
-      })}
-      ariaLabel={t('contextStats.title', '上下文使用情况')}
-    >
-      <header
-        class="flex shrink-0 flex-wrap items-start justify-between gap-3 px-5 py-4"
-        style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}
-      >
-        <div class="min-w-0 flex-1">
-          <h2 class="text-base font-semibold">{t('contextStats.title', '上下文使用情况')}</h2>
-          <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {session.title || t('sessions.untitled', '未命名会话')}
-          </p>
-        </div>
-        <DialogActionButton
-          tone="secondary"
-          style={{ border: '1px solid var(--m3-outline-variant)' }}
-          onClick={requestClose}
-          disabled={busy}
-        >
-          <ComposerIcon name="close" size={14} />
-          <span>{t('common.close', '关闭')}</span>
-        </DialogActionButton>
-      </header>
-      <div
-        class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4"
-        style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
-      >
-        <ContextStatsSection>
-          <ContextStatsRow label={t('contextStats.estimated', '估算 prompt tokens')} value={estimatedTokens > 0 ? estimatedTokens.toLocaleString() : t('contextStats.empty', '暂无')} />
-          <ContextStatsRow label={t('contextStats.usage', '占用 / 剩余')} value={estimatedTokens > 0 && percentLeft >= 0 ? `${usagePercent}% · ${Math.round(percentLeft)}%` : t('contextStats.empty', '暂无')} valueColor={statusBadge.color} suffix={statusBadge.label} />
-          <ContextStatsRow label={t('contextStats.window', '有效窗口 tokens')} value={effectiveWindow > 0 ? `${effectiveWindow.toLocaleString()}${inferred ? '*' : ''}` : t('contextStats.empty', '暂无')} />
-          <ContextStatsRow label={t('contextStats.remaining', '剩余 tokens')} value={remainingTokens > 0 ? remainingTokens.toLocaleString() : t('contextStats.empty', '暂无')} />
-        </ContextStatsSection>
-        <ContextStatsSection>
-          <h3 class="mb-2 text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {t('contextStats.breakdown', '会话历史字符占比')}
-          </h3>
-          {totalChars <= 0 ? (
-            <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {t('contextStats.empty.history', '暂无历史。')}
-            </p>
-          ) : (
-            <div class="space-y-2">
-              {breakdownRows.map((row) => (
-                <ContextBreakdownBar key={row.key} label={row.label} chars={row.chars} totalChars={totalChars} color={row.color} />
-              ))}
-            </div>
-          )}
-        </ContextStatsSection>
-        <ContextStatsSection>
-          <ContextStatsRow label={t('contextStats.cumulativePrompt', '历史累计 prompt tokens')} value={cumulativePromptTokens.toLocaleString()} />
-          <ContextStatsRow label={t('contextStats.cumulativeCompletion', '历史累计输出 tokens')} value={cumulativeCompletionTokens.toLocaleString()} />
-          <ContextStatsRow label={t('contextStats.cumulativeTotal', '历史总 tokens')} value={cumulativeTokens.toLocaleString()} emphasized />
-        </ContextStatsSection>
-        <div class="pt-1 text-[11px] font-semibold uppercase" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {t('contextStats.tokenDetails', 'Token 统计')}
-        </div>
-        <SessionTokenStatsContent stats={tokenStats} trendDisplayMode={contextTrendDisplayMode} onTrendDisplayModeChange={setContextTrendDisplayMode} />
-        {resultMessage ? (
-          <div
-            class="rounded-m3-sm px-3 py-2 text-xs"
-            style={{
-              background: resultIsError ? 'color-mix(in srgb, var(--m3-error-container) 60%, transparent)' : 'color-mix(in srgb, var(--m3-primary-container) 60%, transparent)',
-              color: resultIsError ? 'var(--m3-on-error-container)' : 'var(--m3-on-primary-container)',
-              border: `1px solid ${resultIsError ? 'var(--m3-error)' : 'var(--m3-primary)'}`,
-            }}
-          >
-            {resultMessage}
-          </div>
-        ) : null}
-        {inferred ? (
-          <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {t('contextStats.inferred', `* 模型未声明 maxContextTokens，按 ${INFERRED_MODEL_CONTEXT_WINDOW_TOKENS} 估算。`)}
-          </p>
-        ) : null}
-      </div>
-      <footer
-        class="flex shrink-0 justify-end px-5 py-4"
-        style={{ borderTop: '1px solid var(--m3-outline-variant)' }}
-      >
-        {showCompact ? (
-          <DialogActionButton
-            tone="primary"
-            disabled={busy}
-            onClick={() => void handleCompactPressed()}
-          >
-            {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '主动压缩')}
-          </DialogActionButton>
-        ) : null}
-      </footer>
-    </DialogFrame>
-  );
-}
-
-function ContextStatsSection({ children }: { children: ComponentChildren }) {
-  return (
-    <section
-      class="rounded-m3-md p-3"
-      style={{
-        background: 'var(--m3-surface)',
-        border: '1px solid var(--m3-outline-variant)',
-      }}
-    >
-      {children}
-    </section>
-  );
-}
-
-function ContextStatsRow({ label, value, valueColor, suffix, emphasized = false }: { label: string; value: string; valueColor?: string; suffix?: string; emphasized?: boolean }) {
-  return (
-    <div class="flex items-baseline justify-between gap-3 py-1">
-      <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-        {label}
-      </span>
-      <span class={emphasized ? 'text-base font-bold tabular-nums' : 'text-sm font-semibold tabular-nums'} style={{ color: valueColor ?? 'var(--m3-on-surface)' }}>
-        {value}
-        {suffix ? <span class="ml-1 text-xs font-normal">· {suffix}</span> : null}
-      </span>
-    </div>
-  );
-}
-
-function ContextBreakdownBar({ label, chars, totalChars, color }: { label: string; chars: number; totalChars: number; color: string }) {
-  const ratio = totalChars <= 0 ? 0 : chars / totalChars;
-  const percent = (ratio * 100).toFixed(1);
-  return (
-    <div>
-      <div class="flex items-baseline justify-between text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
-        <span>{label}</span>
-        <span class="tabular-nums">
-          {chars.toLocaleString()} · {percent}%
-        </span>
-      </div>
-      <div
-        class="mt-1 h-1.5 w-full overflow-hidden rounded"
-        style={{
-          background: 'color-mix(in srgb, ' + color + ' 18%, transparent)',
-        }}
-      >
-        <div
-          class="h-full"
-          style={{
-            width: `${clampNumber(ratio * 100, 0, 100)}%`,
-            background: color,
-            transition: 'width 220ms ease-out',
-          }}
-        />
-      </div>
-    </div>
-  );
 }
 
 function TokenStatsSection({
@@ -9951,15 +9625,6 @@ function formatDialogDate(value?: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
-}
-
-function contextBudgetToolbarLabel(metadata: Record<string, unknown>): string | null {
-  const estimatedTokens = integerFromUnknown(metadata['context_budget_estimated_prompt_tokens']);
-  if (estimatedTokens <= 0) return null;
-  const percentLeft = integerFromUnknown(metadata['context_budget_percent_left']);
-  const status = metadataString(metadata['context_budget_status']);
-  const statusLabel = status === 'critical' ? t('topbar.contextBudget.critical', '危险') : status === 'auto_compact' ? t('topbar.contextBudget.compact', '压缩') : status === 'warning' ? t('topbar.contextBudget.warning', '偏高') : status === 'ok' ? t('topbar.contextBudget.ok', '正常') : t('topbar.contextBudget.unknown', '未知');
-  return `${t('topbar.contextBudget', '上下文')} ${percentLeft}% · ${statusLabel}`;
 }
 
 function mcpLazyLoadingCapsule(notices: string[]): SessionToolbarCapsule | null {
