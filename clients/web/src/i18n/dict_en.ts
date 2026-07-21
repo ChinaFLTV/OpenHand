@@ -349,6 +349,7 @@ export const dict_en: Record<string, string> = {
   'detail.media.saveFailed': 'Save failed',
   'composer.model': 'Model',
   'composer.modelEmpty': 'No model configured on the console',
+  'composer.model.lockedByInputCache': 'Provider, model & reasoning effort locked to ensure cache hit (disable Input Cache under Settings → AI → Cost Control to switch)',
   'composer.reasoning.title': 'Reasoning effort',
   'composer.reasoning.faster': 'Faster',
   'composer.reasoning.smarter': 'Smarter',

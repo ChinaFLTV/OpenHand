@@ -7,6 +7,7 @@ import { PopMenu } from './PopMenu';
 interface ReasoningEffortControlProps {
   model?: ApiMetaModel;
   disabled?: boolean;
+  disabledReason?: string;
   saving?: boolean;
   onSelect: (effort: string) => Promise<boolean>;
 }
@@ -486,6 +487,7 @@ function ReasoningEffortPanel({
 export function ReasoningEffortControl({
   model,
   disabled = false,
+  disabledReason,
   saving = false,
   onSelect,
 }: ReasoningEffortControlProps) {
@@ -505,7 +507,9 @@ export function ReasoningEffortControl({
         : model
         ? t('composer.reasoning.unsupported', '不支持推理')
         : t('composer.reasoning.unavailable', '推理不可用'));
-  const tooltip = supported
+  const tooltip = disabled && disabledReason
+    ? disabledReason
+    : supported
     ? t('composer.reasoning.adjust', '调整当前模型的推理强度')
     : t('composer.reasoning.disabled', '当前模型未启用或不支持推理强度控制');
   const controlRef = useRef<HTMLButtonElement | null>(null);
@@ -533,6 +537,7 @@ export function ReasoningEffortControl({
       verticalPlacement="above"
       width={360}
       wrapperClassName="oh-composer-reasoning-menu"
+      wrapperTitle={disabled && disabledReason ? disabledReason : undefined}
       panelClassName="oh-reasoning-effort-popover"
       ariaLabel={t('composer.reasoning.title', '推理强度')}
       content={() => (

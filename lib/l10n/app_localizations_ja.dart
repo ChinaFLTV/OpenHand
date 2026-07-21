@@ -4023,12 +4023,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get toolbarSessionMetadata => 'セッションメタデータ';
 
   @override
-  String get toolbarProviderModelLocked => 'プロバイダとモデルを固定してキャッシュ接頭辞を安定化';
-
-  @override
-  String get toolbarModelLocked => 'モデルロック中';
-
-  @override
   String get toolbarSessionAudit => 'セッション監査';
 
   @override
@@ -5771,7 +5765,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Prompt の静的プレフィックスを安定させ、プロトコルレベルのキャッシュヒントを適用して token コストを削減します。有効にすると、最初のユーザーメッセージ後にプロバイダーとモデルをロックし、Prompt Builder はシステム指示、ツールカタログ、メモリ、ユーザー指示を可能な限り安定した先頭セクションに保ちます。Anthropic は cache_control ブレークポイントを注入し、OpenAI 互換リクエストは安定したキャッシュアフィニティと messages を末尾に置く body レイアウトを使います。';
+      'Prompt の静的プレフィックスを安定させ、プロトコルレベルのキャッシュヒントを適用して token コストを削減します。有効にすると、最初の有効なユーザーメッセージへの AI 応答が始まった時点でプロバイダー、モデル、推論強度をロックし、Prompt Builder はシステム指示、ツールカタログ、メモリ、ユーザー指示を可能な限り安定した先頭セクションに保ちます。Anthropic は cache_control ブレークポイントを注入し、OpenAI 互換リクエストは安定したキャッシュアフィニティと messages を末尾に置く body レイアウトを使います。';
 
   @override
   String get settingsEnableInputCache => '入力キャッシュを有効化';

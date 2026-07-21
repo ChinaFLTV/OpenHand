@@ -3975,12 +3975,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toolbarSessionMetadata => '会话元数据';
 
   @override
-  String get toolbarProviderModelLocked => '已锁定服务商与模型以稳定缓存前缀';
-
-  @override
-  String get toolbarModelLocked => '模型已锁定';
-
-  @override
   String get toolbarSessionAudit => '会话审计';
 
   @override
@@ -5690,7 +5684,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。';
+      '通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：首条有效用户消息开始收到 AI 响应时，会锁定服务商、模型与推理强度；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
@@ -14643,12 +14637,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get toolbarSessionMetadata => '會話元數據';
 
   @override
-  String get toolbarProviderModelLocked => '已鎖定服務商與模型以穩定緩存前綴';
-
-  @override
-  String get toolbarModelLocked => '模型已鎖定';
-
-  @override
   String get toolbarSessionAudit => '會話審計';
 
   @override
@@ -16358,7 +16346,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '透過穩定 Prompt 靜態前綴與協議層快取提示來降低 token 成本。開啟後：使用者送出第一則訊息後會鎖定服務商與模型；Prompt Builder 會盡量保持系統提示、工具目錄、記憶、指令等穩定前置；Anthropic 協議會注入 cache_control 斷點，OpenAI-compatible 請求會使用穩定快取親和鍵與 messages 置尾布局。';
+      '透過穩定 Prompt 靜態前綴與協議層快取提示來降低 token 成本。開啟後：第一則有效使用者訊息開始收到 AI 回應時，會鎖定服務商、模型與推理強度；Prompt Builder 會盡量保持系統提示、工具目錄、記憶、指令等穩定前置；Anthropic 協議會注入 cache_control 斷點，OpenAI-compatible 請求會使用穩定快取親和鍵與 messages 置尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';

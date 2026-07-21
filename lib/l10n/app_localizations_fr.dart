@@ -4163,13 +4163,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get toolbarSessionMetadata => 'Métadonnées de session';
 
   @override
-  String get toolbarProviderModelLocked =>
-      'Fournisseur et modèle verrouillés pour stabiliser le préfixe de cache';
-
-  @override
-  String get toolbarModelLocked => 'Modèle verrouillé';
-
-  @override
   String get toolbarSessionAudit => 'Audit de session';
 
   @override
@@ -5990,7 +5983,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Réduisez les coûts en jetons en stabilisant le préfixe statique du prompt et en appliquant des indices de cache au niveau du protocole. Si activé, le fournisseur et le modèle sont verrouillés après le premier message utilisateur ; Prompt Builder garde autant que possible les instructions système, le catalogue d’outils, la mémoire et les instructions utilisateur en sections stables au début ; Anthropic injecte les points cache_control, et les requêtes compatibles OpenAI utilisent une affinité de cache stable avec un corps où messages reste en dernier.';
+      'Réduisez les coûts en jetons en stabilisant le préfixe statique du prompt et en appliquant des indices de cache au niveau du protocole. Si activé, le fournisseur, le modèle et l’intensité de raisonnement sont verrouillés dès que l’IA commence à répondre au premier message utilisateur valide ; Prompt Builder garde autant que possible les instructions système, le catalogue d’outils, la mémoire et les instructions utilisateur en sections stables au début ; Anthropic injecte les points cache_control, et les requêtes compatibles OpenAI utilisent une affinité de cache stable avec un corps où messages reste en dernier.';
 
   @override
   String get settingsEnableInputCache => 'Activer le cache d’entrée';

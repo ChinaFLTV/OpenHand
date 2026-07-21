@@ -2571,8 +2571,10 @@ class WebMessagePlatformService {
     );
     router.put(
       '/api/settings/models/reasoning-effort',
-      (shelf.Request r) =>
-          _withAuth(r, (req, _) => _putModelReasoningEffortHandler(req)),
+      (shelf.Request r) => _withAuth(
+        r,
+        (req, auth) => _putModelReasoningEffortHandler(req, auth),
+      ),
     );
 
     return router;
@@ -3346,14 +3348,28 @@ class WebMessagePlatformService {
 
   Future<shelf.Response> _putModelReasoningEffortHandler(
     shelf.Request request,
+    _WebGatewayAuthSession auth,
   ) async {
     final body = await _readJsonBody(request, maxBytes: 4 * 1024);
     final modelKey = _string(body['model_key'], '').trim();
     final effort = _string(body['effort'], '').trim().toLowerCase();
+    final sessionId = _string(body['session_id'], '').trim();
     final parsed = _parseModelKey(modelKey);
-    if (parsed == null || effort.isEmpty) {
+    if (parsed == null || effort.isEmpty || sessionId.isEmpty) {
       return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_key_and_effort_required',
+        'error': 'model_key_effort_and_session_id_required',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    if (await _resolveSessionInputCacheModelSelectionLocked(session)) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'input_cache_model_selection_locked',
+        'message': '已锁定服务商、模型与推理强度以保证缓存命中。',
       });
     }
     if (!_allowedModels().any((model) => model.key == modelKey)) {
@@ -4713,13 +4729,15 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    final messageLimitWindow = await _loadStoredMessageWindow(
+    final recentMessageWindow = await _loadStoredMessageWindow(
       session,
-      limit: 1,
+      limit: _settingsController.aiInputCacheEnabled
+          ? _maxMessageWindowLimit
+          : 1,
       tail: true,
     );
     final existingMessageCount = math.max(
-      messageLimitWindow.total,
+      recentMessageWindow.total,
       session.displayMessages.length,
     );
     if (existingMessageCount >= _config.maxMessagesPerSession) {
@@ -4777,12 +4795,31 @@ class WebMessagePlatformService {
         'error': 'text_not_allowed',
       });
     }
-    final model = _resolveModel(_string(body['model_key'], ''));
+    final requestedModelKey = _string(body['model_key'], '').trim();
+    final model = _resolveModel(requestedModelKey);
     if (model == null) {
       await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_not_configured',
       });
+    }
+    if (_isSessionInputCacheModelSelectionLocked(
+      session,
+      candidateMessages: recentMessageWindow.messages,
+    )) {
+      final lockedModelKey = _lastModelKeyForSession(
+        session,
+        candidateMessages: recentMessageWindow.messages,
+      );
+      if (lockedModelKey != null &&
+          lockedModelKey != _modelKey(model.id, model.modelId)) {
+        await _deleteMaterializedAttachments(attachments);
+        return _json(HttpStatus.conflict, <String, Object?>{
+          'error': 'input_cache_model_selection_locked',
+          'message': '已锁定服务商与模型以保证缓存命中。',
+          'model_key': lockedModelKey,
+        });
+      }
     }
     final attachmentCapabilities = resolveAiAttachmentInputCapabilities(model);
     final unsupportedAttachmentCount = attachments
@@ -5291,6 +5328,16 @@ class WebMessagePlatformService {
         'error': 'model_not_configured',
       });
     }
+    final lockedModelKey = _lastModelKeyForSession(session);
+    if (await _resolveSessionInputCacheModelSelectionLocked(session) &&
+        lockedModelKey != null &&
+        _modelKey(model.id, model.modelId) != lockedModelKey) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'input_cache_model_selection_locked',
+        'message': '已锁定服务商与模型以保证缓存命中。',
+        'model_key': lockedModelKey,
+      });
+    }
     final runtimeContext = await _buildRuntimeContext(
       templateId: session.templateId,
     );
@@ -5469,6 +5516,16 @@ class WebMessagePlatformService {
     if (model == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_not_configured',
+      });
+    }
+    final lockedModelKey = _lastModelKeyForSession(session);
+    if (await _resolveSessionInputCacheModelSelectionLocked(session) &&
+        lockedModelKey != null &&
+        _modelKey(model.id, model.modelId) != lockedModelKey) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'input_cache_model_selection_locked',
+        'message': '已锁定服务商与模型以保证缓存命中。',
+        'model_key': lockedModelKey,
       });
     }
     final currentPhase = _sessionController.sendPhaseForSession(session.id);
@@ -6095,9 +6152,11 @@ class WebMessagePlatformService {
                 ? '0:0:0'
                 : '${promptMetadata['context_budget_estimated_prompt_tokens'] ?? 0}:${promptMetadata['context_budget_effective_window_tokens'] ?? 0}:${promptMetadata['context_budget_usage_percent'] ?? 0}';
             final goalStateSig = jsonEncode(sessionPayload['goal_state']);
+            final modelSelectionLocked =
+                sessionPayload['input_cache_model_selection_locked'] == true;
             final messagesPayload = snapshot['messages'] as List;
             final hash =
-                '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|context=$contextUsageSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
+                '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|model_lock=$modelSelectionLocked|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|context=$contextUsageSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
             if (hash == lastSnapshotHash) return;
             lastSnapshotHash = hash;
             emit('snapshot', snapshot);
@@ -6137,6 +6196,7 @@ class WebMessagePlatformService {
       _sessionController.streamThrottleOverrideSignal.removeListener(
         controllerListener,
       );
+      _settingsController.removeListener(controllerListener);
       if (!controller.isClosed) {
         controller.close();
       }
@@ -6150,6 +6210,7 @@ class WebMessagePlatformService {
     _sessionController.streamThrottleOverrideSignal.addListener(
       controllerListener,
     );
+    _settingsController.addListener(controllerListener);
     keepaliveTimer = startSafePeriodicTimer(
       const Duration(seconds: 25),
       (_) {
@@ -7435,6 +7496,36 @@ class WebMessagePlatformService {
         .firstOrNull;
   }
 
+  bool _isSessionInputCacheModelSelectionLocked(
+    AiSession session, {
+    Iterable<AiSessionMessage> candidateMessages = const <AiSessionMessage>[],
+  }) {
+    return isInputCacheModelSelectionLockedForSession(
+      inputCacheEnabled: _settingsController.aiInputCacheEnabled,
+      session: session,
+      candidateMessages: candidateMessages,
+    );
+  }
+
+  Future<bool> _resolveSessionInputCacheModelSelectionLocked(
+    AiSession session,
+  ) async {
+    if (_isSessionInputCacheModelSelectionLocked(session)) return true;
+    if (!_settingsController.aiInputCacheEnabled ||
+        session.hasCompleteMessages) {
+      return false;
+    }
+    final window = await _loadStoredMessageWindow(
+      session,
+      limit: _maxMessageWindowLimit,
+      tail: true,
+    );
+    return _isSessionInputCacheModelSelectionLocked(
+      session,
+      candidateMessages: window.messages,
+    );
+  }
+
   String? _lastModelKeyForSession(
     AiSession session, {
     List<AiSessionMessage>? candidateMessages,
@@ -8028,6 +8119,12 @@ class WebMessagePlatformService {
           ?.toUtc()
           .toIso8601String(),
       'last_model_key': lastModelKey,
+      'input_cache_model_selection_locked':
+          _isSessionInputCacheModelSelectionLocked(
+            session,
+            candidateMessages:
+                lastModelKeyCandidates ?? const <AiSessionMessage>[],
+          ),
       'message_count': messageCount,
       'statistics': _cacheHitStats(session, includeTrend: includeCacheHitTrend),
       'total_tokens': session.statistics.totalTokens,

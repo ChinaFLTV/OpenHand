@@ -45,6 +45,8 @@ interface PopMenuProps {
   trigger: (props: { open: boolean; toggle: () => void }) => ComponentChildren;
   /** 触发器外层样式钩子。 */
   wrapperClassName?: string;
+  /** 触发器不可用时由外层承载悬停提示。 */
+  wrapperTitle?: string;
   /** 默认 'right'，菜单从触发器右上角弹出。 */
   align?: 'left' | 'right';
   /** 垂直方向首选位置；空间不足时自动回退到可用侧。 */
@@ -89,6 +91,7 @@ export function PopMenu({
   panelClassName = '',
   trigger,
   wrapperClassName = '',
+  wrapperTitle,
   align = 'right',
   verticalPlacement = 'auto',
   width,
@@ -230,6 +233,7 @@ export function PopMenu({
     <div
       ref={wrapRef}
       class={`relative inline-block ${wrapperClassName}`}
+      title={wrapperTitle}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >

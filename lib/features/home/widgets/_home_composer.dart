@@ -24,6 +24,14 @@ const double _composerOverlayViewportMargin = 8;
 const double _composerOverlayGap = 6;
 final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
 
+String _inputCacheModelLockReason(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已锁定服务商、模型与推理强度以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
+    en: 'Provider, model & reasoning effort locked to ensure cache hit (disable Input Cache under Settings → AI → Cost Control to switch)',
+  );
+}
+
 enum _AtMentionOverlayMode { projectFiles, localFiles }
 
 bool _isComposerTriggerWhitespaceCodeUnit(int codeUnit) {
@@ -1320,7 +1328,21 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     await widget.onSend();
   }
 
+  bool _isModelSelectionLocked(SettingsController settings) {
+    final session = widget.currentSession;
+    return session != null &&
+        isInputCacheModelSelectionLockedForSession(
+          inputCacheEnabled: settings.aiInputCacheEnabled,
+          session: session,
+        );
+  }
+
   void _showModelMenu(BuildContext btnContext) {
+    final settings = context.read<SettingsController>();
+    if (_isModelSelectionLocked(settings)) {
+      showOpenHandInfoSnack(context, _inputCacheModelLockReason(context));
+      return;
+    }
     // 实时从 SettingsController 获取最新模型列表，确保增删模型后立即同步
     final settingsController = Provider.of<SettingsController?>(
       btnContext,
@@ -1354,6 +1376,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   Future<void> _selectReasoningEffort(BuildContext btnContext) async {
+    final settings = context.read<SettingsController>();
+    if (_isModelSelectionLocked(settings)) {
+      showOpenHandInfoSnack(context, _inputCacheModelLockReason(context));
+      return;
+    }
     final selected = widget.selectedModel;
     if (selected == null || !selected.resolvedReasoningEffortControlEnabled) {
       return;
@@ -1369,6 +1396,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       currentValue: selected.resolvedReasoningEffort,
       onChanged: (effort) async {
         if (!mounted) return false;
+        final latestSettings = context.read<SettingsController>();
+        if (_isModelSelectionLocked(latestSettings)) {
+          showOpenHandInfoSnack(context, _inputCacheModelLockReason(context));
+          return false;
+        }
         var saved = false;
         try {
           saved = await context
@@ -1438,6 +1470,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isSendingMessage = widget.sendPhase == AiSendPhase.sendingMessage;
     final isResponding = widget.sendPhase == AiSendPhase.responding;
     final isBusy = widget.sendPhase != AiSendPhase.idle;
+    final settings = context.watch<SettingsController>();
+    final modelSelectionLocked = _isModelSelectionLocked(settings);
+    final modelLockReason = _inputCacheModelLockReason(context);
     final canStopSending = widget.canStopSending;
     final activeGoal = widget.currentSession?.activeGoal;
     final hasActiveGoal = activeGoal?.isActive == true;
@@ -1865,29 +1900,39 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        OutlinedButton(
-                          onPressed: widget.availableModels.isEmpty
-                              ? null
-                              : () => _showModelMenu(btnContext),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 52),
-                            padding: const EdgeInsetsDirectional.only(
-                              start: 16,
-                              end: 12,
-                            ),
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadiusDirectional.horizontal(
-                                start: Radius.circular(26),
+                        Tooltip(
+                          message: modelSelectionLocked
+                              ? modelLockReason
+                              : selectedModelLabel,
+                          child: OutlinedButton(
+                            onPressed:
+                                widget.availableModels.isEmpty ||
+                                    modelSelectionLocked
+                                ? null
+                                : () => _showModelMenu(btnContext),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 52),
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 16,
+                                end: 12,
+                              ),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadiusDirectional.horizontal(
+                                      start: Radius.circular(26),
+                                    ),
                               ),
                             ),
-                          ),
-                          child: Text(
-                            selectedModelLabel,
-                            overflow: TextOverflow.ellipsis,
+                            child: Text(
+                              selectedModelLabel,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                         Tooltip(
-                          message: selectedModelReasoningSupported
+                          message: modelSelectionLocked
+                              ? modelLockReason
+                              : selectedModelReasoningSupported
                               ? openHandLocalizedText(
                                   context,
                                   zh: '调整当前模型的推理强度',
@@ -1901,7 +1946,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           child: SizedBox(
                             height: 52,
                             child: OutlinedButton(
-                              onPressed: selectedModelReasoningSupported
+                              onPressed:
+                                  selectedModelReasoningSupported &&
+                                      !modelSelectionLocked
                                   ? () => unawaited(
                                       _selectReasoningEffort(btnContext),
                                     )

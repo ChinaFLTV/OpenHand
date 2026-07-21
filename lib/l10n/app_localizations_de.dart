@@ -4151,13 +4151,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get toolbarSessionMetadata => 'Sitzungsmetadaten';
 
   @override
-  String get toolbarProviderModelLocked =>
-      'Anbieter & Modell gesperrt, um Cache-Präfix zu stabilisieren';
-
-  @override
-  String get toolbarModelLocked => 'Modell gesperrt';
-
-  @override
   String get toolbarSessionAudit => 'Sitzungsprüfung';
 
   @override
@@ -5974,7 +5967,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix stabilisieren und Cache-Hinweise auf Protokollebene anwenden. Wenn aktiviert, werden Anbieter und Modell nach der ersten Benutzernachricht gesperrt; der Prompt Builder hält Systemanweisungen, Werkzeugkatalog, Speicher und Nutzeranweisungen möglichst stabil am Anfang; Anthropic injiziert cache_control-Breakpoints, OpenAI-kompatible Anfragen nutzen stabile Cache-Affinität und ein messages-last Body-Layout.';
+      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix stabilisieren und Cache-Hinweise auf Protokollebene anwenden. Wenn aktiviert, werden Anbieter, Modell und Denkintensität gesperrt, sobald die KI auf die erste gültige Benutzernachricht zu antworten beginnt; der Prompt Builder hält Systemanweisungen, Werkzeugkatalog, Speicher und Nutzeranweisungen möglichst stabil am Anfang; Anthropic injiziert cache_control-Breakpoints, OpenAI-kompatible Anfragen nutzen stabile Cache-Affinität und ein messages-last Body-Layout.';
 
   @override
   String get settingsEnableInputCache => 'Eingabecache aktivieren';

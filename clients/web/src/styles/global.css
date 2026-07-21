@@ -5817,8 +5817,13 @@ button.oh-message-context-capsule {
   background: var(--m3-surface-container-high);
   border-color: var(--m3-outline-variant);
 }
-.oh-composer-model-control {
+.oh-composer-model-menu {
+  display: inline-flex;
+  min-width: 0;
   max-width: 260px;
+}
+.oh-composer-model-control {
+  width: 100%;
 }
 .oh-composer-reasoning-menu {
   flex: 0 0 auto;
@@ -7894,7 +7899,7 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-session-mode-button {
     min-width: 0;
   }
-  .oh-composer-model-control {
+  .oh-composer-model-menu {
     order: 1;
     grid-column: 1 / -1;
     max-width: none;
@@ -8151,7 +8156,7 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-session-detail-shell:has(.oh-remote-running-banner) .oh-session-composer {
     max-height: min(36dvh, 260px);
   }
-  .oh-composer-model-control,
+  .oh-composer-model-menu,
   .oh-composer-reasoning-menu,
   .oh-composer-permission-control,
   .oh-session-mode-button {

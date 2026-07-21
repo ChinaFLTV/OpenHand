@@ -347,6 +347,7 @@ export const dict_ja: Record<string, string> = {
   'detail.media.saveFailed': '保存に失敗しました',
   'composer.model': 'モデル',
   'composer.modelEmpty': 'コンソールにモデル未設定',
+  'composer.model.lockedByInputCache': 'キャッシュヒットを維持するため、プロバイダー、モデル、推論強度はロックされています（設定→AI→コスト管理で入力キャッシュを無効にすると切り替えできます）',
   'composer.reasoning.title': '推論強度',
   'composer.reasoning.faster': '高速',
   'composer.reasoning.smarter': '高精度',

@@ -348,6 +348,7 @@ export const dict_zh: Record<string, string> = {
   'detail.media.saveFailed': '保存失败',
   'composer.model': '模型',
   'composer.modelEmpty': '主控制台未配置模型',
+  'composer.model.lockedByInputCache': '已锁定服务商、模型与推理强度以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
   'composer.reasoning.title': '推理强度',
   'composer.reasoning.faster': '更快',
   'composer.reasoning.smarter': '更智能',

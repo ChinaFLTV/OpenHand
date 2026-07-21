@@ -4603,6 +4603,11 @@ export function SessionDetailPage() {
 
   const detailBelongsToRoute = detail?.session.id === sessionId;
   const session = detailBelongsToRoute ? detail?.session : undefined;
+  const modelSelectionLocked = session?.input_cache_model_selection_locked === true;
+  const modelSelectionLockReason = t(
+    'composer.model.lockedByInputCache',
+    '已锁定服务商、模型与推理强度以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
+  );
   const currentGoal = session?.goal_state?.current ?? null;
   const goalPausedForQueuedMessages = isGoalPausedForQueuedMessages(currentGoal);
   const hasModeLockedGoal = isActiveGoalStatus(currentGoal?.status);
@@ -4611,6 +4616,11 @@ export function SessionDetailPage() {
   const hasRunnableQueuedMessages = queuedComposerMessages.length > 0 && blockedQueuedMessageId !== queuedComposerMessages[0]?.id;
   const goalModeAvailable = Boolean(session && isGoalModeAllowedForTemplate(session.template_id));
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
+
+  useEffect(() => {
+    if (modelSelectionLocked) setShowComposerModelPicker(false);
+  }, [modelSelectionLocked]);
+
   const messageWindowView = useMemo(
     () => deriveMessageWindowView(routeMessages, windowOffset > 0),
     [routeMessages, windowOffset],
@@ -5494,10 +5504,14 @@ export function SessionDetailPage() {
 
   async function changeComposerReasoningEffort(effort: string): Promise<boolean> {
     if (!selectedModel || reasoningEffortSaving) return false;
+    if (modelSelectionLocked) {
+      showSnackbar(modelSelectionLockReason);
+      return false;
+    }
     setReasoningEffortSaving(true);
     let saved = false;
     try {
-      await updateModelReasoningEffort(selectedModel.key, effort);
+      await updateModelReasoningEffort(selectedModel.key, effort, sessionId);
       saved = true;
       await refreshMeta();
       showSnackbar(t('composer.reasoning.saved', '推理强度已更新'), {
@@ -5868,13 +5882,14 @@ export function SessionDetailPage() {
     const sessionModelAllowed = sessionModelKey ? allowedModels.some((model) => model.key === sessionModelKey) : false;
     setComposerModelKey((current) => {
       const currentAllowed = current ? allowedModels.some((model) => model.key === current) : false;
+      if (modelSelectionLocked && sessionModelAllowed) return sessionModelKey;
       if (sessionModelAllowed && (!currentAllowed || current === fallbackModelKey)) {
         return sessionModelKey;
       }
       if (!currentAllowed) return fallbackModelKey;
       return current;
     });
-  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key]);
+  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key, modelSelectionLocked]);
 
   useEffect(() => {
     if (modelAllowedModes.length > 0 && !modelAllowedModes.includes(composerMode)) {
@@ -7551,15 +7566,18 @@ export function SessionDetailPage() {
                   />
                 ) : null}
 
-                <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={selectedModelName || t('composer.model', '模型')}>
-                  <span class="truncate">
-                    {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
-                  </span>
-                </button>
+                <span class="oh-composer-model-menu" title={modelSelectionLocked ? modelSelectionLockReason : undefined}>
+                  <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || modelSelectionLocked || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={modelSelectionLocked ? undefined : selectedModelName || t('composer.model', '模型')}>
+                    <span class="truncate">
+                      {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
+                    </span>
+                  </button>
+                </span>
 
                 <ReasoningEffortControl
                   model={selectedModel}
-                  disabled={composerSending}
+                  disabled={composerSending || modelSelectionLocked}
+                  disabledReason={modelSelectionLocked ? modelSelectionLockReason : undefined}
                   saving={reasoningEffortSaving}
                   onSelect={changeComposerReasoningEffort}
                 />
@@ -8207,11 +8225,15 @@ export function SessionDetailPage() {
         />
       ) : null}
       {imageEditorInput ? <ImageEditorDialog input={imageEditorInput} onCancel={() => settleImageEditor(null)} onSave={(result) => settleImageEditor(result)} /> : null}
-      {showComposerModelPicker ? (
+      {showComposerModelPicker && !modelSelectionLocked ? (
         <ModelPickerDialog
           models={allowedModels}
           selectedKey={composerModelKey}
           onSelect={(key) => {
+            if (modelSelectionLocked) {
+              showSnackbar(modelSelectionLockReason);
+              return;
+            }
             setComposerModelKey(key);
             pushRecentModel(key);
           }}

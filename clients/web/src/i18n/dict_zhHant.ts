@@ -347,6 +347,7 @@ export const dict_zhHant: Record<string, string> = {
   'detail.media.saveFailed': '儲存失敗',
   'composer.model': '模型',
   'composer.modelEmpty': '主控台尚未設定模型',
+  'composer.model.lockedByInputCache': '已鎖定服務商、模型與推理強度以確保快取命中（可在設定→AI→成本控制中關閉輸入快取後再切換）',
   'composer.reasoning.title': '推理強度',
   'composer.reasoning.faster': '更快',
   'composer.reasoning.smarter': '更智慧',

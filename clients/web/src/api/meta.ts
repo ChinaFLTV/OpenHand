@@ -189,12 +189,13 @@ export async function fetchApiMeta(signal?: AbortSignal): Promise<ApiMetaRespons
 export function updateModelReasoningEffort(
   modelKey: string,
   effort: string,
+  sessionId: string,
 ): Promise<UpdateModelReasoningEffortResponse> {
   return apiRequest<UpdateModelReasoningEffortResponse>(
     '/api/settings/models/reasoning-effort',
     {
       method: 'PUT',
-      body: { model_key: modelKey, effort },
+      body: { model_key: modelKey, effort, session_id: sessionId },
     },
   );
 }

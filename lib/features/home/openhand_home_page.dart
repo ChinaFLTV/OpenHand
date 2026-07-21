@@ -9640,20 +9640,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         availableModels: settingsController.aiModels,
         recentModelSelections: settingsController.recentModelSelections,
         onModelSelected: (providerConfigId, modelId) {
-          // 输入缓存锁定守卫: 启用缓存且本会话已有 assistant
-          // 回复后, 切换 provider/model 会让命中的 cache_control 前缀全部
-          // 失效；显式拦截并提示。
           final session = sessionController.currentSession;
-          if (settingsController.aiInputCacheEnabled &&
-              session != null &&
-              session.statistics.assistantMessageCount > 0) {
+          if (session != null &&
+              isInputCacheModelSelectionLockedForSession(
+                inputCacheEnabled: settingsController.aiInputCacheEnabled,
+                session: session,
+              )) {
             showOpenHandInfoSnack(
               context,
-              openHandLocalizedText(
-                context,
-                zh: '已锁定服务商与模型以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
-                en: 'Provider & model locked to ensure cache hit (disable Input Cache under Settings → AI → Cost Control to switch)',
-              ),
+              _inputCacheModelLockReason(context),
               maxLines: 2,
             );
             return;

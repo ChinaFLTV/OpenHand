@@ -205,20 +205,6 @@ class _SessionToolbar extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             _StreamThrottlePill(sessionId: session.id),
-                            if (_isInputCacheLocked(context, session)) ...[
-                              const SizedBox(width: 8),
-                              Tooltip(
-                                message: AppLocalizations.of(
-                                  context,
-                                )!.toolbarProviderModelLocked,
-                                child: _ToolbarPill(
-                                  icon: Icons.lock_outline_rounded,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.toolbarModelLocked,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -2551,17 +2537,6 @@ String _composerModeTooltip(
     return AppLocalizations.of(context)!.toolbarGatePlanExecutingSwitchChat;
   }
   return AppLocalizations.of(context)!.toolbarGatePlanModeSwitchChat;
-}
-
-/// 输入缓存锁定判断。
-///
-/// 当全局设置中『启用输入缓存』开启，且当前 session 已经至少完成 1 轮
-/// assistant 回复（保证缓存已经被服务端写入），即认为本轮起服务商/模型不应
-/// 再被切换，否则会让 cache_control 锁定的前缀失效。
-bool _isInputCacheLocked(BuildContext context, AiSession session) {
-  final settings = context.watch<SettingsController>();
-  if (!settings.aiInputCacheEnabled) return false;
-  return session.statistics.assistantMessageCount > 0;
 }
 
 /// Parses the MCP lazy-loading notice (format produced by

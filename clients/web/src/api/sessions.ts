@@ -147,6 +147,7 @@ export interface SessionSummary {
   latest_compression_checkpoint_message_id?: string | null;
   latest_compression_at?: string | null;
   last_model_key?: string | null;
+  input_cache_model_selection_locked?: boolean;
   message_count: number;
   statistics?: SessionStatistics;
   total_tokens?: number | null;

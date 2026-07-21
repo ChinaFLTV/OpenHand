@@ -7302,18 +7302,6 @@ abstract class AppLocalizations {
   /// **'会话元数据'**
   String get toolbarSessionMetadata;
 
-  /// No description provided for @toolbarProviderModelLocked.
-  ///
-  /// In zh, this message translates to:
-  /// **'已锁定服务商与模型以稳定缓存前缀'**
-  String get toolbarProviderModelLocked;
-
-  /// No description provided for @toolbarModelLocked.
-  ///
-  /// In zh, this message translates to:
-  /// **'模型已锁定'**
-  String get toolbarModelLocked;
-
   /// No description provided for @toolbarSessionAudit.
   ///
   /// In zh, this message translates to:
@@ -10533,7 +10521,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsReduceTokenCostsByFreezingThe.
   ///
   /// In zh, this message translates to:
-  /// **'通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。'**
+  /// **'通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：首条有效用户消息开始收到 AI 响应时，会锁定服务商、模型与推理强度；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。'**
   String get settingsReduceTokenCostsByFreezingThe;
 
   /// No description provided for @settingsEnableInputCache.

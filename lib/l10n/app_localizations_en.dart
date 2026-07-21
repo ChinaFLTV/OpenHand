@@ -4111,13 +4111,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolbarSessionMetadata => 'Session Metadata';
 
   @override
-  String get toolbarProviderModelLocked =>
-      'Provider & model locked to stabilize cache prefix';
-
-  @override
-  String get toolbarModelLocked => 'Model Locked';
-
-  @override
   String get toolbarSessionAudit => 'Session Audit';
 
   @override
@@ -5920,7 +5913,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduce token costs by stabilizing the prompt static prefix and applying protocol-level cache hints. When enabled: the provider and model are locked after the first user message; Prompt Builder keeps system instructions, tool catalog, memory, and user instructions as stable leading sections where possible; Anthropic injects cache_control breakpoints, and OpenAI-compatible requests use stable cache affinity plus a messages-last body layout.';
+      'Reduce token costs by stabilizing the prompt static prefix and applying protocol-level cache hints. When enabled: the provider, model, and reasoning effort are locked once the AI begins responding to the first valid user message; Prompt Builder keeps system instructions, tool catalog, memory, and user instructions as stable leading sections where possible; Anthropic injects cache_control breakpoints, and OpenAI-compatible requests use stable cache affinity plus a messages-last body layout.';
 
   @override
   String get settingsEnableInputCache => 'Enable Input Cache';
