@@ -83,6 +83,8 @@ const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
 const double _mcpServerCardSpacing = 14;
 const double _mcpServerCardHoverClearance = 6;
+const double _mcpTemplateHeaderCompactBreakpoint = 520;
+const double _mcpTemplateChipLabelMaxWidth = 280;
 const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
@@ -1821,18 +1823,48 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       String? tooltip,
     }) {
       final selected = _visibleTemplateIds.contains(templateId);
+      final foregroundColor = selected
+          ? colorScheme.onPrimaryContainer
+          : colorScheme.onSurface;
       return FilterChip(
         key: ValueKey<String>('mcp-template-visibility-$templateId'),
-        avatar: Icon(icon, size: 18),
-        label: Text(label),
+        label: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: _mcpTemplateChipLabelMaxWidth,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: foregroundColor),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 16,
+                child: selected
+                    ? Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: foregroundColor,
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
         selected: selected,
-        showCheckmark: true,
-        checkmarkColor: colorScheme.onSecondaryContainer,
-        selectedColor: colorScheme.secondaryContainer,
+        showCheckmark: false,
+        selectedColor: colorScheme.primaryContainer,
         side: BorderSide(
           color: selected
-              ? colorScheme.secondary.withValues(alpha: 0.46)
-              : colorScheme.outlineVariant.withValues(alpha: 0.72),
+              ? colorScheme.primary.withValues(alpha: 0.58)
+              : colorScheme.outlineVariant.withValues(alpha: 0.76),
         ),
         tooltip: tooltip,
         onSelected: _isSaving
@@ -1841,7 +1873,59 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       );
     }
 
-    return Column(
+    final selectAllButton = FilledButton.tonalIcon(
+      key: const ValueKey<String>('mcpTemplateVisibilitySelectAllButton'),
+      onPressed: _isSaving || knownIdsSelected
+          ? null
+          : () {
+              setState(() {
+                _visibleTemplateIds.addAll(_mcpThreadTemplateIds);
+                _visibilityErrorMessage = null;
+              });
+            },
+      icon: Icon(
+        knownIdsSelected ? Icons.done_all_rounded : Icons.select_all_rounded,
+        size: 18,
+      ),
+      label: Text(
+        knownIdsSelected
+            ? _localizedText(
+                context,
+                zh: '已全选',
+                en: 'All selected',
+                zhHant: '已全選',
+                fr: 'Tout sélectionné',
+                de: 'Alle ausgewählt',
+                ja: 'すべて選択済み',
+              )
+            : _localizedText(
+                context,
+                zh: '全选',
+                en: 'Select all',
+                zhHant: '全選',
+                fr: 'Tout sélectionner',
+                de: 'Alle auswählen',
+                ja: 'すべて選択',
+              ),
+      ),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        shape: const StadiumBorder(),
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
+        disabledBackgroundColor: colorScheme.primaryContainer.withValues(
+          alpha: 0.56,
+        ),
+        disabledForegroundColor: colorScheme.onPrimaryContainer.withValues(
+          alpha: 0.62,
+        ),
+      ),
+    );
+
+    final sectionHeading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -1885,42 +1969,38 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: _isSaving || knownIdsSelected
-                ? null
-                : () {
-                    setState(() {
-                      _visibleTemplateIds.addAll(_mcpThreadTemplateIds);
-                      _visibilityErrorMessage = null;
-                    });
-                  },
-            icon: const Icon(Icons.select_all_rounded, size: 18),
-            label: Text(
-              knownIdsSelected
-                  ? _localizedText(
-                      context,
-                      zh: '已全选',
-                      en: 'All selected',
-                      zhHant: '已全選',
-                      fr: 'Tout sélectionné',
-                      de: 'Alle ausgewählt',
-                      ja: 'すべて選択済み',
-                    )
-                  : _localizedText(
-                      context,
-                      zh: '全选',
-                      en: 'Select all',
-                      zhHant: '全選',
-                      fr: 'Tout sélectionner',
-                      de: 'Alle auswählen',
-                      ja: 'すべて選択',
-                    ),
-            ),
-          ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < _mcpTemplateHeaderCompactBreakpoint) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  sectionHeading,
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: selectAllButton,
+                  ),
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: sectionHeading),
+                const SizedBox(width: 16),
+                selectAllButton,
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         AnimatedSize(
           duration: _mcpMotionDuration(
             context,
