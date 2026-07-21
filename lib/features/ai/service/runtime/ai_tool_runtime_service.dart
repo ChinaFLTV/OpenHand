@@ -723,6 +723,8 @@ class AiToolRuntimeService {
     final reservedToolNames = <String>{};
     final notices = <String>[];
     final mcpServerInstructionsByName = <String, String>{};
+    final effectiveTemplateId = (templateId ?? runtimeContext.templateId)
+        .trim();
 
     void register(AiResolvedTool tool) {
       if (!reservedToolNames.add(tool.name)) {
@@ -748,6 +750,7 @@ class AiToolRuntimeService {
       runtimeContext.availableMcpServers,
     );
     for (final server in enabledServers) {
+      if (!server.isVisibleToTemplate(effectiveTemplateId)) continue;
       try {
         final catalog = await _mcpToolService.discoverTools(server);
         if (catalog.status != McpToolCatalogStatus.ready) {
@@ -779,7 +782,6 @@ class AiToolRuntimeService {
     }
 
     // ── 第三优先级：Builtin 工具 ──────────────────────────────────
-    final effectiveTemplateId = templateId ?? runtimeContext.templateId;
     for (final tool in _resolveConfiguredBuiltinTools(
       runtimeContext.builtinToolConfigs,
     )) {
@@ -808,6 +810,8 @@ class AiToolRuntimeService {
     final reservedToolNames = <String>{};
     final notices = <String>[];
     final mcpServerInstructionsByName = <String, String>{};
+    final effectiveTemplateId = (templateId ?? runtimeContext.templateId)
+        .trim();
 
     void register(AiResolvedTool tool) {
       if (!reservedToolNames.add(tool.name)) {
@@ -830,6 +834,7 @@ class AiToolRuntimeService {
       runtimeContext.availableMcpServers,
     );
     for (final server in enabledServers) {
+      if (!server.isVisibleToTemplate(effectiveTemplateId)) continue;
       final catalog = mcpToolCatalogsByServerName[server.name];
       if (catalog == null || catalog.status == McpToolCatalogStatus.idle) {
         notices.add(
@@ -867,7 +872,6 @@ class AiToolRuntimeService {
     }
 
     // ── 第三优先级：Builtin 工具 ──────────────────────────────────
-    final effectiveTemplateId = templateId ?? runtimeContext.templateId;
     for (final tool in _resolveConfiguredBuiltinTools(
       runtimeContext.builtinToolConfigs,
     )) {
@@ -901,8 +905,8 @@ class AiToolRuntimeService {
     void Function(BashToolExecutionUpdate update)? onBashUpdate,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
-    final resolvedTool = catalog.find(toolCall.name);
-    if (resolvedTool == null) {
+    final catalogTool = catalog.find(toolCall.name);
+    if (catalogTool == null) {
       // 工具未命中时，给模型一份可操作的引导，而不是只丢一句
       // “Unsupported tool name”。常见两种诱因：
       //   1) 模型在 plan 待批准轮次幻觉调用 Write/TodoWrite —— 此时 catalog
@@ -946,7 +950,15 @@ class AiToolRuntimeService {
         },
       );
     }
+    var resolvedTool = catalogTool;
+    var executionCatalog = catalog;
     if (resolvedTool.builtinKind == AiBuiltinToolKind.toolSearch) {
+      executionCatalog = _toolSearchCatalogForTemplate(
+        catalog: catalog,
+        toolSearch: resolvedTool,
+        metadata: metadata,
+      );
+      resolvedTool = executionCatalog.find(toolCall.name) ?? resolvedTool;
       final gatewayArguments = AiToolUtils.decodeArguments(
         toolCall.arguments,
         parameters: resolvedTool.definition.parameters,
@@ -955,7 +967,9 @@ class AiToolRuntimeService {
         gatewayArguments['tool_name'],
       );
       if (deferredToolName.isNotEmpty) {
-        final deferredTool = catalog.findDeferredTool(deferredToolName);
+        final deferredTool = executionCatalog.findDeferredTool(
+          deferredToolName,
+        );
         if (deferredTool == null) {
           return AiToolUtils.invalidResult(
             'ToolSearch',
@@ -983,8 +997,9 @@ class AiToolRuntimeService {
             toolsByName: <String, AiResolvedTool>{
               deferredTool.definition.name: deferredTool,
             },
-            notices: catalog.notices,
-            mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
+            notices: executionCatalog.notices,
+            mcpServerInstructionsByName:
+                executionCatalog.mcpServerInstructionsByName,
           ),
           toolCall: delegatedToolCall,
           model: model,
@@ -1109,7 +1124,7 @@ class AiToolRuntimeService {
         () async => switch (resolvedTool.source) {
           AiRuntimeToolSource.builtin => _executeBuiltinTool(
             sessionId: sessionId,
-            catalog: catalog,
+            catalog: executionCatalog,
             tool: resolvedTool,
             toolCall: toolCall,
             decodedArguments: decodedArguments,
@@ -1389,6 +1404,50 @@ class AiToolRuntimeService {
         AiToolExecutionRegistry.instance.unregister(activeRegistration);
       }
     }
+  }
+
+  AiResolvedToolCatalog _toolSearchCatalogForTemplate({
+    required AiResolvedToolCatalog catalog,
+    required AiResolvedTool toolSearch,
+    required Map<String, Object?> metadata,
+  }) {
+    final templateId = '${metadata['template_id'] ?? ''}'.trim();
+    final deferredTools = <String, AiResolvedTool>{};
+    final deferredDefinitions = <String, AiToolDefinition>{};
+    for (final entry in toolSearch.toolSearchDeferredTools.entries) {
+      final tool = entry.value;
+      final server = tool.mcpServer;
+      if (tool.source == AiRuntimeToolSource.mcp &&
+          (server == null ||
+              !server.enabled ||
+              (server.visibleTemplateIds != null &&
+                  (templateId.isEmpty ||
+                      !server.isVisibleToTemplate(templateId))))) {
+        continue;
+      }
+      deferredTools[entry.key] = tool;
+      deferredDefinitions[entry.key] =
+          toolSearch.toolSearchDeferredToolDefinitions[entry.key] ??
+          tool.definition;
+    }
+    if (deferredTools.length == toolSearch.toolSearchDeferredTools.length) {
+      return catalog;
+    }
+    final scopedToolSearch = toolSearch.withToolSearchDeferredTools(
+      definitions: deferredDefinitions,
+      tools: deferredTools,
+    );
+    return AiResolvedToolCatalog(
+      definitions: catalog.definitions,
+      toolsByName: <String, AiResolvedTool>{
+        for (final entry in catalog.toolsByName.entries)
+          entry.key: identical(entry.value, toolSearch)
+              ? scopedToolSearch
+              : entry.value,
+      },
+      notices: catalog.notices,
+      mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
+    );
   }
 
   Map<String, Object?>? _toolSearchDelegatedArguments(Object? value) {
@@ -1927,6 +1986,15 @@ class AiToolRuntimeService {
     final mcpTool = tool.mcpTool;
     if (server == null || mcpTool == null) {
       return _invalidToolResult(toolCall.name, 'Missing MCP tool metadata.');
+    }
+    if (!server.enabled) {
+      return _invalidToolResult(toolCall.name, '该 MCP 服务已停用。');
+    }
+    if (server.visibleTemplateIds != null) {
+      final templateId = '${metadata['template_id'] ?? ''}'.trim();
+      if (templateId.isEmpty || !server.isVisibleToTemplate(templateId)) {
+        return _invalidToolResult(toolCall.name, '当前线程模板不可使用该 MCP 服务。');
+      }
     }
     final cdpFirstBlock = _webReverseMcpCdpFirstBlock(
       tool: tool,

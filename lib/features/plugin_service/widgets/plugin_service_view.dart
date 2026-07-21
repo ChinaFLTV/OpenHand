@@ -1702,6 +1702,9 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
               enabled: true,
               command: 'npx',
               args: <String>['@playwright/mcp'],
+              visibleTemplateIds: <String>{
+                AiPromptTemplatePolicies.webReverseExpertTemplateId,
+              },
             );
         mcpController.saveServer(server, previousName: mcpName);
       } else if (action == _PluginServiceAction.uninstall) {

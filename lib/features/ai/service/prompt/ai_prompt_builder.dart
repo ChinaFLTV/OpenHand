@@ -462,6 +462,7 @@ class AiPromptBuilder {
     );
     final restoredMcpContext = _renderPostCompactRestoredMcpContext(
       runtimeContext: runtimeContext,
+      templateId: session.templateId,
       availableTools: availableTools,
       mcpServerInstructionsByName: mcpServerInstructionsByName,
       latestCompressionPoint: latestCompressionPoint,
@@ -1382,6 +1383,10 @@ class AiPromptBuilder {
     final builtinToolCount =
         availableToolNames.length - skillToolCount - mcpToolCount;
     final mcpServerNames = runtimeContext.availableMcpServers
+        .where(
+          (server) =>
+              server.enabled && server.isVisibleToTemplate(session.templateId),
+        )
         .map((server) => server.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
@@ -5426,6 +5431,7 @@ $content
 
   String _renderPostCompactRestoredMcpContext({
     required AiSessionRuntimeContext runtimeContext,
+    required String templateId,
     required List<AiToolDefinition> availableTools,
     required Map<String, String> mcpServerInstructionsByName,
     required AiSessionMessage? latestCompressionPoint,
@@ -5440,7 +5446,12 @@ $content
           ..sort(_compareToolDefinitionsForPromptCatalog);
     final servers =
         runtimeContext.availableMcpServers
-            .where((server) => nullIfBlank(server.name) != null)
+            .where(
+              (server) =>
+                  server.enabled &&
+                  server.isVisibleToTemplate(templateId) &&
+                  nullIfBlank(server.name) != null,
+            )
             .toList(growable: false)
           ..sort(
             (left, right) => _comparePromptCatalogNames(left.name, right.name),

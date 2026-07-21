@@ -6417,10 +6417,18 @@ fi
       controller,
       capability,
     );
+    final configuredMatches = _matchingAndroidMcpServersForCapability(
+      controller,
+      capability,
+      visibleOnly: false,
+    );
     final installed = matches.isNotEmpty;
+    final needsAssociation = !installed && configuredMatches.isNotEmpty;
     final canInstall = _canRegisterAndroidMcpCapability(capability);
     final statusColor = installed
         ? cs.primary
+        : needsAssociation
+        ? cs.secondary
         : canInstall
         ? cs.tertiary
         : cs.outline;
@@ -6433,6 +6441,16 @@ fi
             fr: '${matches.length} configuré(s)',
             de: '${matches.length} konfiguriert',
             ja: '${matches.length} 件設定済み',
+          )
+        : needsAssociation
+        ? openHandLocalizedText(
+            context,
+            zh: '待关联',
+            zhHant: '待關聯',
+            en: 'link required',
+            fr: 'association requise',
+            de: 'Verknüpfung erforderlich',
+            ja: '関連付けが必要',
           )
         : canInstall
         ? openHandLocalizedText(
@@ -6453,7 +6471,9 @@ fi
             de: 'Quelle fehlt',
             ja: 'インストール元なし',
           );
-    final firstServer = matches.isEmpty ? null : matches.first;
+    final firstServer = installed
+        ? matches.first
+        : configuredMatches.firstOrNull;
     final capabilityLabel = openHandLocalizedText(
       context,
       zh: capability.labelZh,
@@ -6537,18 +6557,25 @@ fi
             alignment: WrapAlignment.end,
             children: [
               _DashboardActionButton(
-                onPressed: installed || !canInstall || controller.isLoading
+                onPressed:
+                    installed ||
+                        (!needsAssociation && !canInstall) ||
+                        controller.isLoading
                     ? null
                     : () => unawaited(_installAndroidMcpCapability(capability)),
-                icon: const Icon(Icons.download_rounded),
+                icon: Icon(
+                  needsAssociation
+                      ? Icons.link_rounded
+                      : Icons.download_rounded,
+                ),
                 label: openHandLocalizedText(
                   context,
-                  zh: '安装',
-                  zhHant: '安裝',
-                  en: 'Install',
-                  fr: 'Installer',
-                  de: 'Installieren',
-                  ja: 'インストール',
+                  zh: needsAssociation ? '关联' : '安装',
+                  zhHant: needsAssociation ? '關聯' : '安裝',
+                  en: needsAssociation ? 'Link' : 'Install',
+                  fr: needsAssociation ? 'Associer' : 'Installer',
+                  de: needsAssociation ? 'Verknüpfen' : 'Installieren',
+                  ja: needsAssociation ? '関連付け' : 'インストール',
                 ),
               ),
               _DashboardActionButton(
@@ -6616,7 +6643,14 @@ fi
   Future<void> _installAndroidMcpCapability(
     TemplateRuntimeMcpCapabilitySpec capability,
   ) async {
-    if (!_canRegisterAndroidMcpCapability(capability)) {
+    final controller = context.read<McpController>();
+    final existing = _matchingAndroidMcpServersForCapability(
+      controller,
+      capability,
+      visibleOnly: false,
+    ).firstOrNull;
+    final linksExisting = existing != null;
+    if (!linksExisting && !_canRegisterAndroidMcpCapability(capability)) {
       _showSnack(
         openHandLocalizedText(
           context,
@@ -6630,28 +6664,49 @@ fi
       );
       return;
     }
-    final server = McpServer(
-      name: capability.suggestedServerName!.trim(),
-      type: (capability.suggestedUrl?.trim().isNotEmpty ?? false)
-          ? McpServerType.sse
-          : McpServerType.stdio,
-      enabled: true,
-      url: capability.suggestedUrl?.trim() ?? '',
-      command: capability.suggestedCommand?.trim() ?? '',
-      args: capability.suggestedArgs,
-    );
-    final ok = await context.read<McpController>().saveServer(server);
+    final server =
+        existing?.withVisibleTemplate(
+          AiPromptTemplatePolicies.androidReverseExpertTemplateId,
+        ) ??
+        McpServer(
+          name: capability.suggestedServerName!.trim(),
+          type: (capability.suggestedUrl?.trim().isNotEmpty ?? false)
+              ? McpServerType.sse
+              : McpServerType.stdio,
+          enabled: true,
+          url: capability.suggestedUrl?.trim() ?? '',
+          command: capability.suggestedCommand?.trim() ?? '',
+          args: capability.suggestedArgs,
+          visibleTemplateIds: const <String>{
+            AiPromptTemplatePolicies.androidReverseExpertTemplateId,
+          },
+        );
+    final ok = identical(server, existing)
+        ? true
+        : await controller.saveServer(server, previousName: existing?.name);
     if (!mounted) return;
     _showSnack(
       ok
           ? openHandLocalizedText(
               context,
-              zh: '已安装 MCP：${server.name}',
-              zhHant: '已安裝 MCP：${server.name}',
-              en: 'MCP installed: ${server.name}',
-              fr: 'MCP installé : ${server.name}',
-              de: 'MCP installiert: ${server.name}',
-              ja: 'MCP をインストールしました: ${server.name}',
+              zh: linksExisting
+                  ? '已关联 Android 逆向专家：${server.name}'
+                  : '已安装 MCP：${server.name}',
+              zhHant: linksExisting
+                  ? '已關聯 Android 逆向專家：${server.name}'
+                  : '已安裝 MCP：${server.name}',
+              en: linksExisting
+                  ? 'Linked to Android Reverse Expert: ${server.name}'
+                  : 'MCP installed: ${server.name}',
+              fr: linksExisting
+                  ? 'Associé à Expert reverse Android : ${server.name}'
+                  : 'MCP installé : ${server.name}',
+              de: linksExisting
+                  ? 'Mit Android-Reverse-Experte verknüpft: ${server.name}'
+                  : 'MCP installiert: ${server.name}',
+              ja: linksExisting
+                  ? 'Android リバースエキスパートに関連付けました: ${server.name}'
+                  : 'MCP をインストールしました: ${server.name}',
             )
           : openHandLocalizedText(
               context,
@@ -6663,7 +6718,7 @@ fi
               ja: 'MCP は既に存在するか名前が競合しています: ${server.name}',
             ),
     );
-    if (ok) {
+    if (ok && !linksExisting) {
       unawaited(context.read<McpController>().reconnectServer(server.name));
     }
   }
@@ -9605,6 +9660,11 @@ fi
   List<_AndroidMcpServerView> _androidMcpServerViews(McpController controller) {
     final rows = <_AndroidMcpServerView>[];
     for (final server in controller.servers) {
+      if (!server.isVisibleToTemplate(
+        AiPromptTemplatePolicies.androidReverseExpertTemplateId,
+      )) {
+        continue;
+      }
       final catalog = controller.toolCatalogFor(server.name);
       final health = controller.healthStatusFor(server.name);
       final matchedTools = catalog.tools
@@ -9637,24 +9697,33 @@ fi
 
   List<McpServer> _matchingAndroidMcpServersForCapability(
     McpController controller,
-    TemplateRuntimeMcpCapabilitySpec capability,
-  ) {
+    TemplateRuntimeMcpCapabilitySpec capability, {
+    bool visibleOnly = true,
+  }) {
+    bool isVisible(McpServer server) =>
+        !visibleOnly ||
+        server.isVisibleToTemplate(
+          AiPromptTemplatePolicies.androidReverseExpertTemplateId,
+        );
     final suggestedName = capability.suggestedServerName?.trim();
     final exactMatches = suggestedName == null || suggestedName.isEmpty
         ? const <McpServer>[]
         : controller.servers
               .where(
                 (server) =>
+                    isVisible(server) &&
                     server.name.toLowerCase() == suggestedName.toLowerCase(),
               )
               .toList(growable: false);
     if (exactMatches.isNotEmpty) return exactMatches;
     return controller.servers
         .where(
-          (server) => TemplateRuntimeDependencyRegistry.containsAnyKeyword(
-            _mcpServerSearchText(controller, server),
-            capability.keywords,
-          ),
+          (server) =>
+              isVisible(server) &&
+              TemplateRuntimeDependencyRegistry.containsAnyKeyword(
+                _mcpServerSearchText(controller, server),
+                capability.keywords,
+              ),
         )
         .toList(growable: false);
   }

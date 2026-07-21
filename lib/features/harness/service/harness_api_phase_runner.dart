@@ -14,6 +14,9 @@ import '../model/harness_phase.dart';
 import '../service/harness_orchestrator.dart';
 import '../service/harness_prompt_builder.dart';
 
+const String _harnessTemplateId =
+    AiPromptTemplatePolicies.harnessEngineeringTemplateId;
+
 class HarnessApiPhaseResult {
   const HarnessApiPhaseResult({
     required this.success,
@@ -262,6 +265,7 @@ class HarnessApiPhaseRunner {
     // catalog in the system prompt, but not in the protocol-level `tools` field.
     final rawToolCatalog = await _toolRuntimeService.resolveCatalog(
       runtimeContext: runtimeContext,
+      templateId: _harnessTemplateId,
     );
     var promotedToolNames = _toolUsagePromotionStore.promotedToolIdsForSession(
       phaseSessionId,
@@ -323,7 +327,7 @@ class HarnessApiPhaseRunner {
 
     // Load the HE template bundle for system/developer instructions.
     final templateBundle = await _templateRepository.loadBundle(
-      'harness_engineering',
+      _harnessTemplateId,
     );
 
     String buildSystemContent(AiResolvedToolCatalog currentPhaseToolCatalog) {
@@ -600,6 +604,9 @@ class HarnessApiPhaseRunner {
             requireWriteCommandConfirmation: requireWriteCommandConfirmation,
             confirmWriteCommand: confirmWriteCommand,
             cancelSignal: cancelSignal,
+            metadata: const <String, Object?>{
+              'template_id': _harnessTemplateId,
+            },
           );
           try {
             await _toolUsagePromotionStore.recordToolCall(

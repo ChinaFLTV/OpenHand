@@ -298,6 +298,7 @@ class WebReverseCdpMcpBridge {
         cdpMcpPackage,
         '--browser-url=${webReverseCdpHttpOrigin(port)}',
       ],
+      visibleTemplateIds: const <String>{templateId},
     );
     if (syncLifecycle) {
       _syncServerSignature(sessionId, server);

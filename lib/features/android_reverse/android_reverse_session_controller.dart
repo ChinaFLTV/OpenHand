@@ -38,6 +38,9 @@ const Duration _kStaticDecompileTimeout = Duration(minutes: 3);
 const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
 const int _kNetworkCaptureTranscriptMaxChars = 24000;
+const List<String> _kAndroidReverseMcpVisibleTemplateIds = <String>[
+  'android_reverse_expert',
+];
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'devices',
   'packages',
@@ -2351,6 +2354,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'probeEnabled': true,
                 'type': 'stdio',
                 'transport': 'stdio',
+                'visibleTemplateIds': _kAndroidReverseMcpVisibleTemplateIds,
                 'command': 'npx',
                 'args': const <String>[
                   '-y',
@@ -2370,6 +2374,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'probeEnabled': true,
                 'type': 'stdio',
                 'transport': 'stdio',
+                'visibleTemplateIds': _kAndroidReverseMcpVisibleTemplateIds,
                 'command': 'npx',
                 'args': const <String>['-y', 'frida-mcp'],
               },
@@ -2386,6 +2391,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'probeEnabled': true,
                 'type': 'sse',
                 'transport': 'sse',
+                'visibleTemplateIds': _kAndroidReverseMcpVisibleTemplateIds,
                 'url': 'http://127.0.0.1:<port>/sse',
               },
             },
@@ -2401,6 +2407,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'probeEnabled': true,
                 'type': 'stdio',
                 'transport': 'stdio',
+                'visibleTemplateIds': _kAndroidReverseMcpVisibleTemplateIds,
                 'command': 'npx',
                 'args': const <String>['-y', '<anything-analyzer-package>'],
               },

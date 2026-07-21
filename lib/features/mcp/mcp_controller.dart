@@ -1484,15 +1484,26 @@ class McpController extends ChangeNotifier {
     if (normalizedName.isEmpty) {
       return false;
     }
+    final normalizedServer = server.copyWith(
+      name: normalizedName,
+      visibleTemplateIds: server.visibleTemplateIds == null
+          ? null
+          : Set<String>.unmodifiable(server.visibleTemplateIds!),
+    );
     // 拒绝把 OpenHand 自身的 MCP 运维入口添加回来，杜绝引用循环 / 工具膨胀。
     // 覆盖 UI 弹窗与模板/插件等编程调用方所有入口。
-    if (isSelfReferencingServer(server)) {
+    if (isSelfReferencingServer(normalizedServer)) {
       return false;
     }
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       final updatedServers = List<McpServer>.from(_servers);
       final normalizedPreviousName = previousName?.trim();
+      final previousServer = normalizedPreviousName == null
+          ? null
+          : updatedServers
+                .where((item) => item.name == normalizedPreviousName)
+                .firstOrNull;
       if (normalizedPreviousName != null && normalizedPreviousName.isNotEmpty) {
         updatedServers.removeWhere(
           (item) => item.name == normalizedPreviousName,
@@ -1504,19 +1515,27 @@ class McpController extends ChangeNotifier {
       if (duplicateExists) {
         return false;
       }
-      updatedServers.add(server.copyWith(name: normalizedName));
+      updatedServers.add(normalizedServer);
       updatedServers.sort(
         (left, right) =>
             left.name.toLowerCase().compareTo(right.name.toLowerCase()),
       );
+      final runtimeChanged =
+          previousServer == null ||
+          previousServer.name != normalizedName ||
+          previousServer.enabled != normalizedServer.enabled ||
+          previousServer.probeEnabled != normalizedServer.probeEnabled ||
+          mcpServerConnectionSignature(previousServer) !=
+              mcpServerConnectionSignature(normalizedServer);
       return _commitSaveLocked(
         updatedServers,
         previousServerName: normalizedPreviousName,
         changedServerName: normalizedName,
-        shouldAutoRefreshTools: server.enabled,
-        shouldAutoCheckHealth: server.enabled,
-        resetChangedServerToolCatalog: true,
-        resetChangedServerHealth: true,
+        shouldAutoRefreshTools: normalizedServer.enabled && runtimeChanged,
+        shouldAutoCheckHealth: normalizedServer.enabled && runtimeChanged,
+        resetChangedServerToolCatalog: runtimeChanged,
+        resetChangedServerHealth: runtimeChanged,
+        invalidateRuntimeTasks: runtimeChanged,
       );
     });
   }
@@ -1929,6 +1948,7 @@ class McpController extends ChangeNotifier {
     bool shouldAutoCheckHealth = false,
     bool resetChangedServerToolCatalog = false,
     bool resetChangedServerHealth = false,
+    bool invalidateRuntimeTasks = true,
   }) async {
     if (!_hasTrustedSnapshot) return false;
     final previousServers = List<McpServer>.from(_servers);
@@ -1946,8 +1966,10 @@ class McpController extends ChangeNotifier {
         .toSet();
     _hasTrustedSnapshot = false;
     _errorMessage = null;
-    _invalidateToolRefreshGenerations();
-    _invalidateHealthCheckGenerations();
+    if (invalidateRuntimeTasks) {
+      _invalidateToolRefreshGenerations();
+      _invalidateHealthCheckGenerations();
+    }
     _reconcileHealthCheckTimer();
     notifyListeners();
     try {

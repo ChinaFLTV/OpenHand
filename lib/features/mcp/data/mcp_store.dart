@@ -55,6 +55,7 @@ class McpStore {
     'args',
     'headers',
     'env',
+    'visibleTemplateIds',
   };
 
   final String _serversFilePath;
@@ -161,6 +162,7 @@ class McpStore {
       args: _stringList(source, 'args'),
       headers: _headers(source['headers']),
       environment: _environment(source['env']),
+      visibleTemplateIds: _visibleTemplateIds(source, name),
       extraFields: Map<String, Object?>.unmodifiable(<String, Object?>{
         for (final entry in source.entries)
           if (!_serverFields.contains(entry.key)) entry.key: entry.value,
@@ -223,6 +225,9 @@ class McpStore {
           'headers': Map<String, String>.from(server.headers),
         if (server.environment.isNotEmpty)
           'env': Map<String, String>.from(server.environment),
+        'visibleTemplateIds': server.visibleTemplateIds == null
+            ? null
+            : (server.visibleTemplateIds!.toList(growable: false)..sort()),
       };
     }
     return prettyPrintJson(<String, Object?>{
@@ -246,6 +251,41 @@ class McpStore {
     }
     _validateHeaders(server.headers);
     _validateEnvironment(server.environment);
+    _validateVisibleTemplateIds(server.visibleTemplateIds);
+  }
+
+  Set<String>? _visibleTemplateIds(
+    Map<String, Object?> source,
+    String serverName,
+  ) {
+    if (!source.containsKey('visibleTemplateIds')) {
+      return McpServer.defaultVisibleTemplateIdsForName(serverName);
+    }
+    final raw = source['visibleTemplateIds'];
+    if (raw == null) return null;
+    if (raw is! List || raw.isEmpty || raw.any((item) => item is! String)) {
+      throw const FormatException('MCP visibleTemplateIds 必须是非空字符串数组。');
+    }
+    final values = <String>{};
+    for (final item in raw.cast<String>()) {
+      if (item.isEmpty || item.trim() != item) {
+        throw const FormatException('MCP visibleTemplateIds 不能包含空值或首尾空白。');
+      }
+      values.add(item);
+    }
+    return Set<String>.unmodifiable(values);
+  }
+
+  void _validateVisibleTemplateIds(Set<String>? visibleTemplateIds) {
+    if (visibleTemplateIds == null) return;
+    if (visibleTemplateIds.isEmpty) {
+      throw const FormatException('显式模板可见性配置不能为空。');
+    }
+    for (final templateId in visibleTemplateIds) {
+      if (templateId.isEmpty || templateId.trim() != templateId) {
+        throw const FormatException('模板可见性配置不能包含空值或首尾空白。');
+      }
+    }
   }
 
   Map<String, String> _headers(Object? raw) {

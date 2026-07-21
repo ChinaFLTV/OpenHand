@@ -44,7 +44,10 @@ import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart'
     show
+        AiPromptTemplateInfo,
+        AiPromptTemplatePolicies,
         AiResourceUsageKind,
+        AiThreadTemplateIcons,
         AiToolRuntimeService,
         resourceUsageStatisticsButton,
         showResourceUsageStatisticsDialog;
@@ -90,6 +93,14 @@ const BoundedDeletePolicy _mcpNpxCacheDeletePolicy = BoundedDeletePolicy(
   maxEntries: _mcpNpxCacheCleanupMaxEntries,
   maxDepth: 128,
   operationTimeout: Duration(seconds: 30),
+);
+
+final List<AiPromptTemplateInfo> _mcpThreadTemplateInfos =
+    List<AiPromptTemplateInfo>.unmodifiable(
+      AiPromptTemplatePolicies.templateInfos,
+    );
+final Set<String> _mcpThreadTemplateIds = Set<String>.unmodifiable(
+  _mcpThreadTemplateInfos.map((template) => template.id),
 );
 
 Duration _mcpMotionDuration(BuildContext context, Duration duration) {
@@ -476,6 +487,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   ? () => _registerTemplateMcpCapability(
                       context,
                       entry.capability,
+                      entry.spec.templateId,
                     )
                   : null,
             ),
@@ -523,6 +535,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   Future<void> _registerTemplateMcpCapability(
     BuildContext context,
     TemplateRuntimeMcpCapabilitySpec capability,
+    String templateId,
   ) async {
     final name = capability.suggestedServerName?.trim();
     final command = capability.suggestedCommand?.trim();
@@ -549,18 +562,26 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       );
       return;
     }
-    final saved = await context.read<McpController>().saveServer(
-      McpServer(
-        name: name,
-        type: url != null && url.isNotEmpty
-            ? McpServerType.sse
-            : McpServerType.stdio,
-        enabled: true,
-        url: url ?? '',
-        command: command ?? '',
-        args: capability.suggestedArgs,
-      ),
-    );
+    final controller = context.read<McpController>();
+    final existing = controller.servers
+        .where((server) => server.name == name)
+        .firstOrNull;
+    final server =
+        existing?.withVisibleTemplate(templateId) ??
+        McpServer(
+          name: name,
+          type: url != null && url.isNotEmpty
+              ? McpServerType.sse
+              : McpServerType.stdio,
+          enabled: true,
+          visibleTemplateIds: <String>{templateId},
+          url: url ?? '',
+          command: command ?? '',
+          args: capability.suggestedArgs,
+        );
+    final saved = identical(server, existing)
+        ? true
+        : await controller.saveServer(server, previousName: existing?.name);
     if (!context.mounted) return;
     flashOpenHandSnack(
       context,
@@ -1080,7 +1101,11 @@ _templateMcpCandidateEntries(McpController controller) {
   for (final spec
       in TemplateRuntimeDependencyRegistry.reverseEngineeringSpecs) {
     for (final capability in spec.mcpCapabilities) {
-      final matches = _matchingServersForCapability(controller, capability);
+      final matches = _matchingServersForCapability(
+        controller,
+        spec.templateId,
+        capability,
+      );
       if (matches.isEmpty) {
         entries.add((spec: spec, capability: capability));
       }
@@ -1337,14 +1362,17 @@ class _TemplateMcpStateChip extends StatelessWidget {
 
 List<McpServer> _matchingServersForCapability(
   McpController controller,
+  String templateId,
   TemplateRuntimeMcpCapabilitySpec capability,
 ) {
   return controller.servers
       .where(
-        (server) => TemplateRuntimeDependencyRegistry.containsAnyKeyword(
-          _mcpServerSearchText(controller, server),
-          capability.keywords,
-        ),
+        (server) =>
+            server.isVisibleToTemplate(templateId) &&
+            TemplateRuntimeDependencyRegistry.containsAnyKeyword(
+              _mcpServerSearchText(controller, server),
+              capability.keywords,
+            ),
       )
       .toList(growable: false);
 }
@@ -1398,11 +1426,13 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
   late final TextEditingController _commandController;
   late final TextEditingController _argsController;
   late final List<_EditableHeaderRow> _headerRows;
+  late final Set<String> _visibleTemplateIds;
   late McpServerType _type;
   late bool _enabled;
   bool _isSaving = false;
   String? _errorMessage;
   String? _headerErrorMessage;
+  String? _visibilityErrorMessage;
 
   @override
   void initState() {
@@ -1422,6 +1452,9 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
           : widget.initialServer!.args.join('\n'),
     );
     _headerRows = _createEditableHeaderRows(widget.initialServer?.headers);
+    _visibleTemplateIds = <String>{
+      ...(widget.initialServer?.visibleTemplateIds ?? _mcpThreadTemplateIds),
+    };
     _type = widget.initialServer?.type ?? McpServerType.streamableHttp;
     _enabled = widget.initialServer?.enabled ?? true;
   }
@@ -1449,7 +1482,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       child: buildOpenHandResponsiveDialogShell(
         context: context,
         maxWidth: 760,
-        maxHeight: 760,
+        maxHeight: 840,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -1533,6 +1566,8 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                                 },
                         ),
                         const SizedBox(height: 16),
+                        _buildTemplateVisibilityEditor(context),
+                        const SizedBox(height: 20),
                         if (useUrlField) ...[
                           TextFormField(
                             controller: _urlController,
@@ -1643,6 +1678,20 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final useUrlField =
         _type == McpServerType.streamableHttp || _type == McpServerType.sse;
+    if (_visibleTemplateIds.isEmpty) {
+      setState(() {
+        _visibilityErrorMessage = _localizedText(
+          context,
+          zh: '至少选择一个线程模板。',
+          en: 'Select at least one thread template.',
+          zhHant: '至少選擇一個執行緒範本。',
+          fr: 'Sélectionnez au moins un modèle de fil.',
+          de: 'Wählen Sie mindestens eine Thread-Vorlage aus.',
+          ja: 'スレッドテンプレートを1つ以上選択してください。',
+        );
+      });
+      return;
+    }
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -1667,20 +1716,29 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
         initial != null && _argsController.text == initial.args.join('\n')
         ? initial.args
         : splitTrimmedNonEmpty(_argsController.text, separator: '\n');
+    final normalizedName = _nameController.text.trim();
+    final visibleToAllKnownTemplates =
+        _visibleTemplateIds.length == _mcpThreadTemplateIds.length &&
+        _mcpThreadTemplateIds.every(_visibleTemplateIds.contains);
+    final visibleTemplateIds = visibleToAllKnownTemplates
+        ? null
+        : Set<String>.unmodifiable(_visibleTemplateIds);
     final server =
         initial?.copyWith(
-          name: _nameController.text.trim(),
+          name: normalizedName,
           type: _type,
           enabled: _enabled,
+          visibleTemplateIds: visibleTemplateIds,
           url: _urlController.text,
           command: _commandController.text,
           args: args,
           headers: headerParseResult.headers,
         ) ??
         McpServer(
-          name: _nameController.text.trim(),
+          name: normalizedName,
           type: _type,
           enabled: _enabled,
+          visibleTemplateIds: visibleTemplateIds,
           url: _urlController.text,
           command: _commandController.text,
           args: args,
@@ -1716,6 +1774,200 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       return;
     }
     Navigator.of(context).pop(true);
+  }
+
+  Widget _buildTemplateVisibilityEditor(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final locale = Localizations.localeOf(context);
+    final knownIdsSelected = _mcpThreadTemplateIds.every(
+      _visibleTemplateIds.contains,
+    );
+    final unknownTemplateIds =
+        _visibleTemplateIds
+            .where((id) => !_mcpThreadTemplateIds.contains(id))
+            .toList(growable: false)
+          ..sort();
+
+    void toggleTemplate(String templateId, bool selected) {
+      if (!selected && _visibleTemplateIds.length == 1) {
+        setState(() {
+          _visibilityErrorMessage = _localizedText(
+            context,
+            zh: '至少保留一个可见的线程模板。',
+            en: 'Keep at least one thread template visible.',
+            zhHant: '至少保留一個可見的執行緒範本。',
+            fr: 'Conservez au moins un modèle de fil visible.',
+            de: 'Mindestens eine Thread-Vorlage muss sichtbar bleiben.',
+            ja: '表示対象のスレッドテンプレートを1つ以上残してください。',
+          );
+        });
+        return;
+      }
+      setState(() {
+        if (selected) {
+          _visibleTemplateIds.add(templateId);
+        } else {
+          _visibleTemplateIds.remove(templateId);
+        }
+        _visibilityErrorMessage = null;
+      });
+    }
+
+    FilterChip buildChip({
+      required String templateId,
+      required String label,
+      required IconData icon,
+      String? tooltip,
+    }) {
+      final selected = _visibleTemplateIds.contains(templateId);
+      return FilterChip(
+        key: ValueKey<String>('mcp-template-visibility-$templateId'),
+        avatar: Icon(icon, size: 18),
+        label: Text(label),
+        selected: selected,
+        showCheckmark: true,
+        checkmarkColor: colorScheme.onSecondaryContainer,
+        selectedColor: colorScheme.secondaryContainer,
+        side: BorderSide(
+          color: selected
+              ? colorScheme.secondary.withValues(alpha: 0.46)
+              : colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+        tooltip: tooltip,
+        onSelected: _isSaving
+            ? null
+            : (value) => toggleTemplate(templateId, value),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.visibility_rounded,
+              size: 20,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '线程模板可见性',
+                  en: 'Thread template visibility',
+                  zhHant: '執行緒範本可見性',
+                  fr: 'Visibilité par modèle de fil',
+                  de: 'Sichtbarkeit nach Thread-Vorlage',
+                  ja: 'スレッドテンプレートの表示範囲',
+                ),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _localizedText(
+            context,
+            zh: '仅选中的线程模板可查看并调用此服务提供的工具。',
+            en: 'Only selected thread templates can see and call tools from this service.',
+            zhHant: '只有選取的執行緒範本可以查看並呼叫此服務提供的工具。',
+            fr: 'Seuls les modèles sélectionnés peuvent voir et appeler les outils de ce service.',
+            de: 'Nur ausgewählte Thread-Vorlagen können die Tools dieses Dienstes sehen und aufrufen.',
+            ja: '選択したスレッドテンプレートだけが、このサービスのツールを表示して呼び出せます。',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: _isSaving || knownIdsSelected
+                ? null
+                : () {
+                    setState(() {
+                      _visibleTemplateIds.addAll(_mcpThreadTemplateIds);
+                      _visibilityErrorMessage = null;
+                    });
+                  },
+            icon: const Icon(Icons.select_all_rounded, size: 18),
+            label: Text(
+              knownIdsSelected
+                  ? _localizedText(
+                      context,
+                      zh: '已全选',
+                      en: 'All selected',
+                      zhHant: '已全選',
+                      fr: 'Tout sélectionné',
+                      de: 'Alle ausgewählt',
+                      ja: 'すべて選択済み',
+                    )
+                  : _localizedText(
+                      context,
+                      zh: '全选',
+                      en: 'Select all',
+                      zhHant: '全選',
+                      fr: 'Tout sélectionner',
+                      de: 'Alle auswählen',
+                      ja: 'すべて選択',
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        AnimatedSize(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 220),
+          ),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final template in _mcpThreadTemplateInfos)
+                buildChip(
+                  templateId: template.id,
+                  label: template.nameForLocale(locale),
+                  icon: AiThreadTemplateIcons.resolve(template.iconName),
+                  tooltip: template.descriptionForLocale(locale),
+                ),
+              for (final templateId in unknownTemplateIds)
+                buildChip(
+                  templateId: templateId,
+                  label: templateId,
+                  icon: Icons.extension_rounded,
+                ),
+            ],
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 180),
+          ),
+          child: _visibilityErrorMessage == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  key: ValueKey<String>(_visibilityErrorMessage!),
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _visibilityErrorMessage!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
   }
 
   Widget _buildHeaderEditor(BuildContext context) {
@@ -10103,9 +10355,22 @@ class _McpServerCardState extends State<_McpServerCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final templateSpecs = TemplateRuntimeDependencyRegistry.specsForMcpText(
-      _mcpServerSearchTextForCatalog(server, toolCatalog),
-    );
+    final locale = Localizations.localeOf(context);
+    final configuredTemplateIds = server.visibleTemplateIds;
+    final visibleToAllTemplates =
+        configuredTemplateIds == null ||
+        _mcpThreadTemplateIds.every(configuredTemplateIds.contains);
+    final visibleTemplates = _mcpThreadTemplateInfos
+        .where(
+          (template) => configuredTemplateIds?.contains(template.id) ?? true,
+        )
+        .toList(growable: false);
+    final unknownVisibleTemplateIds = configuredTemplateIds == null
+        ? <String>[]
+        : configuredTemplateIds
+              .where((id) => !_mcpThreadTemplateIds.contains(id))
+              .toList(growable: true);
+    unknownVisibleTemplateIds.sort();
 
     return HoverLift(
       child: AnimatedSize(
@@ -10357,18 +10622,31 @@ class _McpServerCardState extends State<_McpServerCard> {
                           enabled: server.enabled,
                           onPressed: () => onToggleEnabled(!server.enabled),
                         ),
-                        for (final spec in templateSpecs)
+                        if (visibleToAllTemplates)
                           _McpStatusChip(
-                            icon: Icons.account_tree_rounded,
+                            icon: Icons.public_rounded,
                             label: _localizedText(
                               context,
-                              zh: spec.labelZh,
-                              en: spec.labelEn,
-                              zhHant: spec.labelZhHant,
-                              fr: spec.labelFr,
-                              de: spec.labelDe,
-                              ja: spec.labelJa,
+                              zh: '全部线程模板',
+                              en: 'All thread templates',
+                              zhHant: '全部執行緒範本',
+                              fr: 'Tous les modèles de fil',
+                              de: 'Alle Thread-Vorlagen',
+                              ja: 'すべてのスレッドテンプレート',
                             ),
+                          ),
+                        if (!visibleToAllTemplates)
+                          for (final template in visibleTemplates)
+                            _McpStatusChip(
+                              icon: AiThreadTemplateIcons.resolve(
+                                template.iconName,
+                              ),
+                              label: template.nameForLocale(locale),
+                            ),
+                        for (final templateId in unknownVisibleTemplateIds)
+                          _McpStatusChip(
+                            icon: Icons.extension_rounded,
+                            label: templateId,
                           ),
                         // STDIO 进程运行状态 chip
                         if (server.type == McpServerType.stdio)

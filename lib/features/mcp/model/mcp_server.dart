@@ -29,6 +29,8 @@ enum McpServerType {
   }
 }
 
+const Object _mcpVisibleTemplateIdsUnchanged = Object();
+
 class McpServer {
   const McpServer({
     required this.name,
@@ -40,8 +42,22 @@ class McpServer {
     this.args = const <String>[],
     this.headers = const <String, String>{},
     this.environment = const <String, String>{},
+    this.visibleTemplateIds,
     this.extraFields = const <String, Object?>{},
   });
+
+  static const String webReverseExpertTemplateId = 'web_reverse_expert';
+  static const String androidReverseExpertTemplateId = 'android_reverse_expert';
+
+  static const Map<String, Set<String>> _builtInVisibleTemplateIds =
+      <String, Set<String>>{
+        'Web Reverse CDP MCP': <String>{webReverseExpertTemplateId},
+        'Playwright MCP': <String>{webReverseExpertTemplateId},
+        'JS Reverse MCP': <String>{webReverseExpertTemplateId},
+        'Android ADB MCP': <String>{androidReverseExpertTemplateId},
+        'Android Frida MCP': <String>{androidReverseExpertTemplateId},
+        'Anything Analyzer MCP': <String>{androidReverseExpertTemplateId},
+      };
 
   final String name;
   final McpServerType type;
@@ -58,7 +74,35 @@ class McpServer {
   final List<String> args;
   final Map<String, String> headers;
   final Map<String, String> environment;
+
+  /// null 表示对所有线程模板可见；非 null 时至少包含一个模板。
+  final Set<String>? visibleTemplateIds;
   final Map<String, Object?> extraFields;
+
+  static Set<String>? defaultVisibleTemplateIdsForName(String serverName) {
+    return _builtInVisibleTemplateIds[serverName];
+  }
+
+  bool isVisibleToTemplate(String templateId) {
+    final visibleIds = visibleTemplateIds;
+    return visibleIds == null || visibleIds.contains(templateId.trim());
+  }
+
+  McpServer withVisibleTemplate(String templateId) {
+    final normalizedTemplateId = templateId.trim();
+    final visibleIds = visibleTemplateIds;
+    if (normalizedTemplateId.isEmpty ||
+        visibleIds == null ||
+        visibleIds.contains(normalizedTemplateId)) {
+      return this;
+    }
+    return copyWith(
+      visibleTemplateIds: Set<String>.unmodifiable(<String>{
+        ...visibleIds,
+        normalizedTemplateId,
+      }),
+    );
+  }
 
   String get initials {
     final trimmed = name.trim();
@@ -88,6 +132,7 @@ class McpServer {
     List<String>? args,
     Map<String, String>? headers,
     Map<String, String>? environment,
+    Object? visibleTemplateIds = _mcpVisibleTemplateIdsUnchanged,
     Map<String, Object?>? extraFields,
   }) {
     return McpServer(
@@ -100,6 +145,10 @@ class McpServer {
       args: args ?? this.args,
       headers: headers ?? this.headers,
       environment: environment ?? this.environment,
+      visibleTemplateIds:
+          identical(visibleTemplateIds, _mcpVisibleTemplateIdsUnchanged)
+          ? this.visibleTemplateIds
+          : visibleTemplateIds as Set<String>?,
       extraFields: extraFields ?? this.extraFields,
     );
   }

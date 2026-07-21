@@ -2850,6 +2850,17 @@ class WebMessagePlatformService {
   List<Map<String, Object?>> _templateAssociationsForMcpServer(
     McpServer server,
   ) {
+    final visibleTemplateIds = server.visibleTemplateIds;
+    if (visibleTemplateIds == null) {
+      return const <Map<String, Object?>>[
+        <String, Object?>{
+          'template_id': '*',
+          'label_zh': '全部线程模板',
+          'label_en': 'All thread templates',
+          'capabilities': <Object?>[],
+        },
+      ];
+    }
     final catalog = _mcpController.toolCatalogFor(server.name);
     final text = StringBuffer()
       ..write(server.name)
@@ -2867,14 +2878,34 @@ class WebMessagePlatformService {
         ..write(tool.description);
     }
     final raw = text.toString();
-    return TemplateRuntimeDependencyRegistry.specsForMcpText(raw)
-        .map(
-          (spec) => <String, Object?>{
-            'template_id': spec.templateId,
-            'label_zh': spec.labelZh,
-            'label_en': spec.labelEn,
-            'capabilities': spec
-                .matchingCapabilities(raw)
+    final templatesById = <String, AiPromptTemplateInfo>{
+      for (final template in AiPromptTemplatePolicies.templateInfos)
+        template.id: template,
+    };
+    final sortedTemplateIds = visibleTemplateIds.toList(growable: false)
+      ..sort((left, right) {
+        final leftIndex = AiPromptTemplatePolicies.templateInfos.indexWhere(
+          (template) => template.id == left,
+        );
+        final rightIndex = AiPromptTemplatePolicies.templateInfos.indexWhere(
+          (template) => template.id == right,
+        );
+        if (leftIndex == -1 && rightIndex == -1) return left.compareTo(right);
+        if (leftIndex == -1) return 1;
+        if (rightIndex == -1) return -1;
+        return leftIndex.compareTo(rightIndex);
+      });
+    return sortedTemplateIds
+        .map((templateId) {
+          final template = templatesById[templateId];
+          final spec = TemplateRuntimeDependencyRegistry.byTemplateId(
+            templateId,
+          );
+          return <String, Object?>{
+            'template_id': templateId,
+            'label_zh': template?.name ?? templateId,
+            'label_en': template?.nameEn ?? template?.name ?? templateId,
+            'capabilities': (spec?.matchingCapabilities(raw) ?? const [])
                 .map(
                   (capability) => <String, Object?>{
                     'id': capability.id,
@@ -2886,8 +2917,8 @@ class WebMessagePlatformService {
                   },
                 )
                 .toList(growable: false),
-          },
-        )
+          };
+        })
         .toList(growable: false);
   }
 
