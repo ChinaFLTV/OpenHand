@@ -29,6 +29,7 @@ import '../../model/ai_session_goal.dart';
 import '../../model/ai_session_message.dart';
 import '../../model/ai_session_runtime_context.dart';
 import '../../model/ai_thread_template.dart';
+import '../../model/ai_token_usage.dart';
 import '../../tools/planning/ai_task_tool.dart';
 import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_protocol_adapter.dart';
@@ -118,7 +119,6 @@ class AiPromptBuilder {
   static const int _microCompactKeepRecentToolResults = 2;
   static const int _historyAssistantContentMaxChars = 1600;
   static const int _historyAssistantContentEdgeChars = 700;
-  static const int _contextBudgetEstimatedCharsPerToken = 4;
   static const int _contextBudgetSummaryReserveTokens = 20000;
   static const int _contextBudgetAutoCompactBufferTokens = 13000;
   static const int _contextBudgetWarningBufferTokens = 20000;
@@ -842,6 +842,8 @@ class AiPromptBuilder {
         _buildContextBudgetMetadata(
           model: model,
           promptCharacterCount: promptCharacterCount,
+          estimatedCharactersPerToken:
+              runtimeContext.estimatedCharactersPerToken,
         ),
       );
     return AiPromptBuildResult(
@@ -1254,10 +1256,15 @@ class AiPromptBuilder {
   Map<String, Object?> _buildContextBudgetMetadata({
     required AiModelConfig model,
     required int promptCharacterCount,
+    required int estimatedCharactersPerToken,
   }) {
+    final safeCharactersPerToken = math.max(1, estimatedCharactersPerToken);
     final estimatedPromptTokens = math.max(
       1,
-      (promptCharacterCount / _contextBudgetEstimatedCharsPerToken).ceil(),
+      estimateAiTokensFromCharacters(
+        promptCharacterCount,
+        charactersPerToken: safeCharactersPerToken,
+      ),
     );
     // 用户未在模型配置里填 maxContextTokens 时，回退到统一默认，避免
     // TopBar 上下文胶囊永远显示 “0% · 未知”。回退值仅用于 UI 估算，
@@ -1334,8 +1341,7 @@ class AiPromptBuilder {
       'context_budget_status': status,
       'context_budget_window_inferred': windowInferred,
       'context_budget_estimated_prompt_tokens': estimatedPromptTokens,
-      'context_budget_estimated_chars_per_token':
-          _contextBudgetEstimatedCharsPerToken,
+      'context_budget_estimated_chars_per_token': safeCharactersPerToken,
       'context_budget_model_max_tokens': maxContextTokens,
       'context_budget_summary_reserve_tokens': summaryReserveTokens,
       'context_budget_effective_window_tokens': effectiveWindowTokens,

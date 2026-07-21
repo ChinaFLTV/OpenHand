@@ -315,21 +315,14 @@ class AiUsageTracker {
         estimated: false,
       );
     }
-    final promptTokens = _estimateTokens(inputCharacters);
-    final completionTokens = _estimateTokens(outputCharacters);
     return (
-      usage: AiTokenUsage(
-        promptTokens: promptTokens,
-        completionTokens: completionTokens,
-        totalTokens: promptTokens + completionTokens,
+      usage: estimateAiTokenUsage(
+        inputCharacters: inputCharacters,
+        outputCharacters: outputCharacters,
+        charactersPerToken: _estimatedCharactersPerToken,
       ),
       estimated: true,
     );
-  }
-
-  int _estimateTokens(int characters) {
-    if (characters <= 0) return 0;
-    return (characters / _estimatedCharactersPerToken).ceil();
   }
 
   ({

@@ -1,5 +1,34 @@
 import '../../../shared/util/input_value_parsing.dart';
 
+int estimateAiTokensFromCharacters(
+  int characterCount, {
+  required int charactersPerToken,
+}) {
+  if (characterCount <= 0) return 0;
+  final safeRatio = charactersPerToken < 1 ? 1 : charactersPerToken;
+  return (characterCount + safeRatio - 1) ~/ safeRatio;
+}
+
+AiTokenUsage estimateAiTokenUsage({
+  required int inputCharacters,
+  required int outputCharacters,
+  required int charactersPerToken,
+}) {
+  final promptTokens = estimateAiTokensFromCharacters(
+    inputCharacters,
+    charactersPerToken: charactersPerToken,
+  );
+  final completionTokens = estimateAiTokensFromCharacters(
+    outputCharacters,
+    charactersPerToken: charactersPerToken,
+  );
+  return AiTokenUsage(
+    promptTokens: promptTokens,
+    completionTokens: completionTokens,
+    totalTokens: promptTokens + completionTokens,
+  );
+}
+
 class AiTokenUsage {
   factory AiTokenUsage.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);

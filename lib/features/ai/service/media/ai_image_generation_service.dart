@@ -25,6 +25,7 @@ import '../operations/ai_operation_http.dart';
 import '../operations/ai_stepfun_audio_policy.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
+import '../session_io/ai_token_usage_parser.dart';
 
 enum _GeneratedMediaKind {
   image('image', 'Image'),
@@ -457,6 +458,7 @@ class AiImageGenerationService {
       requestHeaders: Map<String, String>.unmodifiable(headers),
       startedAt: startedAt,
       endedAt: endedAt,
+      usage: AiTokenUsageParser.parseResponsePayload(decoded),
     );
   }
 
@@ -690,6 +692,7 @@ class AiImageGenerationService {
     }
 
     final decoded = _decodeJsonForKind(response.body, kind);
+    final initialUsage = AiTokenUsageParser.parseResponsePayload(decoded);
     _throwIfMiniMaxProviderFailed(
       decoded,
       kind: kind,
@@ -711,6 +714,7 @@ class AiImageGenerationService {
         requestHeaders: Map<String, String>.unmodifiable(headers),
         startedAt: startedAt,
         endedAt: endedAt,
+        usage: initialUsage,
       );
     }
 
@@ -725,6 +729,7 @@ class AiImageGenerationService {
       timeout: timeout,
       startedAt: startedAt,
       cancelSignal: cancelSignal,
+      initialUsage: initialUsage,
     );
     if (polled.markdown.isEmpty) {
       throw AiMediaGenerationException(
@@ -740,6 +745,7 @@ class AiImageGenerationService {
       requestHeaders: Map<String, String>.unmodifiable(headers),
       startedAt: startedAt,
       endedAt: DateTime.now().toUtc(),
+      usage: polled.usage,
     );
   }
 
@@ -2026,6 +2032,7 @@ class AiImageGenerationService {
     required Map<String, String> requestHeaders,
     required Duration timeout,
     required DateTime startedAt,
+    AiTokenUsage? initialUsage,
     Future<void>? cancelSignal,
   }) async {
     final operationUrl = _resolveOperationUrl(
@@ -2042,6 +2049,7 @@ class AiImageGenerationService {
     var lastBody = jsonEncode(initialPayload);
     var attempt = 0;
     var transientFailures = 0;
+    var usage = initialUsage;
     while (DateTime.now().toUtc().isBefore(deadline)) {
       attempt += 1;
       final remaining = deadline.difference(DateTime.now().toUtc());
@@ -2099,6 +2107,10 @@ class AiImageGenerationService {
       }
       transientFailures = 0;
       final decoded = _decodeJsonForKind(response.body, kind);
+      final parsedUsage = AiTokenUsageParser.parseResponsePayload(decoded);
+      if (parsedUsage != null) {
+        usage = AiTokenUsageParser.carryForward(usage, parsedUsage);
+      }
       _throwIfMiniMaxProviderFailed(
         decoded,
         kind: kind,
@@ -2127,6 +2139,7 @@ class AiImageGenerationService {
               return _PolledMediaResult(
                 markdown: '[$safeLabel]($downloadUrl)',
                 rawResponseBody: response.body,
+                usage: usage,
               );
             }
           }
@@ -2142,6 +2155,7 @@ class AiImageGenerationService {
         return _PolledMediaResult(
           markdown: markdown,
           rawResponseBody: response.body,
+          usage: usage,
         );
       }
       final status = _operationStatus(decoded);
@@ -2165,6 +2179,7 @@ class AiImageGenerationService {
           return _PolledMediaResult(
             markdown: contentMarkdown,
             rawResponseBody: response.body,
+            usage: usage,
           );
         }
       }
@@ -2175,7 +2190,11 @@ class AiImageGenerationService {
         );
       }
     }
-    return _PolledMediaResult(markdown: '', rawResponseBody: lastBody);
+    return _PolledMediaResult(
+      markdown: '',
+      rawResponseBody: lastBody,
+      usage: usage,
+    );
   }
 
   /// Sora 2 / grok2api expose the rendered mp4 only as a binary stream at
@@ -2739,12 +2758,17 @@ class _PolledMediaResult {
   const _PolledMediaResult({
     required this.markdown,
     required this.rawResponseBody,
+    this.usage,
   });
 
-  const _PolledMediaResult.empty() : markdown = '', rawResponseBody = '';
+  const _PolledMediaResult.empty()
+    : markdown = '',
+      rawResponseBody = '',
+      usage = null;
 
   final String markdown;
   final String rawResponseBody;
+  final AiTokenUsage? usage;
 }
 
 /// 集中收敛图像 / 视频 / 音频生成阶段的错误文案，与

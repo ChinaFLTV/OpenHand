@@ -279,6 +279,13 @@ class SessionCacheHitTrend {
         continue;
       }
       final usage = telemetryMessage.usage ?? message.usage;
+      final usageEstimated =
+          telemetryMessage
+              .metadata[aiSessionMessageUsageEstimatedMetadataKey] ==
+          true;
+      if (usageEstimated && !_hasCacheUsageTelemetry(usage)) {
+        continue;
+      }
       if (!sessionHasCacheUsageTelemetry && !_hasCacheUsageTelemetry(usage)) {
         continue;
       }

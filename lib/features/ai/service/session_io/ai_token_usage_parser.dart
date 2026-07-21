@@ -17,6 +17,50 @@ import '../../model/ai_token_usage.dart';
 class AiTokenUsageParser {
   const AiTokenUsageParser._();
 
+  static AiTokenUsage? parseResponsePayload(Object? raw) {
+    final root = _readMap(raw);
+    if (root == null) return null;
+    final candidates = <Map<String, Object?>>[];
+
+    void collect(Map<String, Object?> payload, int depth) {
+      final usage = _readMap(payload['usage']);
+      if (usage != null) candidates.add(usage);
+      final usageMetadata = _readMap(payload['usageMetadata']);
+      if (usageMetadata != null) candidates.add(usageMetadata);
+      candidates.add(payload);
+      if (depth >= 2) return;
+      for (final key in const <String>[
+        'data',
+        'result',
+        'output',
+        'response',
+      ]) {
+        final nested = payload[key];
+        final nestedMap = _readMap(nested);
+        if (nestedMap != null) {
+          collect(nestedMap, depth + 1);
+          continue;
+        }
+        if (nested is List) {
+          for (final item in nested) {
+            final itemMap = _readMap(item);
+            if (itemMap != null) collect(itemMap, depth + 1);
+          }
+        }
+      }
+    }
+
+    collect(root, 0);
+    for (final candidate in candidates) {
+      final parsed =
+          parseOpenAi(candidate) ??
+          parseClaude(candidate) ??
+          parseGemini(candidate);
+      if (parsed != null && !parsed.isEmpty) return parsed;
+    }
+    return null;
+  }
+
   /// OpenAI / OpenAI-compatible providers:
   /// - 标准: prompt_tokens / completion_tokens / total_tokens
   /// - 缓存命中常见字段:

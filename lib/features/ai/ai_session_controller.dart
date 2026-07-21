@@ -100,6 +100,8 @@ part 'state/_ai_session_utils.dart';
 
 const int _deviceIdFileMaxBytes = 4 * 1024;
 const int _maxCachedStreamThroughputSessions = 64;
+const String _mediaGenerationPromptAssemblyLayout =
+    'media_generation.latest_user.v1';
 final RegExp _deviceIdPattern = RegExp(r'^[A-Za-z0-9._:-]{1,256}$');
 
 typedef WriteCommandConfirmationCallback =
@@ -937,6 +939,7 @@ class AiSessionController extends ChangeNotifier {
       <String, Future<AiSession?>>{};
   final Map<String, Future<AiSession?>> _sessionCacheStatsHydrationTasks =
       <String, Future<AiSession?>>{};
+  final Set<String> _sessionStatisticsHydratedIds = <String>{};
   final Map<String, String> _sessionMessageWindowLoadErrors =
       <String, String>{};
   final Map<String, int> _sessionMessageWindowHydrationGenerations =
@@ -1912,8 +1915,7 @@ class AiSessionController extends ChangeNotifier {
       return Future<AiSession?>.value();
     }
     final current = _sessionById(normalizedSessionId);
-    if (current == null ||
-        !SessionCacheHitTrend.statisticsNeedHydration(current)) {
+    if (current == null || !_sessionStatisticsNeedHydration(current)) {
       return Future<AiSession?>.value(current);
     }
     final existingTask = _sessionCacheStatsHydrationTasks[normalizedSessionId];
@@ -2034,11 +2036,27 @@ class AiSessionController extends ChangeNotifier {
     return !session.hasCompleteMessages && session.messageTotalCount > 0;
   }
 
+  bool _sessionStatisticsNeedHydration(AiSession session) {
+    if (SessionCacheHitTrend.statisticsNeedHydration(session)) return true;
+    final model = resolveModelForSession(session);
+    if (_hasLegacyMediaGenerationPromptMetadata(session, model: model)) {
+      return true;
+    }
+    if (session.statistics.totalTokens != null) return false;
+    if (!session.hasLoadedMessages) {
+      return session.messageTotalCount > 0 &&
+          !_sessionStatisticsHydratedIds.contains(session.id);
+    }
+    return session.messages.any(
+      (message) => _isDedicatedMediaRoundStarter(message, model),
+    );
+  }
+
   Future<AiSession?> _hydrateSessionCacheStatistics(String sessionId) async {
     try {
       final liveBeforeLoad = _sessionById(sessionId);
       if (liveBeforeLoad == null ||
-          !SessionCacheHitTrend.statisticsNeedHydration(liveBeforeLoad)) {
+          !_sessionStatisticsNeedHydration(liveBeforeLoad)) {
         return liveBeforeLoad;
       }
       final fullSession = liveBeforeLoad.hasCompleteMessages
@@ -2051,9 +2069,14 @@ class AiSessionController extends ChangeNotifier {
           resolveModelForSession(liveBeforeLoad) ??
           resolveModelForSession(fullSession);
       final rebuiltFullSession = _rebuildSession(fullSession, model: model);
+      _sessionStatisticsHydratedIds.add(sessionId);
       final live = _sessionById(sessionId);
       if (live == null) return null;
-      if (!SessionCacheHitTrend.statisticsNeedHydration(live) &&
+      if (live.updatedAt != liveBeforeLoad.updatedAt ||
+          live.messageTotalCount != liveBeforeLoad.messageTotalCount) {
+        return live;
+      }
+      if (!_sessionStatisticsNeedHydration(live) &&
           !_sessionStatisticsDiffer(
             live.statistics,
             rebuiltFullSession.statistics,
@@ -2062,6 +2085,7 @@ class AiSessionController extends ChangeNotifier {
       }
       final updatedLive = live.copyWith(
         statistics: rebuiltFullSession.statistics,
+        lastPromptMetadata: rebuiltFullSession.lastPromptMetadata,
         messageTotalCount: math.max(
           live.messageTotalCount,
           rebuiltFullSession.statistics.totalMessageCount,
@@ -4293,7 +4317,10 @@ class AiSessionController extends ChangeNotifier {
         final latestCompressionPoint = _latestCompressionPointIn(
           retainedMessages,
         );
-        final retainedUsage = _usageFromRetainedMessages(retainedMessages);
+        final retainedUsage = _usageFromRetainedMessages(
+          retainedMessages,
+          model: resolveModelForSession(sourceSession),
+        );
         final retainedPromptBuildCount = _promptBuildCountFromRetainedMessages(
           retainedMessages,
         );
@@ -7163,7 +7190,7 @@ class AiSessionController extends ChangeNotifier {
           workingSession.activeConversationMessagesForPrompt;
       preRequestTimingsMs['prompt_history_build'] =
           promptHistoryStopwatch.elapsedMilliseconds;
-      final promptResult = await _promptBuilder.buildSessionPrompt(
+      final builtPromptResult = await _promptBuilder.buildSessionPrompt(
         templateBundle: templateBundle,
         session: workingSession,
         model: model,
@@ -7181,6 +7208,17 @@ class AiSessionController extends ChangeNotifier {
         planModeRecoveryInspectionRequired: planModeRecoveryInspectionRequired,
         displayCatalogOverride: displayCatalogForPrompt.definitions,
       );
+      final usesDedicatedMediaEndpoint = usesDedicatedMediaGenerationEndpoint(
+        model,
+        effectiveCreationRequest,
+      );
+      final promptResult = usesDedicatedMediaEndpoint
+          ? _mediaGenerationPromptResult(
+              builtPromptResult,
+              runtimeContext: runtimeContext,
+              creationRequest: effectiveCreationRequest,
+            )
+          : builtPromptResult;
       workingSession = workingSession.copyWith(
         lastPromptMetadata: _promptMetadataWithRuntimeToolCatalog(
           baseMetadata: promptResult.metadata,
@@ -7574,6 +7612,7 @@ class AiSessionController extends ChangeNotifier {
         AiSession session, {
         required String? messageId,
         required AiTokenUsage usage,
+        required bool usageEstimated,
       }) {
         if (messageId == null || messageId.isEmpty) {
           return session;
@@ -7585,9 +7624,16 @@ class AiSessionController extends ChangeNotifier {
           return session;
         }
         final currentMessage = session.messages[index];
+        final nextMetadata = Map<String, Object?>.from(currentMessage.metadata);
+        if (usageEstimated) {
+          nextMetadata[aiSessionMessageUsageEstimatedMetadataKey] = true;
+        } else {
+          nextMetadata.remove(aiSessionMessageUsageEstimatedMetadataKey);
+        }
         final updatedMessages = List<AiSessionMessage>.from(session.messages);
         updatedMessages[index] = currentMessage.copyWith(
           usage: usage,
+          metadata: nextMetadata,
           modelId: currentMessage.modelId ?? model.id,
           modelLabel: currentMessage.modelLabel ?? model.displayName,
         );
@@ -8052,12 +8098,14 @@ class AiSessionController extends ChangeNotifier {
               streamedSession,
               messageId: assistantMessageId,
               usage: usage,
+              usageEstimated: false,
             );
             streamedSession = applyUsageToMessageIfPresent(
               streamedSession,
               messageId:
                   activeLatestUserMessageId ?? activeRoundAnchorMessageId,
               usage: usage,
+              usageEstimated: false,
             );
             sessionChanged = true;
         }
@@ -8384,7 +8432,19 @@ class AiSessionController extends ChangeNotifier {
         );
       }
       final rebasedSession = _sessionById(workingSession.id) ?? workingSession;
-      final effectiveUsage = streamedUsage ?? result.usage;
+      final providerUsage = streamedUsage ?? result.usage;
+      final usageEstimated =
+          providerUsage == null && usesDedicatedMediaEndpoint;
+      final effectiveUsage =
+          providerUsage ??
+          (usageEstimated
+              ? estimateAiTokenUsage(
+                  inputCharacters: promptResult.promptCharacterCount,
+                  outputCharacters: 0,
+                  charactersPerToken:
+                      runtimeContext.estimatedCharactersPerToken,
+                )
+              : null);
       // Stamp final usage onto both the assistant and triggering user message
       // so either audit entry can show token data for this round.
       if (effectiveUsage != null) {
@@ -8392,11 +8452,13 @@ class AiSessionController extends ChangeNotifier {
           streamedSession,
           messageId: assistantMessageId,
           usage: effectiveUsage,
+          usageEstimated: usageEstimated,
         );
         streamedSession = applyUsageToMessageIfPresent(
           streamedSession,
           messageId: activeLatestUserMessageId ?? activeRoundAnchorMessageId,
           usage: effectiveUsage,
+          usageEstimated: usageEstimated,
         );
       }
       final totalUsage = _usageFromStatistics(
@@ -8413,7 +8475,7 @@ class AiSessionController extends ChangeNotifier {
         runtimePromptMetadata,
       );
       final providerPromptTokens = _currentPromptContextTokens(
-        effectiveUsage,
+        providerUsage,
         model,
       );
       if (contextUsage != null && providerPromptTokens != null) {
@@ -12687,8 +12749,12 @@ $tail''';
     int? lastPromptHistoryMessageCount,
     AiModelConfig? model,
   }) {
+    final storedUsage = _usageFromStatistics(session.statistics);
     final effectiveUsage =
-        totalUsage ?? _usageFromStatistics(session.statistics);
+        totalUsage ??
+        (storedUsage.isEmpty
+            ? _usageFromRetainedMessages(session.messages, model: model)
+            : storedUsage);
     final trackedSession = _syncPlanHistory(session);
     final resolvedPromptBuildCount =
         promptBuildCount ?? trackedSession.statistics.promptBuildCount;
@@ -12711,6 +12777,10 @@ $tail''';
     final cacheHitRatio = cacheTrend.points.isEmpty
         ? null
         : trendDisplay.averageHitRatio;
+    final lastPromptMetadata = _rebuildMediaGenerationPromptMetadata(
+      trackedSession,
+      model: model,
+    );
     return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
         trackedSession.messages,
@@ -12736,6 +12806,71 @@ $tail''';
         cacheHitTrendExcludedCount:
             cacheTrend.points.length - trendDisplay.trend.points.length,
       ),
+      lastPromptMetadata: lastPromptMetadata,
+    );
+  }
+
+  AiSessionMessage? _latestConversationRoundStarter(AiSession session) {
+    for (final message in session.messages.reversed) {
+      if (!message.isDeleted && message.startsConversationRound) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  bool _isDedicatedMediaRoundStarter(
+    AiSessionMessage message,
+    AiModelConfig? fallbackModel,
+  ) {
+    if (message.isDeleted || !message.startsConversationRound) return false;
+    final messageModelId = message.modelId?.trim() ?? '';
+    final model = messageModelId.isEmpty
+        ? fallbackModel
+        : _cachedAvailableModels
+                  .where((candidate) => candidate.id == messageModelId)
+                  .firstOrNull ??
+              fallbackModel;
+    if (model == null) return false;
+    final creationRequest = AiCreationRequest.fromMetadata(
+      message.metadata[AiCreationRequest.metadataKey],
+    );
+    return usesDedicatedMediaGenerationEndpoint(model, creationRequest);
+  }
+
+  bool _hasLegacyMediaGenerationPromptMetadata(
+    AiSession session, {
+    required AiModelConfig? model,
+  }) {
+    final roundStarter = _latestConversationRoundStarter(session);
+    return roundStarter != null &&
+        _isDedicatedMediaRoundStarter(roundStarter, model) &&
+        session.lastPromptMetadata['prompt_assembly_layout'] !=
+            _mediaGenerationPromptAssemblyLayout;
+  }
+
+  Map<String, Object?> _rebuildMediaGenerationPromptMetadata(
+    AiSession session, {
+    required AiModelConfig? model,
+  }) {
+    if (!_hasLegacyMediaGenerationPromptMetadata(session, model: model)) {
+      return session.lastPromptMetadata;
+    }
+    final roundStarter = _latestConversationRoundStarter(session)!;
+    final creationRequest = AiCreationRequest.fromMetadata(
+      roundStarter.metadata[AiCreationRequest.metadataKey],
+    );
+    final charactersPerToken =
+        optionalNonNegativeIntegralIntFromValue(
+          session
+              .lastPromptMetadata['context_budget_estimated_chars_per_token'],
+        ) ??
+        _effectiveEstimatedCharactersPerToken;
+    return _mediaGenerationPromptMetadata(
+      session.lastPromptMetadata,
+      creationRequest: creationRequest,
+      promptCharacters: roundStarter.characterCount,
+      charactersPerToken: math.max(1, charactersPerToken),
     );
   }
 
@@ -12806,13 +12941,51 @@ $tail''';
         .length;
   }
 
-  AiTokenUsage _usageFromRetainedMessages(List<AiSessionMessage> messages) {
+  AiTokenUsage _usageFromRetainedMessages(
+    List<AiSessionMessage> messages, {
+    required AiModelConfig? model,
+  }) {
     var usage = const AiTokenUsage();
+    AiSessionMessage? roundStarter;
+    var mediaRoundCounted = false;
     for (final message in messages) {
-      if (message.isDeleted || !_messageUsageCountsForSessionTotal(message)) {
+      if (message.isDeleted) {
         continue;
       }
-      usage = usage.merge(message.usage ?? const AiTokenUsage());
+      if (message.startsConversationRound) {
+        roundStarter = message;
+        mediaRoundCounted = false;
+      }
+      if (_messageUsageCountsForSessionTotal(message)) {
+        usage = usage.merge(message.usage!);
+        if (message.kind == AiSessionMessageKind.assistant) {
+          mediaRoundCounted = true;
+        }
+        continue;
+      }
+      if (message.kind != AiSessionMessageKind.assistant ||
+          mediaRoundCounted ||
+          roundStarter == null ||
+          !_isDedicatedMediaRoundStarter(roundStarter, model)) {
+        continue;
+      }
+      final promptMetadata = _metadataMap(
+        roundStarter.metadata['prompt_metadata'],
+      );
+      final charactersPerToken =
+          optionalNonNegativeIntegralIntFromValue(
+            promptMetadata?['context_budget_estimated_chars_per_token'],
+          ) ??
+          _effectiveEstimatedCharactersPerToken;
+      usage = usage.merge(
+        roundStarter.usage ??
+            estimateAiTokenUsage(
+              inputCharacters: roundStarter.characterCount,
+              outputCharacters: 0,
+              charactersPerToken: charactersPerToken,
+            ),
+      );
+      mediaRoundCounted = true;
     }
     return usage;
   }
@@ -13027,11 +13200,128 @@ $tail''';
   }
 
   int _estimateTokensFromCharacters(int characterCount) {
-    if (characterCount <= 0) {
-      return 0;
-    }
-    return (characterCount + _effectiveEstimatedCharactersPerToken - 1) ~/
-        _effectiveEstimatedCharactersPerToken;
+    return estimateAiTokensFromCharacters(
+      characterCount,
+      charactersPerToken: _effectiveEstimatedCharactersPerToken,
+    );
+  }
+
+  AiPromptBuildResult _mediaGenerationPromptResult(
+    AiPromptBuildResult source, {
+    required AiSessionRuntimeContext runtimeContext,
+    required AiCreationRequest creationRequest,
+  }) {
+    final inputTurn = mediaGenerationInputTurn(source.messages);
+    if (inputTurn == null) return source;
+    final promptCharacters = inputTurn.content.length;
+    final charactersPerToken = math.max(
+      1,
+      runtimeContext.estimatedCharactersPerToken,
+    );
+    final metadata = _mediaGenerationPromptMetadata(
+      source.metadata,
+      creationRequest: creationRequest,
+      promptCharacters: promptCharacters,
+      charactersPerToken: charactersPerToken,
+    );
+    return AiPromptBuildResult(
+      messages: <AiChatTurn>[inputTurn],
+      metadata: metadata,
+      promptCharacterCount: promptCharacters,
+      systemMessageCount: 0,
+      historyMessageCount: 0,
+      memoryResourceIds: const <String>{},
+    );
+  }
+
+  Map<String, Object?> _mediaGenerationPromptMetadata(
+    Map<String, Object?> source, {
+    required AiCreationRequest creationRequest,
+    required int promptCharacters,
+    required int charactersPerToken,
+  }) {
+    final promptTokens = estimateAiTokensFromCharacters(
+      promptCharacters,
+      charactersPerToken: charactersPerToken,
+    );
+    final metadata = Map<String, Object?>.from(source);
+    metadata.removeWhere(
+      (key, _) =>
+          key.startsWith('cache_') ||
+          key.startsWith('previous_') ||
+          key == 'stable_prefix_hash' ||
+          key == 'cache_anchor_hash' ||
+          key == 'stable_cache_key' ||
+          key == 'tool_catalog_hash' ||
+          key == 'idle_gap_seconds' ||
+          key == 'ttl_suspected',
+    );
+
+    int metadataInt(String key) =>
+        optionalNonNegativeIntegralIntFromValue(metadata[key]) ?? 0;
+    final effectiveWindow = metadataInt(
+      'context_budget_effective_window_tokens',
+    );
+    final autoCompactThreshold = metadataInt(
+      'context_budget_auto_compact_threshold_tokens',
+    );
+    final warningThreshold = metadataInt(
+      'context_budget_warning_threshold_tokens',
+    );
+    final errorThreshold = metadataInt('context_budget_error_threshold_tokens');
+    final blockingLimit = metadataInt('context_budget_blocking_limit_tokens');
+    final isAtBlockingLimit =
+        blockingLimit > 0 && promptTokens >= blockingLimit;
+    final isAboveAutoCompact =
+        autoCompactThreshold > 0 && promptTokens >= autoCompactThreshold;
+    final isAboveWarning =
+        warningThreshold > 0 && promptTokens >= warningThreshold;
+    final isAboveError = errorThreshold > 0 && promptTokens >= errorThreshold;
+    final status = isAtBlockingLimit
+        ? 'critical'
+        : isAboveAutoCompact
+        ? 'auto_compact'
+        : isAboveError || isAboveWarning
+        ? 'warning'
+        : 'ok';
+    final percentLeft = autoCompactThreshold <= 0
+        ? 0
+        : math.max(
+            0,
+            (((autoCompactThreshold - promptTokens) / autoCompactThreshold) *
+                    100)
+                .round(),
+          );
+    metadata
+      ..['creation_mode'] = creationRequest.mode.storageValue
+      ..['prompt_assembly_layout'] = _mediaGenerationPromptAssemblyLayout
+      ..['current_prompt_character_count'] = promptCharacters
+      ..['current_prompt_system_message_count'] = 0
+      ..['history_message_count'] = 0
+      ..['latest_user_message_count'] = 1
+      ..['cache_enabled'] = false
+      ..['input_cache_enabled'] = false
+      ..['cache_control_strategy'] = 'unsupported_media_endpoint'
+      ..[aiContextUsageMetadataKey] =
+          AiContextUsageBreakdown.fromCharacterCounts(
+            <AiContextUsageCategory, int>{
+              AiContextUsageCategory.conversation: promptCharacters,
+            },
+            totalTokens: promptTokens,
+          ).toJson()
+      ..['context_budget_status'] = status
+      ..['context_budget_estimated_prompt_tokens'] = promptTokens
+      ..['context_budget_estimated_chars_per_token'] = charactersPerToken
+      ..['context_budget_remaining_tokens'] = effectiveWindow - promptTokens
+      ..['context_budget_usage_percent'] = effectiveWindow <= 0
+          ? 0
+          : (promptTokens / effectiveWindow * 100).round()
+      ..['context_budget_percent_left'] = percentLeft
+      ..['context_budget_is_above_warning_threshold'] = isAboveWarning
+      ..['context_budget_is_above_error_threshold'] = isAboveError
+      ..['context_budget_is_above_auto_compact_threshold'] = isAboveAutoCompact
+      ..['context_budget_is_at_blocking_limit'] = isAtBlockingLimit;
+    return Map<String, Object?>.unmodifiable(metadata);
   }
 
   Map<String, Object?> _decodeToolArguments(String arguments) {
@@ -14651,9 +14941,10 @@ $tail''';
     );
     final estimatedPromptTokens = math.max(
       1,
-      (promptResult.promptCharacterCount /
-              math.max(1, runtimeContext.estimatedCharactersPerToken))
-          .ceil(),
+      estimateAiTokensFromCharacters(
+        promptResult.promptCharacterCount,
+        charactersPerToken: runtimeContext.estimatedCharactersPerToken,
+      ),
     );
     final preflightStartedAt = _clock().toUtc();
     final userExtras = <String, Object?>{

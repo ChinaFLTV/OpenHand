@@ -42,6 +42,48 @@ const String aiChatRequestFallbackThinkingMarkersRejected =
 const String aiChatRequestFallbackResponsesUnsupported =
     'responses_unsupported';
 
+final RegExp _mediaPromptHeaderPattern = RegExp(r'^#\s*\[\d+\]\s*[^\n]*\n+');
+
+AiChatTurn? mediaGenerationInputTurn(List<AiChatTurn> messages) {
+  for (final turn in messages.reversed) {
+    if (turn.role != AiChatRole.user) continue;
+    var prompt = turn.content.trim();
+    if (prompt.isEmpty) {
+      prompt = trimmedNonEmptyStrings(
+        turn.effectiveParts
+            .where((part) => part.kind == AiChatContentPartKind.text)
+            .map((part) => part.text),
+      ).join('\n');
+    }
+    prompt = prompt.replaceFirst(_mediaPromptHeaderPattern, '').trim();
+    final referenceParts = turn.effectiveParts
+        .where((part) => part.kind == AiChatContentPartKind.imageFile)
+        .toList(growable: false);
+    if (prompt.isEmpty && referenceParts.isEmpty) continue;
+    return AiChatTurn(
+      role: AiChatRole.user,
+      content: prompt,
+      parts: referenceParts,
+    );
+  }
+  return null;
+}
+
+bool usesDedicatedMediaGenerationEndpoint(
+  AiModelConfig model,
+  AiCreationRequest creationRequest,
+) {
+  return switch (creationRequest.mode) {
+    AiCreationMode.image =>
+      AiImageGenerationService.supportsImageGenerationForModel(model),
+    AiCreationMode.video =>
+      AiImageGenerationService.supportsVideoGenerationForModel(model),
+    AiCreationMode.audio =>
+      AiImageGenerationService.supportsAudioGenerationForModel(model),
+    AiCreationMode.none || AiCreationMode.deepResearch => false,
+  };
+}
+
 abstract class AiChatClient {
   Future<AiChatCompletion> sendMessage({
     required AiModelConfig model,
@@ -280,31 +322,6 @@ class AiChatService implements AiChatClient {
       <String, DateTime>{};
   final Map<String, DateTime> _unsupportedResponsesRequestShapes =
       <String, DateTime>{};
-
-  /// Returns true when [creationRequest] asks for media output and the
-  /// selected model exposes the matching generation capability. Gemini keeps
-  /// its inline `responseModalities` path on the chat endpoint, so it is not
-  /// diverted here.
-  ///
-  /// We trust the model-level capability resolver because it already prefers
-  /// explicit profile flags and the curated catalog before falling back to
-  /// the per-protocol matrix. This keeps user-configured media-only models
-  /// (e.g. `grok-imagine-video`, custom DashScope `wan` aliases) from being
-  /// silently routed to `/v1/chat/completions` and hitting HTTP 405.
-  bool _shouldDivertToMediaEndpoint(
-    AiModelConfig model,
-    AiCreationRequest creationRequest,
-  ) {
-    return switch (creationRequest.mode) {
-      AiCreationMode.image =>
-        AiImageGenerationService.supportsImageGenerationForModel(model),
-      AiCreationMode.video =>
-        AiImageGenerationService.supportsVideoGenerationForModel(model),
-      AiCreationMode.audio =>
-        AiImageGenerationService.supportsAudioGenerationForModel(model),
-      AiCreationMode.none || AiCreationMode.deepResearch => false,
-    };
-  }
 
   bool _canUseResponsesFamily({
     required AiModelConfig model,
@@ -562,48 +579,6 @@ class AiChatService implements AiChatClient {
     }
   }
 
-  /// Extracts the latest user text prompt from a turn list. The image
-  /// endpoints want a single clean prompt, not a chat history.
-  ///
-  /// The prompt builder prepends structured headers like
-  /// `# [6] Your latest message\n\n` to the user content for the chat
-  /// endpoint. These must be stripped before forwarding to the image API.
-  static final RegExp _structuredPromptHeaderPattern = RegExp(
-    r'^#\s*\[\d+\]\s*[^\n]*\n+',
-  );
-
-  String _latestUserPromptFromTurns(List<AiChatTurn> messages) {
-    for (final turn in messages.reversed) {
-      if (turn.role != AiChatRole.user) continue;
-      final raw = turn.content.trim();
-      if (raw.isNotEmpty) {
-        return raw.replaceFirst(_structuredPromptHeaderPattern, '').trim();
-      }
-      final parts = trimmedNonEmptyStrings(
-        turn.effectiveParts
-            .where((p) => p.kind == AiChatContentPartKind.text)
-            .map((p) => p.text),
-      ).join('\n');
-      if (parts.isNotEmpty) {
-        return parts.replaceFirst(_structuredPromptHeaderPattern, '').trim();
-      }
-    }
-    return '';
-  }
-
-  List<AiChatContentPart> _latestUserImagePartsFromTurns(
-    List<AiChatTurn> messages,
-  ) {
-    for (final turn in messages.reversed) {
-      if (turn.role != AiChatRole.user) continue;
-      final imageParts = turn.effectiveParts
-          .where((part) => part.kind == AiChatContentPartKind.imageFile)
-          .toList(growable: false);
-      if (imageParts.isNotEmpty) return imageParts;
-    }
-    return const <AiChatContentPart>[];
-  }
-
   /// Produces an [AiChatCompletion] by calling a dedicated media generation
   /// endpoint and wrapping its output in the regular chat completion shape so
   /// the rest of the app can stay oblivious.
@@ -615,8 +590,9 @@ class AiChatService implements AiChatClient {
     List<String> requestFallbacks = const <String>[],
     Future<void>? cancelSignal,
   }) async {
-    final prompt = _latestUserPromptFromTurns(messages);
-    final referenceImages = _latestUserImagePartsFromTurns(messages);
+    final inputTurn = mediaGenerationInputTurn(messages);
+    final prompt = inputTurn?.content ?? '';
+    final referenceImages = inputTurn?.parts ?? const <AiChatContentPart>[];
     final AiMediaGenerationResult result;
     try {
       result = switch (creationRequest.mode) {
@@ -706,8 +682,17 @@ class AiChatService implements AiChatClient {
         ),
         startedAt: startedAt,
         endedAt: endedAt,
-        inputCharacters: _requestCharacterCount(messages, tools),
-        outputCharacters: _completionCharacterCount(completion),
+        inputCharacters: _requestCharacterCount(
+          messages,
+          tools,
+          model: model,
+          creationRequest: creationRequest,
+        ),
+        outputCharacters: _completionCharacterCount(
+          completion,
+          model: model,
+          creationRequest: creationRequest,
+        ),
         usage: completion.usage,
         metadata: <String, Object?>{
           'streaming': false,
@@ -835,7 +820,7 @@ class AiChatService implements AiChatClient {
         throw _chatExceptionFromResponsesPayload(error);
       }
     }
-    if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
+    if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) {
       try {
         return await _awaitWithCancelSignal(
           _sendMediaGenerationCompletion(
@@ -1198,8 +1183,17 @@ class AiChatService implements AiChatClient {
             startedAt: startedAt,
             endedAt: endedAt,
             firstTokenMs: firstTokenMs,
-            inputCharacters: _requestCharacterCount(messages, tools),
-            outputCharacters: _streamResultCharacterCount(value),
+            inputCharacters: _requestCharacterCount(
+              messages,
+              tools,
+              model: model,
+              creationRequest: creationRequest,
+            ),
+            outputCharacters: _streamResultCharacterCount(
+              value,
+              model: model,
+              creationRequest: creationRequest,
+            ),
             usage: value.usage,
             metadata: <String, Object?>{
               'streaming': true,
@@ -1321,7 +1315,7 @@ class AiChatService implements AiChatClient {
     // Media generation is a one-shot or bounded-poll protocol on dedicated
     // endpoints, so wrap it in a synthetic stream that emits one textDelta
     // containing the final markdown media reference.
-    if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
+    if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) {
       return _sendMessageAsSyntheticStream(
         model: model,
         messages: messages,
@@ -2596,7 +2590,7 @@ class AiChatService implements AiChatClient {
       try {
         final Future<AiChatCompletion> completionFuture;
         if (!routeThroughChatRouting &&
-            _shouldDivertToMediaEndpoint(model, creationRequest)) {
+            usesDedicatedMediaGenerationEndpoint(model, creationRequest)) {
           completionFuture = _sendMediaGenerationCompletion(
             model: model,
             messages: messages,
@@ -2746,8 +2740,13 @@ class AiChatService implements AiChatClient {
 
   int _requestCharacterCount(
     List<AiChatTurn> messages,
-    List<AiToolDefinition> tools,
-  ) {
+    List<AiToolDefinition> tools, {
+    required AiModelConfig model,
+    required AiCreationRequest creationRequest,
+  }) {
+    if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) {
+      return mediaGenerationInputTurn(messages)?.content.length ?? 0;
+    }
     var total = messages.fold<int>(
       0,
       (sum, message) =>
@@ -2771,7 +2770,12 @@ class AiChatService implements AiChatClient {
     return total;
   }
 
-  int _completionCharacterCount(AiChatCompletion completion) {
+  int _completionCharacterCount(
+    AiChatCompletion completion, {
+    required AiModelConfig model,
+    required AiCreationRequest creationRequest,
+  }) {
+    if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) return 0;
     return completion.reply.length +
         (completion.reasoningContent?.length ?? 0) +
         completion.toolCalls.fold<int>(
@@ -2780,7 +2784,12 @@ class AiChatService implements AiChatClient {
         );
   }
 
-  int _streamResultCharacterCount(AiChatStreamResult result) {
+  int _streamResultCharacterCount(
+    AiChatStreamResult result, {
+    required AiModelConfig model,
+    required AiCreationRequest creationRequest,
+  }) {
+    if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) return 0;
     return result.reply.length +
         result.reasoning.length +
         result.toolCalls.fold<int>(

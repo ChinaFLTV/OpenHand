@@ -56,6 +56,7 @@ enum AiSessionMessageRole {
 }
 
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
+const String aiSessionMessageUsageEstimatedMetadataKey = 'usage_estimated';
 const String aiSessionMessageDeferredTelemetryMetadataKey =
     '_openhand_deferred_telemetry';
 const String aiSessionMessageContentPreviewMetadataKey =
