@@ -1885,7 +1885,6 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
             },
       icon: Icon(
         knownIdsSelected ? Icons.done_all_rounded : Icons.select_all_rounded,
-        size: 18,
       ),
       label: Text(
         knownIdsSelected
@@ -1907,21 +1906,6 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                 de: 'Alle auswählen',
                 ja: 'すべて選択',
               ),
-      ),
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 40),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-        shape: const StadiumBorder(),
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
-        disabledBackgroundColor: colorScheme.primaryContainer.withValues(
-          alpha: 0.56,
-        ),
-        disabledForegroundColor: colorScheme.onPrimaryContainer.withValues(
-          alpha: 0.62,
-        ),
       ),
     );
 
