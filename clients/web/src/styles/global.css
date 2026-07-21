@@ -116,6 +116,8 @@ html, body, #root {
   --oh-title-text-enter-duration: 340ms;
   --oh-title-text-exit-duration: 220ms;
   --oh-dialog-duration: 360ms;
+  --oh-dialog-enter-duration: 360ms;
+  --oh-dialog-exit-duration: 360ms;
   --oh-dialog-curve: cubic-bezier(0.215, 0.61, 0.355, 1);
   --oh-dialog-exit-curve: cubic-bezier(0.55, 0.055, 0.675, 0.19);
 

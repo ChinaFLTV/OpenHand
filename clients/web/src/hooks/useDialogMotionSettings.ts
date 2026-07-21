@@ -143,6 +143,14 @@ function applyDialogMotionSettingsToDocument(): void {
     '--oh-dialog-duration',
     `${getDialogMotionDurationMs()}ms`,
   );
+  root.style.setProperty(
+    '--oh-dialog-enter-duration',
+    `${getDialogEnterDurationMs()}ms`,
+  );
+  root.style.setProperty(
+    '--oh-dialog-exit-duration',
+    `${getDialogExitDurationMs()}ms`,
+  );
   root.style.setProperty('--oh-dialog-curve', curveToCss(currentSettings.curve));
   root.style.setProperty('--oh-dialog-exit-curve', reverseCurveToCss(currentSettings.curve));
 }

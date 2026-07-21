@@ -1327,8 +1327,7 @@ class AiSessionStatistics {
   final int? webSearchToolUsage;
   final int? webSearchPageUsage;
 
-  /// 第一轮后台 prompt 的 token 数，主要用于会话累计 Prompt 展示时扣除
-  /// 自动标题等非对话请求；缓存命中率趋势按真实模型请求逐点计算。
+  /// 首个计入会话累计的模型请求 Prompt Token，仅用于旧数据的缓存冷启动排除。
   final int? firstPromptTokens;
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
@@ -1346,6 +1345,9 @@ class AiSessionStatistics {
   /// 被「不包含过期异常」模式过滤掉的轮次数（首轮冷请求，
   /// 或 idle_gap>30min 且 hit_ratio<3%），用于浮窗内展示「已排除 N 轮」提示。
   final int cacheHitTrendExcludedCount;
+
+  bool get hasCacheUsageTelemetry =>
+      cacheCreationTokens != null || cacheReadTokens != null;
 
   AiSessionStatistics copyWith({
     int? totalMessageCount,

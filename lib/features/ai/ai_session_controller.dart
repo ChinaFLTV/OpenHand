@@ -12526,8 +12526,8 @@ $tail''';
     final trackedSession = _syncPlanHistory(session);
     final resolvedPromptBuildCount =
         promptBuildCount ?? trackedSession.statistics.promptBuildCount;
-    // 捕获首个后台 prompt token 数，供会话累计 Prompt 展示扣除自动标题等
-    // 非对话请求；缓存命中率趋势按真实模型请求逐点计算。
+    // 捕获首个计入会话累计的模型请求 Prompt Token，仅用于旧数据
+    // 的缓存冷启动排除；会话累计与费用仍使用完整用量。
     final resolvedFirstPromptTokens =
         trackedSession.statistics.firstPromptTokens ??
         (resolvedPromptBuildCount == 1 ? effectiveUsage.promptTokens : null);

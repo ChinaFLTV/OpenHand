@@ -30,11 +30,17 @@ double _tokenDialSummaryCacheHitRatio(
   final persisted = statistics.cacheHitRatio;
   if (persisted != null) return finiteUnitInterval(persisted);
   return computeCacheHitRatio(
-    promptTokens: statistics.totalPromptTokens ?? 0,
+    promptTokens: _fallbackCacheEligiblePromptTokens(statistics),
     cacheReadTokens: statistics.cacheReadTokens ?? 0,
     cacheWriteTokens: statistics.cacheCreationTokens ?? 0,
     claudeStyle: claudeStyle,
   );
+}
+
+int _fallbackCacheEligiblePromptTokens(AiSessionStatistics statistics) {
+  final total = math.max(0, statistics.totalPromptTokens ?? 0);
+  final first = (statistics.firstPromptTokens ?? 0).clamp(0, total);
+  return total - first;
 }
 
 Color _cacheWriteThemeColor(ColorScheme colorScheme) {
@@ -500,9 +506,7 @@ class _TokenDialPopupLayoutDelegate extends SingleChildLayoutDelegate {
   }
 }
 
-/// 千位分隔符格式化。TopBar Token 胶囊需要带 `,` 的可读数字（17,075），
-/// 而缓存收益百分比 / 浮窗行项都不需要分隔符，所以这里只暴露给一个
-/// 显式调用点，避免给不需要的场景强加视觉差异。
+/// 将整数格式化为千位分隔形式。
 String _formatThousands(int value) {
   final raw = value.abs().toString();
   final buffer = StringBuffer();
@@ -518,11 +522,7 @@ String _formatThousands(int value) {
 
 /// 悬浮在 `_TokenDial` 下方的结构化 token 详情浮窗。
 ///
-/// 内容分组：
-/// - 输入侧：Prompt / Cache Read / Cache Write
-/// - 输出侧：Completion
-/// - 总计：Total
-/// - 会话累计 (消息数 / prompt 字符 / 构建次数)
+/// 统一展示累计用量、上下文占用、缓存趋势与费用。
 class _TokenDialPopup extends StatefulWidget {
   const _TokenDialPopup({
     required this.session,
@@ -642,10 +642,8 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     );
     final accentValueStyle = valueStyle?.copyWith(color: colorScheme.primary);
     final promptTokensTotal = widget.statistics.totalPromptTokens ?? 0;
-    final firstPrompt = widget.statistics.firstPromptTokens ?? 0;
-    final promptTokens = (promptTokensTotal - firstPrompt).clamp(
-      0,
-      promptTokensTotal,
+    final cacheEligiblePromptTokens = _fallbackCacheEligiblePromptTokens(
+      widget.statistics,
     );
     final completionTokens = widget.statistics.totalCompletionTokens ?? 0;
     final cacheRead = widget.statistics.cacheReadTokens ?? 0;
@@ -665,7 +663,9 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     );
     final sectionMotionSettings = openHandMotionSettingsOf(
       context,
-      OpenHandMotionSettingsScope.menu,
+      widget.compact
+          ? OpenHandMotionSettingsScope.menu
+          : OpenHandMotionSettingsScope.dialog,
     );
     final trend = _trend;
     final displayData = trend.displayData(_displayMode);
@@ -673,20 +673,18 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
         ? widget.cacheHitRatio
         : displayData.averageHitRatio;
     final hasCacheUsageTelemetry =
-        widget.statistics.cacheReadTokens != null ||
-        widget.statistics.cacheCreationTokens != null ||
-        trend.points.isNotEmpty;
+        widget.statistics.hasCacheUsageTelemetry || trend.points.isNotEmpty;
     final showCacheHitMetrics = shouldShowSessionCacheHitMetrics(
-      totalPromptTokens: promptTokensTotal,
-      totalTokens: total,
       cacheReadTokens: cacheRead,
       cacheWriteTokens: cacheWrite,
       hasTrendPoints: trend.points.isNotEmpty,
     );
-    final fallbackUncachedRaw = promptTokens - cacheRead - cacheWrite;
-    final fallbackUncachedPromptTokens = widget.claudeStyle
-        ? promptTokens
-        : (fallbackUncachedRaw > 0 ? fallbackUncachedRaw : 0);
+    final fallbackUncachedPromptTokens = computeUncachedPromptTokens(
+      promptTokens: cacheEligiblePromptTokens,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+      claudeStyle: widget.claudeStyle,
+    );
     final cacheBarPromptTokens = trend.points.isNotEmpty
         ? displayData.uncachedPromptTokens
         : fallbackUncachedPromptTokens;
@@ -713,7 +711,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             children: [
               _PopupRow(
                 label: AppLocalizations.of(context)!.tokenPopupPrompt,
-                value: promptTokens,
+                value: promptTokensTotal,
                 keyStyle: keyStyle,
                 valueStyle: valueStyle,
               ),
@@ -917,7 +915,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           keyStyle: keyStyle,
           valueStyle: valueStyle,
           colorScheme: colorScheme,
-          promptTokens: promptTokens,
+          promptTokens: promptTokensTotal,
           completionTokens: completionTokens,
           cacheRead: cacheRead,
           cacheWrite: cacheWrite,
@@ -1256,7 +1254,10 @@ class _ContextUsageOverview extends StatelessWidget {
           ),
           if (hasWindowData) ...[
             const SizedBox(height: 12),
-            _ContextWindowUsageBar(usage: windowUsage),
+            _ContextWindowUsageBar(
+              usage: windowUsage,
+              motionSettings: motionSettings,
+            ),
             AnimatedAppearance(
               present: showCompact,
               settings: motionSettings,
@@ -1373,9 +1374,13 @@ class _ContextUsageOverview extends StatelessWidget {
 }
 
 class _ContextWindowUsageBar extends StatelessWidget {
-  const _ContextWindowUsageBar({required this.usage});
+  const _ContextWindowUsageBar({
+    required this.usage,
+    required this.motionSettings,
+  });
 
   final AiContextWindowUsage usage;
+  final DialogAnimationSettings motionSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -1398,6 +1403,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
                 ratio: usage.ratio,
                 size: 18,
                 strokeWidth: 2.6,
+                settings: motionSettings,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1429,11 +1435,8 @@ class _ContextWindowUsageBar extends StatelessWidget {
                 color: colorScheme.surfaceContainerHighest,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: usage.ratio),
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 680),
-                  ),
-                  curve: Curves.easeOutBack,
+                  duration: motionSettings.entranceDuration,
+                  curve: motionSettings.curve.curve,
                   builder: (context, value, _) => FractionallySizedBox(
                     alignment: Alignment.centerLeft,
                     widthFactor: value.clamp(0.0, 1.0),
@@ -1466,22 +1469,24 @@ class _AnimatedContextUsageRing extends StatelessWidget {
     required this.ratio,
     required this.size,
     required this.strokeWidth,
+    this.settings,
   });
 
   final double ratio;
   final double size;
   final double strokeWidth;
+  final DialogAnimationSettings? settings;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final motionSettings =
+        settings ??
+        openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.menu);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: ratio),
-      duration: openHandMotionDuration(
-        context,
-        const Duration(milliseconds: 680),
-      ),
-      curve: Curves.easeOutBack,
+      duration: motionSettings.entranceDuration,
+      curve: motionSettings.curve.curve,
       builder: (context, value, _) => SizedBox.square(
         dimension: size,
         child: CircularProgressIndicator(

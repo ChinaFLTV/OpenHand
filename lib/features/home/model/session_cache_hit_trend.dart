@@ -37,8 +37,6 @@ class SessionCacheHitDisplayData {
 }
 
 bool shouldShowSessionCacheHitMetrics({
-  required int totalPromptTokens,
-  required int totalTokens,
   required int cacheReadTokens,
   required int cacheWriteTokens,
   required bool hasTrendPoints,
@@ -362,10 +360,7 @@ class SessionCacheHitTrend {
 
   static bool statisticsNeedHydration(AiSession session) {
     final statistics = session.statistics;
-    final hasCacheUsageTelemetry =
-        statistics.cacheReadTokens != null ||
-        statistics.cacheCreationTokens != null;
-    if (!hasCacheUsageTelemetry || session.messageTotalCount <= 0) {
+    if (!statistics.hasCacheUsageTelemetry || session.messageTotalCount <= 0) {
       return false;
     }
     final cacheRead = statistics.cacheReadTokens ?? 0;

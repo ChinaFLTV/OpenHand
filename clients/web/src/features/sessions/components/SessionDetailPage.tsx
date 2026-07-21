@@ -8869,6 +8869,7 @@ interface ContextWindowUsage {
   windowTokens: number;
   ratio: number;
   percent: number;
+  canManuallyCompact: boolean;
 }
 
 const MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO = 0.2;
@@ -8910,25 +8911,52 @@ function parseContextUsage(session: SessionSummary): ContextUsageBreakdown | nul
     byCategory.set(category, {
       category,
       characterCount: nonNegativeIntegerFromUnknown(item['character_count']),
-      tokenCount: nonNegativeIntegerFromUnknown(item['token_count']),
+      tokenCount: 0,
     });
   }
-  const items = CONTEXT_USAGE_CATEGORIES.map((category) => byCategory.get(category) ?? {
+  const parsedItems = CONTEXT_USAGE_CATEGORIES.map((category) => byCategory.get(category) ?? {
     category,
     characterCount: 0,
     tokenCount: 0,
   });
-  const totalCharacters = items.reduce((sum, item) => sum + item.characterCount, 0);
-  const distributedTokens = items.reduce((sum, item) => sum + item.tokenCount, 0);
+  const totalCharactersBigInt = parsedItems.reduce(
+    (sum, item) => sum + BigInt(item.characterCount),
+    0n,
+  );
   const declaredTokens = nonNegativeIntegerFromUnknown(raw['total_tokens']);
-  const totalTokens = distributedTokens > 0 ? distributedTokens : declaredTokens;
-  if (totalCharacters <= 0 || totalTokens <= 0) return null;
+  if (totalCharactersBigInt <= 0n || declaredTokens <= 0) return null;
+  const totalCharacters = Number(
+    totalCharactersBigInt > BigInt(Number.MAX_SAFE_INTEGER)
+      ? BigInt(Number.MAX_SAFE_INTEGER)
+      : totalCharactersBigInt,
+  );
+  const items = distributeContextUsageTokens(parsedItems, totalCharactersBigInt, declaredTokens);
   return {
     items,
     totalCharacters,
-    totalTokens,
+    totalTokens: declaredTokens,
     measured: strictStringFromUnknown(raw['token_source']) === 'provider',
   };
+}
+
+function distributeContextUsageTokens(
+  items: ContextUsageItem[],
+  totalCharacters: bigint,
+  totalTokens: number,
+): ContextUsageItem[] {
+  const remainders: { index: number; value: bigint }[] = [];
+  const tokenCounts = items.map((item, index) => {
+    const weighted = BigInt(totalTokens) * BigInt(item.characterCount);
+    remainders.push({ index, value: weighted % totalCharacters });
+    return Number(weighted / totalCharacters);
+  });
+  let allocated = tokenCounts.reduce((sum, value) => sum + value, 0);
+  remainders.sort((a, b) => a.value === b.value ? a.index - b.index : a.value > b.value ? -1 : 1);
+  for (let index = 0; allocated < totalTokens; index += 1) {
+    tokenCounts[remainders[index % remainders.length]!.index]! += 1;
+    allocated += 1;
+  }
+  return items.map((item, index) => ({ ...item, tokenCount: tokenCounts[index] ?? 0 }));
 }
 
 function parseContextWindowUsage(session: SessionSummary): ContextWindowUsage {
@@ -8943,6 +8971,10 @@ function parseContextWindowUsage(session: SessionSummary): ContextWindowUsage {
     windowTokens,
     ratio,
     percent: Math.round(ratio * 100),
+    canManuallyCompact:
+      usedTokens > 0 &&
+      windowTokens > 0 &&
+      ratio > MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO,
   };
 }
 
@@ -8967,8 +8999,6 @@ interface SessionTokenStatsViewModel {
 function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenStatsViewModel {
   const stats = recordFromUnknown(session.statistics);
   const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
-  const firstPrompt = readStatNumber(stats['first_prompt_tokens'], 0);
-  const promptTokens = clampNumber(promptTokensTotal - firstPrompt, 0, promptTokensTotal);
   const completionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens);
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
   const audioInputTokens = readStatNumber(stats['audio_input_tokens'], 0);
@@ -8987,7 +9017,7 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
   const cacheHit = buildSessionCacheHitDisplay(session, stats);
   return {
-    promptTokens,
+    promptTokens: promptTokensTotal,
     completionTokens,
     reasoningTokens,
     audioInputTokens,
@@ -9033,6 +9063,12 @@ function ContextUsageOverview({
       : 'var(--m3-primary)';
   const hasWindowData = windowUsage.windowTokens > 0;
   const showCompact = canCompact || compacting;
+  const compactMotionCurve = showCompact
+    ? 'var(--oh-dialog-curve)'
+    : 'var(--oh-dialog-exit-curve)';
+  const compactMotionDuration = showCompact
+    ? 'var(--oh-dialog-enter-duration)'
+    : 'var(--oh-dialog-exit-duration)';
   return (
     <section
       class="rounded-m3-md p-3"
@@ -9085,7 +9121,7 @@ function ContextUsageOverview({
               style={{
                 width: `${windowUsage.ratio * 100}%`,
                 background: contextColor,
-                transition: 'width 680ms cubic-bezier(.34, 1.56, .64, 1), background 240ms ease-out',
+                transition: 'width var(--oh-dialog-duration) var(--oh-dialog-curve), background var(--oh-dialog-duration) var(--oh-dialog-curve)',
               }}
             />
           </div>
@@ -9104,7 +9140,7 @@ function ContextUsageOverview({
             transform: showCompact ? 'translateY(0) scale(1)' : 'translateY(-5px) scale(.96)',
             overflow: 'hidden',
             pointerEvents: showCompact ? 'auto' : 'none',
-            transition: 'max-height var(--oh-dialog-duration) var(--oh-dialog-curve), margin var(--oh-dialog-duration) var(--oh-dialog-curve), opacity var(--oh-dialog-duration) ease-out, transform var(--oh-dialog-duration) cubic-bezier(.34, 1.56, .64, 1)',
+            transition: `max-height ${compactMotionDuration} ${compactMotionCurve}, margin ${compactMotionDuration} ${compactMotionCurve}, opacity ${compactMotionDuration} ${compactMotionCurve}, transform ${compactMotionDuration} ${compactMotionCurve}`,
           }}
         >
           <button
@@ -9238,8 +9274,12 @@ function SessionTokenStatsContent({
         {audioInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.audioInput', '音频输入')} value={audioInputTokens} /> : null}
         {imageInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.imageInput', '图片输入')} value={imageInputTokens} /> : null}
         {videoInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.videoInput', '视频输入')} value={videoInputTokens} /> : null}
-        <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="accent" />
-        <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="accent" />
+        {cacheHit.hasCacheUsageTelemetry ? (
+          <>
+            <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="accent" />
+            <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="accent" />
+          </>
+        ) : null}
       </TokenStatsSection>
       <TokenStatsSection title={t('tokenPopup.output', '输出')}>
         <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
@@ -9313,7 +9353,7 @@ function SessionTokenStatsDialog({
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
   const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
-  const canCompact = tokenStats.contextWindowUsage.ratio > MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO && !responseRunning;
+  const canCompact = tokenStats.contextWindowUsage.canManuallyCompact && !responseRunning;
 
   async function handleCompact() {
     if (!canCompact || compacting) return;
@@ -9468,7 +9508,7 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
 
   const contextWindowUsage = parseContextWindowUsage(session);
   const showCompact =
-    contextWindowUsage.ratio > MANUAL_COMPACTION_MIN_CONTEXT_USAGE_RATIO &&
+    contextWindowUsage.canManuallyCompact &&
     (!isRunningPhase(detail.runtime.send_phase) || busy);
 
   const statusBadge =
@@ -9787,20 +9827,14 @@ function cacheHitRatioPercent(value: number): number {
 function shouldShowSessionCacheHitMetrics({
   cacheReadTokens,
   cacheWriteTokens,
-  promptTokensTotal,
-  totalTokens,
   trendPointCount,
 }: {
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  promptTokensTotal: number;
-  totalTokens: number;
   trendPointCount: number;
 }): boolean {
   return cacheReadTokens > 0 ||
     cacheWriteTokens > 0 ||
-    promptTokensTotal > 0 ||
-    totalTokens > 0 ||
     trendPointCount > 0;
 }
 
@@ -9809,6 +9843,7 @@ interface SessionCacheHitDisplay {
   cacheWriteTokens: number;
   uncachedPromptTokens: number;
   cacheHitRatio: number;
+  hasCacheUsageTelemetry: boolean;
   hasCacheHitMetrics: boolean;
   claudeStyle: boolean;
   trendData: {
@@ -9817,30 +9852,43 @@ interface SessionCacheHitDisplay {
   } | null;
 }
 
-function buildSessionCacheHitSummary(
+function fallbackCacheEligiblePromptTokens(
+  stats: Record<string, unknown>,
+  fallbackPromptTokens: unknown,
+): number {
+  const total = readStatNumber(stats['total_prompt_tokens'], fallbackPromptTokens);
+  const first = readStatNumber(stats['first_prompt_tokens'], 0);
+  return total - Math.min(total, first);
+}
+
+function resolveSessionCacheHitRatio(
   session: SessionSummary,
   stats: Record<string, unknown>,
-): { cacheReadTokens: number; cacheHitRatio: number } {
+): number {
   const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
   const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
-  const promptTokens = readStatNumber(
-    stats['total_prompt_tokens'],
-    session.total_prompt_tokens,
-  );
-  const claudeStyle = usesClaudeStyleCacheMath(
-    session.last_used_model_protocol,
-  );
+  const promptTokens = fallbackCacheEligiblePromptTokens(stats, session.total_prompt_tokens);
+  const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
   const denominator = claudeStyle
     ? promptTokens + cacheReadTokens + cacheWriteTokens
     : Math.max(promptTokens, cacheReadTokens + cacheWriteTokens);
   const fallbackRatio = denominator > 0 ? cacheReadTokens / denominator : 0;
   const persistedRatio = stats['cache_hit_ratio'];
-  const ratio = persistedRatio == null
-    ? fallbackRatio
-    : readDouble(persistedRatio, fallbackRatio);
+  return clampNumber(
+    persistedRatio == null ? fallbackRatio : readDouble(persistedRatio, fallbackRatio),
+    0,
+    1,
+  );
+}
+
+function buildSessionCacheHitSummary(
+  session: SessionSummary,
+  stats: Record<string, unknown>,
+): { cacheReadTokens: number; cacheHitRatio: number } {
+  const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
   return {
     cacheReadTokens,
-    cacheHitRatio: cacheHitRatioPercent(ratio),
+    cacheHitRatio: cacheHitRatioPercent(resolveSessionCacheHitRatio(session, stats)),
   };
 }
 
@@ -9850,9 +9898,8 @@ function buildSessionCacheHitDisplay(
 ): SessionCacheHitDisplay {
   const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
   const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
-  const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
-  const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens);
-  const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
+  const eligiblePromptTokens = fallbackCacheEligiblePromptTokens(stats, session.total_prompt_tokens);
+  const backendHitRatio = resolveSessionCacheHitRatio(session, stats);
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
   const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
   const trendPoints = backendTrendPoints?.map((p) => ({
@@ -9887,13 +9934,15 @@ function buildSessionCacheHitDisplay(
   const uncachedPromptTokens = defaultDisplay?.averagePointCount
     ? defaultDisplay.uncachedPromptTokens
     : claudeStyle
-    ? promptTokensTotal
-    : Math.max(0, promptTokensTotal - cacheReadTokens - cacheWriteTokens);
+    ? eligiblePromptTokens
+    : Math.max(0, eligiblePromptTokens - cacheReadTokens - cacheWriteTokens);
+  const hasCacheUsageTelemetry =
+    stats['cache_read_tokens'] != null ||
+    stats['cache_creation_tokens'] != null ||
+    trendPoints.length > 0;
   const hasCacheHitMetrics = shouldShowSessionCacheHitMetrics({
     cacheReadTokens,
     cacheWriteTokens,
-    promptTokensTotal,
-    totalTokens,
     trendPointCount: trendData?.points.length ?? 0,
   });
   return {
@@ -9901,6 +9950,7 @@ function buildSessionCacheHitDisplay(
     cacheWriteTokens,
     uncachedPromptTokens,
     cacheHitRatio,
+    hasCacheUsageTelemetry,
     hasCacheHitMetrics,
     claudeStyle,
     trendData,
