@@ -2176,16 +2176,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           creationMode: widget.creationMode,
           onCreationModeChanged: widget.onCreationModeChanged,
         ),
-        // NOTE: Only FadeTransition is safe inside a LayoutBuilder
-        // subtree.  ScaleTransition / SlideTransition / RotationTransition
-        // extend AnimatedWidget, whose _AnimatedState calls setState()
-        // during animation ticks.  In Flutter 3.11+ LayoutBuilder has its
-        // own BuildScope; that setState propagates through
-        // _LayoutBuilderElement._scheduleRebuild → scheduleLayoutCallback
-        // which asserts debugNeedsLayout — a condition that is false
-        // during handleBeginFrame.  FadeTransition is a
-        // SingleChildRenderObjectWidget that drives opacity via
-        // RenderAnimatedOpacity.markNeedsPaint and never calls setState.
+        // LayoutBuilder 内仅使用绘制层淡入淡出，避免逐帧重建触发布局断言。
         AnimatedSwitcher(
           duration: openHandMotionDuration(
             context,
@@ -4539,18 +4530,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
               backgroundColor: cs.primary,
               foregroundColor: cs.onPrimary,
             ),
-            // NOTE: Do NOT wrap the label in AnimatedSwitcher with
-            // ScaleTransition/RotationTransition here.  Those widgets extend
-            // AnimatedWidget, whose _AnimatedState calls setState() on every
-            // animation tick.  Inside a LayoutBuilder subtree, that setState
-            // call propagates through BuildScope._scheduleBuildFor →
-            // _LayoutBuilderElement._scheduleRebuild →
-            // RenderObject.scheduleLayoutCallback, which asserts
-            // debugNeedsLayout == true.  During handleBeginFrame the render
-            // object has not yet been marked as needing layout, so the
-            // assertion fires and produces a red-screen crash.
-            // FadeTransition is safe (it is a SingleChildRenderObjectWidget
-            // that drives opacity at the render level via markNeedsPaint).
+            // LayoutBuilder 内仅使用默认淡入淡出，避免动画逐帧重建触发布局断言。
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(
                 context,

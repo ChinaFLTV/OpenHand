@@ -1515,9 +1515,9 @@ List<AiToolDefinition> stableToolDefinitionsForAiRequest(
 }
 
 int compareToolNamesForAiRequest(String left, String right) {
-  final byName = _normalizeToolNameForRequest(
+  final byName = normalizeAsciiLookupKey(
     left,
-  ).compareTo(_normalizeToolNameForRequest(right));
+  ).compareTo(normalizeAsciiLookupKey(right));
   if (byName != 0) return byName;
   return left.compareTo(right);
 }
@@ -1602,10 +1602,6 @@ Object? _stableJsonValue(Object? value, {String? key}) {
     return value.map((item) => _stableJsonValue(item)).toList(growable: false);
   }
   return value;
-}
-
-String _normalizeToolNameForRequest(String value) {
-  return normalizeAsciiLookupKey(value);
 }
 
 class OpenAiProtocolAdapter extends AiProtocolAdapter {

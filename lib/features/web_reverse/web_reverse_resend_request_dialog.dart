@@ -333,12 +333,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         _sending = false;
       });
     } catch (e, stack) {
-      silentLog(
-        'web_reverse_resend_request_dialog',
-        '_sendViaBrowser',
-        e,
-        stack,
-      );
+      silentLog('web_reverse_resend_request_dialog', '通过浏览器重发请求', e, stack);
       if (!mounted || generation != _sendGeneration) return;
       setState(() {
         _lastError = '$e';
@@ -430,7 +425,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         _sending = false;
       });
     } catch (e, stack) {
-      silentLog('web_reverse_resend_request_dialog', '_send', e, stack);
+      silentLog('web_reverse_resend_request_dialog', '重发请求', e, stack);
       if (!mounted || generation != _sendGeneration) return;
       setState(() {
         _lastError = '$e';

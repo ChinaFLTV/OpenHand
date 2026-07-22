@@ -551,7 +551,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                       successMessage: AppLocalizations.of(
                         dialogContext,
                       )!.commonCopiedToClipboard,
-                      logAction: 'copy input repair report',
+                      logAction: '复制输入修复报告',
                     );
                   },
           ),

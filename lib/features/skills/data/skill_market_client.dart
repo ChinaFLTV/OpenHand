@@ -157,8 +157,7 @@ class SkillMarketClient {
       connectionTimeout: _requestTimeout,
     );
     if (isHttpFailureStatus(response.statusCode)) {
-      // Drain the body before throwing so the underlying connection can be
-      // returned to the pool / closed cleanly instead of leaking.
+      // 抛错前排空响应流，确保连接正常回收。
       await _drainResponseStreamBestEffort(
         response.stream,
         reason: 'drain stream after non-2xx download',

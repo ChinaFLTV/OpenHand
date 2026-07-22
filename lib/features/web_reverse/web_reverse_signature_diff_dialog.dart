@@ -690,7 +690,7 @@ void _flattenJson(String body, Map<String, List<String>> out) {
   try {
     decoded = jsonDecode(body);
   } catch (e, st) {
-    silentLog('web_reverse_signature_diff_dialog', '_flattenJson', e, st);
+    silentLog('web_reverse_signature_diff_dialog', '展平 JSON', e, st);
     return;
   }
   void walk(Object? node, String path) {

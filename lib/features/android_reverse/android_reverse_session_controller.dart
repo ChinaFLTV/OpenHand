@@ -1664,7 +1664,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         displayCommand: displayCommand ?? actionName,
       );
     } catch (e, st) {
-      silentLog(_kTag, '_runLocalShellDetailed failed', e, st);
+      silentLog(_kTag, '执行本地 Shell', e, st);
       return AdbCommandResult(
         args: <String>[actionName],
         exitCode: -1,
@@ -1925,7 +1925,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       }
       _errorMessage = null;
     } catch (e, st) {
-      silentLog(_kTag, '_refreshDevices failed', e, st);
+      silentLog(_kTag, '刷新设备', e, st);
       if (_disposed || _state == AndroidReverseSessionState.stopped) return;
       _errorMessage = '$e';
     }

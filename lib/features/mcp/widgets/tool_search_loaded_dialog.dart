@@ -309,12 +309,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         initialDirectory: lastDir,
       );
     } catch (error, stack) {
-      silentLog(
-        'tool_search_loaded_dialog',
-        '_handleExportHistory.getSaveLocation',
-        error,
-        stack,
-      );
+      silentLog('tool_search_loaded_dialog', '选择工具历史导出位置', error, stack);
       if (!mounted) return;
       flashOpenHandSnack(
         context,
@@ -327,12 +322,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     try {
       await writeFileAtomically(File(location.path), payload);
     } catch (error, stack) {
-      silentLog(
-        'tool_search_loaded_dialog',
-        '_handleExportHistory.writeAsString',
-        error,
-        stack,
-      );
+      silentLog('tool_search_loaded_dialog', '导出工具历史记录', error, stack);
       if (!mounted) return;
       flashOpenHandSnack(
         context,
@@ -369,12 +359,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         tag: 'tool_search_loaded_dialog.reveal',
       );
     } catch (error, stack) {
-      silentLog(
-        'tool_search_loaded_dialog',
-        '_revealInFileManager',
-        error,
-        stack,
-      );
+      silentLog('tool_search_loaded_dialog', '在文件管理器中定位', error, stack);
     }
   }
 
@@ -390,12 +375,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         initialDirectory: await ToolSearchHistoryExportPrefs.readLastDir(),
       );
     } catch (error, stack) {
-      silentLog(
-        'tool_search_loaded_dialog',
-        '_handleImportHistoryFromJson.openFile',
-        error,
-        stack,
-      );
+      silentLog('tool_search_loaded_dialog', '选择工具历史导入文件', error, stack);
       return;
     }
     if (picked == null || !mounted) return;
@@ -407,12 +387,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       );
       raw = utf8.decode(bytes);
     } catch (error, stack) {
-      silentLog(
-        'tool_search_loaded_dialog',
-        '_handleImportHistoryFromJson.read',
-        error,
-        stack,
-      );
+      silentLog('tool_search_loaded_dialog', '读取工具历史导入文件', error, stack);
       _showHistoryImportFailure();
       return;
     }
@@ -420,12 +395,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     try {
       entries = ToolSearchHistorySerializer.fromJson(raw);
     } catch (error, stack) {
-      silentLog(
-        'tool_search_loaded_dialog',
-        '_handleImportHistoryFromJson.parse',
-        error,
-        stack,
-      );
+      silentLog('tool_search_loaded_dialog', '解析工具历史导入文件', error, stack);
       _showHistoryImportFailure();
       return;
     }

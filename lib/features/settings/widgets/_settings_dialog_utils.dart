@@ -4,7 +4,7 @@ Future<bool> _copySettingsTextToClipboard({
   required BuildContext context,
   required String text,
   String? successMessage,
-  String logAction = 'copy',
+  String logAction = '复制',
   bool showSuccess = true,
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,

@@ -392,9 +392,7 @@ class AiTaskTool extends AiTool {
           cancelSignal: context.cancelSignal,
           metadata: context.metadata,
         );
-        // NOTE: subagent tool execution is dispatched back through AiToolRuntimeService
-        // via a provided callback to avoid circular dependency. The callback is injected
-        // at registration time by AiToolRegistry.withServiceDependencies().
+        // 通过注册时注入的回调执行子代理工具，避免运行时服务循环依赖。
         final AiToolExecutionResult toolResult;
         try {
           toolResult = await _executeSubTool(context, subContext);

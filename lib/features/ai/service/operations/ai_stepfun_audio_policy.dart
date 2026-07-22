@@ -45,7 +45,7 @@ final class AiStepFunAudioPolicy {
   }
 
   static int? resolveSampleRate(Object? raw) {
-    final value = _intValue(raw);
+    final value = optionalIntFromValue(raw);
     if (value == null ||
         !AiTtsProviderCatalogs.stepFunSupportedSampleRates.contains(value)) {
       return null;
@@ -96,10 +96,6 @@ final class AiStepFunAudioPolicy {
       normalized.remove('voice_label');
     }
     return normalized;
-  }
-
-  static int? _intValue(Object? raw) {
-    return optionalIntFromValue(raw);
   }
 
   static double? _boundedDouble(Object? raw, double min, double max) {

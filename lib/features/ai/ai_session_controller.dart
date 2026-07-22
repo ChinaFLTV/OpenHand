@@ -8621,24 +8621,15 @@ class AiSessionController extends ChangeNotifier {
             continue;
           }
         }
-        // Reset the truncation counter once the model finishes normally.
+        // 模型正常结束后重置截断续传计数。
         _truncationContinuationCount = 0;
 
-        // ── Detect anomalous empty replies ────────────────────────────────
-        // When the model produces NO visible content, NO reasoning, and NO
-        // tool calls, and the stream was not cancelled, this is almost
-        // certainly an error condition (content filter, empty API response,
-        // abnormal stream close, rate limiting, etc.).  Rather than silently
-        // returning success and making the user wonder what happened, we
-        // surface an explicit error.
+        // 未取消却没有正文、推理和工具调用时，按异常空响应处理。
         final hasReply = sanitizedReply.trim().isNotEmpty;
         final hasReasoning = result.reasoning.trim().isNotEmpty;
         final isEmptyResponse = !hasReply && !hasReasoning && !didCancelStream;
         if (isEmptyResponse && !workingSession.awaitingPlanApproval) {
-          // On the first round this is clearly anomalous — the model had
-          // nothing to say in response to the user's message.  On subsequent
-          // rounds an empty reply is suspicious if finishReason is absent
-          // (abnormal stream close) or 'stop' with no content.
+          // 首轮空响应直接报错；后续轮次缺少结束原因时同样报错。
           final treatAsError =
               toolRoundCount == 0 ||
               result.finishReason == null ||
@@ -9649,12 +9640,7 @@ class AiSessionController extends ChangeNotifier {
       return subagentType != null &&
           AiTaskTool.readOnlyParallelSubagentTypes.contains(subagentType);
     } catch (error, stackTrace) {
-      silentLog(
-        'ai_session_controller',
-        '_isParallelizableTaskToolCall',
-        error,
-        stackTrace,
-      );
+      silentLog('ai_session_controller', '判断任务工具能否并行执行', error, stackTrace);
       return false;
     }
   }
@@ -10111,12 +10097,7 @@ class AiSessionController extends ChangeNotifier {
         toolCallIds: orderedToolCallIds,
       );
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        '_maybeEmitRoundFileMutationSummary',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '生成轮次文件变更摘要', error, stack);
       return null;
     }
 

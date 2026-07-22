@@ -16,12 +16,7 @@ class _HePhaseCardEntrance extends StatelessWidget {
   }
 }
 
-// Phase card — mirrors an AI tool-call execution card (_MessageBubble w/
-// isToolCall = true):
-//   • secondaryContainer bg + secondary border  → running
-//   • errorContainer bg + error border          → failed
-//   • surfaceContainerHighest + light border    → completed
-//   • surfaceContainerLow + light border        → pending / skipped
+// 阶段卡片沿用工具调用卡片的运行、失败、完成和等待状态色。
 class _HePhaseCard extends StatefulWidget {
   const _HePhaseCard({
     super.key,
@@ -42,7 +37,7 @@ class _HePhaseCard extends StatefulWidget {
   final VoidCallback onToggleExpand;
   final VoidCallback onCopyLog;
 
-  /// If non-null, the phase is pending and the user can change its CLI/model.
+  /// 非空时允许用户修改等待阶段的 CLI 和模型。
   final ValueChanged<HarnessRoleConfig>? onRoleConfigChanged;
 
   /// Root directories for file path resolution.

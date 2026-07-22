@@ -2757,20 +2757,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !harnessComposerShortcutAllowed) {
         return false;
       }
-      // Single-source-of-truth dispatch.
-      // Returning true from a HardwareKeyboard handler does NOT skip the
-      // focus-tree dispatch in the current Flutter pipeline – BOTH this
-      // HW handler AND the focused FocusNode.onKeyEvent fire for the
-      // same key press.  Previously each path *also* performed the
-      // action, so the composer toggle ran twice and visually cancelled
-      // out (the recurring "press Ctrl+P, border flashes, nothing
-      // happens" bug).  The fix:
-      //   * This HW handler always performs the action exactly once and
-      //     returns true (which is enough to suppress macOS'
-      //     DefaultTextEditingShortcuts at the platform layer).
-      //   * The composer FocusNode.onKeyEvent merely returns
-      //     KeyEventResult.handled to swallow the event in the focus
-      //     tree without re-running the action.
+      // 硬件与焦点事件会同时触发；此处执行一次，焦点回调仅标记已处理。
       unawaited(_performShortcutAction(shortcutAction));
       return true;
     }
@@ -2888,27 +2875,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     try {
-      // Check the focused widget itself.
+      // 先检查当前获得焦点的组件。
       if (focusContext.widget is EditableText ||
           focusContext.widget is TextField ||
           focusContext.widget is TextFormField) {
         return true;
       }
-      // Check whether the focused widget lives inside an editable text widget
-      // (e.g. the internal Focus node created by EditableText).
+      // 再检查焦点组件是否位于可编辑文本组件内。
       if (focusContext.findAncestorWidgetOfExactType<EditableText>() != null ||
           focusContext.findAncestorWidgetOfExactType<TextField>() != null) {
         return true;
       }
-      // NOTE: Do NOT walk child elements here.  The previous recursive visitor
-      // found TextField / EditableText widgets that merely *exist* in the
-      // subtree (e.g. the composer sitting inside the Scaffold) even when they
-      // do not hold focus, causing false positives that silently block all
-      // shortcuts when focus is on the global shortcut node or any other
-      // non-editable widget.
+      // 禁止遍历子组件，否则未获焦的输入框也会误判并阻断全局快捷键。
     } catch (_) {
-      // If any error occurs during focus context inspection, assume focus
-      // is on an editable field to avoid blocking text input.
+      // 检查失败时按文本输入处理，避免误触快捷键。
       return true;
     }
     return false;
@@ -8600,12 +8580,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       loaded = await controller.store.loadSession(session.id);
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        '_exportSession.loadSession',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '加载待导出会话', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -8651,12 +8626,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        '_exportSession.getSaveLocation',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '选择会话导出位置', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -8711,7 +8681,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             },
           );
     } catch (error, stack) {
-      silentLog('openhand_home_page', '_exportSession.runExport', error, stack);
+      silentLog('openhand_home_page', '导出会话', error, stack);
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
@@ -8747,12 +8717,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        '_exportHarnessSession.getSaveLocation',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '选择 Harness 会话导出位置', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -8806,12 +8771,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             },
           );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        '_exportHarnessSession.run',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '导出 Harness 会话', error, stack);
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();

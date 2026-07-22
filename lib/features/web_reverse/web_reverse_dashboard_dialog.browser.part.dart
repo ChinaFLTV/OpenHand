@@ -923,12 +923,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       if (text == null || text.isEmpty) return;
       await widget.controller.insertText(text);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        '_shortcutPasteFromHostClipboard',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '从主机剪贴板粘贴', error, stack);
     }
   }
 

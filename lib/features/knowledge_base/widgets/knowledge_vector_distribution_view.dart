@@ -1658,13 +1658,6 @@ _ProjectedVectorPoint? _nearestPoint(
   return bestDistance <= _kVectorPointHitRadius ? nearest : null;
 }
 
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    return iterator.moveNext() ? iterator.current : null;
-  }
-}
-
 double _closestNiceAxisStep(double rawStep) {
   final target = rawStep.clamp(0.05, 1.0).toDouble();
   const steps = <double>[0.05, 0.10, 0.20, 0.25, 0.50, 1.0];

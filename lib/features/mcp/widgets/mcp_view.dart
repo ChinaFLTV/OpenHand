@@ -3695,8 +3695,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                           : defaultSchema,
                       defaultSchema: defaultSchema,
                       onSchemaSaved: (schema) {
-                        // schema == defaultSchema (or null) → clear the override
-                        // so the tool falls back to its factory definition.
+                        // 默认或空结构清除覆盖，回退到工具原始定义。
                         final isDefault =
                             schema == null ||
                             (defaultSchema != null &&

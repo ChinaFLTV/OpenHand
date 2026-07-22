@@ -375,7 +375,7 @@ class _ThreadSessionManagementDialogState
     progressController.markFinished();
     await dialogSession.dismiss(
       logTag: 'thread_session_management_dialog',
-      logAction: 'export.dismissProgress',
+      logAction: '关闭导出进度弹窗',
     );
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
@@ -487,7 +487,7 @@ class _ThreadSessionManagementDialogState
     progressController.markFinished();
     await dialogSession.dismiss(
       logTag: 'thread_session_management_dialog',
-      logAction: 'batchExport.dismissProgress',
+      logAction: '关闭批量导出进度弹窗',
     );
     if (!mounted) return;
     final batchMessage = AppLocalizations.of(

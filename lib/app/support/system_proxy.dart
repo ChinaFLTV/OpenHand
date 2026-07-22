@@ -392,7 +392,7 @@ class SystemProxyResolver {
 
   ({String host, int port})? get _manualHostPort {
     final host = nullIfBlank(_settings.host);
-    final port = _validProxyPort(_settings.port);
+    final port = validTcpPort(_settings.port);
     if (host == null || port == null) return null;
     return (host: host, port: port);
   }
@@ -433,10 +433,6 @@ String _stripScheme(String raw) {
   final port = tcpPortFromValue(raw.substring(idx + 1));
   if (host == null || port == null) return null;
   return (host: host, port: port);
-}
-
-int? _validProxyPort(int? port) {
-  return validTcpPort(port);
 }
 
 /// 通用例外匹配。支持：
@@ -561,7 +557,7 @@ _ScutilProxyConfig _parseScutilProxyDictionary(String stdout) {
       readKey(RegExp('${prefix}Proxy\\s*:\\s*([^\\s\\n]+)')),
     );
     if (host == null) return null;
-    final port = _validProxyPort(
+    final port = validTcpPort(
       optionalIntFromValue(readKey(RegExp('${prefix}Port\\s*:\\s*(\\d+)'))),
     );
     return port == null ? host : '$host:$port';

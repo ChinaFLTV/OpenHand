@@ -1787,12 +1787,7 @@ class AiChatService implements AiChatClient {
         providerWarning ??= _mimoWebSearchWarningFromPayload(decoded);
       }
 
-      // ── Detect in-stream error objects ──────────────────────────────────
-      // Some API providers (especially third-party OpenAI-compatible ones)
-      // return 200 OK but send error objects within the SSE data stream,
-      // e.g. {"error": {"message": "Rate limit exceeded", ...}}.
-      // Without this check, such errors are silently discarded and the
-      // stream closes with an empty response.
+      // 部分兼容服务会在成功的 SSE 响应中返回错误对象。
       final errorField = decoded['error'];
       if (errorField != null) {
         String errorMessage;

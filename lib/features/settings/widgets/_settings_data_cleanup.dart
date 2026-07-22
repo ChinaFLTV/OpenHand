@@ -1005,7 +1005,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       final copied = await _copySettingsTextToClipboard(
         context: context,
         text: json,
-        logAction: 'copy ledger bundle',
+        logAction: '复制账本数据包',
         showSuccess: false,
       );
       if (!copied || !mounted) return;
@@ -1496,7 +1496,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         zh: '已复制 ${_results.length} 条结果到剪贴板',
         en: 'Copied ${_results.length} record(s) to clipboard',
       ),
-      logAction: 'copy ledger search results',
+      logAction: '复制账本搜索结果',
     );
   }
 
@@ -1517,10 +1517,10 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
           zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
           en: 'Exported ${_results.length} filtered record(s) (with blobs)',
         ),
-        logAction: 'copy filtered ledger bundle',
+        logAction: '复制筛选后的账本数据包',
       );
     } catch (error, stack) {
-      silentLog('_LedgerSearchDialog', 'exportFilteredAsBundle', error, stack);
+      silentLog('ledger_search_dialog', '导出筛选后的账本数据包', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,

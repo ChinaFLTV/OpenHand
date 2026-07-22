@@ -2248,7 +2248,7 @@ class McpController extends ChangeNotifier {
         try {
           await _runWithAutoProbeSlot(() => operation(targets[index]));
         } catch (error, stack) {
-          silentLog('mcp', '_runAutoProbeWorkerPool', error, stack);
+          silentLog('mcp', '执行自动探测任务', error, stack);
         }
       },
     );

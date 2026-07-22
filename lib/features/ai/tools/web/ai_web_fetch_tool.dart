@@ -71,10 +71,19 @@ class AiWebFetchTool extends AiTool {
       metadata: context.metadata,
     );
     if (cdpFirstDecision != null) {
-      return _webReverseCdpFirstBlock(
-        decision: cdpFirstDecision,
-        rawUrl: rawUrl,
+      final message = cdpFirstDecision.blockedMessage('WebFetch');
+      return AiToolUtils.invalidResult(
+        'WebFetch $rawUrl',
+        message,
+        stdout: cdpFirstDecision.diagnosticText(),
         durationMs: stopwatch.elapsedMilliseconds,
+        metadata: <String, Object?>{
+          'webfetch_url': rawUrl,
+          ...cdpFirstDecision.metadata(
+            requestedUrl: rawUrl,
+            blockedFlag: 'web_reverse_webfetch_blocked_for_cdp_first',
+          ),
+        },
       );
     }
     final blockedReason = await _blockedReason(uri);
@@ -524,28 +533,4 @@ class AiWebFetchTool extends AiTool {
       logTag: 'ai_web_fetch_tool',
     );
   }
-}
-
-AiToolExecutionResult _webReverseCdpFirstBlock({
-  required WebReverseCdpFirstDecision decision,
-  required String rawUrl,
-  required int durationMs,
-}) {
-  final message = decision.blockedMessage('WebFetch');
-  return AiToolExecutionResult(
-    status: BashToolExecutionStatus.invalidArguments,
-    command: 'WebFetch $rawUrl',
-    workingDirectory: AiToolUtils.defaultWorkingDirectory(),
-    stdout: decision.diagnosticText(),
-    stderr: message,
-    durationMs: durationMs,
-    resultText: 'status: invalid_arguments\nerror: $message',
-    metadata: <String, Object?>{
-      'webfetch_url': rawUrl,
-      ...decision.metadata(
-        requestedUrl: rawUrl,
-        blockedFlag: 'web_reverse_webfetch_blocked_for_cdp_first',
-      ),
-    },
-  );
 }

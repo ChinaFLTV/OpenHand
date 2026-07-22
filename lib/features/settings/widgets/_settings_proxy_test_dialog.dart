@@ -574,7 +574,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       context: context,
       text: buffer.toString(),
       successMessage: AppLocalizations.of(context)!.proxyTestConsoleCopied,
-      logAction: 'copy proxy test logs',
+      logAction: '复制代理测试日志',
       successDuration: const Duration(milliseconds: 1400),
     );
   }
@@ -954,7 +954,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       context: context,
       text: _formatEntryAsPlainText(entry),
       successMessage: AppLocalizations.of(context)!.proxyTestConsoleCopied,
-      logAction: 'copy proxy test entry',
+      logAction: '复制代理测试记录',
       successDuration: const Duration(milliseconds: 1200),
     );
   }

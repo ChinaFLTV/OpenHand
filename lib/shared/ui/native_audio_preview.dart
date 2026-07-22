@@ -2019,7 +2019,7 @@ String deriveNativeAudioArtist(String detail) {
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }
-  if (_looksLikeGeneratedAudioName(leaf)) {
+  if (looksLikeGeneratedNativeAudioName(leaf)) {
     return 'AI 音频';
   }
   return 'OpenHand 音频';
@@ -2027,7 +2027,7 @@ String deriveNativeAudioArtist(String detail) {
 
 String deriveNativeAudioAlbum(String detail) {
   final leaf = _prettyNativeAudioLeaf(detail);
-  if (_looksLikeGeneratedAudioName(leaf)) {
+  if (looksLikeGeneratedNativeAudioName(leaf)) {
     return '生成音频';
   }
   return leaf.length <= 32 ? leaf : '音频预览';
@@ -2050,14 +2050,10 @@ String _prettyNativeAudioLeaf(String detail) {
     lastNativeAudioPathOrUrlSegment(detail),
     fallback: detail,
   );
-  if (_looksLikeGeneratedAudioName(leaf)) {
+  if (looksLikeGeneratedNativeAudioName(leaf)) {
     return '生成音频';
   }
   return leaf;
-}
-
-bool _looksLikeGeneratedAudioName(String value) {
-  return looksLikeGeneratedNativeAudioName(value);
 }
 
 bool looksLikeGeneratedNativeAudioName(String value) {

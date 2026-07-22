@@ -311,7 +311,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             failure++;
             lastError = e.toString();
             // 统一走 silentLog：snackbar 只显示最后一条 message，原始 stack 不能丢。
-            silentLog('file_mutation_card', '_undoAll worker', e, stack);
+            silentLog('file_mutation_card', '批量撤销文件变更', e, stack);
           } finally {
             if (mounted) setState(() => _bulkUndoDone++);
           }
@@ -394,7 +394,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         tag: 'file_mutation_card.reveal',
       );
     } catch (error, stack) {
-      silentLog('file_mutation_card', '_revealLedgerFile', error, stack);
+      silentLog('file_mutation_card', '定位变更账本文件', error, stack);
     }
   }
 
@@ -2352,7 +2352,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
     } catch (e, stack) {
       // _friendlyFileDiffError 只把异常翻译成用户文案；原始 error/stack
       // 必须走 silentLog 才能在 debug 期被 console 看到。
-      silentLog('file_diff_dialog', '_loadDiff', e, stack);
+      silentLog('file_diff_dialog', '加载文件差异', e, stack);
       if (!mounted) return;
       setState(() {
         _error = _friendlyFileDiffError(context, e);
@@ -3316,18 +3316,14 @@ class _RoundFileMutationSummaryCardState
   Future<List<_RoundSummaryRow>>? _rowsFuture;
   String? _lastSessionId;
   String? _lastMessageId;
-  // 批量「撤销本轮」并发执行进度。
   int _bulkUndoTotal = 0;
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
   final ValueNotifier<int> _pulseSignal = ValueNotifier<int>(0);
-  // 折叠记忆 — 跨重建保留每张卡的「哪些组被收起 / 哪些 Diff 被展开」。
-  // key = '${messageId}::${toolName}'，进程级缓存即可，无需持久化到磁盘。
+  // 跨重建保留折叠状态，并限制缓存规模。
   static final Set<String> _collapsedGroups = <String>{};
   static final Set<String> _expandedDiffRows = <String>{};
-  // 按路径前缀的二级分组折叠记忆。key = `${msgId}::${toolName}::${dir}`。
   static final Set<String> _collapsedPathGroups = <String>{};
-  // 超过 _virtualRowCap 时仅展示前 N 行；记忆"已展开"消息。
   static final Set<String> _expandedFullList = <String>{};
   static const int _summaryStateCacheLimit = 500;
   static const int _virtualRowCap = 30;
@@ -3580,7 +3576,7 @@ class _RoundFileMutationSummaryCardState
               lastError = res.errorMessage;
             }
           } catch (error, stack) {
-            silentLog('round_summary_card', '_undoAllRound', error, stack);
+            silentLog('round_summary_card', '撤销整轮变更', error, stack);
             lastError = '$error';
           }
           if (!mounted) return;
@@ -3640,12 +3636,7 @@ class _RoundFileMutationSummaryCardState
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'round_summary_card',
-        '_exportRoundJson.getSaveLocation',
-        error,
-        stack,
-      );
+      silentLog('round_summary_card', '选择轮次变更导出位置', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -3670,12 +3661,7 @@ class _RoundFileMutationSummaryCardState
     try {
       await writeFileAtomically(File(location.path), encoded);
     } catch (error, stack) {
-      silentLog(
-        'round_summary_card',
-        '_exportRoundJson.writeAsString',
-        error,
-        stack,
-      );
+      silentLog('round_summary_card', '导出轮次变更', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,

@@ -780,15 +780,22 @@ class AiToolUtils {
     return value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   }
 
-  static AiToolExecutionResult invalidResult(String command, String message) {
+  static AiToolExecutionResult invalidResult(
+    String command,
+    String message, {
+    String stdout = '',
+    int durationMs = 0,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.invalidArguments,
       command: command,
       workingDirectory: defaultWorkingDirectory(),
-      stdout: '',
+      stdout: stdout,
       stderr: message,
-      durationMs: 0,
+      durationMs: durationMs,
       resultText: 'status: invalid_arguments\nerror: $message',
+      metadata: metadata,
     );
   }
 

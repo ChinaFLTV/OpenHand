@@ -618,7 +618,7 @@ String _agentCoordinationGuidance(
             ? agentCoordinationToolDisplayNames.map((tool) => tool.$1).toSet()
             : visibleTools
                   .where(isAgentCoordinationBuiltinToolName)
-                  .map(_normalizeAgentToolName)
+                  .map(normalizeAsciiLookupKey)
                   .toSet()
         ..removeWhere(
           (name) =>
@@ -707,10 +707,6 @@ String _agentCoordinationGuidance(
 <agent_coordination_tools>
 ${lines.join('\n')}
 </agent_coordination_tools>''';
-}
-
-String _normalizeAgentToolName(String value) {
-  return normalizeAsciiLookupKey(value);
 }
 
 List<String> _availableAgentToolNames(

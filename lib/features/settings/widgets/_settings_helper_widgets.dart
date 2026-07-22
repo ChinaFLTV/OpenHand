@@ -2635,7 +2635,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       selectedConfigId: current.modelConfigId,
       selectedModelId: current.modelId,
       recentSelections: widget.recentModelSelections,
-      modelFilter: _isTtsAudioGenerationModel,
+      modelFilter: AiTtsPlaybackService.supportsAudioGenerationModel,
     );
     if (!mounted || picked == null) return;
     await settingsController.addRecentModelSelection(picked.$1, picked.$2);
@@ -3910,20 +3910,22 @@ List<AiModelConfig> _ttsAudioGenerationModels(List<AiModelConfig> models) {
   return models
       .where(
         (config) => config.allModelIds.any(
-          (modelId) => _isTtsAudioGenerationModel(config, modelId),
+          (modelId) => AiTtsPlaybackService.supportsAudioGenerationModel(
+            config,
+            modelId,
+          ),
         ),
       )
       .toList(growable: false);
 }
 
-bool _isTtsAudioGenerationModel(AiModelConfig config, String modelId) {
-  return AiTtsPlaybackService.supportsAudioGenerationModel(config, modelId);
-}
-
 AiModelConfig? _ttsFallbackAudioModel(SettingsController settingsController) {
   final selected = settingsController.selectedAiModel;
   if (selected == null ||
-      !_isTtsAudioGenerationModel(selected, selected.modelId)) {
+      !AiTtsPlaybackService.supportsAudioGenerationModel(
+        selected,
+        selected.modelId,
+      )) {
     return null;
   }
   return selected;
@@ -4170,7 +4172,10 @@ String? _ttsProviderReadinessError(
     case AiTtsProvider.ai:
       final hasFallbackModel =
           fallbackModel != null &&
-          _isTtsAudioGenerationModel(fallbackModel, fallbackModel.modelId);
+          AiTtsPlaybackService.supportsAudioGenerationModel(
+            fallbackModel,
+            fallbackModel.modelId,
+          );
       if (settings.modelConfigId.trim().isEmpty ||
           settings.modelId.trim().isEmpty) {
         if (!hasFallbackModel &&
@@ -4185,7 +4190,10 @@ String? _ttsProviderReadinessError(
         (config) =>
             config.id == settings.modelConfigId &&
             config.allModelIds.contains(settings.modelId) &&
-            _isTtsAudioGenerationModel(config, settings.modelId),
+            AiTtsPlaybackService.supportsAudioGenerationModel(
+              config,
+              settings.modelId,
+            ),
       )) {
         missing.add(
           openHandLocalizedText(context, zh: '有效语音模型', en: 'valid model'),

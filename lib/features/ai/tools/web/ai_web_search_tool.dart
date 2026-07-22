@@ -74,10 +74,19 @@ class AiWebSearchTool extends AiTool {
       metadata: context.metadata,
     );
     if (cdpFirstDecision != null) {
-      return _webReverseCdpFirstBlock(
-        decision: cdpFirstDecision,
-        query: query,
+      final message = cdpFirstDecision.blockedMessage('WebSearch');
+      return AiToolUtils.invalidResult(
+        'WebSearch $query',
+        message,
+        stdout: cdpFirstDecision.diagnosticText(),
         durationMs: stopwatch.elapsedMilliseconds,
+        metadata: <String, Object?>{
+          'web_reverse_websearch_blocked_query_char_count': query.length,
+          ...cdpFirstDecision.metadata(
+            requestedUrl: cdpFirstDecision.requestedUri.toString(),
+            blockedFlag: 'web_reverse_websearch_blocked_for_cdp_first',
+          ),
+        },
       );
     }
 
@@ -601,30 +610,6 @@ language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
       logTag: 'ai_web_search_tool',
     );
   }
-}
-
-AiToolExecutionResult _webReverseCdpFirstBlock({
-  required WebReverseCdpFirstDecision decision,
-  required String query,
-  required int durationMs,
-}) {
-  final message = decision.blockedMessage('WebSearch');
-  return AiToolExecutionResult(
-    status: BashToolExecutionStatus.invalidArguments,
-    command: 'WebSearch $query',
-    workingDirectory: AiToolUtils.defaultWorkingDirectory(),
-    stdout: decision.diagnosticText(),
-    stderr: message,
-    durationMs: durationMs,
-    resultText: 'status: invalid_arguments\nerror: $message',
-    metadata: <String, Object?>{
-      'web_reverse_websearch_blocked_query_char_count': query.length,
-      ...decision.metadata(
-        requestedUrl: decision.requestedUri.toString(),
-        blockedFlag: 'web_reverse_websearch_blocked_for_cdp_first',
-      ),
-    },
-  );
 }
 
 class _SummaryPrompts {

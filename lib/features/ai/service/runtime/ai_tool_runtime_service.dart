@@ -1798,12 +1798,7 @@ class AiToolRuntimeService {
             maxBytes: _maxPostHocLedgerCaptureBytes,
           );
         } catch (error, stack) {
-          silentLog(
-            'AiToolRuntimeService',
-            '_capturePostHocLedgerRecord.read',
-            error,
-            stack,
-          );
+          silentLog('AiToolRuntimeService', '读取工具执行后的账本内容', error, stack);
           after = null;
         }
         final id = await AiToolUtils.recordFileMutationToLedger(
@@ -1818,12 +1813,7 @@ class AiToolRuntimeService {
         );
         recorded[path] = id;
       } catch (error, stack) {
-        silentLog(
-          'AiToolRuntimeService',
-          '_capturePostHocLedgerRecord',
-          error,
-          stack,
-        );
+        silentLog('AiToolRuntimeService', '记录工具执行后的文件变更', error, stack);
         recorded[path] = null;
       }
     }

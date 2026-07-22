@@ -53,24 +53,14 @@ enum AiStreamThrottleConfigImportOutcome { applied, unchanged, failed }
 ///   设置，不进入可同步的节流文档。
 const int aiStreamThrottleConfigSchemaVersion = 4;
 
-/// 把任意旧版/新版节流配置文档归一化为当前 schema：
-///
-///   * 老 doc（v1）缺 `duration_seconds` → 注入默认 0（持续节流）；
-///   * 丢弃已下线的 `template_overrides` 和无语义的 `cloud_sync`；
-///   * `version` 字段统一改写为当前版本号，方便上层 hash / diff 一致；
-///   * 不破坏未识别字段（forward-compatible，预留给未来 schema 扩展）。
-///
-/// 同时被手动 import 路径与云端同步 push/pull 路径共用，确保跨版本
-/// JSON 在任意流向下都能落地为 v3 格式。
+/// 归一化节流配置：补齐旧版字段、删除废弃字段并升级到当前版本。
+/// 未识别字段保持不变，兼容后续版本扩展。
 Map<String, Object?> migrateAiStreamThrottleConfig(Map<String, Object?> doc) {
   final migrated = Map<String, Object?>.from(doc);
   if (!migrated.containsKey('duration_seconds')) {
     migrated['duration_seconds'] =
         AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
   }
-  // v3 会丢弃旧文档里的 `template_overrides`，无论 v1 / v2
-  // 来源都收敛到「不再带模板级覆盖」的口径。导入路径不直接操作原始
-  // map，所以这里 remove 不会污染调用方的对象。
   migrated.remove('template_overrides');
   migrated.remove('cloud_sync');
   migrated['version'] = aiStreamThrottleConfigSchemaVersion;
@@ -1425,33 +1415,12 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 节流配置 export：把全局节流参数序列化为一份 JSON
-  /// 文档，方便用户在多设备之间手动同步。
-  ///
-  /// 文档结构（v4）：
-  /// ```json
-  /// {
-  ///   "version": 3,
-  ///   "exported_at": "2026-05-22T...",
-  ///   "throttle_enabled": true,
-  ///   "auto_mode": false,
-  ///   "duration_seconds": 0,
-  ///   "max_chars_per_second": 5,
-  ///   "max_message_cards_per_second": 1
-  /// }
-  /// ```
-  ///
-  /// 历史上 v1 还携带 `template_overrides` 字段；从 2026-05 起按线程模板
-  /// 覆盖节流参数已下线，导入时旧字段会被 [migrateAiStreamThrottleConfig]
-  /// 静默丢弃，导出不再写入。
+  /// 导出当前版本的全局节流配置。
   Map<String, Object?> exportAiStreamThrottleConfig() {
     return <String, Object?>{
-      // v3 移除 template_overrides，v4 移除 cloud_sync；旧文档的
-      // 迁移由 migrateAiStreamThrottleConfig 在导入侧统一处理。
       'version': aiStreamThrottleConfigSchemaVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
-      // 携带本地最近一次有效修改的 epoch ms。自动同步会
-      // 用 max(remote, local) 决定哪一方覆盖另一方，避免老覆新。
+      // 自动同步通过源时间戳判定新旧，避免旧配置覆盖新配置。
       'updated_at_ms': _aiStreamThrottleConfigUpdatedAtMs,
       'throttle_enabled': _aiStreamThrottleEnabled,
       'auto_mode': _aiStreamThrottleAutoMode,
@@ -1461,22 +1430,12 @@ class SettingsController extends ChangeNotifier {
     };
   }
 
-  /// 节流配置 import：把外部 JSON 文档作为一次原子 mutation 写入。
-  /// 缺失字段保持现值；不合法字段静默跳过；返回应用、无变化或失败。
-  ///
-  /// [overrideUpdatedAtMs] 用于自动同步场景：远端文档已经携带自己的
-  /// `updated_at_ms`，调用方判定其更新后，把该值传进来直接覆盖本地
-  /// 时间戳，避免「import 完又把 timestamp bump 成本地 now」造成的
-  /// 反复 push。手动 import / UI 触发时不传，沿用 throttle mutation
-  /// 的自动 bump 逻辑。
+  /// 原子导入节流配置。缺失或无效字段保持现值。
+  /// [overrideUpdatedAtMs] 用于保留远端时间戳，避免重复同步。
   Future<AiStreamThrottleConfigImportOutcome> importAiStreamThrottleConfig(
     Map<String, Object?> doc, {
     int? overrideUpdatedAtMs,
   }) async {
-    // 跨版本兼容：v1 doc 自动补默认 duration_seconds=0；按线程模板
-    // 覆盖已下线，旧 doc 中的 `template_overrides` 字段会在这里被
-    // 静默丢弃。导入路径不直接操作原始 map，避免上层把 migrate 副作
-    // 用带回到自己持有的对象。
     final migrated = migrateAiStreamThrottleConfig(doc);
     var applied = false;
     final persisted = await _commitMutation(() {

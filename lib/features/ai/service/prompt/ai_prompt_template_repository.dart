@@ -111,10 +111,10 @@ class AiPromptTemplateRepository {
     );
     return AiPromptTemplateBundle(
       template: template,
-      systemInstructions: _appendMemoryTonePolicyIfAbsent(systemWithDiscipline),
-      // Memory Tone Policy is a system-level concern; injecting it into both
-      // [0] System and [1] Developer caused identical 6-line blocks to render
-      // twice in every prompt. Keep it on [0] only.
+      systemInstructions: appendAiPromptMemoryTonePolicyIfAbsent(
+        systemWithDiscipline,
+      ),
+      // 记忆语气策略仅注入系统层，避免与开发者层重复。
       developerInstructions: developerInstructions,
       compressionSummaryInstructions: compressionSummaryInstructions,
     );
@@ -179,7 +179,7 @@ class AiPromptTemplateRepository {
     } catch (error, stack) {
       silentLog(
         'ai_prompt_template_repository',
-        '_loadTemplateSection: failed to load asset $assetPath; using Dart fallback',
+        '加载模板片段失败，使用内置兜底：$assetPath',
         error,
         stack,
       );
@@ -232,17 +232,6 @@ AiThreadTemplateAvailability _availabilityFromScope(
       AiThreadTemplateAvailability.appleOnly,
     AiPromptTemplateAvailabilityScope.all => AiThreadTemplateAvailability.all,
   };
-}
-
-/// Shared "Memory Tone Policy" section applied to every template's system
-/// instructions only. Keeping it out of the developer layer prevents the same
-/// guidance from rendering twice in every assembled prompt.
-///
-/// Templates whose fallback already embeds this section (e.g.
-/// `hermes_talker`) will NOT have it appended twice — see
-/// [_appendMemoryTonePolicyIfAbsent].
-String _appendMemoryTonePolicyIfAbsent(String instructions) {
-  return appendAiPromptMemoryTonePolicyIfAbsent(instructions);
 }
 
 // ── Emergency fallback prompts ────────────────────────────────────────────────

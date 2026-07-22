@@ -602,7 +602,7 @@ class AiTranslationService {
       maxResponseBytes: _maxTranslationResponseBytes,
     );
     final json = _decodeObject(response, AiTranslationProvider.doubao);
-    final code = _intValue(json['code']);
+    final code = optionalIntFromValue(json['code']);
     if (code != null && code != _doubaoSuccessCode) {
       throw AiTranslationException(
         'Doubao translation failed: $code ${json['message'] ?? ''}',
@@ -874,10 +874,6 @@ class AiTranslationService {
       'Doubao corpus JSON must be an object.',
       provider: AiTranslationProvider.doubao,
     );
-  }
-
-  int? _intValue(Object? value) {
-    return optionalIntFromValue(value);
   }
 
   void dispose() {

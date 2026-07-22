@@ -3966,14 +3966,11 @@ class _GeneratedAudioVisualMeta {
     required String title,
     required String detail,
   }) {
-    final cleanTitle = _normalizeAudioDisplayText(
+    final cleanTitle = normalizeNativeAudioText(
       title,
       fallback: _generatedMediaFallbackTitle(source),
     );
-    final cleanDetail = _normalizeAudioDisplayText(
-      detail,
-      fallback: 'OpenHand',
-    );
+    final cleanDetail = normalizeNativeAudioText(detail, fallback: 'OpenHand');
     final seedText = '$cleanTitle|$cleanDetail|${source.displayUri}';
     final seed = seedText.hashCode & 0x7fffffff;
     final palette =
@@ -4011,10 +4008,6 @@ const List<(Color, Color, Color)> _kGeneratedAudioPalettes =
       (Color(0xFF51705F), Color(0xFF84A783), Color(0xFFE3EEE6)),
     ];
 
-String _normalizeAudioDisplayText(String value, {required String fallback}) {
-  return normalizeNativeAudioText(value, fallback: fallback);
-}
-
 String _deriveGeneratedAudioArtist(String detail) {
   final basename = p.basename(detail).trim();
   if (basename.isEmpty || basename == '/' || basename == '.') {
@@ -4037,7 +4030,7 @@ String _deriveGeneratedAudioAlbum(String detail) {
 }
 
 String _prettyGeneratedAudioLeaf(String detail) {
-  final normalized = _normalizeAudioDisplayText(detail, fallback: detail);
+  final normalized = normalizeNativeAudioText(detail, fallback: detail);
   if (looksLikeGeneratedNativeAudioName(normalized)) {
     return '生成音频';
   }

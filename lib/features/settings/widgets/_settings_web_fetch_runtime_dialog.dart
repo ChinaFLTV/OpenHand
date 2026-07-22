@@ -299,7 +299,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
               context: context,
               text: _entries.map((entry) => entry.line).join('\n').trimRight(),
               successMessage: l10n.settingsScraplingRuntimeCopiedAllLogs,
-              logAction: 'copy scrapling runtime logs',
+              logAction: '复制 Scrapling 运行日志',
               successDuration: const Duration(milliseconds: 1400),
             );
           },

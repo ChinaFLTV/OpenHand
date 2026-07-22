@@ -127,7 +127,7 @@ class WebReverseHeadlessBatch {
         ),
       );
     } catch (e, st) {
-      silentLog('web_reverse_headless_batch', '_emit', e, st);
+      silentLog('web_reverse_headless_batch', '发送批量采集事件', e, st);
     }
   }
 
@@ -387,7 +387,7 @@ class WebReverseHeadlessBatch {
         screenshotPath: screenshotPath,
       );
     } catch (e, st) {
-      silentLog('web_reverse_headless_batch', '_runOne', e, st);
+      silentLog('web_reverse_headless_batch', '执行单项批量采集', e, st);
       return HeadlessBatchUrlResult(url: url, ok: false, error: '$e');
     } finally {
       await cancelStreamSubscriptionBounded<CdpEvent>(
