@@ -1,6 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
 const Duration _heTokenUsageRefreshDelay = Duration(milliseconds: 140);
+const double _heToolbarItemSpacing = 4;
 
 class _HePaneHeader extends StatelessWidget {
   const _HePaneHeader({
@@ -302,7 +303,10 @@ class _HePaneHeader extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             flex: 3,
-            child: OpenHandTrailingToolbar(children: toolbarItems),
+            child: OpenHandTrailingToolbar(
+              spacing: _heToolbarItemSpacing,
+              children: toolbarItems,
+            ),
           ),
         ],
       ),
