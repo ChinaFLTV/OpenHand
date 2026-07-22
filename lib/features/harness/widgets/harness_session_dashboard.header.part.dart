@@ -431,20 +431,78 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
     }
   }
 
-  void _showDetails() {
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (dialogContext) => _HeTokenUsageDialog(summary: _summary),
+  AiSessionStatistics _buildStatistics() {
+    final hasCacheUsage =
+        _summary.cacheInputTokens > 0 ||
+        _summary.cacheReadTokens > 0 ||
+        _summary.cacheCreationTokens > 0;
+    return AiSessionStatistics(
+      totalMessageCount: _summary.requestCount + _summary.successCount,
+      userMessageCount: _summary.requestCount,
+      assistantMessageCount: _summary.successCount,
+      toolMessageCount: 0,
+      mcpMessageCount: 0,
+      skillMessageCount: 0,
+      compressionPointCount: 0,
+      totalInputCharacters: 0,
+      totalOutputCharacters: 0,
+      totalPromptCharacters: 0,
+      promptBuildCount: _summary.requestCount,
+      compressionRunCount: 0,
+      totalPromptTokens: _summary.promptTokens,
+      totalCompletionTokens: _summary.completionTokens,
+      totalTokens: _summary.totalTokens,
+      cacheCreationTokens: hasCacheUsage ? _summary.cacheCreationTokens : null,
+      cacheReadTokens: hasCacheUsage ? _summary.cacheReadTokens : null,
+      reasoningTokens: _summary.reasoningTokens,
+      audioInputTokens: _summary.audioInputTokens,
+      imageInputTokens: _summary.imageInputTokens,
+      videoInputTokens: _summary.videoInputTokens,
+      cacheHitRatio: hasCacheUsage ? _summary.cacheHitRate : null,
+    );
+  }
+
+  AiSession _buildSession(AiSessionStatistics statistics) {
+    final usedTokens = _summary.latestContextUsedTokens;
+    final windowTokens = _summary.latestContextWindowTokens;
+    final hasContextUsage = usedTokens > 0 && windowTokens > 0;
+    final contextMetadata = hasContextUsage
+        ? <String, Object?>{
+            aiContextUsedTokensMetadataKey: usedTokens,
+            aiContextWindowTokensMetadataKey: windowTokens,
+            aiContextUsageMetadataKey:
+                AiContextUsageBreakdown.fromCharacterCounts(
+                  <AiContextUsageCategory, int>{
+                    AiContextUsageCategory.conversation: usedTokens,
+                  },
+                  totalTokens: usedTokens,
+                ).toJson(),
+          }
+        : const <String, Object?>{};
+    final createdAt =
+        widget.legacyStartAt ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    return AiSession(
+      id: 'harness-token:${widget.sessionId?.trim() ?? ''}',
+      title: 'Harness Engineering',
+      templateId: 'harness_engineering',
+      templateName: 'Harness Engineering',
+      templateIconName: 'bolt',
+      templateInternalVersion: '1.0.0',
+      createdAt: createdAt,
+      updatedAt: widget.legacyEndAt ?? createdAt,
+      messages: const <AiSessionMessage>[],
+      environment: AiSessionEnvironment.fromJson(const <String, Object?>{}),
+      statistics: statistics,
+      recentErrors: const <AiSessionErrorRecord>[],
+      lastPromptMetadata: contextMetadata,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final showCacheHitRate =
-        _loaded &&
-        (_summary.cacheReadTokens > 0 || _summary.cacheCreationTokens > 0);
-    final contextWindowRatio = _summary.latestContextWindowUsageRate;
-    final contextWindowPercent = (contextWindowRatio * 100).round();
+    final statistics = _buildStatistics();
+    final session = _buildSession(statistics);
     return Semantics(
       button: true,
       label: openHandLocalizedText(
@@ -458,189 +516,23 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
       ),
       child: MouseRegion(
         cursor: _loaded ? SystemMouseCursors.click : MouseCursor.defer,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _loaded ? _showDetails : null,
-          child: OpenHandTokenUsageCapsule(
-            showCacheHitRate: showCacheHitRate,
-            cacheHitRatio: _summary.cacheHitRate,
-            contextWindowRatio: contextWindowRatio,
-            contextWindowTooltip: openHandLocalizedText(
-              context,
-              zh: '上下文窗口 $contextWindowPercent%',
-              zhHant: '上下文視窗 $contextWindowPercent%',
-              en: 'Context window $contextWindowPercent%',
-              fr: 'Fenêtre de contexte $contextWindowPercent%',
-              de: 'Kontextfenster $contextWindowPercent%',
-              ja: 'コンテキストウィンドウ $contextWindowPercent%',
-            ),
-          ),
+        child: OpenHandSessionTokenUsageDial(
+          session: session,
+          statistics: statistics,
+          claudeStyle: false,
+          enabled: _loaded,
+          hydrateSessionStatistics: false,
+          allowManualCompaction: false,
+          uncachedPromptTokens:
+              (_summary.cacheInputTokens -
+                      _summary.cacheReadTokens -
+                      _summary.cacheCreationTokens)
+                  .clamp(0, 1 << 62)
+                  .toInt(),
         ),
       ),
     );
   }
-}
-
-class _HeTokenUsageDialog extends StatelessWidget {
-  const _HeTokenUsageDialog({required this.summary});
-
-  final AiUsageSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final cacheHitPercent = (summary.cacheHitRate * 100).toStringAsFixed(1);
-    final metrics = <({String label, String value})>[
-      (
-        label: openHandLocalizedText(
-          context,
-          zh: '总 Token',
-          en: 'Total Tokens',
-        ),
-        value: _heInteger(summary.totalTokens),
-      ),
-      (
-        label: openHandLocalizedText(
-          context,
-          zh: '输入 Token',
-          en: 'Input Tokens',
-        ),
-        value: _heInteger(summary.promptTokens),
-      ),
-      (
-        label: openHandLocalizedText(
-          context,
-          zh: '输出 Token',
-          en: 'Output Tokens',
-        ),
-        value: _heInteger(summary.completionTokens),
-      ),
-      (
-        label: openHandLocalizedText(context, zh: '缓存读取', en: 'Cache Read'),
-        value: _heInteger(summary.cacheReadTokens),
-      ),
-      (
-        label: openHandLocalizedText(context, zh: '缓存创建', en: 'Cache Write'),
-        value: _heInteger(summary.cacheCreationTokens),
-      ),
-      (
-        label: openHandLocalizedText(
-          context,
-          zh: '缓存命中率',
-          en: 'Cache Hit Rate',
-        ),
-        value: '$cacheHitPercent%',
-      ),
-      if (summary.reasoningTokens > 0)
-        (
-          label: openHandLocalizedText(
-            context,
-            zh: '推理 Token',
-            en: 'Reasoning Tokens',
-          ),
-          value: _heInteger(summary.reasoningTokens),
-        ),
-      (
-        label: openHandLocalizedText(context, zh: '模型请求', en: 'Model Requests'),
-        value: _heInteger(summary.requestCount),
-      ),
-      if (summary.latestContextWindowTokens > 0)
-        (
-          label: openHandLocalizedText(
-            context,
-            zh: '上下文窗口',
-            en: 'Context Window',
-          ),
-          value:
-              '${_heInteger(summary.latestContextUsedTokens)} / '
-              '${_heInteger(summary.latestContextWindowTokens)} Token',
-        ),
-    ];
-    return buildOpenHandResponsiveDialogShell(
-      context: context,
-      maxWidth: 680,
-      maxHeight: 560,
-      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.bolt_rounded,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: 'Harness Token 统计',
-                      zhHant: 'Harness Token 統計',
-                      en: 'Harness Token Usage',
-                      fr: 'Utilisation des tokens Harness',
-                      de: 'Harness-Token-Nutzung',
-                      ja: 'Harness Token 使用量',
-                    ),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final metric in metrics)
-                      _HeSummaryTile(label: metric.label, value: metric.value),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(context).pop(),
-                label: openHandCloseLabel(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _heInteger(int value) {
-  final text = value.abs().toString();
-  final buffer = StringBuffer(value < 0 ? '-' : '');
-  for (var index = 0; index < text.length; index++) {
-    if (index > 0 && (text.length - index) % 3 == 0) buffer.write(',');
-    buffer.write(text[index]);
-  }
-  return buffer.toString();
 }
 
 // _HeSessionMetadataDialog — full metadata dialog matching _SessionMetadataDialog

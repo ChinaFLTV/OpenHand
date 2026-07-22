@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../util/input_value_parsing.dart';
+import 'animated_dialog.dart';
+import 'collision_safe_animated_switcher.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'rolling_text.dart';
@@ -25,10 +27,22 @@ class OpenHandTokenUsageCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.menu,
+    );
+    final duration = showCacheHitRate
+        ? motionSettings.entranceDuration
+        : motionSettings.exitDuration;
+    final curve = showCacheHitRate
+        ? motionSettings.curve.curve
+        : motionSettings.curve.reverseCurve;
+    return AnimatedContainer(
       key: anchorKey,
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 10),
+      duration: duration,
+      curve: curve,
       decoration: BoxDecoration(
         color: showCacheHitRate
             ? colorScheme.primary.withValues(alpha: 0.08)
@@ -43,29 +57,59 @@ class OpenHandTokenUsageCapsule extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            showCacheHitRate
-                ? Icons.bolt_rounded
-                : Icons.confirmation_number_rounded,
-            size: 14,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 6),
-          if (showCacheHitRate) ...[
-            _OpenHandCacheHitRateBadge(ratio: cacheHitRatio),
-            Container(
-              width: 1,
-              height: 12,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: colorScheme.outlineVariant,
+          ClipRect(
+            child: AnimatedSize(
+              alignment: Alignment.centerLeft,
+              duration: motionSettings.entranceDuration,
+              reverseDuration: motionSettings.exitDuration,
+              curve: curve,
+              child: AnimatedSwitcher(
+                duration: motionSettings.entranceDuration,
+                reverseDuration: motionSettings.exitDuration,
+                transitionBuilder: (child, animation) =>
+                    buildAnimationStyleTransition(
+                      animation: animation,
+                      settings: motionSettings,
+                      child: child,
+                    ),
+                layoutBuilder: (currentChild, previousChildren) =>
+                    buildCollisionSafeAnimatedSwitcherLayout(
+                      currentChild,
+                      previousChildren,
+                      alignment: Alignment.centerLeft,
+                      sizeToCurrentChild: true,
+                    ),
+                child: showCacheHitRate
+                    ? Row(
+                        key: const ValueKey<bool>(true),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.bolt_rounded,
+                            size: 14,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          _OpenHandCacheHitRateBadge(ratio: cacheHitRatio),
+                          Container(
+                            width: 1,
+                            height: 12,
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            color: colorScheme.outlineVariant,
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(key: ValueKey<bool>(false)),
+              ),
             ),
-          ],
+          ),
           Tooltip(
             message: contextWindowTooltip,
             child: OpenHandAnimatedContextUsageRing(
               ratio: contextWindowRatio,
               size: 18,
               strokeWidth: 2.6,
+              settings: motionSettings,
             ),
           ),
         ],

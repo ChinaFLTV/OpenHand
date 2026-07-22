@@ -1,11 +1,16 @@
 part of '../openhand_home_page.dart';
 
-class _TokenDial extends StatefulWidget {
-  const _TokenDial({
+class OpenHandSessionTokenUsageDial extends StatefulWidget {
+  const OpenHandSessionTokenUsageDial({
+    super.key,
     required this.session,
     required this.statistics,
     this.activeProfile,
     this.claudeStyle = true,
+    this.enabled = true,
+    this.hydrateSessionStatistics = true,
+    this.allowManualCompaction = true,
+    this.uncachedPromptTokens,
     this.onCacheHitTrendPointSelected,
   });
 
@@ -13,10 +18,15 @@ class _TokenDial extends StatefulWidget {
   final AiSessionStatistics statistics;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
+  final bool enabled;
+  final bool hydrateSessionStatistics;
+  final bool allowManualCompaction;
+  final int? uncachedPromptTokens;
   final ValueChanged<SessionCacheHitTurnPoint>? onCacheHitTrendPointSelected;
 
   @override
-  State<_TokenDial> createState() => _TokenDialState();
+  State<OpenHandSessionTokenUsageDial> createState() =>
+      _OpenHandSessionTokenUsageDialState();
 }
 
 const double _cacheWriteThemeColorBlend = 0.45;
@@ -49,7 +59,8 @@ Color _cacheWriteThemeColor(ColorScheme colorScheme) {
   )!;
 }
 
-class _TokenDialState extends State<_TokenDial>
+class _OpenHandSessionTokenUsageDialState
+    extends State<OpenHandSessionTokenUsageDial>
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portalController = OverlayPortalController();
   final GlobalKey _anchorKey = GlobalKey();
@@ -109,6 +120,7 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   void _showPopup() {
+    if (!widget.enabled) return;
     if (!_showQueued && !_portalController.isShowing) {
       _hydrateCacheStatisticsOnDemand();
     }
@@ -168,6 +180,8 @@ class _TokenDialState extends State<_TokenDial>
               claudeStyle: widget.claudeStyle,
             ),
             compact: false,
+            allowManualCompaction: widget.allowManualCompaction,
+            uncachedPromptTokens: widget.uncachedPromptTokens,
             onCacheHitTrendPointSelected: (point) {
               selectedPoint = point;
               if (dismissQueued) return;
@@ -203,6 +217,7 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   void _hydrateCacheStatisticsOnDemand() {
+    if (!widget.hydrateSessionStatistics) return;
     unawaited(
       context.read<AiSessionController>().ensureSessionCacheStatisticsHydrated(
         widget.session.id,
@@ -246,20 +261,26 @@ class _TokenDialState extends State<_TokenDial>
             maxHeight: metrics.maxHeight,
             minWidth: metrics.minWidth,
             maxWidth: metrics.maxWidth,
+            allowManualCompaction: widget.allowManualCompaction,
+            uncachedPromptTokens: widget.uncachedPromptTokens,
             onCacheHitTrendPointSelected: widget.onCacheHitTrendPointSelected,
           ),
         );
       },
       child: MouseRegion(
         onEnter: (_) {
-          if (!_useTapSheet) _showPopup();
+          if (widget.enabled && !_useTapSheet) _showPopup();
         },
         onExit: (_) {
-          if (!_useTapSheet && !_webClickPinned) _schedulePopupHide();
+          if (widget.enabled && !_useTapSheet && !_webClickPinned) {
+            _schedulePopupHide();
+          }
         },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: _useTapSheet
+          onTap: !widget.enabled
+              ? null
+              : _useTapSheet
               ? _showTouchPopupSheet
               : kIsWeb
               ? () {
@@ -518,7 +539,7 @@ String _formatThousands(int value) {
   return value < 0 ? '-${buffer.toString()}' : buffer.toString();
 }
 
-/// 悬浮在 `_TokenDial` 下方的结构化 token 详情浮窗。
+/// 悬浮在 Token 统计胶囊下方的结构化详情浮窗。
 ///
 /// 统一展示累计用量、上下文占用、缓存趋势与费用。
 class _TokenDialPopup extends StatefulWidget {
@@ -532,6 +553,8 @@ class _TokenDialPopup extends StatefulWidget {
     this.maxHeight,
     this.minWidth,
     this.maxWidth,
+    this.allowManualCompaction = true,
+    this.uncachedPromptTokens,
     this.onCacheHitTrendPointSelected,
   });
 
@@ -544,6 +567,8 @@ class _TokenDialPopup extends StatefulWidget {
   final double? maxHeight;
   final double? minWidth;
   final double? maxWidth;
+  final bool allowManualCompaction;
+  final int? uncachedPromptTokens;
   final ValueChanged<SessionCacheHitTurnPoint>? onCacheHitTrendPointSelected;
 
   @override
@@ -679,12 +704,14 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       hasCacheUsageTelemetry: hasCacheUsageTelemetry,
       cacheHitRatio: widget.statistics.cacheHitRatio,
     );
-    final fallbackUncachedPromptTokens = computeUncachedPromptTokens(
-      promptTokens: cacheEligiblePromptTokens,
-      cacheReadTokens: cacheRead,
-      cacheWriteTokens: cacheWrite,
-      claudeStyle: widget.claudeStyle,
-    );
+    final fallbackUncachedPromptTokens =
+        widget.uncachedPromptTokens ??
+        computeUncachedPromptTokens(
+          promptTokens: cacheEligiblePromptTokens,
+          cacheReadTokens: cacheRead,
+          cacheWriteTokens: cacheWrite,
+          claudeStyle: widget.claudeStyle,
+        );
     final cacheBarPromptTokens = trend.points.isNotEmpty
         ? displayData.uncachedPromptTokens
         : fallbackUncachedPromptTokens;
@@ -826,6 +853,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             usage: contextUsage,
             windowUsage: contextWindowUsage,
             showCompact:
+                widget.allowManualCompaction &&
                 contextWindowUsage.canManuallyCompact &&
                 (liveState.sendPhase == AiSendPhase.idle || _compacting),
             compacting: _compacting,

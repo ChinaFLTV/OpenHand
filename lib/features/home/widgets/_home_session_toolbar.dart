@@ -200,7 +200,7 @@ class _SessionToolbar extends StatelessWidget {
             onTap: onMachineTerminalPanelToggled,
           ),
         ),
-      _TokenDial(
+      OpenHandSessionTokenUsageDial(
         session: session,
         statistics: session.statistics,
         activeProfile: activeProfile,
