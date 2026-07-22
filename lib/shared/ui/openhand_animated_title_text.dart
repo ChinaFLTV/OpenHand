@@ -32,16 +32,17 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
   static const Duration _fallbackDuration = Duration(milliseconds: 360);
   static const Curve _incomingMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
 
-  late String _currentText = widget.text;
-  String? _previousText;
+  int _snapshotId = 0;
+  late _TitleSnapshot _current = _snapshotFromWidget();
+  _TitleSnapshot? _previous;
   bool _motionEnabled = true;
   late final AnimationController _controller =
       AnimationController(vsync: this, duration: _fallbackDuration)
         ..addStatusListener((status) {
           if (status == AnimationStatus.completed &&
               mounted &&
-              _previousText != null) {
-            setState(() => _previousText = null);
+              _previous != null) {
+            setState(() => _previous = null);
           }
         });
 
@@ -61,16 +62,31 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
   void didUpdateWidget(covariant OpenHandAnimatedTitleText oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncMotionSettings();
-    if (oldWidget.text == widget.text) return;
+    if (oldWidget.text == widget.text) {
+      _current = _snapshotFromWidget(id: _current.id);
+      return;
+    }
+    final next = _snapshotFromWidget();
     if (!_motionEnabled) {
-      _currentText = widget.text;
-      _previousText = null;
+      _current = next;
+      _previous = null;
       _controller.value = 1;
       return;
     }
-    _previousText = _currentText;
-    _currentText = widget.text;
+    _previous = _current;
+    _current = next;
     _controller.forward(from: 0);
+  }
+
+  _TitleSnapshot _snapshotFromWidget({int? id}) {
+    return _TitleSnapshot(
+      id: id ?? ++_snapshotId,
+      text: widget.text,
+      style: widget.style,
+      maxLines: widget.maxLines,
+      overflow: widget.overflow,
+      softWrap: widget.softWrap,
+    );
   }
 
   void _syncMotionSettings() {
@@ -86,7 +102,7 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
       }
       return;
     }
-    _previousText = null;
+    _previous = null;
     _controller.value = 1;
   }
 
@@ -98,7 +114,7 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = _currentText.trim();
+    final trimmed = _current.text.trim();
     final animatedBody = _buildAnimatedBody();
     if (trimmed.isEmpty || !widget.tooltip) return animatedBody;
     return Tooltip(
@@ -111,21 +127,24 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
     );
   }
 
-  Widget _titleText(String value) {
+  Widget _titleText(_TitleSnapshot snapshot, _TitleRole role) {
     return Text(
-      value,
-      maxLines: widget.maxLines,
-      overflow: widget.overflow,
-      softWrap: widget.softWrap,
-      style: widget.style,
+      key: ValueKey<(int, _TitleRole)>((snapshot.id, role)),
+      snapshot.text,
+      maxLines: snapshot.maxLines,
+      overflow: snapshot.overflow,
+      softWrap: snapshot.softWrap,
+      style: snapshot.style,
     );
   }
 
   Widget _buildAnimatedBody() {
-    final previousText = _previousText;
-    if (!_motionEnabled || previousText == null) {
-      return _titleText(_currentText);
+    final previous = _previous;
+    if (!_motionEnabled || previous == null) {
+      return _titleText(_current, _TitleRole.current);
     }
+    final previousTitle = _titleText(previous, _TitleRole.previous);
+    final currentTitle = _titleText(_current, _TitleRole.current);
     return ClipRect(
       child: AnimatedBuilder(
         animation: _controller,
@@ -148,7 +167,7 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
                   child: Transform.scale(
                     alignment: AlignmentDirectional.centerStart,
                     scale: 1 - 0.015 * outgoing,
-                    child: _titleText(previousText),
+                    child: previousTitle,
                   ),
                 ),
               ),
@@ -159,7 +178,7 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
                   child: Transform.scale(
                     alignment: AlignmentDirectional.centerStart,
                     scale: 0.985 + 0.015 * incomingMotion,
-                    child: _titleText(_currentText),
+                    child: currentTitle,
                   ),
                 ),
               ),
@@ -169,4 +188,24 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
       ),
     );
   }
+}
+
+enum _TitleRole { current, previous }
+
+class _TitleSnapshot {
+  const _TitleSnapshot({
+    required this.id,
+    required this.text,
+    required this.style,
+    required this.maxLines,
+    required this.overflow,
+    required this.softWrap,
+  });
+
+  final int id;
+  final String text;
+  final TextStyle? style;
+  final int maxLines;
+  final TextOverflow overflow;
+  final bool softWrap;
 }
