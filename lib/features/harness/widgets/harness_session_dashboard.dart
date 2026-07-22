@@ -18,6 +18,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';

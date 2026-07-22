@@ -15,6 +15,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
@@ -10053,7 +10054,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final file = File(
       p.join(directory.path, '$baseName-$timestamp.$extension'),
     );
-    await file.writeAsBytes(bytes, flush: true);
+    await writeBytesFileAtomically(file, bytes);
     return file.path;
   }
 

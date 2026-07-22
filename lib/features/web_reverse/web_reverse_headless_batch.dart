@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/path_safety.dart';
@@ -322,7 +323,8 @@ class WebReverseHeadlessBatch {
       await perDir.create(recursive: true);
 
       if (captureNetwork) {
-        await File('${perDir.path}/network.json').writeAsString(
+        await writeFileAtomically(
+          File('${perDir.path}/network.json'),
           prettyPrintJson(<String, Object?>{
             'url': url,
             'captured': networkResponses.length,
@@ -336,7 +338,8 @@ class WebReverseHeadlessBatch {
         );
       }
       if (captureConsole) {
-        await File('${perDir.path}/console.json').writeAsString(
+        await writeFileAtomically(
+          File('${perDir.path}/console.json'),
           prettyPrintJson(<String, Object?>{
             'url': url,
             'captured': consoleEntries.length,
@@ -365,7 +368,7 @@ class WebReverseHeadlessBatch {
               data.isNotEmpty &&
               data.length <= kWebReverseHeadlessBatchMaxScreenshotBase64Chars) {
             final path = '${perDir.path}/screenshot.png';
-            await File(path).writeAsBytes(base64Decode(data));
+            await writeBytesFileAtomically(File(path), base64Decode(data));
             screenshotPath = path;
           }
         } catch (e, st) {

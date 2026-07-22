@@ -1188,7 +1188,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
       );
       final selectedPath = selectedLocation?.path;
       if (!mounted || selectedPath == null || selectedPath.isEmpty) return;
-      await File(selectedPath).writeAsString(text);
+      await writeFileAtomically(File(selectedPath), text);
       if (!mounted) return;
       _downloadedResetTimer?.cancel();
       setState(() => _downloaded = true);

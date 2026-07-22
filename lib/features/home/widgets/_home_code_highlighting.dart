@@ -764,7 +764,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       if (!mounted || selectedPath == null || selectedPath.isEmpty) {
         return;
       }
-      await File(selectedPath).writeAsString(widget.content);
+      await writeFileAtomically(File(selectedPath), widget.content);
       if (!mounted) return;
       setState(() => _downloaded = true);
       final messenger = ScaffoldMessenger.of(context);
@@ -1526,7 +1526,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         return;
       }
       final file = File(selectedPath);
-      await file.writeAsString(widget.content);
+      await writeFileAtomically(file, widget.content);
       if (!mounted) {
         return;
       }
@@ -3906,7 +3906,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       );
       final path = location?.path;
       if (!mounted || path == null || path.isEmpty) return;
-      await File(path).writeAsString(svg, flush: true);
+      await writeFileAtomically(File(path), svg);
       if (!mounted) return;
       showOpenHandSnackBarOn(
         context,
@@ -3954,7 +3954,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       );
       final path = location?.path;
       if (!mounted || path == null || path.isEmpty) return;
-      await File(path).writeAsBytes(pngBytes, flush: true);
+      await writeBytesFileAtomically(File(path), pngBytes);
       if (!mounted) return;
       showOpenHandSnackBarOn(
         context,

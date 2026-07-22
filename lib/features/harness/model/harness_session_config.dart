@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'harness_role_config.dart';
@@ -95,7 +96,7 @@ class HarnessSessionConfig {
     final configFile = File(
       p.join(persistenceDirectory, 'steering', 'meta', 'harness_config.json'),
     );
-    await configFile.writeAsString(prettyPrintJson(toJson()));
+    await writeFileAtomically(configFile, prettyPrintJson(toJson()));
   }
 
   /// Returns true if meta files (architecture.md / conventions.md) are missing,

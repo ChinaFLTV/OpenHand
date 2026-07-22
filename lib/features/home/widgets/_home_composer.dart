@@ -4431,7 +4431,10 @@ class _ComposerAttachmentDraft {
 
   static Future<_ComposerAttachmentDraft> fromPath(String path) async {
     final file = File(path);
-    final stat = await file.stat();
+    final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
+    if (stat.type != FileSystemEntityType.file) {
+      throw FileSystemException('附件路径不是普通文件。', path);
+    }
     return _ComposerAttachmentDraft(
       filePath: path,
       name: p.basename(path),

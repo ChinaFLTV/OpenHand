@@ -32,6 +32,7 @@ import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/fps/openhand_fps_monitor.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_appearance.dart';
@@ -220,7 +221,7 @@ Future<void> _exportToolTelemetry<T>({
   if (location == null) return;
   final calls = await loadCalls();
   final body = asCsv ? encodeCsv(calls) : encodeJson(calls);
-  await File(location.path).writeAsString(body, flush: true);
+  await writeFileAtomically(File(location.path), body);
   if (!context.mounted) return;
   showOpenHandSuccessSnack(
     context,
@@ -5303,13 +5304,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (location == null) return;
     try {
       final doc = controller.exportAiStreamThrottleConfig();
-      final bytes = utf8.encode(prettyPrintJson(doc));
-      final file = XFile.fromData(
-        bytes,
-        mimeType: 'application/json',
-        name: 'openhand-throttle-config-$ts.json',
-      );
-      await file.saveTo(location.path);
+      await writeFileAtomically(File(location.path), prettyPrintJson(doc));
     } catch (error, stack) {
       silentLog('设置', '写入节流配置', error, stack);
       if (!context.mounted) return;

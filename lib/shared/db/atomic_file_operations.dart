@@ -111,6 +111,14 @@ Future<void> writeFileAtomically(File targetFile, String content) {
   );
 }
 
+/// 以原子替换方式写入字节，避免进程中断时留下半文件。
+Future<void> writeBytesFileAtomically(File targetFile, List<int> bytes) {
+  return _runWithAtomicWriteLock(
+    targetFile,
+    (targetFile) => _writeBytesFileAtomicallyLocked(targetFile, bytes),
+  );
+}
+
 /// Deletes a file and every recovery artifact under the same atomic-write
 /// lock, preventing a later startup from resurrecting deliberately cleared
 /// data from a stale backup or completed temp file.
@@ -348,6 +356,31 @@ Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
           final chunk = utf8.encode(content.substring(offset, end));
           await output.run(
             (file) => file.writeFrom(chunk),
+            timeout: nextOperationTimeout(),
+          );
+          offset = end;
+        }
+      },
+    ),
+  );
+}
+
+Future<void> _writeBytesFileAtomicallyLocked(
+  File targetFile,
+  List<int> bytes,
+) async {
+  await _writeAtomicallyLocked(
+    targetFile,
+    (tempFile, remainingBudget) => _writeAtomicTempFile(
+      tempFile,
+      remainingBudget,
+      (output, nextOperationTimeout) async {
+        var offset = 0;
+        while (offset < bytes.length) {
+          final nextOffset = offset + _atomicIoChunkBytes;
+          final end = nextOffset < bytes.length ? nextOffset : bytes.length;
+          await output.run(
+            (file) => file.writeFrom(bytes, offset, end),
             timeout: nextOperationTimeout(),
           );
           offset = end;

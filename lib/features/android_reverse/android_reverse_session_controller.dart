@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_log_buffer.dart';
@@ -398,8 +399,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         jsonPath: jsonPath,
       );
       await Future.wait(<Future<void>>[
-        File(markdownPath).writeAsString(markdown),
-        File(jsonPath).writeAsString(prettyPrintJson(json)),
+        writeFileAtomically(File(markdownPath), markdown),
+        writeFileAtomically(File(jsonPath), prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['package-report', normalizedPackage],
@@ -488,8 +489,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'text_path': txtPath,
       };
       await Future.wait(<Future<void>>[
-        File(txtPath).writeAsString(text.isEmpty ? '(empty)\n' : '$text\n'),
-        File(jsonPath).writeAsString(prettyPrintJson(json)),
+        writeFileAtomically(
+          File(txtPath),
+          text.isEmpty ? '(empty)\n' : '$text\n',
+        ),
+        writeFileAtomically(File(jsonPath), prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['logcat-snapshot'],
@@ -663,8 +667,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'line_count': normalizedScript.split('\n').length,
       };
       await Future.wait(<Future<void>>[
-        File(scriptPath).writeAsString('$normalizedScript\n'),
-        File(jsonPath).writeAsString(prettyPrintJson(metadata)),
+        writeFileAtomically(File(scriptPath), '$normalizedScript\n'),
+        writeFileAtomically(File(jsonPath), prettyPrintJson(metadata)),
       ]);
       return AdbCommandResult(
         args: const <String>['frida-script-save'],
@@ -818,8 +822,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         jsonPath: jsonPath,
       );
       await Future.wait(<Future<void>>[
-        File(markdownPath).writeAsString(markdown),
-        File(jsonPath).writeAsString(prettyPrintJson(json)),
+        writeFileAtomically(File(markdownPath), markdown),
+        writeFileAtomically(File(jsonPath), prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['device-report', reportSerial],
@@ -949,12 +953,13 @@ class AndroidReverseSessionController extends ChangeNotifier {
       await Directory(networkDir).create(recursive: true);
       await File(networkJsonlPath).create(recursive: true);
       final file = File(mitmproxyAddonPath);
-      await Future.wait(<Future<File>>[
-        file.writeAsString(_mitmproxyJsonlAddon),
-        File(networkReadmePath).writeAsString(_networkCaptureReadme),
-        File(
-          networkProxyProbeScriptPath,
-        ).writeAsString(_networkProxyProbeScript),
+      await Future.wait(<Future<void>>[
+        writeFileAtomically(file, _mitmproxyJsonlAddon),
+        writeFileAtomically(File(networkReadmePath), _networkCaptureReadme),
+        writeFileAtomically(
+          File(networkProxyProbeScriptPath),
+          _networkProxyProbeScript,
+        ),
       ]);
       if (!Platform.isWindows) {
         await runTrackedProcessOrFailed(
@@ -978,24 +983,32 @@ class AndroidReverseSessionController extends ChangeNotifier {
       final resXmlDir = Directory('$certsDir/res/xml');
       await resXmlDir.create(recursive: true);
       final pkg = packageName?.trim();
-      await Future.wait(<Future<File>>[
-        File(
-          networkSecurityConfigPath,
-        ).writeAsString(_networkSecurityConfigXml),
-        File(
-          manifestNetworkConfigSnippetPath,
-        ).writeAsString(_manifestNetworkConfigSnippet),
-        File(
-          installMitmCaRootScriptPath,
-        ).writeAsString(_installMitmCaRootScript),
-        File(
-          generateDebugKeystoreScriptPath,
-        ).writeAsString(_generateDebugKeystoreScript),
-        File(signRepackedApkScriptPath).writeAsString(_signRepackedApkScript),
-        File(
-          verifyApkSignatureScriptPath,
-        ).writeAsString(_verifyApkSignatureScript),
-        File(certsReadmePath).writeAsString(_certificateReadme(pkg)),
+      await Future.wait(<Future<void>>[
+        writeFileAtomically(
+          File(networkSecurityConfigPath),
+          _networkSecurityConfigXml,
+        ),
+        writeFileAtomically(
+          File(manifestNetworkConfigSnippetPath),
+          _manifestNetworkConfigSnippet,
+        ),
+        writeFileAtomically(
+          File(installMitmCaRootScriptPath),
+          _installMitmCaRootScript,
+        ),
+        writeFileAtomically(
+          File(generateDebugKeystoreScriptPath),
+          _generateDebugKeystoreScript,
+        ),
+        writeFileAtomically(
+          File(signRepackedApkScriptPath),
+          _signRepackedApkScript,
+        ),
+        writeFileAtomically(
+          File(verifyApkSignatureScriptPath),
+          _verifyApkSignatureScript,
+        ),
+        writeFileAtomically(File(certsReadmePath), _certificateReadme(pkg)),
       ]);
       if (!Platform.isWindows) {
         await runTrackedProcessOrFailed(
@@ -1779,30 +1792,42 @@ class AndroidReverseSessionController extends ChangeNotifier {
         Directory(toolchainDir).create(recursive: true),
       ]);
       final generatedAt = DateTime.now().toUtc().toIso8601String();
-      await Future.wait(<Future<File>>[
-        File(
-          mcpTemplatesPath,
-        ).writeAsString(_mcpLinkageTemplatesJson(generatedAt)),
-        File(mcpReadmePath).writeAsString(_mcpLinkageReadme),
-        File(mcpSetupGuidePath).writeAsString(_mcpSetupGuideReadme),
-        File(fridaReadmePath).writeAsString(_fridaRunbookReadme),
-        File(fridaDoctorScriptPath).writeAsString(_fridaDoctorScript),
-        File(fridaCaptureScriptPath).writeAsString(_fridaCaptureScript),
-        File(networkReadmePath).writeAsString(_networkCaptureReadme),
-        File(
-          networkProxyProbeScriptPath,
-        ).writeAsString(_networkProxyProbeScript),
-        File(mitmproxyAddonPath).writeAsString(_mitmproxyJsonlAddon),
-        File(scriptsReadmePath).writeAsString(_reproduceScriptsReadme),
-        File(reproducePythonPath).writeAsString(_reproduceHttpPythonScript),
-        File(reproduceCurlPath).writeAsString(_reproduceCurlScript),
-        File(evidenceBundleScriptPath).writeAsString(_evidenceBundleScript),
-        File(toolchainReadmePath).writeAsString(_toolchainSetupReadme),
-        File(
-          toolchainSetupCommandsPath,
-        ).writeAsString(_toolchainSetupCommandsJson()),
-        File(adbOneShotScriptPath).writeAsString(_adbOneShotScript),
-        File(dynamicProbeScriptPath).writeAsString(_androidDynamicProbeScript),
+      await Future.wait(<Future<void>>[
+        writeFileAtomically(
+          File(mcpTemplatesPath),
+          _mcpLinkageTemplatesJson(generatedAt),
+        ),
+        writeFileAtomically(File(mcpReadmePath), _mcpLinkageReadme),
+        writeFileAtomically(File(mcpSetupGuidePath), _mcpSetupGuideReadme),
+        writeFileAtomically(File(fridaReadmePath), _fridaRunbookReadme),
+        writeFileAtomically(File(fridaDoctorScriptPath), _fridaDoctorScript),
+        writeFileAtomically(File(fridaCaptureScriptPath), _fridaCaptureScript),
+        writeFileAtomically(File(networkReadmePath), _networkCaptureReadme),
+        writeFileAtomically(
+          File(networkProxyProbeScriptPath),
+          _networkProxyProbeScript,
+        ),
+        writeFileAtomically(File(mitmproxyAddonPath), _mitmproxyJsonlAddon),
+        writeFileAtomically(File(scriptsReadmePath), _reproduceScriptsReadme),
+        writeFileAtomically(
+          File(reproducePythonPath),
+          _reproduceHttpPythonScript,
+        ),
+        writeFileAtomically(File(reproduceCurlPath), _reproduceCurlScript),
+        writeFileAtomically(
+          File(evidenceBundleScriptPath),
+          _evidenceBundleScript,
+        ),
+        writeFileAtomically(File(toolchainReadmePath), _toolchainSetupReadme),
+        writeFileAtomically(
+          File(toolchainSetupCommandsPath),
+          _toolchainSetupCommandsJson(),
+        ),
+        writeFileAtomically(File(adbOneShotScriptPath), _adbOneShotScript),
+        writeFileAtomically(
+          File(dynamicProbeScriptPath),
+          _androidDynamicProbeScript,
+        ),
       ]);
       if (!Platform.isWindows) {
         await runTrackedProcessOrFailed(

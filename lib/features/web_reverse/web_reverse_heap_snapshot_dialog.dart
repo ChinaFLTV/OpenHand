@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -75,7 +76,7 @@ class _HeapDialogState extends State<_HeapDialog> {
       final dir = await getApplicationDocumentsDirectory();
       final ts = DateTime.now().millisecondsSinceEpoch;
       file = File('${dir.path}/openhand_heap_$ts.heapsnapshot');
-      await file.writeAsString(r.json);
+      await writeFileAtomically(file, r.json);
     } catch (e, s) {
       silentLog('web_reverse_heap_snapshot_dialog', 'heap-snapshot.save', e, s);
       if (!mounted) return;

@@ -30,6 +30,7 @@ class OpenHandSessionTokenUsageDial extends StatefulWidget {
 }
 
 const double _cacheWriteThemeColorBlend = 0.45;
+const Duration _kTokenDialPopupExitGraceDuration = Duration(milliseconds: 60);
 
 double _tokenDialSummaryCacheHitRatio(
   AiSessionStatistics statistics, {
@@ -112,6 +113,18 @@ class _OpenHandSessionTokenUsageDialState
   }
 
   @override
+  void didUpdateWidget(covariant OpenHandSessionTokenUsageDial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final shouldClose =
+        (!widget.enabled && oldWidget.enabled) ||
+        widget.session.id != oldWidget.session.id;
+    if (shouldClose &&
+        (_showQueued || _portalController.isShowing || _webClickPinned)) {
+      _schedulePopupHide();
+    }
+  }
+
+  @override
   void dispose() {
     _popupGeneration += 1;
     _hideTimer?.cancel();
@@ -141,7 +154,7 @@ class _OpenHandSessionTokenUsageDialState
     _showQueued = false;
     _webClickPinned = false;
     final generation = ++_popupGeneration;
-    _hideTimer = startSafeTimer(const Duration(milliseconds: 60), () {
+    _hideTimer = startSafeTimer(_kTokenDialPopupExitGraceDuration, () {
       _runAfterFrame(() async {
         try {
           await _transitionController.reverse().orCancel;

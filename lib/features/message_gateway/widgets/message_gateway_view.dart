@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -3771,7 +3772,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       );
       if (location == null) return;
       final text = await widget.controller.exportCurrentLogText();
-      await File(location.path).writeAsString(text);
+      await writeFileAtomically(File(location.path), text);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,

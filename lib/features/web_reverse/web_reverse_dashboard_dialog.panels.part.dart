@@ -231,7 +231,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     }
     if (!mounted || location == null) return;
     try {
-      await File(location.path).writeAsString(buf.toString());
+      await writeFileAtomically(File(location.path), buf.toString());
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
@@ -345,7 +345,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     }
     if (location == null) return;
     try {
-      await File(location.path).writeAsString(json);
+      await writeFileAtomically(File(location.path), json);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
@@ -1192,10 +1192,7 @@ class _AnimatedSparklineState extends State<_AnimatedSparkline>
   void didUpdateWidget(covariant _AnimatedSparkline old) {
     super.didUpdateWidget(old);
     if (!listEquals(old.values, widget.values)) {
-      _from = _resampleSparklineValues(
-        _currentValues(),
-        widget.values.length,
-      );
+      _from = _resampleSparklineValues(_currentValues(), widget.values.length);
       _to = List<double>.from(widget.values);
       if (widget.reduceMotion) {
         _ac.value = 1;
@@ -1751,7 +1748,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     }
     if (location == null) return;
     try {
-      await File(location.path).writeAsString(r.json);
+      await writeFileAtomically(File(location.path), r.json);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
@@ -2245,18 +2242,12 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
     final reduceMotion = !_wrMotionEnabled(context);
     var changed = false;
     if (!listEquals(old.primary, widget.primary)) {
-      _fromPri = _resampleSparklineValues(
-        _curPri(),
-        widget.primary.length,
-      );
+      _fromPri = _resampleSparklineValues(_curPri(), widget.primary.length);
       _toPri = List<double>.from(widget.primary);
       changed = true;
     }
     if (!listEquals(old.secondary, widget.secondary)) {
-      _fromSec = _resampleSparklineValues(
-        _curSec(),
-        widget.secondary.length,
-      );
+      _fromSec = _resampleSparklineValues(_curSec(), widget.secondary.length);
       _toSec = List<double>.from(widget.secondary);
       changed = true;
     }
@@ -5149,7 +5140,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
     if (location == null) return;
     try {
-      await File(location.path).writeAsString(prettyPrintJson(steps));
+      await writeFileAtomically(File(location.path), prettyPrintJson(steps));
       if (!mounted) return;
       showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
@@ -5288,7 +5279,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
     if (!mounted || location == null) return;
     try {
-      await File(location.path).writeAsString(code);
+      await writeFileAtomically(File(location.path), code);
       if (!mounted) return;
       showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {

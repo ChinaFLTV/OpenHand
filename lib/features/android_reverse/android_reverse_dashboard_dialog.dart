@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
@@ -7437,7 +7438,7 @@ fi
       ],
     );
     if (location == null) return null;
-    await File(location.path).writeAsString(content, flush: true);
+    await writeFileAtomically(File(location.path), content);
     return location.path;
   }
 

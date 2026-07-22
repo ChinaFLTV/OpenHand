@@ -1301,7 +1301,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     if (!mounted || location == null) return;
     try {
-      await File(location.path).writeAsBytes(bytes, flush: true);
+      await writeBytesFileAtomically(File(location.path), bytes);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
@@ -1433,7 +1433,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     if (!mounted || location == null) return;
     try {
-      await File(location.path).writeAsBytes(out, flush: true);
+      await writeBytesFileAtomically(File(location.path), out);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,

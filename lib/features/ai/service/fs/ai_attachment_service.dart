@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -491,7 +492,7 @@ class AiAttachmentService {
             outputExtension,
           );
     final targetFile = File(p.join(targetDirectory.path, targetName));
-    await targetFile.writeAsBytes(outputBytes, flush: true);
+    await writeBytesFileAtomically(targetFile, outputBytes);
     final summary = StringBuffer()
       ..write('Image attachment: $sourceName')
       ..write(' (${aiFormatBytes(outputBytes.length)}');

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -1628,7 +1629,7 @@ class AiToolRuntimeService {
     try {
       await file.parent.create(recursive: true);
       if (!await file.exists()) {
-        await file.writeAsString(content, flush: true);
+        await writeFileAtomically(file, content);
       }
       return _PersistedToolOutput(
         path: file.path,

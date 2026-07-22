@@ -684,7 +684,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     }
     if (location == null) return;
     try {
-      await File(location.path).writeAsBytes(marked, flush: true);
+      await writeBytesFileAtomically(File(location.path), marked);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,

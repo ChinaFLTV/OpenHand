@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -324,7 +325,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
     if (location == null) return;
     try {
-      await File(location.path).writeAsString(payload, flush: true);
+      await writeFileAtomically(File(location.path), payload);
     } catch (error, stack) {
       silentLog(
         'tool_search_loaded_dialog',

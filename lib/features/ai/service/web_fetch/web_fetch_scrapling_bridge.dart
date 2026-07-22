@@ -10,6 +10,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -1015,7 +1016,7 @@ class WebFetchScraplingBridge {
       await dir.create(recursive: true);
     }
     final file = File(p.join(dir.path, 'bridge.py'));
-    await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+    await writeBytesFileAtomically(file, bytes.buffer.asUint8List());
     if (!Platform.isWindows) {
       try {
         final result = await runTrackedProcessOrFailed(

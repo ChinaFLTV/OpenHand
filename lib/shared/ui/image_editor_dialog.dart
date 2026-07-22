@@ -14,6 +14,7 @@ import 'package:path/path.dart' as p;
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../db/atomic_file_operations.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
@@ -2073,7 +2074,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (location == null) {
         return;
       }
-      await File(location.path).writeAsBytes(outputBytes, flush: true);
+      await writeBytesFileAtomically(File(location.path), outputBytes);
       if (!mounted) {
         return;
       }

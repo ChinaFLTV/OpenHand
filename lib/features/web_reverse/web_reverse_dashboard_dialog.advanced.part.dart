@@ -2584,7 +2584,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     }
     if (loc == null) return;
     try {
-      await File(loc.path).writeAsString(buf.toString());
+      await writeFileAtomically(File(loc.path), buf.toString());
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,

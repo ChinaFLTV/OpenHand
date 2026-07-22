@@ -3668,7 +3668,7 @@ class _RoundFileMutationSummaryCardState
       return;
     }
     try {
-      await File(location.path).writeAsString(encoded, flush: true);
+      await writeFileAtomically(File(location.path), encoded);
     } catch (error, stack) {
       silentLog(
         'round_summary_card',

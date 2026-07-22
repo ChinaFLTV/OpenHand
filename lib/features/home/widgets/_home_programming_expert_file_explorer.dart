@@ -2851,7 +2851,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         }
         _fileDirty[filePath] = true;
       } else {
-        await File(filePath).writeAsString(newText);
+        await writeFileAtomically(File(filePath), newText);
       }
       _diagnosticsByFile.remove(filePath);
       _diagnosticsStaleFiles.add(filePath);
@@ -9615,36 +9615,27 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _fileLoading[filePath] = true;
     try {
       final file = File(filePath);
-      if (await file.exists() && _isCurrentFileLoad(filePath, generation)) {
-        final stat = await file.stat();
-        if (!_isCurrentFileLoad(filePath, generation)) return;
-        if (stat.size > _kProgrammingExplorerMaxEditableFileBytes) {
-          _fileContents[filePath] = null;
-          return;
+      if (!_isCurrentFileLoad(filePath, generation)) return;
+      final content = await readBoundedFileString(
+        file,
+        maxBytes: _kProgrammingExplorerMaxEditableFileBytes,
+      );
+      if (!_isCurrentFileLoad(filePath, generation)) return;
+      _fileContents[filePath] = content;
+      final controller = _HighlightingTextController(
+        initialText: content,
+        language: _resolvedLanguageForFile(filePath),
+      );
+      _textControllers[filePath] = controller;
+      _focusNodes[filePath] = FocusNode();
+      _fileDirty[filePath] = false;
+      if (filePath == widget.activeFilePath) {
+        _updateCursorPosition(controller);
+        if (_symbolBarVisible) {
+          _scheduleSymbolRefresh(immediate: true);
         }
-        final content = await readBoundedFileString(
-          file,
-          maxBytes: _kProgrammingExplorerMaxEditableFileBytes,
-        );
-        if (!_isCurrentFileLoad(filePath, generation)) return;
-        _fileContents[filePath] = content;
-        final controller = _HighlightingTextController(
-          initialText: content,
-          language: _resolvedLanguageForFile(filePath),
-        );
-        _textControllers[filePath] = controller;
-        _focusNodes[filePath] = FocusNode();
-        _fileDirty[filePath] = false;
-        if (filePath == widget.activeFilePath) {
-          _updateCursorPosition(controller);
-          if (_symbolBarVisible) {
-            _scheduleSymbolRefresh(immediate: true);
-          }
-          _maybeApplyPendingNavigation();
-          unawaited(_maybeRefreshDiagnostics(filePath));
-        }
-      } else if (_isCurrentFileLoad(filePath, generation)) {
-        _fileContents[filePath] = null;
+        _maybeApplyPendingNavigation();
+        unawaited(_maybeRefreshDiagnostics(filePath));
       }
     } catch (_) {
       if (_isCurrentFileLoad(filePath, generation)) {
@@ -9667,7 +9658,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final controller = _textControllers[filePath];
     if (controller == null || _fileDirty[filePath] != true) return;
     try {
-      await File(filePath).writeAsString(controller.text, flush: true);
+      await writeFileAtomically(File(filePath), controller.text);
       if (mounted) {
         setState(() {
           _fileDirty[filePath] = false;

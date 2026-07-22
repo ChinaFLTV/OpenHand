@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
@@ -1080,7 +1081,7 @@ class HarnessApiPhaseRunner {
     try {
       await handoffDir.create(recursive: true);
       final handoffFile = File(p.join(handoffDir.path, handoffFileName));
-      await handoffFile.writeAsString(handoffDocContent, flush: true);
+      await writeFileAtomically(handoffFile, handoffDocContent);
       final metadataFile = File('${handoffFile.path}.json');
       final metadata = <String, Object?>{
         'schema_version': 1,
@@ -1097,7 +1098,7 @@ class HarnessApiPhaseRunner {
         'validation_status': 'passed',
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
-      await metadataFile.writeAsString(prettyPrintJson(metadata), flush: true);
+      await writeFileAtomically(metadataFile, prettyPrintJson(metadata));
       emit('📋 交接文档已保存：${handoffFile.path}');
       emit('📋 交接元数据已保存：${metadataFile.path}');
     } catch (e) {
@@ -1170,7 +1171,7 @@ class HarnessApiPhaseRunner {
           'handoff-failure-${phase.storageValue}-s$sessionIndex-$ts.json',
         ),
       );
-      await failureFile.writeAsString(prettyPrintJson(record), flush: true);
+      await writeFileAtomically(failureFile, prettyPrintJson(record));
       emit('📋 交接失败记录已保存：${failureFile.path}');
       emit(
         '  {"handoff_failure":"recorded","stage":${jsonEncode(failureStage)},"path":${jsonEncode(failureFile.path)}}',

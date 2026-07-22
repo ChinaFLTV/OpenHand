@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -2131,7 +2132,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     );
     await promptDir.create(recursive: true);
     final file = File(p.join(promptDir.path, name));
-    await file.writeAsString(content, flush: true);
+    await writeFileAtomically(file, content);
     return file;
   }
 
@@ -2203,7 +2204,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       final file = File(
         p.join(logDir.path, '${log.phase.storageValue}-$ts.log'),
       );
-      await file.writeAsString(log.lines.join('\n'));
+      await writeFileAtomically(file, log.lines.join('\n'));
       log.savedLogPath = file.path;
     } catch (error, stack) {
       silentLog('harness_orchestrator', 'persist phase log', error, stack);

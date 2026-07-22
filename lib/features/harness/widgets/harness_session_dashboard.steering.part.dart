@@ -2,6 +2,8 @@ part of 'harness_session_dashboard.dart';
 
 const int _harnessSteeringFileMaxBytes = 4 * 1024 * 1024;
 const int _harnessSteeringDirectoryMaxEntries = 1000;
+const Duration _harnessSteeringDirectoryScanTimeout = Duration(seconds: 3);
+const Duration _harnessSteeringEntryStatTimeout = Duration(milliseconds: 250);
 
 class _HeSteeringAssetsDialog extends StatefulWidget {
   const _HeSteeringAssetsDialog({required this.steeringRoot});
@@ -48,36 +50,47 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
     final directoryPath = _currentAbsolutePath;
     final dir = Directory(directoryPath);
     final entries = <_HeSteeringEntry>[];
+    final stopwatch = Stopwatch()..start();
     try {
-      if (await dir.exists()) {
-        final listing = await listDirectoryBounded(
-          dir,
-          maxEntries: _harnessSteeringDirectoryMaxEntries,
-          totalTimeout: const Duration(seconds: 3),
-        );
-        for (final entity in listing.entries) {
-          final name = p.basename(entity.path);
-          if (name.startsWith('.')) continue;
-          final isDir = entity is Directory;
-          FileStat? stat;
+      final listing = await listDirectoryBounded(
+        dir,
+        maxEntries: _harnessSteeringDirectoryMaxEntries,
+        totalTimeout: _harnessSteeringDirectoryScanTimeout,
+      );
+      for (final entity in listing.entries) {
+        if (!mounted || generation != _scanGeneration) break;
+        final name = p.basename(entity.path);
+        if (name.startsWith('.')) continue;
+        final isDir = entity is Directory;
+        FileStat? stat;
+        final remaining =
+            _harnessSteeringDirectoryScanTimeout - stopwatch.elapsed;
+        if (remaining > Duration.zero) {
+          final timeout = remaining < _harnessSteeringEntryStatTimeout
+              ? remaining
+              : _harnessSteeringEntryStatTimeout;
           try {
-            stat = await entity.stat();
+            stat = await entity.stat().timeout(timeout);
+          } on TimeoutException {
+            stat = null;
           } catch (error, stack) {
-            silentLog('harness_steering', 'stat directory entry', error, stack);
+            silentLog('harness_steering', '读取目录条目元数据', error, stack);
           }
-          entries.add(
-            _HeSteeringEntry(
-              name: name,
-              isDirectory: isDir,
-              absolutePath: entity.path,
-              size: stat?.size,
-              modified: stat?.modified,
-            ),
-          );
         }
+        entries.add(
+          _HeSteeringEntry(
+            name: name,
+            isDirectory: isDir,
+            absolutePath: entity.path,
+            size: stat?.size,
+            modified: stat?.modified,
+          ),
+        );
       }
-    } catch (_) {
-      // Permission denied or directory does not exist — show empty.
+    } on FileSystemException catch (error, stack) {
+      silentLog('harness_steering', '扫描目录', error, stack);
+    } finally {
+      stopwatch.stop();
     }
     entries.sort((a, b) {
       if (a.isDirectory != b.isDirectory) {
@@ -609,7 +622,7 @@ class _HeSteeringFileEditorDialogState
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await File(widget.filePath).writeAsString(_controller.text);
+      await writeFileAtomically(File(widget.filePath), _controller.text);
       if (!mounted) return;
       setState(() {
         _savedText = _controller.text;

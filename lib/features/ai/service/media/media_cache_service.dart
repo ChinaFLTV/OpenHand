@@ -16,6 +16,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
@@ -674,9 +675,7 @@ class MediaCacheService {
     };
     final sidecar = File(_metadataPathForMediaPath(mediaPath));
     try {
-      await sidecar
-          .writeAsString(prettyPrintJson(metadata), flush: true)
-          .timeout(_fileOperationTimeout);
+      await writeFileAtomically(sidecar, prettyPrintJson(metadata));
     } catch (error, stack) {
       silentLog('media_cache', 'write metadata', error, stack);
     }

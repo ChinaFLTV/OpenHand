@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -294,7 +295,7 @@ class WebReverseSessionArtifacts {
     try {
       final ts = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
       final path = '$rootDir/har/$ts.har';
-      await File(path).writeAsString(prettyPrintJson(har));
+      await writeFileAtomically(File(path), prettyPrintJson(har));
       return path;
     } catch (error, stack) {
       silentLog('web_reverse_artifacts', 'exportHar', error, stack);

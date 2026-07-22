@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -140,7 +141,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       final dir = await getApplicationDocumentsDirectory();
       final ts = DateTime.now().millisecondsSinceEpoch;
       file = File('${dir.path}/openhand_trace_$ts.json');
-      await file.writeAsString(json);
+      await writeFileAtomically(file, json);
       savedBytes = await file.length();
     } catch (e, s) {
       silentLog('web_reverse_perf_trace_dialog', 'perf-trace.save', e, s);

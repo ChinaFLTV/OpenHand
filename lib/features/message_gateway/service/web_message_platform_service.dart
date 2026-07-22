@@ -8760,7 +8760,7 @@ class WebMessagePlatformService {
             '${DateTime.now().microsecondsSinceEpoch}-$index-$name',
           ),
         );
-        await file.writeAsBytes(bytes, flush: true);
+        await writeBytesFileAtomically(file, bytes);
         output.add(file.path);
       }
       return output;

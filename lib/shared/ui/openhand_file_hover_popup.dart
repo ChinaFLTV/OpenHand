@@ -14,6 +14,7 @@ const double _popupHorizontalMargin = 8;
 const double _popupVerticalGap = 6;
 const Duration _contentResizeDuration = Duration(milliseconds: 200);
 const Duration _contentSwitchDuration = Duration(milliseconds: 220);
+const Duration _fileStatTimeout = Duration(seconds: 2);
 const Curve _contentMotionCurve = Curves.easeOutCubic;
 
 class OpenHandFileHoverPopup extends StatefulWidget {
@@ -95,7 +96,9 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
       return;
     }
     _overlayPath = widget.resolvedPath;
-    _overlayStatFuture = FileStat.stat(widget.resolvedPath);
+    _overlayStatFuture = FileStat.stat(
+      widget.resolvedPath,
+    ).timeout(_fileStatTimeout);
   }
 
   Widget _buildOverlayEntry(
@@ -161,7 +164,9 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
     final showAbove = aboveSpace > belowSpace;
     final availableHeight = math.max(1.0, showAbove ? aboveSpace : belowSpace);
     final resolvedPath = _overlayPath ?? widget.resolvedPath;
-    final statFuture = _overlayStatFuture ?? FileStat.stat(resolvedPath);
+    final statFuture =
+        _overlayStatFuture ??
+        FileStat.stat(resolvedPath).timeout(_fileStatTimeout);
     final child = IgnorePointer(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: availableHeight),

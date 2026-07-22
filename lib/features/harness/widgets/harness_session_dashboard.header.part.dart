@@ -1,6 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
 const Duration _heTokenUsageRefreshDelay = Duration(milliseconds: 140);
+const Duration _heTokenUsageLoadTimeout = Duration(seconds: 8);
 const double _heToolbarItemSpacing = 4;
 
 class _HePaneHeader extends StatelessWidget {
@@ -407,21 +408,20 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
       return;
     }
     try {
-      final summary = await _tracker.loadSessionSummary(
-        sessionId: sessionId,
-        source: AiUsageSource.harness,
-        legacyStartAt: widget.legacyStartAt,
-        legacyEndAt: widget.legacyEndAt,
-      );
+      final summary = await _tracker
+          .loadSessionSummary(
+            sessionId: sessionId,
+            source: AiUsageSource.harness,
+            legacyStartAt: widget.legacyStartAt,
+            legacyEndAt: widget.legacyEndAt,
+          )
+          .timeout(_heTokenUsageLoadTimeout);
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _summary = summary;
         _loaded = true;
       });
     } catch (error, stack) {
-      if (mounted && generation == _loadGeneration && !_loaded) {
-        setState(() => _loaded = true);
-      }
       silentLog(
         'harness_session_dashboard',
         '加载 Harness Token 统计',
@@ -503,8 +503,14 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
   Widget build(BuildContext context) {
     final statistics = _buildStatistics();
     final session = _buildSession(statistics);
+    final enabled = _loaded && (widget.sessionId?.trim().isNotEmpty ?? false);
+    final uncachedPromptTokens =
+        _summary.cacheInputTokens -
+        _summary.cacheReadTokens -
+        _summary.cacheCreationTokens;
     return Semantics(
-      button: true,
+      button: enabled,
+      enabled: enabled,
       label: openHandLocalizedText(
         context,
         zh: 'Token 统计',
@@ -515,20 +521,17 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
         ja: 'Token 使用量',
       ),
       child: MouseRegion(
-        cursor: _loaded ? SystemMouseCursors.click : MouseCursor.defer,
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
         child: OpenHandSessionTokenUsageDial(
           session: session,
           statistics: statistics,
           claudeStyle: false,
-          enabled: _loaded,
+          enabled: enabled,
           hydrateSessionStatistics: false,
           allowManualCompaction: false,
-          uncachedPromptTokens:
-              (_summary.cacheInputTokens -
-                      _summary.cacheReadTokens -
-                      _summary.cacheCreationTokens)
-                  .clamp(0, 1 << 62)
-                  .toInt(),
+          uncachedPromptTokens: uncachedPromptTokens > 0
+              ? uncachedPromptTokens
+              : 0,
         ),
       ),
     );

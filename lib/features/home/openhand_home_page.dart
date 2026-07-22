@@ -45,6 +45,7 @@ import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/db/database_service.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/net/http_status_utils.dart';
@@ -6980,20 +6981,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final kind = aiAttachmentKindForPath(path);
       if (!capabilities.supportsPath(path)) {
         unsupportedCount += 1;
-        continue;
-      }
-      try {
-        final stat = await File(path).stat();
-        if (stat.type != FileSystemEntityType.file) {
-          unreadableCount += 1;
-          continue;
-        }
-        if (stat.size > aiMessageAttachmentMaxFileBytes) {
-          oversizedCount += 1;
-          continue;
-        }
-      } catch (_) {
-        unreadableCount += 1;
         continue;
       }
       var resolvedPath = path;

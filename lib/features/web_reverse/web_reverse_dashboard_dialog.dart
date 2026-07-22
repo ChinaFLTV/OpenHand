@@ -18,6 +18,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
@@ -1989,7 +1990,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       if (location == null) return;
       final snap = controller.exportSnapshot();
       final jsonStr = prettyPrintJson(snap);
-      await File(location.path).writeAsString(jsonStr);
+      await writeFileAtomically(File(location.path), jsonStr);
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,

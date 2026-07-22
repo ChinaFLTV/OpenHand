@@ -807,7 +807,7 @@ class SkillsRepository {
         await assetsDirectory.create(recursive: true);
       }
       final iconFile = File(generatedImageIconPath);
-      await iconFile.writeAsBytes(imageIconBytes, flush: true);
+      await writeBytesFileAtomically(iconFile, imageIconBytes);
       iconRelativePath = './assets/$_generatedImageIconFileName';
     } else {
       await _deleteOptionalFileIfExists(generatedImageIconPath);
@@ -1044,7 +1044,7 @@ class SkillsRepository {
       if (!await outputFile.parent.exists()) {
         await outputFile.parent.create(recursive: true);
       }
-      await outputFile.writeAsBytes(content, flush: true);
+      await writeBytesFileAtomically(outputFile, content);
     }
   }
 
@@ -1232,7 +1232,7 @@ class SkillsRepository {
     if (!await parentDirectory.exists()) {
       await parentDirectory.create(recursive: true);
     }
-    await file.writeAsBytes(bytes, flush: true);
+    await writeBytesFileAtomically(file, bytes);
   }
 
   String _titleFromSlug(String slug) {
