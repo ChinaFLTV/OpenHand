@@ -2,7 +2,12 @@
 // ScrollPosition 时透传 child（不绘制 thumb），仅在状态干净时委托给 framework
 // Scrollbar。用于规避 'has no ScrollPosition attached' FlutterError，同时让
 // 已 attach 场景的视觉/手感与原生 Scrollbar 完全一致。
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+const Duration _kStableScrollbarSettleDelay = Duration(milliseconds: 140);
+const Duration _kStableScrollbarSettleDuration = Duration(milliseconds: 180);
 
 bool openHandPlatformUsesImplicitScrollbars(TargetPlatform platform) {
   switch (platform) {
@@ -55,6 +60,7 @@ class OpenHandSafeScrollbar extends StatefulWidget {
     this.interactive,
     this.scrollbarOrientation,
     this.notificationPredicate,
+    this.stabilizeMetrics = false,
   });
 
   final Widget child;
@@ -66,6 +72,7 @@ class OpenHandSafeScrollbar extends StatefulWidget {
   final bool? interactive;
   final ScrollbarOrientation? scrollbarOrientation;
   final ScrollNotificationPredicate? notificationPredicate;
+  final bool stabilizeMetrics;
 
   @override
   State<OpenHandSafeScrollbar> createState() => _OpenHandSafeScrollbarState();
@@ -130,21 +137,36 @@ class _OpenHandSafeScrollbarState extends State<OpenHandSafeScrollbar> {
     _scheduleResync();
     final child = _withoutImplicitScrollbars(context, widget.child);
 
-    final Widget content = safe
-        ? Scrollbar(
-            controller: controller,
-            thumbVisibility: widget.thumbVisibility,
-            trackVisibility: widget.trackVisibility,
-            thickness: widget.thickness,
-            radius: widget.radius,
-            interactive: widget.interactive,
-            scrollbarOrientation: widget.scrollbarOrientation,
-            notificationPredicate:
-                widget.notificationPredicate ??
-                defaultScrollNotificationPredicate,
-            child: child,
-          )
-        : child;
+    final predicate =
+        widget.notificationPredicate ?? defaultScrollNotificationPredicate;
+    final Widget content;
+    if (!safe) {
+      content = child;
+    } else if (widget.stabilizeMetrics) {
+      content = _OpenHandStableRawScrollbar(
+        controller: controller,
+        thumbVisibility: widget.thumbVisibility ?? true,
+        trackVisibility: widget.trackVisibility,
+        thickness: widget.thickness,
+        radius: widget.radius,
+        interactive: widget.interactive,
+        scrollbarOrientation: widget.scrollbarOrientation,
+        sourceNotificationPredicate: predicate,
+        child: child,
+      );
+    } else {
+      content = Scrollbar(
+        controller: controller,
+        thumbVisibility: widget.thumbVisibility,
+        trackVisibility: widget.trackVisibility,
+        thickness: widget.thickness,
+        radius: widget.radius,
+        interactive: widget.interactive,
+        scrollbarOrientation: widget.scrollbarOrientation,
+        notificationPredicate: predicate,
+        child: child,
+      );
+    }
 
     return NotificationListener<ScrollMetricsNotification>(
       onNotification: _onScrollMetrics,
@@ -153,5 +175,161 @@ class _OpenHandSafeScrollbarState extends State<OpenHandSafeScrollbar> {
         child: content,
       ),
     );
+  }
+}
+
+class _OpenHandStableRawScrollbar extends RawScrollbar {
+  const _OpenHandStableRawScrollbar({
+    required super.child,
+    required super.controller,
+    required this.sourceNotificationPredicate,
+    super.thumbVisibility,
+    super.trackVisibility,
+    super.thickness,
+    super.radius,
+    super.interactive,
+    super.scrollbarOrientation,
+  }) : super(
+         notificationPredicate: sourceNotificationPredicate,
+         fadeDuration: Duration.zero,
+         timeToFade: Duration.zero,
+         pressDuration: Duration.zero,
+       );
+
+  final ScrollNotificationPredicate sourceNotificationPredicate;
+
+  @override
+  RawScrollbarState<_OpenHandStableRawScrollbar> createState() =>
+      _OpenHandStableRawScrollbarState();
+}
+
+class _OpenHandStableRawScrollbarState
+    extends RawScrollbarState<_OpenHandStableRawScrollbar> {
+  late final AnimationController _settleController;
+  Timer? _settleTimer;
+  ScrollMetrics? _latestMetrics;
+  double? _displayMaxScrollExtent;
+  double _settleStartMaxScrollExtent = 0;
+  double _settleTargetMaxScrollExtent = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _settleController = AnimationController(
+      vsync: this,
+      duration: _kStableScrollbarSettleDuration,
+    )..addListener(_paintSettlingMetrics);
+  }
+
+  @override
+  void updateScrollbarPainter() {
+    super.updateScrollbarPainter();
+    final theme = ScrollbarTheme.of(context);
+    final states = <WidgetState>{};
+    scrollbarPainter
+      ..color =
+          theme.thumbColor?.resolve(states) ??
+          Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
+      ..thickness = widget.thickness ?? theme.thickness?.resolve(states) ?? 6
+      ..radius = widget.radius ?? theme.radius ?? const Radius.circular(999);
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (!widget.sourceNotificationPredicate(notification)) return false;
+    _latestMetrics = notification.metrics;
+    _lockMetrics(notification.metrics);
+    _scheduleSettle();
+    return false;
+  }
+
+  bool _handleMetricsNotification(ScrollMetricsNotification notification) {
+    if (notification.depth != 0) return false;
+    _latestMetrics = notification.metrics;
+    if (_settleTimer != null || _settleController.isAnimating) {
+      _paintMetrics(notification.metrics);
+    } else {
+      _startSettle();
+    }
+    return false;
+  }
+
+  void _lockMetrics(ScrollMetrics metrics) {
+    if (_settleController.isAnimating) {
+      _settleController.stop();
+    }
+    _displayMaxScrollExtent ??= metrics.maxScrollExtent;
+    _paintMetrics(metrics);
+  }
+
+  void _scheduleSettle() {
+    _settleTimer?.cancel();
+    _settleTimer = Timer(_kStableScrollbarSettleDelay, () {
+      _settleTimer = null;
+      _startSettle();
+    });
+  }
+
+  void _startSettle() {
+    final metrics = _latestMetrics;
+    if (metrics == null) return;
+    final current = _displayMaxScrollExtent ?? metrics.maxScrollExtent;
+    final target = metrics.maxScrollExtent;
+    if ((target - current).abs() < 0.5) {
+      _displayMaxScrollExtent = target;
+      _paintMetrics(metrics);
+      return;
+    }
+    _settleStartMaxScrollExtent = current;
+    _settleTargetMaxScrollExtent = target;
+    _settleController.forward(from: 0);
+  }
+
+  void _paintSettlingMetrics() {
+    final metrics = _latestMetrics;
+    if (metrics == null) return;
+    final t = Curves.easeOutCubic.transform(_settleController.value);
+    _displayMaxScrollExtent =
+        _settleStartMaxScrollExtent +
+        (_settleTargetMaxScrollExtent - _settleStartMaxScrollExtent) * t;
+    _paintMetrics(metrics);
+  }
+
+  void _paintMetrics(ScrollMetrics metrics) {
+    final minExtent = metrics.minScrollExtent;
+    final maxExtent = (_displayMaxScrollExtent ?? metrics.maxScrollExtent)
+        .clamp(minExtent, double.infinity)
+        .toDouble();
+    final paintMaxExtent = maxExtent < metrics.pixels
+        ? metrics.pixels
+        : maxExtent;
+    scrollbarPainter.update(
+      FixedScrollMetrics(
+        minScrollExtent: minExtent,
+        maxScrollExtent: paintMaxExtent,
+        pixels: metrics.pixels.clamp(minExtent, paintMaxExtent).toDouble(),
+        viewportDimension: metrics.viewportDimension,
+        axisDirection: metrics.axisDirection,
+        devicePixelRatio: metrics.devicePixelRatio,
+      ),
+      metrics.axisDirection,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: _handleMetricsNotification,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: super.build(context),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    _settleController.dispose();
+    super.dispose();
   }
 }

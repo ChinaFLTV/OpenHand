@@ -5159,6 +5159,26 @@ button.oh-message-context-capsule {
   overflow-anchor: none;
   scroll-behavior: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--m3-on-surface-variant) 34%, transparent) transparent;
+}
+.oh-session-messages::-webkit-scrollbar {
+  width: 8px;
+}
+.oh-session-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.oh-session-messages::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-on-surface-variant) 34%, transparent);
+  background-clip: padding-box;
+}
+.oh-session-messages:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--m3-on-surface-variant) 48%, transparent);
+  background-clip: padding-box;
 }
 /* 空会话：把「尚无消息」摆到消息区几何中心。 */
 .oh-session-messages:has(.oh-session-empty-plain) {
@@ -5222,12 +5242,18 @@ button.oh-message-context-capsule {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--m3-primary) 12%, transparent);
 }
 .oh-session-virtual-message-list {
+  position: relative;
+  width: 100%;
   overflow-anchor: none;
-  contain: layout style;
+  overflow: clip;
+  contain: layout style size;
+  transition: height var(--oh-motion-duration-fast) var(--oh-motion-emphasized);
 }
-.oh-session-virtual-spacer {
-  flex: none;
-  pointer-events: none;
+.oh-session-virtual-window {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  will-change: transform;
 }
 .oh-session-message-content,
 .oh-session-message-content > * {

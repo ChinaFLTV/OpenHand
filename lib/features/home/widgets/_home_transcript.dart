@@ -6,6 +6,8 @@ const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
 // Smaller cache extent keeps off-screen markdown/HTML cards from mounting
 // during open and fling on large threads.
 const double _kTranscriptListCacheExtent = 560;
+const double _kTranscriptScrollbarThickness = 6;
+const Radius _kTranscriptScrollbarRadius = Radius.circular(999);
 const double _kTranscriptEstimatedMessageSpacing = 14;
 const int _kScrollToMessageMaterializeFrameLimit = 8;
 const Duration _kTranscriptTargetScrollDuration = Duration(milliseconds: 520);
@@ -2963,52 +2965,59 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   unawaited(widget.ttsPlaybackService.stop());
                 });
               }
-              return NotificationListener<ScrollNotification>(
-                onNotification: widget.onScrollNotification,
-                child: ListView.builder(
-                  key: const ValueKey<String>('session-transcript-list'),
-                  controller: widget.controller,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.only(bottom: 12),
-                  physics: kOpenHandClampingPhysics,
-                  primary: false,
-                  cacheExtent: _kTranscriptListCacheExtent,
-                  itemCount: listItemCount,
-                  findChildIndexCallback: (key) =>
-                      _findTranscriptListChildIndex(
-                        key,
-                        hiddenLoadMoreCount: hiddenLoadMoreCount,
-                        returnLatestCount: returnLatestCount,
-                        pendingPlaceholderCount: pendingPlaceholderCount,
-                        retiringPlaceholderCount: retiringPlaceholderCount,
-                        failureCardCount: failureCardCount,
-                        errorBannerCount: errorBannerCount,
-                      ),
-                  itemBuilder: (context, index) => _buildTranscriptListItem(
-                    context: context,
-                    index: index,
-                    session: session,
-                    listItemCount: listItemCount,
-                    hiddenLoadMoreCount: hiddenLoadMoreCount,
-                    returnLatestCount: returnLatestCount,
-                    hiddenMessageCount: hiddenMessageCount,
-                    pendingPlaceholderCount: pendingPlaceholderCount,
-                    retiringPlaceholderCount: retiringPlaceholderCount,
-                    failureCardCount: failureCardCount,
-                    pendingCreationRequest: pendingCreationRequest,
-                    retiringCreationRequest: retiringCreationRequest,
-                    failedCreationRequest: failedCreationRequest,
-                    userVisibleError: userVisibleError,
-                    showSelfLearningMessages: showSelfLearningMessages,
-                    visibleMessages: visibleMessages,
-                    visibleMessageIndexById: visibleMessageIndexById,
-                    ttsSnapshot: ttsSnapshot,
-                    ttsSettings: ttsSettings,
-                    translationSettings: translationSettings,
-                    settingsController: settingsController,
-                    telemetryDebugEnabled: telemetryDebugEnabled,
-                    aiSessionController: aiSessionController,
+              return OpenHandSafeScrollbar(
+                controller: widget.controller,
+                thumbVisibility: true,
+                thickness: _kTranscriptScrollbarThickness,
+                radius: _kTranscriptScrollbarRadius,
+                stabilizeMetrics: true,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: widget.onScrollNotification,
+                  child: ListView.builder(
+                    key: const ValueKey<String>('session-transcript-list'),
+                    controller: widget.controller,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.only(bottom: 12),
+                    physics: kOpenHandClampingPhysics,
+                    primary: false,
+                    cacheExtent: _kTranscriptListCacheExtent,
+                    itemCount: listItemCount,
+                    findChildIndexCallback: (key) =>
+                        _findTranscriptListChildIndex(
+                          key,
+                          hiddenLoadMoreCount: hiddenLoadMoreCount,
+                          returnLatestCount: returnLatestCount,
+                          pendingPlaceholderCount: pendingPlaceholderCount,
+                          retiringPlaceholderCount: retiringPlaceholderCount,
+                          failureCardCount: failureCardCount,
+                          errorBannerCount: errorBannerCount,
+                        ),
+                    itemBuilder: (context, index) => _buildTranscriptListItem(
+                      context: context,
+                      index: index,
+                      session: session,
+                      listItemCount: listItemCount,
+                      hiddenLoadMoreCount: hiddenLoadMoreCount,
+                      returnLatestCount: returnLatestCount,
+                      hiddenMessageCount: hiddenMessageCount,
+                      pendingPlaceholderCount: pendingPlaceholderCount,
+                      retiringPlaceholderCount: retiringPlaceholderCount,
+                      failureCardCount: failureCardCount,
+                      pendingCreationRequest: pendingCreationRequest,
+                      retiringCreationRequest: retiringCreationRequest,
+                      failedCreationRequest: failedCreationRequest,
+                      userVisibleError: userVisibleError,
+                      showSelfLearningMessages: showSelfLearningMessages,
+                      visibleMessages: visibleMessages,
+                      visibleMessageIndexById: visibleMessageIndexById,
+                      ttsSnapshot: ttsSnapshot,
+                      ttsSettings: ttsSettings,
+                      translationSettings: translationSettings,
+                      settingsController: settingsController,
+                      telemetryDebugEnabled: telemetryDebugEnabled,
+                      aiSessionController: aiSessionController,
+                    ),
                   ),
                 ),
               );

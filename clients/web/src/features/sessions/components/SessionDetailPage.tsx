@@ -117,7 +117,9 @@ import { basenameFromPath } from '../../../shared/util/path';
 import { truncateEndText } from '../../../shared/util/text';
 import {
   clearTranscriptScrollActivity,
+  isTranscriptScrollActive,
   markTranscriptScrollActivity,
+  subscribeTranscriptScrollActivity,
 } from '../../../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../../../shared/ui/streaming_turn_timing';
 import {
@@ -179,7 +181,6 @@ import {
   MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE,
   MESSAGE_LIST_DEFAULT_PAGE_SIZE,
   MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
-  MESSAGE_LIST_GAP_PX,
   MESSAGE_LIST_MAX_LOADED_MESSAGES,
   MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
   boundLiveMessageWindow,
@@ -2741,6 +2742,8 @@ function VirtualMessageList({
   const listRef = useRef<HTMLDivElement | null>(null);
   const rangeFrameRef = useRef<number | null>(null);
   const heightCommitFrameRef = useRef<number | null>(null);
+  const heightCommitPendingRef = useRef(false);
+  const heightAnchorRef = useRef<{ messageId: string; viewportOffset: number } | null>(null);
   const measuredHeightsRef = useRef(new Map<string, number>());
   const [heightRevision, setHeightRevision] = useState(0);
   // Chat open is stick-to-bottom: first paint only mounts a bounded tail so
@@ -2770,6 +2773,17 @@ function VirtualMessageList({
     [estimatedHeights],
   );
   const totalHeight = virtualMessageTotalHeight(heightPrefix, messages.length);
+  const pendingTotalHeightRef = useRef(totalHeight);
+  const [stableTotalHeight, setStableTotalHeight] = useState(totalHeight);
+
+  useLayoutEffect(() => {
+    pendingTotalHeightRef.current = totalHeight;
+    if (!isTranscriptScrollActive()) {
+      setStableTotalHeight((current) =>
+        Math.abs(current - totalHeight) < 0.5 ? current : totalHeight,
+      );
+    }
+  }, [totalHeight]);
 
   useEffect(() => {
     setRange((current) => {
@@ -2793,12 +2807,35 @@ function VirtualMessageList({
   }, [messages.length, virtualized]);
 
   const scheduleHeightCommit = useCallback(() => {
+    if (isTranscriptScrollActive()) {
+      heightCommitPendingRef.current = true;
+      return;
+    }
     if (heightCommitFrameRef.current != null) return;
     heightCommitFrameRef.current = window.requestAnimationFrame(() => {
       heightCommitFrameRef.current = null;
+      heightCommitPendingRef.current = false;
+      const scroller = scrollContainerRef.current;
+      const list = listRef.current;
+      if (scroller && list) {
+        const scrollerRect = scroller.getBoundingClientRect();
+        const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
+        for (const row of rows) {
+          const rect = row.getBoundingClientRect();
+          if (rect.bottom <= scrollerRect.top || rect.top >= scrollerRect.bottom) continue;
+          const messageId = row.dataset['messageId'];
+          if (messageId) {
+            heightAnchorRef.current = {
+              messageId,
+              viewportOffset: rect.top - scrollerRect.top,
+            };
+          }
+          break;
+        }
+      }
       setHeightRevision((value) => value + 1);
     });
-  }, []);
+  }, [scrollContainerRef]);
 
   const handleHeightChange = useCallback((messageId: string, height: number) => {
     const next = clampMessageRowHeight(height);
@@ -2807,6 +2844,32 @@ function VirtualMessageList({
     measuredHeightsRef.current.set(messageId, next);
     scheduleHeightCommit();
   }, [scheduleHeightCommit]);
+
+  useEffect(() => subscribeTranscriptScrollActivity((active) => {
+    if (active) return;
+    setStableTotalHeight((current) => {
+      const next = pendingTotalHeightRef.current;
+      return Math.abs(current - next) < 0.5 ? current : next;
+    });
+    if (heightCommitPendingRef.current) scheduleHeightCommit();
+  }), [scheduleHeightCommit]);
+
+  useLayoutEffect(() => {
+    const anchor = heightAnchorRef.current;
+    if (!anchor) return;
+    heightAnchorRef.current = null;
+    const scroller = scrollContainerRef.current;
+    const list = listRef.current;
+    if (!scroller || !list) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const rows = list.querySelectorAll<HTMLElement>('.oh-session-message-row[data-message-id]');
+    for (const row of rows) {
+      if (row.dataset['messageId'] !== anchor.messageId) continue;
+      const delta = row.getBoundingClientRect().top - scrollerRect.top - anchor.viewportOffset;
+      if (Math.abs(delta) >= 0.5) scroller.scrollTop += delta;
+      break;
+    }
+  }, [heightRevision, scrollContainerRef]);
 
   const updateRange = useCallback(() => {
     rangeFrameRef.current = null;
@@ -2930,19 +2993,18 @@ function VirtualMessageList({
   const safeEnd = Math.max(safeStart, Math.min(range.end, messages.length));
   const visibleMessages = messages.slice(safeStart, safeEnd);
   const topSpacer = virtualMessageTop(heightPrefix, safeStart);
-  const bottomSpacer =
-    totalHeight -
-    (heightPrefix[safeEnd]! + Math.max(0, safeEnd - 1) * MESSAGE_LIST_GAP_PX);
 
   return (
     <div
       ref={listRef}
       class="oh-session-virtual-message-list"
       data-virtualized="true"
-      style={{ minHeight: `${Math.max(0, totalHeight)}px` }}
+      style={{ height: `${Math.max(0, stableTotalHeight)}px` }}
     >
-      <div class="oh-session-virtual-spacer" style={{ height: `${Math.max(0, topSpacer)}px` }} />
-      <ul class="oh-session-message-list flex flex-col gap-3">
+      <ul
+        class="oh-session-message-list oh-session-virtual-window flex flex-col gap-3"
+        style={{ transform: `translate3d(0, ${Math.max(0, topSpacer)}px, 0)` }}
+      >
         {visibleMessages.map((message) => (
           <MeasuredMessageRow
             key={message.id}
@@ -2954,7 +3016,6 @@ function VirtualMessageList({
           </MeasuredMessageRow>
         ))}
       </ul>
-      <div class="oh-session-virtual-spacer" style={{ height: `${Math.max(0, bottomSpacer)}px` }} />
     </div>
   );
 }
