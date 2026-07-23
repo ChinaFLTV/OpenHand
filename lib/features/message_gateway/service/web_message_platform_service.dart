@@ -9004,12 +9004,12 @@ class WebMessagePlatformService {
     }
     final chunks = BytesBuilder(copy: false);
     var receivedBytes = 0;
-    final deadline = DateTime.now().add(_requestBodyTotalTimeout);
+    final deadline = MonotonicDeadline(_requestBodyTotalTimeout);
     try {
       await for (final chunk in request.read().timeout(
         _requestBodyIdleTimeout,
       )) {
-        if (DateTime.now().isAfter(deadline)) {
+        if (deadline.isExpired) {
           throw const _WebGatewayRequestException(
             HttpStatus.requestTimeout,
             'request_body_timeout',
@@ -9029,6 +9029,8 @@ class WebMessagePlatformService {
         HttpStatus.requestTimeout,
         'request_body_timeout',
       );
+    } finally {
+      deadline.stop();
     }
     if (receivedBytes == 0) return <String, Object?>{};
     try {

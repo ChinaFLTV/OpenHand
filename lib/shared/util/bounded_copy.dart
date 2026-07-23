@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'async_concurrency.dart';
 import 'bounded_delete.dart';
 import 'bounded_directory_io.dart';
 import 'bounded_file_io.dart';
@@ -544,26 +545,18 @@ Future<void> _deleteDirectoryQuietly(Directory directory) async {
 }
 
 final class _CopyDeadline {
-  _CopyDeadline(this.policy) : _stopwatch = Stopwatch()..start();
+  _CopyDeadline(this.policy)
+    : _deadline = MonotonicDeadline(
+        policy.totalTimeout,
+        timeoutMessage: '复制操作超过总时限。',
+      );
 
   final BoundedCopyPolicy policy;
-  final Stopwatch _stopwatch;
+  final MonotonicDeadline _deadline;
 
-  Duration remaining() {
-    final microseconds =
-        policy.totalTimeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) {
-      throw TimeoutException('Copy exceeded its total time limit.');
-    }
-    return Duration(microseconds: microseconds);
-  }
+  Duration remaining() => _deadline.remaining();
 
-  Duration nextOperationTimeout() {
-    final remainingTime = remaining();
-    return remainingTime < policy.operationTimeout
-        ? remainingTime
-        : policy.operationTimeout;
-  }
+  Duration nextOperationTimeout() => _deadline.limit(policy.operationTimeout);
 
   Duration directoryIdleTimeout(Duration remainingTime) {
     return remainingTime < policy.directoryIdleTimeout
@@ -571,7 +564,7 @@ final class _CopyDeadline {
         : policy.directoryIdleTimeout;
   }
 
-  void stop() => _stopwatch.stop();
+  void stop() => _deadline.stop();
 }
 
 final class _PendingDirectory {

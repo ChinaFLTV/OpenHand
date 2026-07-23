@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -2327,22 +2328,12 @@ Future<void> validateMimoContentParts(
   final asrAudioInput = asrModel && !imagesOnly;
   final supportsAttachments =
       model.profileFor(model.modelId).supportsAttachments != false;
-  final stopwatch = Stopwatch()..start();
-  Duration nextOperationTimeout() {
-    final microseconds =
-        _mimoMediaValidationTotalTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) {
-      throw TimeoutException(
-        'MiMo media validation exceeded its time limit.',
-        _mimoMediaValidationTotalTimeout,
-      );
-    }
-    final remaining = Duration(microseconds: microseconds);
-    return remaining < _mimoMediaValidationIdleTimeout
-        ? remaining
-        : _mimoMediaValidationIdleTimeout;
-  }
+  final deadline = MonotonicDeadline(
+    _mimoMediaValidationTotalTimeout,
+    timeoutMessage: 'MiMo 媒体校验超过总时限。',
+  );
+  Duration nextOperationTimeout() =>
+      deadline.limit(_mimoMediaValidationIdleTimeout);
 
   for (final part in messages.expand((message) => message.effectiveParts)) {
     if (part.kind == AiChatContentPartKind.text) continue;
@@ -2431,6 +2422,7 @@ Future<void> validateMimoContentParts(
       }
     }
   }
+  deadline.stop();
 }
 
 class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
@@ -4583,36 +4575,26 @@ Future<Directory> _ensureInlineMediaDir() async {
   return dir;
 }
 
-/// Best-effort removal of inline media files older than 7 days. Safe to call
-/// repeatedly and never throws.
+/// 尽力删除七天前的内联媒体文件；可重复调用且不会抛出异常。
 Future<void> pruneInlineMediaCache() async {
-  final stopwatch = Stopwatch()..start();
-  Duration remaining() {
-    final microseconds =
-        _inlineMediaCacheCleanupTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) {
-      throw TimeoutException('Inline media cache cleanup timed out.');
-    }
-    return Duration(microseconds: microseconds);
-  }
-
-  Duration nextOperationTimeout() {
-    final remainingTime = remaining();
-    return remainingTime < _inlineMediaCacheIdleTimeout
-        ? remainingTime
-        : _inlineMediaCacheIdleTimeout;
-  }
+  final deadline = MonotonicDeadline(
+    _inlineMediaCacheCleanupTimeout,
+    timeoutMessage: '内联媒体缓存清理超时。',
+  );
 
   try {
     final dir = Directory(p.join(Directory.systemTemp.path, 'openhand_media'));
-    if (!await dir.exists().timeout(nextOperationTimeout())) return;
+    if (!await dir.exists().timeout(
+      deadline.limit(_inlineMediaCacheIdleTimeout),
+    )) {
+      return;
+    }
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    final remainingTime = remaining();
+    final remainingTime = deadline.remaining();
     final listing = await listDirectoryBounded(
       dir,
       maxEntries: _inlineMediaCacheScanLimit,
-      idleTimeout: nextOperationTimeout(),
+      idleTimeout: deadline.limit(_inlineMediaCacheIdleTimeout),
       totalTimeout: remainingTime,
     );
     var deleted = 0;
@@ -4620,21 +4602,25 @@ Future<void> pruneInlineMediaCache() async {
       if (deleted >= _inlineMediaCacheDeleteLimit) break;
       if (entity is! File) continue;
       try {
-        final stat = await entity.stat().timeout(nextOperationTimeout());
+        final stat = await entity.stat().timeout(
+          deadline.limit(_inlineMediaCacheIdleTimeout),
+        );
         if (stat.modified.isBefore(cutoff)) {
-          await entity.delete().timeout(nextOperationTimeout());
+          await entity.delete().timeout(
+            deadline.limit(_inlineMediaCacheIdleTimeout),
+          );
           deleted += 1;
         }
       } on FileSystemException {
-        // Skip files we cannot stat or delete.
+        // 跳过无法读取元数据或删除的文件。
       }
     }
   } on TimeoutException {
-    // Cleanup is best effort and strictly bounded.
+    // 清理仅尽力执行，并受严格时限约束。
   } on FileSystemException {
-    // Swallow — cleanup failures are never fatal.
+    // 缓存清理失败不影响主流程。
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
 }
 

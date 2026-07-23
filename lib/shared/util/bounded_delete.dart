@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'async_concurrency.dart';
 import 'path_safety.dart';
 
 const BoundedDeletePolicy defaultBoundedDeletePolicy = BoundedDeletePolicy(
@@ -451,24 +452,22 @@ final class _DeleteProgress {
 }
 
 final class _DeleteDeadline {
-  _DeleteDeadline(this.policy) : _stopwatch = Stopwatch()..start();
+  _DeleteDeadline(this.policy)
+    : _deadline = MonotonicDeadline(
+        policy.totalTimeout,
+        timeoutMessage: '删除操作超过总时限。',
+      );
 
   final BoundedDeletePolicy policy;
-  final Stopwatch _stopwatch;
+  final MonotonicDeadline _deadline;
 
   Duration nextOperationTimeout() => _nextTimeout(policy.operationTimeout);
 
   Duration nextListingTimeout() => _nextTimeout(policy.directoryIdleTimeout);
 
   Duration _nextTimeout(Duration maximum) {
-    final remainingMicroseconds =
-        policy.totalTimeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) {
-      throw TimeoutException('Delete exceeded its total time limit.');
-    }
-    final remaining = Duration(microseconds: remainingMicroseconds);
-    return remaining < maximum ? remaining : maximum;
+    return _deadline.limit(maximum);
   }
 
-  void stop() => _stopwatch.stop();
+  void stop() => _deadline.stop();
 }

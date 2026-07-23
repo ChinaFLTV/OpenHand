@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
@@ -3602,7 +3603,10 @@ $tail''';
     final attachments = _readAttachments(message.metadata);
     if (attachments.isEmpty) return const <String, bool>{};
     final availability = <String, bool>{};
-    final stopwatch = Stopwatch()..start();
+    final deadline = MonotonicDeadline(
+      _attachmentProbeTotalTimeout,
+      timeoutMessage: '附件可用性探测超过总时限。',
+    );
     for (final attachment in attachments) {
       if (!attachment.isImage && !attachment.isVideo && !attachment.isAudio) {
         continue;
@@ -3613,11 +3617,8 @@ $tail''';
           !_isTrustedAttachmentStoragePath(session, attachment)) {
         continue;
       }
-      final remainingMicroseconds =
-          _attachmentProbeTotalTimeout.inMicroseconds -
-          stopwatch.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) break;
-      final remaining = Duration(microseconds: remainingMicroseconds);
+      final remaining = deadline.remainingOrNull();
+      if (remaining == null) break;
       final timeout = remaining < _attachmentProbeIdleTimeout
           ? remaining
           : _attachmentProbeIdleTimeout;
@@ -3630,14 +3631,10 @@ $tail''';
             FileSystemEntityType.file;
       } catch (error, stackTrace) {
         availability[path] = false;
-        silentLog(
-          'AiPromptBuilder',
-          'probe attachment file',
-          error,
-          stackTrace,
-        );
+        silentLog('AiPromptBuilder', '探测附件文件', error, stackTrace);
       }
     }
+    deadline.stop();
     return availability;
   }
 
@@ -4644,7 +4641,10 @@ $tail''';
 
     final sections = <String>[];
     var usedChars = 0;
-    final readStopwatch = Stopwatch()..start();
+    final readDeadline = MonotonicDeadline(
+      _postCompactRestoreReadTotalTimeout,
+      timeoutMessage: '压缩后文件上下文恢复超过总时限。',
+    );
     for (final anchor in anchors) {
       if (usedChars >= _postCompactRestoreTotalChars) {
         break;
@@ -4653,7 +4653,7 @@ $tail''';
       if (path.isEmpty) {
         continue;
       }
-      final readBudget = _remainingPostCompactReadBudget(readStopwatch);
+      final readBudget = readDeadline.remainingOrNull();
       if (readBudget == null) break;
       final restored = await _tryReadPostCompactRestoredFile(
         path,
@@ -4686,6 +4686,7 @@ $tail''';
 $content
 ```''');
     }
+    readDeadline.stop();
     if (sections.isEmpty) {
       return '';
     }
@@ -4768,7 +4769,10 @@ $content
     };
     final sections = <String>[];
     var usedChars = 0;
-    final readStopwatch = Stopwatch()..start();
+    final readDeadline = MonotonicDeadline(
+      _postCompactRestoreReadTotalTimeout,
+      timeoutMessage: '压缩后技能上下文恢复超过总时限。',
+    );
     for (final anchor in anchors) {
       if (sections.length >= _postCompactRestoreMaxSkills ||
           usedChars >= _postCompactRestoreTotalSkillChars) {
@@ -4779,7 +4783,7 @@ $content
       if (skill == null) {
         continue;
       }
-      final readBudget = _remainingPostCompactReadBudget(readStopwatch);
+      final readBudget = readDeadline.remainingOrNull();
       if (readBudget == null) break;
       final restored = await _tryReadPostCompactRestoredSkill(
         skill,
@@ -4805,6 +4809,7 @@ manifest_path: ${skill.manifestPath}
 $content
 ```''');
     }
+    readDeadline.stop();
     if (sections.isEmpty) {
       return '';
     }
@@ -4848,49 +4853,30 @@ $content
     }
   }
 
-  Duration? _remainingPostCompactReadBudget(Stopwatch stopwatch) {
-    final microseconds =
-        _postCompactRestoreReadTotalTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    return microseconds <= 0 ? null : Duration(microseconds: microseconds);
-  }
-
   Future<String?> _readPostCompactRestoreFile(
     File file, {
     required Duration totalTimeout,
   }) async {
     if (totalTimeout <= Duration.zero) return null;
-    final stopwatch = Stopwatch()..start();
-    Duration remainingBudget() {
-      final microseconds =
-          totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-      if (microseconds <= 0) {
-        throw TimeoutException(
-          'Post-compaction restore read exceeded its time limit.',
-          totalTimeout,
-        );
-      }
-      return Duration(microseconds: microseconds);
-    }
-
-    Duration nextOperationTimeout() {
-      final remaining = remainingBudget();
-      return remaining < _postCompactRestoreReadIdleTimeout
-          ? remaining
-          : _postCompactRestoreReadIdleTimeout;
-    }
-
-    final type = await FileSystemEntity.type(
-      file.path,
-      followLinks: false,
-    ).timeout(nextOperationTimeout());
-    if (type != FileSystemEntityType.file) return null;
-    return readBoundedFileString(
-      file,
-      maxBytes: _postCompactRestoreMaxFileBytes,
-      idleTimeout: nextOperationTimeout(),
-      totalTimeout: remainingBudget(),
+    final deadline = MonotonicDeadline(
+      totalTimeout,
+      timeoutMessage: '压缩后恢复文件读取超过总时限。',
     );
+    try {
+      final type = await FileSystemEntity.type(
+        file.path,
+        followLinks: false,
+      ).timeout(deadline.limit(_postCompactRestoreReadIdleTimeout));
+      if (type != FileSystemEntityType.file) return null;
+      return await readBoundedFileString(
+        file,
+        maxBytes: _postCompactRestoreMaxFileBytes,
+        idleTimeout: deadline.limit(_postCompactRestoreReadIdleTimeout),
+        totalTimeout: deadline.remaining(),
+      );
+    } finally {
+      deadline.stop();
+    }
   }
 
   List<Map<String, Object?>> _recentInvokedSkillAnchors(

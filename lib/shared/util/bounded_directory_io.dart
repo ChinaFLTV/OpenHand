@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'async_concurrency.dart';
+
 const Duration defaultBoundedDirectoryIdleTimeout = Duration(seconds: 3);
 const Duration defaultBoundedDirectoryTotalTimeout = Duration(seconds: 10);
 
@@ -48,14 +50,17 @@ Future<BoundedDirectoryListing> listDirectoryBounded(
   }
 
   final entries = <FileSystemEntity>[];
-  final stopwatch = Stopwatch()..start();
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '目录扫描超过总时限。',
+  );
   var truncated = false;
   try {
     await for (final entry
         in directory
             .list(recursive: recursive, followLinks: followLinks)
             .timeout(idleTimeout)) {
-      if (stopwatch.elapsed >= totalTimeout || entries.length >= maxEntries) {
+      if (deadline.isExpired || entries.length >= maxEntries) {
         truncated = true;
         break;
       }
@@ -64,7 +69,7 @@ Future<BoundedDirectoryListing> listDirectoryBounded(
   } on TimeoutException {
     truncated = true;
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
   return BoundedDirectoryListing(
     entries: List<FileSystemEntity>.unmodifiable(entries),
@@ -97,13 +102,16 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
   var directoryCount = 0;
   var scannedEntries = 0;
   var truncated = false;
-  final stopwatch = Stopwatch()..start();
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '目录统计超过总时限。',
+  );
   try {
     await for (final entry
         in directory
             .list(recursive: recursive, followLinks: followLinks)
             .timeout(idleTimeout)) {
-      if (stopwatch.elapsed >= totalTimeout || scannedEntries >= maxEntries) {
+      if (deadline.isExpired || scannedEntries >= maxEntries) {
         truncated = true;
         break;
       }
@@ -116,16 +124,10 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
         continue;
       }
 
-      final remaining = totalTimeout - stopwatch.elapsed;
-      if (remaining <= Duration.zero) {
-        truncated = true;
-        break;
-      }
-      final timeout = remaining < operationTimeout
-          ? remaining
-          : operationTimeout;
       try {
-        final stat = await entry.stat().timeout(timeout);
+        final stat = await entry.stat().timeout(
+          deadline.limit(operationTimeout),
+        );
         if (stat.type == FileSystemEntityType.file) {
           totalBytes += stat.size;
           fileCount += 1;
@@ -142,7 +144,7 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
   } on FileSystemException {
     truncated = true;
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
   return BoundedDirectoryUsage(
     totalBytes: totalBytes,

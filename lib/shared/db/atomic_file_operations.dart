@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
+import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 
@@ -231,63 +232,53 @@ Future<_AtomicProcessLockLease> _acquireAtomicProcessLock(
     FileMode.append,
     () => _atomicProcessLockTimeout,
   );
-  final stopwatch = Stopwatch()..start();
-  while (true) {
-    final remainingMicroseconds =
-        _atomicProcessLockTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) {
-      await _closeAtomicProcessLockFile(handle);
-      throw _atomicProcessLockTimeoutException();
-    }
-    final remaining = Duration(microseconds: remainingMicroseconds);
-    // The default is a non-blocking exclusive attempt. Retrying it ourselves
-    // keeps cancellation and the total wait budget under application control.
-    final lockFuture = handle.lock();
-    try {
-      await lockFuture.timeout(
-        _shorterAtomicDuration(_atomicProcessLockAttemptTimeout, remaining),
-        onTimeout: () => throw _atomicProcessLockTimeoutException(),
-      );
-      stopwatch.stop();
-      return _AtomicProcessLockLease(handle);
-    } on FileSystemException catch (error) {
-      if (!_isAtomicProcessLockContention(error)) {
-        stopwatch.stop();
-        await _closeAtomicProcessLockFile(handle);
-        rethrow;
-      }
-      final retryBudget =
-          _atomicProcessLockTimeout.inMicroseconds -
-          stopwatch.elapsedMicroseconds;
-      if (retryBudget <= 0) {
-        stopwatch.stop();
+  final deadline = MonotonicDeadline(
+    _atomicProcessLockTimeout,
+    timeoutMessage: '等待其他原子写入进程超时。',
+  );
+  try {
+    while (true) {
+      final remaining = deadline.remainingOrNull();
+      if (remaining == null) {
         await _closeAtomicProcessLockFile(handle);
         throw _atomicProcessLockTimeoutException();
       }
-      await Future<void>.delayed(
-        _shorterAtomicDuration(
-          _atomicProcessLockRetryDelay,
-          Duration(microseconds: retryBudget),
-        ),
-      );
-    } on TimeoutException {
-      stopwatch.stop();
-      unawaited(_releaseLateAtomicProcessLock(handle, lockFuture));
-      rethrow;
-    } catch (_) {
-      stopwatch.stop();
-      await _closeAtomicProcessLockFile(handle);
-      rethrow;
+      // 使用非阻塞独占锁并自行重试，确保取消与总等待时限由应用控制。
+      final lockFuture = handle.lock();
+      try {
+        await lockFuture.timeout(
+          _shorterAtomicDuration(_atomicProcessLockAttemptTimeout, remaining),
+          onTimeout: () => throw _atomicProcessLockTimeoutException(),
+        );
+        return _AtomicProcessLockLease(handle);
+      } on FileSystemException catch (error) {
+        if (!_isAtomicProcessLockContention(error)) {
+          await _closeAtomicProcessLockFile(handle);
+          rethrow;
+        }
+        final retryBudget = deadline.remainingOrNull();
+        if (retryBudget == null) {
+          await _closeAtomicProcessLockFile(handle);
+          throw _atomicProcessLockTimeoutException();
+        }
+        await Future<void>.delayed(
+          _shorterAtomicDuration(_atomicProcessLockRetryDelay, retryBudget),
+        );
+      } on TimeoutException {
+        unawaited(_releaseLateAtomicProcessLock(handle, lockFuture));
+        rethrow;
+      } catch (_) {
+        await _closeAtomicProcessLockFile(handle);
+        rethrow;
+      }
     }
+  } finally {
+    deadline.stop();
   }
 }
 
 TimeoutException _atomicProcessLockTimeoutException() {
-  return TimeoutException(
-    'Waiting for another atomic writer timed out.',
-    _atomicProcessLockTimeout,
-  );
+  return TimeoutException('等待其他原子写入进程超时。', _atomicProcessLockTimeout);
 }
 
 bool _isAtomicProcessLockContention(FileSystemException error) {
@@ -605,19 +596,11 @@ Future<void> _writeAtomicallyLocked(
   Future<void> Function(File tempFile, Duration Function() remainingBudget)
   writeTempFile,
 ) async {
-  final stopwatch = Stopwatch()..start();
-  Duration remainingBudget() {
-    final remaining =
-        _atomicOperationTotalTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    if (remaining <= 0) {
-      throw TimeoutException(
-        'Atomic file operation exceeded its time limit.',
-        _atomicOperationTotalTimeout,
-      );
-    }
-    return Duration(microseconds: remaining);
-  }
+  final deadline = MonotonicDeadline(
+    _atomicOperationTotalTimeout,
+    timeoutMessage: '原子文件操作超过总时限。',
+  );
+  Duration remainingBudget() => deadline.remaining();
 
   final tempFiles = _newAtomicTempFiles(targetFile);
   final workingFile = tempFiles.working;
@@ -633,9 +616,7 @@ Future<void> _writeAtomicallyLocked(
         workingFile.path,
       );
     }
-    // File-system mutations are not cancellable. Await the three atomic
-    // switch operations to completion so a late rename cannot race rollback
-    // or a subsequent writer after a synthetic Future.timeout failure.
+    // 文件系统变更不可取消；完整等待原子切换，避免延迟重命名与回滚或后续写入竞争。
     await workingFile.rename(tempFile.path);
     if (!await tempFile.exists().timeout(remainingBudget())) {
       throw FileSystemException(
@@ -658,25 +639,21 @@ Future<void> _writeAtomicallyLocked(
         try {
           await discardFile.delete().timeout(_atomicCleanupTimeout);
         } catch (_) {
-          // The unique discard path cannot collide with a later writer and is
-          // collected with other incomplete temp artifacts once it is stale.
+          // 唯一废弃路径不会与后续写入冲突，过期后由临时文件清理统一回收。
         }
       }
     } catch (_) {
-      // The new target is already published; backup cleanup is best effort.
+      // 新目标已发布，备份清理失败不应覆盖写入结果。
     }
   } catch (_) {
-    // Best-effort cleanup: remove temp and restore backup. Errors during
-    // cleanup must not prevent the backup restoration or shadow the
-    // original exception.
+    // 尽力删除临时文件并恢复备份，清理异常不能阻止恢复或覆盖原始异常。
     for (final artifact in <File>[workingFile, tempFile]) {
       try {
         if (await artifact.exists().timeout(_atomicCleanupTimeout)) {
           await artifact.delete().timeout(_atomicCleanupTimeout);
         }
       } catch (_) {
-        // Ignore cleanup failure. Incomplete working files are never selected
-        // by recovery; a complete ready file remains a safe recovery option.
+        // 未完成工作文件不会参与恢复，完整就绪文件仍可安全恢复。
       }
     }
     var backupExists = false;
@@ -684,7 +661,7 @@ Future<void> _writeAtomicallyLocked(
       try {
         backupExists = await backupFile.exists();
       } catch (_) {
-        // Keep the primary failure when metadata cannot be inspected.
+        // 元数据检查失败时保留原始异常。
       }
     }
     if (backupExists) {
@@ -693,18 +670,17 @@ Future<void> _writeAtomicallyLocked(
           await targetFile.delete();
         }
       } catch (_) {
-        // Ignore — proceed with restoration attempt anyway.
+        // 删除失败时仍继续尝试恢复。
       }
       try {
         await backupFile.rename(targetFile.path);
       } catch (_) {
-        // If even the rollback fails, fall through and rethrow the original
-        // exception so the caller can surface the problem.
+        // 回滚失败时继续抛出原始异常，由调用方呈现问题。
       }
     }
     rethrow;
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
 }
 
@@ -714,8 +690,7 @@ Future<void> _ensureAtomicParentDirectory(File targetFile) async {
     try {
       await parent.create(recursive: true);
     } on FileSystemException {
-      // Fall through — the subsequent file operation will surface a precise
-      // error if the directory is still missing.
+      // 后续文件操作会在目录仍缺失时给出准确错误。
     }
   }
 }

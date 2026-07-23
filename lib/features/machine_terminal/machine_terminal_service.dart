@@ -2080,23 +2080,27 @@ class MachineTerminalSession {
     required int startOffset,
     required Duration timeout,
   }) async {
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      final segment = _plainText(_outputSince(startOffset));
-      final beginIndex = segment.indexOf(begin);
-      final endIndex = segment.indexOf(end, beginIndex < 0 ? 0 : beginIndex);
-      if (beginIndex >= 0 && endIndex > beginIndex) {
-        final afterEnd = segment.substring(endIndex + end.length);
-        final exitCodeMatch = RegExp(r':(-?\d+)').firstMatch(afterEnd);
-        final output = segment.substring(beginIndex + begin.length, endIndex);
-        return _ParsedCommandOutput(
-          output: _removeMarkerNoise(output),
-          exitCode: optionalIntFromValue(exitCodeMatch?.group(1)),
-        );
+    final deadline = MonotonicDeadline(timeout, timeoutMessage: '等待终端命令标记超时。');
+    try {
+      while (!deadline.isExpired) {
+        final segment = _plainText(_outputSince(startOffset));
+        final beginIndex = segment.indexOf(begin);
+        final endIndex = segment.indexOf(end, beginIndex < 0 ? 0 : beginIndex);
+        if (beginIndex >= 0 && endIndex > beginIndex) {
+          final afterEnd = segment.substring(endIndex + end.length);
+          final exitCodeMatch = RegExp(r':(-?\d+)').firstMatch(afterEnd);
+          final output = segment.substring(beginIndex + begin.length, endIndex);
+          return _ParsedCommandOutput(
+            output: _removeMarkerNoise(output),
+            exitCode: optionalIntFromValue(exitCodeMatch?.group(1)),
+          );
+        }
+        await Future<void>.delayed(_commandPollInterval);
       }
-      await Future<void>.delayed(_commandPollInterval);
+      throw deadline.timeoutException();
+    } finally {
+      deadline.stop();
     }
-    throw TimeoutException('Timed out waiting for terminal marker.', timeout);
   }
 
   String _outputSince(int offset) {

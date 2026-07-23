@@ -68,10 +68,10 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
   int retryCount = 0,
   Duration retryBackoff = const Duration(milliseconds: 800),
 }) async {
-  _requirePositiveDuration(connectionTimeout, 'connectionTimeout');
-  _requirePositiveDuration(openTimeout, 'openTimeout');
-  _requirePositiveDuration(responseTimeout, 'responseTimeout');
-  _requirePositiveDuration(responseIdleTimeout, 'responseIdleTimeout');
+  requirePositiveDuration(connectionTimeout, 'connectionTimeout');
+  requirePositiveDuration(openTimeout, 'openTimeout');
+  requirePositiveDuration(responseTimeout, 'responseTimeout');
+  requirePositiveDuration(responseIdleTimeout, 'responseIdleTimeout');
   if (maxResponseBytes < 1) {
     throw ArgumentError.value(maxResponseBytes, 'maxResponseBytes', '必须大于零。');
   }
@@ -91,7 +91,10 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
     throw const QdrantRequestCancelledException();
   }
 
-  final deadline = _QdrantRequestDeadline(responseTimeout);
+  final deadline = MonotonicDeadline(
+    responseTimeout,
+    timeoutMessage: 'Qdrant 请求超过总时限。',
+  );
   try {
     for (var attempt = 0; ; attempt += 1) {
       try {
@@ -146,7 +149,7 @@ Future<QdrantHttpResponse> _sendQdrantJsonRequestOnce({
   required Map<String, Object?>? body,
   required Set<int> toleratedFailureStatuses,
   required Future<void>? cancelSignal,
-  required _QdrantRequestDeadline deadline,
+  required MonotonicDeadline deadline,
 }) async {
   final client = HttpClient()
     ..connectionTimeout = deadline.limit(connectionTimeout);
@@ -210,35 +213,4 @@ bool _isRetryableQdrantError(Object error) {
   return error is TimeoutException ||
       error is SocketException ||
       error is HttpException && error is! ByteStreamSizeLimitException;
-}
-
-void _requirePositiveDuration(Duration value, String name) {
-  if (value <= Duration.zero) {
-    throw ArgumentError.value(value, name, '必须大于零。');
-  }
-}
-
-final class _QdrantRequestDeadline {
-  _QdrantRequestDeadline(this.timeout) : _stopwatch = Stopwatch()..start();
-
-  final Duration timeout;
-  final Stopwatch _stopwatch;
-
-  Duration remaining() {
-    final microseconds =
-        timeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) throw timeoutException();
-    return Duration(microseconds: microseconds);
-  }
-
-  Duration limit(Duration phaseTimeout) {
-    final budget = remaining();
-    return phaseTimeout < budget ? phaseTimeout : budget;
-  }
-
-  TimeoutException timeoutException() {
-    return TimeoutException('Qdrant 请求超过总时限。', timeout);
-  }
-
-  void stop() => _stopwatch.stop();
 }

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
@@ -179,13 +180,14 @@ class AiClaudeHookService {
     final usageRecords = <AiClaudeHookUsageRecord>[];
     String? blockReason;
     var executedHookCount = 0;
-    final invocationStopwatch = Stopwatch()..start();
+    final deadline = MonotonicDeadline(
+      _invocationTimeout,
+      timeoutMessage: 'Hook 单次调用超过总时限。',
+    );
 
     for (final entry in configuredHooks.entries) {
-      final remainingMicroseconds =
-          _invocationTimeout.inMicroseconds -
-          invocationStopwatch.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) {
+      final remaining = deadline.remainingOrNull();
+      if (remaining == null) {
         systemReminders.add('Hook 执行达到单次总时限，剩余命令已跳过。');
         break;
       }
@@ -197,10 +199,7 @@ class AiClaudeHookService {
           command: entry.command,
           payload: effectivePayload,
           workingDirectory: workingDirectory,
-          timeout:
-              Duration(microseconds: remainingMicroseconds) < _commandTimeout
-              ? Duration(microseconds: remainingMicroseconds)
-              : _commandTimeout,
+          timeout: remaining < _commandTimeout ? remaining : _commandTimeout,
         );
         final parsed = _parseHookCommandResult(
           commandResult: commandResult,
@@ -248,7 +247,7 @@ class AiClaudeHookService {
         systemReminders.add('Hook 命令启动失败：$error');
       }
     }
-    invocationStopwatch.stop();
+    deadline.stop();
 
     final recorder = _usageRecorder;
     if (recorder != null && usageRecords.isNotEmpty) {

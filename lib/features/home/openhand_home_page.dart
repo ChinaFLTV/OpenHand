@@ -861,30 +861,34 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _activeSubmissionSerialsBySessionId[sessionId];
     await _stopResponding();
 
-    final deadline = DateTime.now().add(_queuedGuidanceStopSettleTimeout);
-    while (mounted && DateTime.now().isBefore(deadline)) {
-      await _awaitEndOfFrame();
-      if (!mounted) {
-        return false;
-      }
-      final phase = sessionController.sendPhaseForSession(sessionId);
-      final stillStoppingLocalSubmit =
-          stoppedSubmissionSerial != null &&
-          _activeSubmissionSerialsBySessionId[sessionId] ==
-              stoppedSubmissionSerial;
-      if (!stillStoppingLocalSubmit) {
-        _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
-        if (_locallyStoppedSubmissionSerialsBySessionId[sessionId] ==
-            stoppedSubmissionSerial) {
-          _locallyStoppedSubmissionSerialsBySessionId.remove(sessionId);
+    final deadline = MonotonicDeadline(_queuedGuidanceStopSettleTimeout);
+    try {
+      while (mounted && !deadline.isExpired) {
+        await _awaitEndOfFrame();
+        if (!mounted) {
+          return false;
         }
+        final phase = sessionController.sendPhaseForSession(sessionId);
+        final stillStoppingLocalSubmit =
+            stoppedSubmissionSerial != null &&
+            _activeSubmissionSerialsBySessionId[sessionId] ==
+                stoppedSubmissionSerial;
+        if (!stillStoppingLocalSubmit) {
+          _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
+          if (_locallyStoppedSubmissionSerialsBySessionId[sessionId] ==
+              stoppedSubmissionSerial) {
+            _locallyStoppedSubmissionSerialsBySessionId.remove(sessionId);
+          }
+        }
+        if (phase == AiSendPhase.idle &&
+            !sessionController.canStopResponding(sessionId) &&
+            !stillStoppingLocalSubmit) {
+          return true;
+        }
+        await Future.delayed(_queuedGuidanceStopSettlePollInterval);
       }
-      if (phase == AiSendPhase.idle &&
-          !sessionController.canStopResponding(sessionId) &&
-          !stillStoppingLocalSubmit) {
-        return true;
-      }
-      await Future.delayed(_queuedGuidanceStopSettlePollInterval);
+    } finally {
+      deadline.stop();
     }
     return stoppedSubmissionSerial == null ||
         _activeSubmissionSerialsBySessionId[sessionId] !=

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
 import '../../../shared/util/version_compare.dart';
@@ -291,27 +292,15 @@ Future<bool> _isEntityType(
 }
 
 final class _McpNodeResolverBudget {
-  _McpNodeResolverBudget(this.totalTimeout) : _stopwatch = Stopwatch()..start();
-
-  final Duration totalTimeout;
-  final Stopwatch _stopwatch;
-
-  Duration get remaining {
-    final microseconds =
-        totalTimeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) {
-      throw TimeoutException(
-        'MCP Node package resolution exceeded its time limit.',
+  _McpNodeResolverBudget(Duration totalTimeout)
+    : _deadline = MonotonicDeadline(
         totalTimeout,
+        timeoutMessage: 'MCP Node 包解析超过总时限。',
       );
-    }
-    return Duration(microseconds: microseconds);
-  }
 
-  Duration nextTimeout() {
-    final available = remaining;
-    return available < _mcpNodeResolverIdleTimeout
-        ? available
-        : _mcpNodeResolverIdleTimeout;
-  }
+  final MonotonicDeadline _deadline;
+
+  Duration get remaining => _deadline.remaining();
+
+  Duration nextTimeout() => _deadline.limit(_mcpNodeResolverIdleTimeout);
 }

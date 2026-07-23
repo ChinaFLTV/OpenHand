@@ -36,16 +36,17 @@ class AutoFollowProgrammaticScrollWindow {
 
   final Duration settleDuration;
   int _depth = 0;
-  DateTime? _quietUntil;
+  final Stopwatch _settleStopwatch = Stopwatch();
 
   bool get busy => _depth > 0;
 
   bool get active {
     if (_depth > 0) return true;
-    final quietUntil = _quietUntil;
-    if (quietUntil == null) return false;
-    if (DateTime.now().isBefore(quietUntil)) return true;
-    _quietUntil = null;
+    if (!_settleStopwatch.isRunning) return false;
+    if (_settleStopwatch.elapsed < settleDuration) return true;
+    _settleStopwatch
+      ..stop()
+      ..reset();
     return false;
   }
 
@@ -65,11 +66,15 @@ class AutoFollowProgrammaticScrollWindow {
 
   void cancel() {
     _depth = 0;
-    _quietUntil = null;
+    _settleStopwatch
+      ..stop()
+      ..reset();
   }
 
   void _extendQuietWindow() {
-    _quietUntil = DateTime.now().add(settleDuration);
+    _settleStopwatch
+      ..reset()
+      ..start();
   }
 }
 

@@ -90,26 +90,17 @@ class AiToolUtils {
     final normalizedMissingPath = p.normalize(missingPath);
     final parentPath = p.dirname(normalizedMissingPath);
     final parent = Directory(parentPath);
-    final stopwatch = Stopwatch()..start();
-    Duration remaining() {
-      final microseconds =
-          fileTreeScanTotalTimeout.inMicroseconds -
-          stopwatch.elapsedMicroseconds;
-      if (microseconds <= 0) {
-        throw TimeoutException('Sibling suggestion scan timed out.');
-      }
-      return Duration(microseconds: microseconds);
-    }
-
-    Duration nextOperationTimeout() {
-      final remainingTime = remaining();
-      return remainingTime < fileTreeScanIdleTimeout
-          ? remainingTime
-          : fileTreeScanIdleTimeout;
-    }
+    final deadline = MonotonicDeadline(
+      fileTreeScanTotalTimeout,
+      timeoutMessage: '同级候选路径扫描超时。',
+    );
 
     try {
-      if (!await parent.exists().timeout(nextOperationTimeout())) return null;
+      if (!await parent.exists().timeout(
+        deadline.limit(fileTreeScanIdleTimeout),
+      )) {
+        return null;
+      }
       final targetName = p.basename(normalizedMissingPath);
       final targetNameLower = targetName.toLowerCase();
       final targetBaseLower = p
@@ -117,11 +108,11 @@ class AiToolUtils {
           .toLowerCase();
       final targetExtensionLower = p.extension(targetName).toLowerCase();
       _MissingPathSuggestion? best;
-      final remainingTime = remaining();
+      final remainingTime = deadline.remaining();
       final listing = await listDirectoryBounded(
         parent,
         maxEntries: maxMissingPathSuggestionScanEntries,
-        idleTimeout: nextOperationTimeout(),
+        idleTimeout: deadline.limit(fileTreeScanIdleTimeout),
         totalTimeout: remainingTime,
       );
       for (final entity in listing.entries) {
@@ -130,7 +121,7 @@ class AiToolUtils {
         final type = await FileSystemEntity.type(
           candidatePath,
           followLinks: false,
-        ).timeout(nextOperationTimeout());
+        ).timeout(deadline.limit(fileTreeScanIdleTimeout));
         if (type == FileSystemEntityType.directory ||
             type == FileSystemEntityType.notFound) {
           continue;
@@ -161,7 +152,7 @@ class AiToolUtils {
       silentLog('AI工具', '查找缺失文件的同级候选路径', error, stack);
       return null;
     } finally {
-      stopwatch.stop();
+      deadline.stop();
     }
   }
 

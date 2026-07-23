@@ -1380,30 +1380,37 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
 
 class _AnimatedPopupMenuButtonState<T>
     extends State<AnimatedPopupMenuButton<T>> {
-  void _showMenu() {
+  bool _menuOpen = false;
+
+  Future<void> _showMenu() async {
+    if (!widget.enabled || _menuOpen) return;
     final items = widget.itemBuilder(context);
     if (items.isEmpty) return;
 
-    showAnimatedAnchoredPopupMenu<T>(
-      context: context,
-      items: items,
-      initialValue: widget.initialValue,
-      elevation: widget.elevation,
-      color: widget.color,
-      shape: widget.shape,
-      constraints: widget.constraints,
-      position: widget.position,
-      offset: widget.offset,
-      useRootNavigator: widget.useRootNavigator,
-      barrierDismissible: widget.barrierDismissible,
-    ).then((value) {
+    _menuOpen = true;
+    try {
+      final value = await showAnimatedAnchoredPopupMenu<T>(
+        context: context,
+        items: items,
+        initialValue: widget.initialValue,
+        elevation: widget.elevation,
+        color: widget.color,
+        shape: widget.shape,
+        constraints: widget.constraints,
+        position: widget.position,
+        offset: widget.offset,
+        useRootNavigator: widget.useRootNavigator,
+        barrierDismissible: widget.barrierDismissible,
+      );
       if (!mounted) return;
       if (value == null) {
         widget.onCanceled?.call();
       } else {
         widget.onSelected?.call(value);
       }
-    });
+    } finally {
+      _menuOpen = false;
+    }
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'async_concurrency.dart';
 import 'byte_size_format.dart';
 
 const int _boundedFileReadChunkBytes = 64 * 1024;
@@ -211,11 +212,10 @@ final class BoundedFileReadException implements IOException {
   }
 }
 
-/// Reads a regular local file with per-file, idle, and total-time bounds.
+/// 以大小、空闲时限和总时限约束读取普通本地文件。
 ///
-/// A single open handle is used for the length check and all reads, closing the
-/// stat/open TOCTOU gap. By default path metadata is checked again after the
-/// read to reject in-place changes while retaining a coherent bounded payload.
+/// 长度检查与读取共用一个句柄，缩小状态检查与使用间隙；默认在读取后复核
+/// 路径元数据，拒绝读取期间发生变化的文件。
 Future<Uint8List> readBoundedFileBytes(
   File file, {
   required int maxBytes,
@@ -228,35 +228,17 @@ Future<Uint8List> readBoundedFileBytes(
   if (maxBytes < 1) {
     throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
   }
-  if (idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
-  }
-  if (totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
-
-  final stopwatch = Stopwatch()..start();
-  Duration remainingBudget() {
-    final remaining =
-        totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-    if (remaining <= 0) {
-      throw TimeoutException('File read exceeded its total time limit.');
-    }
-    return Duration(microseconds: remaining);
-  }
-
-  Duration nextOperationTimeout() {
-    final remaining = remainingBudget();
-    return remaining < idleTimeout ? remaining : idleTimeout;
-  }
+  requirePositiveDuration(idleTimeout, 'idleTimeout');
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '文件读取超过总时限。',
+  );
 
   BoundedRandomAccessFileLease? lease;
   try {
-    final preflightStat = await file.stat().timeout(nextOperationTimeout());
+    final preflightStat = await file.stat().timeout(
+      deadline.limit(idleTimeout),
+    );
     if (!isRegularFileStat(preflightStat)) {
       throw FileSystemException('Path is not a regular file.', file.path);
     }
@@ -264,7 +246,7 @@ Future<Uint8List> readBoundedFileBytes(
     if (handleOwner != null) {
       final input = await handleOwner.acquireFile(
         openFuture,
-        timeout: nextOperationTimeout(),
+        timeout: deadline.limit(idleTimeout),
       );
       lease = BoundedRandomAccessFileLease(
         input,
@@ -273,7 +255,7 @@ Future<Uint8List> readBoundedFileBytes(
     } else {
       try {
         lease = BoundedRandomAccessFileLease(
-          await openFuture.timeout(nextOperationTimeout()),
+          await openFuture.timeout(deadline.limit(idleTimeout)),
         );
       } on TimeoutException {
         unawaited(_closeLateFile(openFuture));
@@ -282,13 +264,13 @@ Future<Uint8List> readBoundedFileBytes(
     }
     final activeLease = lease;
 
-    final initialStat = await file.stat().timeout(nextOperationTimeout());
+    final initialStat = await file.stat().timeout(deadline.limit(idleTimeout));
     if (!isRegularFileStat(initialStat)) {
       throw FileSystemException('Path is not a regular file.', file.path);
     }
     final initialLength = await activeLease.run(
       (input) => input.length(),
-      timeout: nextOperationTimeout(),
+      timeout: deadline.limit(idleTimeout),
     );
     if (initialLength < 0 ||
         (!truncateToMaxBytes && initialLength > maxBytes)) {
@@ -308,7 +290,7 @@ Future<Uint8List> readBoundedFileBytes(
           : retainedLength;
       final read = await activeLease.run(
         (input) => input.readInto(bytes, offset, end),
-        timeout: nextOperationTimeout(),
+        timeout: deadline.limit(idleTimeout),
       );
       if (read <= 0) {
         throw BoundedFileReadException(
@@ -322,7 +304,7 @@ Future<Uint8List> readBoundedFileBytes(
 
     final finalLength = await activeLease.run(
       (input) => input.length(),
-      timeout: nextOperationTimeout(),
+      timeout: deadline.limit(idleTimeout),
     );
     if (finalLength != initialLength) {
       throw BoundedFileReadException(
@@ -333,7 +315,7 @@ Future<Uint8List> readBoundedFileBytes(
     }
 
     if (verifyUnchanged) {
-      final finalStat = await file.stat().timeout(nextOperationTimeout());
+      final finalStat = await file.stat().timeout(deadline.limit(idleTimeout));
       if (!isRegularFileStat(finalStat) ||
           finalStat.size != initialLength ||
           finalStat.modified != initialStat.modified ||
@@ -346,11 +328,11 @@ Future<Uint8List> readBoundedFileBytes(
       }
     }
 
-    await activeLease.close(timeout: nextOperationTimeout());
+    await activeLease.close(timeout: deadline.limit(idleTimeout));
     lease = null;
     return bytes;
   } finally {
-    stopwatch.stop();
+    deadline.stop();
     await lease?.cleanup();
   }
 }

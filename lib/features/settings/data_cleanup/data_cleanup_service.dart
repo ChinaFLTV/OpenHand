@@ -21,6 +21,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
@@ -530,20 +531,19 @@ const String _dataCleanupPartialScanError =
 class _DataCleanupScanBudget {
   _DataCleanupScanBudget()
     : remainingEntries = _maxDataCleanupScanEntries,
-      stopwatch = (Stopwatch()..start());
+      _deadline = MonotonicDeadline(
+        _dataCleanupScanTotalTimeout,
+        timeoutMessage: '数据清理扫描超时。',
+      );
 
   int remainingEntries;
-  final Stopwatch stopwatch;
+  final MonotonicDeadline _deadline;
   bool _interrupted = false;
 
   bool get incomplete =>
-      _interrupted ||
-      remainingEntries <= 0 ||
-      stopwatch.elapsed >= _dataCleanupScanTotalTimeout;
+      _interrupted || remainingEntries <= 0 || _deadline.isExpired;
 
-  bool get exhausted =>
-      remainingEntries <= 0 ||
-      stopwatch.elapsed >= _dataCleanupScanTotalTimeout;
+  bool get exhausted => remainingEntries <= 0 || _deadline.isExpired;
 
   void markInterrupted() {
     _interrupted = true;
@@ -557,14 +557,12 @@ class _DataCleanupScanBudget {
   }
 
   Duration remainingDurationForOperation() {
-    final remaining =
-        _dataCleanupScanTotalTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    if (remaining <= 0) {
+    final remaining = _deadline.remainingOrNull();
+    if (remaining == null) {
       _interrupted = true;
-      throw TimeoutException('Data cleanup scan timed out.');
+      throw _deadline.timeoutException();
     }
-    return Duration(microseconds: remaining);
+    return remaining;
   }
 
   void consumeEntries(int count) {
@@ -573,8 +571,7 @@ class _DataCleanupScanBudget {
   }
 
   bool takeEntry() {
-    if (remainingEntries <= 0 ||
-        stopwatch.elapsed >= _dataCleanupScanTotalTimeout) {
+    if (remainingEntries <= 0 || _deadline.isExpired) {
       return false;
     }
     remainingEntries -= 1;

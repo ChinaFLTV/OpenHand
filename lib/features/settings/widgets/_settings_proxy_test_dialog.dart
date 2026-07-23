@@ -491,18 +491,22 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           _log(_ProxyTestLogLevel.debug, 'HTTP', '< $name: $v');
         }
       });
-      // Drain body (small responses only).
+      // 仅探测有界响应正文。
       var bodyBytes = 0;
-      final bodyReadDeadline = DateTime.now().add(_httpRequestTimeout);
-      await for (final chunk in response.timeout(_httpRequestTimeout)) {
-        if (DateTime.now().isAfter(bodyReadDeadline)) {
-          throw TimeoutException(
-            'HTTP response body probe exceeded its total time limit.',
-            _httpRequestTimeout,
-          );
+      final bodyReadDeadline = MonotonicDeadline(
+        _httpRequestTimeout,
+        timeoutMessage: 'HTTP 响应正文探测超过总时限。',
+      );
+      try {
+        await for (final chunk in response.timeout(_httpRequestTimeout)) {
+          if (bodyReadDeadline.isExpired) {
+            throw bodyReadDeadline.timeoutException();
+          }
+          bodyBytes += chunk.length;
+          if (bodyBytes > _maxHttpBodyProbeBytes) break;
         }
-        bodyBytes += chunk.length;
-        if (bodyBytes > _maxHttpBodyProbeBytes) break;
+      } finally {
+        bodyReadDeadline.stop();
       }
       _log(
         _ProxyTestLogLevel.info,

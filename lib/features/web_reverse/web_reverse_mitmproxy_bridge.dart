@@ -259,18 +259,22 @@ class WebReverseMitmproxyBridge {
   static Future<String?> _readCallbackBody(HttpRequest req) async {
     final builder = BytesBuilder(copy: false);
     var total = 0;
-    final deadline = DateTime.now().add(_kCallbackBodyTotalTimeout);
-    await for (final chunk in req.timeout(_kCallbackBodyIdleTimeout)) {
-      if (DateTime.now().isAfter(deadline)) {
-        throw TimeoutException('mitmproxy callback body exceeded time limit.');
+    final deadline = MonotonicDeadline(_kCallbackBodyTotalTimeout);
+    try {
+      await for (final chunk in req.timeout(_kCallbackBodyIdleTimeout)) {
+        if (deadline.isExpired) {
+          throw TimeoutException('mitmproxy 回调请求体超过总时限。');
+        }
+        total += chunk.length;
+        if (total > _kMaxCallbackPayloadBytes) {
+          return null;
+        }
+        builder.add(chunk);
       }
-      total += chunk.length;
-      if (total > _kMaxCallbackPayloadBytes) {
-        return null;
-      }
-      builder.add(chunk);
+      return utf8.decode(builder.takeBytes(), allowMalformed: true);
+    } finally {
+      deadline.stop();
     }
-    return utf8.decode(builder.takeBytes(), allowMalformed: true);
   }
 
   static Future<String> _writeAddon(int callbackPort) async {

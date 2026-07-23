@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -25,15 +26,10 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     final totalTimeout = configuredTimeout < _qdrantHealthMaxTimeout
         ? configuredTimeout
         : _qdrantHealthMaxTimeout;
-    final stopwatch = Stopwatch()..start();
-    Duration remainingTimeout() {
-      final microseconds =
-          totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-      if (microseconds <= 0) {
-        throw TimeoutException('Qdrant 健康检查超时。', totalTimeout);
-      }
-      return Duration(microseconds: microseconds);
-    }
+    final deadline = MonotonicDeadline(
+      totalTimeout,
+      timeoutMessage: 'Qdrant 健康检查超时。',
+    );
 
     bool continueAfterTransientFailure(
       String action,
@@ -51,7 +47,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     }
 
     try {
-      final readyTimeout = remainingTimeout();
+      final readyTimeout = deadline.remaining();
       final ready = await sendQdrantJsonRequest(
         method: 'GET',
         uri: _uri('/readyz'),
@@ -68,7 +64,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         throw FormatException('Qdrant 就绪检查返回异常状态：${ready.statusCode}。');
       }
 
-      final rootTimeout = remainingTimeout();
+      final rootTimeout = deadline.remaining();
       final root = await sendQdrantJsonRequest(
         method: 'GET',
         uri: _uri('/'),
@@ -94,7 +90,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     } on SocketException catch (error, stack) {
       return continueAfterTransientFailure('健康检查连接失败', error, stack);
     } finally {
-      stopwatch.stop();
+      deadline.stop();
     }
   }
 

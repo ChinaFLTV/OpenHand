@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
@@ -355,21 +356,15 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       connectionTimeout: const Duration(seconds: 12),
     )..idleTimeout = const Duration(seconds: 6);
     _activeClient = client;
-    final sw = Stopwatch()..start();
-
-    Duration remainingRequestTime() {
-      final remainingMicroseconds =
-          _kRequestTimeout.inMicroseconds - sw.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) {
-        throw TimeoutException('Request exceeded its total time limit.');
-      }
-      return Duration(microseconds: remainingMicroseconds);
-    }
+    final deadline = MonotonicDeadline(
+      _kRequestTimeout,
+      timeoutMessage: '请求超过总时限。',
+    );
 
     try {
       final req = await client
           .openUrl(_method, uri)
-          .timeout(remainingRequestTime());
+          .timeout(deadline.remaining());
       // 默认不自动补 Host/Content-Length/Content-Type；由用户在 headers 里
       // 显式控制。仅当用户没写 Content-Length 且有 body 时由 HttpClient 自动加。
       req.followRedirects = false;
@@ -384,8 +379,8 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       if (bodyBytes != null && bodyBytes.isNotEmpty) {
         req.add(bodyBytes);
       }
-      final resp = await req.close().timeout(remainingRequestTime());
-      final remainingReadTime = remainingRequestTime();
+      final resp = await req.close().timeout(deadline.remaining());
+      final remainingReadTime = deadline.remaining();
       final readIdleTimeout = remainingReadTime < _kResponseReadIdleTimeout
           ? remainingReadTime
           : _kResponseReadIdleTimeout;
@@ -396,7 +391,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         totalTimeout: remainingReadTime,
       );
       final responseBodyBytes = bodyResult.bytes;
-      sw.stop();
+      deadline.stop();
       final respHeaders = <String, String>{};
       resp.headers.forEach((name, vals) {
         respHeaders[name] = vals.join(', ');
@@ -418,7 +413,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
           body: bodyText ?? '',
           bodyIsBase64: isBase64,
           byteSize: responseBodyBytes.length,
-          elapsed: sw.elapsed,
+          elapsed: deadline.elapsed,
           transport: _ReplayTransport.direct,
           truncated: bodyResult.truncated,
         );
@@ -432,6 +427,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         _sending = false;
       });
     } finally {
+      deadline.stop();
       client.close(force: true);
       if (identical(_activeClient, client)) _activeClient = null;
     }

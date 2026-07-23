@@ -5,6 +5,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../shared/util/async_concurrency.dart';
 
 import '../../ai/index.dart';
 
@@ -254,33 +255,35 @@ Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
   }
 
   MessageResolvedPath? resolved;
-  final stopwatch = Stopwatch()..start();
-  for (final candidate in candidates.take(_messagePathProbeCandidateLimit)) {
-    final remainingMicroseconds =
-        _messagePathProbeTotalTimeout.inMicroseconds -
-        stopwatch.elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) break;
-    final remaining = Duration(microseconds: remainingMicroseconds);
-    final timeout = remaining < _messagePathProbeIdleTimeout
-        ? remaining
-        : _messagePathProbeIdleTimeout;
-    FileSystemEntityType type;
-    try {
-      type = await FileSystemEntity.type(candidate).timeout(timeout);
-    } on FileSystemException {
-      continue;
-    } on TimeoutException {
-      continue;
+  final deadline = MonotonicDeadline(
+    _messagePathProbeTotalTimeout,
+    timeoutMessage: '消息路径探测超过总时限。',
+  );
+  try {
+    for (final candidate in candidates.take(_messagePathProbeCandidateLimit)) {
+      final remaining = deadline.remainingOrNull();
+      if (remaining == null) break;
+      final timeout = remaining < _messagePathProbeIdleTimeout
+          ? remaining
+          : _messagePathProbeIdleTimeout;
+      FileSystemEntityType type;
+      try {
+        type = await FileSystemEntity.type(candidate).timeout(timeout);
+      } on FileSystemException {
+        continue;
+      } on TimeoutException {
+        continue;
+      }
+      if (type == FileSystemEntityType.notFound) continue;
+      resolved = MessageResolvedPath(
+        displayPath: displayPath,
+        resolvedPath: p.normalize(candidate),
+        isDirectory: type == FileSystemEntityType.directory,
+      );
+      break;
     }
-    if (type == FileSystemEntityType.notFound) {
-      continue;
-    }
-    resolved = MessageResolvedPath(
-      displayPath: displayPath,
-      resolvedPath: p.normalize(candidate),
-      isDirectory: type == FileSystemEntityType.directory,
-    );
-    break;
+  } finally {
+    deadline.stop();
   }
   _rememberResolvedMessagePath(cacheKey, resolved);
   return resolved;

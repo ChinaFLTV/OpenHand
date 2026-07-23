@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -119,9 +120,11 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
   @override
   Future<AppUpdateCheckResult> checkForUpdate(String currentVersion) async {
     final client = _createHttpClient(_kUpdateCheckConnectionTimeout);
-    final stopwatch = Stopwatch()..start();
-    Duration remainingBudget() =>
-        _remainingUpdateBudget(stopwatch, _kUpdateCheckTotalTimeout, '更新检查');
+    final deadline = MonotonicDeadline(
+      _kUpdateCheckTotalTimeout,
+      timeoutMessage: '更新检查超过总时限。',
+    );
+    Duration remainingBudget() => deadline.remaining();
     try {
       final result = await _getFollowingSecureRedirects(
         client: client,
@@ -158,10 +161,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       }
       return AppUpdateNotAvailable();
     } catch (error, stack) {
-      silentLog('app_update_checker', 'checkForUpdate', error, stack);
+      silentLog('app_update_checker', '检查应用更新', error, stack);
       return AppUpdateCheckError(message: '$error');
     } finally {
-      stopwatch.stop();
+      deadline.stop();
       client.close(force: true);
     }
   }
@@ -185,12 +188,11 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       throw const FileSystemException('Update package is too large.');
     }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
-    final stopwatch = Stopwatch()..start();
-    Duration remainingBudget() => _remainingUpdateBudget(
-      stopwatch,
+    final deadline = MonotonicDeadline(
       _kUpdateDownloadTotalTimeout,
-      '更新包下载',
+      timeoutMessage: '更新包下载超过总时限。',
     );
+    Duration remainingBudget() => deadline.remaining();
     var finished = false;
     var cancelled = false;
     void cancelDownload() {
@@ -346,18 +348,13 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
             );
           }
         } catch (error, stack) {
-          silentLog(
-            'app_update_checker',
-            'clean failed update download',
-            error,
-            stack,
-          );
+          silentLog('app_update_checker', '清理下载失败的更新包', error, stack);
         }
       }
       rethrow;
     } finally {
       finished = true;
-      stopwatch.stop();
+      deadline.stop();
       client.close(force: true);
     }
   }
@@ -426,19 +423,6 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (Platform.isIOS) return '.ipa';
     return '';
   }
-}
-
-Duration _remainingUpdateBudget(
-  Stopwatch stopwatch,
-  Duration totalTimeout,
-  String operation,
-) {
-  final remainingMicroseconds =
-      totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-  if (remainingMicroseconds <= 0) {
-    throw TimeoutException('$operation超过总时限。', totalTimeout);
-  }
-  return Duration(microseconds: remainingMicroseconds);
 }
 
 Duration _shorterUpdateDuration(Duration first, Duration second) {

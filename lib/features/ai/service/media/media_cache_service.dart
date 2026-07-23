@@ -1,9 +1,7 @@
-/// Persistent cache for remote AI media URLs.
+/// 远程 AI 媒体持久缓存。
 ///
-/// The chat UI can receive images, videos, and audio as network URLs. This
-/// service stores the first successful response under `~/.openhand/cache/media`
-/// with a JSON sidecar so the cache remains traceable, measurable, and
-/// cleanable from Settings → App Data.
+/// 将聊天中的远程图片、视频和音频缓存到 `~/.openhand/cache/media`，并写入
+/// JSON 元数据，确保缓存可追踪、可统计且可从设置中清理。
 library;
 
 import 'dart:async';
@@ -162,8 +160,7 @@ class MediaCacheService {
     return dir;
   }
 
-  /// Returns a cache path already validated by an asynchronous cache operation.
-  /// This synchronous hot-path query performs no filesystem I/O.
+  /// 返回异步缓存任务已验证的路径；同步热路径不执行文件系统操作。
   String? cachedPathForUrl(String url, {MediaCacheKind? kind}) {
     final uri = _httpUriOrNull(url);
     if (uri == null) return null;
@@ -227,7 +224,7 @@ class MediaCacheService {
         });
       }
     } catch (error, stack) {
-      silentLog('media_cache', 'invalidate cached media', error, stack);
+      silentLog('media_cache', '使媒体缓存失效', error, stack);
     } finally {
       _invalidationWorker = null;
       if (_pendingInvalidations.isNotEmpty && !_disposed && !_clearing) {
@@ -236,9 +233,7 @@ class MediaCacheService {
     }
   }
 
-  /// Ensures [url] has a local cached copy and returns the file path. Failures
-  /// are logged and returned as null so callers can fall back to the original
-  /// network URL without breaking playback.
+  /// 确保 [url] 存在本地缓存并返回路径；失败时返回空，调用方可回退网络地址。
   Future<String?> ensureCached(
     String url, {
     MediaCacheKind? kind,
@@ -304,21 +299,19 @@ class MediaCacheService {
       if (_disposed || _clearing || generation != _generation) return null;
       return result;
     } catch (error, stack) {
-      silentLog('media_cache', 'ensure cached media', error, stack);
+      silentLog('media_cache', '确保媒体缓存可用', error, stack);
       return null;
     }
   }
 
-  /// Starts a best-effort background cache job. UI callers should not await it.
+  /// 启动尽力执行的后台缓存任务，界面调用方无需等待。
   void cacheInBackground(String url, {MediaCacheKind? kind}) {
     final uri = _httpUriOrNull(url);
     if (uri == null) return;
     unawaited(ensureCached(uri.toString(), kind: kind));
   }
 
-  /// Imports an already downloaded local file into the deterministic cache.
-  /// This is used after an explicit "Save As" download so the app does not
-  /// fetch the same remote media twice just to warm the cache.
+  /// 将已下载文件导入确定性缓存，避免“另存为”后再次下载相同媒体用于预热。
   Future<String?> importFile(
     String url,
     String sourcePath, {
@@ -348,7 +341,7 @@ class MediaCacheService {
         );
       });
     } catch (error, stack) {
-      silentLog('media_cache', 'import local file', error, stack);
+      silentLog('media_cache', '导入本地媒体文件', error, stack);
       return null;
     } finally {
       completer.complete();
@@ -399,8 +392,8 @@ class MediaCacheService {
         generation: generation,
       );
     } catch (error, stack) {
-      silentLog('media_cache', 'import local file', error, stack);
-      await _deleteEntity(tempFile, 'delete failed imported media temp file');
+      silentLog('media_cache', '导入本地媒体文件', error, stack);
+      await _deleteEntity(tempFile, '删除导入失败的媒体临时文件');
       return null;
     }
   }
@@ -452,14 +445,11 @@ class MediaCacheService {
             throw const _MediaCacheCancelled();
           }
           if (downloadWatch.elapsed > _deadlineForKind(cacheKind)) {
-            throw TimeoutException('Media cache download exceeded time limit.');
+            throw TimeoutException('媒体缓存下载超过总时限。');
           }
           written += chunk.length;
           if (written > maxBytes) {
-            throw FileSystemException(
-              'Media cache download exceeded size limit.',
-              normalizedUrl,
-            );
+            throw FileSystemException('媒体缓存下载超过大小限制。', normalizedUrl);
           }
           await openedOutput.writeFrom(chunk).timeout(_fileOperationTimeout);
         }
@@ -474,7 +464,7 @@ class MediaCacheService {
         }
       }
       if (written <= 0) {
-        await _deleteEntity(tempFile, 'delete empty cached media temp file');
+        await _deleteEntity(tempFile, '删除空媒体缓存临时文件');
         return null;
       }
 
@@ -488,25 +478,19 @@ class MediaCacheService {
       );
     } on _MediaCacheCancelled {
       if (tempFile != null) {
-        await _deleteEntity(
-          tempFile,
-          'delete cancelled cached media temp file',
-        );
+        await _deleteEntity(tempFile, '删除已取消的媒体缓存临时文件');
       }
       return null;
     } on TimeoutException catch (error, stack) {
-      silentLog('media_cache', 'download timeout', error, stack);
+      silentLog('media_cache', '媒体缓存下载超时', error, stack);
       if (tempFile != null) {
-        await _deleteEntity(
-          tempFile,
-          'delete timed-out cached media temp file',
-        );
+        await _deleteEntity(tempFile, '删除下载超时的媒体缓存临时文件');
       }
       return null;
     } catch (error, stack) {
-      silentLog('media_cache', 'download', error, stack);
+      silentLog('media_cache', '下载媒体缓存', error, stack);
       if (tempFile != null) {
-        await _deleteEntity(tempFile, 'delete failed cached media temp file');
+        await _deleteEntity(tempFile, '删除下载失败的媒体缓存临时文件');
       }
       return null;
     } finally {
@@ -514,7 +498,7 @@ class MediaCacheService {
       try {
         client?.close(force: true);
       } catch (error, stack) {
-        silentLog('media_cache', 'close download client', error, stack);
+        silentLog('media_cache', '关闭媒体缓存下载客户端', error, stack);
       }
     }
   }
@@ -534,15 +518,12 @@ class MediaCacheService {
   }) {
     return _commitSemaphore.withPermit<String?>(() async {
       if (_disposed || _clearing || generation != _generation) {
-        await _deleteEntity(tempFile, 'delete stale cached media temp file');
+        await _deleteEntity(tempFile, '删除失效的媒体缓存临时文件');
         return null;
       }
       final destFile = File(destPath);
       if (await _looksUsableFile(destFile)) {
-        await _deleteEntity(
-          tempFile,
-          'delete duplicate cached media temp file',
-        );
+        await _deleteEntity(tempFile, '删除重复的媒体缓存临时文件');
       } else {
         await _deleteInvalidCachePair(destPath);
         await tempFile.rename(destPath).timeout(_fileOperationTimeout);
@@ -576,83 +557,85 @@ class MediaCacheService {
     final sidecars = <File>[];
     var totalBytes = 0;
     var scannedEntries = 0;
-    final stopwatch = Stopwatch()..start();
-    await for (final entity
-        in directory.list(followLinks: false).timeout(_cleanupTimeout)) {
-      if (++scannedEntries > _maxCacheScanEntries ||
-          stopwatch.elapsed > _cacheScanTimeout) {
-        throw StateError('Media cache scan exceeded its safety limit.');
-      }
-      if (entity is! File) continue;
-      final name = p.basename(entity.path);
-      if (name.endsWith('.json')) {
-        sidecars.add(entity);
-        continue;
-      }
-      if (name.endsWith('.part') || name.contains('.part.')) {
-        final stat = await _statFileIfPresent(entity);
-        if (stat == null) continue;
-        if (DateTime.now().difference(stat.modified) > _staleTempFileAge) {
-          await _deleteEntity(entity, 'delete stale media cache temp file');
+    final deadline = MonotonicDeadline(
+      _cacheScanTimeout,
+      timeoutMessage: '媒体缓存清理超过总时限。',
+    );
+    try {
+      await for (final entity
+          in directory.list(followLinks: false).timeout(_cleanupTimeout)) {
+        scannedEntries += 1;
+        if (scannedEntries > _maxCacheScanEntries) {
+          throw StateError('媒体缓存扫描超过条目上限。');
         }
-        continue;
+        if (deadline.isExpired) throw deadline.timeoutException();
+        if (entity is! File) continue;
+        final name = p.basename(entity.path);
+        if (name.endsWith('.json')) {
+          sidecars.add(entity);
+          continue;
+        }
+        if (name.endsWith('.part') || name.contains('.part.')) {
+          final stat = await _statFileIfPresent(entity);
+          if (stat == null) continue;
+          if (DateTime.now().difference(stat.modified) > _staleTempFileAge) {
+            await _deleteEntity(entity, '删除过期媒体缓存临时文件');
+          }
+          continue;
+        }
+        final stat = await _statFileIfPresent(entity);
+        if (stat == null || stat.type != FileSystemEntityType.file) continue;
+        if (stat.size <= 0) {
+          await _deleteInvalidCachePair(entity.path);
+          continue;
+        }
+        entries.add(
+          _MediaCacheEntry(
+            path: entity.path,
+            bytes: stat.size,
+            modified: stat.modified,
+          ),
+        );
+        totalBytes += stat.size;
       }
-      final stat = await _statFileIfPresent(entity);
-      if (stat == null) continue;
-      if (stat.type != FileSystemEntityType.file) continue;
-      if (stat.size <= 0) {
-        await _deleteInvalidCachePair(entity.path);
-        continue;
+      final expectedSidecars = entries
+          .map((entry) => _metadataPathForMediaPath(entry.path))
+          .toSet();
+      for (final sidecar in sidecars) {
+        if (deadline.isExpired) throw deadline.timeoutException();
+        if (!expectedSidecars.contains(sidecar.path)) {
+          await _deleteEntity(sidecar, '删除孤立媒体缓存元数据');
+        }
       }
-      entries.add(
-        _MediaCacheEntry(
-          path: entity.path,
-          bytes: stat.size,
-          modified: stat.modified,
-        ),
-      );
-      totalBytes += stat.size;
-    }
-    final expectedSidecars = entries
-        .map((entry) => _metadataPathForMediaPath(entry.path))
-        .toSet();
-    for (final sidecar in sidecars) {
-      if (stopwatch.elapsed > _cacheScanTimeout) {
-        throw StateError('Media cache prune exceeded its time limit.');
-      }
-      if (!expectedSidecars.contains(sidecar.path)) {
-        await _deleteEntity(sidecar, 'delete orphan media cache metadata');
-      }
-    }
-    if (entries.length <= _maxCachedMediaFiles &&
-        totalBytes <= _maxTotalCacheBytes) {
-      return;
-    }
-    entries.sort((left, right) => left.modified.compareTo(right.modified));
-    var remainingFiles = entries.length;
-    for (final entry in entries) {
-      if (stopwatch.elapsed > _cacheScanTimeout) {
-        throw StateError('Media cache prune exceeded its time limit.');
-      }
-      if (remainingFiles <= _maxCachedMediaFiles &&
+      if (entries.length <= _maxCachedMediaFiles &&
           totalBytes <= _maxTotalCacheBytes) {
-        break;
+        return;
       }
-      await _deleteInvalidCachePair(entry.path);
-      if (!await File(entry.path).exists().timeout(_cleanupTimeout)) {
-        totalBytes -= entry.bytes;
-        remainingFiles--;
-        _validatedCachePaths.remove(entry.path);
+      entries.sort((left, right) => left.modified.compareTo(right.modified));
+      var remainingFiles = entries.length;
+      for (final entry in entries) {
+        if (deadline.isExpired) throw deadline.timeoutException();
+        if (remainingFiles <= _maxCachedMediaFiles &&
+            totalBytes <= _maxTotalCacheBytes) {
+          break;
+        }
+        await _deleteInvalidCachePair(entry.path);
+        if (!await File(entry.path).exists().timeout(_cleanupTimeout)) {
+          totalBytes -= entry.bytes;
+          remainingFiles--;
+          _validatedCachePaths.remove(entry.path);
+        }
       }
+    } finally {
+      deadline.stop();
     }
-    stopwatch.stop();
   }
 
   static Future<void> _closeOutput(RandomAccessFile output) async {
     try {
       await output.close().timeout(_cleanupTimeout);
     } catch (error, stack) {
-      silentLog('media_cache', 'close cached media temp file', error, stack);
+      silentLog('media_cache', '关闭媒体缓存临时文件', error, stack);
     }
   }
 
@@ -677,7 +660,7 @@ class MediaCacheService {
     try {
       await writeFileAtomically(sidecar, prettyPrintJson(metadata));
     } catch (error, stack) {
-      silentLog('media_cache', 'write metadata', error, stack);
+      silentLog('media_cache', '写入媒体缓存元数据', error, stack);
     }
   }
 
@@ -751,7 +734,7 @@ class MediaCacheService {
       try {
         client.close(force: true);
       } catch (error, stack) {
-        silentLog('media_cache', 'cancel active download', error, stack);
+        silentLog('media_cache', '取消活动媒体下载', error, stack);
       }
     }
     final pending = <Future<void>>[
@@ -851,7 +834,7 @@ class MediaCacheService {
         try {
           await file.setLastModified(now).timeout(_fileOperationTimeout);
         } on FileSystemException {
-          // Cache validity does not depend on access-time refresh support.
+          // 缓存有效性不依赖访问时间刷新能力。
         }
         if (_disposed ||
             _clearing ||
@@ -897,7 +880,7 @@ class MediaCacheService {
         await file.delete().timeout(_cleanupTimeout);
       }
     } catch (error, stack) {
-      silentLog('media_cache', 'delete invalid cached media', error, stack);
+      silentLog('media_cache', '删除无效媒体缓存', error, stack);
     }
     try {
       final sidecar = File(_metadataPathForMediaPath(mediaPath));
@@ -905,12 +888,7 @@ class MediaCacheService {
         await sidecar.delete().timeout(_cleanupTimeout);
       }
     } catch (error, stack) {
-      silentLog(
-        'media_cache',
-        'delete invalid cached media metadata',
-        error,
-        stack,
-      );
+      silentLog('media_cache', '删除无效媒体缓存元数据', error, stack);
     }
   }
 
@@ -958,7 +936,7 @@ class MediaCacheService {
       final ext = p.extension(uri.path).toLowerCase();
       if (_isAllowedExtensionForKind(ext, kind)) return ext;
     } catch (error, stack) {
-      silentLog('media_cache', 'parse url extension', error, stack);
+      silentLog('media_cache', '解析媒体地址扩展名', error, stack);
     }
     return switch (kind) {
       MediaCacheKind.image => '.png',

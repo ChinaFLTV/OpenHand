@@ -11,6 +11,52 @@ const Duration kOpenHandDefaultAsyncCleanupTimeout = Duration(seconds: 2);
 const Duration kOpenHandMaxAsyncCleanupTimeout = Duration(seconds: 30);
 const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
 
+/// 基于单调时钟管理总时限，避免系统时间校准影响超时判断。
+final class MonotonicDeadline {
+  MonotonicDeadline(this.timeout, {this.timeoutMessage = '操作超过总时限。'})
+    : _stopwatch = Stopwatch() {
+    requirePositiveDuration(timeout, 'timeout');
+    _stopwatch.start();
+  }
+
+  final Duration timeout;
+  final String timeoutMessage;
+  final Stopwatch _stopwatch;
+
+  Duration get elapsed => _stopwatch.elapsed;
+  bool get isExpired => remainingOrNull() == null;
+
+  Duration? remainingOrNull() {
+    final remainingMicroseconds =
+        timeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
+    return remainingMicroseconds <= 0
+        ? null
+        : Duration(microseconds: remainingMicroseconds);
+  }
+
+  Duration remaining() {
+    return remainingOrNull() ?? (throw timeoutException());
+  }
+
+  TimeoutException timeoutException() {
+    return TimeoutException(timeoutMessage, timeout);
+  }
+
+  Duration limit(Duration maximum) {
+    requirePositiveDuration(maximum, 'maximum');
+    final budget = remaining();
+    return maximum < budget ? maximum : budget;
+  }
+
+  void stop() => _stopwatch.stop();
+}
+
+void requirePositiveDuration(Duration value, String name) {
+  if (value <= Duration.zero) {
+    throw ArgumentError.value(value, name, '必须大于零。');
+  }
+}
+
 /// 尽力执行异步清理，同时防止异常资源永久阻塞关闭流程。
 ///
 /// 失败会交给 [onError] 并转换为 `false`；调用方提供的超大时限也会被截断，

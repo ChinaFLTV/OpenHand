@@ -391,6 +391,7 @@ class AiLspClientService {
   static const Duration _configuredRootProbeTotalTimeout = Duration(seconds: 3);
   static const int _commandPathMaxStdoutBytes = 64 * kBytesPerKiB;
   static const int _commandPathMaxStderrBytes = 16 * kBytesPerKiB;
+  static const int _commandPathCacheLimit = 128;
 
   final Map<String, _AiLspSession> _sessions = <String, _AiLspSession>{};
   final Map<String, _AiLspSessionStart> _sessionStarts =
@@ -1129,18 +1130,16 @@ class AiLspClientService {
   }
 
   Future<String?> _resolveCommandPath(String executable) async {
-    if (_commandPathCache.containsKey(executable)) {
-      return _commandPathCache[executable];
+    final normalizedExecutable = executable.trim();
+    if (normalizedExecutable.isEmpty) return null;
+    if (_commandPathCache.containsKey(normalizedExecutable)) {
+      return _commandPathCache[normalizedExecutable];
     }
-    // Bounded: a healthy `which`/`where` returns in milliseconds. The
-    // hard cap prevents a stuck PATH lookup (e.g. unresponsive network
-    // mount in PATH) from wedging LSP startup. We distinguish "timed out"
-    // (don't cache, allow retry next call) from "not found" (cache the
-    // null so we don't re-shell on every LSP request).
+    // PATH 查询受时限约束；超时不缓存以便重试，未找到则缓存空值避免重复拉起进程。
     var timedOut = false;
     final result = await runProcessWithTimeout(
       Platform.isWindows ? 'where' : 'which',
-      <String>[executable],
+      <String>[normalizedExecutable],
       timeout: _commandPathLookupTimeout,
       tag: 'lsp_client_service.path_lookup',
       maxStdoutBytes: _commandPathMaxStdoutBytes,
@@ -1151,12 +1150,10 @@ class AiLspClientService {
       },
     );
     if (timedOut) {
-      // Slow PATH (network mount, fuse, etc.) — leave cache untouched
-      // so the next LSP startup retries.
       silentLog(
         'lsp_client_service',
-        'which/where timed out',
-        'executable=$executable',
+        '查询 LSP 命令路径超时',
+        'executable=$normalizedExecutable',
       );
       return null;
     }
@@ -1164,12 +1161,19 @@ class AiLspClientService {
       final trimmed = '${result!.stdout}'.trim();
       if (trimmed.isNotEmpty) {
         final path = const LineSplitter().convert(trimmed).first.trim();
-        _commandPathCache[executable] = path;
+        _rememberCommandPath(normalizedExecutable, path);
         return path;
       }
     }
-    _commandPathCache[executable] = null;
+    _rememberCommandPath(normalizedExecutable, null);
     return null;
+  }
+
+  void _rememberCommandPath(String executable, String? path) {
+    if (_commandPathCache.length >= _commandPathCacheLimit) {
+      _commandPathCache.remove(_commandPathCache.keys.first);
+    }
+    _commandPathCache[executable] = path;
   }
 
   static String? _languageFromPath(String filePath) {

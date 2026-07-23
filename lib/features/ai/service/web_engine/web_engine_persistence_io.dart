@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -41,27 +42,22 @@ final class WebEngineIoDeadline {
   WebEngineIoDeadline({
     this.totalTimeout = webEngineDirectoryTotalTimeout,
     this.operationTimeout = webEngineFileOperationTimeout,
-  }) : _stopwatch = Stopwatch()..start();
+  }) : _deadline = MonotonicDeadline(
+         totalTimeout,
+         timeoutMessage: 'Web 引擎文件操作超过总时限。',
+       ) {
+    requirePositiveDuration(operationTimeout, 'operationTimeout');
+  }
 
   final Duration totalTimeout;
   final Duration operationTimeout;
-  final Stopwatch _stopwatch;
+  final MonotonicDeadline _deadline;
 
-  Duration remaining() {
-    final microseconds =
-        totalTimeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) {
-      throw TimeoutException('Web engine filesystem operation timed out.');
-    }
-    return Duration(microseconds: microseconds);
-  }
+  Duration remaining() => _deadline.remaining();
 
-  Duration nextOperationTimeout() {
-    final remainingTime = remaining();
-    return remainingTime < operationTimeout ? remainingTime : operationTimeout;
-  }
+  Duration nextOperationTimeout() => _deadline.limit(operationTimeout);
 
-  void stop() => _stopwatch.stop();
+  void stop() => _deadline.stop();
 }
 
 Future<BoundedDirectoryListing> listWebEngineDirectoryBounded(

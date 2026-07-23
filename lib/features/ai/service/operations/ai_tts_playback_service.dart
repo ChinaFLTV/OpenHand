@@ -1488,19 +1488,13 @@ class AiTtsPlaybackService {
   }
 
   Future<void> _cleanupStalePlaybackFiles(Directory directory) async {
-    final stopwatch = Stopwatch()..start();
+    final deadline = MonotonicDeadline(
+      _stalePlaybackCleanupTimeout,
+      timeoutMessage: 'TTS 过期文件清理超时。',
+    );
     final iterator = StreamIterator<FileSystemEntity>(
       directory.list(followLinks: false),
     );
-    Duration remaining() {
-      final value =
-          _stalePlaybackCleanupTimeout.inMicroseconds -
-          stopwatch.elapsedMicroseconds;
-      if (value <= 0) {
-        throw TimeoutException('TTS 过期文件清理超时。');
-      }
-      return Duration(microseconds: value);
-    }
 
     var scanned = 0;
     var deleted = 0;
@@ -1508,24 +1502,24 @@ class AiTtsPlaybackService {
     try {
       while (scanned < _stalePlaybackScanLimit &&
           deleted < _stalePlaybackDeleteLimit &&
-          await iterator.moveNext().timeout(remaining())) {
+          await iterator.moveNext().timeout(deadline.remaining())) {
         scanned += 1;
         final entity = iterator.current;
         if (entity is! File || !p.basename(entity.path).startsWith('tts_')) {
           continue;
         }
-        final stat = await entity.stat().timeout(remaining());
+        final stat = await entity.stat().timeout(deadline.remaining());
         if (stat.type != FileSystemEntityType.file ||
             !stat.modified.isBefore(staleBefore)) {
           continue;
         }
-        await entity.delete().timeout(remaining());
+        await entity.delete().timeout(deadline.remaining());
         deleted += 1;
       }
     } catch (_) {
       // 启动清理仅尽力执行，并受严格时限约束。
     } finally {
-      stopwatch.stop();
+      deadline.stop();
       await runAsyncCleanupBounded(iterator.cancel);
     }
   }
@@ -2659,12 +2653,11 @@ class _DoubaoJsonObjectParser {
 }
 
 class _AiTtsOperation implements BoundedFileHandleOwner {
-  _AiTtsOperation({required this.timeout, required this.transport})
-    : _stopwatch = Stopwatch()..start();
+  _AiTtsOperation({required Duration timeout, required this.transport})
+    : _deadline = MonotonicDeadline(timeout, timeoutMessage: 'TTS 合成超过总时限。');
 
-  final Duration timeout;
   final AiTransportClient transport;
-  final Stopwatch _stopwatch;
+  final MonotonicDeadline _deadline;
   final Set<Process> _processes = <Process>{};
   final Map<Process, Future<void>> _processTerminations =
       <Process, Future<void>>{};
@@ -2682,6 +2675,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
   Future<void>? _closeFuture;
 
   bool get isCancelled => _cancelled;
+  Duration get timeout => _deadline.timeout;
   Future<void> get cancelSignal => _cancelCompleter.future;
 
   void throwIfCancelled() {
@@ -2690,11 +2684,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
 
   Duration remainingSynthesisTime() {
     throwIfCancelled();
-    final remaining = timeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
-    if (remaining <= 0) {
-      throw TimeoutException('TTS 合成超过总时限。');
-    }
-    return Duration(microseconds: remaining);
+    return _deadline.remaining();
   }
 
   void registerHttpClient(HttpClient client) {
@@ -2866,7 +2856,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     if (!_cancelled) {
       _cancelled = true;
       _cancelCompleter.complete();
-      _stopwatch.stop();
+      _deadline.stop();
       transport.dispose();
       for (final client in _httpClients) {
         client.close(force: true);

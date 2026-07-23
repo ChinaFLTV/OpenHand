@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../net/http_response_utils.dart';
+import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
@@ -111,24 +112,16 @@ Future<void> _deleteTempFile(
   Duration timeout = const Duration(seconds: 2),
 }) async {
   if (timeout <= Duration.zero) return;
-  final stopwatch = Stopwatch()..start();
-  Duration remaining() {
-    final remainingMicroseconds =
-        timeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) {
-      throw TimeoutException('删除媒体临时文件超时。', timeout);
-    }
-    return Duration(microseconds: remainingMicroseconds);
-  }
+  final deadline = MonotonicDeadline(timeout, timeoutMessage: '删除媒体临时文件超时。');
 
   try {
-    if (await file.exists().timeout(remaining())) {
-      await file.delete().timeout(remaining());
+    if (await file.exists().timeout(deadline.remaining())) {
+      await file.delete().timeout(deadline.remaining());
     }
   } catch (error, stack) {
     silentLog('media_preview_dialog', '删除媒体临时文件', error, stack);
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
 }
 
@@ -140,7 +133,8 @@ Future<void> _pruneMediaTempFiles(
   required Duration timeout,
   int scanLimit = 256,
 }) async {
-  final stopwatch = Stopwatch()..start();
+  if (timeout <= Duration.zero) return;
+  final deadline = MonotonicDeadline(timeout, timeoutMessage: '清理媒体临时文件超时。');
   try {
     final listing = await listDirectoryBounded(
       directory,
@@ -174,18 +168,14 @@ Future<void> _pruneMediaTempFiles(
       if (index < maxRetainedFiles && stamp != null && stamp >= oldestAllowed) {
         continue;
       }
-      final remainingMicroseconds =
-          timeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) break;
-      await _deleteTempFile(
-        files[index],
-        timeout: Duration(microseconds: remainingMicroseconds),
-      );
+      final remaining = deadline.remainingOrNull();
+      if (remaining == null) break;
+      await _deleteTempFile(files[index], timeout: remaining);
     }
   } catch (error, stack) {
     silentLog('media_preview_dialog', '清理媒体临时文件', error, stack);
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
 }
 
@@ -792,16 +782,10 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   }
 
   Future<void> _bootstrapVideo() async {
-    final bootstrapStopwatch = Stopwatch()..start();
-    Duration nextBootstrapTimeout() {
-      final remainingMicroseconds =
-          _kBootstrapOperationTimeout.inMicroseconds -
-          bootstrapStopwatch.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) {
-        throw TimeoutException('视频预览初始化超时。', _kBootstrapOperationTimeout);
-      }
-      return Duration(microseconds: remainingMicroseconds);
-    }
+    final deadline = MonotonicDeadline(
+      _kBootstrapOperationTimeout,
+      timeoutMessage: '视频预览初始化超时。',
+    );
 
     try {
       final normalizedMime = widget.mimeType
@@ -815,9 +799,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       final tempDirectory = Directory(
         p.join(Directory.systemTemp.path, _kPreviewTempDirectoryName),
       );
-      await tempDirectory
-          .create(recursive: true)
-          .timeout(nextBootstrapTimeout());
+      await tempDirectory.create(recursive: true).timeout(deadline.remaining());
       await _pruneMediaTempFiles(
         tempDirectory,
         filePrefix: _kPreviewTempFilePrefix,
@@ -845,7 +827,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
           await _writeTempBytesBounded(
             mediaFile,
             widget.bytes!,
-            timeout: nextBootstrapTimeout(),
+            timeout: deadline.remaining(),
           );
           _tempMediaPath = mediaFile.path;
           _activeMediaPreviewTempPaths.add(_mediaTempPathKey(mediaFile.path));
@@ -867,7 +849,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       await _writeTempTextBounded(
         htmlFile,
         html,
-        timeout: nextBootstrapTimeout(),
+        timeout: deadline.remaining(),
       );
       _tempHtmlPath = htmlFile.path;
       _activeMediaPreviewTempPaths.add(_mediaTempPathKey(htmlFile.path));
@@ -878,14 +860,14 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       final controller = WebViewController();
       await controller
           .setJavaScriptMode(JavaScriptMode.unrestricted)
-          .timeout(nextBootstrapTimeout());
+          .timeout(deadline.remaining());
       if (!mounted) {
         await _cleanupTempFiles();
         return;
       }
       await controller
           .setBackgroundColor(const Color(0xFF0F0F10))
-          .timeout(nextBootstrapTimeout());
+          .timeout(deadline.remaining());
       if (!mounted) {
         await _cleanupTempFiles();
         return;
@@ -895,12 +877,12 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
             'OpenHandMediaPreview',
             onMessageReceived: (_) => _requestDialogClose(),
           )
-          .timeout(nextBootstrapTimeout());
+          .timeout(deadline.remaining());
       if (!mounted) {
         await _cleanupTempFiles();
         return;
       }
-      await controller.loadFile(htmlFile.path).timeout(nextBootstrapTimeout());
+      await controller.loadFile(htmlFile.path).timeout(deadline.remaining());
       if (!mounted) {
         await _cleanupTempFiles();
         return;
@@ -912,7 +894,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       if (!mounted) return;
       setState(() => _error = '$error');
     } finally {
-      bootstrapStopwatch.stop();
+      deadline.stop();
     }
   }
 

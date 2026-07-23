@@ -617,25 +617,21 @@ class McpStdioProcessManager extends ChangeNotifier {
       return null;
     }
 
-    // 轮询等待：进程启动 + 握手完成。覆盖两种情况：
-    //   a) 进程刚 startServer，process 字段还是 null（同步占位阶段）
-    //   b) 进程已启动，但 handshake 还在进行（initialize 回环）
-    final deadline = DateTime.now().add(_handshakeWaitTimeout);
-    while (!managed!.handshakeCompleted || managed.process == null) {
-      if (DateTime.now().isAfter(deadline)) {
-        return null;
+    // 轮询等待进程启动并完成握手，覆盖同步占位和初始化回环阶段。
+    final deadline = MonotonicDeadline(_handshakeWaitTimeout);
+    try {
+      while (!managed!.handshakeCompleted || managed.process == null) {
+        if (deadline.isExpired) return null;
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        managed = _processes[serverName];
+        if (managed == null ||
+            managed.info.state == StdioProcessState.stopping ||
+            managed.info.isStopped && managed.process == null) {
+          return null;
+        }
       }
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      managed = _processes[serverName];
-      if (managed == null) {
-        return null;
-      }
-      if (managed.info.state == StdioProcessState.stopping) {
-        return null;
-      }
-      if (managed.info.isStopped && managed.process == null) {
-        return null;
-      }
+    } finally {
+      deadline.stop();
     }
 
     if (managed.info.state != StdioProcessState.running ||
@@ -672,21 +668,23 @@ class McpStdioProcessManager extends ChangeNotifier {
     String serverName,
     int generation,
   ) async {
-    final deadline = DateTime.now().add(_borrowReleaseTimeout);
-    while ((_sessionBorrowCount[serverName] ?? 0) > 0) {
-      if (_processes[serverName]?.generation != generation) {
-        return;
+    final deadline = MonotonicDeadline(_borrowReleaseTimeout);
+    try {
+      while ((_sessionBorrowCount[serverName] ?? 0) > 0) {
+        if (_processes[serverName]?.generation != generation) return;
+        if (deadline.isExpired) {
+          _appendLog(
+            serverName,
+            '[${_timestamp()}] 停止等待会话归还超时，继续关闭进程',
+            isStderr: true,
+            expectedGeneration: generation,
+          );
+          return;
+        }
+        await Future<void>.delayed(_borrowPollInterval);
       }
-      if (DateTime.now().isAfter(deadline)) {
-        _appendLog(
-          serverName,
-          '[${_timestamp()}] 停止等待会话归还超时，继续关闭进程',
-          isStderr: true,
-          expectedGeneration: generation,
-        );
-        return;
-      }
-      await Future<void>.delayed(_borrowPollInterval);
+    } finally {
+      deadline.stop();
     }
   }
 

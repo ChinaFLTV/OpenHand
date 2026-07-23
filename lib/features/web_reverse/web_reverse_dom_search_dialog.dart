@@ -147,67 +147,68 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         }
       }
       final results = List<_Hit?>.filled(ids.length, null);
-      final deadline = DateTime.now().add(_describeWindow);
-      await forEachIndexWithConcurrencyLimit(
-        itemCount: ids.length,
-        maxConcurrency: _describeConcurrency,
-        shouldContinue: () =>
-            mounted &&
-            serial == _searchSerial &&
-            widget.controller.currentPageTargetId == targetId &&
-            DateTime.now().isBefore(deadline),
-        task: (index) async {
-          final id = ids[index];
-          try {
-            final desc = await widget.controller.domDescribeNode(id);
-            if (desc == null) return;
-            final node = desc;
-            final nodeName = (node['nodeName'] ?? '?').toString().toLowerCase();
-            final attrs = node['attributes'];
-            final attrMap = <String, String>{};
-            if (attrs is List) {
-              for (var i = 0; i + 1 < attrs.length; i += 2) {
-                attrMap['${attrs[i]}'] = '${attrs[i + 1]}';
+      final deadline = MonotonicDeadline(_describeWindow);
+      try {
+        await forEachIndexWithConcurrencyLimit(
+          itemCount: ids.length,
+          maxConcurrency: _describeConcurrency,
+          shouldContinue: () =>
+              mounted &&
+              serial == _searchSerial &&
+              widget.controller.currentPageTargetId == targetId &&
+              !deadline.isExpired,
+          task: (index) async {
+            final id = ids[index];
+            try {
+              final desc = await widget.controller.domDescribeNode(id);
+              if (desc == null) return;
+              final node = desc;
+              final nodeName = (node['nodeName'] ?? '?')
+                  .toString()
+                  .toLowerCase();
+              final attrs = node['attributes'];
+              final attrMap = <String, String>{};
+              if (attrs is List) {
+                for (var i = 0; i + 1 < attrs.length; i += 2) {
+                  attrMap['${attrs[i]}'] = '${attrs[i + 1]}';
+                }
               }
+              final idAttr = attrMap['id'];
+              final classAttr = attrMap['class'];
+              final label = StringBuffer('<$nodeName');
+              if (idAttr != null && idAttr.isNotEmpty) {
+                label.write(' id="$idAttr"');
+              }
+              if (classAttr != null && classAttr.isNotEmpty) {
+                final cls = classAttr.length > 60
+                    ? '${classAttr.substring(0, 60)}…'
+                    : classAttr;
+                label.write(' class="$cls"');
+              }
+              label.write('>');
+              final detail = attrMap.entries
+                  .where((e) => e.key != 'id' && e.key != 'class')
+                  .take(4)
+                  .map((e) {
+                    final v = e.value.length > 40
+                        ? '${e.value.substring(0, 40)}…'
+                        : e.value;
+                    return '${e.key}="$v"';
+                  })
+                  .join(' ');
+              results[index] = _Hit(
+                nodeId: id,
+                label: label.toString(),
+                detail: detail,
+              );
+            } catch (e, st) {
+              silentLog('web_reverse_dom_search_dialog', '描述 DOM 搜索节点', e, st);
             }
-            final idAttr = attrMap['id'];
-            final classAttr = attrMap['class'];
-            final label = StringBuffer('<$nodeName');
-            if (idAttr != null && idAttr.isNotEmpty) {
-              label.write(' id="$idAttr"');
-            }
-            if (classAttr != null && classAttr.isNotEmpty) {
-              final cls = classAttr.length > 60
-                  ? '${classAttr.substring(0, 60)}…'
-                  : classAttr;
-              label.write(' class="$cls"');
-            }
-            label.write('>');
-            final detail = attrMap.entries
-                .where((e) => e.key != 'id' && e.key != 'class')
-                .take(4)
-                .map((e) {
-                  final v = e.value.length > 40
-                      ? '${e.value.substring(0, 40)}…'
-                      : e.value;
-                  return '${e.key}="$v"';
-                })
-                .join(' ');
-            results[index] = _Hit(
-              nodeId: id,
-              label: label.toString(),
-              detail: detail,
-            );
-          } catch (e, st) {
-            silentLog(
-              'web_reverse_dom_search_dialog',
-              'dom-search.describe',
-              e,
-              st,
-            );
-          }
-        },
-      );
+          },
+        );
+      } finally {
+        deadline.stop();
+      }
       if (!mounted || serial != _searchSerial) return;
       if (widget.controller.currentPageTargetId != targetId) {
         setState(() {
@@ -225,7 +226,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
             'Matched $_resultCount, showing top ${hits.length}';
       });
     } catch (e, st) {
-      silentLog('web_reverse_dom_search_dialog', 'dom-search.run', e, st);
+      silentLog('web_reverse_dom_search_dialog', '执行 DOM 搜索', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;

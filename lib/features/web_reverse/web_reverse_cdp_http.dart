@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../../shared/util/async_concurrency.dart';
+
 const String webReverseCdpLoopbackHost = '127.0.0.1';
 
 Future<T> withWebReverseCdpHttpClient<T>({
@@ -7,8 +9,8 @@ Future<T> withWebReverseCdpHttpClient<T>({
   Duration connectionTimeout = const Duration(seconds: 2),
   Duration idleTimeout = const Duration(seconds: 2),
 }) async {
-  _requirePositiveDuration(connectionTimeout, 'connectionTimeout');
-  _requirePositiveDuration(idleTimeout, 'idleTimeout');
+  requirePositiveDuration(connectionTimeout, 'connectionTimeout');
+  requirePositiveDuration(idleTimeout, 'idleTimeout');
   final client = HttpClient();
   client.findProxy = (_) => 'DIRECT';
   client.connectionTimeout = connectionTimeout;
@@ -36,10 +38,4 @@ String webReverseCdpHttpOrigin(int port) {
     host: webReverseCdpLoopbackHost,
     port: port,
   ).toString();
-}
-
-void _requirePositiveDuration(Duration value, String name) {
-  if (value <= Duration.zero) {
-    throw ArgumentError.value(value, name, '必须大于零。');
-  }
 }

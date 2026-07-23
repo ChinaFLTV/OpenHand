@@ -47,16 +47,11 @@ Future<Uint8List> fetchBoundedHttpBytes({
     totalTimeout: totalTimeout,
   );
 
-  final stopwatch = Stopwatch()..start();
+  final deadline = totalTimeout == null
+      ? null
+      : MonotonicDeadline(totalTimeout, timeoutMessage: 'HTTP 资源获取超过总时限。');
   Duration remainingTotalBudget() {
-    final total = totalTimeout;
-    if (total == null) return openTimeout;
-    final remainingMicroseconds =
-        total.inMicroseconds - stopwatch.elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) {
-      throw TimeoutException('HTTP 资源获取超过总时限。', total);
-    }
-    return Duration(microseconds: remainingMicroseconds);
+    return deadline?.remaining() ?? openTimeout;
   }
 
   Duration nextOpenTimeout() {
@@ -90,7 +85,7 @@ Future<Uint8List> fetchBoundedHttpBytes({
       totalTimeout: remainingTotal,
     );
   } finally {
-    stopwatch.stop();
+    deadline?.stop();
   }
 }
 

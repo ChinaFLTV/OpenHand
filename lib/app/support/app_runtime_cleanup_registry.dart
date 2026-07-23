@@ -61,32 +61,37 @@ final class AppRuntimeCleanupRegistry {
   }
 
   Future<void> _disposeAll() async {
-    final stopwatch = Stopwatch()..start();
-    while (_entries.isNotEmpty) {
-      final remainingMicros =
-          _totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-      if (remainingMicros <= 0) {
-        final skippedCount = _entries.length;
-        _entries.clear();
-        _reportError(
-          '运行时资源释放总时限',
-          TimeoutException('总时限已耗尽，已跳过 $skippedCount 项清理。'),
-          StackTrace.current,
+    final deadline = MonotonicDeadline(
+      _totalTimeout,
+      timeoutMessage: '运行时资源释放超过总时限。',
+    );
+    try {
+      while (_entries.isNotEmpty) {
+        final remaining = deadline.remainingOrNull();
+        if (remaining == null) {
+          final skippedCount = _entries.length;
+          _entries.clear();
+          _reportError(
+            '运行时资源释放总时限',
+            TimeoutException('总时限已耗尽，已跳过 $skippedCount 项清理。'),
+            StackTrace.current,
+          );
+          break;
+        }
+        final remainingEntries = _entries.length;
+        final fairShare = Duration(
+          microseconds: remaining.inMicroseconds ~/ remainingEntries,
         );
-        break;
+        final entry = _entries.removeLast();
+        await runAsyncCleanupBounded(
+          entry.cleanup,
+          timeout: fairShare < _cleanupTimeout ? fairShare : _cleanupTimeout,
+          onError: (error, stack) => _reportError(entry.name, error, stack),
+        );
       }
-      final remainingEntries = _entries.length;
-      final fairShare = Duration(
-        microseconds: remainingMicros ~/ remainingEntries,
-      );
-      final entry = _entries.removeLast();
-      await runAsyncCleanupBounded(
-        entry.cleanup,
-        timeout: fairShare < _cleanupTimeout ? fairShare : _cleanupTimeout,
-        onError: (error, stack) => _reportError(entry.name, error, stack),
-      );
+    } finally {
+      deadline.stop();
     }
-    stopwatch.stop();
   }
 
   void _reportError(String name, Object error, StackTrace stack) {

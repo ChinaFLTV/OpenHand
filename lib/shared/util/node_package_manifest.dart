@@ -4,47 +4,25 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'async_concurrency.dart';
 import 'bounded_file_io.dart';
 import 'physical_path_safety.dart';
 
 const int kNodePackageManifestMaxBytes = 2 * 1024 * 1024;
 const Duration kNodePackageManifestIoTimeout = Duration(seconds: 3);
 
-/// Resolves the first executable declared by a Node package without allowing
-/// an absolute path or `..` segment to escape the package directory.
+/// 解析 Node 包声明的首个可执行文件，并阻止绝对路径或 `..` 逃逸包目录。
 Future<String?> resolveNodePackageBinEntry(
   String packageDirectoryPath, {
   int maxManifestBytes = kNodePackageManifestMaxBytes,
   Duration idleTimeout = kNodePackageManifestIoTimeout,
   Duration totalTimeout = defaultBoundedFileReadTotalTimeout,
 }) async {
-  if (idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
-  }
-  if (totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
-  final stopwatch = Stopwatch()..start();
-  Duration remainingBudget() {
-    final microseconds =
-        totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-    if (microseconds <= 0) {
-      throw TimeoutException(
-        'Node package manifest resolution exceeded its time limit.',
-        totalTimeout,
-      );
-    }
-    return Duration(microseconds: microseconds);
-  }
-
-  Duration nextOperationTimeout() {
-    final remaining = remainingBudget();
-    return remaining < idleTimeout ? remaining : idleTimeout;
-  }
+  requirePositiveDuration(idleTimeout, 'idleTimeout');
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '解析 Node 包清单超过总时限。',
+  );
 
   try {
     final packageRoot = p.normalize(p.absolute(packageDirectoryPath));
@@ -52,14 +30,14 @@ Future<String?> resolveNodePackageBinEntry(
     final manifestType = await FileSystemEntity.type(
       manifest.path,
       followLinks: false,
-    ).timeout(nextOperationTimeout());
+    ).timeout(deadline.limit(idleTimeout));
     if (manifestType != FileSystemEntityType.file) return null;
     final decoded = jsonDecode(
       await readBoundedFileString(
         manifest,
         maxBytes: maxManifestBytes,
-        idleTimeout: nextOperationTimeout(),
-        totalTimeout: remainingBudget(),
+        idleTimeout: deadline.limit(idleTimeout),
+        totalTimeout: deadline.remaining(),
       ),
     );
     if (decoded is! Map) return null;
@@ -79,13 +57,13 @@ Future<String?> resolveNodePackageBinEntry(
         !await isPhysicalPathWithinOrEqual(
           packageRoot,
           resolved,
-        ).timeout(nextOperationTimeout())) {
+        ).timeout(deadline.limit(idleTimeout))) {
       return null;
     }
     final entryType = await FileSystemEntity.type(
       resolved,
       followLinks: false,
-    ).timeout(nextOperationTimeout());
+    ).timeout(deadline.limit(idleTimeout));
     return entryType == FileSystemEntityType.file ? resolved : null;
   } on TimeoutException {
     return null;
@@ -96,6 +74,6 @@ Future<String?> resolveNodePackageBinEntry(
   } on BoundedFileReadException {
     return null;
   } finally {
-    stopwatch.stop();
+    deadline.stop();
   }
 }

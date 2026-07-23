@@ -215,16 +215,19 @@ class WebReverseBrowserLauncher {
     // 轮询 /json/version 拿 webSocketDebuggerUrl。
     // 退避策略：前 2s 用 150ms 间隔（macOS 上 chrome 通常 800ms 就能起 CDP），
     // 之后切到 400ms 间隔，减少对系统的压力但仍能在 30s 内多次命中。
-    final handshakeStopwatch = Stopwatch()..start();
+    final handshakeDeadline = MonotonicDeadline(
+      _handshakeTimeout,
+      timeoutMessage: 'CDP 握手超过总时限。',
+    );
     String? wsUrl;
     String version = browserKind.displayName;
     var lastHttpError = '';
     int attempts = 0;
-    while (handshakeStopwatch.elapsed < _handshakeTimeout) {
+    while (!handshakeDeadline.isExpired) {
       if (processExited) break;
       attempts++;
       try {
-        final requestBudget = _remainingHandshakeBudget(handshakeStopwatch);
+        final requestBudget = handshakeDeadline.remaining();
         final resp = await _requestCdpEndpoint(
           webReverseCdpHttpUri(port, '/json/version'),
           timeout: requestBudget < _handshakeProbeTimeout
@@ -253,15 +256,16 @@ class WebReverseBrowserLauncher {
       } catch (e) {
         lastHttpError = '$e';
       }
-      final remaining = _remainingHandshakeBudget(handshakeStopwatch);
-      final retryDelay = handshakeStopwatch.elapsed < const Duration(seconds: 2)
+      final remaining = handshakeDeadline.remainingOrNull();
+      if (remaining == null) break;
+      final retryDelay = handshakeDeadline.elapsed < const Duration(seconds: 2)
           ? const Duration(milliseconds: 150)
           : const Duration(milliseconds: 400);
       await Future<void>.delayed(
         remaining < retryDelay ? remaining : retryDelay,
       );
     }
-    handshakeStopwatch.stop();
+    handshakeDeadline.stop();
     if (wsUrl == null) {
       await runAsyncCleanupBounded(
         () => terminateTrackedProcessTree(
@@ -317,50 +321,39 @@ class WebReverseBrowserLauncher {
     required Duration timeout,
     bool readBody = true,
   }) async {
-    final stopwatch = Stopwatch()..start();
-    Duration remaining() {
-      final remainingMicroseconds =
-          timeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) {
-        throw TimeoutException('CDP HTTP 探测超时。', timeout);
-      }
-      return Duration(microseconds: remainingMicroseconds);
-    }
+    final deadline = MonotonicDeadline(
+      timeout,
+      timeoutMessage: 'CDP HTTP 探测超时。',
+    );
 
     try {
       return await withWebReverseCdpHttpClient<({int statusCode, String body})>(
         connectionTimeout: timeout,
         idleTimeout: timeout,
         action: (client) async {
-          final request = await client.getUrl(uri).timeout(remaining());
+          final request = await client
+              .getUrl(uri)
+              .timeout(deadline.remaining());
           request
             ..followRedirects = false
             ..persistentConnection = false;
-          final response = await request.close().timeout(remaining());
+          final response = await request.close().timeout(deadline.remaining());
           if (!readBody) {
             return (statusCode: response.statusCode, body: '');
           }
           final body = await readBoundedHttpResponseText(
             response,
             maxBytes: _maxHandshakeResponseBytes,
-            idleTimeout: remaining(),
-            totalTimeout: remaining(),
+            idleTimeout: deadline.remaining(),
+            totalTimeout: deadline.remaining(),
             allowMalformed: true,
           );
           return (statusCode: response.statusCode, body: body);
         },
       );
     } finally {
-      stopwatch.stop();
+      deadline.stop();
     }
-  }
-
-  Duration _remainingHandshakeBudget(Stopwatch stopwatch) {
-    final remainingMicroseconds =
-        _handshakeTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-    return remainingMicroseconds > 0
-        ? Duration(microseconds: remainingMicroseconds)
-        : Duration.zero;
   }
 
   Future<void> _cancelProcessOutputSubscriptions(
