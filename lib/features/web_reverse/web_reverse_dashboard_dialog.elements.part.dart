@@ -83,6 +83,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
   }
 
   Future<void> _loadDocument() async {
+    if (!mounted) return;
     final serial = ++_documentSerial;
     _selectionSerial++;
     _clearHighlight();

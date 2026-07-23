@@ -72,6 +72,7 @@ class _StorageDialogState extends State<_StorageDialog>
   }
 
   Future<void> _refreshActive() async {
+    if (!mounted) return;
     final generation = ++_refreshGeneration;
     final activeTab = _tab.index;
     if (mounted) setState(() => _loading = true);

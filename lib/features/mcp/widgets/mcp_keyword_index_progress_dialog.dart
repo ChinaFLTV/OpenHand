@@ -46,6 +46,7 @@ class _McpKeywordIndexProgressDialogState
   }
 
   Future<void> _kickoff() async {
+    if (!mounted) return;
     final controller = context.read<McpController>();
     try {
       final result = await controller.buildKeywordIndex(

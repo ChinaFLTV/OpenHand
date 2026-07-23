@@ -65,7 +65,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _refresh() async {
-    if (_loading) return;
+    if (!mounted || _loading) return;
     final loc0 = AppLocalizations.of(context);
     setState(() {
       _loading = true;

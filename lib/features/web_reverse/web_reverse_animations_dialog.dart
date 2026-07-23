@@ -181,6 +181,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
 ''';
 
   Future<void> _refresh() async {
+    if (!mounted) return;
     setState(() {
       _busy = true;
     });

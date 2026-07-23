@@ -42,11 +42,15 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   bool _autoScroll = true;
-  int _lastLogCount = 0;
+  bool _updateScheduled = false;
+  List<String> _lastLogs = const <String>[];
 
   @override
   void initState() {
     super.initState();
+    _lastLogs = McpStdioProcessManager.instance
+        .infoFor(widget.server.name)
+        .logs;
     McpStdioProcessManager.instance.addListener(_onUpdate);
     // 弹窗打开时自动滚动到底部显示最新日志
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -63,13 +67,16 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   }
 
   void _onUpdate() {
-    if (!mounted) return;
+    if (!mounted || _updateScheduled) return;
+    _updateScheduled = true;
     setState(() {});
-    final info = McpStdioProcessManager.instance.infoFor(widget.server.name);
-    if (_autoScroll && info.logs.length > _lastLogCount) {
-      _lastLogCount = info.logs.length;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScheduled = false;
+      if (!mounted) return;
+      final info = McpStdioProcessManager.instance.infoFor(widget.server.name);
+      final logsChanged = !identical(info.logs, _lastLogs);
+      _lastLogs = info.logs;
+      if (_autoScroll && logsChanged && info.logs.isNotEmpty) {
         _scrollGuard.followToBottom(
           _scrollController,
           animated: true,
@@ -78,8 +85,8 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
             const Duration(milliseconds: 220),
           ),
         );
-      });
-    }
+      }
+    });
   }
 
   @override

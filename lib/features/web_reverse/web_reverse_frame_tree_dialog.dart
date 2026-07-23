@@ -10,9 +10,14 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
+
+const int _kMaxFrameTreeRows = 2048;
+const int _kMaxFrameTreeDepth = 64;
+const int _kMaxFrameTreeFieldChars = 2048;
 
 Future<void> showWebReverseFrameTreeDialog(
   BuildContext context, {
@@ -55,18 +60,22 @@ class _FrameRow {
 class _FrameTreeDialogState extends State<_FrameTreeDialog> {
   bool _busy = false;
   String _err = '';
+  bool _truncated = false;
   final List<_FrameRow> _rows = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   Future<void> _load() async {
     setState(() {
       _busy = true;
       _err = '';
+      _truncated = false;
       _rows.clear();
     });
     Map<String, Object?>? r;
@@ -95,27 +104,41 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
   }
 
   void _walk(Map<String, Object?> node, int depth) {
+    if (_rows.length >= _kMaxFrameTreeRows || depth > _kMaxFrameTreeDepth) {
+      _truncated = true;
+      return;
+    }
     final frame = (node['frame'] is Map)
         ? (node['frame']! as Map).cast<String, Object?>()
         : const <String, Object?>{};
     _rows.add(
       _FrameRow(
         depth: depth,
-        id: (frame['id'] ?? '').toString(),
-        name: (frame['name'] ?? '').toString(),
-        url: (frame['url'] ?? '').toString(),
-        origin: (frame['securityOrigin'] ?? '').toString(),
-        mimeType: (frame['mimeType'] ?? '').toString(),
-        unreachableUrl: (frame['unreachableUrl'] ?? '').toString(),
-        loaderId: (frame['loaderId'] ?? '').toString(),
+        id: _clipFrameField(frame['id']),
+        name: _clipFrameField(frame['name']),
+        url: _clipFrameField(frame['url']),
+        origin: _clipFrameField(frame['securityOrigin']),
+        mimeType: _clipFrameField(frame['mimeType']),
+        unreachableUrl: _clipFrameField(frame['unreachableUrl']),
+        loaderId: _clipFrameField(frame['loaderId']),
       ),
     );
     final children = node['childFrames'];
     if (children is List) {
       for (final c in children.whereType<Map>()) {
+        if (_rows.length >= _kMaxFrameTreeRows ||
+            depth >= _kMaxFrameTreeDepth) {
+          _truncated = true;
+          break;
+        }
         _walk(c.cast<String, Object?>(), depth + 1);
       }
     }
+  }
+
+  String _clipFrameField(Object? value) {
+    if (value == null) return '';
+    return clipTextWithEllipsis('$value', _kMaxFrameTreeFieldChars);
   }
 
   Future<void> _copy(String s) async {
@@ -216,8 +239,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
             primaryLabel: loc?.commonClose ?? 'Close',
             onPrimaryPressed: () => Navigator.of(context).pop(),
             leading: Text(
-              loc?.webReverseFrameTreeCount(_rows.length) ??
-                  '${_rows.length} frames',
+              '${loc?.webReverseFrameTreeCount(_rows.length) ?? '${_rows.length} frames'}${_truncated ? '+' : ''}',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),

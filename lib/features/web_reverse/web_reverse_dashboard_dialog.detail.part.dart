@@ -56,7 +56,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   }
 
   Future<void> _ensureBody() async {
-    if (_bodyLoading || _bodyText != null) return;
+    if (!mounted || _bodyLoading || _bodyText != null) return;
     if (widget.entry.cachedBody != null) {
       _bodyText = widget.entry.cachedBody;
       _bodyBase64 = widget.entry.cachedBodyBase64;
