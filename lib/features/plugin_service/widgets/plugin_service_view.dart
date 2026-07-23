@@ -1639,9 +1639,16 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
       if (exitCode == 0) {
         _addLog('');
         _addLog(l10n.pluginServiceMcpOperationCompleted(actionLabel, exitCode));
-        await _checkMcpStatus();
-        // 同步到 MCP 板块
-        if (mounted) _syncMcpController(action);
+        // npm 操作成功后先同步 MCP 配置，再复检最终状态，避免短暂误报未安装。
+        final synced = mounted && await _syncMcpController(action);
+        if (!mounted) return;
+        if (!synced) {
+          const message = 'MCP 服务配置同步失败';
+          _addLog(message);
+          _error = message;
+        } else {
+          await _checkMcpStatus();
+        }
       } else {
         _addLog('');
         final message = l10n.pluginServiceMcpOperationFailed(
@@ -1660,8 +1667,9 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     if (mounted) setState(() => _operating = false);
   }
 
-  void _syncMcpController(_PluginServiceAction action) {
+  Future<bool> _syncMcpController(_PluginServiceAction action) async {
     try {
+      if (!mounted) return false;
       final mcpController = context.read<McpController>();
       const mcpName = 'Playwright MCP';
       if (action == _PluginServiceAction.install ||
@@ -1687,18 +1695,22 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                 AiPromptTemplatePolicies.webReverseExpertTemplateId,
               },
             );
-        mcpController.saveServer(server, previousName: mcpName);
+        return await mcpController.saveServer(server, previousName: mcpName);
       } else if (action == _PluginServiceAction.uninstall) {
         // 从 MCP 板块移除
         final existing = mcpController.servers
             .where((s) => s.name == mcpName)
             .toList();
+        var succeeded = true;
         for (final s in existing) {
-          mcpController.deleteServer(s);
+          succeeded = await mcpController.deleteServer(s) && succeeded;
         }
+        return succeeded;
       }
+      return false;
     } catch (error, stack) {
       silentLog('plugin_service_view', '同步 MCP 服务操作', error, stack);
+      return false;
     }
   }
 
