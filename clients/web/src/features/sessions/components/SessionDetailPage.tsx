@@ -245,6 +245,11 @@ const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 1200;
 const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
+const TRANSCRIPT_INITIAL_SETTLE_MAX_FRAMES = 72;
+const TRANSCRIPT_INITIAL_SETTLE_MAX_MS = 1400;
+const TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES = 14;
+const TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES = 4;
+const TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX = 0.75;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 const COMPOSER_INSTRUCTION_HOVER_PREVIEW_DELAY_MS = 480;
@@ -2678,6 +2683,7 @@ interface VirtualMessageListProps {
   scrollContainerRef: { current: HTMLElement | null };
   revealTarget: { messageId: string; generation: number } | null;
   highlightedMessageId: string | null;
+  onInitialLayoutSettled: () => void;
   renderMessage: (message: SessionMessage) => ComponentChildren;
 }
 
@@ -2736,6 +2742,7 @@ function VirtualMessageList({
   scrollContainerRef,
   revealTarget,
   highlightedMessageId,
+  onInitialLayoutSettled,
   renderMessage,
 }: VirtualMessageListProps) {
   const virtualized = shouldVirtualizeMessageList(messages.length);
@@ -2745,6 +2752,8 @@ function VirtualMessageList({
   const heightCommitPendingRef = useRef(false);
   const heightAnchorRef = useRef<{ messageId: string; viewportOffset: number } | null>(null);
   const measuredHeightsRef = useRef(new Map<string, number>());
+  const initialLayoutSettledRef = useRef(false);
+  const initialLayoutStartedAtRef = useRef(Date.now());
   const [heightRevision, setHeightRevision] = useState(0);
   // Chat open is stick-to-bottom: first paint only mounts a bounded tail so
   // large windows never fully render before the first range measurement.
@@ -2965,6 +2974,58 @@ function VirtualMessageList({
       heightCommitFrameRef.current = null;
     }
   }, []);
+
+  useLayoutEffect(() => {
+    if (initialLayoutSettledRef.current) return undefined;
+    let frame: number | null = null;
+    let framesRemaining = TRANSCRIPT_INITIAL_SETTLE_MAX_FRAMES;
+    let elapsedFrames = 0;
+    let stableFrames = 0;
+    let previousScrollHeight: number | null = null;
+
+    const settle = () => {
+      frame = null;
+      const scroller = scrollContainerRef.current;
+      const timedOut =
+        Date.now() - initialLayoutStartedAtRef.current >=
+        TRANSCRIPT_INITIAL_SETTLE_MAX_MS;
+      if (!scroller || framesRemaining <= 0 || timedOut) {
+        initialLayoutSettledRef.current = true;
+        onInitialLayoutSettled();
+        return;
+      }
+      framesRemaining -= 1;
+      elapsedFrames += 1;
+      const target = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const heightChanged = previousScrollHeight != null &&
+        Math.abs(scroller.scrollHeight - previousScrollHeight) >
+          TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX;
+      previousScrollHeight = scroller.scrollHeight;
+      const distance = Math.abs(scroller.scrollTop - target);
+      if (distance > TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX) {
+        scroller.scrollTop = target;
+      }
+      const measurementsPending =
+        heightCommitPendingRef.current || heightCommitFrameRef.current != null;
+      stableFrames = heightChanged || distance > TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX || measurementsPending
+        ? 0
+        : stableFrames + 1;
+      const ready =
+        elapsedFrames >= TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES &&
+        stableFrames >= TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES;
+      if (ready || framesRemaining <= 0) {
+        initialLayoutSettledRef.current = true;
+        onInitialLayoutSettled();
+        return;
+      }
+      frame = window.requestAnimationFrame(settle);
+    };
+
+    frame = window.requestAnimationFrame(settle);
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
+  }, [membershipKey, onInitialLayoutSettled, scrollContainerRef]);
 
   useEffect(() => {
     const liveIds = new Set(messageIds);
@@ -3409,6 +3470,7 @@ export function SessionDetailPage() {
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderRenderSettling, setOlderRenderSettling] = useState(false);
+  const [transcriptReadySessionId, setTranscriptReadySessionId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sendPhase, setSendPhase] = useState<string>('idle');
@@ -3684,6 +3746,7 @@ export function SessionDetailPage() {
     setRegeneratingMessageIds(new Set());
     setPendingSessionDelete(false);
     setSessionDeleteBusy(false);
+    setTranscriptReadySessionId(null);
     setPermissionSaving(false);
     setPendingFullAccess(null);
     setWriteApprovalBusy(false);
@@ -5103,6 +5166,7 @@ export function SessionDetailPage() {
     setRefreshing(false);
     setLoadingOlder(false);
     setOlderRenderSettlingValue(false);
+    setTranscriptReadySessionId(null);
     setError(null);
     associatedKnowledgeBaseCacheRef.current.clear();
     replaceMessageWindow([], 0);
@@ -7278,6 +7342,15 @@ export function SessionDetailPage() {
   // 注意：服务端按 created_at 升序返回（store loadMessages 默认升序），
   // 直接渲染即是「上旧下新」。如果出现倒序问题，派生视图会做一次排序兜底。
   const sortedMessages = messageWindowView.ordered;
+  const transcriptPreparing =
+    !effectiveLoadingDetail &&
+    !error &&
+    sortedMessages.length > 0 &&
+    transcriptReadySessionId !== sessionId;
+  const handleTranscriptInitialLayoutSettled = useCallback(() => {
+    if (sessionIdRef.current !== sessionId) return;
+    setTranscriptReadySessionId((current) => current === sessionId ? current : sessionId);
+  }, [sessionId]);
   const webMessageFeatureConfig = auth.meta?.service;
   const messageContentSettings = auth.meta?.message_content_settings;
   const readAloudEnabled =
@@ -7504,8 +7577,17 @@ export function SessionDetailPage() {
         ) : null}
 
         {/* 主区：只有这块滚动，顶部 TopBar / 底部 Composer 固定在视口内。 */}
-        <section ref={mainRef} class="oh-session-messages relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
-          <div ref={messagesContentRef} class="oh-session-message-content">
+        <div class="oh-session-messages-frame relative flex-1 min-h-0">
+          <section
+            ref={mainRef}
+            class="oh-session-messages absolute inset-0 overflow-y-auto pr-1 pb-3"
+            data-transcript-preparing={transcriptPreparing ? 'true' : 'false'}
+            aria-busy={effectiveLoadingDetail || transcriptPreparing}
+          >
+            <div
+              ref={messagesContentRef}
+              class={`oh-session-message-content oh-session-transcript-content${transcriptPreparing ? ' is-preparing' : ''}`}
+            >
             {effectiveLoadingDetail ? (
               <div class="oh-session-state-card is-loading">
                 <span class="oh-session-state-icon oh-spin" aria-hidden>
@@ -7552,11 +7634,13 @@ export function SessionDetailPage() {
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <VirtualMessageList
+                      key={sessionId}
                       messages={visibleSortedMessages}
                       membershipKey={messageMembershipKey}
                       scrollContainerRef={mainRef}
                       revealTarget={transcriptRevealTarget}
                       highlightedMessageId={highlightedMessageId}
+                      onInitialLayoutSettled={handleTranscriptInitialLayoutSettled}
                       renderMessage={renderSessionMessage}
                     />
                     {remainingNewer > 0 ? (
@@ -7580,8 +7664,21 @@ export function SessionDetailPage() {
                 )}
               </>
             )}
-          </div>
-        </section>
+            </div>
+          </section>
+          {!effectiveLoadingDetail && !error && sortedMessages.length > 0 ? (
+            <div
+              class={`oh-session-prepare-overlay${transcriptPreparing ? ' is-visible' : ''}`}
+              role="status"
+              aria-hidden={!transcriptPreparing}
+            >
+              <span class="oh-session-prepare-icon oh-spin" aria-hidden>
+                <ComposerIcon name="refresh" size={19} />
+              </span>
+              <span>{t('detail.preparingMessages', '正在准备消息…')}</span>
+            </div>
+          ) : null}
+        </div>
 
         {/* Composer */}
         <section

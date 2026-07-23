@@ -3122,6 +3122,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _activateSession(String sessionId) async {
     final activationGeneration = ++_sessionActivationGeneration;
     final sessionController = context.read<AiSessionController>();
+    final switchingSessions = sessionController.currentSessionId != sessionId;
     _userScrollGraceDebouncer.cancel();
     _userScrollInProgress = false;
     _lastPointerSignalScrollAt = null;
@@ -3163,7 +3164,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _selectedSection != AppSection.workspace) {
       return;
     }
-    _requestFollowToLatest();
+    if (!switchingSessions) {
+      _requestFollowToLatest();
+    }
   }
 
   AiModelConfig? _effectiveModelForSession(
@@ -7375,12 +7378,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_scrollToBottomCallbackQueued) {
       return;
     }
+    final scheduledSessionId = context
+        .read<AiSessionController>()
+        .currentSessionId;
     _scrollToBottomCallbackQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottomCallbackQueued = false;
       if (!mounted) {
         _queuedForcedScrollToBottom = false;
         _pendingAnimatedScrollToBottom = false;
+        return;
+      }
+      if (context.read<AiSessionController>().currentSessionId !=
+          scheduledSessionId) {
         return;
       }
       if (_hasActiveOrRecentMessageScrollActivity()) {
@@ -7422,6 +7432,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             return;
           }
           _scrollToBottomAwaitingPosition = false;
+          if (context.read<AiSessionController>().currentSessionId !=
+              scheduledSessionId) {
+            return;
+          }
           if (_hasActiveOrRecentMessageScrollActivity()) {
             return;
           }
@@ -7560,26 +7574,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_autoFollowEnabled && _shouldAutoFollowMessages) {
       _armAutoFollowToBottom(notifyPausedState: false);
     }
-    // 阶段㉓ 修复：会话切换 (signature 的 sessionId 段变了) 这一次回调
-    // 故意 *不消费* `_pendingForcedScrollToBottom`。原因：
-    //   1. workspace_view 在同一帧的 build 里马上要把 _pendingForcedScrollToBottom
-    //      作为 `jumpToBottomOnInit` 传给新挂载的 _SessionTranscript；
-    //   2. 若在此处先消费，传给 transcript 的就变成 false，transcript 内
-    //      的「mount 即贴底」短路径失效，要完全依赖随后的 settle 通行
-    //      （8 次 = 133 ms）跟上 markdown 异步解析后还会继续增大的
-    //      maxScrollExtent，长会话首屏 layout 完全稳定前 settle 已耗尽，
-    //      最终视口卡在「最后一页消息列表的最旧那条」上。
-    //   3. 同会话内消息追加场景 (sessionId 不变只 length/lastMessage 变)
-    //      仍按原逻辑消费 + schedule，保持流式期间贴底跟随。
+    // 会话切换时把贴底请求交给新 transcript；同会话追加仍由父级跟随。
     final sessionIdChanged =
         previousSignature == null ||
         !previousSignature.startsWith('${session!.id}|');
     if (sessionIdChanged) {
       _lastMessageDistanceToBottom = null;
-      // 会话切换：transcript 内部已通过 jumpToBottomOnInit + 16 帧 settle
-      // 自行贴底；这里再额外发一个 *jump*（非 animate） 兜底，避免与
-      // transcript 的 jumpTo 互相打架。
-      _scheduleAutoFollowIfNeeded(animated: false);
+      // 新 transcript 会在不可见状态完成物化与贴底。首帧后只消费父级请求，
+      // 避免两套 settle 同时改写共享 ScrollController。
+      final selectedSessionId = session!.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            context.read<AiSessionController>().currentSessionId !=
+                selectedSessionId) {
+          return;
+        }
+        _pendingForcedScrollToBottom = false;
+        _queuedForcedScrollToBottom = false;
+        _pendingAnimatedScrollToBottom = false;
+        _scrollToBottomSettleFramesRemaining = 0;
+        _scrollToBottomStableFrames = 0;
+      });
     } else {
       _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
     }

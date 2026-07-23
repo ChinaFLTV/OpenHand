@@ -5260,6 +5260,69 @@ button.oh-message-context-capsule {
   overflow-anchor: none;
 }
 
+.oh-session-messages[data-transcript-preparing='true'] {
+  overflow-y: hidden;
+}
+.oh-session-transcript-content {
+  opacity: 1;
+  transition: opacity var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+.oh-session-transcript-content.is-preparing {
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+.oh-session-prepare-overlay {
+  position: absolute;
+  inset: 0 4px 0 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--m3-surface) 94%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  font-weight: 650;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    visibility 0s linear var(--oh-motion-duration-fast);
+}
+.oh-session-prepare-overlay.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+.oh-session-prepare-overlay:not(.is-visible) .oh-spin {
+  animation: none;
+}
+.oh-session-prepare-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 22%, var(--m3-outline-variant));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--m3-primary-container) 46%, var(--m3-surface));
+  color: var(--m3-primary);
+  box-shadow: var(--m3-elev-1);
+}
+[data-motion='reduced'] .oh-session-transcript-content,
+[data-motion='reduced'] .oh-session-prepare-overlay {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-session-transcript-content,
+  .oh-session-prepare-overlay {
+    transition: none;
+  }
+}
+
 .oh-remote-running-banner {
   background: var(--m3-tertiary-container);
   color: var(--m3-on-tertiary-container);

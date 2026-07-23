@@ -417,7 +417,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
   Future<void>? _activeRevealOlderFuture;
-  int _initialBottomJumpGeneration = 0;
+  int _initialLayoutSettleGeneration = 0;
+  bool _initialLayoutReady = false;
 
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
@@ -440,27 +441,42 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // frame-throttled by the warmup / HTML mount schedulers.
     _materializeOpenWindow(progressive: true);
     _syncVisibleError();
-    if (widget.jumpToBottomOnInit) {
-      _scheduleInitialBottomJump();
-    }
+    _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
   }
 
-  void _scheduleInitialBottomJump() {
-    final generation = ++_initialBottomJumpGeneration;
+  void _scheduleInitialLayoutSettle({required bool pinToBottom}) {
+    final generation = ++_initialLayoutSettleGeneration;
     final sessionId = widget.session.id;
-    var framesRemaining = _scrollToBottomSettleFrameLimit;
+    var framesRemaining = _transcriptInitialRevealMaxFrameCount;
+    var elapsedFrames = 0;
     var stableFrames = 0;
+    double? previousMaxScrollExtent;
+
+    void reveal() {
+      if (!mounted ||
+          generation != _initialLayoutSettleGeneration ||
+          widget.session.id != sessionId ||
+          _initialLayoutReady) {
+        return;
+      }
+      setState(() => _initialLayoutReady = true);
+    }
 
     void settle(Duration _) {
       if (!mounted ||
-          generation != _initialBottomJumpGeneration ||
-          widget.session.id != sessionId ||
-          framesRemaining <= 0) {
+          generation != _initialLayoutSettleGeneration ||
+          widget.session.id != sessionId) {
+        return;
+      }
+      if (framesRemaining <= 0) {
+        reveal();
         return;
       }
       framesRemaining -= 1;
+      elapsedFrames += 1;
       final positions = widget.controller.positions.toList(growable: false);
       if (positions.length != 1) {
+        stableFrames = 0;
         WidgetsBinding.instance.addPostFrameCallback(settle);
         return;
       }
@@ -469,15 +485,26 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           .clamp(position.minScrollExtent, position.maxScrollExtent)
           .toDouble();
       final distance = (target - position.pixels).abs();
-      if (distance > _scrollToBottomSettleTolerance) {
+      final extentChanged =
+          previousMaxScrollExtent != null &&
+          (position.maxScrollExtent - previousMaxScrollExtent!).abs() >
+              _scrollToBottomSettleTolerance;
+      previousMaxScrollExtent = position.maxScrollExtent;
+      if (pinToBottom && distance > _scrollToBottomSettleTolerance) {
         stableFrames = 0;
         widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
+      } else if (extentChanged) {
+        stableFrames = 0;
       } else {
         stableFrames += 1;
       }
-      if (stableFrames < _scrollToBottomSettleStableFrameLimit &&
-          framesRemaining > 0) {
+      final ready =
+          elapsedFrames >= _transcriptInitialRevealMinimumFrameCount &&
+          stableFrames >= _scrollToBottomSettleStableFrameLimit;
+      if (!ready && framesRemaining > 0) {
         WidgetsBinding.instance.addPostFrameCallback(settle);
+      } else {
+        reveal();
       }
     }
 
@@ -519,9 +546,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _renderEntryIndexById = const <String, int>{};
-      if (widget.jumpToBottomOnInit) {
-        _scheduleInitialBottomJump();
-      }
+      _initialLayoutReady = false;
+      _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
       // 双兜底物化：在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -606,7 +632,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _resetSessionScopedState() {
-    _initialBottomJumpGeneration += 1;
+    _initialLayoutSettleGeneration += 1;
     _selectedMessageId = null;
     _highlightedMessageId = null;
     _targetHighlightTimer?.cancel();
@@ -1208,7 +1234,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   @override
   void dispose() {
-    _initialBottomJumpGeneration += 1;
+    _initialLayoutSettleGeneration += 1;
     _retiringCreationPlaceholderTimer?.cancel();
     _targetHighlightTimer?.cancel();
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
@@ -2951,6 +2977,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
             valueListenable: widget.ttsPlaybackService.state,
             builder: (context, ttsSnapshot, _) {
+              final motionSettings = openHandMotionSettingsOf(
+                context,
+                OpenHandMotionSettingsScope.page,
+              );
               final activeTtsUnsupported =
                   ttsSnapshot.playing &&
                   (_messageIdTargetsMultimediaContent(ttsSnapshot.messageId) ||
@@ -2965,7 +2995,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   unawaited(widget.ttsPlaybackService.stop());
                 });
               }
-              return OpenHandSafeScrollbar(
+              final transcriptList = OpenHandSafeScrollbar(
                 controller: widget.controller,
                 thumbVisibility: true,
                 thickness: _kTranscriptScrollbarThickness,
@@ -3020,6 +3050,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     ),
                   ),
                 ),
+              );
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  IgnorePointer(
+                    ignoring: !_initialLayoutReady,
+                    child: ExcludeSemantics(
+                      excluding: !_initialLayoutReady,
+                      child: AnimatedOpacity(
+                        opacity: _initialLayoutReady ? 1 : 0,
+                        duration: motionSettings.entranceDuration,
+                        curve: motionSettings.curve.curve,
+                        child: transcriptList,
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedSwitcher(
+                        duration: motionSettings.entranceDuration,
+                        reverseDuration: motionSettings.exitDuration,
+                        switchInCurve: motionSettings.curve.curve,
+                        switchOutCurve: motionSettings.curve.reverseCurve,
+                        child: _initialLayoutReady
+                            ? const SizedBox.shrink(
+                                key: ValueKey<String>(
+                                  'transcript-layout-ready',
+                                ),
+                              )
+                            : _TranscriptHydratingPlaceholder(
+                                key: ValueKey<String>(
+                                  'preparing-transcript-${widget.session.id}',
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
           ),
