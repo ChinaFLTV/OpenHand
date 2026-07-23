@@ -5265,12 +5265,14 @@ button.oh-message-context-capsule {
 }
 .oh-session-transcript-content {
   opacity: 1;
-  transition: opacity var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+  transition: opacity var(--oh-motion-duration-base) var(--oh-motion-emphasized)
+    var(--oh-motion-duration-fast);
 }
 .oh-session-transcript-content.is-preparing {
   opacity: 0;
   pointer-events: none;
   user-select: none;
+  transition: none;
 }
 .oh-session-prepare-overlay {
   position: absolute;
@@ -5282,7 +5284,7 @@ button.oh-message-context-capsule {
   justify-content: center;
   gap: 12px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--m3-surface) 94%, transparent);
+  background: var(--m3-surface);
   color: var(--m3-on-surface-variant);
   font-size: 13px;
   font-weight: 650;

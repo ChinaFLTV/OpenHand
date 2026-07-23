@@ -317,6 +317,13 @@ class _MessageTranslationEntry {
   final AiTranslationProvider provider;
 }
 
+enum _TranscriptInitialRevealPhase {
+  preparing,
+  dismissingPlaceholder,
+  revealingContent,
+  ready,
+}
+
 enum _TranscriptMultimediaKind { image, video, audio }
 
 const Map<String, _TranscriptMultimediaKind?>
@@ -418,7 +425,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _PendingRevealRestore? _pendingRevealRestore;
   Future<void>? _activeRevealOlderFuture;
   int _initialLayoutSettleGeneration = 0;
-  bool _initialLayoutReady = false;
+  _TranscriptInitialRevealPhase _initialRevealPhase =
+      _TranscriptInitialRevealPhase.preparing;
 
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
@@ -456,10 +464,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!mounted ||
           generation != _initialLayoutSettleGeneration ||
           widget.session.id != sessionId ||
-          _initialLayoutReady) {
+          _initialRevealPhase != _TranscriptInitialRevealPhase.preparing) {
         return;
       }
-      setState(() => _initialLayoutReady = true);
+      final motionSettings = openHandMotionSettingsOf(
+        context,
+        OpenHandMotionSettingsScope.page,
+      );
+      setState(() {
+        if (motionSettings.exitDuration <= Duration.zero) {
+          _initialRevealPhase = motionSettings.entranceDuration <= Duration.zero
+              ? _TranscriptInitialRevealPhase.ready
+              : _TranscriptInitialRevealPhase.revealingContent;
+        } else {
+          _initialRevealPhase =
+              _TranscriptInitialRevealPhase.dismissingPlaceholder;
+        }
+      });
     }
 
     void settle(Duration _) {
@@ -546,7 +567,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _renderEntryIndexById = const <String, int>{};
-      _initialLayoutReady = false;
+      _initialRevealPhase = _TranscriptInitialRevealPhase.preparing;
       _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
       // 双兜底物化：在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
@@ -671,6 +692,33 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
     _activeScrollTargetId = null;
+  }
+
+  void _handleInitialPlaceholderDismissed() {
+    if (!mounted ||
+        _initialRevealPhase !=
+            _TranscriptInitialRevealPhase.dismissingPlaceholder) {
+      return;
+    }
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.page,
+    );
+    setState(() {
+      _initialRevealPhase = motionSettings.entranceDuration <= Duration.zero
+          ? _TranscriptInitialRevealPhase.ready
+          : _TranscriptInitialRevealPhase.revealingContent;
+    });
+  }
+
+  void _handleInitialContentRevealed() {
+    if (!mounted ||
+        _initialRevealPhase != _TranscriptInitialRevealPhase.revealingContent) {
+      return;
+    }
+    setState(() {
+      _initialRevealPhase = _TranscriptInitialRevealPhase.ready;
+    });
   }
 
   void _syncWindowStartIndex({bool forceReset = false}) {
@@ -3051,40 +3099,52 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   ),
                 ),
               );
+              final revealPhase = _initialRevealPhase;
+              final contentVisible =
+                  revealPhase ==
+                      _TranscriptInitialRevealPhase.revealingContent ||
+                  revealPhase == _TranscriptInitialRevealPhase.ready;
+              final placeholderMounted =
+                  revealPhase == _TranscriptInitialRevealPhase.preparing ||
+                  revealPhase ==
+                      _TranscriptInitialRevealPhase.dismissingPlaceholder;
               return Stack(
                 fit: StackFit.expand,
                 children: [
                   IgnorePointer(
-                    ignoring: !_initialLayoutReady,
+                    ignoring:
+                        revealPhase != _TranscriptInitialRevealPhase.ready,
                     child: ExcludeSemantics(
-                      excluding: !_initialLayoutReady,
+                      excluding:
+                          revealPhase != _TranscriptInitialRevealPhase.ready,
                       child: AnimatedOpacity(
-                        opacity: _initialLayoutReady ? 1 : 0,
+                        opacity: contentVisible ? 1 : 0,
                         duration: motionSettings.entranceDuration,
                         curve: motionSettings.curve.curve,
+                        onEnd: _handleInitialContentRevealed,
                         child: transcriptList,
                       ),
                     ),
                   ),
                   Positioned.fill(
                     child: IgnorePointer(
-                      child: AnimatedSwitcher(
-                        duration: motionSettings.entranceDuration,
-                        reverseDuration: motionSettings.exitDuration,
-                        switchInCurve: motionSettings.curve.curve,
-                        switchOutCurve: motionSettings.curve.reverseCurve,
-                        child: _initialLayoutReady
-                            ? const SizedBox.shrink(
-                                key: ValueKey<String>(
-                                  'transcript-layout-ready',
-                                ),
-                              )
-                            : _TranscriptHydratingPlaceholder(
+                      child: placeholderMounted
+                          ? AnimatedOpacity(
+                              opacity:
+                                  revealPhase ==
+                                      _TranscriptInitialRevealPhase.preparing
+                                  ? 1
+                                  : 0,
+                              duration: motionSettings.exitDuration,
+                              curve: motionSettings.curve.reverseCurve,
+                              onEnd: _handleInitialPlaceholderDismissed,
+                              child: _TranscriptHydratingPlaceholder(
                                 key: ValueKey<String>(
                                   'preparing-transcript-${widget.session.id}',
                                 ),
                               ),
-                      ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ),
                 ],
