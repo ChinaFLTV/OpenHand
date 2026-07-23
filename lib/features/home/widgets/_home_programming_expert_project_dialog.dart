@@ -478,12 +478,7 @@ class _ProgrammingExpertProjectDialogState
             extensions.add(p.extension(entry.path).toLowerCase());
           }
         } on FileSystemException catch (error, stack) {
-          silentLog(
-            'project_dialog',
-            'list directory for language probe',
-            error,
-            stack,
-          );
+          silentLog('project_dialog', '遍历目录探测语言', error, stack);
         }
       }
       extensionCache = extensions;

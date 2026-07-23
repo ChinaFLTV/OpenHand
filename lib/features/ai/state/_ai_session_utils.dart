@@ -27,10 +27,6 @@ bool _hasFailedTodoItems(List<AiSessionTodoItem> todoItems) {
   return AiSessionTodoState.hasFailure(todoItems);
 }
 
-bool _isRetryableAutoTitleError(Object error) {
-  return AiTransportDiagnosticMessages.isRetryableTransportError(error);
-}
-
 bool _environmentEquals(AiSessionEnvironment left, AiSessionEnvironment right) {
   return left.localeTag == right.localeTag &&
       left.platform == right.platform &&

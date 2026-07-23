@@ -21,6 +21,14 @@ String removeInlineWhitespace(String value) {
   return value.replaceAll(_inlineWhitespacePattern, '');
 }
 
+/// 判断是否为常见 ASCII 空白字符。
+bool isAsciiWhitespaceCodeUnit(int codeUnit) {
+  return codeUnit == 0x20 ||
+      codeUnit == 0x09 ||
+      codeUnit == 0x0A ||
+      codeUnit == 0x0D;
+}
+
 List<String> dedupeNonEmptyStrings(Iterable<String> values) {
   final seen = <String>{};
   final result = <String>[];

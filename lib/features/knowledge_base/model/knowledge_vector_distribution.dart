@@ -182,7 +182,7 @@ class KnowledgeVectorDistribution {
       ),
       hasMore: boolFromValue(map['has_more']),
       durationMs: optionalNonNegativeIntFromValue(map['duration_ms']),
-      generatedAt: _dateTimeOrNull(map['generated_at']),
+      generatedAt: dateTimeFromValue(map['generated_at']),
     );
   }
 }
@@ -360,8 +360,4 @@ double _fallbackRadius(int index, int total) {
 
 double _fallbackZ(int index) {
   return ((index % 7) - 3) / 5.0;
-}
-
-DateTime? _dateTimeOrNull(Object? value) {
-  return dateTimeFromValue(value);
 }

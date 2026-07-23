@@ -522,7 +522,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         context: context,
         text: normalizedUrl,
         successMessage: copiedMessage,
-        logAction: 'copy invalid doc url',
+        logAction: '复制无效文档地址',
       );
       return;
     }
@@ -538,17 +538,17 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
           context: context,
           text: normalizedUrl,
           successMessage: copiedMessage,
-          logAction: 'copy unopened doc url',
+          logAction: '复制未打开的文档地址',
         );
       }
     } catch (error, stack) {
-      silentLog('harness_engineering', 'open doc url', error, stack);
+      silentLog('harness_engineering', '打开文档链接', error, stack);
       if (!mounted) return;
       await copyHarnessTextToClipboard(
         context: context,
         text: normalizedUrl,
         successMessage: copiedMessage,
-        logAction: 'copy doc url after open failure',
+        logAction: '打开失败后复制文档地址',
       );
     }
   }

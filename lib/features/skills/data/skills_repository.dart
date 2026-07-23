@@ -75,12 +75,7 @@ class SkillsRepository {
           skills.add(await _parseSkill(file, storagePath));
           return true;
         } catch (error, stack) {
-          silentLog(
-            'skills_repository',
-            'parse installed skill ${file.path}',
-            error,
-            stack,
-          );
+          silentLog('skills_repository', '解析已安装技能 ${file.path}', error, stack);
           return false;
         }
       },
@@ -115,7 +110,7 @@ class SkillsRepository {
       );
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', 'create skill template', error, stack);
+      silentLog('skills_repository', '创建技能模板', error, stack);
       await _deleteDirectoryIfExists(
         targetDirectory,
         storageRootPath: storagePath,
@@ -183,7 +178,7 @@ class SkillsRepository {
       );
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', 'create skill', error, stack);
+      silentLog('skills_repository', '创建技能', error, stack);
       await _deleteDirectoryIfExists(
         targetDirectory,
         storageRootPath: storagePath,
@@ -236,7 +231,7 @@ class SkillsRepository {
         storagePath,
       );
     } catch (error, stack) {
-      silentLog('skills_repository', 'import skill directory', error, stack);
+      silentLog('skills_repository', '导入技能目录', error, stack);
       await _deleteDirectoryIfExists(
         targetDirectory,
         storageRootPath: storagePath,
@@ -269,7 +264,7 @@ class SkillsRepository {
       }
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', 'install skill archive', error, stack);
+      silentLog('skills_repository', '安装技能归档', error, stack);
       await _deleteDirectoryIfExists(
         targetDirectory,
         storageRootPath: storagePath,
@@ -316,7 +311,7 @@ class SkillsRepository {
       );
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', 'update skill manifest', error, stack);
+      silentLog('skills_repository', '更新技能清单', error, stack);
       await writeFileAtomically(manifestFile, previousManifestContent);
       await _restoreOptionalFile(
         metadataPath,
@@ -417,7 +412,7 @@ class SkillsRepository {
       }
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', 'update skill', error, stack);
+      silentLog('skills_repository', '更新技能', error, stack);
       await writeFileAtomically(manifestFile, previousManifestContent);
       await _restoreOptionalFile(
         metadataPath,
@@ -572,7 +567,7 @@ class SkillsRepository {
         iconKind: icon?.kind,
       );
     } catch (error, stack) {
-      silentLog('skills_repository', 'load openai metadata', error, stack);
+      silentLog('skills_repository', '加载 OpenAI 元数据', error, stack);
       return null;
     }
   }
@@ -619,12 +614,7 @@ class SkillsRepository {
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'skills_repository',
-        'read openai metadata document',
-        error,
-        stack,
-      );
+      silentLog('skills_repository', '读取 OpenAI 元数据文档', error, stack);
       return null;
     }
   }

@@ -1342,12 +1342,7 @@ $phasePrompt
       final decoded = jsonDecode(trimmed);
       if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
-      silentLog(
-        'harness_api_phase_runner',
-        'decode JSON payload',
-        error,
-        stack,
-      );
+      silentLog('harness_api_phase_runner', '解码 JSON 载荷', error, stack);
     }
     return const <String, Object?>{};
   }

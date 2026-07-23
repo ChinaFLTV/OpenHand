@@ -86,7 +86,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     _logFlushTimer?.cancel();
     _logFlushTimer = null;
     _pendingLogLines.clear();
-    _stopCurrentProcess('dispose install process');
+    _stopCurrentProcess('释放安装进程');
     _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
@@ -113,12 +113,8 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     _logFlushTimer ??= startSafeTimer(
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingLogLines,
-      onError: (error, stack) => silentLog(
-        'harness_cli_install_dialog',
-        'flush install logs',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('harness_cli_install_dialog', '刷新安装日志', error, stack),
     );
   }
 
@@ -155,7 +151,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
   void _claimProcess(Process process, int generation) {
     if (!_isRunActive(generation)) {
-      unawaited(_terminateProcess(process, 'terminate late install process'));
+      unawaited(_terminateProcess(process, '终止迟到的安装进程'));
       return;
     }
     _process = process;
@@ -308,7 +304,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   void _cancel() {
     if (!_running) return;
     _runGeneration += 1;
-    _stopCurrentProcess('cancel install process');
+    _stopCurrentProcess('取消安装进程');
     setState(() {
       _cancelled = true;
       _running = false;
@@ -362,12 +358,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'harness_cli_install_dialog',
-        'resolve installer path via shell',
-        error,
-        stack,
-      );
+      silentLog('harness_cli_install_dialog', '通过 Shell 解析安装器路径', error, stack);
     }
     if (!_isRunActive(generation)) return;
 
@@ -625,7 +616,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
                             context: context,
                             text: widget.cli.installDocUrl!,
                             successMessage: l10n.commonCopiedToClipboard,
-                            logAction: 'copy install doc url',
+                            logAction: '复制安装文档地址',
                           );
                         },
                         icon: const Icon(Icons.link_rounded, size: 14),

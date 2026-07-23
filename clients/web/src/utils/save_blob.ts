@@ -45,7 +45,7 @@ export function revokeObjectUrlQuietly(url: string | null | undefined): void {
   try {
     URL.revokeObjectURL(url);
   } catch {
-    // Object URL cleanup is best-effort; callers should not fail user actions.
+    // 对象 URL 清理失败不应中断用户操作。
   }
 }
 
@@ -129,6 +129,6 @@ async function abortWritableQuietly(
   try {
     await writable?.abort?.();
   } catch {
-    // Fallback download should still proceed when stream abort cleanup fails.
+    // 流中止清理失败时仍继续回退下载。
   }
 }

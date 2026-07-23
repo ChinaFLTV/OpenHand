@@ -91,7 +91,7 @@ class AiOutputFormatPrompts {
       if (loadedGpt.isNotEmpty) _gptChatRules = loadedGpt;
       _loaded = true;
     } catch (error, stack) {
-      silentLog('AiOutputFormatPrompts', 'load', error, stack);
+      silentLog('AiOutputFormatPrompts', '加载输出格式提示词', error, stack);
     }
   }
 }

@@ -248,7 +248,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
       await widget.controller.sendRawCdp(method: 'Overlay.enable');
       await widget.controller.domHighlightNode(id);
     } catch (e, st) {
-      silentLog('web_reverse_dom_search_dialog', 'dom-search.highlight', e, st);
+      silentLog('web_reverse_dom_search_dialog', '高亮 DOM 搜索结果', e, st);
     }
   }
 

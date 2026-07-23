@@ -53,23 +53,40 @@ class QdrantMonitoringService {
         ? collectionsResult['collections']
         : null;
     final collectionResult =
-        _object(collectionInfo['result']) ?? const <String, Object?>{};
-    final payloadSchema = _object(collectionResult['payload_schema']);
-    final config = _object(collectionResult['config']);
-    final params = _object(config?['params']);
-    final vectors = _object(params?['vectors']);
-    final optimizerConfig = _object(config?['optimizer_config']);
-    final hnswConfig = _object(config?['hnsw_config']);
-    final walConfig = _object(config?['wal_config']);
-    final quantizationConfig = _object(config?['quantization_config']);
-    final strictModeConfig = _object(config?['strict_mode_config']);
-    final telemetryResult = _object(telemetry['result']);
-    final telemetryCollections = _object(telemetryResult?['collections']);
-    final telemetryRequests = _object(telemetryResult?['requests']);
-    final telemetryApp = _object(telemetryResult?['app']);
+        optionalStringKeyedMapFromValue(collectionInfo['result']) ??
+        const <String, Object?>{};
+    final payloadSchema = optionalStringKeyedMapFromValue(
+      collectionResult['payload_schema'],
+    );
+    final config = optionalStringKeyedMapFromValue(collectionResult['config']);
+    final params = optionalStringKeyedMapFromValue(config?['params']);
+    final vectors = optionalStringKeyedMapFromValue(params?['vectors']);
+    final optimizerConfig = optionalStringKeyedMapFromValue(
+      config?['optimizer_config'],
+    );
+    final hnswConfig = optionalStringKeyedMapFromValue(config?['hnsw_config']);
+    final walConfig = optionalStringKeyedMapFromValue(config?['wal_config']);
+    final quantizationConfig = optionalStringKeyedMapFromValue(
+      config?['quantization_config'],
+    );
+    final strictModeConfig = optionalStringKeyedMapFromValue(
+      config?['strict_mode_config'],
+    );
+    final telemetryResult = optionalStringKeyedMapFromValue(
+      telemetry['result'],
+    );
+    final telemetryCollections = optionalStringKeyedMapFromValue(
+      telemetryResult?['collections'],
+    );
+    final telemetryRequests = optionalStringKeyedMapFromValue(
+      telemetryResult?['requests'],
+    );
+    final telemetryApp = optionalStringKeyedMapFromValue(
+      telemetryResult?['app'],
+    );
     final payloadFieldNames = payloadSchema?.keys.toList(growable: false);
     final countValue =
-        _object(countResult['result'])?['count'] ??
+        optionalStringKeyedMapFromValue(countResult['result'])?['count'] ??
         collectionResult['points_count'];
     final collectedAt = DateTime.now().toUtc();
     return QdrantMonitoringSnapshot(
@@ -185,12 +202,6 @@ class QdrantMonitoringService {
         'telemetry': telemetry,
       },
     );
-  }
-
-  static Map<String, Object?>? _object(Object? value) {
-    if (value is Map<String, Object?>) return value;
-    if (value is Map) return stringKeyedMapFromValue(value);
-    return null;
   }
 
   Future<Map<String, Object?>> _get(

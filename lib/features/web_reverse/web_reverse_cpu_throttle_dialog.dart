@@ -65,7 +65,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
         paramsJson: jsonEncode({'rate': rate}),
       );
     } catch (e, st) {
-      silentLog('web_reverse_cpu_throttle_dialog', 'cpu-throttle.apply', e, st);
+      silentLog('web_reverse_cpu_throttle_dialog', '应用 CPU 节流', e, st);
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {

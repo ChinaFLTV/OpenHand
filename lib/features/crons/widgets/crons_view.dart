@@ -2883,7 +2883,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
       }
       return out;
     } catch (error, stack) {
-      silentLog('crons_view', 'decode hermes talker reports', error, stack);
+      silentLog('crons_view', '解码 Hermes Talker 报告', error, stack);
       return const <_HermesTalkerSessionReport>[];
     }
   }
@@ -2900,7 +2900,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
       });
       return out;
     } catch (error, stack) {
-      silentLog('crons_view', 'decode hermes talker stats', error, stack);
+      silentLog('crons_view', '解码 Hermes Talker 统计', error, stack);
       return const <String, int>{};
     }
   }

@@ -277,7 +277,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         );
       }
     } catch (e, st) {
-      silentLog('web_reverse_dom_mutation', 'install', e, st);
+      silentLog('web_reverse_dom_mutation', '安装 DOM 变更监听', e, st);
       if (mounted) {
         setState(() {
           _installing = false;
@@ -344,7 +344,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         timeout: const Duration(seconds: 3),
       );
     } catch (e, st) {
-      silentLog('web_reverse_dom_mutation', 'stop', e, st);
+      silentLog('web_reverse_dom_mutation', '停止 DOM 变更监听', e, st);
     }
     if (notify && mounted) {
       setState(() {
@@ -383,7 +383,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         }
       }
     } catch (e, st) {
-      silentLog('web_reverse_dom_mutation', 'drain', e, st);
+      silentLog('web_reverse_dom_mutation', '排空 DOM 变更事件', e, st);
     }
   }
 

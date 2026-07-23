@@ -327,7 +327,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                               de: 'Diff kopiert',
                               ja: 'Diff をコピーしました',
                             ),
-                            logAction: 'copy changed file diff',
+                            logAction: '复制变更文件差异',
                           );
                         },
                   label: openHandLocalizedText(

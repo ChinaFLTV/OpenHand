@@ -71,7 +71,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         );
       }
     } catch (e, st) {
-      silentLog('web_reverse_account_snapshots_dialog', 'capture', e, st);
+      silentLog('web_reverse_account_snapshots_dialog', '捕获账户快照', e, st);
       if (mounted) {
         showOpenHandErrorSnack(context, loc?.tlCallFailed ?? 'Failed');
       }
@@ -123,7 +123,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
           loc?.webReverseAccountSnapCopiedCount(list.length) ??
           'Copied ${list.length} snapshots JSON to clipboard',
       logTag: 'web_reverse_account_snapshots_dialog',
-      logAction: 'export',
+      logAction: '导出账号快照',
     );
   }
 
@@ -156,7 +156,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
             'Imported ${entries.length - start} snapshots',
       );
     } catch (e, st) {
-      silentLog('web_reverse_account_snapshots_dialog', 'import', e, st);
+      silentLog('web_reverse_account_snapshots_dialog', '导入账户快照', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,

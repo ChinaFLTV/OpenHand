@@ -4,7 +4,6 @@
 /// 聚成簇，按出现次数倒序展示。点击展开看原始条目。
 library;
 
-
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -107,7 +106,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
           AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
           'Cluster JSON copied',
       logTag: 'web_reverse_console_cluster_dialog',
-      logAction: 'console.cluster.copy',
+      logAction: '复制控制台聚类结果',
     );
   }
 

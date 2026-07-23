@@ -213,7 +213,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
       text: s,
       successBase: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
       logTag: 'web_reverse_elements_panel',
-      logAction: 'copy selector',
+      logAction: '复制选择器',
       successDuration: const Duration(seconds: 1),
     );
   }
@@ -237,7 +237,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
       text: s,
       successBase: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
       logTag: 'web_reverse_elements_panel',
-      logAction: 'copy xpath',
+      logAction: '复制 XPath',
       successDuration: const Duration(seconds: 1),
     );
   }

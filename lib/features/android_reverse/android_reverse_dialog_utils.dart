@@ -51,7 +51,7 @@ Future<bool> copyAndroidReverseTextToClipboard({
   required String text,
   String? successMessage,
   String logTag = 'android_reverse',
-  String logAction = 'copy',
+  String logAction = '复制',
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
 }) {

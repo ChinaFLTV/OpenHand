@@ -153,7 +153,7 @@ class SystemProxyResolver {
         }
       }
     } catch (error, stack) {
-      silentLog('system_proxy', 'parse_scutil', error, stack);
+      silentLog('system_proxy', '解析 scutil 输出', error, stack);
     }
   }
 
@@ -384,7 +384,7 @@ class SystemProxyResolver {
           HttpClientBasicCredentials(username, _settings.password),
         );
       } catch (error, stack) {
-        silentLog('system_proxy', 'addProxyCredentials', error, stack);
+        silentLog('system_proxy', '添加代理凭据', error, stack);
       }
     }
     return inner;

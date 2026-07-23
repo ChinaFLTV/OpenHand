@@ -2887,7 +2887,7 @@ class _StdioSession {
       stdin: _process.stdin,
       timeout: DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
       logTag: 'mcp.stdio',
-      logWhere: 'close.stdin',
+      logWhere: '关闭标准输入',
     );
     await _waitForExitOrKill();
     await _cancelSubscription(_stdoutSubscription, '关闭标准输出流');

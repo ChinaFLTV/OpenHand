@@ -681,7 +681,7 @@ print(resp.text[:2000])''';
       successBase:
           loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
       logTag: 'web_reverse_resend_request_dialog',
-      logAction: 'copy.$kind',
+      logAction: '复制 $kind',
       successDuration: const Duration(seconds: 1),
     );
   }
@@ -1214,7 +1214,7 @@ print(resp.text[:2000])''';
                     text: r.body,
                     successBase: base,
                     logTag: 'web_reverse_resend_request_dialog',
-                    logAction: 'copy.response',
+                    logAction: '复制响应',
                     successDuration: const Duration(seconds: 1),
                   );
                 },

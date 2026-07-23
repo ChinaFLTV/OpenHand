@@ -563,10 +563,7 @@ class _PluginCard extends StatelessWidget {
       plugin.name,
     );
     final success = await controller.installPlugin(plugin.id);
-    await progress.dismiss(
-      logTag: 'plugin_service_view',
-      logAction: 'dismiss install dialog',
-    );
+    await progress.dismiss(logTag: 'plugin_service_view', logAction: '关闭安装对话框');
     if (!context.mounted) return;
     flashOpenHandSnack(
       context,
@@ -597,10 +594,7 @@ class _PluginCard extends StatelessWidget {
       plugin.name,
     );
     final success = await controller.updatePlugin(plugin.id);
-    await progress.dismiss(
-      logTag: 'plugin_service_view',
-      logAction: 'dismiss update dialog',
-    );
+    await progress.dismiss(logTag: 'plugin_service_view', logAction: '关闭更新对话框');
     if (!context.mounted) return;
     flashOpenHandSnack(
       context,
@@ -663,10 +657,7 @@ class _PluginCard extends StatelessWidget {
       plugin.name,
     );
     final success = await controller.uninstallPlugin(plugin.id);
-    await progress.dismiss(
-      logTag: 'plugin_service_view',
-      logAction: 'dismiss uninstall dialog',
-    );
+    await progress.dismiss(logTag: 'plugin_service_view', logAction: '关闭卸载对话框');
     if (!context.mounted) return;
     flashOpenHandSnack(
       context,
@@ -1209,7 +1200,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             info['npx'] = npxResult.stdout.toString().trim();
           }
         } catch (error, stack) {
-          silentLog('plugin_service_view', 'load node env info', error, stack);
+          silentLog('plugin_service_view', '加载 Node 环境信息', error, stack);
         }
       }
       if (widget.plugin.id == 'python' && widget.plugin.isInstalled) {
@@ -1225,12 +1216,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                 .trim();
           }
         } catch (error, stack) {
-          silentLog(
-            'plugin_service_view',
-            'load python env info',
-            error,
-            stack,
-          );
+          silentLog('plugin_service_view', '加载 Python 环境信息', error, stack);
         }
       }
       if (widget.plugin.id == 'pip' && widget.plugin.isInstalled) {
@@ -1246,7 +1232,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           }
           info['bound_python'] = pythonExecutable;
         } catch (error, stack) {
-          silentLog('plugin_service_view', 'load pip env info', error, stack);
+          silentLog('plugin_service_view', '加载 pip 环境信息', error, stack);
         }
       }
       if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {
@@ -1259,12 +1245,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             info['Playwright CLI'] = result.stdout.toString().trim();
           }
         } catch (error, stack) {
-          silentLog(
-            'plugin_service_view',
-            'load playwright env info',
-            error,
-            stack,
-          );
+          silentLog('plugin_service_view', '加载 Playwright 环境信息', error, stack);
         }
       }
       for (final entry in widget.plugin.metadata.entries) {
@@ -1280,7 +1261,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
         }
       }
     } catch (error, stack) {
-      silentLog('plugin_service_view', 'load env info', error, stack);
+      silentLog('plugin_service_view', '加载环境信息', error, stack);
     }
     if (mounted) {
       setState(() {
@@ -1594,7 +1575,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         } catch (error, stack) {
           silentLog(
             'plugin_service_view',
-            'check playwright mcp npm',
+            '检查 Playwright MCP npm 包',
             error,
             stack,
           );
@@ -1613,7 +1594,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           } catch (error, stack) {
             silentLog(
               'plugin_service_view',
-              'check playwright mcp registry',
+              '检查 Playwright MCP 注册表',
               error,
               stack,
             );
@@ -1624,7 +1605,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         _mcpVersion = npmVersion;
       }
     } catch (error, stack) {
-      silentLog('plugin_service_view', 'check playwright mcp', error, stack);
+      silentLog('plugin_service_view', '检查 Playwright MCP', error, stack);
     }
     if (mounted) setState(() => _checking = false);
   }
@@ -1717,7 +1698,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         }
       }
     } catch (error, stack) {
-      silentLog('plugin_service_view', 'sync MCP service action', error, stack);
+      silentLog('plugin_service_view', '同步 MCP 服务操作', error, stack);
     }
   }
 

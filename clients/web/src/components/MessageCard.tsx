@@ -16,7 +16,6 @@ import {
   fetchKnowledgeVectorDistribution,
   type KnowledgeChunkDto,
   type KnowledgeSourceDto,
-  type KnowledgeVectorDistributionDto,
 } from '../api/knowledge';
 import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
@@ -587,10 +586,6 @@ const ANDROID_REVERSE_PROMPT_FIELD_LABELS = [
   '验收标准',
 ] as const;
 
-function nonEmptyString(value: unknown): string {
-  return strictStringFromUnknown(value);
-}
-
 const KB_VECTOR_BATCH_SIZE = 120;
 const KB_VECTOR_BATCH_INTERVAL_MS = 92;
 const KB_VECTOR_MIN_ZOOM = 0.62;
@@ -721,8 +716,8 @@ function parseKnowledgeVectorDistribution(
     ? record['points'].map((item): KnowledgeVectorDistributionPoint | null => {
       const pointRecord = recordOrNullFromUnknown(item);
       if (!pointRecord) return null;
-      const id = nonEmptyString(pointRecord['id']);
-      const kind = nonEmptyString(pointRecord['kind']);
+      const id = strictStringFromUnknown(pointRecord['id']);
+      const kind = strictStringFromUnknown(pointRecord['kind']);
       const x = finiteNumberOrNullFromUnknown(pointRecord['x']);
       const y = finiteNumberOrNullFromUnknown(pointRecord['y']);
       const z = finiteNumberOrNullFromUnknown(pointRecord['z']);
@@ -730,8 +725,8 @@ function parseKnowledgeVectorDistribution(
       const point: KnowledgeVectorDistributionPoint = {
         id,
         kind,
-        title: nonEmptyString(pointRecord['title']),
-        preview: nonEmptyString(pointRecord['preview']),
+        title: strictStringFromUnknown(pointRecord['title']),
+        preview: strictStringFromUnknown(pointRecord['preview']),
         x,
         y,
         z,
@@ -746,20 +741,14 @@ function parseKnowledgeVectorDistribution(
   if (points.length === 0) return null;
   const durationMs = finiteNumberOrNullFromUnknown(record['duration_ms']);
   return {
-    algorithm: nonEmptyString(record['algorithm']) || 'deterministic_random_projection_3d',
+    algorithm: strictStringFromUnknown(record['algorithm']) || 'deterministic_random_projection_3d',
     originalDimensions: nonNegativeIntegerFromUnknown(record['original_dimensions']),
     sampledCount: Math.max(points.length, nonNegativeIntegerFromUnknown(record['sampled_count'], points.length)),
     hasMore: record['has_more'] === true,
     ...(durationMs != null ? { durationMs: nonNegativeIntegerFromUnknown(durationMs) } : {}),
-    ...(nonEmptyString(record['generated_at']) ? { generatedAt: nonEmptyString(record['generated_at']) } : {}),
+    ...(strictStringFromUnknown(record['generated_at']) ? { generatedAt: strictStringFromUnknown(record['generated_at']) } : {}),
     points,
   };
-}
-
-function knowledgeDistributionFromDto(
-  dto: KnowledgeVectorDistributionDto | undefined,
-): KnowledgeVectorDistributionData | null {
-  return parseKnowledgeVectorDistribution(dto ?? null);
 }
 
 function knowledgeBaseMetadata(message: SessionMessage): Record<string, unknown> | null {
@@ -818,7 +807,7 @@ function knowledgeBaseTokenEstimate(kb: Record<string, unknown> | null): number 
 }
 
 function knowledgeBaseContextContent(kb: Record<string, unknown> | null): string {
-  return nonEmptyString(kb?.['prompt_append_content']);
+  return strictStringFromUnknown(kb?.['prompt_append_content']);
 }
 
 function knowledgeBaseVectorDistribution(kb: Record<string, unknown> | null): KnowledgeVectorDistributionData | null {
@@ -844,23 +833,23 @@ function knowledgeBaseCitationSources(
 }
 
 function knowledgeBaseCitationKey(hit: Record<string, unknown>, label: string): string {
-  const sourceId = nonEmptyString(hit['source_id']);
+  const sourceId = strictStringFromUnknown(hit['source_id']);
   if (sourceId) return `source:${sourceId}`;
-  const path = nonEmptyString(hit['path']);
+  const path = strictStringFromUnknown(hit['path']);
   if (path) return `path:${path}`;
   return `label:${label}`;
 }
 
 function knowledgeBaseCitationLabel(hit: Record<string, unknown>): string {
-  const title = nonEmptyString(hit['source_title']) || nonEmptyString(hit['title']);
+  const title = strictStringFromUnknown(hit['source_title']) || strictStringFromUnknown(hit['title']);
   if (title) return title;
-  const path = nonEmptyString(hit['path']);
+  const path = strictStringFromUnknown(hit['path']);
   if (path) {
     const normalized = path.replace(/\\/g, '/');
     const slash = normalized.lastIndexOf('/');
     return slash >= 0 ? normalized.slice(slash + 1) : normalized;
   }
-  return nonEmptyString(hit['chunk_id']);
+  return strictStringFromUnknown(hit['chunk_id']);
 }
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
@@ -909,10 +898,10 @@ function machineExpertRequestFromMetadata(raw: unknown): MachineExpertRequestVie
   const card = recordOrNullFromUnknown(raw);
   if (!card) return null;
   const view: MachineExpertRequestViewModel = {
-    terminalApplication: nonEmptyString(card['terminal_application']) || undefined,
-    terminalLocation: nonEmptyString(card['terminal_location']) || undefined,
-    appleScriptTarget: nonEmptyString(card['applescript_target']) || undefined,
-    taskRequirement: nonEmptyString(card['task_requirement']) || undefined,
+    terminalApplication: strictStringFromUnknown(card['terminal_application']) || undefined,
+    terminalLocation: strictStringFromUnknown(card['terminal_location']) || undefined,
+    appleScriptTarget: strictStringFromUnknown(card['applescript_target']) || undefined,
+    taskRequirement: strictStringFromUnknown(card['task_requirement']) || undefined,
     truncated: card['truncated'] === true,
   };
   return machineExpertRequestIsEmpty(view) ? null : view;
@@ -978,18 +967,18 @@ function webReverseRequestFromMetadata(raw: unknown): WebReverseRequestViewModel
   const card = recordOrNullFromUnknown(raw);
   if (!card) return null;
   const view: WebReverseRequestViewModel = {
-    targetUrl: nonEmptyString(card['target_url']) || undefined,
-    reverseTarget: nonEmptyString(card['reverse_target']) || undefined,
-    triggerActions: nonEmptyString(card['trigger_actions']) || undefined,
-    loginState: nonEmptyString(card['login_state']) || undefined,
-    browser: nonEmptyString(card['browser']) || undefined,
-    cdpPort: nonEmptyString(card['cdp_port']) || undefined,
-    cdpMcp: nonEmptyString(card['cdp_mcp']) || undefined,
-    proxy: nonEmptyString(card['proxy']) || undefined,
-    keywords: nonEmptyString(card['keywords']) || undefined,
-    evidenceDiscipline: nonEmptyString(card['evidence_discipline']) || undefined,
-    deliverables: nonEmptyString(card['deliverables']) || undefined,
-    acceptanceCriteria: nonEmptyString(card['acceptance_criteria']) || undefined,
+    targetUrl: strictStringFromUnknown(card['target_url']) || undefined,
+    reverseTarget: strictStringFromUnknown(card['reverse_target']) || undefined,
+    triggerActions: strictStringFromUnknown(card['trigger_actions']) || undefined,
+    loginState: strictStringFromUnknown(card['login_state']) || undefined,
+    browser: strictStringFromUnknown(card['browser']) || undefined,
+    cdpPort: strictStringFromUnknown(card['cdp_port']) || undefined,
+    cdpMcp: strictStringFromUnknown(card['cdp_mcp']) || undefined,
+    proxy: strictStringFromUnknown(card['proxy']) || undefined,
+    keywords: strictStringFromUnknown(card['keywords']) || undefined,
+    evidenceDiscipline: strictStringFromUnknown(card['evidence_discipline']) || undefined,
+    deliverables: strictStringFromUnknown(card['deliverables']) || undefined,
+    acceptanceCriteria: strictStringFromUnknown(card['acceptance_criteria']) || undefined,
     truncated: card['truncated'] === true,
   };
   return webReverseRequestIsEmpty(view) ? null : view;
@@ -1077,19 +1066,19 @@ function androidReverseRequestFromMetadata(raw: unknown): AndroidReverseRequestV
   const card = recordOrNullFromUnknown(raw);
   if (!card) return null;
   const view: AndroidReverseRequestViewModel = {
-    reverseTarget: nonEmptyString(card['reverse_target']) || undefined,
-    packageName: nonEmptyString(card['package_name']) || undefined,
-    apkPath: nonEmptyString(card['apk_path']) || undefined,
-    device: nonEmptyString(card['device']) || undefined,
-    deviceSerial: nonEmptyString(card['device_serial']) || undefined,
-    analysisMode: nonEmptyString(card['analysis_mode']) || undefined,
-    authorizationScope: nonEmptyString(card['authorization_scope']) || undefined,
-    adbMcp: nonEmptyString(card['adb_mcp']) || undefined,
-    fridaMcp: nonEmptyString(card['frida_mcp']) || undefined,
-    keywords: nonEmptyString(card['keywords']) || undefined,
-    notes: nonEmptyString(card['notes']) || undefined,
-    evidenceDiscipline: nonEmptyString(card['evidence_discipline']) || undefined,
-    acceptanceCriteria: nonEmptyString(card['acceptance_criteria']) || undefined,
+    reverseTarget: strictStringFromUnknown(card['reverse_target']) || undefined,
+    packageName: strictStringFromUnknown(card['package_name']) || undefined,
+    apkPath: strictStringFromUnknown(card['apk_path']) || undefined,
+    device: strictStringFromUnknown(card['device']) || undefined,
+    deviceSerial: strictStringFromUnknown(card['device_serial']) || undefined,
+    analysisMode: strictStringFromUnknown(card['analysis_mode']) || undefined,
+    authorizationScope: strictStringFromUnknown(card['authorization_scope']) || undefined,
+    adbMcp: strictStringFromUnknown(card['adb_mcp']) || undefined,
+    fridaMcp: strictStringFromUnknown(card['frida_mcp']) || undefined,
+    keywords: strictStringFromUnknown(card['keywords']) || undefined,
+    notes: strictStringFromUnknown(card['notes']) || undefined,
+    evidenceDiscipline: strictStringFromUnknown(card['evidence_discipline']) || undefined,
+    acceptanceCriteria: strictStringFromUnknown(card['acceptance_criteria']) || undefined,
     truncated: card['truncated'] === true,
   };
   return androidReverseRequestIsEmpty(view) ? null : view;
@@ -1236,11 +1225,11 @@ function isGoalEvaluationMessage(message: SessionMessage): boolean {
 
 function goalEvaluationChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
   if (meta['goal_evaluation_message'] !== true) return [];
-  const type = nonEmptyString(meta['goal_evaluation_message_type']);
-  const round = nonEmptyString(meta['goal_evaluation_round_index']);
+  const type = strictStringFromUnknown(meta['goal_evaluation_message_type']);
+  const round = strictStringFromUnknown(meta['goal_evaluation_round_index']);
   const suffix = round ? ` · #${round}` : '';
   return [{
-    key: `goal-evaluation:${type || message.id}:${nonEmptyString(meta['goal_evaluation_id']) || message.id}`,
+    key: `goal-evaluation:${type || message.id}:${strictStringFromUnknown(meta['goal_evaluation_id']) || message.id}`,
     icon: 'audit',
     label: type === 'request'
       ? `${t('message.context.goalEvaluationRequest', '目标评估请求')}${suffix}`
@@ -1251,7 +1240,7 @@ function goalEvaluationChips(message: SessionMessage, meta: Record<string, unkno
 function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
   if (meta['goal_evaluation_message'] === true) return [];
   if (meta['goal_auto_follow_up'] !== true) return [];
-  const goalId = nonEmptyString(meta['goal_id']);
+  const goalId = strictStringFromUnknown(meta['goal_id']);
   return [{
     key: `goal-auto:${goalId || message.id}`,
     icon: 'goal',
@@ -1264,11 +1253,11 @@ function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unk
 function goalObjectiveChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
   if (message.role !== 'user') return [];
   if (meta['goal_evaluation_message'] === true || meta['goal_auto_follow_up'] === true) return [];
-  const senderOrigin = nonEmptyString(meta['sender_origin']);
+  const senderOrigin = strictStringFromUnknown(meta['sender_origin']);
   if (senderOrigin && senderOrigin !== 'explicit_user') return [];
-  const goalId = nonEmptyString(meta['goal_id']);
+  const goalId = strictStringFromUnknown(meta['goal_id']);
   const goalObjective = meta['goal_objective'];
-  const hasGoalObjective = goalObjective === true || nonEmptyString(goalObjective).length > 0;
+  const hasGoalObjective = goalObjective === true || strictStringFromUnknown(goalObjective).length > 0;
   if (!goalId || !hasGoalObjective) return [];
   return [{
     key: `goal-objective:${goalId}`,
@@ -1304,7 +1293,7 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
       icon: 'goal',
       title: t('message.goal.auto.title', '继续推进当前目标'),
       description: t('message.goal.auto.description', 'Agent Runtime 自动发送，用于在上一轮评估未通过后继续收敛目标。'),
-      objective: nonEmptyString(meta['goal_objective']) || parsed.objective,
+      objective: strictStringFromUnknown(meta['goal_objective']) || parsed.objective,
       summary: parsed.prompt,
       evidence: [],
       missing: [],
@@ -1312,7 +1301,7 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
     };
   }
   if (meta['goal_evaluation_message'] !== true) return null;
-  const type = nonEmptyString(meta['goal_evaluation_message_type']);
+  const type = strictStringFromUnknown(meta['goal_evaluation_message_type']);
   if (type === 'request') {
     const payload = parseJsonObjectFromMarker(message.content ?? '', '{"goal":');
     const goal = recordOrNullFromUnknown(payload?.['goal']);
@@ -1324,7 +1313,7 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
       icon: 'audit',
       title: t('message.goal.evaluationRequest.title', '验证目标完成证据'),
       description: t('message.goal.evaluationRequest.description', '评估模型会基于当前目标和最近对话判断完成证据是否充分。'),
-      objective: nonEmptyString(goal?.['objective']),
+      objective: strictStringFromUnknown(goal?.['objective']),
       evidence: [],
       missing: [],
       metrics: [
@@ -1351,8 +1340,8 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
       description: passed
         ? t('message.goal.evaluationResponse.passedDescription', '评估模型认为当前证据足以完成目标。')
         : t('message.goal.evaluationResponse.continueDescription', '评估模型认为证据仍不足，需要继续推进。'),
-      summary: nonEmptyString(decoded?.['summary']),
-      followUpPrompt: nonEmptyString(decoded?.['follow_up_prompt']),
+      summary: strictStringFromUnknown(decoded?.['summary']),
+      followUpPrompt: strictStringFromUnknown(decoded?.['follow_up_prompt']),
       passed,
       confidence,
       evidence: stringListFromUnknown(decoded?.['evidence']).slice(0, 8),
@@ -1390,8 +1379,8 @@ function parseJsonObjectFromMarker(content: string, marker: string): Record<stri
 }
 
 function goalMetricsFromMeta(meta: Record<string, unknown>): MessageContextChip[] {
-  const round = nonEmptyString(meta['goal_evaluation_round_index']);
-  const goalId = nonEmptyString(meta['goal_id']);
+  const round = strictStringFromUnknown(meta['goal_evaluation_round_index']);
+  const goalId = strictStringFromUnknown(meta['goal_id']);
   return [
     ...(round ? [{ key: 'round', icon: 'refresh' as const, label: `#${round}` }] : []),
     ...(goalId ? [{ key: 'goal-id', icon: 'goal' as const, label: shortGoalId(goalId) }] : []),
@@ -1443,7 +1432,7 @@ function shortGoalId(goalId: string): string {
 function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] {
   const request = recordOrNullFromUnknown(meta['creation_request']);
   const options = recordOrNullFromUnknown(request?.['options']);
-  const mode = nonEmptyString(request?.['mode']) || nonEmptyString(meta['conversation_mode']);
+  const mode = strictStringFromUnknown(request?.['mode']) || strictStringFromUnknown(meta['conversation_mode']);
   const data = creationModeData(mode);
   if (!data) return [];
   const detail = creationOptionDetail(options);
@@ -1475,7 +1464,7 @@ function mediaGenerationModeFromMetadata(
   metadata: Record<string, unknown>,
 ): MediaGenerationMode | null {
   const creationRequest = recordOrNullFromUnknown(metadata['creation_request']);
-  const mode = nonEmptyString(creationRequest?.['mode']) || nonEmptyString(metadata['conversation_mode']);
+  const mode = strictStringFromUnknown(creationRequest?.['mode']) || strictStringFromUnknown(metadata['conversation_mode']);
   return mode === 'image' || mode === 'video' || mode === 'audio' || mode === 'deep_research'
     ? mode
     : null;
@@ -1484,15 +1473,15 @@ function mediaGenerationModeFromMetadata(
 function creationOptionDetail(options: Record<string, unknown> | null): string {
   if (!options) return '';
   const parts: string[] = [];
-  const aspectRatio = nonEmptyString(options['aspect_ratio']);
-  const size = nonEmptyString(options['size']);
-  const quality = nonEmptyString(options['quality']);
-  const style = nonEmptyString(options['style']);
-  const outputFormat = nonEmptyString(options['output_format']);
-  const background = nonEmptyString(options['background']);
-  const resolution = nonEmptyString(options['resolution']);
-  const mode = nonEmptyString(options['mode']);
-  const voice = nonEmptyString(options['voice']);
+  const aspectRatio = strictStringFromUnknown(options['aspect_ratio']);
+  const size = strictStringFromUnknown(options['size']);
+  const quality = strictStringFromUnknown(options['quality']);
+  const style = strictStringFromUnknown(options['style']);
+  const outputFormat = strictStringFromUnknown(options['output_format']);
+  const background = strictStringFromUnknown(options['background']);
+  const resolution = strictStringFromUnknown(options['resolution']);
+  const mode = strictStringFromUnknown(options['mode']);
+  const voice = strictStringFromUnknown(options['voice']);
   const duration = strictPositiveIntegerFromUnknown(options['duration_seconds']);
   const count = strictPositiveIntegerFromUnknown(options['count']);
   const frameRate = strictPositiveIntegerFromUnknown(options['frame_rate']);
@@ -1519,16 +1508,16 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   if (seed != null) parts.push(`seed ${seed}`);
   if (typeof options['prompt_enhance'] === 'boolean') parts.push(options['prompt_enhance'] ? 'prompt+' : 'prompt-');
   if (typeof options['watermark'] === 'boolean') parts.push(options['watermark'] ? 'watermark' : 'no wm');
-  if (nonEmptyString(options['negative_prompt'])) parts.push('negative');
+  if (strictStringFromUnknown(options['negative_prompt'])) parts.push('negative');
   if (count != null && count > 1) parts.push(`x${count}`);
   return parts.join(' · ');
 }
 
 function skillChips(meta: Record<string, unknown>): MessageContextChip[] {
   const skill = recordOrNullFromUnknown(meta['user_skill_selection']) ?? recordOrNullFromUnknown(meta['selected_skill']);
-  const name = nonEmptyString(skill?.['name']);
+  const name = strictStringFromUnknown(skill?.['name']);
   if (!name) return [];
-  const emoji = nonEmptyString(skill?.['emoji']);
+  const emoji = strictStringFromUnknown(skill?.['emoji']);
   return [{
     key: `skill:${name}`,
     icon: emoji ? undefined : 'skill',
@@ -1826,7 +1815,7 @@ function selectedMessageInfoChips(
     chips.push(...goalAutoFollowUpChips(message, meta));
   }
   if (message.role !== 'user') {
-    const modelLabel = nonEmptyString(message.model_label) || nonEmptyString(message.model_id);
+    const modelLabel = strictStringFromUnknown(message.model_label) || strictStringFromUnknown(message.model_id);
     if (modelLabel) {
       chips.push({
         key: 'model',
@@ -3360,9 +3349,9 @@ function KnowledgeBaseRetrievalDialog({
   const rerank = recordOrNullFromUnknown(metadata['rerank']);
   const vectorDistribution = knowledgeBaseVectorDistribution(metadata);
   const contextContent = knowledgeBaseContextContent(metadata);
-  const query = nonEmptyString(metadata['query']);
-  const status = nonEmptyString(metadata['status']) || 'unknown';
-  const error = nonEmptyString(metadata['error']);
+  const query = strictStringFromUnknown(metadata['query']);
+  const status = strictStringFromUnknown(metadata['status']) || 'unknown';
+  const error = strictStringFromUnknown(metadata['error']);
   const copyJson = async () => {
     const ok = await copyTextToClipboard(JSON.stringify(metadata, null, 2));
     showSnackbar(ok ? t('detail.copy.ok', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -3452,12 +3441,12 @@ function KnowledgeBaseRetrievalDialog({
               <button
                 type="button"
                 class="oh-kb-hit-card oh-tap-press"
-                key={`${nonEmptyString(hit['chunk_id']) || index}`}
+                key={`${strictStringFromUnknown(hit['chunk_id']) || index}`}
                 onClick={() => setSelectedHit(hit)}
                 aria-label={t('message.kbDialog.openChunkDetail', '打开分块详情')}
               >
                 <div class="oh-kb-hit-title">
-                  <span>{index + 1}. {nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || nonEmptyString(hit['chunk_id']) || t('message.kbDialog.untitledChunk', '未命名分块')}</span>
+                  <span>{index + 1}. {strictStringFromUnknown(hit['title']) || strictStringFromUnknown(hit['source_title']) || strictStringFromUnknown(hit['chunk_id']) || t('message.kbDialog.untitledChunk', '未命名分块')}</span>
                   <span>{finiteNumberOrNullFromUnknown(hit['score'])?.toFixed(4) ?? '—'}</span>
                 </div>
                 <div class="oh-kb-hit-meta">
@@ -3469,7 +3458,7 @@ function KnowledgeBaseRetrievalDialog({
                   <KbKv label="rerank_score" value={hit['rerank_score']} />
                   <KbKv label="tokens" value={hit['token_estimate']} />
                 </div>
-                {nonEmptyString(hit['preview']) ? <p class="oh-kb-hit-preview">{nonEmptyString(hit['preview'])}</p> : null}
+                {strictStringFromUnknown(hit['preview']) ? <p class="oh-kb-hit-preview">{strictStringFromUnknown(hit['preview'])}</p> : null}
               </button>
             ))}
           </div>
@@ -3525,9 +3514,9 @@ function KnowledgeChunkDetailDialog({
   const [source, setSource] = useState<KnowledgeSourceDto | null>(null);
   const [chunk, setChunk] = useState<KnowledgeChunkDto | null>(null);
   const [loadError, setLoadError] = useState('');
-  const sourceId = nonEmptyString(hit['source_id']);
-  const chunkId = nonEmptyString(hit['chunk_id']);
-  const preview = nonEmptyString(hit['content']) || nonEmptyString(hit['preview']);
+  const sourceId = strictStringFromUnknown(hit['source_id']);
+  const chunkId = strictStringFromUnknown(hit['chunk_id']);
+  const preview = strictStringFromUnknown(hit['content']) || strictStringFromUnknown(hit['preview']);
 
   useEffect(() => {
     if (!sourceId || !chunkId) {
@@ -3567,18 +3556,18 @@ function KnowledgeChunkDetailDialog({
     });
   };
   const copyChunkContent = async () => {
-    const text = nonEmptyString(chunk?.content) || preview;
+    const text = strictStringFromUnknown(chunk?.content) || preview;
     if (!text) return;
     const ok = await copyTextToClipboard(text);
     showSnackbar(ok ? t('message.kbDialog.copyChunkContentOk', '已复制分块内容。') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
       tone: ok ? 'success' : 'error',
     });
   };
-  const resolvedTitle = nonEmptyString(chunk?.title) || nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || chunkId || t('message.kbDialog.untitledChunk', '未命名分块');
+  const resolvedTitle = strictStringFromUnknown(chunk?.title) || strictStringFromUnknown(hit['title']) || strictStringFromUnknown(hit['source_title']) || chunkId || t('message.kbDialog.untitledChunk', '未命名分块');
   const tags = Array.isArray(chunk?.tags)
     ? chunk.tags
     : Array.isArray(hit['tags'])
-      ? hit['tags'].map((item) => nonEmptyString(item)).filter(Boolean)
+      ? hit['tags'].map((item) => strictStringFromUnknown(item)).filter(Boolean)
       : [];
   const metadata = recordOrNullFromUnknown(chunk?.metadata) ?? null;
   return (
@@ -3667,7 +3656,7 @@ function KnowledgeChunkDetailDialog({
             </KnowledgeBaseDialogSection>
           ) : null}
           <KnowledgeBaseDialogSection title={chunk ? t('message.kbDialog.fullContent', '完整内容') : t('message.kbDialog.hitPreview', '命中预览')}>
-            <pre class="oh-kb-dialog-pre is-context">{nonEmptyString(chunk?.content) || preview || '—'}</pre>
+            <pre class="oh-kb-dialog-pre is-context">{strictStringFromUnknown(chunk?.content) || preview || '—'}</pre>
           </KnowledgeBaseDialogSection>
           {!chunk ? (
             <KnowledgeBaseDialogSection title={t('message.kbDialog.rawHitMetadata', '原始命中元数据')}>
@@ -3680,7 +3669,7 @@ function KnowledgeChunkDetailDialog({
           <MessageIcon name="audit" size={15} />
           {t('message.kbDialog.copyChunkId', '复制 ID')}
         </button>
-        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkContent} disabled={!preview && !nonEmptyString(chunk?.content)}>
+        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkContent} disabled={!preview && !strictStringFromUnknown(chunk?.content)}>
           <MessageIcon name="copy" size={15} />
           {t('message.kbDialog.copyChunkContent', '复制内容')}
         </button>
@@ -3840,7 +3829,7 @@ function KnowledgeVectorDistributionScene({
     fetchKnowledgeVectorDistribution(KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS, { signal: controller.signal })
       .then((payload) => {
         if (controller.signal.aborted) return;
-        const parsed = knowledgeDistributionFromDto(payload.distribution);
+        const parsed = parseKnowledgeVectorDistribution(payload.distribution);
         setCorpusDistribution(parsed);
         if (!parsed) setCorpusError(t('message.kbDialog.corpusEmpty', '没有可叠加的全量向量点。'));
       })
@@ -3876,7 +3865,7 @@ function KnowledgeVectorDistributionScene({
         const transformed = point.matrixTransform(matrix.inverse());
         return { x: transformed.x, y: transformed.y };
       } catch {
-        // Fallback to rect-based mapping below.
+        // 矩阵换算失败时回退到下方的矩形坐标映射。
       }
     }
     const rect = sceneRef.current?.getBoundingClientRect();

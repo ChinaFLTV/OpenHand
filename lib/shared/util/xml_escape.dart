@@ -5,10 +5,6 @@ const int _kLessThan = 0x3c;
 const int _kGreaterThan = 0x3e;
 
 String escapeXmlAttribute(String value) {
-  return _escapeXmlAttribute(value);
-}
-
-String _escapeXmlAttribute(String value) {
   StringBuffer? buffer;
   var segmentStart = 0;
   for (var i = 0; i < value.length; i++) {

@@ -160,7 +160,7 @@ class SkillMarketClient {
       // 抛错前排空响应流，确保连接正常回收。
       await _drainResponseStreamBestEffort(
         response.stream,
-        reason: 'drain stream after non-2xx download',
+        reason: '下载响应异常后排空响应流',
       );
       _throwHttpFailure(response.statusCode, 'while downloading skill');
     }
@@ -168,7 +168,7 @@ class SkillMarketClient {
     if (contentLength != null && contentLength > _maxDownloadBytes) {
       await _drainResponseStreamBestEffort(
         response.stream,
-        reason: 'drain oversized download stream',
+        reason: '下载内容超限后排空响应流',
       );
       throw const SkillMarketException('Skill archive is too large.');
     }
@@ -222,12 +222,7 @@ class SkillMarketClient {
     final versionsFuture = fetchSkillVersions(slug).then(
       (result) => result.versions,
       onError: (Object error, StackTrace stackTrace) {
-        silentLog(
-          'skill_market_client',
-          'fetch versions $slug',
-          error,
-          stackTrace,
-        );
+        silentLog('skill_market_client', '获取技能版本 $slug', error, stackTrace);
         return const <SkillMarketVersion>[];
       },
     );
@@ -238,7 +233,7 @@ class SkillMarketClient {
             onError: (Object error, StackTrace stackTrace) {
               silentLog(
                 'skill_market_client',
-                'fetch files $slug',
+                '获取技能文件 $slug',
                 error,
                 stackTrace,
               );
@@ -340,7 +335,7 @@ class SkillMarketClient {
         if (isHttpFailureStatus(response.statusCode)) {
           await _drainResponseStreamBestEffort(
             response.stream,
-            reason: 'drain skill file error response',
+            reason: '技能文件响应异常后排空响应流',
           );
         }
         _throwHttpFailure(response.statusCode, 'while fetching skill file');
@@ -398,12 +393,7 @@ class SkillMarketClient {
         version: version,
       );
     } catch (error, stackTrace) {
-      silentLog(
-        'skill_market_client',
-        'fetch SKILL.md $slug',
-        error,
-        stackTrace,
-      );
+      silentLog('skill_market_client', '获取 SKILL.md $slug', error, stackTrace);
       return null;
     }
   }
@@ -439,7 +429,7 @@ class SkillMarketClient {
     if (isHttpFailureStatus(response.statusCode)) {
       await _drainResponseStreamBestEffort(
         response.stream,
-        reason: 'drain JSON error response',
+        reason: 'JSON 响应异常后排空响应流',
       );
       _throwHttpFailure(response.statusCode, 'from $uri');
     }

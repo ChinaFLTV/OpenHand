@@ -426,12 +426,7 @@ class KnowledgeRetrievalService {
       if (settings.failureStrategy == KnowledgeFailureStrategy.failClosed) {
         rethrow;
       }
-      silentLog(
-        'knowledge_retrieval',
-        'model rerank failed',
-        error,
-        stackTrace,
-      );
+      silentLog('knowledge_retrieval', '模型重排序失败', error, stackTrace);
       return (
         hits: localRanked,
         trace: KnowledgeRerankTrace(

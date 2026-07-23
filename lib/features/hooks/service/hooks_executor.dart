@@ -49,7 +49,7 @@ Future<void> _deleteHookTempContextFile(File file) async {
       await file.delete();
     }
   } catch (error, stack) {
-    silentLog('hooks_executor', 'delete temp context file', error, stack);
+    silentLog('hooks_executor', '删除临时上下文文件', error, stack);
   }
 }
 

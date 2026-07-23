@@ -79,7 +79,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         _toast(true, loc?.webReverseCoverageCollecting ?? 'Collecting…');
       }
     } catch (e, st) {
-      silentLog('web_reverse_coverage_dialog', 'start', e, st);
+      silentLog('web_reverse_coverage_dialog', '启动覆盖率采集', e, st);
       if (mounted) {
         _toast(
           false,
@@ -150,7 +150,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
             'Sampled ${sorted.length} scripts',
       );
     } catch (e, st) {
-      silentLog('web_reverse_coverage_dialog', 'take', e, st);
+      silentLog('web_reverse_coverage_dialog', '获取覆盖率数据', e, st);
       if (mounted) {
         _toast(
           false,
@@ -173,7 +173,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       setState(() => _running = false);
       _toast(true, loc?.webReverseCoverageStopped ?? 'Stopped');
     } catch (e, st) {
-      silentLog('web_reverse_coverage_dialog', 'stop', e, st);
+      silentLog('web_reverse_coverage_dialog', '停止覆盖率采集', e, st);
       if (mounted) {
         _toast(false, '${loc?.tlCallFailed ?? 'Failed'}: $e');
       }
@@ -201,7 +201,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       text: buf.toString(),
       successBase: loc?.webReverseCoverageReportCopied ?? 'Report copied',
       logTag: 'web_reverse_coverage_dialog',
-      logAction: 'copy-report',
+      logAction: '复制覆盖率报告',
     );
   }
 
@@ -288,7 +288,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                 if (_lastTakeAt != null) ...[
                   const SizedBox(width: 10),
                   Text(
-                    _stamp(_lastTakeAt!),
+                    formatHourMinuteSecond(_lastTakeAt!),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -487,7 +487,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                 text: row.url,
                 successBase: loc?.webReverseCoverageCopied ?? 'Copied',
                 logTag: 'web_reverse_coverage_dialog',
-                logAction: 'copy-url',
+                logAction: '复制资源链接',
               );
             },
             icon: const Icon(Icons.copy_rounded, size: 16),
@@ -502,6 +502,4 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)}K';
     return '${(b / 1024 / 1024).toStringAsFixed(2)}M';
   }
-
-  String _stamp(DateTime t) => formatHourMinuteSecond(t);
 }

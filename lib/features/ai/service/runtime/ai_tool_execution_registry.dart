@@ -70,9 +70,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
     );
     final previous = _entries[key];
     if (previous != null) {
-      unawaited(
-        _cancelEntry(previous, 'replace duplicate $normalizedToolCallId'),
-      );
+      unawaited(_cancelEntry(previous, '替换重复工具调用：$normalizedToolCallId'));
     }
     final entry = _RegisteredEntry(
       killer: killer ?? () => Future<void>.value(),
@@ -100,7 +98,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
     final entry = _entryForMutation(toolCallId);
     if (entry == null) return;
     if (entry.cancelRequested) {
-      unawaited(_runKiller(killer, 'cancel late ${entry.record.toolCallId}'));
+      unawaited(_runKiller(killer, '取消迟到的工具调用：${entry.record.toolCallId}'));
       return;
     }
     entry.killer = killer;
@@ -142,7 +140,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
           toolCallId: normalizedToolCallId,
         )];
     if (entry == null) return;
-    await _cancelEntry(entry, 'cancel $normalizedToolCallId');
+    await _cancelEntry(entry, '取消工具调用：$normalizedToolCallId');
   }
 
   /// 仅取消令牌对应的执行，避免旧执行超时后误杀同 ID 的新执行。
@@ -152,7 +150,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
     if (registration == null) return;
     await _cancelEntry(
       registration._entry,
-      'cancel ${registration.toolCallId}',
+      '取消工具调用：${registration.toolCallId}',
     );
   }
 
@@ -166,7 +164,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
       maxConcurrency: _cancelConcurrency,
       task: (index) {
         final entry = targets[index];
-        return _cancelEntry(entry, 'cancel-session ${entry.record.toolCallId}');
+        return _cancelEntry(entry, '取消会话工具调用：${entry.record.toolCallId}');
       },
     );
   }

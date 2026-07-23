@@ -355,12 +355,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         await pluginController.checkPluginUpdate(pluginId);
       }
     } catch (error, stack) {
-      silentLog(
-        'knowledge_base_config_dialog',
-        'refresh dependency status',
-        error,
-        stack,
-      );
+      silentLog('knowledge_base_config_dialog', '刷新依赖状态', error, stack);
     }
   }
 
@@ -613,13 +608,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         } catch (rollbackError, rollbackStack) {
           silentLog(
             'knowledge_base_config_dialog',
-            'rollback settings',
+            '回滚设置',
             rollbackError,
             rollbackStack,
           );
         }
       }
-      silentLog('knowledge_base_config_dialog', 'save settings', error, stack);
+      silentLog('knowledge_base_config_dialog', '保存设置', error, stack);
       if (mounted) {
         showOpenHandErrorSnack(context, '$error');
       }

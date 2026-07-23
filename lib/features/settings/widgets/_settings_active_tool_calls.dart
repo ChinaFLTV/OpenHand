@@ -58,7 +58,7 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
           }
         },
         onError: (error, stack) =>
-            silentLog('settings', 'active tool calls ticker', error, stack),
+            silentLog('settings', '活动工具调用计时器', error, stack),
       );
     } else if (_activeCount == 0 && _ticker != null) {
       _ticker?.cancel();
@@ -191,7 +191,7 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
 }
 
 /// 三项工具加固参数：subprocessGracefulShutdownMs / bashOutputMaxBytes /
-/// maxConcurrentTools。每个独立行用 TextField + Save 按钮提交，输入超出
+/// maxConcurrentTools。每个独立行用 TextField 和保存按钮提交，输入超出
 /// 范围时显示红色提示文案，保存成功靠 SettingsController.saveSuccessSignal
 /// 的全局 HighlightPulse 反馈。
 class _ToolHardeningParamsPanel extends StatefulWidget {

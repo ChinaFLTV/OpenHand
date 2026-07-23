@@ -407,12 +407,7 @@ class AiFileHistoryService {
 
       return (content, metadata);
     } catch (error, stack) {
-      silentLog(
-        'ai_file_history_service',
-        'read version content',
-        error,
-        stack,
-      );
+      silentLog('ai_file_history_service', '读取版本内容', error, stack);
       return (null, null);
     }
   }
@@ -464,22 +459,12 @@ class AiFileHistoryService {
               }
             }
           } catch (error, stack) {
-            silentLog(
-              'ai_file_history_service',
-              'clear single history file',
-              error,
-              stack,
-            );
+            silentLog('ai_file_history_service', '清理单个历史文件', error, stack);
           }
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_file_history_service',
-        'iterate history dir for clear',
-        error,
-        stack,
-      );
+      silentLog('ai_file_history_service', '遍历待清理历史目录', error, stack);
     }
   }
 

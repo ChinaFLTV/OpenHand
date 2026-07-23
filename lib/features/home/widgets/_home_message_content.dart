@@ -5537,12 +5537,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     try {
       await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
-      silentLog(
-        'home_message_content',
-        'html bubble reload failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_content', '重新加载 HTML 气泡失败', error, stack);
     }
   }
 
@@ -5584,7 +5579,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
                 .catchError((Object error, StackTrace stack) {
                   silentLog(
                     'home_message_content',
-                    'html bubble fallback height probe failed',
+                    '探测 HTML 气泡备用高度失败',
                     error,
                     stack,
                   );
@@ -5766,12 +5761,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
             "(function(){try{var x=$x,y=$y;var el=document.elementFromPoint(x,y);if(!el)return;var opts={bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y,button:0};try{el.dispatchEvent(new PointerEvent('pointerdown',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mousedown',opts));try{el.dispatchEvent(new PointerEvent('pointerup',Object.assign({pointerType:'mouse',isPrimary:true},opts)));}catch(_){}el.dispatchEvent(new MouseEvent('mouseup',opts));el.dispatchEvent(new MouseEvent('click',opts));if(typeof el.focus==='function'){try{el.focus();}catch(_){}}}catch(_){}})();",
       );
     } catch (error, stack) {
-      silentLog(
-        'home_message_content',
-        'html bubble simulate tap failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_content', '模拟 HTML 气泡点击失败', error, stack);
     }
   }
 
@@ -5837,12 +5827,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
       HtmlSelectionBridgeClipboard.update(result?.toString());
     } catch (error, stack) {
-      silentLog(
-        'home_message_content',
-        'html bubble selection bridge failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_content', 'HTML 气泡选择桥接失败', error, stack);
     }
   }
 
@@ -5983,12 +5968,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       await controller.evaluateJavascript(source: _heightObserverScript);
       await controller.evaluateJavascript(source: _selectionBridgeScript);
     } catch (error, stack) {
-      silentLog(
-        'home_message_content',
-        'html bubble height observer install failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_content', '安装 HTML 气泡高度观察器失败', error, stack);
     } finally {
       _reportBootstrapReady();
     }
@@ -6001,7 +5981,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   ) {
     _reportBootstrapReady();
     widget.onFallback();
-    silentLog('home_message_content', 'html bubble webview error', error);
+    silentLog('home_message_content', 'HTML 气泡 WebView 错误', error);
     if (mounted) {
       _safeSetState(() => _hasError = true);
     }

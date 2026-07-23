@@ -373,7 +373,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     await copyHomeTextToClipboard(
       context: context,
       text: buf.toString(),
-      logAction: 'copy all file mutation diff',
+      logAction: '复制全部文件变更差异',
       successMessage: AppLocalizations.of(context)!.fileMutationCopyAllDiffDone,
     );
   }
@@ -2187,7 +2187,7 @@ Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
   await copyHomeTextToClipboard(
     context: context,
     text: filePath,
-    logAction: 'copy file mutation path',
+    logAction: '复制文件变更路径',
     successMessage: AppLocalizations.of(context)!.fileMutationPathCopied,
   );
 }
@@ -2233,7 +2233,7 @@ Future<void> _revealFileMutationPath(
       }
     }
   } catch (error, stack) {
-    silentLog('file_mutation_entry', 'resolve reveal target', error, stack);
+    silentLog('file_mutation_entry', '解析展示目标', error, stack);
   }
 
   try {
@@ -2250,7 +2250,7 @@ Future<void> _revealFileMutationPath(
       );
     }
   } catch (error, stack) {
-    silentLog('file_mutation_entry', 'reveal path', error, stack);
+    silentLog('file_mutation_entry', '展示路径', error, stack);
     if (!context.mounted) return;
     showOpenHandErrorSnack(
       context,
@@ -3409,7 +3409,7 @@ class _RoundFileMutationSummaryCardState
           toolCallIds: ids,
         );
       } catch (error, stack) {
-        silentLog('round_summary_card', 'viewsForToolCalls', error, stack);
+        silentLog('round_summary_card', '构建工具调用视图', error, stack);
         return const <_RoundSummaryRow>[];
       }
       for (final entry in viewsByToolCall.entries) {

@@ -15,9 +15,8 @@ typedef _ThrottleSyncTarget = ({
   String gistId,
 });
 
-/// Keeps the global stream-throttle configuration synchronized in the
-/// background. Pull and push requests share one coalescing queue so an older
-/// response cannot race a newer operation and overwrite it.
+/// 在后台同步全局流式节流配置。拉取和推送共用合并队列，避免旧响应
+/// 与新操作竞争并覆盖较新的配置。
 class ThrottleAutoSyncService {
   ThrottleAutoSyncService({
     required SettingsController settingsController,
@@ -66,8 +65,7 @@ class ThrottleAutoSyncService {
   bool _started = false;
   bool _disposed = false;
 
-  /// Registers listeners and schedules one delayed startup pull. Repeated
-  /// calls are safe and have no effect.
+  /// 注册监听并安排一次延迟启动拉取。重复调用安全且不会产生副作用。
   void start() {
     if (_started || _disposed) return;
     _started = true;
@@ -79,14 +77,13 @@ class ThrottleAutoSyncService {
     _cloudChangesSub = _cloudSyncService.cloudChanges.listen(
       (_) => _schedulePullAfter(_cloudChangeDebounce),
       onError: (Object error, StackTrace stack) =>
-          silentLog('throttle_auto_sync', 'cloud changes stream', error, stack),
+          silentLog('throttle_auto_sync', '监听云端变更流', error, stack),
     );
     _bootPullTimer = startSafeTimer(_bootPullDelay, _requestPull);
   }
 
-  /// Stops every trigger and logically cancels the active operation. The
-  /// worker is awaited with a bounded deadline so shutdown cannot hang on an
-  /// injected client or platform channel that ignores cancellation.
+  /// 停止所有触发器并逻辑取消当前操作。等待 worker 时使用有界期限，
+  /// 避免注入的客户端或平台通道忽略取消而阻塞退出。
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
@@ -102,12 +99,8 @@ class ThrottleAutoSyncService {
     await cancelStreamSubscriptionBounded<void>(
       _cloudChangesSub,
       timeout: _disposeTimeout,
-      onError: (error, stack) => silentLog(
-        'throttle_auto_sync',
-        'cancel cloud changes subscription',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('throttle_auto_sync', '取消云端变更订阅', error, stack),
     );
     _cloudChangesSub = null;
     if (_started) {
@@ -121,12 +114,8 @@ class ThrottleAutoSyncService {
       await runAsyncCleanupBounded(
         () => syncLoop,
         timeout: _disposeTimeout,
-        onError: (error, stack) => silentLog(
-          'throttle_auto_sync',
-          'await sync loop shutdown',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('throttle_auto_sync', '等待同步循环结束', error, stack),
       );
     }
   }
@@ -137,8 +126,7 @@ class ThrottleAutoSyncService {
     final target = _readSyncTarget();
     if (target != _lastSyncTarget) {
       _lastSyncTarget = target;
-      // Never send a pending edit to a newly selected target before checking
-      // which side has the newer timestamp.
+      // 切换目标后先比较时间戳，再发送待处理的本地修改。
       _pushDebounceTimer?.cancel();
       _pushDebounceTimer = null;
       _pushPending = false;
@@ -183,7 +171,7 @@ class ThrottleAutoSyncService {
       loop.then<void>(
         (_) => _finishSyncLoop(loop),
         onError: (Object error, StackTrace stack) {
-          silentLog('throttle_auto_sync', 'sync loop', error, stack);
+          silentLog('throttle_auto_sync', '执行同步循环', error, stack);
           _finishSyncLoop(loop);
         },
       ),
@@ -231,7 +219,7 @@ class ThrottleAutoSyncService {
       if (!result.ok || result.config == null) {
         silentLog(
           'throttle_auto_sync',
-          'pull',
+          '拉取云端配置',
           result.message,
           StackTrace.current,
         );
@@ -269,8 +257,8 @@ class ThrottleAutoSyncService {
       if (outcome == AiStreamThrottleConfigImportOutcome.failed) {
         silentLog(
           'throttle_auto_sync',
-          'persist pulled config',
-          'settings persistence failed',
+          '持久化已拉取配置',
+          '设置持久化失败',
           StackTrace.current,
         );
         return;
@@ -279,7 +267,7 @@ class ThrottleAutoSyncService {
         _settingsController.exportAiStreamThrottleConfig(),
       );
     } catch (error, stack) {
-      silentLog('throttle_auto_sync', 'pull', error, stack);
+      silentLog('throttle_auto_sync', '拉取云端配置', error, stack);
     }
   }
 
@@ -303,13 +291,13 @@ class ThrottleAutoSyncService {
       if (!result.ok) {
         silentLog(
           'throttle_auto_sync',
-          'push',
+          '推送本地配置',
           result.message,
           StackTrace.current,
         );
       }
     } catch (error, stack) {
-      silentLog('throttle_auto_sync', 'push', error, stack);
+      silentLog('throttle_auto_sync', '推送本地配置', error, stack);
     }
   }
 
@@ -339,8 +327,7 @@ class ThrottleAutoSyncService {
     };
   }
 
-  /// Produces escaped canonical JSON so delimiters inside values cannot make
-  /// two different configurations share a signature.
+  /// 生成转义后的规范 JSON，避免值内分隔符让不同配置产生相同签名。
   static String _signatureForConfig(Map<String, Object?> config) {
     final keys =
         config.keys

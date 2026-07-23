@@ -79,7 +79,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
             'Tracking — interact with the page, then click "Stop & Tally".';
       });
     } catch (e, s) {
-      silentLog('web_reverse_css_coverage_dialog', 'css-cov.start', e, s);
+      silentLog('web_reverse_css_coverage_dialog', '启动 CSS 覆盖率采集', e, s);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -100,7 +100,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
         method: 'CSS.stopRuleUsageTracking',
       );
     } catch (e, s) {
-      silentLog('web_reverse_css_coverage_dialog', 'css-cov.stop', e, s);
+      silentLog('web_reverse_css_coverage_dialog', '停止 CSS 覆盖率采集', e, s);
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {
@@ -148,12 +148,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           // 这里把 styleSheetId 截短作为标签。
         }
       } catch (e, st) {
-        silentLog(
-          'web_reverse_css_coverage_dialog',
-          'css-cov.sheet-text',
-          e,
-          st,
-        );
+        silentLog('web_reverse_css_coverage_dialog', '读取 CSS 样式表文本', e, st);
       }
     }
     final list = map.values.toList()
@@ -193,7 +188,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
       text: json,
       successBase: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
       logTag: 'web_reverse_css_coverage_dialog',
-      logAction: 'css-cov.copy',
+      logAction: '复制 CSS 覆盖率报告',
     );
   }
 

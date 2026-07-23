@@ -4708,12 +4708,7 @@ $content
         _postCompactRestoreMaxCharsPerFile,
       );
     } catch (error, stackTrace) {
-      silentLog(
-        'AiPromptBuilder',
-        'tryReadPostCompactRestoredFile',
-        error,
-        stackTrace,
-      );
+      silentLog('AiPromptBuilder', '读取压缩后恢复的文件', error, stackTrace);
       return null;
     }
   }
@@ -4843,12 +4838,7 @@ $content
         _postCompactRestoreMaxSkillChars,
       );
     } catch (error, stackTrace) {
-      silentLog(
-        'AiPromptBuilder',
-        'tryReadPostCompactRestoredSkill',
-        error,
-        stackTrace,
-      );
+      silentLog('AiPromptBuilder', '读取压缩后恢复的技能', error, stackTrace);
       return null;
     }
   }

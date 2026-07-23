@@ -98,14 +98,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       if (usage.truncated) {
         silentLog(
           logTag,
-          'totalBytesOnDisk',
+          '统计磁盘总字节数',
           StateError('Web 引擎缓存空间统计已达到安全上限。'),
           StackTrace.current,
         );
       }
       return usage.totalBytes;
     } catch (error, stack) {
-      silentLog(logTag, 'totalBytesOnDisk', error, stack);
+      silentLog(logTag, '统计磁盘总字节数', error, stack);
       return 0;
     }
   }
@@ -121,7 +121,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           throw StateError('Web 引擎缓存清理已达到安全上限。');
         }
       } catch (error, stack) {
-        silentLog(logTag, 'clearAll', error, stack);
+        silentLog(logTag, '清理全部缓存', error, stack);
       }
     });
     await chain;
@@ -239,7 +239,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
             try {
               await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
             } catch (error, stack) {
-              silentLog(logTag, 'prewarm/writeIndex', error, stack);
+              silentLog(logTag, '预热缓存并写入索引', error, stack);
             }
             completer.complete(
               WebEngineCachePrewarmReport(
@@ -253,7 +253,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           }
         })
         .catchError((Object error, StackTrace stack) {
-          silentLog(logTag, 'prewarm', error, stack);
+          silentLog(logTag, '预热缓存', error, stack);
           if (!completer.isCompleted) {
             completer.complete(
               const WebEngineCachePrewarmReport(
@@ -308,7 +308,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         expiresAt: _dateTimeFromCacheMs(expiresAt, fallbackMs: now),
       );
     } catch (error, stack) {
-      silentLog(logTag, 'lookup', error, stack);
+      silentLog(logTag, '查询缓存', error, stack);
       return null;
     }
   }
@@ -338,7 +338,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           ),
         )
         .catchError((Object error, StackTrace stack) {
-          silentLog(logTag, 'store', error, stack);
+          silentLog(logTag, '存储缓存', error, stack);
         });
     await chain;
   }
@@ -396,7 +396,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               await oldestFile.delete().timeout(webEngineFileOperationTimeout);
             }
           } catch (error, stack) {
-            silentLog(logTag, 'store/evictIndexCapacity', error, stack);
+            silentLog(logTag, '存储缓存并清理索引容量', error, stack);
           }
         }
       }
@@ -438,7 +438,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       root['entries'] = entries;
       await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
     } catch (error, stack) {
-      silentLog(logTag, 'touchAccess', error, stack);
+      silentLog(logTag, '更新缓存访问时间', error, stack);
     }
   }
 
@@ -475,7 +475,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     if (usage.truncated) {
       silentLog(
         logTag,
-        'enforceCap/measure',
+        '执行容量限制并测量缓存',
         StateError('Web 引擎缓存空间统计已达到安全上限。'),
         StackTrace.current,
       );
@@ -521,7 +521,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         } on TimeoutException {
           break;
         } catch (error, stack) {
-          silentLog(logTag, 'enforceCap/delete', error, stack);
+          silentLog(logTag, '执行容量限制并删除缓存', error, stack);
         }
       }
       entries.remove(entry.key);
@@ -532,7 +532,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     try {
       await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
     } catch (error, stack) {
-      silentLog(logTag, 'enforceCap/writeIndex', error, stack);
+      silentLog(logTag, '执行容量限制并写入索引', error, stack);
     }
   }
 }

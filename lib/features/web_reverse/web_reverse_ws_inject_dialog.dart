@@ -198,7 +198,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         _installed = true;
       }
     } catch (e, st) {
-      silentLog('web_reverse_ws_inject', 'install', e, st);
+      silentLog('web_reverse_ws_inject', '安装 WebSocket 注入', e, st);
       _installError = '$e';
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -252,7 +252,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         }
       });
     } catch (e, st) {
-      silentLog('web_reverse_ws_inject', 'refresh', e, st);
+      silentLog('web_reverse_ws_inject', '刷新 WebSocket 注入', e, st);
     }
   }
 
@@ -314,7 +314,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         );
       }
     } catch (e, st) {
-      silentLog('web_reverse_ws_inject', 'send', e, st);
+      silentLog('web_reverse_ws_inject', '发送 WebSocket 注入消息', e, st);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -583,7 +583,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${_fmt(e.at)} · ${e.summary}',
+                                      '${formatHourMinuteSecond(e.at)} · ${e.summary}',
                                       style: theme.textTheme.labelSmall,
                                     ),
                                     Text(
@@ -630,8 +630,6 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       ),
     );
   }
-
-  String _fmt(DateTime t) => formatHourMinuteSecond(t);
 }
 
 class _LogEntry {

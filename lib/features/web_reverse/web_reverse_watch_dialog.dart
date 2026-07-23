@@ -165,7 +165,7 @@ class _WatchDialogState extends State<_WatchDialog> {
       }
       _pushWatchSample(e, text, err);
     } catch (err, st) {
-      silentLog('web_reverse_watch', 'evalOne', err, st);
+      silentLog('web_reverse_watch', '执行单项监视表达式', err, st);
       _pushWatchSample(e, '$err', true);
     }
   }
@@ -252,7 +252,7 @@ class _WatchDialogState extends State<_WatchDialog> {
       text: out,
       successBase: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
       logTag: 'web_reverse_watch',
-      logAction: 'export',
+      logAction: '导出监视结果',
     );
   }
 

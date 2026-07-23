@@ -328,7 +328,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
         result: copyResult,
       );
     } catch (e, st) {
-      silentLog('web_reverse_collection_export', 'copy', e, st);
+      silentLog('web_reverse_collection_export', '复制导出集合', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,

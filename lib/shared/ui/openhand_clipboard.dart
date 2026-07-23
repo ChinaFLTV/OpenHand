@@ -58,7 +58,7 @@ Future<bool> copyOpenHandTextToClipboard({
   required BuildContext context,
   required String text,
   required String logTag,
-  String logAction = 'copy',
+  String logAction = '复制',
   String? successMessage,
   String? errorMessage,
   bool showSuccess = true,

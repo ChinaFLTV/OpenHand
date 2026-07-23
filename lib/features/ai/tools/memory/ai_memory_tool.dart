@@ -93,7 +93,7 @@ class AiMemoryTool extends AiTool {
     } on _MemoryToolArgumentException catch (error) {
       return AiToolUtils.invalidResult(_toolName, error.message);
     } catch (error, stackTrace) {
-      silentLog('ai_memory_tool', 'run/$action', error, stackTrace);
+      silentLog('ai_memory_tool', '执行/$action', error, stackTrace);
       return _failedResult(
         stopwatch,
         'Memory operation failed.',

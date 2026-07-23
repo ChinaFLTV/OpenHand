@@ -47,16 +47,11 @@ Future<void> runCronHistoryCleanupOnce({
     if (affected < 0) {
       silentLog(
         'cron_history_cleanup_worker',
-        'cleanup timed out',
+        '清理超时',
         'maxWait=$_cleanupTimeout retentionDays=$retention',
       );
     }
   } catch (error, stack) {
-    silentLog(
-      'cron_history_cleanup_worker',
-      'unexpected failure',
-      error,
-      stack,
-    );
+    silentLog('cron_history_cleanup_worker', '发生意外异常', error, stack);
   }
 }

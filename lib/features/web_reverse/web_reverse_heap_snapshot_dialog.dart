@@ -62,7 +62,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     try {
       r = await widget.controller.takeHeapSnapshot();
     } catch (e, s) {
-      silentLog('web_reverse_heap_snapshot_dialog', 'heap-snapshot.take', e, s);
+      silentLog('web_reverse_heap_snapshot_dialog', '获取堆快照', e, s);
     }
     if (!mounted) return;
     if (r == null || r.json.isEmpty) {
@@ -78,7 +78,7 @@ class _HeapDialogState extends State<_HeapDialog> {
       file = File('${dir.path}/openhand_heap_$ts.heapsnapshot');
       await writeFileAtomically(file, r.json);
     } catch (e, s) {
-      silentLog('web_reverse_heap_snapshot_dialog', 'heap-snapshot.save', e, s);
+      silentLog('web_reverse_heap_snapshot_dialog', '保存堆快照', e, s);
       if (!mounted) return;
       _finishWithFailure(
         loc?.webReverseHeapFailed ?? 'Snapshot failed or empty',
@@ -107,7 +107,7 @@ class _HeapDialogState extends State<_HeapDialog> {
       text: _lastSaved,
       successBase: loc?.webReverseHeapPathCopied ?? 'Path copied',
       logTag: 'web_reverse_heap_snapshot_dialog',
-      logAction: 'heap-snapshot.clipboard',
+      logAction: '复制堆快照',
     );
   }
 

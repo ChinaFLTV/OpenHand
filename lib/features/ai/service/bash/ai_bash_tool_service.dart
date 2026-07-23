@@ -567,6 +567,7 @@ class AiBashToolService {
   AiBashToolService();
 
   static const int defaultTimeoutMs = 120000;
+  static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _subscriptionCancelTimeout = Duration(seconds: 1);
   static const int _maxPersistentSessions = 8;
   static const Duration _persistentSessionIdleTimeout = Duration(minutes: 5);
@@ -609,12 +610,7 @@ class AiBashToolService {
     for (final id in ids) {
       unawaited(
         closeSession(id).catchError((Object error, StackTrace stack) {
-          silentLog(
-            'ai_bash_tool_service',
-            'close persistent session after proxy change',
-            error,
-            stack,
-          );
+          silentLog('ai_bash_tool_service', '代理变更后关闭持久会话', error, stack);
         }),
       );
     }
@@ -698,6 +694,22 @@ class AiBashToolService {
       await launchSpec.proxyLease?.close();
     }
 
+    var launchProxyTransferred = false;
+    Future<T> runBeforeLaunchProxyTransfer<T>(
+      FutureOr<T> Function() action,
+    ) async {
+      var completed = false;
+      try {
+        final result = await action();
+        completed = true;
+        return result;
+      } finally {
+        if (!completed && !launchProxyTransferred) {
+          await closeLaunchProxy();
+        }
+      }
+    }
+
     final sandboxMetadata = launchSpec.metadata;
     if (launchSpec.blocked) {
       return BashToolExecutionResult(
@@ -722,35 +734,37 @@ class AiBashToolService {
           sandboxService.settings.autoAllowBashIfSandboxed &&
           !forceWriteConfirmation;
       if (!canSkipConfirmation) {
-        late final _WriteConfirmationOutcome outcome;
         final missingConfirmationCallback = confirmWriteCommand == null;
+        late final _WriteConfirmationOutcome outcome;
         try {
-          final confirmationTimeout = Duration(
-            milliseconds: writeConfirmationTimeoutMs,
-          );
-          final requestedAt = DateTime.now().toUtc();
-          final approvalDecisionFuture = missingConfirmationCallback
-              ? Future<BashCommandApprovalDecision>.value(
-                  BashCommandApprovalDecision.rejected,
-                )
-              : confirmWriteCommand(
-                  BashCommandApprovalRequest(
-                    command: normalizedCommand,
-                    workingDirectory: displayedWorkingDirectory,
-                    isWriteCommand: true,
-                    requestedAt: requestedAt,
-                    expiresAt: requestedAt.add(confirmationTimeout),
-                  ),
+          outcome = await runBeforeLaunchProxyTransfer(() async {
+            final confirmationTimeout = Duration(
+              milliseconds: writeConfirmationTimeoutMs,
+            );
+            final requestedAt = DateTime.now().toUtc();
+            final approvalDecisionFuture = missingConfirmationCallback
+                ? Future<BashCommandApprovalDecision>.value(
+                    BashCommandApprovalDecision.rejected,
+                  )
+                : confirmWriteCommand(
+                    BashCommandApprovalRequest(
+                      command: normalizedCommand,
+                      workingDirectory: displayedWorkingDirectory,
+                      isWriteCommand: true,
+                      requestedAt: requestedAt,
+                      expiresAt: requestedAt.add(confirmationTimeout),
+                    ),
+                  );
+            final approvalFuture = approvalDecisionFuture
+                .timeout(confirmationTimeout)
+                .then<_WriteConfirmationOutcome>(
+                  (decision) =>
+                      _WriteConfirmationOutcome.fromDecision(decision),
                 );
-          final approvalFuture = approvalDecisionFuture
-              .timeout(confirmationTimeout)
-              .then<_WriteConfirmationOutcome>(
-                (decision) => _WriteConfirmationOutcome.fromDecision(decision),
-              );
-          if (cancelSignal == null) {
-            outcome = await approvalFuture;
-          } else {
-            outcome = await Future.any<_WriteConfirmationOutcome>([
+            if (cancelSignal == null) {
+              return approvalFuture;
+            }
+            return Future.any<_WriteConfirmationOutcome>([
               approvalFuture,
               cancelSignal.then(
                 (_) => const _WriteConfirmationOutcome.cancelled(),
@@ -758,7 +772,7 @@ class AiBashToolService {
                     const _WriteConfirmationOutcome.cancelled(),
               ),
             ]);
-          }
+          });
         } on TimeoutException {
           await closeLaunchProxy();
           return BashToolExecutionResult(
@@ -910,9 +924,49 @@ class AiBashToolService {
     }
 
     final stopwatch = Stopwatch()..start();
+    Future<Process>? processStart;
+    var processStartTimedOut = false;
     late final Process process;
     try {
-      process = await _startProcess(launchSpec);
+      process = await runBeforeLaunchProxyTransfer(() {
+        final start = _startProcess(launchSpec);
+        processStart = start;
+        return start.timeout(
+          _processStartTimeout,
+          onTimeout: () {
+            processStartTimedOut = true;
+            throw TimeoutException('进程启动超时。', _processStartTimeout);
+          },
+        );
+      });
+    } on TimeoutException {
+      if (!processStartTimedOut) rethrow;
+      final pendingStart = processStart;
+      if (pendingStart != null) {
+        unawaited(
+          pendingStart.then<void>((lateProcess) async {
+            await runAsyncCleanupBounded(
+              () => terminateTrackedProcessTree(lateProcess),
+              onError: (error, stack) =>
+                  silentLog('ai_bash_tool_service', '终止延迟启动的进程', error, stack),
+            );
+          }, onError: (Object _, StackTrace _) {}),
+        );
+      }
+      stopwatch.stop();
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.timedOut,
+        command: normalizedCommand,
+        workingDirectory: launchSpec.workingDirectory,
+        stdout: '',
+        stderr:
+            'The process did not start within '
+            '${_processStartTimeout.inSeconds} seconds.',
+        durationMs: stopwatch.elapsedMilliseconds,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysis.reason,
+        sandboxMetadata: sandboxMetadata,
+      );
     } on ProcessException catch (error) {
       await closeLaunchProxy();
       return BashToolExecutionResult(
@@ -927,22 +981,6 @@ class AiBashToolService {
         sandboxMetadata: sandboxMetadata,
       );
     }
-
-    // 子进程派生成功后，把 pid 与 killer 回填到执行登记中心，让 UI 可以显示
-    // 真实 pid，并支持用户从工具卡片单独终止此次 Bash 调用（SIGTERM →
-    // 500ms 后 SIGKILL）。无 toolCallId 时跳过。
-    final registeredToolCallId = toolCallId;
-    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
-      AiToolExecutionRegistry.instance.attachPid(
-        registeredToolCallId,
-        process.pid,
-      );
-      AiToolExecutionRegistry.instance.attachKiller(
-        registeredToolCallId,
-        () async => _killProcess(process),
-      );
-    }
-
     final stdoutBuffer = StringBuffer();
     final stderrBuffer = StringBuffer();
     var lastRunningEmitMs = -1;
@@ -983,66 +1021,100 @@ class AiBashToolService {
       );
     }
 
-    emitUpdate(phase: BashToolExecutionPhase.running, force: true);
-    final progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (
-      _,
-    ) {
+    Timer? progressTimer;
+    Timer? stallTimer;
+    StreamSubscription<String>? stdoutSubscription;
+    StreamSubscription<String>? stderrSubscription;
+    var launchSetupCompleted = false;
+    try {
+      // 子进程派生成功后，把 pid 与 killer 回填到执行登记中心，让 UI 可以显示
+      // 真实 pid，并支持用户从工具卡片单独终止此次 Bash 调用。
+      final registeredToolCallId = toolCallId;
+      if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
+        AiToolExecutionRegistry.instance.attachPid(
+          registeredToolCallId,
+          process.pid,
+        );
+        AiToolExecutionRegistry.instance.attachKiller(
+          registeredToolCallId,
+          () async => _killProcess(process),
+        );
+      }
+
       emitUpdate(phase: BashToolExecutionPhase.running, force: true);
-    });
-    final stallTimer = startSafePeriodicTimer(const Duration(seconds: 5), (_) {
-      final now = stopwatch.elapsedMilliseconds;
-      if (now - lastOutputAtMs < 45 * 1000) return;
-      if (stallWarningEmitted) return;
-      final stdoutTail = _PersistentBashExecution._tailString(
-        stdoutBuffer.toString(),
-        1024,
-      );
-      final stderrTail = _PersistentBashExecution._tailString(
-        stderrBuffer.toString(),
-        1024,
-      );
-      final match =
-          _PersistentBashExecution._interactivePromptHeuristic
-              .firstMatch(stdoutTail)
-              ?.group(0) ??
-          _PersistentBashExecution._interactivePromptHeuristic
-              .firstMatch(stderrTail)
-              ?.group(0);
-      final warning = match != null
-          ? '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，疑似在等待交互式输入：${match.trim()}'
-          : '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，命令可能已停滞';
-      stallWarningEmitted = true;
-      emitUpdate(
-        phase: BashToolExecutionPhase.running,
-        force: true,
-        stallWarning: warning,
-      );
-    });
-    final stdoutSubscription = process.stdout
-        .transform(_shellOutputDecoder)
-        .listen((chunk) {
+      progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
+        emitUpdate(phase: BashToolExecutionPhase.running, force: true);
+      });
+      stallTimer = startSafePeriodicTimer(const Duration(seconds: 5), (_) {
+        final now = stopwatch.elapsedMilliseconds;
+        if (now - lastOutputAtMs < 45 * 1000) return;
+        if (stallWarningEmitted) return;
+        final stdoutTail = _PersistentBashExecution._tailString(
+          stdoutBuffer.toString(),
+          1024,
+        );
+        final stderrTail = _PersistentBashExecution._tailString(
+          stderrBuffer.toString(),
+          1024,
+        );
+        final match =
+            _PersistentBashExecution._interactivePromptHeuristic
+                .firstMatch(stdoutTail)
+                ?.group(0) ??
+            _PersistentBashExecution._interactivePromptHeuristic
+                .firstMatch(stderrTail)
+                ?.group(0);
+        final warning = match != null
+            ? '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，疑似在等待交互式输入：${match.trim()}'
+            : '已 ${(now - lastOutputAtMs) ~/ 1000}s 无新输出，命令可能已停滞';
+        stallWarningEmitted = true;
+        emitUpdate(
+          phase: BashToolExecutionPhase.running,
+          force: true,
+          stallWarning: warning,
+        );
+      });
+      stdoutSubscription = process.stdout.transform(_shellOutputDecoder).listen(
+        (chunk) {
           if (chunk.isNotEmpty) {
             lastOutputAtMs = stopwatch.elapsedMilliseconds;
             stallWarningEmitted = false;
           }
           _appendCapturedOutput(stdoutBuffer, chunk, maxCapturedCharacters);
           emitUpdate(phase: BashToolExecutionPhase.running);
-        });
-    final stderrSubscription = process.stderr
-        .transform(_shellOutputDecoder)
-        .listen((chunk) {
+        },
+      );
+      stderrSubscription = process.stderr.transform(_shellOutputDecoder).listen(
+        (chunk) {
           if (chunk.isNotEmpty) {
             lastOutputAtMs = stopwatch.elapsedMilliseconds;
             stallWarningEmitted = false;
           }
           _appendCapturedOutput(stderrBuffer, chunk, maxCapturedCharacters);
           emitUpdate(phase: BashToolExecutionPhase.running);
-        });
+        },
+      );
+      launchSetupCompleted = true;
+    } finally {
+      if (!launchSetupCompleted) {
+        progressTimer?.cancel();
+        stallTimer?.cancel();
+        await Future.wait<void>(<Future<void>>[
+          _cancelProcessOutputSubscription(stdoutSubscription, 'stdout'),
+          _cancelProcessOutputSubscription(stderrSubscription, 'stderr'),
+        ]);
+        await terminateTrackedProcessTree(process);
+        stopwatch.stop();
+        await closeLaunchProxy();
+      }
+    }
 
     int? exitCode;
     var cancelled = false;
     var timedOut = false;
     try {
+      // 执行阶段的 finally 从此处接管代理和进程输出资源。
+      launchProxyTransferred = true;
       final waitForExit = process.exitCode.timeout(
         Duration(milliseconds: timeoutMs),
         onTimeout: () async {
@@ -1608,12 +1680,7 @@ class AiBashToolService {
       }
 
       void handleStreamError(Object error, StackTrace stack) {
-        silentLog(
-          'ai_bash_tool_service',
-          'persistent shell transport',
-          error,
-          stack,
-        );
+        silentLog('ai_bash_tool_service', '持久 Shell 传输', error, stack);
         session.activeExecution?.completeError(error, maxCapturedCharacters);
         unawaited(_closePersistentSession(sessionId, expected: session));
       }
@@ -1825,12 +1892,7 @@ class AiBashToolService {
           Object error,
           StackTrace stack,
         ) {
-          silentLog(
-            'ai_bash_tool_service',
-            'close idle persistent session',
-            error,
-            stack,
-          );
+          silentLog('ai_bash_tool_service', '关闭空闲持久会话', error, stack);
         }),
       );
     });
@@ -1911,7 +1973,7 @@ class AiBashToolService {
       timeout: _subscriptionCancelTimeout,
       onError: (error, stack) => silentLog(
         'ai_bash_tool_service',
-        'cancel process $streamName subscription',
+        '取消进程 $streamName 流订阅',
         error,
         stack,
       ),
@@ -2001,7 +2063,7 @@ class AiBashToolService {
   void dispose() {
     unawaited(
       shutdown().catchError((Object error, StackTrace stack) {
-        silentLog('ai_bash_tool_service', 'shutdown', error, stack);
+        silentLog('ai_bash_tool_service', '关闭 Bash 工具服务', error, stack);
       }),
     );
   }

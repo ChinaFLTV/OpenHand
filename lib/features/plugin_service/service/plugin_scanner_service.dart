@@ -4,7 +4,6 @@ import 'dart:io';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -117,31 +116,16 @@ class PluginScannerService {
     }
   }
 
-  static String _pickShell() {
-    final shell = Platform.environment['SHELL'];
-    if (shell != null && shell.isNotEmpty) return shell;
-    return '/bin/zsh';
-  }
-
-  /// 把 SystemProxyResolver 解析出的代理端点叠加到子进程环境。
-  /// 几乎所有 scanner 路径都可能触网（curl nodejs.org / PyPI / npm view
-  /// / brew info / pyenv install --list / ghcr.io 等），所以统一加
-  /// 代理；本地查 --version / which / command -v 时也带上，对本地命令
-  /// 是 no-op，对网络命令是必备通道。
-  static Map<String, String> _proxyEnv() {
-    return SystemProxyResolver.instance.resolveSubprocessEnvironment();
-  }
-
   Future<ProcessResult> _runShellScript(
     String script, {
     String tag = 'plugin_scanner.shell_probe',
   }) {
     return runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       timeout: const Duration(seconds: 15),
       tag: tag,
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
   }
 
@@ -174,7 +158,7 @@ class PluginScannerService {
       )).trim();
       if (alias.isNotEmpty) return alias;
     } catch (error, stack) {
-      silentLog('plugin_scanner', 'read nvm default alias', error, stack);
+      silentLog('plugin_scanner', '读取 nvm 默认别名', error, stack);
     }
     return 'node';
   }
@@ -199,7 +183,7 @@ class PluginScannerService {
         }
       }
     } catch (error, stack) {
-      silentLog('plugin_scanner', 'list nvm versions', error, stack);
+      silentLog('plugin_scanner', '列出 nvm 版本', error, stack);
       return null;
     }
     if (versions.isEmpty) return null;
@@ -324,19 +308,6 @@ class PluginScannerService {
     return compareSemanticVersions(candidateLatestVersion, installedVersion) > 0
         ? candidateLatestVersion
         : null;
-  }
-
-  static bool _looksLikeHomebrewPath(String path) {
-    return path.contains('/Cellar/python') ||
-        path.contains('/Homebrew/Cellar/python') ||
-        path.contains('/opt/homebrew/') ||
-        path.contains('/usr/local/opt/python') ||
-        path.contains('/usr/local/bin/python');
-  }
-
-  static bool _looksLikeSystemPython(String path) {
-    return path.startsWith('/usr/bin/') ||
-        path.startsWith('/Library/Developer/CommandLineTools/');
   }
 
   static String? _extractPyenvVersionFromPath(String path) {
@@ -598,7 +569,7 @@ class PluginScannerService {
         ['--version'],
         timeout: const Duration(seconds: 5),
         tag: 'plugin_scanner.python_probe',
-        environment: _proxyEnv(),
+        environment: pluginProxyEnvironment(),
       );
       if (versionResult.exitCode != 0) continue;
       final version = extractPythonVersion(
@@ -610,14 +581,14 @@ class PluginScannerService {
               isStrictSemanticVersionText(selectedVersionName))
           ? selectedVersionName
           : _extractPyenvVersionFromPath(executable);
-      final formula = _looksLikeHomebrewPath(executable)
+      final formula = pluginLooksLikeHomebrewPythonPath(executable)
           ? (_extractBrewPythonFormulaFromPath(executable) ?? 'python')
           : null;
       final source = managedPyenvVersion != null
           ? _PythonRuntimeSource.pyenv
           : formula != null
           ? _PythonRuntimeSource.homebrew
-          : _looksLikeSystemPython(executable)
+          : pluginLooksLikeSystemPythonPath(executable)
           ? _PythonRuntimeSource.system
           : _PythonRuntimeSource.unknown;
       final latestVersion = switch (source) {
@@ -652,12 +623,12 @@ class PluginScannerService {
           ? _extractAbsolutePath(pathResult.stdout.toString())
           : null;
       if (executable == null || executable.isEmpty) continue;
-      final formula = _looksLikeHomebrewPath(executable)
+      final formula = pluginLooksLikeHomebrewPythonPath(executable)
           ? (_extractBrewPythonFormulaFromPath(executable) ?? 'python')
           : null;
       final source = formula != null
           ? _PythonRuntimeSource.homebrew
-          : _looksLikeSystemPython(executable)
+          : pluginLooksLikeSystemPythonPath(executable)
           ? _PythonRuntimeSource.system
           : _PythonRuntimeSource.unknown;
       final latestVersion = source == _PythonRuntimeSource.homebrew
@@ -716,7 +687,7 @@ class PluginScannerService {
           nvm.nodeBin,
           ['--version'],
           timeout: const Duration(seconds: 5),
-          environment: _proxyEnv(),
+          environment: pluginProxyEnvironment(),
         );
         final version = versionResult.exitCode == 0
             ? versionResult.stdout.toString().trim()
@@ -769,13 +740,13 @@ class PluginScannerService {
         );
       }
     } catch (e) {
-      silentLog('PluginScanner', 'scanNodeJs', e);
+      silentLog('PluginScanner', '扫描 Node.js', e);
     }
     return _nodeNotInstalled;
   }
 
   Future<PluginInfo> scanPython() => _runWithFallback(
-    operation: 'scanPython',
+    operation: '扫描 Python',
     fallback: _pythonNotInstalled,
     operationBody: () async =>
         _pythonInfoFromRuntime(await _resolvePythonRuntime()),
@@ -788,7 +759,7 @@ class PluginScannerService {
       ['-m', 'pip', '--version'],
       timeout: const Duration(seconds: 8),
       tag: 'plugin_scanner.pip_probe',
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (pipVersionResult.exitCode != 0) {
       return _pipNotInstalled;
@@ -815,7 +786,7 @@ class PluginScannerService {
   }
 
   Future<PluginInfo> scanPip() => _runWithFallback(
-    operation: 'scanPip',
+    operation: '扫描 pip',
     fallback: _pipNotInstalled,
     operationBody: () async =>
         _scanPipWithRuntime(await _resolvePythonRuntime()),
@@ -841,12 +812,7 @@ class PluginScannerService {
             if (m != null) latestVersion = m.group(1);
           }
         } catch (error, stack) {
-          silentLog(
-            'plugin_scanner',
-            'npm view playwright version',
-            error,
-            stack,
-          );
+          silentLog('plugin_scanner', '查询 Playwright 最新版本', error, stack);
         }
         return PluginInfo(
           id: 'playwright',
@@ -859,13 +825,13 @@ class PluginScannerService {
         );
       }
     } catch (e) {
-      silentLog('PluginScanner', 'scanPlaywright', e);
+      silentLog('PluginScanner', '扫描 Playwright', e);
     }
     return _playwrightNotInstalled;
   }
 
   Future<PluginInfo> scanHermesAgent() => _runWithFallback(
-    operation: 'scanHermesAgent',
+    operation: '扫描 Hermes Agent',
     fallback: _hermesAgentNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: PluginCatalogIds.hermesAgent,
@@ -880,7 +846,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanJava() => _runWithFallback(
-    operation: 'scanJava',
+    operation: '扫描 Java',
     fallback: _javaNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'java',
@@ -895,7 +861,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanFrida() => _runWithFallback(
-    operation: 'scanFrida',
+    operation: '扫描 Frida',
     fallback: _fridaNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'frida',
@@ -910,7 +876,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanMitmproxy() => _runWithFallback(
-    operation: 'scanMitmproxy',
+    operation: '扫描 mitmproxy',
     fallback: _mitmproxyNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'mitmproxy',
@@ -924,7 +890,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanApktool() => _runWithFallback(
-    operation: 'scanApktool',
+    operation: '扫描 apktool',
     fallback: _apktoolNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'apktool',
@@ -939,7 +905,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanJadx() => _runWithFallback(
-    operation: 'scanJadx',
+    operation: '扫描 jadx',
     fallback: _jadxNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'jadx',
@@ -954,7 +920,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanRadare2() => _runWithFallback(
-    operation: 'scanRadare2',
+    operation: '扫描 radare2',
     fallback: _radare2NotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'radare2',
@@ -968,7 +934,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanBlutter() => _runWithFallback(
-    operation: 'scanBlutter',
+    operation: '扫描 blutter',
     fallback: _blutterNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'blutter',
@@ -982,7 +948,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanDoldrums() => _runWithFallback(
-    operation: 'scanDoldrums',
+    operation: '扫描 Doldrums',
     fallback: _doldrumsNotInstalled,
     operationBody: () => _scanCommandPlugin(
       id: 'doldrums',
@@ -996,7 +962,7 @@ class PluginScannerService {
   );
 
   Future<PluginInfo> scanAnythingAnalyzer() => _runWithFallback(
-    operation: 'scanAnythingAnalyzer',
+    operation: '扫描 Anything Analyzer',
     fallback: _anythingAnalyzerNotInstalled,
     operationBody: () async {
       final commandScan = await _scanCommandPlugin(
@@ -1106,7 +1072,7 @@ class PluginScannerService {
         errorMessage: 'docker CLI 可用，但 Docker daemon 未运行或不可访问。',
       );
     } catch (e, stack) {
-      silentLog('PluginScanner', 'scanDocker', e, stack);
+      silentLog('PluginScanner', '扫描 Docker', e, stack);
     }
     return _dockerNotInstalled;
   }
@@ -1208,7 +1174,7 @@ class PluginScannerService {
         metadata: metadata,
       );
     } catch (e, stack) {
-      silentLog('PluginScanner', 'scanQdrant', e, stack);
+      silentLog('PluginScanner', '扫描 Qdrant', e, stack);
     }
     return _qdrantNotInstalled;
   }
@@ -1448,13 +1414,13 @@ class PluginScannerService {
     final docker = await dockerFuture;
     final qdrant = await scanQdrant();
     final pythonRuntime = await _runWithFallback<_PythonRuntimeScan?>(
-      operation: 'resolvePythonRuntime',
+      operation: '解析 Python 运行时',
       fallback: null,
       operationBody: () => pythonRuntimeFuture,
     );
     final python = _pythonInfoFromRuntime(pythonRuntime);
     final pip = await _runWithFallback(
-      operation: 'scanPip',
+      operation: '扫描 pip',
       fallback: _pipNotInstalled,
       operationBody: () => _scanPipWithRuntime(pythonRuntime),
     );

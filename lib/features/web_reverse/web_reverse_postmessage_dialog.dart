@@ -228,7 +228,7 @@ class _PmDialogState extends State<_PmDialog> {
         }
       }
     } catch (e, st) {
-      silentLog('web_reverse_pm', 'toggle', e, st);
+      silentLog('web_reverse_pm', '切换 postMessage 监听', e, st);
       if (mounted) setState(() => _status = '$e');
     }
     if (mounted) setState(() => _busy = false);
@@ -257,7 +257,7 @@ class _PmDialogState extends State<_PmDialog> {
             try {
               _records.add(_PmRecord.fromJson(stringKeyedMapFromValue(m)));
             } catch (e, st) {
-              silentLog('web_reverse_pm', 'parseRow', e, st);
+              silentLog('web_reverse_pm', '解析 postMessage 记录', e, st);
             }
           }
         }
@@ -266,7 +266,7 @@ class _PmDialogState extends State<_PmDialog> {
         }
       });
     } catch (e, st) {
-      silentLog('web_reverse_pm', 'drain', e, st);
+      silentLog('web_reverse_pm', '排空 postMessage 事件', e, st);
     }
   }
 
@@ -281,7 +281,7 @@ class _PmDialogState extends State<_PmDialog> {
         }),
       );
     } catch (e, st) {
-      silentLog('web_reverse_pm', 'clear', e, st);
+      silentLog('web_reverse_pm', '清空 postMessage 事件', e, st);
     }
   }
 

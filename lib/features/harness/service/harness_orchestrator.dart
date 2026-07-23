@@ -763,12 +763,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         process,
         gracefulTimeout: const Duration(seconds: 3),
       ).catchError((Object error, StackTrace stack) {
-        silentLog(
-          'harness_orchestrator',
-          'terminate active CLI process',
-          error,
-          stack,
-        );
+        silentLog('harness_orchestrator', '终止活动中的 CLI 进程', error, stack);
       }),
     );
   }
@@ -1767,7 +1762,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           Directory(p.join(steeringDir, 'plan')),
         );
       } catch (error, stack) {
-        silentLog('harness_orchestrator', 'read plan', error, stack);
+        silentLog('harness_orchestrator', '读取计划', error, stack);
       }
     }
 
@@ -1778,7 +1773,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           Directory(p.join(steeringDir, 'feedback')),
         );
       } catch (error, stack) {
-        silentLog('harness_orchestrator', 'read feedback', error, stack);
+        silentLog('harness_orchestrator', '读取反馈', error, stack);
       }
     }
 
@@ -1790,7 +1785,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           Directory(p.join(steeringDir, 'handoff')),
         );
       } catch (error, stack) {
-        silentLog('harness_orchestrator', 'read handoff', error, stack);
+        silentLog('harness_orchestrator', '读取交接记录', error, stack);
       }
     }
 
@@ -1812,7 +1807,7 @@ class HarnessOrchestrator extends ChangeNotifier {
               : fullContent;
         }
       } catch (error, stack) {
-        silentLog('harness_orchestrator', 'read lessons', error, stack);
+        silentLog('harness_orchestrator', '读取经验记录', error, stack);
       }
     }
 
@@ -2168,7 +2163,7 @@ class HarnessOrchestrator extends ChangeNotifier {
               ).catchError((Object error, StackTrace stack) {
                 silentLog(
                   'harness_orchestrator',
-                  'terminate cancelled late CLI process',
+                  '终止已取消任务的延迟 CLI 进程',
                   error,
                   stack,
                 );
@@ -2207,7 +2202,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       await writeFileAtomically(file, log.lines.join('\n'));
       log.savedLogPath = file.path;
     } catch (error, stack) {
-      silentLog('harness_orchestrator', 'persist phase log', error, stack);
+      silentLog('harness_orchestrator', '持久化阶段日志', error, stack);
     }
   }
 
@@ -2418,7 +2413,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           await promptFile.delete().timeout(_kHarnessArtifactIoTimeout);
         }
       } catch (error, stack) {
-        silentLog('harness_orchestrator', 'cleanup prompt file', error, stack);
+        silentLog('harness_orchestrator', '清理 Prompt 文件', error, stack);
       }
     }
 
@@ -2483,7 +2478,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     } on FileSystemException catch (error, stack) {
       silentLog(
         'harness_orchestrator',
-        'inspect mandatory artifacts ${directory.path}',
+        '检查必需产物 ${directory.path}',
         error,
         stack,
       );

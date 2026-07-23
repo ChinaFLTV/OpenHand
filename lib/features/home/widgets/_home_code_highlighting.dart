@@ -726,7 +726,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     try {
       await setOpenHandClipboardText(widget.content);
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'copy inline diff', error, stack);
+      silentLog('home_code_highlighting', '复制行内差异', error, stack);
       if (!mounted) return;
       _copiedResetTimer?.cancel();
       setState(() => _copied = false);
@@ -786,7 +786,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
         setState(() => _downloaded = false);
       });
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'download inline diff', error, stack);
+      silentLog('home_code_highlighting', '下载行内差异', error, stack);
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
@@ -1483,7 +1483,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     try {
       await setOpenHandClipboardText(widget.content);
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'copy code block', error, stack);
+      silentLog('home_code_highlighting', '复制代码块', error, stack);
       if (!mounted) {
         return;
       }
@@ -1557,7 +1557,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         });
       });
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'download code block', error, stack);
+      silentLog('home_code_highlighting', '下载代码块', error, stack);
       if (!mounted) {
         return;
       }
@@ -2387,7 +2387,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
           } catch (error, stack) {
             silentLog(
               'home_code_highlighting',
-              'delete temp html cache ${entity.path}',
+              '删除临时 HTML 缓存 ${entity.path}',
               error,
               stack,
             );
@@ -2453,12 +2453,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         tag: 'home_code_highlighting.open_html_preview',
       );
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'open html preview in browser',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '在浏览器中打开 HTML 预览', error, stack);
       if (!context.mounted) {
         return;
       }
@@ -2526,12 +2521,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         'window.__openhandSetZoom && window.__openhandSetZoom(${zoom.toStringAsFixed(3)});',
       );
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'html preview setZoom failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', 'HTML 预览 setZoom 失败', error, stack);
     }
   }
 
@@ -2556,12 +2546,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         _HtmlPreviewMetrics(width: width, height: height),
       );
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'html preview metrics parse failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '解析 HTML 预览指标失败', error, stack);
     }
   }
 
@@ -2576,12 +2561,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         );
       }
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'install zoom bridge failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '安装缩放桥接失败', error, stack);
     }
   }
 
@@ -2591,12 +2571,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
     try {
       await controller.runJavaScript(_metricsBridgeScript);
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'install preview metrics bridge failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '安装预览指标桥接失败', error, stack);
     }
   }
 
@@ -2906,12 +2881,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
           allowedRoot: p.absolute(Directory.systemTemp.path),
         );
       } catch (error, stack) {
-        silentLog(
-          'home_code_highlighting',
-          'cleanup temp html file',
-          error,
-          stack,
-        );
+        silentLog('home_code_highlighting', '清理临时 HTML 文件', error, stack);
       }
       _tempFilePath = null;
     }
@@ -3262,12 +3232,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         }
       });
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'mermaid: setup failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '初始化 Mermaid 失败', error, stack);
       if (mounted) {
         setState(() {
           _loadError = '$error';
@@ -3297,12 +3262,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             allowedRoot: p.absolute(Directory.systemTemp.path),
           );
         } catch (error, stack) {
-          silentLog(
-            'home_code_highlighting',
-            'cleanup mermaid temp file',
-            error,
-            stack,
-          );
+          silentLog('home_code_highlighting', '清理 Mermaid 临时文件', error, stack);
         }
       });
     }
@@ -3540,19 +3500,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         })();
       ''');
     } on PlatformException catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'mermaid command failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '执行 Mermaid 命令失败', error, stack);
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'mermaid command failed',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '执行 Mermaid 命令失败', error, stack);
     }
   }
 
@@ -3610,7 +3560,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       } catch (error, stack) {
         silentLog(
           'home_code_highlighting',
-          'read mermaid svg from webview',
+          '从 WebView 读取 Mermaid SVG',
           error,
           stack,
         );
@@ -3644,12 +3594,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           writeMethod = 'pbcopy';
         }
       } catch (error, stack) {
-        silentLog(
-          'home_code_highlighting',
-          'copy svg with pbcopy',
-          error,
-          stack,
-        );
+        silentLog('home_code_highlighting', '通过 pbcopy 复制 SVG', error, stack);
       }
     }
     if (!writeOk) {
@@ -3660,7 +3605,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       } catch (error, stack) {
         silentLog(
           'home_code_highlighting',
-          'copy svg with Pasteboard.writeText',
+          '通过 Pasteboard.writeText 复制 SVG',
           error,
           stack,
         );
@@ -3674,7 +3619,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       } catch (error, stack) {
         silentLog(
           'home_code_highlighting',
-          'copy svg with setOpenHandClipboardText',
+          '通过 setOpenHandClipboardText 复制 SVG',
           error,
           stack,
         );
@@ -3696,12 +3641,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       await tempFile.writeAsString(svg);
       savedPath = tempFile.path;
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'write mermaid svg temp file',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '写入 Mermaid SVG 临时文件', error, stack);
     }
 
     if (!mounted) return;
@@ -3763,7 +3703,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         tag: 'home_code_highlighting.open_saved_svg',
       );
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'open saved svg', error, stack);
+      silentLog('home_code_highlighting', '打开已保存 SVG', error, stack);
     }
   }
 
@@ -3796,12 +3736,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'verify svg via pbpaste',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '通过 pbpaste 校验 SVG', error, stack);
     }
     final clipboardText = await getOpenHandClipboardText();
     flutterLen = clipboardText?.length ?? 0;
@@ -3853,12 +3788,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         );
         return;
       } catch (error, stack) {
-        silentLog(
-          'home_code_highlighting',
-          'copy mermaid png image',
-          error,
-          stack,
-        );
+        silentLog('home_code_highlighting', '复制 Mermaid PNG 图片', error, stack);
       }
     }
     final svg = _svgMarkup.trim();
@@ -3880,12 +3810,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'copy mermaid svg image fallback',
-        error,
-        stack,
-      );
+      silentLog('home_code_highlighting', '兜底复制 Mermaid SVG 图片', error, stack);
       await _copySvgMarkup();
     }
   }
@@ -3918,7 +3843,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ),
       );
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'download mermaid svg', error, stack);
+      silentLog('home_code_highlighting', '下载 Mermaid SVG', error, stack);
     }
   }
 
@@ -3966,7 +3891,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ),
       );
     } catch (error, stack) {
-      silentLog('home_code_highlighting', 'download mermaid png', error, stack);
+      silentLog('home_code_highlighting', '下载 Mermaid PNG', error, stack);
     }
   }
 

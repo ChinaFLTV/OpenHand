@@ -145,7 +145,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
         if (mounted) setState(() => _status = '');
       }
     } catch (e, st) {
-      silentLog('web_reverse_vitals_dialog', 'bootstrap', e, st);
+      silentLog('web_reverse_vitals_dialog', '初始化指标面板', e, st);
       if (mounted) setState(() => _status = '$e');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -181,7 +181,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
         }
       });
     } catch (e, st) {
-      silentLog('web_reverse_vitals_dialog', 'pull', e, st);
+      silentLog('web_reverse_vitals_dialog', '拉取指标', e, st);
     }
   }
 
@@ -206,7 +206,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       _bootstrapped = false;
       await _bootstrap();
     } catch (e, st) {
-      silentLog('web_reverse_vitals_dialog', 'reset', e, st);
+      silentLog('web_reverse_vitals_dialog', '重置指标', e, st);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

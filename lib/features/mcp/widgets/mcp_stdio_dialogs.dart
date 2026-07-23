@@ -179,7 +179,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                                     text: logs.join('\n'),
                                     successMessage:
                                         l10n.mcpStdioDialogCopiedToClipboard,
-                                    logAction: 'copy stdio logs',
+                                    logAction: '复制 STDIO 日志',
                                   );
                                 },
                           icon: const Icon(Icons.copy_rounded, size: 18),
@@ -303,7 +303,9 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                 const Spacer(),
                 if (info.uptime != null)
                   Text(
-                    l10n.mcpStdioDialogUptime(_formatUptime(info.uptime!)),
+                    l10n.mcpStdioDialogUptime(
+                      formatCompactDuration(info.uptime!),
+                    ),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -383,8 +385,6 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     // 普通 stdout 输出
     return const _LogLineStyle(color: Color(0xFFE5E7EB));
   }
-
-  String _formatUptime(Duration d) => formatCompactDuration(d);
 }
 
 class _LogLineStyle {
@@ -437,7 +437,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
       (_) => _loadInfo(),
       callbackTimeout: const Duration(seconds: 10),
       onError: (error, stack) =>
-          silentLog('mcp_stdio_dialog', 'refresh runtime info', error, stack),
+          silentLog('mcp_stdio_dialog', '刷新运行时信息', error, stack),
     );
   }
 
@@ -459,7 +459,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
         });
       }
     } catch (error, stack) {
-      silentLog('mcp_stdio_dialog', 'load runtime info', error, stack);
+      silentLog('mcp_stdio_dialog', '加载运行时信息', error, stack);
       if (mounted) {
         setState(() => _loading = false);
       }
@@ -882,7 +882,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         } catch (error, stack) {
           silentLog(
             'mcp_stdio_dialogs',
-            'npm view $cleanPkg version',
+            '查询 npm 软件包版本：$cleanPkg',
             error,
             stack,
           );
@@ -907,7 +907,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         }
       }
     } catch (error, stack) {
-      silentLog('mcp_stdio_dialogs', 'check package status', error, stack);
+      silentLog('mcp_stdio_dialogs', '检查软件包状态', error, stack);
     }
     if (mounted) setState(() => _checking = false);
   }

@@ -1,7 +1,4 @@
-/**
- * Pure virtual-list math for the Web session transcript.
- * Kept free of Preact/DOM so large-N windowing can be unit-tested.
- */
+/** Web 会话记录的纯虚拟列表计算，不依赖 Preact 或 DOM。 */
 
 export const MESSAGE_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
@@ -12,7 +9,7 @@ export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
 const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
 const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 1400;
 export const MESSAGE_LIST_GAP_PX = 12;
-/** Open/scroll first range: ~viewport rows + overscan, always from the tail. */
+/** 首次打开或滚动的范围约为视口行数加预渲染行数，并始终从尾部开始。 */
 const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 8;
 const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 4;
 
@@ -137,10 +134,7 @@ function firstVirtualMessageAfter(
   return Math.min(lo, heights.length);
 }
 
-/**
- * First-paint range for chat lists: prefer the latest tail so open stays
- * near stick-to-bottom without mounting the entire history.
- */
+/** 首帧优先展示最新尾部，使会话贴近底部且无需挂载全部历史。 */
 export function initialVirtualMessageRange(
   messageCount: number,
   {

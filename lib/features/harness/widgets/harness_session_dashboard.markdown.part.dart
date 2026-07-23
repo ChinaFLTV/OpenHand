@@ -200,7 +200,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
             context: context,
             text: resolvedPath.resolvedPath,
             successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
-            logAction: 'copy markdown link path',
+            logAction: '复制 Markdown 链接路径',
           ),
         );
       };
@@ -225,7 +225,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
             context: context,
             text: resolvedPath.resolvedPath,
             successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
-            logAction: 'copy markdown code path',
+            logAction: '复制 Markdown 代码路径',
           ),
         );
       };
@@ -808,7 +808,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
               de: 'Code kopiert',
               ja: 'コードをコピーしました',
             ),
-            logAction: 'copy markdown code block',
+            logAction: '复制 Markdown 代码块',
             successDuration: const Duration(milliseconds: 1800),
           )
           .then((copied) {

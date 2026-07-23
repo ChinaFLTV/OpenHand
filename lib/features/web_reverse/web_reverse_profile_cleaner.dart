@@ -64,7 +64,7 @@ Future<({int deleted, List<String> messages})> cleanWebReverseProfileLocks(
       deleted++;
       messages.add('删除：$path');
     } catch (error, stack) {
-      silentLog('web_reverse_profile_cleaner', 'delete $path', error, stack);
+      silentLog('web_reverse_profile_cleaner', '删除配置文件 $path', error, stack);
       messages.add('跳过（删除失败）：$path — $error');
     }
   }

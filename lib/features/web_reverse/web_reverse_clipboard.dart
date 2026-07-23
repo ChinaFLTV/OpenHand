@@ -40,7 +40,7 @@ Future<WebReverseClipboardCopyResult?> copyWebReverseTextToClipboard({
   required String text,
   String? successBase,
   required String logTag,
-  String logAction = 'copy',
+  String logAction = '复制',
   int maxChars = kWebReverseClipboardMaxChars,
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,

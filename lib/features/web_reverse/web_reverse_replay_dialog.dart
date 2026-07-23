@@ -101,7 +101,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
           ok: r != null && r.status >= 200 && r.status < 400,
         );
       } catch (err, st) {
-        silentLog('web_reverse_replay_dialog', 'replay.batch', err, st);
+        silentLog('web_reverse_replay_dialog', '批量重放', err, st);
         _results[e.requestId] = _ReplayResult(
           requestId: e.requestId,
           url: e.url,
@@ -146,7 +146,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
       text: json,
       successBase: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
       logTag: 'web_reverse_replay_dialog',
-      logAction: 'replay.export',
+      logAction: '导出重放结果',
     );
   }
 

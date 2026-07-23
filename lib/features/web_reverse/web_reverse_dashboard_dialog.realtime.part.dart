@@ -121,7 +121,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
           'Payload copied',
       logTag: 'web_reverse_realtime_panel',
-      logAction: 'copy frame',
+      logAction: '复制帧数据',
     );
   }
 

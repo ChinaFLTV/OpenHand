@@ -5,7 +5,9 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
@@ -483,6 +485,15 @@ class AiSandboxService {
         },
       );
     }
+    Future<void> closeProxyAfterLaunchFailure(String reason) async {
+      final lease = proxyLease;
+      if (lease == null) return;
+      await runAsyncCleanupBounded(
+        lease.close,
+        onError: (error, stack) =>
+            silentLog('ai_sandbox_service', '关闭沙箱启动代理（$reason）', error, stack),
+      );
+    }
 
     // sandbox 启用时，沙箱内部 proxy 决定子进程网络出口；用户级
     // HTTP_PROXY/HTTPS_PROXY 不能穿透到沙箱内的子进程，否则会绕过
@@ -490,77 +501,89 @@ class AiSandboxService {
     final environment = proxyLease != null
         ? proxyLease.environment
         : userProxyEnvironment;
-    Map<String, Object?> appliedMetadata({
-      required bool networkDirectBlocked,
-      required bool domainFilterEnforced,
-      String? domainFilterWarning,
-    }) => <String, Object?>{
-      ...baseMetadata,
-      'sandbox_applied': true,
-      'sandbox_platform': status.platform,
-      'sandbox_backend': status.backend,
-      'sandbox_filesystem_rule_count': settings.filesystemRules.length,
-      'sandbox_working_directory_writable': true,
-      'sandbox_allowed_domain_count': settings.allowedDomains.length,
-      'sandbox_denied_domain_count': settings.deniedDomains.length,
-      if (proxyLease != null) ...proxyLease.metadata,
-      'sandbox_network_direct_blocked': networkDirectBlocked,
-      'sandbox_domain_filter_enforced': domainFilterEnforced,
-      if (domainFilterWarning != null)
-        'sandbox_domain_filter_warning': domainFilterWarning,
-    };
-    if (Platform.isMacOS) {
-      final profile = _buildMacSandboxProfile(
-        normalizedWorkingDirectory,
-        proxyLease,
-      );
-      return AiSandboxLaunchSpec(
-        executable: 'sandbox-exec',
-        arguments: <String>['-p', profile, shellExecutable, ...shellArguments],
-        workingDirectory: normalizedWorkingDirectory,
-        environment: environment,
-        applied: true,
-        blocked: false,
-        proxyLease: proxyLease,
-        metadata: appliedMetadata(
-          networkDirectBlocked: proxyLease != null,
-          domainFilterEnforced: proxyLease != null,
-        ),
-      );
-    }
+    try {
+      Map<String, Object?> appliedMetadata({
+        required bool networkDirectBlocked,
+        required bool domainFilterEnforced,
+        String? domainFilterWarning,
+      }) => <String, Object?>{
+        ...baseMetadata,
+        'sandbox_applied': true,
+        'sandbox_platform': status.platform,
+        'sandbox_backend': status.backend,
+        'sandbox_filesystem_rule_count': settings.filesystemRules.length,
+        'sandbox_working_directory_writable': true,
+        'sandbox_allowed_domain_count': settings.allowedDomains.length,
+        'sandbox_denied_domain_count': settings.deniedDomains.length,
+        if (proxyLease != null) ...proxyLease.metadata,
+        'sandbox_network_direct_blocked': networkDirectBlocked,
+        'sandbox_domain_filter_enforced': domainFilterEnforced,
+        if (domainFilterWarning != null)
+          'sandbox_domain_filter_warning': domainFilterWarning,
+      };
+      if (Platform.isMacOS) {
+        final profile = _buildMacSandboxProfile(
+          normalizedWorkingDirectory,
+          proxyLease,
+        );
+        return AiSandboxLaunchSpec(
+          executable: 'sandbox-exec',
+          arguments: <String>[
+            '-p',
+            profile,
+            shellExecutable,
+            ...shellArguments,
+          ],
+          workingDirectory: normalizedWorkingDirectory,
+          environment: environment,
+          applied: true,
+          blocked: false,
+          proxyLease: proxyLease,
+          metadata: appliedMetadata(
+            networkDirectBlocked: proxyLease != null,
+            domainFilterEnforced: proxyLease != null,
+          ),
+        );
+      }
 
-    if (Platform.isLinux) {
-      final args = await _buildLinuxBubblewrapArgs(
-        shellExecutable: shellExecutable,
-        shellArguments: shellArguments,
-        workingDirectory: normalizedWorkingDirectory,
-      );
-      return AiSandboxLaunchSpec(
-        executable: 'bwrap',
-        arguments: args,
-        workingDirectory: normalizedWorkingDirectory,
-        environment: environment,
-        applied: true,
-        blocked: false,
-        proxyLease: proxyLease,
-        metadata: appliedMetadata(
-          networkDirectBlocked: false,
-          domainFilterEnforced: false,
-          domainFilterWarning: proxyLease == null
-              ? null
-              : _linuxDomainFilterBestEffortWarning,
-        ),
-      );
-    }
+      if (Platform.isLinux) {
+        final args = await _buildLinuxBubblewrapArgs(
+          shellExecutable: shellExecutable,
+          shellArguments: shellArguments,
+          workingDirectory: normalizedWorkingDirectory,
+        );
+        return AiSandboxLaunchSpec(
+          executable: 'bwrap',
+          arguments: args,
+          workingDirectory: normalizedWorkingDirectory,
+          environment: environment,
+          applied: true,
+          blocked: false,
+          proxyLease: proxyLease,
+          metadata: appliedMetadata(
+            networkDirectBlocked: false,
+            domainFilterEnforced: false,
+            domainFilterWarning: proxyLease == null
+                ? null
+                : _linuxDomainFilterBestEffortWarning,
+          ),
+        );
+      }
 
-    return AiSandboxLaunchSpec.blocked(
-      executable: shellExecutable,
-      arguments: shellArguments,
-      workingDirectory: normalizedWorkingDirectory,
-      reason:
-          'Sandbox backend is not available on ${Platform.operatingSystem}.',
-      metadata: baseMetadata,
-    );
+      await closeProxyAfterLaunchFailure('平台不支持');
+      return AiSandboxLaunchSpec.blocked(
+        executable: shellExecutable,
+        arguments: shellArguments,
+        workingDirectory: normalizedWorkingDirectory,
+        reason:
+            'Sandbox backend is not available on ${Platform.operatingSystem}.',
+        metadata: baseMetadata,
+      );
+    } catch (error, stack) {
+      await closeProxyAfterLaunchFailure('构建启动参数失败');
+      silentLog('ai_sandbox_service', '构建沙箱启动参数', error, stack);
+      rethrow;
+    }
   }
 
   Future<bool> _commandExists(String command) async {

@@ -272,7 +272,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         }
       }
     } catch (error, stack) {
-      silentLog('file_explorer', 'search directory', error, stack);
+      silentLog('file_explorer', '搜索目录', error, stack);
     }
   }
 
@@ -357,7 +357,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       node.children = children;
       node.childrenLoaded = true;
     } catch (error, stack) {
-      silentLog('file_explorer', 'load children ${node.path}', error, stack);
+      silentLog('file_explorer', '加载子节点 ${node.path}', error, stack);
       node.children = const [];
       node.childrenLoaded = true;
     }
@@ -607,7 +607,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     await copyHomeTextToClipboard(
       context: context,
       text: textToCopy,
-      logAction: 'copy programming explorer path',
+      logAction: '复制编程资源管理器路径',
       successMessage: openHandLocalizedText(
         context,
         zh: '路径已复制。',
@@ -665,7 +665,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       final parent = _findParentNode(_rootNode, node.path) ?? _rootNode;
       await _refreshNode(parent);
     } catch (error, stack) {
-      silentLog('file_explorer', 'rename node', error, stack);
+      silentLog('file_explorer', '重命名节点', error, stack);
     }
   }
 
@@ -713,7 +713,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       final parent = _findParentNode(_rootNode, node.path) ?? _rootNode;
       await _refreshNode(parent);
     } catch (error, stack) {
-      silentLog('file_explorer', 'delete node', error, stack);
+      silentLog('file_explorer', '删除节点', error, stack);
     }
   }
 
@@ -791,7 +791,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       }
       await _refreshRoot();
     } catch (error, stack) {
-      silentLog('file_explorer', 'paste node', error, stack);
+      silentLog('file_explorer', '粘贴节点', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -817,7 +817,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         tag: 'file_explorer.open_node_in_system_explorer',
       );
     } catch (error, stack) {
-      silentLog('file_explorer', 'open node in system explorer', error, stack);
+      silentLog('file_explorer', '在系统文件管理器中打开节点', error, stack);
     }
   }
 
@@ -2492,7 +2492,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               : null,
         );
       } catch (error, stack) {
-        silentLog('file_explorer', 'load workspace symbols', error, stack);
+        silentLog('file_explorer', '加载工作区符号', error, stack);
         applyExtraction(
           const _EditorSymbolExtractionResult(
             symbols: <_EditorSymbol>[],
@@ -2561,12 +2561,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             : null,
       );
     } catch (error, stack) {
-      silentLog(
-        'file_explorer',
-        'load document symbols $filePath',
-        error,
-        stack,
-      );
+      silentLog('file_explorer', '加载文档符号 $filePath', error, stack);
       applyExtraction(
         fallbackExtraction,
         usingLsp: false,
@@ -2636,7 +2631,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       } catch (error, stack) {
         silentLog(
           'file_explorer',
-          'load LSP location preview ${location.filePath}',
+          '加载 LSP 位置预览 ${location.filePath}',
           error,
           stack,
         );
@@ -5394,12 +5389,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           return relative;
         }
       } catch (error, stack) {
-        silentLog(
-          'file_explorer',
-          'display path relative to active root',
-          error,
-          stack,
-        );
+        silentLog('file_explorer', '计算相对活动根目录的显示路径', error, stack);
       }
     }
     final inferredRoot = _inferWorkspaceRoot(widget.activeFilePath);
@@ -5409,12 +5399,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         return relative;
       }
     } catch (error, stack) {
-      silentLog(
-        'file_explorer',
-        'display path relative to inferred root',
-        error,
-        stack,
-      );
+      silentLog('file_explorer', '计算相对推断根目录的显示路径', error, stack);
     }
     return filePath;
   }
@@ -9667,7 +9652,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       }
       await _refreshDiagnostics(filePath);
     } catch (error, stack) {
-      silentLog('file_explorer', 'save file $filePath', error, stack);
+      silentLog('file_explorer', '保存文件 $filePath', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -9816,12 +9801,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         relativeFromWorkspace = candidate;
       }
     } catch (error, stack) {
-      silentLog(
-        'file_explorer',
-        'workspace-relative path for copy menu',
-        error,
-        stack,
-      );
+      silentLog('file_explorer', '计算复制菜单的工作区相对路径', error, stack);
     }
 
     final selected = await showAnimatedMenu<String>(
@@ -9881,7 +9861,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     await copyHomeTextToClipboard(
       context: context,
       text: textToCopy,
-      logAction: 'copy editor tab path',
+      logAction: '复制编辑器标签页路径',
       successMessage: _editorText(
         zh: '路径已复制。',
         zhHant: '路徑已複製。',
@@ -11069,10 +11049,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       selection.end,
     );
     unawaited(
-      _setProgrammingExplorerClipboardText(
-        selectedText,
-        logAction: 'editor cut',
-      ),
+      _setProgrammingExplorerClipboardText(selectedText, logAction: '编辑器剪切'),
     );
     _commitProgrammaticEditorValueChange(
       filePath,
@@ -11094,10 +11071,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       selection.end,
     );
     unawaited(
-      _setProgrammingExplorerClipboardText(
-        selectedText,
-        logAction: 'editor copy',
-      ),
+      _setProgrammingExplorerClipboardText(selectedText, logAction: '编辑器复制'),
     );
   }
 
@@ -11141,7 +11115,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         tag: 'file_explorer.open_file_in_system_explorer',
       );
     } catch (error, stack) {
-      silentLog('file_explorer', 'open file in system explorer', error, stack);
+      silentLog('file_explorer', '在系统文件管理器中打开文件', error, stack);
     }
   }
 
@@ -13903,7 +13877,7 @@ class _HighlightingTextController extends TextEditingController {
       _lastHighlighterHash = identityHashCode(highlighter);
       _lastDiagnosticsRevision = _diagnosticsRevision;
     } catch (error, stack) {
-      silentLog('file_explorer', 'rebuild full highlight', error, stack);
+      silentLog('file_explorer', '重建完整高亮', error, stack);
     }
   }
 
@@ -14114,7 +14088,7 @@ class _HighlightingTextController extends TextEditingController {
       _viewportStartLine = startLine;
       _viewportEndLine = endLine;
     } catch (error, stack) {
-      silentLog('file_explorer', 'rebuild viewport highlight', error, stack);
+      silentLog('file_explorer', '重建视口高亮', error, stack);
     }
   }
 

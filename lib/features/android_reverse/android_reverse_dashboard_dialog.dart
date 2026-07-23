@@ -2831,7 +2831,7 @@ fi
       context: context,
       text: text,
       logTag: 'android_reverse_dashboard',
-      logAction: 'copy text',
+      logAction: '复制文本',
     );
   }
 

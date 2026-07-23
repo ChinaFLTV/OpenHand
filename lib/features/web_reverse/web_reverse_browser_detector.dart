@@ -192,7 +192,7 @@ class WebReverseBrowserDetector {
     } catch (error, stack) {
       silentLog(
         'web_reverse_browser_detector',
-        'read version of $executable',
+        '读取 $executable 版本',
         error,
         stack,
       );

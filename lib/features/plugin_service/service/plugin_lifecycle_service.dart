@@ -4,7 +4,6 @@ import 'dart:io';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -580,22 +579,8 @@ class PluginLifecycleService {
   static const int _qdrantRestPort = 6333;
   static const int _qdrantGrpcPort = 6334;
 
-  static String _pickShell() {
-    final shell = Platform.environment['SHELL'];
-    if (shell != null && shell.isNotEmpty) return shell;
-    return '/bin/zsh';
-  }
-
-  /// 把 SystemProxyResolver 解析出的代理端点叠加到子进程环境。
-  /// 任何需要访问外网（PyPI / npm / Homebrew bottles / Node release /
-  /// ghcr.io 等）的子流程都必须走这条通道，否则在企业代理 / 内网
-  /// 透明代理环境下 install / update 会因 TCP 握手失败而超时。
-  static Map<String, String> _proxyEnv() {
-    return SystemProxyResolver.instance.resolveSubprocessEnvironment();
-  }
-
   static Map<String, String> _npmGlobalPackageEnv({String? tlsBundle}) {
-    final proxy = _proxyEnv();
+    final proxy = pluginProxyEnvironment();
     final env = <String, String>{
       ...proxy,
       'PIP_DISABLE_PIP_VERSION_CHECK': '1',
@@ -638,11 +623,11 @@ class PluginLifecycleService {
     Map<String, String>? environment,
   }) {
     return runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
       timeout: timeout,
       tag: tag ?? 'plugin_lifecycle.command.$executable',
-      environment: environment ?? _proxyEnv(),
+      environment: environment ?? pluginProxyEnvironment(),
     );
   }
 
@@ -654,11 +639,11 @@ class PluginLifecycleService {
     Map<String, String>? environment,
   }) {
     return _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
       onProgress: onProgress,
       timeout: timeout,
-      environment: environment ?? _proxyEnv(),
+      environment: environment ?? pluginProxyEnvironment(),
     );
   }
 
@@ -667,7 +652,7 @@ class PluginLifecycleService {
     Map<String, String>? environment,
   }) async {
     final result = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       [
         '-c',
         pluginToolchainCommandPathScript(
@@ -677,7 +662,7 @@ class PluginLifecycleService {
       ],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.command_path.$executable',
-      environment: environment ?? _proxyEnv(),
+      environment: environment ?? pluginProxyEnvironment(),
     );
     if (result.exitCode != 0) return null;
     return _extractAbsolutePathFromOutput(result.stdout.toString());
@@ -685,11 +670,11 @@ class PluginLifecycleService {
 
   Future<bool> _isExecutableAvailable(String executable) async {
     final result = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', pluginToolchainExecutableAvailabilityScript(executable)],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.command_probe.$executable',
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     return result.exitCode == 0;
   }
@@ -700,7 +685,7 @@ class PluginLifecycleService {
       ['info'],
       timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.docker_info',
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     return result.exitCode == 0;
   }
@@ -736,11 +721,11 @@ fi
   }) {
     final script = '${_nvmSourcePrefix()}$nvmCommand';
     return _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: timeout,
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
   }
 
@@ -751,11 +736,11 @@ fi
   }) {
     final script = '${_pythonShellPrefix()}$command';
     return _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: timeout,
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
   }
 
@@ -770,7 +755,7 @@ fi
       arguments,
       onProgress: onProgress,
       timeout: timeout,
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
   }
 
@@ -783,7 +768,7 @@ fi
   Future<bool> _isPyenvAvailable() async {
     if (await pluginPyenvInstallationExists()) return true;
     final result = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}command -v pyenv'],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.pyenv_check',
@@ -799,7 +784,7 @@ fi
     final pythonPath = await _resolveActivePythonPath();
     if (pythonPath == null) return null;
     return _PythonRuntimeContext(
-      source: _looksLikeSystemPython(pythonPath)
+      source: pluginLooksLikeSystemPythonPath(pythonPath)
           ? _PythonRuntimeSource.system
           : _PythonRuntimeSource.unknown,
       executablePath: pythonPath,
@@ -810,7 +795,7 @@ fi
   Future<_PythonRuntimeContext?> _detectPyenvContext() async {
     if (!await _isPyenvAvailable()) return null;
     final versionNameResult = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}pyenv version-name'],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.pyenv_version_name',
@@ -840,7 +825,9 @@ fi
 
   Future<_PythonRuntimeContext?> _detectBrewPythonContext() async {
     final executable = await _resolveActivePythonPath();
-    if (executable == null || !_looksLikeHomebrewPath(executable)) return null;
+    if (executable == null || !pluginLooksLikeHomebrewPythonPath(executable)) {
+      return null;
+    }
     final version = await _readPythonVersion(executable);
     return _PythonRuntimeContext(
       source: _PythonRuntimeSource.homebrew,
@@ -852,7 +839,7 @@ fi
 
   Future<String?> _resolveActivePythonPath() async {
     final result = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}command -v python3 || command -v python'],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.python_path',
@@ -868,7 +855,7 @@ fi
   Future<String?> _resolvePyenvPythonPath() async {
     for (final command in const ['python3', 'python']) {
       final result = await runTrackedProcessOrFailed(
-        _pickShell(),
+        pluginShellExecutable(),
         ['-c', '${_pythonShellPrefix()}pyenv which $command'],
         timeout: _pluginLifecycleProbeTimeout,
         tag: 'plugin_lifecycle.pyenv_which',
@@ -927,9 +914,9 @@ fi
     final parts = currentVersion.split('.');
     if (parts.length < 2) return null;
     final majorMinor = '${parts[0]}.${parts[1]}';
-    final proxyEnv = _proxyEnv();
+    final proxyEnv = pluginProxyEnvironment();
     final latestResult = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       [
         '-c',
         '${_pythonShellPrefix()}pyenv latest -k $majorMinor 2>/dev/null || true',
@@ -945,7 +932,7 @@ fi
     if (quickVersion != null) return quickVersion;
 
     final listResult = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}pyenv install --list'],
       timeout: const Duration(seconds: 15),
       tag: 'plugin_lifecycle.pyenv_list',
@@ -963,11 +950,11 @@ fi
 
   Future<String?> _queryLatestHomebrewVersion(String formula) async {
     final result = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}brew info --json=v2 $formula'],
       timeout: const Duration(seconds: 10),
       tag: 'plugin_lifecycle.brew_info',
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (result.exitCode != 0) return null;
     try {
@@ -1115,7 +1102,7 @@ fi
       );
       if (result.exitCode == 0) {
         final versionResult = await runTrackedProcessOrFailed(
-          _pickShell(),
+          pluginShellExecutable(),
           ['-c', '${_pythonShellPrefix()}python3 --version'],
           timeout: _pluginLifecycleVerifyTimeout,
           tag: 'plugin_lifecycle.python_install_verify',
@@ -1330,7 +1317,7 @@ fi
       );
     }
     final verify = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}command -v $verifyCommand'],
       timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.verify.$verifyCommand',
@@ -1642,7 +1629,7 @@ fi
     List<String> commands, {
     Map<String, String>? environment,
   }) async {
-    final effectiveEnvironment = environment ?? _proxyEnv();
+    final effectiveEnvironment = environment ?? pluginProxyEnvironment();
     for (final command in commands) {
       final commandPath = await _resolveManagedToolchainCommandPath(
         command,
@@ -1700,7 +1687,7 @@ fi
           executable,
           const <String>['-c', 'import certifi; print(certifi.where())'],
           timeout: const Duration(seconds: 2),
-          environment: _proxyEnv(),
+          environment: pluginProxyEnvironment(),
           tag: 'plugin_lifecycle.probe_certifi.$executable',
         );
         if (result.exitCode != 0) continue;
@@ -1709,7 +1696,7 @@ fi
       } catch (error, stack) {
         silentLog(
           'plugin_lifecycle',
-          'probe certifi bundle $executable',
+          '探测 certifi 证书包：$executable',
           error,
           stack,
         );
@@ -1738,7 +1725,7 @@ fi
     }
     silentLog(
       'plugin_lifecycle',
-      'cleanup failed npm install',
+      '清理失败的 npm 安装',
       _processErrorMessage(cleanup),
     );
   }
@@ -1798,11 +1785,11 @@ chmod +x ${_pluginShellQuote(shimPath)}
 printf '%s\\n' ${_pluginShellQuote('$label shim: $shimPath')}
 ''';
     final result = await _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: const Duration(minutes: 12),
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
       return PluginOperationResult(
@@ -1830,7 +1817,7 @@ rm -rf ${_pluginShellQuote('$root/$directoryName')}
 rm -f ${_pluginShellQuote('${_androidReverseToolBinDir()}/$shimName')}
 ''';
     final result = await _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: const Duration(seconds: 20),
@@ -1929,11 +1916,11 @@ chmod +x ${_pluginShellQuote(shimPath)}
 printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
 ''';
     final result = await _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: const Duration(minutes: 8),
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
       return PluginOperationResult(
@@ -2156,11 +2143,11 @@ echo "Qdrant health endpoint did not become ready" >&2
 exit 4
 ''';
     final result = await _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: const Duration(minutes: 8),
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
       return PluginOperationResult(
@@ -2706,11 +2693,11 @@ echo "Qdrant health endpoint did not become ready" >&2
 exit 4
 ''';
     final result = await _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
       timeout: const Duration(minutes: 8),
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
       return const PluginOperationResult(
@@ -3017,10 +3004,10 @@ docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
 echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
 ''';
     final result = await _runWithProgress(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
-      environment: _proxyEnv(),
+      environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
       return PluginOperationResult(
@@ -3038,7 +3025,7 @@ echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
     required String excluding,
   }) async {
     final result = await runTrackedProcessOrFailed(
-      _pickShell(),
+      pluginShellExecutable(),
       ['-c', '${_pythonShellPrefix()}pyenv versions --bare'],
       timeout: _pluginLifecycleVerifyTimeout,
       tag: 'plugin_lifecycle.pyenv_versions',
@@ -3061,7 +3048,10 @@ echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
     Map<String, String>? environment,
   }) async {
     try {
-      final mergedEnv = <String, String>{...?environment, ..._proxyEnv()};
+      final mergedEnv = <String, String>{
+        ...?environment,
+        ...pluginProxyEnvironment(),
+      };
       final effectiveTimeout = timeout <= Duration.zero
           ? _pluginLifecycleDefaultTimeout
           : timeout;
@@ -3088,7 +3078,7 @@ echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
     } catch (error, stack) {
       silentLog(
         'plugin_lifecycle',
-        'run $executable ${arguments.take(1).join(' ')}',
+        '执行 $executable ${arguments.take(1).join(' ')}',
         error,
         stack,
       );
@@ -3203,19 +3193,6 @@ String? _extractPyenvVersionFromPath(String path) {
   final value = match?.group(1);
   if (value != null && isStrictSemanticVersionText(value)) return value;
   return null;
-}
-
-bool _looksLikeHomebrewPath(String path) {
-  return path.contains('/Cellar/python') ||
-      path.contains('/Homebrew/Cellar/python') ||
-      path.contains('/opt/homebrew/') ||
-      path.contains('/usr/local/opt/python') ||
-      path.contains('/usr/local/bin/python');
-}
-
-bool _looksLikeSystemPython(String path) {
-  return path.startsWith('/usr/bin/') ||
-      path.startsWith('/Library/Developer/CommandLineTools/');
 }
 
 String? _extractBrewPythonFormulaFromPath(String path) {

@@ -135,7 +135,7 @@ class DataCleanupService {
         itemCount: (row['cnt'] as int?) ?? 0,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', 'measureUserMemory', error, stack);
+      silentLog('data_cleanup', '统计用户记忆', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
@@ -182,7 +182,7 @@ class DataCleanupService {
         itemCount: (row['cnt'] as int?) ?? 0,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', 'measureHooks', error, stack);
+      silentLog('data_cleanup', '统计 Hooks', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
@@ -213,7 +213,7 @@ class DataCleanupService {
         itemCount: (row['cnt'] as int?) ?? 0,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', 'measureCrons', error, stack);
+      silentLog('data_cleanup', '统计定时任务', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
@@ -242,7 +242,7 @@ class DataCleanupService {
         itemCount: (row['cnt'] as int?) ?? 0,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', 'measureInstructions', error, stack);
+      silentLog('data_cleanup', '统计用户指令', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
@@ -328,7 +328,7 @@ class DataCleanupService {
   /// 防止与 AI/UI 写入交错，并同步更新可信内存快照。
   Future<void> cleanUserMemory() async {
     if (!await _memoryController.clearAll()) {
-      throw StateError('Memory controller rejected the cleanup.');
+      throw StateError('用户记忆控制器拒绝清理操作。');
     }
   }
 
@@ -337,17 +337,17 @@ class DataCleanupService {
   Future<void> cleanHooks() async {
     try {
       if (!await _hooksController.clearAll()) {
-        throw StateError('Hooks controller rejected the cleanup.');
+        throw StateError('Hooks 控制器拒绝清理操作。');
       }
     } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanHooks', error, stack);
+      silentLog('data_cleanup', '清理 Hooks', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。
       try {
         final db = DatabaseService.instance.database;
         await db.delete('hooks');
         await _hooksController.refresh();
       } catch (error2, stack2) {
-        silentLog('data_cleanup', 'cleanHooks/fallback', error2, stack2);
+        silentLog('data_cleanup', '清理 Hooks 兜底', error2, stack2);
       }
     }
   }
@@ -359,7 +359,7 @@ class DataCleanupService {
     try {
       await _cronsController.clearAllNonSystemCrons();
     } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanCrons', error, stack);
+      silentLog('data_cleanup', '清理定时任务', error, stack);
     }
   }
 
@@ -367,17 +367,17 @@ class DataCleanupService {
   Future<void> cleanInstructions() async {
     try {
       if (!await _instructionsController.clearAll()) {
-        throw StateError('Instructions controller rejected the cleanup.');
+        throw StateError('用户指令控制器拒绝清理操作。');
       }
     } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanInstructions', error, stack);
+      silentLog('data_cleanup', '清理用户指令', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。
       try {
         final db = DatabaseService.instance.database;
         await db.delete('user_instructions');
         await _instructionsController.refresh();
       } catch (error2, stack2) {
-        silentLog('data_cleanup', 'cleanInstructions/fallback', error2, stack2);
+        silentLog('data_cleanup', '清理用户指令兜底', error2, stack2);
       }
     }
   }
@@ -389,7 +389,7 @@ class DataCleanupService {
     try {
       await _mcpController.refresh();
     } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanMcpConfig/refresh', error, stack);
+      silentLog('data_cleanup', '清理 MCP 配置后刷新', error, stack);
     }
   }
 
@@ -410,7 +410,7 @@ class DataCleanupService {
     try {
       await _skillsController.refresh();
     } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanSkillsDirectory/refresh', error, stack);
+      silentLog('data_cleanup', '清理技能目录后刷新', error, stack);
     }
   }
 
@@ -428,7 +428,7 @@ class DataCleanupService {
     try {
       await AiFileMutationLedger().clearAll();
     } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanMutationLedger', error, stack);
+      silentLog('data_cleanup', '清理文件变动账本', error, stack);
     }
   }
 
@@ -441,27 +441,27 @@ class DataCleanupService {
         await step();
       } catch (error, stack) {
         errors++;
-        silentLog('data_cleanup', 'cleanAll/$name', error, stack);
+        silentLog('data_cleanup', '执行全部清理/$name', error, stack);
       }
     }
 
-    await runStep('multimedia', cleanMultimedia);
-    await runStep('appCache', cleanAppCache);
-    await runStep('logs', cleanLogs);
-    await runStep('userMemory', cleanUserMemory);
-    await runStep('mcpConfig', cleanMcpConfig);
-    await runStep('mcpOpsCache', cleanMcpOpsCache);
-    await runStep('webGatewayOpsCache', cleanWebGatewayOpsCache);
-    await runStep('hooks', cleanHooks);
-    await runStep('crons', cleanCrons);
-    await runStep('instructions', cleanInstructions);
-    await runStep('skillsDirectory', cleanSkillsDirectory);
-    await runStep('lspDirectory', cleanLspDirectory);
-    await runStep('mutationLedger', cleanMutationLedger);
+    await runStep('多媒体', cleanMultimedia);
+    await runStep('应用缓存', cleanAppCache);
+    await runStep('日志', cleanLogs);
+    await runStep('用户记忆', cleanUserMemory);
+    await runStep('MCP 配置', cleanMcpConfig);
+    await runStep('MCP 运维缓存', cleanMcpOpsCache);
+    await runStep('Web 网关运维缓存', cleanWebGatewayOpsCache);
+    await runStep('Hooks', cleanHooks);
+    await runStep('定时任务', cleanCrons);
+    await runStep('用户指令', cleanInstructions);
+    await runStep('技能目录', cleanSkillsDirectory);
+    await runStep('LSP 目录', cleanLspDirectory);
+    await runStep('文件变动账本', cleanMutationLedger);
     // 会话放在最后清理：上面的步骤即便意外失败，残留附件引用也已经
     // 失效，但 sessions 表仍在；如果反过来先清 sessions，再清附件失败，
     // 用户看到的是"会话没了，但附件目录还在占空间"。
-    await runStep('sessions', cleanSessions);
+    await runStep('会话', cleanSessions);
     return errors;
   }
 
@@ -499,7 +499,7 @@ class DataCleanupService {
         itemCount: sessionsCnt,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', 'measureSessionsDb', error, stack);
+      silentLog('data_cleanup', '统计会话数据库', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
@@ -512,21 +512,20 @@ class DataCleanupService {
         itemCount: size.rowCount,
       );
     } catch (error, stack) {
-      silentLog('data_cleanup', 'measureCronHistoryDb', error, stack);
+      silentLog('data_cleanup', '统计定时任务历史数据库', error, stack);
       return DataCleanupSizeReport.unknown;
     }
   }
 }
 
-// Isolate worker functions（必须是顶层或静态以便序列化）
+// Isolate worker 函数必须位于顶层或声明为静态，以便序列化。
 /// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
 /// 文件数。
 const int _maxDataCleanupScanEntries = 1000000;
 const int _maxDataCleanupDeleteDepth = 256;
 const Duration _dataCleanupScanIdleTimeout = Duration(seconds: 10);
 const Duration _dataCleanupScanTotalTimeout = Duration(minutes: 2);
-const String _dataCleanupPartialScanError =
-    'Directory scan stopped at its safety limit.';
+const String _dataCleanupPartialScanError = '目录扫描已在安全上限处停止。';
 
 class _DataCleanupScanBudget {
   _DataCleanupScanBudget()
@@ -615,7 +614,7 @@ Future<DataCleanupSizeReport> _isolateMeasureAttachments(
   } catch (error, stack) {
     budget.markInterrupted();
     // 子目录不可读：保留已经累计的部分，避免一棵坏分支吞掉全部统计。
-    silentLog('data_cleanup', 'walk attachments', error, stack);
+    silentLog('data_cleanup', '遍历附件目录', error, stack);
   }
   return DataCleanupSizeReport(
     bytes: totalBytes,
@@ -647,7 +646,7 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
         } catch (error, stack) {
           budget.markInterrupted();
           // 文件被并发删除等：忽略。
-          silentLog('data_cleanup', 'len session json', error, stack);
+          silentLog('data_cleanup', '读取会话 JSON 大小', error, stack);
         }
         continue;
       }
@@ -675,7 +674,7 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
             );
           } catch (error, stack) {
             budget.markInterrupted();
-            silentLog('data_cleanup', 'len inner session file', error, stack);
+            silentLog('data_cleanup', '读取会话子文件大小', error, stack);
           }
         }
       }
@@ -683,7 +682,7 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
   } catch (error, stack) {
     budget.markInterrupted();
     // 兜底：保留累计。
-    silentLog('data_cleanup', 'walk sessions excl attachments', error, stack);
+    silentLog('data_cleanup', '遍历会话并排除附件', error, stack);
   }
   return DataCleanupSizeReport(
     bytes: totalBytes,
@@ -738,7 +737,7 @@ Future<DataCleanupSizeReport> _isolateMeasureFile(String path) async {
       itemCount: 1,
     );
   } catch (error, stack) {
-    silentLog('data_cleanup', 'measure file len', error, stack);
+    silentLog('data_cleanup', '读取文件大小', error, stack);
     return DataCleanupSizeReport.unknown;
   }
 }
@@ -755,7 +754,7 @@ Future<void> _isolateDeleteFile(String path) async {
     await file.delete();
   } catch (error, stack) {
     // 上层会通过 controller refresh 兜底，单文件删除失败不致命。
-    silentLog('data_cleanup', 'delete file', error, stack);
+    silentLog('data_cleanup', '删除文件', error, stack);
   }
 }
 
@@ -797,7 +796,7 @@ Future<void> _isolateDeleteAttachments(String sessionsRoot) async {
     }
   } catch (error, stack) {
     // 兜底：保持已删除部分，剩余目录可下次再清。
-    silentLog('data_cleanup', 'delete attachments roots', error, stack);
+    silentLog('data_cleanup', '删除附件目录', error, stack);
   }
 }
 
@@ -883,13 +882,13 @@ Future<void> _safeDeleteDirectoryAndRecreate(
     );
   } catch (error, stack) {
     // 删除失败时仍尝试 recreate：保持调用方期望的"目录存在"语义。
-    silentLog('data_cleanup', 'delete dir', error, stack);
+    silentLog('data_cleanup', '删除目录', error, stack);
   }
   try {
     await dir.create(recursive: true);
   } catch (error, stack) {
     // recreate 失败也不抛——下游写入时会自行重试。
-    silentLog('data_cleanup', 'recreate dir', error, stack);
+    silentLog('data_cleanup', '重建目录', error, stack);
   }
 }
 
@@ -900,7 +899,7 @@ Future<BoundedDeleteResult> _deletePathWithinCleanupBudget(
 }) async {
   if (budget.exhausted) {
     budget.markInterrupted();
-    throw TimeoutException('Data cleanup delete budget is exhausted.');
+    throw TimeoutException('数据清理的删除时间额度已耗尽。');
   }
   final remaining = budget.remainingDurationForOperation();
   final operationTimeout = remaining < _dataCleanupScanIdleTimeout
@@ -965,13 +964,13 @@ Future<_DirStats> _walkDirectoryStats(
       } catch (error, stack) {
         activeBudget.markInterrupted();
         // 文件并发被删 / 权限不足：跳过。
-        silentLog('data_cleanup', 'len walk entity', error, stack);
+        silentLog('data_cleanup', '读取遍历项大小', error, stack);
       }
     }
   } catch (error, stack) {
     activeBudget.markInterrupted();
     // 列表失败：返回已经累计的部分。
-    silentLog('data_cleanup', 'walk dir list', error, stack);
+    silentLog('data_cleanup', '遍历目录列表', error, stack);
   }
   return _DirStats(bytes: bytes, files: files);
 }
@@ -1027,13 +1026,13 @@ Future<void> _deleteDirectoryContentsExcludingBounded(
             budget: budget,
           );
         } catch (error, stack) {
-          silentLog('data_cleanup', 'delete dir entry excluding', error, stack);
+          silentLog('data_cleanup', '删除排除项之外的目录项', error, stack);
           if (budget.incomplete) return;
         }
       }
     } catch (error, stack) {
       budget.markInterrupted();
-      silentLog('data_cleanup', 'list dir contents excluding', error, stack);
+      silentLog('data_cleanup', '列出排除项之外的目录内容', error, stack);
       return;
     }
   }

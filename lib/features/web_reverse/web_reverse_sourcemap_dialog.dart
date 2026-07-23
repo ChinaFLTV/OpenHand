@@ -228,7 +228,7 @@ class _SmDialogState extends State<_SmDialog> {
         _status = loc?.webReverseSmResolved ?? 'Resolved';
       });
     } catch (e, st) {
-      silentLog('web_reverse_sourcemap_dialog', 'sourcemap.resolve', e, st);
+      silentLog('web_reverse_sourcemap_dialog', '解析 Source Map', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -301,7 +301,7 @@ class _SmDialogState extends State<_SmDialog> {
       text: text,
       successBase: loc?.webReverseSmCopied ?? 'Copied',
       logTag: 'web_reverse_sourcemap_dialog',
-      logAction: 'sourcemap.copy',
+      logAction: '复制 Source Map 解析结果',
     );
   }
 

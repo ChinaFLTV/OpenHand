@@ -519,7 +519,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           ? l10n.proxyTestSuccess(_totalStopwatch.elapsedMilliseconds, viaLabel)
           : l10n.proxyTestFailure('HTTP ${response.statusCode}');
     } catch (error, stack) {
-      silentLog('settings_proxy', 'connectivityTest', error, stack);
+      silentLog('settings_proxy', '执行连通性测试', error, stack);
       ok = false;
       if (mounted) {
         summary = AppLocalizations.of(
@@ -533,12 +533,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       try {
         httpClient?.close(force: true);
       } catch (error, stack) {
-        silentLog(
-          'settings_proxy_test_dialog',
-          'close http client',
-          error,
-          stack,
-        );
+        silentLog('settings_proxy_test_dialog', '关闭 HTTP 客户端', error, stack);
       }
     }
     _totalStopwatch.stop();

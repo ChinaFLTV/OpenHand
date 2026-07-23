@@ -1306,10 +1306,10 @@ Widget _buildMachineTerminalMetadataSection(
   final activeTerminal = _metadataObjectMap(runtime['active_terminal']);
   final terminals = _metadataObjectList(runtime['terminals']);
   final toolNames = _metadataStringList(metadata['tool_names']);
-  final status = _metadataCleanString(runtime['status']);
+  final status = optionalStringFromValue(runtime['status']);
   final activeTerminalId =
-      _metadataCleanString(runtime['active_terminal_id']) ??
-      _metadataCleanString(metadata['active_terminal_id']);
+      optionalStringFromValue(runtime['active_terminal_id']) ??
+      optionalStringFromValue(metadata['active_terminal_id']);
   final activeSize = _terminalSizeText(activeTerminal);
   final terminalCount = _metadataInt(runtime['terminal_count']);
   final colorScheme = Theme.of(context).colorScheme;
@@ -1479,12 +1479,6 @@ Widget _buildMachineTerminalMetadataSection(
 
 Map<String, Object?> _metadataObjectMap(Object? rawValue) {
   return stringKeyedMapFromValue(rawValue);
-}
-
-String? _metadataCleanString(Object? value) {
-  if (value == null) return null;
-  final text = '$value'.trim();
-  return text.isEmpty ? null : text;
 }
 
 String _metadataDisplayValue(Object? value) {
@@ -2093,10 +2087,10 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final status = _metadataCleanString(terminal['status']);
+    final status = optionalStringFromValue(terminal['status']);
     final statusColor = _machineTerminalStatusColor(colorScheme, status);
-    final id = _metadataCleanString(terminal['terminal_id']) ?? '-';
-    final identity = _metadataCleanString(terminal['identity']) ?? '-';
+    final id = optionalStringFromValue(terminal['terminal_id']) ?? '-';
+    final identity = optionalStringFromValue(terminal['identity']) ?? '-';
     final size = _terminalSizeText(terminal);
     final outputCharacters = _metadataInt(terminal['output_characters']);
     final extraRows = <Widget>[
@@ -2126,7 +2120,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
           label: _metadataFieldTitle('exit_code'),
           value: _metadataDisplayValue(terminal['exit_code']),
         ),
-      if (_metadataCleanString(terminal['error_message']) != null)
+      if (optionalStringFromValue(terminal['error_message']) != null)
         _MetadataEntryRow(
           label: _metadataFieldTitle('error_message'),
           value: _metadataDisplayValue(terminal['error_message']),
@@ -2405,7 +2399,7 @@ _SessionErrorPresentation _presentSessionError(
   // Chat 系列 stage 直接使用底层 AiChatException 输出的「现象 / 原因 / 建议」
   // 三段式中英诊断文案：第一行作为 banner 标题，其余多行作为正文，避免之前
   // 一律展示通用兜底文案、丢失协议/网络层细节的问题。
-  if (_isStructuredChatErrorMessage(rawMessage) &&
+  if (StructuredErrorText.isStructured(rawMessage) &&
       const <String>{
         'chat_request',
         'chat_stream',
@@ -2462,13 +2456,6 @@ int? _extractConfiguredToolLoopLimit(String detail) {
     return null;
   }
   return optionalIntFromValue(match.group(1));
-}
-
-/// 判断 `error.message` 是否来自 AiChatService / AiImageGenerationService /
-/// AiModelScanner 抛出的结构化错误文案。需要同时兼容历史双语锚点与当前
-/// 按 locale 输出的单语锚点，避免旧会话里的持久化错误详情失去可识别性。
-bool _isStructuredChatErrorMessage(String raw) {
-  return StructuredErrorText.isStructured(raw);
 }
 
 /// 把结构化三段式文案拆成 banner 用的 (title, message) —— 第一非空行作为

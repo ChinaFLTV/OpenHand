@@ -90,7 +90,7 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                       de: 'Pfad kopiert.',
                       ja: 'パスをコピーしました。',
                     ),
-                    logAction: 'copy source detail path',
+                    logAction: '复制知识源详情路径',
                   );
                 },
                 icon: Icons.copy_rounded,

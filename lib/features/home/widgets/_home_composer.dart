@@ -34,13 +34,6 @@ String _inputCacheModelLockReason(BuildContext context) {
 
 enum _AtMentionOverlayMode { projectFiles, localFiles }
 
-bool _isComposerTriggerWhitespaceCodeUnit(int codeUnit) {
-  return codeUnit == 0x20 ||
-      codeUnit == 0x09 ||
-      codeUnit == 0x0A ||
-      codeUnit == 0x0D;
-}
-
 bool _isComposerPathLikeQuery(String query) {
   if (query.isEmpty) return false;
   if (query.startsWith('/') ||
@@ -85,14 +78,12 @@ String? _readComposerTriggerQueryAtOffset({
   if (text.codeUnitAt(triggerOffset) != triggerCodeUnit) return null;
   if (requireWhitespaceBefore &&
       triggerOffset > 0 &&
-      !_isComposerTriggerWhitespaceCodeUnit(
-        text.codeUnitAt(triggerOffset - 1),
-      )) {
+      !isAsciiWhitespaceCodeUnit(text.codeUnitAt(triggerOffset - 1))) {
     return null;
   }
   var tokenEnd = text.length;
   for (var i = triggerOffset + 1; i < text.length; i++) {
-    if (_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(i))) {
+    if (isAsciiWhitespaceCodeUnit(text.codeUnitAt(i))) {
       tokenEnd = i;
       break;
     }
@@ -332,18 +323,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         atIndex = i;
         break;
       }
-      if (_isComposerTriggerWhitespaceCodeUnit(ch)) {
+      if (isAsciiWhitespaceCodeUnit(ch)) {
         break;
       }
     }
     if (atIndex < 0) return null;
     if (atIndex > 0 &&
-        !_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(atIndex - 1))) {
+        !isAsciiWhitespaceCodeUnit(text.codeUnitAt(atIndex - 1))) {
       return null;
     }
     var tokenEnd = text.length;
     for (var i = atIndex + 1; i < text.length; i++) {
-      if (_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(i))) {
+      if (isAsciiWhitespaceCodeUnit(text.codeUnitAt(i))) {
         tokenEnd = i;
         break;
       }
@@ -608,7 +599,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         );
       }
     } catch (error, stack) {
-      silentLog('composer', 'at-mention shallow search', error, stack);
+      silentLog('composer', '@ 提及浅层搜索', error, stack);
     }
     if (!_isAtMentionSearchStillActive(
       searchGeneration: searchGeneration,
@@ -722,7 +713,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         }
       }
     } catch (error, stack) {
-      silentLog('composer', 'at-mention deep search', error, stack);
+      silentLog('composer', '@ 提及深层搜索', error, stack);
     }
   }
 
@@ -930,7 +921,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     var tokenEnd = text.length;
     for (var i = 0; i < text.length; i++) {
       final ch = text.codeUnitAt(i);
-      if (_isComposerTriggerWhitespaceCodeUnit(ch)) {
+      if (isAsciiWhitespaceCodeUnit(ch)) {
         tokenEnd = i;
         break;
       }

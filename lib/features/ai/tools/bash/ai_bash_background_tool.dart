@@ -236,6 +236,23 @@ class AiBashBackgroundTool extends AiTool {
       dangerouslyDisableSandbox:
           AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
     );
+    var launchProxyTransferred = false;
+    Future<T> runBeforeLaunchProxyTransfer<T>(
+      String cleanupReason,
+      FutureOr<T> Function() action,
+    ) async {
+      var completed = false;
+      try {
+        final result = await action();
+        completed = true;
+        return result;
+      } finally {
+        if (!completed && !launchProxyTransferred) {
+          await _closeLaunchProxy(launchSpec.proxyLease, cleanupReason);
+        }
+      }
+    }
+
     if (launchSpec.blocked) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.denied,
@@ -258,22 +275,25 @@ class AiBashBackgroundTool extends AiTool {
         toolName: 'BashBackground',
         userConfirmation: context.confirmWriteCommand,
       );
-      final confirmationResult = await AiToolUtils.requestWriteConfirmation(
-        toolName: 'BashBackground',
-        operationDescription:
-            'Start long-running shell process in $cwd\n'
-            'reason: ${writeAnalysis.reason}\n'
-            'cmd: $cmd',
-        targetPath: _directoryConfirmationTarget(cwd),
-        requireWriteConfirmation:
-            context.requireWriteCommandConfirmation || forceWriteConfirmation,
-        confirmWriteCommand: confirmationGate.callback,
-        cancelSignal: context.cancelSignal,
-        timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
-        approvalCommand: cmd,
-        approvalWorkingDirectory: cwd,
-        resultCommand: cmd,
-        writeAnalysisReason: writeAnalysis.reason,
+      final confirmationResult = await runBeforeLaunchProxyTransfer(
+        '确认写命令异常',
+        () => AiToolUtils.requestWriteConfirmation(
+          toolName: 'BashBackground',
+          operationDescription:
+              'Start long-running shell process in $cwd\n'
+              'reason: ${writeAnalysis.reason}\n'
+              'cmd: $cmd',
+          targetPath: _directoryConfirmationTarget(cwd),
+          requireWriteConfirmation:
+              context.requireWriteCommandConfirmation || forceWriteConfirmation,
+          confirmWriteCommand: confirmationGate.callback,
+          cancelSignal: context.cancelSignal,
+          timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+          approvalCommand: cmd,
+          approvalWorkingDirectory: cwd,
+          resultCommand: cmd,
+          writeAnalysisReason: writeAnalysis.reason,
+        ),
       );
       if (confirmationResult != null) {
         await _closeLaunchProxy(launchSpec.proxyLease, 'confirmation rejected');
@@ -300,45 +320,59 @@ class AiBashBackgroundTool extends AiTool {
             : 'Too many active background sessions ($_maxConcurrentSessions). Stop one first.',
       );
     }
+    var reservationHeld = true;
+    void releaseStartReservation() {
+      if (!reservationHeld) return;
+      reservationHeld = false;
+      _releaseStartReservation();
+    }
+
     final startedAt = Stopwatch()..start();
     late final Future<Process> spawnFuture;
     final Process process;
     try {
-      spawnFuture = startTrackedProcessInNewGroup(
-        launchSpec.executable,
-        launchSpec.arguments,
-        workingDirectory: launchSpec.workingDirectory,
-        environment: launchSpec.environment.isEmpty
-            ? null
-            : launchSpec.environment,
-      );
-      process = await spawnFuture.timeout(_processStartTimeout);
+      process = await runBeforeLaunchProxyTransfer('启动进程异常', () async {
+        spawnFuture = startTrackedProcessInNewGroup(
+          launchSpec.executable,
+          launchSpec.arguments,
+          workingDirectory: launchSpec.workingDirectory,
+          environment: launchSpec.environment.isEmpty
+              ? null
+              : launchSpec.environment,
+        );
+        return spawnFuture.timeout(_processStartTimeout);
+      });
     } on TimeoutException catch (error) {
       await _closeLaunchProxy(launchSpec.proxyLease, 'start timeout');
+      releaseStartReservation();
       unawaited(
         spawnFuture.then<void>((lateProcess) async {
-          try {
-            await terminateTrackedProcessTree(lateProcess);
-          } finally {
-            _releaseStartReservation();
-          }
-        }, onError: (Object _, StackTrace _) => _releaseStartReservation()),
+          await runAsyncCleanupBounded(
+            () => terminateTrackedProcessTree(lateProcess),
+            onError: (cleanupError, cleanupStack) => silentLog(
+              'ai_bash_background',
+              '终止延迟启动的后台进程',
+              cleanupError,
+              cleanupStack,
+            ),
+          );
+        }, onError: (Object _, StackTrace _) {}),
       );
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Process start timed out: $error',
       );
     } catch (error, stack) {
-      _releaseStartReservation();
+      releaseStartReservation();
       await _closeLaunchProxy(launchSpec.proxyLease, 'spawn failed');
-      silentLog('ai_bash_background', 'spawn $cmd', error, stack);
+      silentLog('ai_bash_background', '启动进程 $cmd', error, stack);
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Failed to spawn process: $error',
       );
     }
     if (_disposed || reservationGeneration != _lifecycleGeneration) {
-      _releaseStartReservation();
+      releaseStartReservation();
       await Future.wait<void>(<Future<void>>[
         terminateTrackedProcessTree(process),
         _closeLaunchProxy(launchSpec.proxyLease, 'late process'),
@@ -348,76 +382,94 @@ class AiBashBackgroundTool extends AiTool {
         'BashBackground was disposed while starting the process.',
       );
     }
-    _releaseStartReservation();
+    releaseStartReservation();
     _handleCounter += 1;
     final handle = 'bg_$_handleCounter';
-    final session = _BgSession(
-      handle: handle,
-      ownerSessionId: context.sessionId,
-      command: cmd,
-      workingDirectory: launchSpec.workingDirectory,
-      process: process,
-      startedAtMs: DateTime.now().millisecondsSinceEpoch,
-      proxyLease: launchSpec.proxyLease,
-    );
-    _sessions[handle] = session;
-    final toolCallId = context.toolCall.id.trim();
-    if (toolCallId.isNotEmpty) {
-      AiToolExecutionRegistry.instance.attachPid(toolCallId, process.pid);
-      AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
-        final removed = _sessions.remove(handle);
-        await (removed ?? session).close(kill: true);
+    late final _BgSession session;
+    var sessionSetupCompleted = false;
+    try {
+      session = await runBeforeLaunchProxyTransfer('创建后台会话异常', () {
+        final value = _BgSession(
+          handle: handle,
+          ownerSessionId: context.sessionId,
+          command: cmd,
+          workingDirectory: launchSpec.workingDirectory,
+          process: process,
+          startedAtMs: DateTime.now().millisecondsSinceEpoch,
+          proxyLease: launchSpec.proxyLease,
+        );
+        _sessions[handle] = value;
+        launchProxyTransferred = true;
+        return value;
       });
-    }
-    session.stdoutSubscription = process.stdout
-        .transform(_backgroundOutputDecoder)
-        .listen(
-          (data) => session.appendStdout(data, _maxBufferBytes),
-          onError: (Object error, StackTrace stack) {
-            session.markStdoutDone();
-            silentLog('ai_bash_background', 'stdout $handle', error, stack);
-          },
-          onDone: session.markStdoutDone,
-        );
-    session.stderrSubscription = process.stderr
-        .transform(_backgroundOutputDecoder)
-        .listen(
-          (data) => session.appendStderr(data, _maxBufferBytes),
-          onError: (Object error, StackTrace stack) {
-            session.markStderrDone();
-            silentLog('ai_bash_background', 'stderr $handle', error, stack);
-          },
-          onDone: session.markStderrDone,
-        );
-    unawaited(
-      process.exitCode.then<void>(
-        (code) async {
-          session.exitCode = code;
-          await terminateTrackedProcessTree(
-            process,
-            gracefulTimeout: Duration.zero,
+      final toolCallId = context.toolCall.id.trim();
+      if (toolCallId.isNotEmpty) {
+        AiToolExecutionRegistry.instance.attachPid(toolCallId, process.pid);
+        AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
+          final removed = _sessions.remove(handle);
+          await (removed ?? session).close(kill: true);
+        });
+      }
+      session.stdoutSubscription = process.stdout
+          .transform(_backgroundOutputDecoder)
+          .listen(
+            (data) => session.appendStdout(data, _maxBufferBytes),
+            onError: (Object error, StackTrace stack) {
+              session.markStdoutDone();
+              silentLog('ai_bash_background', '读取标准输出 $handle', error, stack);
+            },
+            onDone: session.markStdoutDone,
           );
-          await session.finishOutputAfterExit();
-          session.touch();
-          unawaited(session.closeProxy());
-          _pruneExitedSessions();
-        },
-        onError: (Object error, StackTrace stack) {
-          silentLog('ai_bash_background', 'exit $handle', error, stack);
-          session.exitCode = -1;
-          unawaited(() async {
+      session.stderrSubscription = process.stderr
+          .transform(_backgroundOutputDecoder)
+          .listen(
+            (data) => session.appendStderr(data, _maxBufferBytes),
+            onError: (Object error, StackTrace stack) {
+              session.markStderrDone();
+              silentLog('ai_bash_background', '读取标准错误 $handle', error, stack);
+            },
+            onDone: session.markStderrDone,
+          );
+      unawaited(
+        process.exitCode.then<void>(
+          (code) async {
+            session.exitCode = code;
             await terminateTrackedProcessTree(
               process,
               gracefulTimeout: Duration.zero,
             );
             await session.finishOutputAfterExit();
             session.touch();
-            await session.closeProxy();
+            unawaited(session.closeProxy());
             _pruneExitedSessions();
-          }());
-        },
-      ),
-    );
+          },
+          onError: (Object error, StackTrace stack) {
+            silentLog('ai_bash_background', '进程退出 $handle', error, stack);
+            session.exitCode = -1;
+            unawaited(() async {
+              await terminateTrackedProcessTree(
+                process,
+                gracefulTimeout: Duration.zero,
+              );
+              await session.finishOutputAfterExit();
+              session.touch();
+              await session.closeProxy();
+              _pruneExitedSessions();
+            }());
+          },
+        ),
+      );
+      sessionSetupCompleted = true;
+    } finally {
+      if (!sessionSetupCompleted) {
+        final createdSession = _sessions.remove(handle);
+        if (createdSession == null) {
+          await terminateTrackedProcessTree(process);
+        } else {
+          await createdSession.close(kill: true);
+        }
+      }
+    }
     final output = StringBuffer()
       ..writeln('status: started')
       ..writeln('handle: $handle')
@@ -501,12 +553,7 @@ class AiBashBackgroundTool extends AiTool {
     try {
       await lease.close().timeout(_proxyCleanupTimeout);
     } catch (error, stack) {
-      silentLog(
-        'ai_bash_background',
-        'close launch proxy ($reason)',
-        error,
-        stack,
-      );
+      silentLog('ai_bash_background', '关闭启动代理（$reason）', error, stack);
     }
   }
 
@@ -558,7 +605,7 @@ class AiBashBackgroundTool extends AiTool {
         timeout: _stdinFlushTimeout,
       );
     } catch (error, stack) {
-      silentLog('ai_bash_background', 'stdin write $handle', error, stack);
+      silentLog('ai_bash_background', '写入标准输入 $handle', error, stack);
       final removed = _sessions.remove(handle);
       await (removed ?? session).close(kill: true);
       return AiToolUtils.invalidResult(
@@ -703,7 +750,7 @@ class AiBashBackgroundTool extends AiTool {
       killed = session.alive;
       await session.close(kill: true);
     } catch (error, stack) {
-      silentLog('ai_bash_background', 'stop $handle', error, stack);
+      silentLog('ai_bash_background', '停止后台进程 $handle', error, stack);
     }
     final isTaskStopAlias = toolName == 'TaskStop';
     final output = isTaskStopAlias
@@ -985,12 +1032,8 @@ class _BgSession {
       cleanup.add(
         runAsyncCleanupBounded(
           () => terminateTrackedProcessTree(process),
-          onError: (error, stack) => silentLog(
-            'ai_bash_background_tool',
-            'terminate background process',
-            error,
-            stack,
-          ),
+          onError: (error, stack) =>
+              silentLog('ai_bash_background_tool', '终止后台进程', error, stack),
         ),
       );
     }
@@ -1001,23 +1044,15 @@ class _BgSession {
     cleanup.add(
       cancelStreamSubscriptionBounded<String>(
         stdout,
-        onError: (error, stack) => silentLog(
-          'ai_bash_background_tool',
-          'cancel background stdout',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('ai_bash_background_tool', '取消后台标准输出订阅', error, stack),
       ),
     );
     cleanup.add(
       cancelStreamSubscriptionBounded<String>(
         stderr,
-        onError: (error, stack) => silentLog(
-          'ai_bash_background_tool',
-          'cancel background stderr',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('ai_bash_background_tool', '取消后台标准错误订阅', error, stack),
       ),
     );
     markStdoutDone();
@@ -1033,12 +1068,8 @@ class _BgSession {
     if (lease == null) return _proxyCloseFuture = Future<void>.value();
     return _proxyCloseFuture = runAsyncCleanupBounded(
       lease.close,
-      onError: (error, stack) => silentLog(
-        'ai_bash_background_tool',
-        'close background proxy',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('ai_bash_background_tool', '关闭后台代理', error, stack),
     ).then<void>((_) {});
   }
 

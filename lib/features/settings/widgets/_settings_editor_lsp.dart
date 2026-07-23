@@ -1096,12 +1096,7 @@ Future<_DetectedSdkVersion?> _detectDartSdkVersion(String sdkPath) async {
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'settings_editor_lsp',
-        'detect Flutter SDK version',
-        error,
-        stack,
-      );
+      silentLog('settings_editor_lsp', '检测 Flutter SDK 版本', error, stack);
     }
   }
   return _detectCommandSdkVersion(
@@ -2263,7 +2258,7 @@ class _EditorLspInstallRunnerDialogState
     _logFlushTimer?.cancel();
     _logFlushTimer = null;
     _pendingLogLines.clear();
-    _stopCurrentProcess('dispose install process');
+    _stopCurrentProcess('释放安装进程');
     _scrollController.dispose();
     super.dispose();
   }
@@ -2279,7 +2274,7 @@ class _EditorLspInstallRunnerDialogState
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingLogLines,
       onError: (error, stack) =>
-          silentLog('settings_editor_lsp', 'flush install logs', error, stack),
+          silentLog('settings_editor_lsp', '刷新安装日志', error, stack),
     );
   }
 
@@ -2315,7 +2310,7 @@ class _EditorLspInstallRunnerDialogState
 
   void _claimProcess(Process process, int generation) {
     if (!_isRunActive(generation)) {
-      unawaited(_terminateProcess(process, 'terminate late install process'));
+      unawaited(_terminateProcess(process, '终止延迟到达的安装进程'));
       return;
     }
     _process = process;
@@ -2428,7 +2423,7 @@ class _EditorLspInstallRunnerDialogState
 
   void _cancelAndClose() {
     _runGeneration += 1;
-    _stopCurrentProcess('cancel install process');
+    _stopCurrentProcess('取消安装进程');
     Navigator.of(context).pop(false);
   }
 

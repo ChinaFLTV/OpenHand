@@ -89,7 +89,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         final key = '${e.method.toUpperCase()} ${uri.host}$path';
         (map[key] ??= <CdpNetworkEntry>[]).add(e);
       } catch (err, st) {
-        silentLog('web_reverse_ai_crypto', 'group', err, st);
+        silentLog('web_reverse_ai_crypto', '归组请求数据', err, st);
       }
     }
     final list =
@@ -125,12 +125,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         if (out.isNotEmpty) return out;
       }
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_ai_crypto_dialog',
-        'parse json body',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_ai_crypto_dialog', '解析 JSON 请求体', error, stack);
     }
     // form-urlencoded
     if (text.contains('=')) {
@@ -142,12 +137,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
           final v = Uri.decodeQueryComponent(pair.substring(eq + 1));
           out[k] = v;
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_ai_crypto_dialog',
-            'parse form field',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_ai_crypto_dialog', '解析表单字段', error, stack);
         }
       }
     }
@@ -192,12 +182,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
             qs.add(Map<String, String>.from(u.queryParameters));
           }
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_ai_crypto_dialog',
-            'parse query params',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_ai_crypto_dialog', '解析查询参数', error, stack);
         }
       }
       if (qs.length >= 2) samples.addAll(qs);
@@ -350,7 +335,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
             }
           }
         } catch (e, st) {
-          silentLog('web_reverse_ai_crypto', 'searchInResource', e, st);
+          silentLog('web_reverse_ai_crypto', '在资源中搜索', e, st);
         }
       }
       if (list.isNotEmpty) out[key] = list;
@@ -470,7 +455,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         });
       }
     } catch (e, st) {
-      silentLog('web_reverse_ai_crypto', 'analyze', e, st);
+      silentLog('web_reverse_ai_crypto', '分析加密调用', e, st);
       if (mounted) setState(() => _status = '$e');
     }
     if (mounted) setState(() => _busy = false);

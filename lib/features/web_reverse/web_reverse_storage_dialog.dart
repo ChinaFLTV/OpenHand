@@ -135,7 +135,7 @@ class _StorageDialogState extends State<_StorageDialog>
         _loading = false;
       });
     } catch (error, stack) {
-      silentLog('web_reverse_storage_dialog', 'refresh', error, stack);
+      silentLog('web_reverse_storage_dialog', '刷新存储', error, stack);
       if (mounted && generation == _refreshGeneration) {
         setState(() => _loading = false);
       }
@@ -158,7 +158,7 @@ class _StorageDialogState extends State<_StorageDialog>
         _loading = false;
       });
     } catch (error, stack) {
-      silentLog('web_reverse_storage_dialog', 'select indexeddb', error, stack);
+      silentLog('web_reverse_storage_dialog', '选择 IndexedDB 数据库', error, stack);
       if (!mounted || _idbDb != db) return;
       setState(() {
         _idbStores = const [];
@@ -188,12 +188,7 @@ class _StorageDialogState extends State<_StorageDialog>
         _loading = false;
       });
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_storage_dialog',
-        'select indexeddb store',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_storage_dialog', '选择 IndexedDB 存储', error, stack);
       if (!mounted || _idbDb != db || _idbStore != store) return;
       setState(() {
         _idbEntries = const [];
@@ -210,7 +205,7 @@ class _StorageDialogState extends State<_StorageDialog>
       text: prettyPrintJson(data),
       successBase: loc?.webReverseStorageCopied ?? 'Copied',
       logTag: 'web_reverse_storage_dialog',
-      logAction: 'storage.copy',
+      logAction: '复制存储数据',
     );
   }
 

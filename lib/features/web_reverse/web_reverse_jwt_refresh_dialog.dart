@@ -245,7 +245,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
           )
           .toList(growable: false);
     } catch (e, st) {
-      silentLog('web_reverse_jwt', 'parse', e, st);
+      silentLog('web_reverse_jwt', '解析 JWT', e, st);
       return const <_JwtSample>[];
     }
   }
@@ -256,7 +256,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     try {
       _samples = await _scan();
     } catch (e, st) {
-      silentLog('web_reverse_jwt', 'scan', e, st);
+      silentLog('web_reverse_jwt', '扫描 JWT', e, st);
       if (mounted) showOpenHandErrorSnack(context, '$e');
     }
     if (mounted) setState(() => _busy = false);
@@ -296,7 +296,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
       _addRefreshLog(ok: true, detail: value?.toString() ?? 'ok');
       return true;
     } catch (e, st) {
-      silentLog('web_reverse_jwt', 'refresh', e, st);
+      silentLog('web_reverse_jwt', '刷新 JWT', e, st);
       _addRefreshLog(ok: false, detail: '$e');
       return false;
     }
@@ -553,7 +553,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              _hms(l.at),
+                              formatHourMinuteSecond(l.at),
                               style: const TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 11,
@@ -593,8 +593,6 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
       ),
     );
   }
-
-  String _hms(DateTime t) => formatHourMinuteSecond(t);
 }
 
 class _SampleCard extends StatelessWidget {

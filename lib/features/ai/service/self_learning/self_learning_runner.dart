@@ -201,7 +201,7 @@ class SelfLearningRunner {
         // 提前截断仍在累积的真实对话窗口。
         silentLog(
           'self_learning_runner',
-          'runForSession.skipped (insufficient turns)',
+          '跳过会话自我学习（轮次不足）',
           'turns=$sliceMessageCount min=$minConversationTurns '
               'session=${session.id}',
         );
@@ -212,7 +212,7 @@ class SelfLearningRunner {
       if (dispatcher == null) {
         silentLog(
           'self_learning_runner',
-          'runForSession.skipped (no dispatcher)',
+          '跳过会话自我学习（调度器不可用）',
           'session=${session.id}',
         );
         return null;
@@ -221,7 +221,7 @@ class SelfLearningRunner {
       if (!await memoryController.ensureLoaded()) {
         silentLog(
           'self_learning_runner',
-          'runForSession.skipped (memory unavailable)',
+          '跳过会话自我学习（记忆不可用）',
           'session=${session.id}',
         );
         return null;
@@ -232,7 +232,7 @@ class SelfLearningRunner {
       if (refreshedSliceMessageCount < minConversationTurns) {
         silentLog(
           'self_learning_runner',
-          'runForSession.skipped (conversation changed)',
+          '跳过会话自我学习（对话已变更）',
           'turns=$refreshedSliceMessageCount min=$minConversationTurns '
               'session=${session.id}',
         );
@@ -339,7 +339,7 @@ class SelfLearningRunner {
             pendingFlush = null;
           },
           onError: (error, stack) {
-            silentLog('SelfLearningRunner', 'stream flush timer', error, stack);
+            silentLog('SelfLearningRunner', '流刷新定时器', error, stack);
           },
         );
       }
@@ -373,12 +373,7 @@ class SelfLearningRunner {
           try {
             await pendingFlush;
           } catch (error, stack) {
-            silentLog(
-              'self_learning_runner',
-              'await pendingFlush (success path)',
-              error,
-              stack,
-            );
+            silentLog('self_learning_runner', '等待待处理刷新（成功路径）', error, stack);
           }
         }
 
@@ -419,7 +414,7 @@ class SelfLearningRunner {
           } catch (flushError, flushStack) {
             silentLog(
               'self_learning_runner',
-              'await pendingFlush (error path)',
+              '等待待处理刷新（异常路径）',
               flushError,
               flushStack,
             );

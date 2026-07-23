@@ -171,7 +171,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       text: json,
       successBase: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
       logTag: 'web_reverse_cookie_editor_dialog',
-      logAction: 'copy json',
+      logAction: '复制 Cookie JSON',
     );
   }
 

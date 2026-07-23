@@ -180,7 +180,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
             context: context,
             text: resolvedPath.resolvedPath,
             successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
-            logAction: 'copy streaming markdown link path',
+            logAction: '复制流式 Markdown 链接路径',
           ),
         );
       };
@@ -205,7 +205,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
             context: context,
             text: resolvedPath.resolvedPath,
             successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
-            logAction: 'copy streaming markdown code path',
+            logAction: '复制流式 Markdown 代码路径',
           ),
         );
       };

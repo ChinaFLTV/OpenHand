@@ -85,7 +85,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       try {
         report = await task();
       } catch (error, stack) {
-        silentLog('data_cleanup', 'measure/${category.name}', error, stack);
+        silentLog('data_cleanup', '统计/${category.name}', error, stack);
         report = DataCleanupSizeReport.unknown;
       }
       if (!mounted || token != _measureToken) {
@@ -145,7 +145,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           if (!mounted || token != _measureToken) return;
           setState(() => _webSearchCacheBytes = bytes);
         } catch (e, st) {
-          silentLog('data_cleanup', 'measure/webSearchCache', e, st);
+          silentLog('data_cleanup', '统计 Web 搜索缓存', e, st);
           if (!mounted || token != _measureToken) return;
           setState(() => _webSearchCacheBytes = 0);
         }
@@ -156,7 +156,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           if (!mounted || token != _measureToken) return;
           setState(() => _webFetchCacheBytes = bytes);
         } catch (e, st) {
-          silentLog('data_cleanup', 'measure/webFetchCache', e, st);
+          silentLog('data_cleanup', '统计 Web 抓取缓存', e, st);
           if (!mounted || token != _measureToken) return;
           setState(() => _webFetchCacheBytes = 0);
         }
@@ -167,7 +167,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           if (!mounted || token != _measureToken) return;
           setState(() => _mediaCacheBytes = stats.bytes);
         } catch (e, st) {
-          silentLog('data_cleanup', 'measure/mediaCache', e, st);
+          silentLog('data_cleanup', '统计媒体缓存', e, st);
           if (!mounted || token != _measureToken) return;
           setState(() => _mediaCacheBytes = 0);
         }
@@ -295,7 +295,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           break;
       }
     } catch (error, stack) {
-      silentLog('data_cleanup', 'clean/${category.name}', error, stack);
+      silentLog('data_cleanup', '清理/${category.name}', error, stack);
       errorText = genericFailureTemplate;
     } finally {
       if (mounted) {
@@ -930,7 +930,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (!mounted) return;
       setState(() => _stats = stats);
     } catch (error, stack) {
-      silentLog('ledger_stats', 'refresh', error, stack);
+      silentLog('ledger_stats', '刷新账本统计', error, stack);
     }
   }
 
@@ -964,7 +964,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       }
       await _refreshStats();
     } catch (error, stack) {
-      silentLog('ledger_prune', 'prune', error, stack);
+      silentLog('ledger_prune', '裁剪账本', error, stack);
       if (mounted) {
         showOpenHandErrorSnack(
           context,
@@ -1020,7 +1020,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         ),
       );
     } catch (error, stack) {
-      silentLog('ledger_export', 'export', error, stack);
+      silentLog('ledger_export', '导出账本', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -1084,7 +1084,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         ),
       );
     } catch (error, stack) {
-      silentLog('ledger_import', 'import', error, stack);
+      silentLog('ledger_import', '导入账本', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -1112,7 +1112,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         if (!mounted) return;
         await _refreshStats();
       } catch (error, stack) {
-        silentLog('ledger_config', 'save', error, stack);
+        silentLog('ledger_config', '保存账本配置', error, stack);
         final persisted = await _ledger.loadConfig();
         if (!mounted) return;
         setState(() => _config = persisted);

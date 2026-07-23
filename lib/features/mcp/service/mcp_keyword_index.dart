@@ -124,7 +124,7 @@ class McpKeywordIndex {
         durationMs: nonNegativeIntFromValue(j['durationMs'], fallback: 0),
       );
     } catch (e, s) {
-      silentLog('mcp_keyword_index', 'fromJson', e, s);
+      silentLog('mcp_keyword_index', '从 JSON 解析关键词索引', e, s);
       return null;
     }
   }
@@ -363,7 +363,7 @@ class McpKeywordIndexService {
       try {
         tools = await resolveTools(server);
       } catch (e, s) {
-        silentLog('mcp_keyword_index', 'resolveTools(${server.name})', e, s);
+        silentLog('mcp_keyword_index', '解析服务工具（${server.name}）', e, s);
         errors.add('${server.name}: $e');
         skipped++;
         onProgress(
@@ -502,7 +502,7 @@ class McpKeywordIndexService {
       }
       await writeFileAtomically(_file, '$content\n');
     } catch (e, s) {
-      silentLog('mcp_keyword_index', 'persist', e, s);
+      silentLog('mcp_keyword_index', '持久化关键词索引', e, s);
     }
   }
 
@@ -536,7 +536,7 @@ class McpKeywordIndexService {
       if (decoded is! Map) return null;
       return McpKeywordIndex.fromJson(stringKeyedMapFromValue(decoded));
     } catch (e, s) {
-      silentLog('mcp_keyword_index', 'loadFromDisk', e, s);
+      silentLog('mcp_keyword_index', '从磁盘加载关键词索引', e, s);
       return null;
     }
   }

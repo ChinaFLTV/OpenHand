@@ -49,7 +49,7 @@ Future<void> showWebReverseIssuesDialog(
       _issueDomainEnabled = res?['error'] == null;
     } catch (error, stack) {
       _issueDomainEnabled = false;
-      silentLog('web_reverse_issues_dialog', 'Audits.enable', error, stack);
+      silentLog('web_reverse_issues_dialog', '启用 Audits 域', error, stack);
     }
   } else {
     _issueDomainEnabled = false;

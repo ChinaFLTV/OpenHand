@@ -269,8 +269,7 @@ class McpController extends ChangeNotifier {
   );
   late final OpenHandDebouncer _opsPersistenceDebouncer = OpenHandDebouncer(
     delay: const Duration(milliseconds: 650),
-    onError: (error, stack) =>
-        silentLog('mcp', 'persist ops runtime data', error, stack),
+    onError: (error, stack) => silentLog('mcp', '保存运维运行时数据', error, stack),
   );
   Timer? _healthCheckTimer;
   Timer? _opsSnapshotNotifyTimer;
@@ -560,7 +559,7 @@ class McpController extends ChangeNotifier {
       try {
         _toolDiscoveryService.dispose();
       } catch (error, stack) {
-        silentLog('mcp', 'dispose.discoveryService', error, stack);
+        silentLog('mcp', '释放工具发现服务', error, stack);
       }
     }
     _shutdownFuture = _shutdownRuntimeResources(opsRuntime);
@@ -650,7 +649,7 @@ class McpController extends ChangeNotifier {
     }
     _reconcileHealthCheckTimer();
     if (_opsConfig.autoStart && !_isDisposed) {
-      _runDetached(startMcpOpsServer(), 'start MCP ops server');
+      _runDetached(startMcpOpsServer(), '启动 MCP 运维服务');
     }
   }
 
@@ -700,7 +699,7 @@ class McpController extends ChangeNotifier {
     _opsBindings = bindings;
     _ensureOpsRuntime();
     if (_opsConfig.autoStart && !_isDisposed) {
-      _runDetached(startMcpOpsServer(), 'start MCP ops server after bindings');
+      _runDetached(startMcpOpsServer(), '绑定后启动 MCP 运维服务');
     }
   }
 
@@ -714,7 +713,7 @@ class McpController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (error, stack) {
-      silentLog('mcp', 'save ops config', error, stack);
+      silentLog('mcp', '保存运维配置', error, stack);
       return false;
     }
   }
@@ -727,7 +726,7 @@ class McpController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (error, stack) {
-      silentLog('mcp', 'start ops server', error, stack);
+      silentLog('mcp', '启动运维服务', error, stack);
       notifyListeners();
       return false;
     }
@@ -740,7 +739,7 @@ class McpController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (error, stack) {
-      silentLog('mcp', 'stop ops server', error, stack);
+      silentLog('mcp', '停止运维服务', error, stack);
       return false;
     }
   }
@@ -752,7 +751,7 @@ class McpController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (error, stack) {
-      silentLog('mcp', 'restart ops server', error, stack);
+      silentLog('mcp', '重启运维服务', error, stack);
       notifyListeners();
       return false;
     }
@@ -765,7 +764,7 @@ class McpController extends ChangeNotifier {
       notifyListeners();
       return result;
     } catch (error, stack) {
-      silentLog('mcp', 'test ops connectivity', error, stack);
+      silentLog('mcp', '测试运维连通性', error, stack);
       return McpOpsConnectivityResult(
         ok: false,
         message: '$error',
@@ -845,8 +844,7 @@ class McpController extends ChangeNotifier {
         _opsSnapshotNotifyTimer = null;
         notifyListeners();
       },
-      onError: (error, stack) =>
-          silentLog('mcp', 'ops snapshot notify', error, stack),
+      onError: (error, stack) => silentLog('mcp', '通知运维快照更新', error, stack),
     );
   }
 
@@ -1260,7 +1258,7 @@ class McpController extends ChangeNotifier {
         },
       );
     } catch (error, stack) {
-      silentLog('mcp', 'invoke ops builtin tool', error, stack);
+      silentLog('mcp', '调用运维内置工具', error, stack);
       return McpOpsToolInvocationResult(
         text: 'Builtin tool execution failed: $error',
         isError: true,
@@ -2027,14 +2025,11 @@ class McpController extends ChangeNotifier {
           changedServerName != null) {
         _runDetached(
           refreshServerTools(changedServerName, requirePageActive: true),
-          'refresh changed server tools',
+          '刷新变更服务器工具',
         );
       }
       if (_isPageActive && shouldAutoCheckHealth && changedServerName != null) {
-        _runDetached(
-          checkServerHealth(changedServerName),
-          'check changed server health',
-        );
+        _runDetached(checkServerHealth(changedServerName), '检查变更服务器健康状态');
       }
       return true;
     } catch (error) {
@@ -2143,7 +2138,7 @@ class McpController extends ChangeNotifier {
     }
     _autoToolRefreshInProgress = true;
     _notifyAutoProbeMetricsChanged();
-    _runDetached(_runAutoToolRefreshes(force: force), 'auto refresh tools');
+    _runDetached(_runAutoToolRefreshes(force: force), '自动刷新工具');
   }
 
   Future<void> _runAutoToolRefreshes({required bool force}) async {
@@ -2187,7 +2182,7 @@ class McpController extends ChangeNotifier {
     }
     _autoHealthCheckInProgress = true;
     _notifyAutoProbeMetricsChanged();
-    _runDetached(_runAutoHealthChecks(force: force), 'auto health checks');
+    _runDetached(_runAutoHealthChecks(force: force), '自动健康检查');
   }
 
   void _runDetached(Future<void> future, String where) {

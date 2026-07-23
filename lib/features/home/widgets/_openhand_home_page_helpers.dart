@@ -1666,7 +1666,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       promptEnhance: (isImage || isVideo) ? _promptEnhance : null,
       watermark: (isImage || isVideo) ? _watermark : null,
       seed: (isImage || isVideo)
-          ? _positiveIntOrNull(_seedController.text)
+          ? optionalPositiveIntFromText(_seedController.text)
           : null,
       resolution: isVideo ? _resolution : null,
       frameRate: isVideo ? _frameRate : null,
@@ -1701,9 +1701,5 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   String? _trimmedOrNull(String raw) {
     final trimmed = raw.trim();
     return trimmed.isEmpty ? null : trimmed;
-  }
-
-  int? _positiveIntOrNull(String raw) {
-    return optionalPositiveIntFromText(raw);
   }
 }

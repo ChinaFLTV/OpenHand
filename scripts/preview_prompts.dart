@@ -49,10 +49,6 @@ String _appendV4DisciplineIfAbsent(String instructions) {
   );
 }
 
-String _appendMemoryTonePolicyIfAbsent(String instructions) {
-  return appendAiPromptMemoryTonePolicyIfAbsent(instructions);
-}
-
 String _readOrEmpty(String path) {
   final f = File(path);
   if (!f.existsSync()) return '';
@@ -98,7 +94,7 @@ void main() {
     final tonePolicyMarker = aiPromptInstructionsHasMemoryTonePolicy(system);
     final cjkRatio = _cjkRatioPct(system);
 
-    final assembled = _appendMemoryTonePolicyIfAbsent(
+    final assembled = appendAiPromptMemoryTonePolicyIfAbsent(
       _appendV4DisciplineIfAbsent(
         _appendTemplateSectionsIfAbsent(system, policy.templateId),
       ),

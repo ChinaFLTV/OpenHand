@@ -2418,7 +2418,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Log in die Zwischenablage kopiert',
           ja: 'ログをクリップボードにコピーしました',
         ),
-        logAction: 'copy phase log',
+        logAction: '复制阶段日志',
       ),
     );
   }

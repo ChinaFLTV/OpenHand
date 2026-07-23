@@ -221,10 +221,6 @@ function resolveDefaultTitleModelKey(models: ApiMetaModel[], currentKey: string)
   return models.find((model) => supportsTitleGeneration(model))?.key ?? '';
 }
 
-function nonEmptyString(value: unknown): string {
-  return stringFromUnknown(value);
-}
-
 function positiveIntegerOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
     ? value
@@ -393,10 +389,6 @@ function shouldSuppressSlashSkillQuery(query: string): boolean {
   return isComposerPathLikeQuery(query) || query.startsWith('*');
 }
 
-function shouldSuppressAtMentionFileQuery(query: string): boolean {
-  return isComposerPathLikeQuery(query);
-}
-
 function shouldSuppressDismissedComposerTrigger(dismissedQuery: string, currentQuery: string): boolean {
   const dismissed = dismissedQuery.trim().toLowerCase();
   const current = currentQuery.trim().toLowerCase();
@@ -441,27 +433,19 @@ interface RestoredSkillSelection {
   emoji: string | null;
 }
 
-function asObjectRecord(value: unknown): Record<string, unknown> | null {
-  return recordOrNullFromUnknown(value);
-}
-
-function trimString(value: unknown): string {
-  return strictStringFromUnknown(value);
-}
-
 function extractUserSkillSelection(message: SessionMessage): RestoredSkillSelection | null {
-  const metadata = asObjectRecord(message.metadata);
-  const skill = asObjectRecord(metadata?.[USER_SKILL_SELECTION_METADATA_KEY]) ?? asObjectRecord(metadata?.['selected_skill']);
+  const metadata = recordOrNullFromUnknown(message.metadata);
+  const skill = recordOrNullFromUnknown(metadata?.[USER_SKILL_SELECTION_METADATA_KEY]) ?? recordOrNullFromUnknown(metadata?.['selected_skill']);
   if (!skill) return null;
-  const name = trimString(skill['name']);
-  const path = trimString(skill['path']) || trimString(skill['manifest_path']);
-  const relativePath = trimString(skill['relative_directory_path']) || trimString(skill['relative_path']);
+  const name = strictStringFromUnknown(skill['name']);
+  const path = strictStringFromUnknown(skill['path']) || strictStringFromUnknown(skill['manifest_path']);
+  const relativePath = strictStringFromUnknown(skill['relative_directory_path']) || strictStringFromUnknown(skill['relative_path']);
   if (!name && !path && !relativePath) return null;
   return {
     name,
     path,
     relativePath,
-    emoji: trimString(skill['emoji']) || null,
+    emoji: strictStringFromUnknown(skill['emoji']) || null,
   };
 }
 
@@ -596,10 +580,6 @@ function messageWithFeedback(
     metadata['message_feedback'] = feedback;
   }
   return { ...message, feedback, metadata };
-}
-
-function metadataString(value: unknown): string {
-  return stringFromUnknown(value);
 }
 
 function metadataTextLength(value: unknown): number {
@@ -744,10 +724,10 @@ function messageFollowSignature(message: SessionMessage): string {
 function toolMessageHasOutput(metadata: Record<string, unknown> | null): boolean {
   if (!metadata) return false;
   return (
-    metadataString(metadata['tool_execution_stdout']).length > 0 ||
-    metadataString(metadata['tool_execution_stderr']).length > 0 ||
-    metadataString(metadata['tool_execution_result']).length > 0 ||
-    metadataString(metadata['result_text']).length > 0
+    stringFromUnknown(metadata['tool_execution_stdout']).length > 0 ||
+    stringFromUnknown(metadata['tool_execution_stderr']).length > 0 ||
+    stringFromUnknown(metadata['tool_execution_result']).length > 0 ||
+    stringFromUnknown(metadata['result_text']).length > 0
   );
 }
 
@@ -758,7 +738,7 @@ function isActiveFollowMessage(message: SessionMessage): boolean {
   if (booleanFromUnknown(metadata?.['tool_arguments_streaming']) || booleanFromUnknown(metadata?.['tool_preparing'])) {
     return true;
   }
-  const status = metadataString(metadata?.['tool_execution_status'] ?? metadata?.['tool_status'] ?? metadata?.['status']);
+  const status = stringFromUnknown(metadata?.['tool_execution_status'] ?? metadata?.['tool_status'] ?? metadata?.['status']);
   return status.length === 0 && !toolMessageHasOutput(metadata);
 }
 
@@ -904,7 +884,7 @@ function goalStatusLabel(status: string | null | undefined): string {
 }
 
 function goalStatusReasonLabel(reason: string | null | undefined): string {
-  const normalized = metadataString(reason);
+  const normalized = stringFromUnknown(reason);
   switch (normalized) {
     case 'Paused by user.':
       return t('goal.reason.pausedByUser', '用户已暂停目标。');
@@ -928,7 +908,7 @@ function goalStatusReasonLabel(reason: string | null | undefined): string {
 }
 
 function goalEvaluationSummaryLabel(summary: string | null | undefined): string {
-  const normalized = metadataString(summary);
+  const normalized = stringFromUnknown(summary);
   switch (normalized) {
     case 'Evaluator failed.':
       return t('goal.evaluation.summary.failed', '评估模型调用失败。');
@@ -1025,13 +1005,13 @@ function knowledgeBaseMetadataUsedByAnswer(
 }
 
 function knowledgeBaseCitationKey(hit: Record<string, unknown>): string {
-  const sourceId = nonEmptyString(hit['source_id']);
+  const sourceId = stringFromUnknown(hit['source_id']);
   if (sourceId) return `source:${sourceId}`;
-  const path = nonEmptyString(hit['path']) || nonEmptyString(hit['original_path']);
+  const path = stringFromUnknown(hit['path']) || stringFromUnknown(hit['original_path']);
   if (path) return `path:${path}`;
-  const chunkId = nonEmptyString(hit['chunk_id']) || nonEmptyString(hit['id']);
+  const chunkId = stringFromUnknown(hit['chunk_id']) || stringFromUnknown(hit['id']);
   if (chunkId) return `chunk:${chunkId}`;
-  return `label:${nonEmptyString(hit['source_title']) || nonEmptyString(hit['title'])}`;
+  return `label:${stringFromUnknown(hit['source_title']) || stringFromUnknown(hit['title'])}`;
 }
 
 function knowledgeBaseMetadataFromRoundToolMessages(
@@ -1044,7 +1024,7 @@ function knowledgeBaseMetadataFromRoundToolMessages(
   for (const message of messages) {
     const extracted = knowledgeBaseMetadataFromToolMessage(message);
     if (!extracted) continue;
-    const query = nonEmptyString(extracted['query']);
+    const query = stringFromUnknown(extracted['query']);
     if (query) queries.push(query);
     for (const result of knowledgeBaseResultMaps(extracted)) {
       const key = knowledgeBaseCitationKey(result);
@@ -1071,17 +1051,17 @@ function knowledgeBaseMetadataFromToolMessage(message: SessionMessage): Record<s
   if (message.kind !== 'tool_call' && message.kind !== 'tool') return null;
   const meta = recordOrNullFromUnknown(message.metadata);
   if (!meta) return null;
-  const toolName = nonEmptyString(meta['tool_name']).toLowerCase();
+  const toolName = stringFromUnknown(meta['tool_name']).toLowerCase();
   const isSearch = toolName === 'knowledgesearch' || toolName === 'knowledge_search';
   const isRead = toolName === 'knowledgeread' || toolName === 'knowledge_read';
   if (!isSearch && !isRead) return null;
-  const status = nonEmptyString(meta['tool_execution_status'] ?? meta['status']).toLowerCase();
+  const status = stringFromUnknown(meta['tool_execution_status'] ?? meta['status']).toLowerCase();
   if (status && status !== 'success' && status !== 'ok' && status !== 'completed') return null;
   const rawResults = knowledgeToolResultRows(meta);
   if (rawResults.length === 0) return null;
   const results = rawResults
     .map((row) => (isRead ? knowledgeReadRowToMessageHit(row) : knowledgeSearchRowToHit(row)))
-    .filter((hit) => nonEmptyString(hit['source_title']) || nonEmptyString(hit['title']) || nonEmptyString(hit['path']) || nonEmptyString(hit['chunk_id']));
+    .filter((hit) => stringFromUnknown(hit['source_title']) || stringFromUnknown(hit['title']) || stringFromUnknown(hit['path']) || stringFromUnknown(hit['chunk_id']));
   if (results.length === 0) return null;
   return {
     enabled: true,
@@ -1102,7 +1082,7 @@ function knowledgeToolResultRows(metadata: Record<string, unknown>): Record<stri
       .map((item) => recordOrNullFromUnknown(item))
       .filter((item): item is Record<string, unknown> => item != null);
   }
-  const resultText = nonEmptyString(metadata['tool_execution_result'] ?? metadata['result_text']);
+  const resultText = stringFromUnknown(metadata['tool_execution_result'] ?? metadata['result_text']);
   if (!resultText) return [];
   const results = parseJsonRecordSafely(resultText)?.['results'];
   if (!Array.isArray(results)) return [];
@@ -1112,20 +1092,20 @@ function knowledgeToolResultRows(metadata: Record<string, unknown>): Record<stri
 }
 
 function knowledgeToolQuery(metadata: Record<string, unknown>, isRead: boolean): string {
-  const direct = nonEmptyString(metadata['query']);
+  const direct = stringFromUnknown(metadata['query']);
   if (direct) return direct;
   const args = knowledgeToolArguments(metadata['tool_arguments']);
-  if (!isRead) return nonEmptyString(args['query']);
-  const chunkId = nonEmptyString(args['chunk_id']) || nonEmptyString(metadata['chunk_id']);
+  if (!isRead) return stringFromUnknown(args['query']);
+  const chunkId = stringFromUnknown(args['chunk_id']) || stringFromUnknown(metadata['chunk_id']);
   if (chunkId) return `chunk_id:${chunkId}`;
-  const sourceId = nonEmptyString(args['source_id']) || nonEmptyString(metadata['source_id']);
+  const sourceId = stringFromUnknown(args['source_id']) || stringFromUnknown(metadata['source_id']);
   return sourceId ? `source_id:${sourceId}` : '';
 }
 
 function knowledgeToolArguments(raw: unknown): Record<string, unknown> {
   const direct = recordOrNullFromUnknown(raw);
   if (direct) return direct;
-  const text = nonEmptyString(raw);
+  const text = stringFromUnknown(raw);
   if (!text) return {};
   return parseJsonRecordSafely(text) ?? {};
 }
@@ -1139,8 +1119,8 @@ function knowledgeSearchRowToHit(row: Record<string, unknown>): Record<string, u
 }
 
 function knowledgeReadRowToMessageHit(row: Record<string, unknown>): Record<string, unknown> {
-  const content = nonEmptyString(row['content']);
-  const existingPreview = nonEmptyString(row['preview']);
+  const content = stringFromUnknown(row['content']);
+  const existingPreview = stringFromUnknown(row['preview']);
   const previewSource = existingPreview || content;
   return {
     chunk_id: row['chunk_id'] ?? row['id'],
@@ -1578,7 +1558,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     try {
       fit.fit();
     } catch {
-      // The scheduled resize below retries after layout has settled.
+      // 布局稳定后由下方定时调整重试。
     }
     terminal.focus();
     terminalRef.current = terminal;
@@ -1869,7 +1849,7 @@ function MachineTerminalHistoryDialog({
       setPendingDeleteTerminal(null);
       showSnackbar(t('terminal.history.delete.ok', '终端会话已删除'), { tone: 'success' });
     } catch {
-      // runControl already reports the concrete error.
+      // runControl 已报告具体错误。
     } finally {
       setDeletingId(null);
     }
@@ -1883,7 +1863,7 @@ function MachineTerminalHistoryDialog({
       await onRestore(terminalId);
       showSnackbar(t('terminal.history.restore.ok', '终端会话已恢复到面板'), { tone: 'success' });
     } catch {
-      // runControl already reports the concrete error.
+      // runControl 已报告具体错误。
     } finally {
       setRestoringId(null);
     }
@@ -2755,14 +2735,12 @@ function VirtualMessageList({
   const initialLayoutSettledRef = useRef(false);
   const initialLayoutStartedAtRef = useRef(Date.now());
   const [heightRevision, setHeightRevision] = useState(0);
-  // Chat open is stick-to-bottom: first paint only mounts a bounded tail so
-  // large windows never fully render before the first range measurement.
+  // 打开会话时贴住底部，首帧只挂载有限尾部，避免首次范围测量前渲染完整长列表。
   const [range, setRange] = useState<VirtualMessageRange>(() =>
     initialVirtualMessageRange(messages.length),
   );
 
-  // Streaming updates replace message objects while preserving the window's
-  // ids. Keep the height index stable until membership actually changes.
+  // 流式更新会替换消息对象但保留窗口内 ID，仅在成员变化时重建高度索引。
   const messageIds = useMemo(
     () => messages.map((message) => message.id),
     [membershipKey],
@@ -2802,9 +2780,7 @@ function VirtualMessageList({
           ? current
           : { start: 0, end: messages.length };
       }
-      // Keep an already-measured viewport range when only heights change;
-      // when the list grows past the virtualization threshold or identity
-      // jumps, re-seed from the tail so open never mounts the full history.
+      // 仅高度变化时保留已测量范围；列表越过虚拟化阈值或成员变化时从尾部重新定位。
       if (current.end > messages.length || current.start >= messages.length) {
         return next;
       }
@@ -3478,7 +3454,7 @@ export function SessionDetailPage() {
   // 服务端返回会话被删 (404 + body.error === 'session_deleted_or_not_found') 时拍起弹窗
   const [sessionGone, setSessionGone] = useState(false);
 
-  // Composer state
+  // 输入区状态。
   const [composerText, setComposerText] = useState<string>('');
   const [composerMode, setComposerMode] = useState<string>('normal');
   const [composerModelKey, setComposerModelKey] = useState<string>('');
@@ -6265,7 +6241,7 @@ export function SessionDetailPage() {
     }
     if (safeCursor > tokenEnd) return null;
     const query = text.slice(atIndex + 1, tokenEnd);
-    if (shouldSuppressAtMentionFileQuery(query)) return null;
+    if (isComposerPathLikeQuery(query)) return null;
     return {
       triggerOffset: atIndex,
       tokenEnd,
@@ -9633,10 +9609,6 @@ function TokenStatsRow({ label, value, tone = 'neutral' }: { label: string; valu
   );
 }
 
-function readDouble(value: unknown, fallback: number): number {
-  return finiteNumberFromUnknown(value ?? fallback, fallback);
-}
-
 function readStatNumber(value: unknown, fallback: unknown): number {
   const safeFallback = nonNegativeIntegerFromUnknown(fallback);
   return nonNegativeIntegerFromUnknown(value, safeFallback);
@@ -9713,7 +9685,7 @@ function resolveSessionCacheHitRatio(
   const fallbackRatio = denominator > 0 ? cacheReadTokens / denominator : 0;
   const persistedRatio = stats['cache_hit_ratio'];
   return clampNumber(
-    persistedRatio == null ? fallbackRatio : readDouble(persistedRatio, fallbackRatio),
+    persistedRatio == null ? fallbackRatio : finiteNumberFromUnknown(persistedRatio, fallbackRatio),
     0,
     1,
   );
@@ -9925,21 +9897,21 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const planRecoveryRequired = lastPromptMetadata['plan_mode_recovery_inspection_required'] === true || lastPromptMetadata['plan_recovery_required'] === true;
   const planExecutionApproved = lastPromptMetadata['plan_mode_execution_approved_for_send'] === true;
   const hasActivePlanState = Boolean(session.todo_items?.length) || Boolean((session.pending_plan ?? '').trim());
-  let gateReason = metadataString(lastPromptMetadata['runtime_tool_gate_reason']);
+  let gateReason = stringFromUnknown(lastPromptMetadata['runtime_tool_gate_reason']);
   if (!gateReason) {
     gateReason = awaitingPlanApproval ? 'awaiting_plan_approval' : session.mode !== 'plan' ? (hasPromptMetadata ? 'chat_mode' : 'no_runtime_snapshot') : planRecoveryRequired ? 'plan_mode_recovery_inspection' : planExecutionApproved ? 'plan_mode_execution' : hasActivePlanState ? 'plan_mode_planning_with_exit_allowed' : 'plan_mode_planning_only';
   }
   const runtimeModeLabel = session.mode !== 'plan' ? '聊天模式' : awaitingPlanApproval ? '计划待审' : planRecoveryRequired ? '计划审阅' : planExecutionApproved ? '计划执行' : hasActivePlanState ? '计划草拟' : '计划模式';
   const toolCatalogState = !hasPromptMetadata ? '暂无运行时快照' : runtimeStale ? '工具目录待刷新' : '工具目录已同步';
   const promptBudgetTokens = integerFromUnknown(lastPromptMetadata['context_budget_estimated_prompt_tokens']);
-  const contextStatus = metadataString(lastPromptMetadata['context_budget_status']) || 'unknown';
+  const contextStatus = stringFromUnknown(lastPromptMetadata['context_budget_status']) || 'unknown';
   const contextStatusLabel = contextStatus === 'critical' ? '危险' : contextStatus === 'auto_compact' ? '需压缩' : contextStatus === 'warning' ? '偏高' : contextStatus === 'ok' ? '正常' : '未知';
   const usagePercent = integerFromUnknown(lastPromptMetadata['context_budget_usage_percent']);
   const usageValue = clampNumber(usagePercent, 0, 100);
-  const sidecarPath = metadataString(rehydration['session_memory_sidecar_path']);
+  const sidecarPath = stringFromUnknown(rehydration['session_memory_sidecar_path']);
   const sidecarPresent = rehydration['session_memory_sidecar_present'] === true;
   const compressionRestored = latestCompressionPointMetadata['restored_from_compact_memory_sidecar'] === true;
-  const hasCompressionPoint = Boolean(metadataString(latestCompressionPoint['id']));
+  const hasCompressionPoint = Boolean(stringFromUnknown(latestCompressionPoint['id']));
   const sidecarStatus = !hasCompressionPoint ? '未生成' : compressionRestored ? '已恢复' : sidecarPresent ? '已登记' : '等待下次 Prompt 刷新';
   const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
     if (key === 'machine_terminal') return false;
@@ -10074,7 +10046,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       .join(' ') || normalized;
   };
   const machineMetadataCleanString = (value: unknown): string | null => {
-    const text = metadataString(value).trim();
+    const text = stringFromUnknown(value).trim();
     return text.length > 0 ? text : null;
   };
   const terminalSizeText = (terminal: Record<string, unknown>): string => {
@@ -10338,7 +10310,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           <div>
             <GroupLabel label="运行中终端" detail="轻量状态摘要，不包含终端输出正文" />
             <div class="mt-2 flex flex-col gap-2.5">
-              {terminals.map((terminal, index) => <MachineTerminalCard key={metadataString(terminal['terminal_id']) || index} index={index + 1} terminal={terminal} />)}
+              {terminals.map((terminal, index) => <MachineTerminalCard key={stringFromUnknown(terminal['terminal_id']) || index} index={index + 1} terminal={terminal} />)}
             </div>
           </div>
         ) : null}
@@ -10408,8 +10380,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <div class="mt-3 mb-2 text-sm font-extrabold">角色配置</div>
             {roleKeys.map((key) => {
               const role = recordFromUnknown(config[key]);
-              const cli = metadataString(role['cli_name']);
-              const model = metadataString(role['model_id']);
+              const cli = stringFromUnknown(role['cli_name']);
+              const model = stringFromUnknown(role['model_id']);
               return <EntryRow key={key} label={key} value={cli || model ? `${cli || '-'} · ${model || '-'}` : '未配置'} />;
             })}
           </>
@@ -10421,7 +10393,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const renderAndroidReverseConfig = () => {
     const config = recordFromUnknown(metadata['android_reverse_config']);
     const keywords = stringListFromUnknown(config['keywords']);
-    const analysisMode = metadataString(config['analysis_mode']);
+    const analysisMode = stringFromUnknown(config['analysis_mode']);
     const analysisModeLabel = analysisMode === 'static_first'
       ? '静态优先'
       : analysisMode === 'dynamic_first'
@@ -10446,7 +10418,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label="ADB MCP" value={config['adb_mcp_enabled'] === true ? '启用' : '关闭'} />
             <EntryRow label="Frida MCP" value={config['frida_mcp_enabled'] === true ? '启用' : '关闭'} />
             {keywords.length > 0 ? <EntryRow label="关键字" value={keywords.join(', ')} /> : null}
-            {metadataString(config['notes']) ? <EntryRow label="备注" value={metadataValue(config['notes'])} /> : null}
+            {stringFromUnknown(config['notes']) ? <EntryRow label="备注" value={metadataValue(config['notes'])} /> : null}
           </>
         )}
       </Section>
@@ -10654,8 +10626,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                   ) : (
                     arrayFromUnknown(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
                       const rule = recordFromUnknown(raw);
-                      const pattern = metadataString(rule['pattern']);
-                      const mode = metadataString(rule['match_mode']);
+                      const pattern = stringFromUnknown(rule['pattern']);
+                      const mode = stringFromUnknown(rule['match_mode']);
                       return pattern ? <Chip key={`${pattern}-${index}`} label={`${mode ? `${mode}: ` : ''}${pattern}`} /> : null;
                     })
                   )}
@@ -10705,7 +10677,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label="当前 Todos" value={`${todos.length}`} />
             <EntryRow label="计划记录" value={`${planHistory.length}`} />
             <EntryRow label="TodoWrite 提醒" value={hasPromptMetadata ? (lastPromptMetadata['todo_write_recommended'] === true ? '已触发' : '未触发') : '不可用'} />
-            {metadataString(lastPromptMetadata['todo_write_reason']) ? <EntryRow label="提醒原因" value={metadataString(lastPromptMetadata['todo_write_reason'])} /> : null}
+            {stringFromUnknown(lastPromptMetadata['todo_write_reason']) ? <EntryRow label="提醒原因" value={stringFromUnknown(lastPromptMetadata['todo_write_reason'])} /> : null}
             {todos.length > 0 ? (
               <div class="flex flex-wrap gap-2">
                 {todos.map((todo) => (

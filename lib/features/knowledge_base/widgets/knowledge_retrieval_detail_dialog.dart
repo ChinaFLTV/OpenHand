@@ -269,7 +269,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 de: 'Wissensdatenbank-Metadaten kopiert.',
                 ja: 'ナレッジベースのメタデータをコピーしました。',
               ),
-              logAction: 'copy retrieval metadata',
+              logAction: '复制检索元数据',
             );
           },
           icon: Icons.copy_rounded,
@@ -1414,6 +1414,6 @@ Future<void> _copyText(
     context: context,
     text: text,
     successMessage: message,
-    logAction: 'copy retrieval detail text',
+    logAction: '复制检索详情文本',
   );
 }

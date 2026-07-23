@@ -266,7 +266,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                             loc?.webReverseWaterfallUrlCopied ??
                                             'URL copied',
                                         logTag: 'web_reverse_waterfall_dialog',
-                                        logAction: 'copy url',
+                                        logAction: '复制资源链接',
                                       );
                                     },
                                   );
@@ -741,7 +741,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     try {
       file = await openFile(acceptedTypeGroups: const [typeGroup]);
     } catch (error, stack) {
-      silentLog('web_reverse_waterfall_dialog', 'openFile har', error, stack);
+      silentLog('web_reverse_waterfall_dialog', '打开 HAR 文件', error, stack);
     }
     if (file == null) return;
     bool merge = false;
@@ -806,7 +806,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_waterfall_dialog', 'parse har', error, stack);
+      silentLog('web_reverse_waterfall_dialog', '解析 HAR', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -829,12 +829,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_waterfall_dialog',
-        'getSaveLocation har',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_waterfall_dialog', '获取 HAR 保存位置', error, stack);
     }
     if (loc1 == null) return;
     String? written;
@@ -843,12 +838,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           .exportHarToPath(loc1.path)
           .timeout(const Duration(seconds: 10));
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_waterfall_dialog',
-        'exportHarToPath',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_waterfall_dialog', '导出 HAR 到路径', error, stack);
     }
     if (!mounted) return;
     final loc2 = AppLocalizations.of(context);

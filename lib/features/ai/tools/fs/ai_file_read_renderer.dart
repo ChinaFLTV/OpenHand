@@ -187,7 +187,9 @@ class AiFileReadRenderer {
     if (rawCells is! List || rawCells.isEmpty) return '';
     final buffer = StringBuffer();
     for (var index = 0; index < rawCells.length; index++) {
-      final cell = _asMap(rawCells[index]) ?? const <String, Object?>{};
+      final cell =
+          optionalStringKeyedMapFromValue(rawCells[index]) ??
+          const <String, Object?>{};
       final cellType = _readText(cell['cell_type']);
       buffer.writeln('# Cell $index [$cellType]');
       final source = _renderNotebookValue(cell['source']);
@@ -196,7 +198,9 @@ class AiFileReadRenderer {
       if (outputs is List && outputs.isNotEmpty) {
         buffer.writeln('## Outputs');
         for (final output in outputs) {
-          final outputMap = _asMap(output) ?? const <String, Object?>{};
+          final outputMap =
+              optionalStringKeyedMapFromValue(output) ??
+              const <String, Object?>{};
           final text = _renderNotebookValue(
             outputMap['text'] ?? outputMap['data'] ?? outputMap['traceback'],
           );
@@ -319,12 +323,6 @@ class AiFileReadRenderer {
       return prettyPrintJson(value);
     }
     return '$value'.trim();
-  }
-
-  Map<String, Object?>? _asMap(Object? value) {
-    if (value is Map<String, Object?>) return value;
-    if (value is Map) return stringKeyedMapFromValue(value);
-    return null;
   }
 
   String _readText(Object? value) {

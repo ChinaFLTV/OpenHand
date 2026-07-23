@@ -271,7 +271,7 @@ class AiLspTool extends AiTool {
         return parsed.toFilePath();
       }
     } catch (error, stack) {
-      silentLog('ai_lsp_tool', 'parse file uri', error, stack);
+      silentLog('ai_lsp_tool', '解析文件 URI', error, stack);
     }
     return uri;
   }

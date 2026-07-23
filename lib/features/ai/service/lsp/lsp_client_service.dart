@@ -1778,7 +1778,7 @@ class AiLspClientService {
         return parsed.toFilePath();
       }
     } catch (error, stack) {
-      silentLog('lsp_client_service', 'parse file uri', error, stack);
+      silentLog('lsp_client_service', '解析文件 URI', error, stack);
     }
     return uri;
   }
@@ -2013,7 +2013,7 @@ class _AiLspSession {
     _stdoutSubscription = process.stdout.listen(
       _onData,
       onError: (Object error, StackTrace stack) {
-        silentLog('lsp_client_service', 'read LSP stdout', error, stack);
+        silentLog('lsp_client_service', '读取 LSP 标准输出', error, stack);
         _handleTransportFailure(process, error, stack);
       },
       onDone: () {
@@ -2034,7 +2034,7 @@ class _AiLspSession {
       onError: (Object error, StackTrace stack) {
         silentLog(
           'lsp_client_service',
-          'drain stderr (${backend.language})',
+          '排空标准错误流（${backend.language}）',
           error,
           stack,
         );
@@ -2701,7 +2701,7 @@ class _AiLspSession {
     final effectiveStack = stack ?? StackTrace.current;
     silentLog(
       'lsp_client_service',
-      'protocol (${backend.language})',
+      '处理 LSP 协议（${backend.language}）',
       error,
       effectiveStack,
     );
@@ -2766,7 +2766,7 @@ class _AiLspSession {
     } catch (error, stack) {
       silentLog(
         'lsp_client_service',
-        'server request (${backend.language})',
+        '处理 LSP 服务端请求（${backend.language}）',
         error,
         stack,
       );
@@ -2993,12 +2993,7 @@ class _AiLspSession {
       });
       await Future<void>.delayed(_shutdownExitDelay);
     } catch (error, stack) {
-      silentLog(
-        'lsp_client_service',
-        'graceful LSP shutdown handshake',
-        error,
-        stack,
-      );
+      silentLog('lsp_client_service', '执行 LSP 优雅关闭握手', error, stack);
     }
     if (identical(_process, process)) {
       _process = null;
@@ -3059,7 +3054,7 @@ class _AiLspSession {
         timeout: _transportCancelTimeout,
         onError: (error, stack) => silentLog(
           'lsp_client_service',
-          'cancel LSP $streamName subscription ($reason)',
+          '取消 LSP $streamName 流订阅（$reason）',
           error,
           stack,
         ),

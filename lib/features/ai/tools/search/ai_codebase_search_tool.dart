@@ -448,12 +448,7 @@ class AiCodebaseSearchTool extends AiTool {
     } on TimeoutException {
       return results;
     } catch (error, stack) {
-      silentLog(
-        'ai_codebase_search_tool',
-        'walk codebase entries for keyword scan',
-        error,
-        stack,
-      );
+      silentLog('ai_codebase_search_tool', '遍历代码库条目执行关键词扫描', error, stack);
     } finally {
       stopwatch.stop();
     }

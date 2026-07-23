@@ -160,7 +160,7 @@ class _MessageGatewayViewState extends State<MessageGatewayView>
       (_) => _refreshAccessibleUrls(),
       callbackTimeout: _addressRefreshTimeout,
       onError: (error, stack) =>
-          silentLog('message_gateway', 'refresh accessible urls', error, stack),
+          silentLog('message_gateway', '刷新可访问地址', error, stack),
     );
   }
 
@@ -2822,7 +2822,7 @@ class _WebGatewayConnectivityDialogState
         de: 'Konnektivitätstestergebnis kopiert',
         ja: '接続テスト結果をコピーしました',
       ),
-      logAction: 'copy connectivity test result',
+      logAction: '复制连通性测试结果',
       successDuration: const Duration(milliseconds: 1600),
     );
   }
@@ -3751,7 +3751,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         de: 'Protokolle kopiert',
         ja: 'ログをクリップボードにコピーしました',
       ),
-      logAction: 'copy gateway logs',
+      logAction: '复制网关日志',
     );
   }
 
@@ -3890,7 +3890,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       (_) => _tick(),
       callbackTimeout: _refreshCallbackTimeout,
       onError: (error, stack) =>
-          silentLog('message_gateway', 'runtime snapshot tick', error, stack),
+          silentLog('message_gateway', '刷新运行时快照', error, stack),
     );
   }
 
@@ -8241,7 +8241,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         de: '$url kopiert',
         ja: '$url をコピーしました',
       ),
-      logAction: 'copy accessible url',
+      logAction: '复制可访问地址',
     );
   }
 
@@ -8280,7 +8280,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         ),
       );
     } catch (error, stack) {
-      silentLog('message_gateway_view', 'open url', error, stack);
+      silentLog('message_gateway_view', '打开地址', error, stack);
       if (!context.mounted) return;
       showOpenHandErrorSnack(
         context,

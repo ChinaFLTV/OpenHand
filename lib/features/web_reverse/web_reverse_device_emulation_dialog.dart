@@ -96,7 +96,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
       _mobile = p.mobile;
       _ua.text = p.userAgent ?? '';
     });
-    final ok = await _setDevicePreset(p, action: 'device-emu.preset');
+    final ok = await _setDevicePreset(p, action: '应用设备模拟预设');
     if (!mounted) return;
     if (!ok) {
       _showApplyFailed(loc);
@@ -148,7 +148,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
         mobile: _mobile,
         userAgent: nullIfBlank(_ua.text),
       );
-      final ok = await _setDevicePreset(preset, action: 'device-emu.custom');
+      final ok = await _setDevicePreset(preset, action: '应用自定义设备模拟参数');
       if (!mounted) return;
       if (!ok) {
         _showApplyFailed(loc);
@@ -157,7 +157,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     } catch (error, stack) {
       silentLog(
         'web_reverse_device_emulation_dialog',
-        'device-emu.custom',
+        '应用自定义设备模拟',
         error,
         stack,
       );
@@ -185,7 +185,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
       _status =
           loc?.webReverseDeviceEmuClearingOverrides ?? 'Clearing overrides...';
     });
-    final ok = await _setDevicePreset(null, action: 'device-emu.reset');
+    final ok = await _setDevicePreset(null, action: '重置设备模拟参数');
     if (!mounted) return;
     if (!ok) {
       _showApplyFailed(loc);

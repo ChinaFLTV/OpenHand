@@ -553,7 +553,7 @@ class _KnowledgeSourceContentDialogState
                       de: 'Pfad kopiert.',
                       ja: 'パスをコピーしました。',
                     ),
-                    logAction: 'copy source path',
+                    logAction: '复制知识源路径',
                   );
                 },
           icon: Icons.copy_rounded,
@@ -1262,7 +1262,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                                     de: 'Inhalt kopiert.',
                                     ja: '内容をコピーしました。',
                                   ),
-                                  logAction: 'copy source content',
+                                  logAction: '复制知识源内容',
                                 );
                               },
                         icon: const Icon(Icons.copy_all_rounded),

@@ -523,7 +523,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         lastReply.isEmpty) {
       silentLog(
         'self_learning_dispatcher',
-        'empty self-learning round',
+        '自我学习轮次为空',
         'model=${selected.modelId} provider=${selected.id} '
             'rounds=$roundsRun terminated=$terminatedReason '
             'memory_errors=$memoryCallsError skill_errors=$skillCallsError '

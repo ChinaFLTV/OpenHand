@@ -262,8 +262,7 @@ function pushString(
   if (typeof raw !== 'string') return;
   const path = raw.trim();
   if (!path) return;
-  // Skip remote URLs and data URIs — markdown layer renders them inline.
-  // Remote images get click-to-preview via the Markdown component instead.
+  // 远程 URL 和 data URI 由 Markdown 层内联渲染并提供图片预览，此处跳过。
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
     return;
   }
@@ -760,7 +759,7 @@ function InteractiveImagePreview({
       try {
         viewport.setPointerCapture(event.pointerId);
       } catch {
-        // Pointer capture can fail if the pointer has already been cancelled.
+        // 指针已取消时可能无法捕获。
       }
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 2) {
@@ -812,7 +811,7 @@ function InteractiveImagePreview({
       try {
         viewport.releasePointerCapture(event.pointerId);
       } catch {
-        // Pointer capture may already be released by the browser.
+        // 浏览器可能已释放指针捕获。
       }
       if (pointers.size < 2) {
         pinchStartRef.current = null;

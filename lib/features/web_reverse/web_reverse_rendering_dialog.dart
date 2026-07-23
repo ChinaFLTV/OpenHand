@@ -75,7 +75,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
       }
       return res;
     } catch (e, st) {
-      silentLog('web_reverse_rendering_dialog', 'send.$method', e, st);
+      silentLog('web_reverse_rendering_dialog', '发送渲染命令：$method', e, st);
       if (mounted) setState(() => _status = '$method · $e');
       return null;
     } finally {

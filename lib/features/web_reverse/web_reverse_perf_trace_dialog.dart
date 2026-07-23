@@ -124,7 +124,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
         earlyStop: earlyStop.future,
       );
     } catch (e, s) {
-      silentLog('web_reverse_perf_trace_dialog', 'perf-trace.record', e, s);
+      silentLog('web_reverse_perf_trace_dialog', '录制性能轨迹', e, s);
     }
     _ticker?.cancel();
     _ticker = null;
@@ -144,7 +144,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       await writeFileAtomically(file, json);
       savedBytes = await file.length();
     } catch (e, s) {
-      silentLog('web_reverse_perf_trace_dialog', 'perf-trace.save', e, s);
+      silentLog('web_reverse_perf_trace_dialog', '保存性能轨迹', e, s);
       if (!mounted) return;
       _finishWithFailure(
         loc?.webReversePerfTraceFailed ?? 'Trace failed or empty',
@@ -186,7 +186,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       text: _lastSaved,
       successBase: loc?.webReversePerfPathCopied ?? 'Path copied',
       logTag: 'web_reverse_perf_trace_dialog',
-      logAction: 'perf-trace.clipboard',
+      logAction: '复制性能轨迹',
     );
   }
 

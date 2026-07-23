@@ -120,7 +120,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
         modifiers: _modifiers,
       );
     } catch (e, st) {
-      silentLog('web_reverse_input_sim_dialog', 'input-sim.mouse', e, st);
+      silentLog('web_reverse_input_sim_dialog', '模拟鼠标输入', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -147,7 +147,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
         modifiers: _modifiers,
       );
     } catch (e, st) {
-      silentLog('web_reverse_input_sim_dialog', 'input-sim.wheel', e, st);
+      silentLog('web_reverse_input_sim_dialog', '模拟滚轮输入', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -183,7 +183,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
         modifiers: _modifiers,
       );
     } catch (e, st) {
-      silentLog('web_reverse_input_sim_dialog', 'input-sim.key', e, st);
+      silentLog('web_reverse_input_sim_dialog', '模拟按键输入', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -210,7 +210,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
     try {
       await widget.controller.insertText(t);
     } catch (e, st) {
-      silentLog('web_reverse_input_sim_dialog', 'input-sim.insert', e, st);
+      silentLog('web_reverse_input_sim_dialog', '模拟文本输入', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);

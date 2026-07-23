@@ -208,7 +208,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         ja: 'コンソール全文をコピーしました',
       ),
       logTag: 'web_reverse_console_panel',
-      logAction: 'copy text',
+      logAction: '复制控制台文本',
     );
   }
 

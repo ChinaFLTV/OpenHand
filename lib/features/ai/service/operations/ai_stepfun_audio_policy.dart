@@ -99,12 +99,8 @@ final class AiStepFunAudioPolicy {
   }
 
   static double? _boundedDouble(Object? raw, double min, double max) {
-    final value = _doubleValue(raw);
+    final value = optionalDoubleFromValue(raw);
     if (value == null) return null;
     return value.clamp(min, max).toDouble();
-  }
-
-  static double? _doubleValue(Object? raw) {
-    return optionalDoubleFromValue(raw);
   }
 }

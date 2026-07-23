@@ -1689,12 +1689,7 @@ class AiImageGenerationService {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, Object?>) return decoded;
     } catch (error, stack) {
-      silentLog(
-        'ai_image_generation_service',
-        'decode response body',
-        error,
-        stack,
-      );
+      silentLog('ai_image_generation_service', '解码响应正文', error, stack);
     }
     throw AiMediaGenerationException(
       'Image endpoint returned a non-JSON response.',
@@ -1712,7 +1707,7 @@ class AiImageGenerationService {
     } catch (error, stack) {
       silentLog(
         'ai_image_generation_service',
-        'decode ${kind.storageValue} response body',
+        '解码 ${kind.storageValue} 响应正文',
         error,
         stack,
       );
@@ -2350,7 +2345,7 @@ class AiImageGenerationService {
     } catch (error, stack) {
       silentLog(
         'ai_image_generation_service',
-        'parse minimax /files/retrieve',
+        '解析 MiniMax /files/retrieve 响应',
         error,
         stack,
       );
@@ -2691,12 +2686,7 @@ class AiImageGenerationService {
     } on http.RequestAbortedException {
       throw const AiMediaGenerationCancelledException();
     } catch (error, stack) {
-      silentLog(
-        'ai_image_generation_service',
-        'fetch remote image bytes',
-        error,
-        stack,
-      );
+      silentLog('ai_image_generation_service', '获取远程图片字节', error, stack);
     }
     return null;
   }
@@ -2771,12 +2761,7 @@ class _PolledMediaResult {
   final AiTokenUsage? usage;
 }
 
-/// 集中收敛图像 / 视频 / 音频生成阶段的错误文案，与
-/// `AiChatService._ChatErrorMessages`、`AiModelScanner._ScanErrorMessages`
-/// 保持一致的「现象 / 原因 / 建议」三段式中英双语风格。文案中会带上
-/// 媒体类型 (image / video / audio)，便于用户直观判断哪一条流水线失败。
-/// Thin shim around [AiTransportDiagnosticMessages] that injects the media
-/// kind label into the title suffix (e.g. `[Image (image)]`).
+/// 媒体错误文案统一委托给公共传输诊断消息，并附加媒体类型。
 class _MediaErrorMessages {
   _MediaErrorMessages._();
 

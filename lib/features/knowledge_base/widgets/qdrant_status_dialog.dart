@@ -354,7 +354,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         'history': [for (final sample in _samples) sample.toJson()],
       }),
       successMessage: _l10n.qdrantStatusDiagnosticsCopied,
-      logAction: 'copy qdrant diagnostics',
+      logAction: '复制 Qdrant 诊断信息',
     );
   }
 

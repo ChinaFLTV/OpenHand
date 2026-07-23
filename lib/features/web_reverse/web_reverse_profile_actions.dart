@@ -82,7 +82,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
       normalizedUserDataDir,
     )).deleted;
   } catch (error, stack) {
-    silentLog('web_reverse_profile_actions', 'clean step', error, stack);
+    silentLog('web_reverse_profile_actions', '执行清理步骤', error, stack);
     toast(
       text:
           loc?.webReverseProfileCleanFailed('$error') ?? 'Clean failed: $error',
@@ -154,7 +154,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     );
     return ProgressiveProfileOutcome.reset;
   } catch (error, stack) {
-    silentLog('web_reverse_profile_actions', 'reset step', error, stack);
+    silentLog('web_reverse_profile_actions', '执行重置步骤', error, stack);
     if (!context.mounted) return ProgressiveProfileOutcome.failed;
     toast(
       text:

@@ -262,7 +262,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
               () => starting,
               timeout: _kRuntimeCleanupTimeout,
               onError: (error, stack) =>
-                  silentLog(_kTag, 'await network capture start', error, stack),
+                  silentLog(_kTag, '等待网络捕获启动', error, stack),
             );
           }
           final refreshing = _deviceRefreshFuture;
@@ -271,12 +271,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
               () => refreshing,
               timeout: _kRuntimeCleanupTimeout,
               onError: (error, stack) =>
-                  silentLog(_kTag, 'await device refresh', error, stack),
+                  silentLog(_kTag, '等待设备刷新', error, stack),
             );
           }
           await _stopNetworkCaptureResources();
         }().catchError((Object error, StackTrace stack) {
-          silentLog(_kTag, 'shutdown', error, stack);
+          silentLog(_kTag, '关闭 Android 逆向会话', error, stack);
         });
     _shutdownFuture = shutdown;
     return shutdown;
@@ -309,7 +309,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       _safeNotify();
       return procs;
     } catch (e, st) {
-      silentLog(_kTag, 'refreshProcesses failed', e, st);
+      silentLog(_kTag, '刷新进程列表失败', e, st);
       return _processes;
     }
   }
@@ -415,7 +415,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         timedOut: dumpsys.timedOut,
       );
     } catch (e, st) {
-      silentLog(_kTag, 'capturePackageReportToArtifacts failed', e, st);
+      silentLog(_kTag, '捕获软件包报告到产物目录失败', e, st);
       return AdbCommandResult(
         args: <String>['package-report', normalizedPackage],
         exitCode: -1,
@@ -507,7 +507,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         timedOut: result.timedOut,
       );
     } catch (e, st) {
-      silentLog(_kTag, 'captureLogcatSnapshotToArtifacts failed', e, st);
+      silentLog(_kTag, '捕获 Logcat 快照到产物目录失败', e, st);
       return AdbCommandResult(
         args: const <String>['logcat-snapshot'],
         exitCode: -1,
@@ -680,7 +680,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         stderr: '',
       );
     } catch (e, st) {
-      silentLog(_kTag, 'saveFridaScriptToArtifacts failed', e, st);
+      silentLog(_kTag, '保存 Frida 脚本到产物目录失败', e, st);
       return AdbCommandResult(
         args: const <String>['frida-script-save'],
         exitCode: -1,
@@ -840,7 +840,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         timedOut: snapshot.timedOut || logcat.timedOut,
       );
     } catch (e, st) {
-      silentLog(_kTag, 'captureDeviceReportToArtifacts failed', e, st);
+      silentLog(_kTag, '捕获设备报告到产物目录失败', e, st);
       return AdbCommandResult(
         args: <String>['device-report', reportSerial],
         exitCode: -1,
@@ -971,7 +971,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       }
       return file.path;
     } catch (e, st) {
-      silentLog(_kTag, 'ensureMitmproxyJsonlAddon failed', e, st);
+      silentLog(_kTag, '准备 mitmproxy JSONL 插件失败', e, st);
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
@@ -1035,7 +1035,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'readme: $certsReadmePath',
       ].join('\n');
     } catch (e, st) {
-      silentLog(_kTag, 'ensureCertificateArtifacts failed', e, st);
+      silentLog(_kTag, '准备证书产物失败', e, st);
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
@@ -1046,7 +1046,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     try {
       return await _writeMcpLinkageArtifacts(updateError: true);
     } catch (e, st) {
-      silentLog(_kTag, 'ensureMcpLinkageArtifacts failed', e, st);
+      silentLog(_kTag, '准备 MCP 关联产物失败', e, st);
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
@@ -1091,7 +1091,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
             '$_kAndroidReverseBashExecutable $evidenceBundleScriptPath',
       );
     } catch (e, st) {
-      silentLog(_kTag, 'makeEvidenceBundleToArtifacts failed', e, st);
+      silentLog(_kTag, '生成证据包到产物目录失败', e, st);
       return AdbCommandResult(
         args: const <String>['evidence-bundle'],
         exitCode: -1,
@@ -1157,7 +1157,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 .trim(),
       );
     } catch (e, st) {
-      silentLog(_kTag, 'runLocalArtifactScriptDetailed failed', e, st);
+      silentLog(_kTag, '执行本地产物脚本失败', e, st);
       return AdbCommandResult(
         args: <String>['local-script', scriptPath, ...args],
         exitCode: -1,
@@ -1323,7 +1323,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         );
       }
     } catch (e, st) {
-      silentLog(_kTag, 'startNetworkCapture failed', e, st);
+      silentLog(_kTag, '启动网络捕获失败', e, st);
       _networkCaptureProcess = null;
       _safeNotify();
       return AdbCommandResult(
@@ -1755,8 +1755,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           gracefulTimeout: _kNetworkCaptureStopGrace,
         ),
         timeout: _kDeviceReportTimeout,
-        onError: (error, stack) =>
-            silentLog(_kTag, 'terminate network capture', error, stack),
+        onError: (error, stack) => silentLog(_kTag, '终止网络捕获', error, stack),
       );
     }
     await _cancelNetworkCaptureSubscriptions();
@@ -1771,12 +1770,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
       cancelStreamSubscriptionBounded<String>(
         stdoutSub,
         onError: (error, stack) =>
-            silentLog(_kTag, 'cancel mitmdump stdout', error, stack),
+            silentLog(_kTag, '取消 mitmdump 标准输出订阅', error, stack),
       ),
       cancelStreamSubscriptionBounded<String>(
         stderrSub,
         onError: (error, stack) =>
-            silentLog(_kTag, 'cancel mitmdump stderr', error, stack),
+            silentLog(_kTag, '取消 mitmdump 标准错误订阅', error, stack),
       ),
     ]);
   }
@@ -1867,7 +1866,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'toolchain_setup_commands: $toolchainSetupCommandsPath',
       ].join('\n');
     } catch (e, st) {
-      silentLog(_kTag, 'write MCP linkage artifacts failed', e, st);
+      silentLog(_kTag, '写入 MCP 关联产物失败', e, st);
       if (updateError) {
         _errorMessage = '$e';
         _safeNotify();
@@ -1891,7 +1890,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(networkJsonlPath).create(recursive: true),
       ]);
     } catch (e, st) {
-      silentLog(_kTag, 'ensure artifact directories', e, st);
+      silentLog(_kTag, '准备产物目录', e, st);
       _errorMessage = '$e';
     }
   }
@@ -1981,14 +1980,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
         timeout: _kStaticQuickScanWarmTimeout,
       );
       if (!result.ok && !result.hasUsableStdout) {
-        silentLog(
-          _kTag,
-          'warm static quick scan failed',
-          result.combinedOutput,
-        );
+        silentLog(_kTag, '预热静态快速扫描失败', result.combinedOutput);
       }
     } catch (e, st) {
-      silentLog(_kTag, 'warm static quick scan error', e, st);
+      silentLog(_kTag, '预热静态快速扫描异常', e, st);
     }
   }
 

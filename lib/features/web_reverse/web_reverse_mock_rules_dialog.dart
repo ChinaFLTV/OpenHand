@@ -105,7 +105,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       text: out,
       successBase: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
       logTag: 'web_reverse_mock_rules',
-      logAction: 'export',
+      logAction: '导出模拟规则',
     );
   }
 
@@ -132,7 +132,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
             'Imported ${_draft.length}',
       );
     } catch (e, st) {
-      silentLog('web_reverse_mock_rules', 'import', e, st);
+      silentLog('web_reverse_mock_rules', '导入模拟规则', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -377,7 +377,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                             itemBuilder: (_, i) {
                               final h = hits[i];
                               return Text(
-                                '${_fmt(h.at)}  '
+                                '${formatHourMinuteSecond(h.at)}  '
                                 '${h.status}  '
                                 '${h.ruleName}',
                                 style: const TextStyle(
@@ -414,8 +414,6 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       ),
     );
   }
-
-  String _fmt(DateTime t) => formatHourMinuteSecond(t);
 }
 
 class _RuleEditor extends StatefulWidget {

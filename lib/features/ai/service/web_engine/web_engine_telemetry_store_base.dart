@@ -177,7 +177,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       if (decoded is! List) return const [];
       return stringKeyedMapListFromValue(decoded);
     } catch (error, stack) {
-      silentLog(logTag, 'rawCalls', error, stack);
+      silentLog(logTag, '读取原始调用记录', error, stack);
       return const [];
     }
   }
@@ -205,7 +205,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       }
       return out;
     } catch (error, stack) {
-      silentLog(logTag, 'rawEngineStats', error, stack);
+      silentLog(logTag, '读取原始引擎统计', error, stack);
       return const {};
     }
   }
@@ -225,7 +225,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       }
       return out;
     } catch (error, stack) {
-      silentLog(logTag, 'rawEngineHistory', error, stack);
+      silentLog(logTag, '读取原始引擎历史', error, stack);
       return const {};
     }
   }
@@ -260,12 +260,10 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       try {
         final complete = await clearWebEngineDirectoryBounded(dir);
         if (!complete) {
-          throw StateError(
-            'Web engine telemetry cleanup reached its safety limit.',
-          );
+          throw StateError('Web 引擎遥测清理已达到安全上限。');
         }
       } catch (error, stack) {
-        silentLog(logTag, 'clearAll', error, stack);
+        silentLog(logTag, '清理全部遥测记录', error, stack);
       }
     });
     await _chain;
@@ -303,7 +301,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         agg[kind.name] = cur;
         await writeWebEngineJsonFile(f, agg);
       } catch (error, stack) {
-        silentLog(logTag, 'clearEngineCooldown', error, stack);
+        silentLog(logTag, '清理引擎冷却状态', error, stack);
       }
     });
     await _chain;
@@ -357,7 +355,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
           ),
         )
         .catchError((Object error, StackTrace stack) {
-          silentLog(logTag, 'recordCall', error, stack);
+          silentLog(logTag, '记录原始调用', error, stack);
         });
     await _chain;
   }

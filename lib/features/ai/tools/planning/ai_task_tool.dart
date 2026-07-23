@@ -258,7 +258,7 @@ class AiTaskTool extends AiTool {
           cancelSignal: context.cancelSignal,
         );
       } catch (error, stack) {
-        silentLog('ai_task_tool', 'send subagent completion', error, stack);
+        silentLog('ai_task_tool', '发送子智能体完成通知', error, stack);
         final subagentStopHookResult = await _runSubagentStopHook(
           sessionId: subagentSessionId,
           subagentType: canonicalSubagentType,
@@ -397,7 +397,7 @@ class AiTaskTool extends AiTool {
         try {
           toolResult = await _executeSubTool(context, subContext);
         } catch (error, stack) {
-          silentLog('ai_task_tool', 'execute subagent tool', error, stack);
+          silentLog('ai_task_tool', '执行子智能体工具', error, stack);
           final subagentStopHookResult = await _runSubagentStopHook(
             sessionId: subagentSessionId,
             subagentType: canonicalSubagentType,
@@ -657,7 +657,7 @@ class AiTaskTool extends AiTool {
       final decoded = jsonDecode(rawArguments);
       if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
-      silentLog('ai_task_tool', 'decode task tool arguments', error, stack);
+      silentLog('ai_task_tool', '解码任务工具参数', error, stack);
     }
     return const <String, Object?>{};
   }

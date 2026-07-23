@@ -3092,7 +3092,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
           context: context,
           text: sourceUri.toString(),
           timeout: _mediaClipboardOperationTimeout,
-          logAction: 'copy remote image url fallback',
+          logAction: '复制远程图片地址兜底值',
           successMessage: openHandLocalizedText(
             context,
             zh: '无法复制图片数据，已复制图片地址。',
@@ -3642,12 +3642,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
         return;
       }
     } catch (error, stack) {
-      silentLog(
-        'home_message_bubble',
-        'video thumbnail: cache probe failed',
-        error,
-        stack,
-      );
+      silentLog('home_message_bubble', '视频缩略图：探测缓存失败', error, stack);
     }
     if (!mounted) return;
     if (_VideoThumbnailManager.isMarkedFailed(path)) return;
@@ -5393,7 +5388,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         context: context,
         text: widget.source.uri.toString(),
         timeout: _mediaClipboardOperationTimeout,
-        logAction: 'copy generated media url',
+        logAction: '复制生成媒体地址',
         successMessage: openHandLocalizedText(
           context,
           zh: '已复制媒体地址。',

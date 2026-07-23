@@ -267,11 +267,7 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
       )
       ..add(
         _player.stream.error.listen((message) {
-          silentLog(
-            'native_audio_preview',
-            'media_kit playback error',
-            message,
-          );
+          silentLog('native_audio_preview', 'media_kit 播放错误', message);
         }),
       );
   }
@@ -371,12 +367,8 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
       _subscriptions.map(
         (subscription) => cancelStreamSubscriptionBounded<dynamic>(
           subscription,
-          onError: (error, stack) => silentLog(
-            'native_audio_preview',
-            'cancel playback engine subscription',
-            error,
-            stack,
-          ),
+          onError: (error, stack) =>
+              silentLog('native_audio_preview', '取消播放引擎订阅', error, stack),
         ),
       ),
     );
@@ -507,12 +499,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       unawaited(
         cancelStreamSubscriptionBounded<dynamic>(
           subscription,
-          onError: (error, stack) => silentLog(
-            'native_audio_preview',
-            'cancel preview subscription',
-            error,
-            stack,
-          ),
+          onError: (error, stack) =>
+              silentLog('native_audio_preview', '取消预览订阅', error, stack),
         ),
       );
     }
@@ -622,7 +610,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         widget.source.mimeType,
       ).timeout(kNativeAudioControlTimeout, onTimeout: () => null);
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'resolve local duration', error, stack);
+      silentLog('native_audio_preview', '解析本地音频时长', error, stack);
       return null;
     }
   }
@@ -668,12 +656,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _position = nextPosition;
       });
     } catch (error, stack) {
-      silentLog(
-        'native_audio_preview',
-        'poll playback state failed',
-        error,
-        stack,
-      );
+      silentLog('native_audio_preview', '轮询播放状态失败', error, stack);
     } finally {
       _pollInFlight = false;
     }
@@ -779,7 +762,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   void _handleLoadFailure(Object error, StackTrace stack, int serial) {
-    silentLog('native_audio_preview', 'load source failed', error, stack);
+    silentLog('native_audio_preview', '加载音频源失败', error, stack);
     if (_disposed || !mounted || serial != _bootstrapSerial) return;
     setState(() {
       _loading = false;
@@ -828,7 +811,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         await _play().timeout(kNativeAudioControlTimeout);
       }
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'toggle playback failed', error, stack);
+      silentLog('native_audio_preview', '切换播放状态失败', error, stack);
       if (mounted) {
         setState(() {
           _loadError = AppLocalizations.of(context)!.nativeAudioPlaybackFailed;
@@ -910,7 +893,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         unawaited(_pollPlaybackState());
       }
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'seek failed', error, stack);
+      silentLog('native_audio_preview', '定位播放位置失败', error, stack);
     } finally {
       if (!seekCommandCompleted && mounted && seekSerial == _seekSerial) {
         setState(() {
@@ -965,12 +948,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       try {
         await previous;
       } catch (error, stack) {
-        silentLog(
-          'native_audio_preview',
-          'previous seek command failed',
-          error,
-          stack,
-        );
+        silentLog('native_audio_preview', '上一条定位命令失败', error, stack);
       }
       if (_disposed) return;
       await command();
@@ -992,7 +970,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           .setVolume(_effectiveVolume)
           .timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'set volume failed', error, stack);
+      silentLog('native_audio_preview', '设置音量失败', error, stack);
     }
   }
 
@@ -1006,7 +984,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           .setVolume(_effectiveVolume)
           .timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'toggle mute failed', error, stack);
+      silentLog('native_audio_preview', '切换静音状态失败', error, stack);
     }
   }
 
@@ -1016,7 +994,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     try {
       await _applyEffectToPlayer().timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'apply effect failed', error, stack);
+      silentLog('native_audio_preview', '应用音效失败', error, stack);
     }
   }
 
@@ -1026,12 +1004,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           .setVolume(_effectiveVolume)
           .timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
-      silentLog(
-        'native_audio_preview',
-        'set effect volume failed',
-        error,
-        stack,
-      );
+      silentLog('native_audio_preview', '设置音效音量失败', error, stack);
     }
   }
 
@@ -1468,12 +1441,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       final file = File(path);
       if (await file.exists()) await file.delete();
     } catch (error, stack) {
-      silentLog(
-        'native_audio_preview',
-        'delete temp audio failed',
-        error,
-        stack,
-      );
+      silentLog('native_audio_preview', '删除临时音频失败', error, stack);
     }
   }
 
@@ -1481,12 +1449,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     try {
       await _player.stop().timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
-      silentLog(
-        'native_audio_preview',
-        'stop before reset failed',
-        error,
-        stack,
-      );
+      silentLog('native_audio_preview', '重置前停止播放器失败', error, stack);
     }
   }
 
@@ -1494,7 +1457,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     try {
       await _player.dispose().timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'dispose player failed', error, stack);
+      silentLog('native_audio_preview', '释放播放器失败', error, stack);
     } finally {
       await _deleteTempAudioFile();
     }

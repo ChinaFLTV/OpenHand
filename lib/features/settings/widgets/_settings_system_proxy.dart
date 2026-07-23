@@ -587,7 +587,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                       );
                     } catch (error, stack) {
                       await ticket?.cancel();
-                      silentLog('settings.system', 'restart app', error, stack);
+                      silentLog('settings.system', '重启应用', error, stack);
                       final message = _formatRestartFailure(
                         dialogContext.mounted ? dialogContext : context,
                         error,
@@ -720,7 +720,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
         },
       );
     } catch (error, stack) {
-      silentLog('settings.system', 'repairTextInput', error, stack);
+      silentLog('settings.system', '修复文本输入', error, stack);
       report = const InputRepairReport(
         result: InputRepairResult.failure,
         steps: <InputRepairStepReport>[],

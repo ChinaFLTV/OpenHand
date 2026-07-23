@@ -537,7 +537,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'value': payload,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (error, stack) {
-      silentLog('openhand_home_page', 'persist editor tabs', error, stack);
+      silentLog('openhand_home_page', '保存编辑器标签页', error, stack);
     }
   }
 
@@ -581,7 +581,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     } catch (error, stack) {
-      silentLog('openhand_home_page', 'restore editor tabs', error, stack);
+      silentLog('openhand_home_page', '恢复编辑器标签页', error, stack);
     }
   }
 
@@ -1029,7 +1029,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _observedMessageGatewayController,
       messageGatewayController,
     )) {
-      _cancelWriteApprovalSubscription('replace write approval stream');
+      _cancelWriteApprovalSubscription('替换写入审批流');
       _observedMessageGatewayController = messageGatewayController;
       _writeApprovalSubscription = messageGatewayController
           ?.pendingWriteApprovalsStream
@@ -1048,7 +1048,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 _observedMessageGatewayController,
                 messageGatewayController,
               )) {
-                silentLog('home', 'write approval stream', error, stack);
+                silentLog('home', '写入审批响应流', error, stack);
               }
             },
           );
@@ -1106,16 +1106,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _handleToolSearchLoadedSignal,
     );
     _observedMessageGatewayController = null;
-    _cancelWriteApprovalSubscription('dispose write approval stream');
+    _cancelWriteApprovalSubscription('销毁时关闭写入审批流');
     _suppressWriteApprovalDialogResponse = true;
     final writeApprovalSession = _writeApprovalSession;
     _writeApprovalSession = null;
     if (writeApprovalSession != null) {
       unawaited(
-        writeApprovalSession.dismiss(
-          logTag: 'home',
-          logAction: 'dismiss write approval on home disposal',
-        ),
+        writeApprovalSession.dismiss(logTag: 'home', logAction: '主页销毁时关闭写入审批'),
       );
     }
     _messageScrollController.removeListener(_handleMessageScroll);
@@ -1350,12 +1347,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _suppressWriteApprovalDialogResponse = true;
     final session = _writeApprovalSession;
     if (session != null) {
-      unawaited(
-        session.dismiss(
-          logTag: 'home',
-          logAction: 'dismiss write approval after session change',
-        ),
-      );
+      unawaited(session.dismiss(logTag: 'home', logAction: '会话切换后关闭写入审批'));
     }
   }
 
@@ -1380,10 +1372,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final session = _writeApprovalSession;
         if (session != null) {
           unawaited(
-            session.dismiss(
-              logTag: 'home',
-              logAction: 'dismiss externally resolved write approval',
-            ),
+            session.dismiss(logTag: 'home', logAction: '关闭已在外部解决的写入审批'),
           );
         }
       }
@@ -1465,7 +1454,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         decision: decision ?? BashCommandApprovalDecision.dismissed,
       );
     } catch (error, stack) {
-      silentLog('home', 'present shared write approval', error, stack);
+      silentLog('home', '显示共享写入审批', error, stack);
       if (!responseAttempted &&
           mounted &&
           !_suppressWriteApprovalDialogResponse &&
@@ -1478,12 +1467,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             decision: BashCommandApprovalDecision.dismissed,
           );
         } catch (fallbackError, fallbackStack) {
-          silentLog(
-            'home',
-            'dismiss failed shared write approval',
-            fallbackError,
-            fallbackStack,
-          );
+          silentLog('home', '关闭共享写入审批失败', fallbackError, fallbackStack);
         }
       }
     } finally {
@@ -3154,12 +3138,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     unawaited(
       _ttsPlaybackService.stop().catchError((Object error, StackTrace stack) {
-        silentLog(
-          'openhand_home_page',
-          'stop TTS after session selection',
-          error,
-          stack,
-        );
+        silentLog('openhand_home_page', '选择会话后停止 TTS', error, stack);
       }),
     );
     if (!mounted ||
@@ -3427,7 +3406,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         await config.initializePersistenceDirectories();
       } catch (error, stack) {
         _reportHarnessPersistenceError(
-          operation: 'initialize HE persistence directories',
+          operation: '初始化 Harness 持久化目录',
           error: error,
           stack: stack,
           zhAction: '无法初始化 Harness 持久化目录',
@@ -3461,7 +3440,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         orchestrator.dispose();
         _reportHarnessPersistenceError(
-          operation: 'save initial HE session',
+          operation: '保存初始 Harness 会话',
           error: error,
           stack: stack,
           zhAction: '无法保存 Harness 会话',
@@ -3597,7 +3576,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } on WebReverseLaunchException catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        'web reverse launch ${error.failure}',
+        '启动 Web 逆向（${error.failure}）',
         error,
         stack,
       );
@@ -3609,7 +3588,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
       }
     } catch (error, stack) {
-      silentLog('openhand_home_page', 'web reverse start', error, stack);
+      silentLog('openhand_home_page', '启动 Web 逆向', error, stack);
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
@@ -3630,7 +3609,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       try {
         await controller.stop();
       } catch (e, st) {
-        silentLog('openhand_home_page', 'web reverse stop', e, st);
+        silentLog('openhand_home_page', '停止 Web 逆向', e, st);
       }
       controller.dispose();
       _clearPendingAutoStartSubmission(session.id);
@@ -3730,7 +3709,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         } catch (error, stack) {
           silentLog(
             'openhand_home_page',
-            'dispose web reverse controller $sessionId',
+            '释放 Web 逆向控制器 $sessionId',
             error,
             stack,
           );
@@ -3766,12 +3745,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         session.metadata['android_reverse_config'],
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'restore android reverse config',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '恢复 Android 逆向配置', error, stack);
       return null;
     }
     if (config == null) {
@@ -3891,7 +3865,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       await controller.start();
     } catch (error, stack) {
-      silentLog('openhand_home_page', 'android reverse start', error, stack);
+      silentLog('openhand_home_page', '启动 Android 逆向', error, stack);
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
@@ -3949,7 +3923,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         } catch (error, stack) {
           silentLog(
             'openhand_home_page',
-            'dispose android reverse controller $sessionId',
+            '释放 Android 逆向控制器 $sessionId',
             error,
             stack,
           );
@@ -3984,7 +3958,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        'persist android reverse runtime metadata $sessionId',
+        '保存 Android 逆向运行时元数据 $sessionId',
         error,
         stack,
       );
@@ -4020,12 +3994,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ],
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'sync android reverse template runtime linkage',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '同步 Android 逆向模板运行时关联', error, stack);
     }
   }
 
@@ -4033,12 +4002,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       _templateRuntimeLinkageController?.removeSession(sessionId);
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'remove template runtime linkage $sessionId',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '移除模板运行时关联 $sessionId', error, stack);
     }
   }
 
@@ -4332,7 +4296,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        'build template mcp linkage metadata ${spec.templateId}',
+        '构建模板 MCP 关联元数据 ${spec.templateId}',
         error,
         stack,
       );
@@ -4393,7 +4357,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        'build template plugin metadata ${spec.templateId}',
+        '构建模板插件元数据 ${spec.templateId}',
         error,
         stack,
       );
@@ -4500,12 +4464,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           'related_servers': relatedServers.take(12).toList(growable: false),
       };
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'build android reverse mcp linkage metadata',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '构建 Android 逆向 MCP 关联元数据', error, stack);
       return <String, Object?>{
         'error': '$error',
         'tool_search_recommended_query':
@@ -4582,7 +4541,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        'persist web reverse runtime metadata $sessionId',
+        '保存 Web 逆向运行时元数据 $sessionId',
         error,
         stack,
       );
@@ -4666,12 +4625,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ],
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'sync web reverse template runtime linkage',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', '同步 Web 逆向模板运行时关联', error, stack);
     }
   }
 
@@ -4849,7 +4803,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       } catch (e, st) {
         silentLog(
           'openhand_home_page',
-          'rewrite user_data_dir for ${session.id}',
+          '为 ${session.id} 重写 user_data_dir',
           e,
           st,
         );
@@ -4871,7 +4825,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } on WebReverseLaunchException catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        'restore web reverse ${error.failure}',
+        '恢复 Web 逆向（${error.failure}）',
         error,
         stack,
       );
@@ -4883,7 +4837,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
       }
     } catch (error, stack) {
-      silentLog('openhand_home_page', 'restore web reverse', error, stack);
+      silentLog('openhand_home_page', '恢复 Web 逆向', error, stack);
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
@@ -4903,12 +4857,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       try {
         await controller.stop();
       } catch (error, stack) {
-        silentLog(
-          'openhand_home_page',
-          'restore web reverse stop',
-          error,
-          stack,
-        );
+        silentLog('openhand_home_page', '恢复 Web 逆向后停止', error, stack);
       }
       controller.dispose();
       return null;
@@ -5079,7 +5028,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       });
     } catch (error, stack) {
       _reportHarnessPersistenceError(
-        operation: 'restore harness session',
+        operation: '恢复 Harness 会话',
         error: error,
         stack: stack,
         zhAction: '恢复 Harness 会话失败',
@@ -5159,7 +5108,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       await config.initializePersistenceDirectories();
     } catch (error, stack) {
       _reportHarnessPersistenceError(
-        operation: 'update HE persistence directories',
+        operation: '更新 Harness 持久化目录',
         error: error,
         stack: stack,
         zhAction: '无法更新 Harness 持久化目录',
@@ -5303,7 +5252,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       });
       await _harnessSessionStore.save(updated);
     } catch (error, stack) {
-      silentLog('openhand_home_page', 'generate HE auto title', error, stack);
+      silentLog('openhand_home_page', '生成 HE 自动标题', error, stack);
     }
   }
 
@@ -6804,7 +6753,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _composerClipboardReadTimeout,
         );
       } catch (error, stack) {
-        silentLog('home', 'pasteboard.files', error, stack);
+        silentLog('home', '读取剪贴板文件', error, stack);
       }
       if (!mounted) {
         return;
@@ -6827,7 +6776,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       try {
         bytes = await Pasteboard.image.timeout(_composerClipboardReadTimeout);
       } catch (error, stack) {
-        silentLog('home', 'pasteboard.image', error, stack);
+        silentLog('home', '读取剪贴板图片', error, stack);
         return;
       }
       if (bytes == null || bytes.isEmpty) {
@@ -6849,7 +6798,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         await tempFile.writeAsBytes(bytes, flush: true);
         tempPath = tempFile.path;
       } catch (error, stack) {
-        silentLog('home', 'pasteboard.write_temp', error, stack);
+        silentLog('home', '写入剪贴板临时文件', error, stack);
         return;
       }
       if (!mounted) {
@@ -7004,7 +6953,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           await tempFile.writeAsBytes(editorResult.bytes, flush: true);
           resolvedPath = tempFile.path;
         } on BoundedFileReadException catch (error, stack) {
-          silentLog('home', 'image attachment bounded read', error, stack);
+          silentLog('home', '有界读取图片附件', error, stack);
           if (error.failure == BoundedFileReadFailure.tooLarge) {
             oversizedCount += 1;
           } else {
@@ -7012,15 +6961,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           }
           continue;
         } on FileSystemException catch (error, stack) {
-          silentLog('home', 'image attachment file read', error, stack);
+          silentLog('home', '读取图片附件文件', error, stack);
           unreadableCount += 1;
           continue;
         } on TimeoutException catch (error, stack) {
-          silentLog('home', 'image attachment read timeout', error, stack);
+          silentLog('home', '读取图片附件超时', error, stack);
           unreadableCount += 1;
           continue;
         } catch (error, stack) {
-          silentLog('home', 'image attachment editor', error, stack);
+          silentLog('home', '编辑图片附件', error, stack);
           resolvedPath = path;
         }
       }
@@ -7036,7 +6985,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         nextAttachments.add(draft);
       } catch (error, stack) {
-        silentLog('home', 'attachment draft', error, stack);
+        silentLog('home', '创建附件草稿', error, stack);
         unreadableCount += 1;
         continue;
       }
@@ -7232,7 +7181,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         Object error,
         StackTrace stackTrace,
       ) {
-        silentLog('openhand_home_page', 'stop responding', error, stackTrace);
+        silentLog('openhand_home_page', '停止响应', error, stackTrace);
       }),
     );
   }
@@ -7316,12 +7265,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           Object error,
           StackTrace stack,
         ) {
-          silentLog(
-            'openhand_home_page',
-            'stop web reverse runtime',
-            error,
-            stack,
-          );
+          silentLog('openhand_home_page', '停止 Web 逆向运行时', error, stack);
         }),
       );
     }
@@ -7332,12 +7276,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           Object error,
           StackTrace stack,
         ) {
-          silentLog(
-            'openhand_home_page',
-            'stop android reverse runtime',
-            error,
-            stack,
-          );
+          silentLog('openhand_home_page', '停止 Android 逆向运行时', error, stack);
         }),
       );
     }
@@ -8158,7 +8097,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 final copied = await copyHomeTextToClipboard(
                   context: context,
                   text: feedbackTemplate,
-                  logAction: 'copy feedback template',
+                  logAction: '复制反馈模板',
                   successMessage: copiedLabel,
                   showSuccess: false,
                 );
@@ -8354,7 +8293,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     Future<void> closeProgressDialog() async {
       await progressSession.dismiss(
         logTag: 'openhand_home_page',
-        logAction: '_executeGenerateTitle.dismissProgress',
+        logAction: '生成标题：关闭进度对话框',
       );
     }
 
@@ -8369,7 +8308,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             progressSession.dismiss(
               result: true,
               logTag: 'openhand_home_page',
-              logAction: '_executeGenerateTitle.cancelProgress',
+              logAction: '生成标题：取消进度对话框',
             ),
           );
         },
@@ -8512,7 +8451,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       resumeOrchestratorObservation();
       _reportHarnessPersistenceError(
-        operation: 'rename harness session',
+        operation: '重命名 Harness 会话',
         error: error,
         stack: stack,
         zhAction: '重命名 Harness 会话失败',
@@ -8555,7 +8494,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       orchestrator?.addListener(_onHarnessOrchestratorChanged);
       _reportHarnessPersistenceError(
-        operation: 'delete harness session',
+        operation: '删除 Harness 会话',
         error: error,
         stack: stack,
         zhAction: '删除 Harness 会话失败',
@@ -8706,7 +8645,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressController.markFinished();
     await dialogSession.dismiss(
       logTag: 'openhand_home_page',
-      logAction: '_exportSession.dismissProgress',
+      logAction: '导出会话：关闭进度对话框',
     );
 
     if (!mounted) return;
@@ -8796,7 +8735,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressController.markFinished();
     await dialogSession.dismiss(
       logTag: 'openhand_home_page',
-      logAction: '_exportHarnessSession.dismissProgress',
+      logAction: '导出 Harness 会话：关闭进度对话框',
     );
 
     if (!mounted) return;
@@ -8910,7 +8849,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     await copyHomeTextToClipboard(
       context: context,
       text: content,
-      logAction: 'copy message content',
+      logAction: '复制消息内容',
       successMessage: openHandLocalizedText(
         context,
         zh: '消息内容已复制。',

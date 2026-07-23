@@ -756,7 +756,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               );
       });
     } catch (error, stackTrace) {
-      silentLog('skill_market_dialog', 'search skills', error, stackTrace);
+      silentLog('skill_market_dialog', '搜索技能', error, stackTrace);
       if (!mounted || token != _searchToken) {
         return;
       }
@@ -864,12 +864,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       );
       _installSuccessSignal.value++;
     } catch (error, stackTrace) {
-      silentLog(
-        'skill_market_dialog',
-        'install ${skill.slug}',
-        error,
-        stackTrace,
-      );
+      silentLog('skill_market_dialog', '安装技能 ${skill.slug}', error, stackTrace);
       if (!mounted) {
         return;
       }
@@ -888,7 +883,6 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       _installErrorSignal.value++;
     }
   }
-
 
   SkillMarketSummary? _findSkillBySlug(
     List<SkillMarketSummary> skills,
@@ -1862,4 +1856,3 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   );
   return '${markdown.substring(0, maxChars)}$suffix';
 }
-

@@ -107,7 +107,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
         }
       }
     } catch (e, st) {
-      silentLog('web_reverse_webauthn', 'enable', e, st);
+      silentLog('web_reverse_webauthn', '启用 WebAuthn', e, st);
       _lastError = '$e';
     }
     if (mounted) setState(() => _busy = false);
@@ -155,7 +155,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
         }
       }
     } catch (e, st) {
-      silentLog('web_reverse_webauthn', 'add', e, st);
+      silentLog('web_reverse_webauthn', '添加 WebAuthn 凭据', e, st);
       _lastError = '$e';
     }
     if (mounted) setState(() => _busy = false);
@@ -170,7 +170,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
       });
       _auths.removeWhere((e) => e.id == a.id);
     } catch (e, st) {
-      silentLog('web_reverse_webauthn', 'remove', e, st);
+      silentLog('web_reverse_webauthn', '移除 WebAuthn 凭据', e, st);
     }
     if (mounted) setState(() => _busy = false);
   }
@@ -187,7 +187,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
         a.credentials = stringKeyedMapListFromValue(list);
       }
     } catch (e, st) {
-      silentLog('web_reverse_webauthn', 'getCredentials', e, st);
+      silentLog('web_reverse_webauthn', '获取 WebAuthn 凭据', e, st);
     }
     if (mounted) setState(() => _busy = false);
   }
@@ -204,7 +204,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
         a.isUserVerified = v;
       }
     } catch (e, st) {
-      silentLog('web_reverse_webauthn', 'setUserVerified', e, st);
+      silentLog('web_reverse_webauthn', '设置 WebAuthn 用户验证状态', e, st);
     }
     if (mounted) setState(() => _busy = false);
   }

@@ -231,7 +231,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       },
       callbackTimeout: const Duration(seconds: 5),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', 'poll current url', error, stack),
+          silentLog('web_reverse_dashboard', '轮询当前链接', error, stack),
     );
   }
 
@@ -270,8 +270,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         alive && widget.controller.latestScreencastFrame != null;
     final len = widget.controller.pageTargets.length;
     final cur = widget.controller.currentPageTargetId;
-    final orderHash = _hashTargetsOrder(widget.controller.pageTargets);
-    final titleHash = _hashTargetsTitle(widget.controller.pageTargets);
+    final orderHash = _pageTargetsOrderHash(widget.controller.pageTargets);
+    final titleHash = _pageTargetsTitleHash(widget.controller.pageTargets);
     final targetStateDirty =
         len != _lastTargetsLen ||
         cur != _lastCurrentTargetId ||
@@ -370,7 +370,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
-        'restart browser from $source',
+        '从 $source 重启浏览器',
         error,
         stack,
       );
@@ -399,21 +399,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           setState(() {});
         }
       },
-      onError: (error, stack) => silentLog(
-        'web_reverse_dashboard',
-        'browser placeholder ticker',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', '浏览器占位计时器', error, stack),
     );
-  }
-
-  static int _hashTargetsOrder(List<CdpPageTargetSnapshot> targets) {
-    return rollingHash30(targets, (target) => target.id.hashCode);
-  }
-
-  static int _hashTargetsTitle(List<CdpPageTargetSnapshot> targets) {
-    return rollingHash30(targets, (target) => target.title.hashCode);
   }
 
   void _scheduleViewportSync(Size logical, double dpr) {
@@ -1287,12 +1275,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'pick current frame save location',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择当前帧保存位置', error, stack);
     }
     if (!mounted || location == null) return;
     try {
@@ -1311,12 +1294,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'save current frame',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '保存当前帧', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -1354,12 +1332,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         const Duration(seconds: 10),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'capture crop screenshot',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '截取裁剪区域', error, stack);
     }
     if (!mounted) return;
     if (png == null) {
@@ -1419,12 +1392,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'pick crop save location',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择裁剪截图保存位置', error, stack);
     }
     if (!mounted || location == null) return;
     try {
@@ -1443,7 +1411,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         ),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'save crop', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '保存裁剪截图', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -1658,12 +1626,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             );
           }
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_dashboard_dialog',
-            'open url externally',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_dashboard_dialog', '在外部打开链接', error, stack);
         }
       case 'saveFrame':
         await _saveCurrentFrame();

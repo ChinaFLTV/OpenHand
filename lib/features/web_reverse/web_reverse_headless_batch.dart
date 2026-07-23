@@ -93,7 +93,7 @@ class WebReverseHeadlessBatch {
           message: r.error,
         );
       } catch (e, st) {
-        silentLog('web_reverse_headless_batch', 'run', e, st);
+        silentLog('web_reverse_headless_batch', '执行批量采集', e, st);
         results.add(HeadlessBatchUrlResult(url: url, ok: false, error: '$e'));
         _emit(
           i,
@@ -372,7 +372,7 @@ class WebReverseHeadlessBatch {
             screenshotPath = path;
           }
         } catch (e, st) {
-          silentLog('web_reverse_headless_batch', 'captureScreenshot', e, st);
+          silentLog('web_reverse_headless_batch', '截取无头页面截图', e, st);
         }
       }
 
@@ -392,12 +392,8 @@ class WebReverseHeadlessBatch {
     } finally {
       await cancelStreamSubscriptionBounded<CdpEvent>(
         sub,
-        onError: (error, stack) => silentLog(
-          'web_reverse_headless_batch',
-          'cancel target event subscription',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('web_reverse_headless_batch', '取消目标事件订阅', error, stack),
       );
       if (targetId != null) {
         try {
@@ -407,7 +403,7 @@ class WebReverseHeadlessBatch {
             timeout: const Duration(seconds: 5),
           );
         } catch (e, st) {
-          silentLog('web_reverse_headless_batch', 'closeTarget', e, st);
+          silentLog('web_reverse_headless_batch', '关闭无头页面目标', e, st);
         }
       }
     }

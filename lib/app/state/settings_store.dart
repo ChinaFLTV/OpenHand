@@ -93,11 +93,11 @@ class SettingsStore {
           try {
             await _markLegacyMigrationSatisfied();
           } catch (error, stack) {
-            silentLog('settings_store', 'mark legacy migration', error, stack);
+            silentLog('settings_store', '标记旧版设置迁移', error, stack);
           }
           return SettingsLoadResult(snapshot: snapshot, canPersist: true);
         } catch (error, stack) {
-          silentLog('settings_store', 'decode db settings', error, stack);
+          silentLog('settings_store', '解码数据库设置', error, stack);
           return SettingsLoadResult(
             snapshot: AppSettingsSnapshot.defaults(),
             canPersist: false,
@@ -568,12 +568,7 @@ class SettingsStore {
         try {
           editorLspSettings[language] = AiLspLanguageSettings.fromJson(value);
         } catch (error, stack) {
-          silentLog(
-            'settings_store',
-            'parse editor_lsp_settings entry',
-            error,
-            stack,
-          );
+          silentLog('settings_store', '解析编辑器 LSP 设置项', error, stack);
         }
       }
     }
@@ -838,12 +833,12 @@ class SettingsStore {
     final aiAllowCommandRules = _readSettingsObjectList(
       json['ai_allow_command_rules'],
       AiAllowCommandRule.fromJson,
-      'parse ai_allow_command_rules entry',
+      '解析 AI 允许命令规则项',
     );
     final aiDenyCommandRules = _readSettingsObjectList(
       json['ai_deny_command_rules'],
       AiDenyCommandRule.fromJson,
-      'parse ai_deny_command_rules entry',
+      '解析 AI 禁止命令规则项',
     );
 
     final rawSandboxSettings = json['ai_sandbox'];
@@ -926,7 +921,7 @@ class SettingsStore {
           aiModels.add(model);
         }
       } catch (error, stack) {
-        silentLog('settings_store', 'parse ai_models entry', error, stack);
+        silentLog('settings_store', '解析 AI 模型设置项', error, stack);
       }
     }
 
@@ -947,12 +942,7 @@ class SettingsStore {
           recentModelSelections.add(entry);
         }
       } catch (error, stack) {
-        silentLog(
-          'settings_store',
-          'parse recent_model_selections entry',
-          error,
-          stack,
-        );
+        silentLog('settings_store', '解析最近模型选择项', error, stack);
       }
     }
 
@@ -1060,12 +1050,7 @@ class SettingsStore {
         try {
           parsed.add(AiBuiltinToolConfig.fromJson(item));
         } catch (error, stack) {
-          silentLog(
-            'settings_store',
-            'parse builtin_tool_configs entry',
-            error,
-            stack,
-          );
+          silentLog('settings_store', '解析内置工具配置项', error, stack);
         }
       }
       if (parsed.isNotEmpty) {

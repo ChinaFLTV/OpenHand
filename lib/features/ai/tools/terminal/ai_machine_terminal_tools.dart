@@ -134,7 +134,7 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
             AiToolUtils.readBool(args['enter']) == true,
       );
     } catch (error, stack) {
-      silentLog('ai_machine_terminal_tools', 'write', error, stack);
+      silentLog('ai_machine_terminal_tools', '写入机器终端', error, stack);
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: 'MachineTerminalWrite',
@@ -282,7 +282,7 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
         'Invalid terminal control arguments.',
       );
     } catch (error, stack) {
-      silentLog('ai_machine_terminal_tools', 'control', error, stack);
+      silentLog('ai_machine_terminal_tools', '控制机器终端', error, stack);
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: 'MachineTerminalControl',

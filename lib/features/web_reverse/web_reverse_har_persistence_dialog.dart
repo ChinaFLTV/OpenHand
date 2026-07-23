@@ -97,7 +97,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         acceptedTypeGroups: const <XTypeGroup>[tg],
       );
     } catch (e, s) {
-      silentLog('web_reverse_har_persistence', 'getSaveLocation', e, s);
+      silentLog('web_reverse_har_persistence', '选择 HAR 保存位置', e, s);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -137,7 +137,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         );
       }
     } catch (e, s) {
-      silentLog('web_reverse_har_persistence', 'exportHarToPath', e, s);
+      silentLog('web_reverse_har_persistence', '导出 HAR 到文件', e, s);
       if (!mounted) return;
       final loc1 = AppLocalizations.of(context);
       setState(
@@ -162,7 +162,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     try {
       file = await openFile(acceptedTypeGroups: const <XTypeGroup>[tg]);
     } catch (e, s) {
-      silentLog('web_reverse_har_persistence', 'openFile', e, s);
+      silentLog('web_reverse_har_persistence', '打开 HAR 文件', e, s);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -204,7 +204,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         loc1?.webReverseHarLoaded ?? 'HAR loaded',
       );
     } catch (e, s) {
-      silentLog('web_reverse_har_persistence', 'loadHarBytes', e, s);
+      silentLog('web_reverse_har_persistence', '读取 HAR 文件字节', e, s);
       if (!mounted) return;
       final loc1 = AppLocalizations.of(context);
       setState(
@@ -229,7 +229,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
       if (dir == null) return;
       setState(() => _folder = dir);
     } catch (e, s) {
-      silentLog('web_reverse_har_persistence', 'getDirectoryPath', e, s);
+      silentLog('web_reverse_har_persistence', '选择 HAR 轮转目录', e, s);
     }
   }
 
@@ -269,7 +269,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         }
         _autoRotate.nextAt = DateTime.now().add(_autoRotate.interval);
       } catch (e, s) {
-        silentLog('web_reverse_har_persistence', 'auto-rotate tick', e, s);
+        silentLog('web_reverse_har_persistence', '执行 HAR 自动轮转', e, s);
       }
     }, min: _minAutoRotateInterval);
     _interval = interval;

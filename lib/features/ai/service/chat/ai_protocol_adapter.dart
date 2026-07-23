@@ -2029,7 +2029,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   static String _openAiToolCallName(Map<String, Object?> toolCall) {
-    final function = _mapFromObject(toolCall['function']);
+    final function = optionalStringKeyedMapFromValue(toolCall['function']);
     if (function == null) return 'tool';
     final name = _trimmedField(function, 'name');
     return name.isEmpty ? 'tool' : name;
@@ -2088,17 +2088,11 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     return stringFromValue(map[key]);
   }
 
-  static Map<String, Object?>? _mapFromObject(Object? value) {
-    if (value is Map<String, Object?>) return value;
-    if (value is Map) return stringKeyedMapFromValue(value);
-    return null;
-  }
-
   static List<Map<String, Object?>> _mapListFromObject(Object? value) {
     if (value is! List) return const <Map<String, Object?>>[];
     final maps = <Map<String, Object?>>[];
     for (final item in value) {
-      final map = _mapFromObject(item);
+      final map = optionalStringKeyedMapFromValue(item);
       if (map != null) maps.add(map);
     }
     return maps;

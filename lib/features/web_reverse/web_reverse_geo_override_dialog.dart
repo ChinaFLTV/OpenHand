@@ -173,7 +173,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
         }
       }
     } catch (e, st) {
-      silentLog('web_reverse_geo_override', 'apply', e, st);
+      silentLog('web_reverse_geo_override', '应用地理位置覆盖', e, st);
       errors.add('$e');
     }
     if (!mounted) return;
@@ -205,7 +205,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
       await _callCdp('Emulation.setTimezoneOverride', {'timezoneId': ''});
       await _callCdp('Emulation.setLocaleOverride', const {});
     } catch (e, st) {
-      silentLog('web_reverse_geo_override', 'clear', e, st);
+      silentLog('web_reverse_geo_override', '清除地理位置覆盖', e, st);
       failure = e;
     }
     if (!mounted) return;

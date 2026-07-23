@@ -672,7 +672,7 @@ class AiBuiltinToolConfig {
       } catch (error, stack) {
         silentLog(
           'ai_builtin_tool_config',
-          'decode schema_override JSON string',
+          '解码 schema_override JSON 字符串',
           error,
           stack,
         );

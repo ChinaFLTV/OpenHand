@@ -1466,12 +1466,7 @@ DateTime _planTimelineMessageActivityAt(AiSessionMessage message) {
     try {
       return DateTime.parse(editedAt).toUtc();
     } catch (error, stack) {
-      silentLog(
-        'session_toolbar',
-        'parse plan timeline edited_at',
-        error,
-        stack,
-      );
+      silentLog('session_toolbar', '解析计划时间线 edited_at', error, stack);
     }
   }
   return message.createdAt;

@@ -89,7 +89,7 @@ class WebReverseMitmproxyBridge {
         );
         if (r.exitCode == 0) return c;
       } catch (error, stack) {
-        silentLog('web_reverse_mitmproxy_bridge', 'detect $c', error, stack);
+        silentLog('web_reverse_mitmproxy_bridge', '探测 $c', error, stack);
       }
     }
     return null;
@@ -113,7 +113,7 @@ class WebReverseMitmproxyBridge {
         timeout: _kBindTimeout,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'cb bind', error, stack);
+      silentLog('web_reverse_mitmproxy_bridge', '绑定回调服务', error, stack);
       return null;
     }
     final actualCbPort = cbServer.port;
@@ -138,7 +138,7 @@ class WebReverseMitmproxyBridge {
             } catch (error, stack) {
               silentLog(
                 'web_reverse_mitmproxy_bridge',
-                'decode callback line',
+                '解码回调数据行',
                 error,
                 stack,
               );
@@ -148,36 +148,26 @@ class WebReverseMitmproxyBridge {
         req.response.statusCode = 204;
         await req.response.close();
       } on TimeoutException catch (error, stack) {
-        silentLog(
-          'web_reverse_mitmproxy_bridge',
-          'callback body timeout',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_mitmproxy_bridge', '读取回调请求体超时', error, stack);
         req.response.statusCode = HttpStatus.requestTimeout;
         try {
           await req.response.close();
         } catch (closeError, closeStack) {
           silentLog(
             'web_reverse_mitmproxy_bridge',
-            'close timed out callback response',
+            '关闭超时回调响应',
             closeError,
             closeStack,
           );
         }
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_mitmproxy_bridge',
-          'handle callback',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_mitmproxy_bridge', '处理回调请求', error, stack);
         try {
           await req.response.close();
         } catch (closeError, closeStack) {
           silentLog(
             'web_reverse_mitmproxy_bridge',
-            'close callback response',
+            '关闭回调响应',
             closeError,
             closeStack,
           );
@@ -197,17 +187,11 @@ class WebReverseMitmproxyBridge {
         '--ssl-insecure',
       ]);
     } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'spawn', error, stack);
-      await _cancelSubscription(
-        serverSub,
-        'cancel callback server after spawn',
-      );
+      silentLog('web_reverse_mitmproxy_bridge', '启动 mitmdump', error, stack);
+      await _cancelSubscription(serverSub, '启动后取消回调服务器订阅');
       await Future.wait<bool>(<Future<bool>>[
-        _closeResource(
-          () => cbServer.close(force: true),
-          'close callback server after spawn',
-        ),
-        _closeResource(controller.close, 'close event stream after spawn'),
+        _closeResource(() => cbServer.close(force: true), '启动后关闭回调服务器'),
+        _closeResource(controller.close, '启动后关闭事件流'),
       ]);
       await _deleteAddon(addonPath);
       return null;
@@ -224,20 +208,17 @@ class WebReverseMitmproxyBridge {
     if (earlyExit != null) {
       silentLog(
         'web_reverse_mitmproxy_bridge',
-        'early exit',
-        'mitmdump exited with code $earlyExit',
+        'mitmdump 提前退出',
+        'mitmdump 已退出，退出码：$earlyExit',
       );
       await Future.wait<bool>(<Future<bool>>[
-        _cancelSubscription(stdoutSub, 'cancel stdout after early exit'),
-        _cancelSubscription(stderrSub, 'cancel stderr after early exit'),
-        _cancelSubscription(serverSub, 'cancel callback after early exit'),
+        _cancelSubscription(stdoutSub, '提前退出后取消标准输出订阅'),
+        _cancelSubscription(stderrSub, '提前退出后取消标准错误订阅'),
+        _cancelSubscription(serverSub, '提前退出后取消回调订阅'),
       ]);
       await Future.wait<bool>(<Future<bool>>[
-        _closeResource(
-          () => cbServer.close(force: true),
-          'close callback server after early exit',
-        ),
-        _closeResource(controller.close, 'close stream after early exit'),
+        _closeResource(() => cbServer.close(force: true), '提前退出后关闭回调服务器'),
+        _closeResource(controller.close, '提前退出后关闭事件流'),
       ]);
       await _deleteAddon(addonPath);
       return null;
@@ -348,7 +329,12 @@ def response(flow):
     try {
       await File(addonPath).delete();
     } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'delete addon', error, stack);
+      silentLog(
+        'web_reverse_mitmproxy_bridge',
+        '删除 mitmproxy 插件',
+        error,
+        stack,
+      );
     }
   }
 
@@ -382,13 +368,13 @@ def response(flow):
       gracefulTimeout: const Duration(milliseconds: 1500),
     );
     await Future.wait<bool>(<Future<bool>>[
-      _cancelSubscription(_stdoutSub, 'cancel stdout'),
-      _cancelSubscription(_stderrSub, 'cancel stderr'),
-      _cancelSubscription(_serverSub, 'cancel callback server'),
+      _cancelSubscription(_stdoutSub, '取消标准输出订阅'),
+      _cancelSubscription(_stderrSub, '取消标准错误订阅'),
+      _cancelSubscription(_serverSub, '取消回调服务器订阅'),
     ]);
     await Future.wait<bool>(<Future<bool>>[
-      _closeResource(() => _server.close(force: true), 'close server'),
-      _closeResource(_controller.close, 'close event stream'),
+      _closeResource(() => _server.close(force: true), '关闭回调服务器'),
+      _closeResource(_controller.close, '关闭事件流'),
     ]);
     await _deleteAddon(_addonPath);
   }

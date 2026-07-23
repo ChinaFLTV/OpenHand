@@ -132,7 +132,7 @@ class WebReverseHarReplayServer {
       if (uniqueReplayKeys.isEmpty) return null;
       replayEntryCount = uniqueReplayKeys.length;
     } catch (error, stack) {
-      silentLog('web_reverse_har_replay_server', 'parse', error, stack);
+      silentLog('web_reverse_har_replay_server', '解析 HAR', error, stack);
       return null;
     }
     HttpServer server;
@@ -143,7 +143,7 @@ class WebReverseHarReplayServer {
         timeout: _bindTimeout,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_har_replay_server', 'bind', error, stack);
+      silentLog('web_reverse_har_replay_server', '绑定重放服务', error, stack);
       return null;
     }
     final boundPort = server.port;
@@ -161,12 +161,7 @@ class WebReverseHarReplayServer {
     _requestSubscription = _server.listen(
       _dispatchRequest,
       onError: (Object error, StackTrace stack) {
-        silentLog(
-          'web_reverse_har_replay_server',
-          'server request stream',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_har_replay_server', '读取服务请求流', error, stack);
       },
     );
   }
@@ -252,7 +247,7 @@ class WebReverseHarReplayServer {
         } catch (error, stack) {
           silentLog(
             'web_reverse_har_replay_server',
-            'set response header ${header.name}',
+            '设置响应头 ${header.name}',
             error,
             stack,
           );
@@ -267,12 +262,7 @@ class WebReverseHarReplayServer {
       response.add(byPath.bodyBytes);
       await response.close();
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_har_replay_server',
-        'handle request',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_har_replay_server', '处理重放请求', error, stack);
       await _closeResponseAfterFailure(request);
     }
   }
@@ -289,12 +279,7 @@ class WebReverseHarReplayServer {
       response.write(jsonEncode(body));
       await response.close();
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_har_replay_server',
-        'write JSON response',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_har_replay_server', '写入 JSON 响应', error, stack);
       await _closeResponseAfterFailure(request);
     }
   }
@@ -315,17 +300,13 @@ class WebReverseHarReplayServer {
     _requestSubscription = null;
     await cancelStreamSubscriptionBounded<HttpRequest>(
       subscription,
-      onError: (error, stack) => silentLog(
-        'web_reverse_har_replay_server',
-        'cancel request subscription',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('web_reverse_har_replay_server', '取消请求订阅', error, stack),
     );
     try {
       await _server.close(force: true).timeout(_closeTimeout);
     } catch (error, stack) {
-      silentLog('web_reverse_har_replay_server', 'close server', error, stack);
+      silentLog('web_reverse_har_replay_server', '关闭重放服务', error, stack);
     }
     final pending = _pendingRequests.toList(growable: false);
     if (pending.isEmpty) return;
@@ -409,12 +390,7 @@ class WebReverseHarReplayServer {
         truncated: encoded.length > _maxReplayBodyBytes,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_har_replay_server',
-        'decode replay body',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_har_replay_server', '解码重放响应体', error, stack);
       return null;
     }
   }

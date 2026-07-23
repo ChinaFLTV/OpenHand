@@ -2,9 +2,33 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_file_io.dart';
 
 const Duration _pluginEnvironmentProbeTimeout = Duration(milliseconds: 500);
+
+String pluginShellExecutable() {
+  final shell = Platform.environment['SHELL'];
+  if (shell != null && shell.isNotEmpty) return shell;
+  return '/bin/zsh';
+}
+
+Map<String, String> pluginProxyEnvironment() {
+  return SystemProxyResolver.instance.resolveSubprocessEnvironment();
+}
+
+bool pluginLooksLikeHomebrewPythonPath(String path) {
+  return path.contains('/Cellar/python') ||
+      path.contains('/Homebrew/Cellar/python') ||
+      path.contains('/opt/homebrew/') ||
+      path.contains('/usr/local/opt/python') ||
+      path.contains('/usr/local/bin/python');
+}
+
+bool pluginLooksLikeSystemPythonPath(String path) {
+  return path.startsWith('/usr/bin/') ||
+      path.startsWith('/Library/Developer/CommandLineTools/');
+}
 
 Future<bool> pluginPyenvInstallationExists({String? homeDirectory}) {
   final home = (homeDirectory ?? Platform.environment['HOME'] ?? '').trim();

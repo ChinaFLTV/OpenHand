@@ -153,7 +153,7 @@ class KnowledgeIngestionService {
       } catch (cleanupError, cleanupStack) {
         silentLog(
           'knowledge_ingestion_service',
-          'clean staged source after initial upsert failure',
+          '初次写入失败后清理暂存知识源',
           cleanupError,
           cleanupStack,
         );

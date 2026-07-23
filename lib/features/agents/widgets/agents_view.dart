@@ -4908,8 +4908,7 @@ class _AgentResourceLiveBodyState extends State<_AgentResourceLiveBody> {
     _sampleTimer = startNonOverlappingPeriodicTimer(
       _agentResourceSampleInterval,
       (_) => _sampleNow(),
-      onError: (error, stack) =>
-          silentLog('agents', 'sample resource usage timer', error, stack),
+      onError: (error, stack) => silentLog('agents', '采样资源用量定时器', error, stack),
     );
   }
 
@@ -4928,7 +4927,7 @@ class _AgentResourceLiveBodyState extends State<_AgentResourceLiveBody> {
           .sampleResourceUsage(widget.agent.id)
           .timeout(_agentResourceSampleTimeout);
     } catch (error, stack) {
-      silentLog('agents', 'sample resource usage', error, stack);
+      silentLog('agents', '采样资源用量', error, stack);
     } finally {
       _sampleInFlight = false;
     }
@@ -10021,7 +10020,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       if (!mounted) return;
       setState(() => _avatar.text = path);
     } catch (error, stack) {
-      silentLog('agents_view', 'pick avatar image', error, stack);
+      silentLog('agents_view', '选择头像图片', error, stack);
       if (!mounted) return;
       _showAgentErrorSnack(
         context,

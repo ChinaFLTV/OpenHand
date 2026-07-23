@@ -1557,7 +1557,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         fallbackModel: _translationFallbackModel(settingsController),
       );
     } catch (error, stack) {
-      silentLog('tts', 'toggle message playback', error, stack);
+      silentLog('tts', '切换消息播放状态', error, stack);
       if (!mounted) return;
       flashHomeSnack(
         context,
@@ -2177,7 +2177,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         }
       }
     } catch (error, stack) {
-      silentLog('home_transcript', 'reveal older messages', error, stack);
+      silentLog('home_transcript', '显示更早消息', error, stack);
     } finally {
       if (revealStarted && mounted) {
         await WidgetsBinding.instance.endOfFrame;

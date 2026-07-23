@@ -392,7 +392,7 @@ class WebReverseCdpMcpBridge {
           onError: (Object error, StackTrace stack) {
             silentLog(
               'web_reverse_cdp_mcp_bridge',
-              'discover transient cdp mcp ${server.name}',
+              '发现临时 CDP MCP 服务：${server.name}',
               error,
               stack,
             );

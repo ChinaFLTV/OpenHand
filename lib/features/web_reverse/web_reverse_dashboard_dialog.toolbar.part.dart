@@ -552,12 +552,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'getSaveLocation HAR',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择 HAR 保存位置', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -581,12 +576,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           .exportHarToPath(location.path)
           .timeout(const Duration(seconds: 10));
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'exportHarToPath',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '导出 HAR 到文件', error, stack);
     }
     if (!mounted) return;
     if (written == null) {
@@ -660,12 +650,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'getSaveLocation screenshot',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择截图保存位置', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -700,12 +685,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'write screenshot',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '写入截图', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -735,7 +715,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     try {
       file = await openFile(acceptedTypeGroups: const [typeGroup]);
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'openFile har', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '打开 HAR 文件', error, stack);
     }
     if (file == null) return;
     // 当前缓冲非空时让用户选「替换」or「合并」；否则直接替换。
@@ -835,7 +815,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'parse har', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '解析 HAR', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -872,12 +852,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       if (aRaw == null) return;
       bRaw = await openFile(acceptedTypeGroups: const [typeGroup]);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'openFile har diff',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '打开 HAR 对比文件', error, stack);
     }
     if (aRaw == null || bRaw == null || !context.mounted) return;
     final a = aRaw;
@@ -940,12 +915,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         }
         return (map: map, total: total, parsed: parsed, tooLargeBytes: null);
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_dashboard_dialog',
-          'parse har diff',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_dashboard_dialog', '解析 HAR 对比文件', error, stack);
         return null;
       }
     }
@@ -1263,7 +1233,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       context: context,
                       text: buf.toString(),
                       logTag: 'web_reverse_dashboard_dialog',
-                      logAction: 'copy batch curl',
+                      logAction: '复制批量 curl 命令',
                       showSuccess: false,
                     );
                     if (copied == null || !context.mounted) return;

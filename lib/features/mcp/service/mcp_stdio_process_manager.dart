@@ -429,7 +429,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           stdin: process.stdin,
           timeout: _stdinCloseTimeout,
           logTag: 'mcp_stdio_process_manager',
-          logWhere: 'close unmanaged stdin',
+          logWhere: '关闭未托管进程标准输入',
         ),
         _terminateProcessTreeBounded(process),
       ]);
@@ -521,7 +521,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         stdin: managed.process!.stdin,
         timeout: _stdinCloseTimeout,
         logTag: 'mcp_stdio_process_manager',
-        logWhere: 'close stdin $serverName',
+        logWhere: '关闭进程标准输入：$serverName',
       );
       await _terminateProcessTreeBounded(managed.process!);
     } catch (e) {

@@ -367,7 +367,7 @@ export function stopTtsPlayback(): void {
   try {
     window.speechSynthesis?.cancel();
   } catch {
-    // Ignore browser engine failures.
+    // 浏览器语音引擎取消失败不影响状态复位。
   }
 }
 
@@ -444,7 +444,7 @@ async function speakWithBrowserSystem(
       try {
         window.speechSynthesis.cancel();
       } catch {
-        // Ignore; timeout still ends this attempt.
+        // 超时已结束本次尝试，无需继续处理取消失败。
       }
     }, timeoutMs);
     try {

@@ -94,15 +94,15 @@ class ThrottleCloudSyncResult {
 
 /// 节流配置云端同步 service。
 ///
-/// service 不感知 SettingsController 的存在；调用方负责
-/// 把要 push 的 config 序列化好，把 pull 回来的 Map 喂给
-/// `SettingsController.importAiStreamThrottleConfig`。这样 service
-/// 单纯做"网络 IO + JSON 编解码"，方便被脚本工具复用。
+/// 服务不感知 SettingsController 的存在；调用方负责
+/// 序列化要推送的 config，并把拉取到的 Map 传给
+/// `SettingsController.importAiStreamThrottleConfig`。这样服务
+/// 只处理“网络 IO + JSON 编解码”，方便被脚本工具复用。
 ///
 /// [cloudChanges] 在 native 端收到
 /// `NSUbiquitousKeyValueStoreDidChangeExternallyNotification`（即用户
 /// 在另一台设备改了节流配置，iCloud 推送过来）时主动调
-/// `cloudConfigChanged` method，service 转换为 Stream 事件让上层
+/// `cloudConfigChanged` 方法，服务转换为 Stream 事件让上层
 /// 自动同步服务感知并触发一次拉取。
 class ThrottleCloudSyncService {
   ThrottleCloudSyncService({
@@ -158,12 +158,8 @@ class ThrottleCloudSyncService {
     if (!_cloudChangesController.isClosed) {
       await runAsyncCleanupBounded(
         _cloudChangesController.close,
-        onError: (error, stack) => silentLog(
-          'throttle_cloud_sync',
-          'close cloud changes stream',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('throttle_cloud_sync', '关闭云端变更流', error, stack),
       );
     }
   }
@@ -219,7 +215,7 @@ class ThrottleCloudSyncService {
     if (target.error != null) {
       return ThrottleCloudSyncResult.failure(target.error!);
     }
-    return _runHttpRequest('push', (client) async {
+    return _runHttpRequest('推送自定义端点配置', (client) async {
       final body = jsonEncode(_configPayload(config, updatedAtMs));
       final bodyBytes = utf8.encode(body);
       final resp = await _sendHttpRequest(
@@ -266,7 +262,7 @@ class ThrottleCloudSyncService {
     if (target.error != null) {
       return ThrottleCloudSyncResult.failure(target.error!);
     }
-    return _runHttpRequest('pull', (client) async {
+    return _runHttpRequest('拉取自定义端点配置', (client) async {
       final resp = await _sendHttpRequest(
         client,
         method: 'GET',
@@ -476,7 +472,7 @@ class ThrottleCloudSyncService {
         'iCloud timeout after ${_remoteRequestTimeout.inSeconds}s',
       );
     } catch (error, stack) {
-      silentLog('throttle_cloud_sync', 'pushIcloud', error, stack);
+      silentLog('throttle_cloud_sync', '推送 iCloud 配置', error, stack);
       return ThrottleCloudSyncResult.failure('$error');
     }
   }
@@ -528,7 +524,7 @@ class ThrottleCloudSyncService {
         'iCloud timeout after ${_remoteRequestTimeout.inSeconds}s',
       );
     } catch (error, stack) {
-      silentLog('throttle_cloud_sync', 'pullIcloud', error, stack);
+      silentLog('throttle_cloud_sync', '拉取 iCloud 配置', error, stack);
       return ThrottleCloudSyncResult.failure('$error');
     }
   }
@@ -550,7 +546,7 @@ class ThrottleCloudSyncService {
     if (pat == null) {
       return ThrottleCloudSyncResult.failure('GitHub PAT is required');
     }
-    return _runHttpRequest('pushGist', (client) async {
+    return _runHttpRequest('推送 GitHub Gist 配置', (client) async {
       final fileContent = prettyPrintJson(_configPayload(config, updatedAtMs));
       final body = jsonEncode(<String, Object?>{
         'description': 'OpenHand throttle config (auto-synced)',
@@ -619,7 +615,7 @@ class ThrottleCloudSyncService {
     if (pat == null) {
       return ThrottleCloudSyncResult.failure('GitHub PAT is required');
     }
-    return _runHttpRequest('pullGist', (client) async {
+    return _runHttpRequest('拉取 GitHub Gist 配置', (client) async {
       final resp = await _sendHttpRequest(
         client,
         method: 'GET',

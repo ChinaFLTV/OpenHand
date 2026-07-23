@@ -190,8 +190,7 @@ class WebReverseCdpClient {
     }
     await Future.wait<void>(<Future<void>>[
       _disposeCurrentConnection(),
-      if (connecting != null)
-        _closeTransportQuietly(connecting, 'close superseded connection'),
+      if (connecting != null) _closeTransportQuietly(connecting, '关闭已被替代的连接'),
     ]);
     _throwIfSuperseded(generation);
     await _openTransport(generation);
@@ -249,9 +248,8 @@ class WebReverseCdpClient {
       }
       if (!cancellation.isCompleted) cancellation.complete();
       await Future.wait<void>(<Future<void>>[
-        _cancelSubscriptionQuietly(subscription, 'cancel failed connection'),
-        if (shouldCloseTransport)
-          _closeTransportQuietly(transport, 'close failed connection'),
+        _cancelSubscriptionQuietly(subscription, '取消失败的连接'),
+        if (shouldCloseTransport) _closeTransportQuietly(transport, '关闭失败的连接'),
       ]);
       Error.throwWithStackTrace(error, stack);
     }
@@ -355,7 +353,7 @@ class WebReverseCdpClient {
         ),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_cdp_client', 'parse message', error, stack);
+      silentLog('web_reverse_cdp_client', '解析 CDP 消息', error, stack);
     }
   }
 
@@ -366,7 +364,7 @@ class WebReverseCdpClient {
     StackTrace stack,
   ) {
     if (!_ownsActiveTransport(transport, generation)) return;
-    silentLog('web_reverse_cdp_client', 'ws error', error, stack);
+    silentLog('web_reverse_cdp_client', 'WebSocket 传输错误', error, stack);
     _connected = false;
     _failAllPending(error, stack);
     _scheduleReconnect(generation);
@@ -426,12 +424,7 @@ class WebReverseCdpClient {
           return;
         } catch (error, stack) {
           if (!_ownsReconnect(generation)) return;
-          silentLog(
-            'web_reverse_cdp_client',
-            'reconnect attempt $attempt',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_cdp_client', '第 $attempt 次重连', error, stack);
           delay = _nextReconnectDelay(delay);
         }
       }
@@ -536,14 +529,14 @@ class WebReverseCdpClient {
     await Future.wait<void>(<Future<void>>[
       _disposeCurrentConnection(),
       if (connecting != null && !identical(connecting, active))
-        _closeTransportQuietly(connecting, 'close connecting transport'),
+        _closeTransportQuietly(connecting, '关闭连接中的传输'),
     ]);
     _failAllPending(StateError('CDP client manually closed'));
     if (!_eventCtrl.isClosed) {
       try {
         await _eventCtrl.close().timeout(_connectionCleanupTimeout);
       } catch (error, stack) {
-        silentLog('web_reverse_cdp_client', 'close event stream', error, stack);
+        silentLog('web_reverse_cdp_client', '关闭事件流', error, stack);
       }
     }
   }
@@ -555,9 +548,8 @@ class WebReverseCdpClient {
     _transport = null;
     _connected = false;
     await Future.wait<void>(<Future<void>>[
-      _cancelSubscriptionQuietly(subscription, 'cancel subscription'),
-      if (transport != null)
-        _closeTransportQuietly(transport, 'close active transport'),
+      _cancelSubscriptionQuietly(subscription, '取消订阅'),
+      if (transport != null) _closeTransportQuietly(transport, '关闭活动传输'),
     ]);
   }
 

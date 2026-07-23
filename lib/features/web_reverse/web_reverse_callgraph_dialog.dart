@@ -143,7 +143,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 allowMalformed: true,
               );
             } catch (e, st) {
-              silentLog('web_reverse_callgraph', 'b64decode', e, st);
+              silentLog('web_reverse_callgraph', '解码 Base64 内容', e, st);
               continue;
             }
           }
@@ -156,7 +156,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
             _graphs.add(graph);
           }
         } catch (e, st) {
-          silentLog('web_reverse_callgraph', 'getResourceContent', e, st);
+          silentLog('web_reverse_callgraph', '获取资源内容', e, st);
         }
       }
       if (!mounted) return;
@@ -625,7 +625,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                     successBase:
                         loc?.webReverseCallgraphGraphCopied ?? 'Graph copied',
                     logTag: 'web_reverse_callgraph',
-                    logAction: 'copy graph',
+                    logAction: '复制调用图',
                   );
                 },
               ),

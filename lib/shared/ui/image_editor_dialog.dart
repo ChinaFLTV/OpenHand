@@ -2582,8 +2582,12 @@ class _IsolateRenderParams {
   static _IsolateRenderParams? fromMessage(Map<String, Object?> message) {
     final imageBytes = message['imageBytes'];
     if (imageBytes is! Uint8List || imageBytes.isEmpty) return null;
-    final previewWidth = _positiveDoubleFromMessage(message['previewWidth']);
-    final previewHeight = _positiveDoubleFromMessage(message['previewHeight']);
+    final previewWidth = optionalPositiveDoubleFromValue(
+      message['previewWidth'],
+    );
+    final previewHeight = optionalPositiveDoubleFromValue(
+      message['previewHeight'],
+    );
     if (previewWidth == null || previewHeight == null) return null;
     final hasCropRect = optionalBoolFromValue(message['hasCropRect']) ?? false;
     final cropWidth = _doubleFromMessage(message['cropWidth']);
@@ -2647,11 +2651,6 @@ class _IsolateRenderParams {
 
   static double _doubleFromMessage(Object? value, {double fallback = 0}) {
     return optionalDoubleFromValue(value) ?? fallback;
-  }
-
-  static double? _positiveDoubleFromMessage(Object? value) {
-    final parsed = optionalDoubleFromValue(value);
-    return parsed == null || parsed <= 0 ? null : parsed;
   }
 
   static int _intFromMessage(Object? value, {required int fallback}) {

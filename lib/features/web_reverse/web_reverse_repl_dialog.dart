@@ -85,7 +85,7 @@ class _ReplDialogState extends State<_ReplDialog> {
         result = r;
       }
     } catch (e, s) {
-      silentLog('web_reverse_repl_dialog', 'repl.run', e, s);
+      silentLog('web_reverse_repl_dialog', '执行 REPL', e, s);
       error = true;
       result = e.toString();
     }
@@ -153,7 +153,7 @@ class _ReplDialogState extends State<_ReplDialog> {
       successBase:
           AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
       logTag: 'web_reverse_repl_dialog',
-      logAction: 'repl.copy',
+      logAction: '复制 REPL 结果',
     );
   }
 

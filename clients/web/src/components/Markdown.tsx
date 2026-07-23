@@ -138,8 +138,7 @@ const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
 const HTML_RENDER_READY_CACHE_LIMIT = 512;
 const HTML_RENDER_PROFILE_CACHE_LIMIT = 256;
-// Keep deferred HTML mounts near the viewport so long threads do not
-// sanitize/render dozens of off-screen HTML cards on open.
+// 延迟挂载的 HTML 保持在视口附近，避免打开长会话时同时净化并渲染大量离屏卡片。
 const HTML_DEFERRED_RENDER_ROOT_MARGIN = '420px 0px';
 const HTML_PLACEHOLDER_MIN_HEIGHT_PX = 96;
 const HTML_PLACEHOLDER_MAX_HEIGHT_PX = 520;
@@ -1390,9 +1389,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
         />
       ),
       code: (props: any) => {
-        // Block code detection: rehype-highlight adds className to block code.
-        // Also check if children contain React elements (spans from highlighting)
-        // which indicates this is a processed block code element.
+        // rehype-highlight 会为块级代码添加 className；高亮产生的子元素也可用于识别已处理的代码块。
         const { className, children, node, ...rest } = props;
         const hasHljsClass = Boolean(className);
         const parentTag = typeof node?.tagName === 'string' ? String(node.tagName).toLowerCase() : '';
@@ -1417,7 +1414,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
             </CodeBlockSurface>
           );
         }
-        // Inline code
+        // 行内代码。
         return (
           <code
             className={className}
@@ -1435,7 +1432,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
         );
       },
       pre: (props: any) => {
-        // <pre> wraps block <code>. Make it transparent — code component owns styling.
+        // <pre> 仅包裹块级 <code>，具体样式由代码组件负责。
         const { children, ...rest } = props;
         return (
           <pre {...rest} style={{ background: 'transparent', margin: 0, padding: 0, overflow: 'visible' }}>
@@ -1530,7 +1527,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
         </pre>
       );
     }
-    // fall through to markdown rendering
+    // 继续按 Markdown 渲染。
   }
 
   // 自适应：WEB 端 contentFormat 由本机 localStorage 控制，可能与 APP 端

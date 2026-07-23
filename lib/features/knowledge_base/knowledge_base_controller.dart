@@ -445,12 +445,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       try {
         await completeManagedKnowledgeSourceFileCleanup(source);
       } catch (error, stack) {
-        silentLog(
-          'knowledge_base_controller',
-          'delete managed source file',
-          error,
-          stack,
-        );
+        silentLog('knowledge_base_controller', '删除托管源文件', error, stack);
       }
       await _reloadSources();
       return true;
@@ -463,13 +458,13 @@ class KnowledgeBaseController extends ChangeNotifier {
         } catch (cleanupError, cleanupStack) {
           silentLog(
             'knowledge_base_controller',
-            'cancel managed source cleanup',
+            '取消托管源文件清理',
             cleanupError,
             cleanupStack,
           );
         }
       }
-      silentLog('knowledge_base_controller', 'delete source', error, stack);
+      silentLog('knowledge_base_controller', '删除知识源', error, stack);
       _error = '$error';
       return false;
     }

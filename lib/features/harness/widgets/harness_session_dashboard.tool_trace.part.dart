@@ -805,7 +805,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                             de: 'Kopiert',
                             ja: 'コピーしました',
                           ),
-                          logAction: 'copy tool trace value',
+                          logAction: '复制工具追踪值',
                         );
                       },
                 tooltip: openHandLocalizedText(

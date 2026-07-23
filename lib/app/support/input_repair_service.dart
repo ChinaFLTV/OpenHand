@@ -207,7 +207,7 @@ class InputRepairService {
       hook();
       return true;
     } catch (error, stack) {
-      silentLog('input_repair', 'soft recovery', error, stack);
+      silentLog('input_repair', '执行软恢复', error, stack);
       return false;
     }
   }
@@ -252,7 +252,7 @@ class InputRepairService {
           sawWarning = true;
           silentLog(
             'input_repair',
-            'participant ${participant.debugLabel}',
+            '修复参与者 ${participant.debugLabel}',
             error,
             stack,
           );
@@ -302,7 +302,7 @@ class InputRepairService {
           ),
         );
       } catch (error, stack) {
-        silentLog('input_repair', 'clearClient', error, stack);
+        silentLog('input_repair', '清理文本输入客户端', error, stack);
         steps.add(
           InputRepairStepReport(
             stage: InputRepairStage.clearTextInputClient,
@@ -321,7 +321,7 @@ class InputRepairService {
           ),
         );
       } catch (error, stack) {
-        silentLog('input_repair', 'hideTextInput', error, stack);
+        silentLog('input_repair', '隐藏文本输入', error, stack);
         steps.add(
           InputRepairStepReport(
             stage: InputRepairStage.hideTextInput,
@@ -343,7 +343,7 @@ class InputRepairService {
           ),
         );
       } catch (error, stack) {
-        silentLog('input_repair', 'finishAutofillContext', error, stack);
+        silentLog('input_repair', '结束自动填充上下文', error, stack);
         steps.add(
           InputRepairStepReport(
             stage: InputRepairStage.finishAutofillContext,
@@ -364,7 +364,7 @@ class InputRepairService {
           ),
         );
       } catch (error, stack) {
-        silentLog('input_repair', 'requestExistingInputState', error, stack);
+        silentLog('input_repair', '请求现有输入状态', error, stack);
         steps.add(
           InputRepairStepReport(
             stage: InputRepairStage.requestExistingInputState,
@@ -409,7 +409,7 @@ class InputRepairService {
         );
       }
     } catch (error, stack) {
-      silentLog('input_repair', 'repair', error, stack);
+      silentLog('input_repair', '修复文本输入', error, stack);
       steps.add(
         InputRepairStepReport(
           stage: InputRepairStage.restoreSafeFocus,

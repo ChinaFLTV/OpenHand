@@ -163,7 +163,6 @@ Future<void> _bootstrap() async {
     return;
   }
 
-  // 过期临时文件清理放到首帧后，避免与启动期控制器初始化争用同一 isolate。
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
   final cronsModuleFuture = CronsModule.bootstrap();

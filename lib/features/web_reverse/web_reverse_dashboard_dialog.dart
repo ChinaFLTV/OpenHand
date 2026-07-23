@@ -138,6 +138,14 @@ bool _wrMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
 }
 
+int _pageTargetsOrderHash(List<CdpPageTargetSnapshot> targets) {
+  return rollingHash30(targets, (target) => target.id.hashCode);
+}
+
+int _pageTargetsTitleHash(List<CdpPageTargetSnapshot> targets) {
+  return rollingHash30(targets, (target) => target.title.hashCode);
+}
+
 Widget? _hideTextFieldCounter(
   BuildContext context, {
   required int currentLength,
@@ -516,8 +524,8 @@ class _WebReverseDashboardDialogState
     _lastErrMsg = widget.controller.errorMessage ?? '';
     _lastTabsLen = widget.controller.pageTargets.length;
     _lastCurTabId = widget.controller.currentPageTargetId;
-    _lastTabsOrderHash = _computeTabsOrderHash(widget.controller.pageTargets);
-    _lastTabsTitleHash = _computeTabsTitleHash(widget.controller.pageTargets);
+    _lastTabsOrderHash = _pageTargetsOrderHash(widget.controller.pageTargets);
+    _lastTabsTitleHash = _pageTargetsTitleHash(widget.controller.pageTargets);
     // 读取上次离开 dashboard 时停在的 tab。会话维度持久化到 metadata，
     // 用 enum.name 序列化；解析失败 / 没记录时保持 _Tab.network 默认。
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -641,7 +649,7 @@ class _WebReverseDashboardDialogState
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
-        'toggle cdp mcp $enabled',
+        '切换 CDP MCP 状态：$enabled',
         error,
         stack,
       );
@@ -718,8 +726,8 @@ class _WebReverseDashboardDialogState
     final newErrMsg = ctrl.errorMessage ?? '';
     final newTabsLen = ctrl.pageTargets.length;
     final newCurTab = ctrl.currentPageTargetId;
-    final newTabsOrderHash = _computeTabsOrderHash(ctrl.pageTargets);
-    final newTabsTitleHash = _computeTabsTitleHash(ctrl.pageTargets);
+    final newTabsOrderHash = _pageTargetsOrderHash(ctrl.pageTargets);
+    final newTabsTitleHash = _pageTargetsTitleHash(ctrl.pageTargets);
     // 关键：screencast 帧抵达不会改变这些计数，所以这里就早退。让浏览器
     // 面板内的 [_ScreencastImage] 自行 AnimatedBuilder 局部 repaint。
     final dashboardDirty =
@@ -754,14 +762,6 @@ class _WebReverseDashboardDialogState
     _lastTabsOrderHash = newTabsOrderHash;
     _lastTabsTitleHash = newTabsTitleHash;
     if (dashboardDirty) setState(() {});
-  }
-
-  static int _computeTabsOrderHash(List<CdpPageTargetSnapshot> targets) {
-    return rollingHash30(targets, (target) => target.id.hashCode);
-  }
-
-  static int _computeTabsTitleHash(List<CdpPageTargetSnapshot> targets) {
-    return rollingHash30(targets, (target) => target.title.hashCode);
   }
 
   /// 让 part 文件能从外部触发 dashboard 重建（part 文件不能直接调 setState）。
@@ -830,7 +830,7 @@ class _WebReverseDashboardDialogState
       } catch (error, stack) {
         silentLog(
           'web_reverse_dashboard_dialog',
-          'restore first page ${wantUrls.first}',
+          '恢复首个页面：${wantUrls.first}',
           error,
           stack,
         );
@@ -851,12 +851,7 @@ class _WebReverseDashboardDialogState
               .createPageTarget(url: url)
               .timeout(_browserTabRestoreCommandTimeout);
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_dashboard_dialog',
-            'restore page $url',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_dashboard_dialog', '恢复页面：$url', error, stack);
         }
       },
     );
@@ -1079,12 +1074,7 @@ class _WebReverseDashboardDialogState
       try {
         await c.setPauseOnExceptions(rawPause);
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_dashboard_dialog',
-          'restore pause mode',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_dashboard_dialog', '恢复暂停模式', error, stack);
       }
     }
     // 行断点（含 condition）。旧格式只有 url/line 时 condition 缺省。
@@ -1106,7 +1096,7 @@ class _WebReverseDashboardDialogState
         } catch (error, stack) {
           silentLog(
             'web_reverse_dashboard_dialog',
-            'restore breakpoint $url:$line',
+            '恢复断点：$url:$line',
             error,
             stack,
           );
@@ -1123,7 +1113,7 @@ class _WebReverseDashboardDialogState
         } catch (error, stack) {
           silentLog(
             'web_reverse_dashboard_dialog',
-            'restore xhr breakpoint $s',
+            '恢复 XHR 断点：$s',
             error,
             stack,
           );
@@ -1138,12 +1128,7 @@ class _WebReverseDashboardDialogState
         try {
           await c.setEventListenerBreakpoint(s);
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_dashboard_dialog',
-            'restore event breakpoint $s',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_dashboard_dialog', '恢复事件断点：$s', error, stack);
         }
       }
     }
@@ -1160,7 +1145,7 @@ class _WebReverseDashboardDialogState
         } catch (error, stack) {
           silentLog(
             'web_reverse_dashboard_dialog',
-            'restore dom breakpoint $sel',
+            '恢复 DOM 断点：$sel',
             error,
             stack,
           );
@@ -1176,12 +1161,7 @@ class _WebReverseDashboardDialogState
         try {
           await c.setCspViolationBreakpoints(types);
         } catch (error, stack) {
-          silentLog(
-            'web_reverse_dashboard_dialog',
-            'restore csp breakpoints',
-            error,
-            stack,
-          );
+          silentLog('web_reverse_dashboard_dialog', '恢复 CSP 断点', error, stack);
         }
       }
     }
@@ -1642,12 +1622,7 @@ Future<void> _openOfficialDevToolsForController(
       );
     }
   } catch (error, stack) {
-    silentLog(
-      'web_reverse_dashboard_dialog',
-      'open devtools url',
-      error,
-      stack,
-    );
+    silentLog('web_reverse_dashboard_dialog', '打开 DevTools 链接', error, stack);
   }
   if (!context.mounted) return;
   if (frontendUrl == null) {
@@ -2006,7 +1981,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'exportSnapshot', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '导出快照', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -2097,7 +2072,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         );
       }
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'importSnapshot', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '导入快照', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -2546,7 +2521,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
         ja: '原始エラーをコピーしました',
       ),
       logTag: 'web_reverse_dashboard_dialog',
-      logAction: 'copy diagnosis',
+      logAction: '复制诊断信息',
       successDuration: const Duration(seconds: 1),
     );
   }

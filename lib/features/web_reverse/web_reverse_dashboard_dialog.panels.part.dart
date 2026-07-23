@@ -64,24 +64,20 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     _refreshTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 2),
       (_) => _refresh(),
-      onError: (error, stack) => silentLog(
-        'web_reverse_dashboard',
-        'refresh performance metrics',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard', '刷新性能指标', error, stack),
     );
     _fpsTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _sampleFps(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', 'sample fps', error, stack),
+          silentLog('web_reverse_dashboard', '采样 FPS', error, stack),
     );
     _longTaskTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _sampleLongTasks(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', 'sample long tasks', error, stack),
+          silentLog('web_reverse_dashboard', '采样长任务', error, stack),
     );
   }
 
@@ -222,12 +218,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'pick performance csv path',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择性能 CSV 保存位置', error, stack);
     }
     if (!mounted || location == null) return;
     try {
@@ -246,12 +237,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'export performance csv',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '导出性能 CSV', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -282,7 +268,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         earlyStop: earlyStop.future,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'recordTrace', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '录制性能轨迹', error, stack);
     }
     if (!mounted) return;
     setState(() {
@@ -314,12 +300,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         _traceMinTs = parsed.minTs;
         _traceMaxTs = parsed.maxTs;
       } catch (error, stack) {
-        silentLog(
-          'web_reverse_dashboard_dialog',
-          'parseTraceLanes',
-          error,
-          stack,
-        );
+        silentLog('web_reverse_dashboard_dialog', '解析性能轨迹泳道', error, stack);
         _traceLanes = const [];
       }
       if (mounted) setState(() {});
@@ -336,12 +317,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'getSaveLocation trace',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择性能轨迹保存位置', error, stack);
     }
     if (location == null) return;
     try {
@@ -360,7 +336,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         ),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'write trace', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '写入性能轨迹', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -1514,7 +1490,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       const Duration(milliseconds: 1500),
       (_) => _sampleHeap(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', 'sample heap', error, stack),
+          silentLog('web_reverse_dashboard', '采样堆内存', error, stack),
     );
     unawaited(_sampleHeap());
     // 读回 session metadata 中保存的最近两次堆快照，让用户
@@ -1739,12 +1715,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'getSaveLocation heap',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择堆数据保存位置', error, stack);
     }
     if (location == null) return;
     try {
@@ -1763,7 +1734,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         ),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'write heap', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '写入堆数据', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -2766,7 +2737,7 @@ class _SamplingTopList extends StatelessWidget {
                   context: context,
                   text: row.stack.join('\n'),
                   logTag: 'web_reverse_memory_panel',
-                  logAction: 'copy stack',
+                  logAction: '复制调用栈',
                   showSuccess: false,
                 );
                 if (copied == null) return;
@@ -3225,7 +3196,7 @@ class _CookiesTableState extends State<_CookiesTable> {
         ja: '${widget.cookies.length} 件の cookie をクリップボードにコピーしました',
       ),
       logTag: 'web_reverse_cookies_panel',
-      logAction: 'copy export',
+      logAction: '复制导出内容',
     );
   }
 
@@ -3669,7 +3640,7 @@ class _StorageTableState extends State<_StorageTable> {
         ja: '${widget.rows.length} 件をクリップボードにコピーしました',
       ),
       logTag: 'web_reverse_storage_panel',
-      logAction: 'copy export',
+      logAction: '复制导出内容',
     );
   }
 
@@ -5131,12 +5102,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'getSaveLocation recorder',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择录制数据保存位置', error, stack);
     }
     if (location == null) return;
     try {
@@ -5144,7 +5110,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       if (!mounted) return;
       showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'write recorder', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '写入录制数据', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -5160,12 +5126,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       file = await openFile(acceptedTypeGroups: const [typeGroup]);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'openFile recorder',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '打开录制数据文件', error, stack);
     }
     if (file == null) return;
     try {
@@ -5206,12 +5167,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'parse recorder json',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '解析录制数据 JSON', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -5270,12 +5226,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'pick recorder export path',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '选择录制代码导出位置', error, stack);
     }
     if (!mounted || location == null) return;
     try {
@@ -5283,12 +5234,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       if (!mounted) return;
       showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'export $kind code',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '导出 $kind 代码', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -5956,12 +5902,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
         if (ts + dur > maxT) maxT = ts + dur;
       }
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'parse trace events',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '解析性能轨迹事件', error, stack);
     }
     if (all.length > 3000) {
       final step = (all.length / 3000).ceil();

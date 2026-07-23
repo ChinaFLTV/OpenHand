@@ -18,14 +18,16 @@ class AiTokenUsageParser {
   const AiTokenUsageParser._();
 
   static AiTokenUsage? parseResponsePayload(Object? raw) {
-    final root = _readMap(raw);
+    final root = optionalStringKeyedMapFromValue(raw);
     if (root == null) return null;
     final candidates = <Map<String, Object?>>[];
 
     void collect(Map<String, Object?> payload, int depth) {
-      final usage = _readMap(payload['usage']);
+      final usage = optionalStringKeyedMapFromValue(payload['usage']);
       if (usage != null) candidates.add(usage);
-      final usageMetadata = _readMap(payload['usageMetadata']);
+      final usageMetadata = optionalStringKeyedMapFromValue(
+        payload['usageMetadata'],
+      );
       if (usageMetadata != null) candidates.add(usageMetadata);
       candidates.add(payload);
       if (depth >= 2) return;
@@ -36,14 +38,14 @@ class AiTokenUsageParser {
         'response',
       ]) {
         final nested = payload[key];
-        final nestedMap = _readMap(nested);
+        final nestedMap = optionalStringKeyedMapFromValue(nested);
         if (nestedMap != null) {
           collect(nestedMap, depth + 1);
           continue;
         }
         if (nested is List) {
           for (final item in nested) {
-            final itemMap = _readMap(item);
+            final itemMap = optionalStringKeyedMapFromValue(item);
             if (itemMap != null) collect(itemMap, depth + 1);
           }
         }
@@ -94,17 +96,19 @@ class AiTokenUsageParser {
     ]);
 
     final promptDetails =
-        _readMap(usageMap['prompt_tokens_details']) ??
-        _readMap(usageMap['promptTokensDetails']);
+        optionalStringKeyedMapFromValue(usageMap['prompt_tokens_details']) ??
+        optionalStringKeyedMapFromValue(usageMap['promptTokensDetails']);
     final inputDetails =
-        _readMap(usageMap['input_tokens_details']) ??
-        _readMap(usageMap['inputTokensDetails']);
+        optionalStringKeyedMapFromValue(usageMap['input_tokens_details']) ??
+        optionalStringKeyedMapFromValue(usageMap['inputTokensDetails']);
     final completionDetails =
-        _readMap(usageMap['completion_tokens_details']) ??
-        _readMap(usageMap['completionTokensDetails']);
+        optionalStringKeyedMapFromValue(
+          usageMap['completion_tokens_details'],
+        ) ??
+        optionalStringKeyedMapFromValue(usageMap['completionTokensDetails']);
     final outputDetails =
-        _readMap(usageMap['output_tokens_details']) ??
-        _readMap(usageMap['outputTokensDetails']);
+        optionalStringKeyedMapFromValue(usageMap['output_tokens_details']) ??
+        optionalStringKeyedMapFromValue(usageMap['outputTokensDetails']);
 
     final cacheRead = _firstInt([
       promptDetails?['cached_tokens'],
@@ -179,8 +183,8 @@ class AiTokenUsageParser {
       inputDetails?['videoTokens'],
     ]);
     final webSearchUsage =
-        _readMap(usageMap['web_search_usage']) ??
-        _readMap(usageMap['webSearchUsage']);
+        optionalStringKeyedMapFromValue(usageMap['web_search_usage']) ??
+        optionalStringKeyedMapFromValue(usageMap['webSearchUsage']);
     final webSearchToolUsage = _firstInt(<Object?>[
       webSearchUsage?['tool_usage'],
       webSearchUsage?['toolUsage'],
@@ -244,7 +248,9 @@ class AiTokenUsageParser {
     int? cacheCreation = optionalNonNegativeIntegralIntFromValue(
       usageMap['cache_creation_input_tokens'],
     );
-    final creationDetails = _readMap(usageMap['cache_creation']);
+    final creationDetails = optionalStringKeyedMapFromValue(
+      usageMap['cache_creation'],
+    );
     if (creationDetails != null) {
       final ephemeral5m = optionalNonNegativeIntegralIntFromValue(
         creationDetails['ephemeral_5m_input_tokens'],
@@ -405,11 +411,5 @@ int? _firstInt(List<Object?> candidates) {
     final value = optionalNonNegativeIntegralIntFromValue(candidate);
     if (value != null) return value;
   }
-  return null;
-}
-
-Map<String, Object?>? _readMap(Object? value) {
-  if (value is Map<String, Object?>) return value;
-  if (value is Map) return stringKeyedMapFromValue(value);
   return null;
 }

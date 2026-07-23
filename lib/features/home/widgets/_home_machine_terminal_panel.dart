@@ -85,7 +85,7 @@ class _MachineExpertTerminalPanelState
       if (!mounted || widget.sessionId != sessionId) return;
       await terminalService.startTerminal(sessionId: sessionId);
     } catch (error, stack) {
-      silentLog('openhand_home', 'initialize machine terminal', error, stack);
+      silentLog('openhand_home', '初始化机器终端', error, stack);
       if (!mounted || widget.sessionId != sessionId) return;
       _initializedSessionId = null;
       showFriendlyErrorSnackBar(
@@ -232,7 +232,7 @@ class _MachineExpertTerminalPanelState
         _terminalFocusNode.requestFocus();
       }
     } catch (error, stack) {
-      silentLog('openhand_home', 'machine terminal control', error, stack);
+      silentLog('openhand_home', '控制机器终端', error, stack);
       if (!mounted) return;
       showFriendlyErrorSnackBar(
         context,
@@ -250,7 +250,7 @@ class _MachineExpertTerminalPanelState
     await copyHomeTextToClipboard(
       context: context,
       text: terminalId,
-      logAction: 'copy machine terminal id',
+      logAction: '复制机器终端 ID',
       successMessage: openHandLocalizedText(
         context,
         zh: '终端 ID 已复制。',
@@ -965,12 +965,7 @@ class _MachineTerminalHistoryDialogState
         ),
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home',
-        'restore machine terminal history',
-        error,
-        stack,
-      );
+      silentLog('openhand_home', '恢复机器终端历史', error, stack);
       if (!mounted) return;
       showFriendlyErrorSnackBar(
         context,
@@ -1080,12 +1075,7 @@ class _MachineTerminalHistoryDialogState
         openHandLocalizedText(context, zh: '终端会话已删除。', en: 'Terminal deleted.'),
       );
     } catch (error, stack) {
-      silentLog(
-        'openhand_home',
-        'delete machine terminal history',
-        error,
-        stack,
-      );
+      silentLog('openhand_home', '删除机器终端历史', error, stack);
       if (!mounted) return;
       showFriendlyErrorSnackBar(
         context,
@@ -1473,7 +1463,7 @@ class _MachineTerminalHistoryDetailDialogState
     await copyHomeTextToClipboard(
       context: context,
       text: _terminalHistoryDetailText(widget.snapshot),
-      logAction: 'copy machine terminal history details',
+      logAction: '复制机器终端历史详情',
       successMessage: openHandLocalizedText(
         context,
         zh: '终端历史详情已复制。',
@@ -2370,7 +2360,7 @@ Future<void> _copyCommandRecord(
   await copyHomeTextToClipboard(
     context: context,
     text: _commandRecordDetailText(record),
-    logAction: 'copy machine terminal command output',
+    logAction: '复制机器终端命令输出',
     successMessage: openHandLocalizedText(
       context,
       zh: '命令输出已复制。',

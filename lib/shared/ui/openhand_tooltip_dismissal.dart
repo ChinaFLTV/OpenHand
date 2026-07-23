@@ -36,6 +36,6 @@ void _dismissOpenHandTooltips() {
   try {
     Tooltip.dismissAllToolTips();
   } catch (error, stack) {
-    silentLog(_kTooltipDismissLogTag, 'dismiss all tooltips', error, stack);
+    silentLog(_kTooltipDismissLogTag, '关闭全部工具提示', error, stack);
   }
 }

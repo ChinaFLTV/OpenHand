@@ -504,7 +504,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                           successMessage: AppLocalizations.of(
                             context,
                           )!.auditCopiedToClipboard,
-                          logAction: 'copy audit json',
+                          logAction: '复制审计 JSON',
                         );
                       },
                     ),
@@ -1420,7 +1420,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 successMessage: AppLocalizations.of(
                   context,
                 )!.auditAuditSnapshotCopied,
-                logAction: 'copy audit snapshot',
+                logAction: '复制审计快照',
               );
             },
             icon: Icons.copy_all_rounded,

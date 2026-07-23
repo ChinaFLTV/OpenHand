@@ -182,7 +182,7 @@ class _WsDialogState extends State<_WsDialog> {
               );
       });
     } catch (err, st) {
-      silentLog('web_reverse_websocket_dialog', 'replay', err, st);
+      silentLog('web_reverse_websocket_dialog', '重放 WebSocket 消息', err, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -358,7 +358,7 @@ class _WsDialogState extends State<_WsDialog> {
               );
       });
     } catch (err, st) {
-      silentLog('web_reverse_websocket_dialog', 'editAndSend', err, st);
+      silentLog('web_reverse_websocket_dialog', '编辑并发送 WebSocket 消息', err, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -438,7 +438,7 @@ class _WsDialogState extends State<_WsDialog> {
               );
       });
     } catch (err, st) {
-      silentLog('web_reverse_websocket_dialog', 'fuzz', err, st);
+      silentLog('web_reverse_websocket_dialog', '模糊测试 WebSocket 消息', err, st);
       if (!mounted) return;
       setState(() {
         _busy = false;

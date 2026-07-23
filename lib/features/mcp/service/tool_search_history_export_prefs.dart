@@ -28,12 +28,7 @@ class ToolSearchHistoryExportPrefs {
       final v = rows.first['value'] as String?;
       return nullIfBlank(v);
     } catch (error, stack) {
-      silentLog(
-        'tool_search_history_export_prefs',
-        'readLastDir',
-        error,
-        stack,
-      );
+      silentLog('tool_search_history_export_prefs', '读取上次目录', error, stack);
       return null;
     }
   }
@@ -51,12 +46,7 @@ class ToolSearchHistoryExportPrefs {
         'value': trimmed,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (error, stack) {
-      silentLog(
-        'tool_search_history_export_prefs',
-        'writeLastDir',
-        error,
-        stack,
-      );
+      silentLog('tool_search_history_export_prefs', '写入上次目录', error, stack);
     }
   }
 
@@ -69,7 +59,7 @@ class ToolSearchHistoryExportPrefs {
         whereArgs: <Object?>[_kLastDirKey],
       );
     } catch (error, stack) {
-      silentLog('tool_search_history_export_prefs', 'clear', error, stack);
+      silentLog('tool_search_history_export_prefs', '清理目录偏好', error, stack);
     }
   }
 }

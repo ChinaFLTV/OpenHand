@@ -249,7 +249,8 @@ class KnowledgeEmbeddingService {
           cancelToken,
         );
       } catch (error, stackTrace) {
-        if (!_isRetryableEmbeddingError(error) || attempt >= retryCount) {
+        if (!AiTransportDiagnosticMessages.isRetryableTransportError(error) ||
+            attempt >= retryCount) {
           Error.throwWithStackTrace(error, stackTrace);
         }
         await _delayOrCancel(_retryBackoff(settings, attempt), cancelToken);
@@ -453,10 +454,6 @@ class KnowledgeEmbeddingService {
         host == '127.0.0.1' ||
         host == '::1' ||
         host.endsWith('.local');
-  }
-
-  bool _isRetryableEmbeddingError(Object error) {
-    return AiTransportDiagnosticMessages.isRetryableTransportError(error);
   }
 
   Duration _retryBackoff(KnowledgeBaseSettings settings, int attempt) {

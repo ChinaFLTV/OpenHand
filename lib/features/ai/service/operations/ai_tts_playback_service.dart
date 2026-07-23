@@ -1543,7 +1543,7 @@ class AiTtsPlaybackService {
     operation.throwIfCancelled();
     await _runSpeechProcess(
       'afplay',
-      <String>['-v', '${_afplayVolume(volume)}', file.path],
+      <String>['-v', '${_unitPlaybackVolume(volume)}', file.path],
       timeout: timeout,
       operation: operation,
     );
@@ -1912,10 +1912,6 @@ class AiTtsPlaybackService {
     return volume <= 1
         ? clampUnitInterval(volume)
         : clampUnitInterval(volume / 100);
-  }
-
-  static double _afplayVolume(double volume) {
-    return _unitPlaybackVolume(volume);
   }
 
   static Duration _speechProcessTimeoutForText(

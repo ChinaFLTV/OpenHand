@@ -1131,7 +1131,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
         _loadingFile = false;
       });
     } catch (error, stack) {
-      silentLog('home_tool_call', 'load full tool content', error, stack);
+      silentLog('home_tool_call', '加载完整工具内容', error, stack);
       if (!mounted) return;
       setState(() => _loadingFile = false);
     }
@@ -1165,7 +1165,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
         de: 'Vollständiger Inhalt konnte nicht kopiert werden.',
         ja: '完全な内容のコピーに失敗しました。',
       ),
-      logAction: 'copy full tool content',
+      logAction: '复制完整工具内容',
     );
     if (!mounted || !copied) return;
     _copiedResetTimer?.cancel();
@@ -1211,7 +1211,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
         },
       );
     } catch (error, stack) {
-      silentLog('home_tool_call', 'download full tool content', error, stack);
+      silentLog('home_tool_call', '下载完整工具内容', error, stack);
       if (!mounted) return;
       _showToolContentSnackBar(
         openHandLocalizedText(

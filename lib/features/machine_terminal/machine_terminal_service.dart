@@ -602,12 +602,8 @@ class MachineTerminalService extends ChangeNotifier {
       await runAsyncCleanupBounded(
         () => pending,
         timeout: _shutdownStepTimeout,
-        onError: (error, stack) => silentLog(
-          'machine_terminal',
-          'dispose workspace persist',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('machine_terminal', '释放工作区持久化任务', error, stack),
       );
     }
     _lastPersistedMetadataDigestBySession.remove(normalizedSessionId);
@@ -619,12 +615,8 @@ class MachineTerminalService extends ChangeNotifier {
       await runAsyncCleanupBounded(
         workspace.shutdown,
         timeout: _shutdownStepTimeout,
-        onError: (error, stack) => silentLog(
-          'machine_terminal',
-          'dispose workspace terminals',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('machine_terminal', '释放工作区终端', error, stack),
       );
       workspace.dispose();
     }
@@ -990,7 +982,7 @@ class MachineTerminalService extends ChangeNotifier {
       try {
         await _shutdownResources();
       } catch (error, stack) {
-        silentLog('machine_terminal', 'shutdown', error, stack);
+        silentLog('machine_terminal', '关闭终端服务', error, stack);
       }
     }();
     _shutdownFuture = shutdown;
@@ -1018,12 +1010,8 @@ class MachineTerminalService extends ChangeNotifier {
         await runAsyncCleanupBounded(
           () => pendingWorkspaceOperations[index],
           timeout: _shutdownStepTimeout,
-          onError: (error, stack) => silentLog(
-            'machine_terminal',
-            'await workspace load',
-            error,
-            stack,
-          ),
+          onError: (error, stack) =>
+              silentLog('machine_terminal', '等待工作区加载', error, stack),
         );
       },
     );
@@ -1040,12 +1028,8 @@ class MachineTerminalService extends ChangeNotifier {
           await runAsyncCleanupBounded(
             () => pendingPersists[index],
             timeout: _shutdownStepTimeout,
-            onError: (error, stack) => silentLog(
-              'machine_terminal',
-              'await pending persist',
-              error,
-              stack,
-            ),
+            onError: (error, stack) =>
+                silentLog('machine_terminal', '等待待处理持久化任务', error, stack),
           );
         },
       );
@@ -1062,7 +1046,7 @@ class MachineTerminalService extends ChangeNotifier {
             },
             timeout: _shutdownStepTimeout,
             onError: (error, stack) =>
-                silentLog('machine_terminal', 'flush workspace', error, stack),
+                silentLog('machine_terminal', '刷新工作区数据', error, stack),
           );
         },
       );
@@ -1075,7 +1059,7 @@ class MachineTerminalService extends ChangeNotifier {
             workspaces[index].shutdown,
             timeout: _shutdownStepTimeout,
             onError: (error, stack) =>
-                silentLog('machine_terminal', 'stop workspace', error, stack),
+                silentLog('machine_terminal', '停止工作区', error, stack),
           );
         },
       );
@@ -1257,12 +1241,8 @@ class MachineTerminalService extends ChangeNotifier {
           ),
         );
       },
-      onError: (error, stack) => silentLog(
-        'machine_terminal',
-        'deferred terminal start',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('machine_terminal', '延迟启动终端', error, stack),
     );
   }
 
@@ -1359,7 +1339,7 @@ class MachineTerminalService extends ChangeNotifier {
     } on FileSystemException {
       rethrow;
     } catch (error, stack) {
-      silentLog('machine_terminal', 'restore terminal history', error, stack);
+      silentLog('machine_terminal', '恢复终端历史', error, stack);
       return null;
     }
   }
@@ -1377,12 +1357,7 @@ class MachineTerminalService extends ChangeNotifier {
         late final Future<void> tracked;
         tracked = previous
             .catchError((Object error, StackTrace stack) {
-              silentLog(
-                'machine_terminal',
-                'history persist queue',
-                error,
-                stack,
-              );
+              silentLog('machine_terminal', '终端历史持久化队列', error, stack);
             })
             .then((_) => _persistWorkspaceHistoryNow(normalizedSessionId))
             .whenComplete(() {
@@ -1395,12 +1370,8 @@ class MachineTerminalService extends ChangeNotifier {
             });
         _historyPersistChains[normalizedSessionId] = tracked;
       },
-      onError: (error, stack) => silentLog(
-        'machine_terminal',
-        'schedule history persist',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('machine_terminal', '调度终端历史持久化', error, stack),
     );
   }
 
@@ -1433,7 +1404,7 @@ class MachineTerminalService extends ChangeNotifier {
       await writeFileAtomically(_workspaceHistoryFile(sessionId), content);
       _lastPersistedHistoryDigestBySession[sessionId] = digest;
     } catch (error, stack) {
-      silentLog('machine_terminal', 'persist terminal history', error, stack);
+      silentLog('machine_terminal', '持久化终端历史', error, stack);
     }
   }
 
@@ -1475,12 +1446,7 @@ class MachineTerminalService extends ChangeNotifier {
         await file.delete();
       }
     } catch (error, stack) {
-      silentLog(
-        'machine_terminal',
-        'delete terminal history file',
-        error,
-        stack,
-      );
+      silentLog('machine_terminal', '删除终端历史文件', error, stack);
     }
   }
 
@@ -1507,12 +1473,7 @@ class MachineTerminalService extends ChangeNotifier {
         late final Future<void> tracked;
         tracked = previous
             .catchError((Object error, StackTrace stack) {
-              silentLog(
-                'machine_terminal',
-                'metadata persist queue',
-                error,
-                stack,
-              );
+              silentLog('machine_terminal', '终端元数据持久化队列', error, stack);
             })
             .then((_) => _persistSessionMetadataNow(normalizedSessionId))
             .whenComplete(() {
@@ -1525,12 +1486,8 @@ class MachineTerminalService extends ChangeNotifier {
             });
         _metadataPersistChains[normalizedSessionId] = tracked;
       },
-      onError: (error, stack) => silentLog(
-        'machine_terminal',
-        'schedule metadata persist',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('machine_terminal', '调度终端元数据持久化', error, stack),
     );
   }
 
@@ -1544,7 +1501,7 @@ class MachineTerminalService extends ChangeNotifier {
       await persister(sessionId, metadata);
       _lastPersistedMetadataDigestBySession[sessionId] = digest;
     } catch (error, stack) {
-      silentLog('machine_terminal', 'persist metadata', error, stack);
+      silentLog('machine_terminal', '持久化终端元数据', error, stack);
     }
   }
 }
@@ -1775,7 +1732,7 @@ class MachineTerminalSession {
               if (!identical(_pty, pty)) return;
               _status = MachineTerminalStatus.failed;
               _errorMessage = '$error';
-              silentLog('machine_terminal', 'pty output', error, stack);
+              silentLog('machine_terminal', '读取 PTY 输出', error, stack);
               _touch();
             },
           );
@@ -1801,15 +1758,15 @@ class MachineTerminalSession {
               if (!identical(_pty, pty)) return;
               _status = MachineTerminalStatus.failed;
               _errorMessage = '$error';
-              silentLog('machine_terminal', 'pty exitCode', error, stack);
+              silentLog('machine_terminal', '读取 PTY 退出码', error, stack);
               _touch();
             }),
       );
     } catch (error, stack) {
       _status = MachineTerminalStatus.failed;
       _errorMessage = '$error';
-      _appendPlain('\r\n[OpenHand terminal failed: $error]\r\n');
-      silentLog('machine_terminal', 'start pty', error, stack);
+      _appendPlain('\r\n[OpenHand 终端启动失败：$error]\r\n');
+      silentLog('machine_terminal', '启动 PTY', error, stack);
     } finally {
       _touch();
     }
@@ -1846,7 +1803,7 @@ class MachineTerminalSession {
         );
       }
     } catch (error, stack) {
-      silentLog('machine_terminal', 'stop pty', error, stack);
+      silentLog('machine_terminal', '停止 PTY', error, stack);
     } finally {
       unawaited(_cancelOutputSubscription(outputSubscription));
       _status = MachineTerminalStatus.stopped;
@@ -1859,12 +1816,8 @@ class MachineTerminalSession {
   ) async {
     await cancelStreamSubscriptionBounded<String>(
       subscription,
-      onError: (error, stack) => silentLog(
-        'machine_terminal',
-        'cancel PTY output subscription',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('machine_terminal', '取消 PTY 输出订阅', error, stack),
     );
   }
 
@@ -1945,7 +1898,7 @@ class MachineTerminalSession {
         error: 'Timed out after ${timeout.inMilliseconds}ms.',
       );
     } catch (error, stack) {
-      silentLog('machine_terminal', 'execute command', error, stack);
+      silentLog('machine_terminal', '执行终端命令', error, stack);
       return _recordedCommandResult(
         startedAt: startedAt,
         command: command,
@@ -2028,7 +1981,7 @@ class MachineTerminalSession {
     try {
       _pty?.resize(_rows, _columns);
     } catch (error, stack) {
-      silentLog('machine_terminal', 'resize pty', error, stack);
+      silentLog('machine_terminal', '调整 PTY 尺寸', error, stack);
     }
     _touch();
   }

@@ -268,7 +268,7 @@ class AiSkillManagerTool extends AiTool {
     await _deleteEmptyAncestorDirs(
       start: skillDir.parent,
       stopAt: Directory(skillsRoot),
-      logContext: 'delete empty parent category dir',
+      logContext: '删除空的父级分类目录',
     );
 
     return AiToolUtils.simpleSuccessResult(
@@ -460,7 +460,7 @@ class AiSkillManagerTool extends AiTool {
     await _deleteEmptyAncestorDirs(
       start: target.parent,
       stopAt: skillContext.skillDir,
-      logContext: 'delete empty skill sidecar parent dir',
+      logContext: '删除空的技能旁路文件父目录',
     );
 
     return AiToolUtils.simpleSuccessResult(

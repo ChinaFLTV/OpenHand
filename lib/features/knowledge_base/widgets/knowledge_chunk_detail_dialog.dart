@@ -513,7 +513,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
       context: context,
       text: text,
       successMessage: message,
-      logAction: 'copy chunk detail text',
+      logAction: '复制分块详情文本',
     );
   }
 }

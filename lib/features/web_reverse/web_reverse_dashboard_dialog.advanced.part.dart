@@ -1663,7 +1663,7 @@ Future<void> _showCdpPaletteDialog(
               } catch (error, stack) {
                 silentLog(
                   'web_reverse_dashboard_dialog',
-                  'send raw cdp',
+                  '发送原始 CDP 命令',
                   error,
                   stack,
                 );
@@ -1775,7 +1775,7 @@ Future<void> _copyRecentRequestsForAi(
       ja: '要約をコピーしました。チャットに貼り付けて分析できます',
     ),
     logTag: 'web_reverse_advanced_menu',
-    logAction: 'copy recent requests',
+    logAction: '复制最近请求',
     successDuration: const Duration(seconds: 3),
   );
 }
@@ -2178,7 +2178,7 @@ Future<void> _copyHarReplayPort(BuildContext context, int port) async {
     context: context,
     text: '$port',
     logTag: 'web_reverse_advanced_menu',
-    logAction: 'copy HAR replay port',
+    logAction: '复制 HAR 重放端口',
     showSuccess: false,
   );
 }
@@ -2389,7 +2389,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       const Duration(seconds: 1),
       (_) => _poll(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', 'poll webrtc log', error, stack),
+          silentLog('web_reverse_dashboard', '轮询 WebRTC 日志', error, stack),
     );
     _poll();
   }
@@ -2580,7 +2580,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard', 'rtc csv save', error, stack);
+      silentLog('web_reverse_dashboard', '选择 RTC CSV 保存位置', error, stack);
     }
     if (loc == null) return;
     try {
@@ -2599,7 +2599,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         ),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard', 'rtc csv write', error, stack);
+      silentLog('web_reverse_dashboard', '写入 RTC CSV', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -2754,7 +2754,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                           ja: 'コピーしました',
                         ),
                         logTag: 'web_reverse_webrtc_dialog',
-                        logAction: 'copy events',
+                        logAction: '复制事件',
                         successDuration: const Duration(seconds: 1),
                       );
                     },
@@ -3721,7 +3721,7 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
           )
         : s;
   } catch (error, stack) {
-    silentLog('web_reverse_dashboard_dialog', 'webcrack', error, stack);
+    silentLog('web_reverse_dashboard_dialog', '执行 webcrack', error, stack);
     return _advancedTextForLocale(
       locale,
       zh: '[执行异常]\n$error',
@@ -3741,7 +3741,7 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
-        'delete webcrack temp',
+        '删除 webcrack 临时文件',
         error,
         stack,
       );

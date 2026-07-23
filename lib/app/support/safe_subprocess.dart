@@ -97,12 +97,7 @@ void _registerTrackedChild(Process process) {
         if (identical(_trackedChildren[process.pid], process)) {
           _trackedChildren.remove(process.pid);
         }
-        silentLog(
-          'safe_subprocess',
-          'observe tracked child exit',
-          error,
-          stack,
-        );
+        silentLog('safe_subprocess', '监听已跟踪子进程退出', error, stack);
       },
     ),
   );
@@ -372,7 +367,7 @@ Future<void> _terminateTrackedProcessTree(
     try {
       process.kill();
     } catch (error, stack) {
-      silentLog('safe_subprocess', 'terminate windows child', error, stack);
+      silentLog('safe_subprocess', '终止 Windows 子进程', error, stack);
     }
     final effectiveGracefulTimeout =
         gracefulTimeout ??
@@ -386,13 +381,13 @@ Future<void> _terminateTrackedProcessTree(
     } on TimeoutException {
       // Escalate the complete Windows process tree below.
     } catch (error, stack) {
-      silentLog('safe_subprocess', 'wait windows child', error, stack);
+      silentLog('safe_subprocess', '等待 Windows 子进程退出', error, stack);
     }
     await _runWindowsTaskkillTree(pid, force: true);
     try {
       process.kill(ProcessSignal.sigkill);
     } catch (error, stack) {
-      silentLog('safe_subprocess', 'force kill windows child', error, stack);
+      silentLog('safe_subprocess', '强制终止 Windows 子进程', error, stack);
     }
     return;
   }
@@ -415,13 +410,13 @@ Future<void> _terminateTrackedProcessTree(
     _signalProcessIds(
       descendants.reversed,
       ProcessSignal.sigterm,
-      where: 'sigterm process descendant',
+      where: '向 SIGTERM 子进程后代发送信号',
     );
   }
   try {
     process.kill();
   } catch (error, stack) {
-    silentLog('safe_subprocess', 'sigterm child', error, stack);
+    silentLog('safe_subprocess', '向子进程发送 SIGTERM', error, stack);
   }
 
   if (!isGroupLeader && descendants.isEmpty) {
@@ -431,7 +426,7 @@ Future<void> _terminateTrackedProcessTree(
     } on TimeoutException {
       // Escalate below.
     } catch (error, stack) {
-      silentLog('safe_subprocess', 'wait child after sigterm', error, stack);
+      silentLog('safe_subprocess', '等待 SIGTERM 后子进程退出', error, stack);
     }
   } else if (boundedGracefulTimeout > Duration.zero) {
     // A direct parent's exit does not prove that its descendants stopped.
@@ -445,18 +440,18 @@ Future<void> _terminateTrackedProcessTree(
     _signalProcessIds(
       descendants.reversed,
       ProcessSignal.sigkill,
-      where: 'sigkill process descendant',
+      where: '向 SIGKILL 子进程后代发送信号',
     );
   }
   try {
     process.kill(ProcessSignal.sigkill);
   } catch (error, stack) {
-    silentLog('safe_subprocess', 'sigkill child', error, stack);
+    silentLog('safe_subprocess', '向子进程发送 SIGKILL', error, stack);
   }
   try {
     await process.exitCode.timeout(_processTreeFinalWait);
   } catch (error, stack) {
-    silentLog('safe_subprocess', 'final process exit wait', error, stack);
+    silentLog('safe_subprocess', '最终等待子进程退出', error, stack);
   }
   if (isGroupLeader &&
       !await _isProcessGroupAlive(pid) &&
@@ -547,12 +542,7 @@ Future<List<int>> _collectDescendantPids(
     } on TimeoutException {
       break;
     } catch (error, stack) {
-      silentLog(
-        'safe_subprocess',
-        'enumerate process descendants',
-        error,
-        stack,
-      );
+      silentLog('safe_subprocess', '枚举后代进程', error, stack);
       break;
     }
   }
@@ -767,7 +757,7 @@ Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
         return _ProcessGroupLauncher(path);
       }
     } catch (error, stack) {
-      silentLog('safe_subprocess', 'resolve setsid', error, stack);
+      silentLog('safe_subprocess', '解析 setsid 命令路径', error, stack);
     }
     // macOS does not ship coreutils `setsid`. System Perl exposes the same
     // syscall, so use a direct argv-preserving exec shim rather than silently
@@ -844,7 +834,7 @@ Future<int> killAllDirectChildren() async {
       if (result?.exitCode == 0) {
         killed += await _terminatePidSet(
           _parseChildPids(result?.stdout, parentPid: myPid),
-          tag: 'kill direct child pid',
+          tag: '终止 Unix 直接子进程',
         );
       }
       // 第二遍补漏：pgrep 与逐个 kill 之间可能又 fork 出新的直接子进程。
@@ -872,7 +862,7 @@ Future<int> killAllDirectChildren() async {
           killed = killed + 1; // pkill 本身不报数，保守计 1。
         }
       } catch (error, stack) {
-        silentLog('safe_subprocess', 'pkill -P fallback', error, stack);
+        silentLog('safe_subprocess', '执行 pkill -P 兜底', error, stack);
       }
     } else if (Platform.isWindows) {
       final result = await runBinaryProcessWithTimeout(
@@ -893,12 +883,12 @@ Future<int> killAllDirectChildren() async {
       if (result?.exitCode == 0) {
         killed += await _terminatePidSet(
           _parseChildPids(result?.stdout, parentPid: myPid),
-          tag: 'kill windows child pid',
+          tag: '终止 Windows 直接子进程',
         );
       }
     }
   } catch (error, stack) {
-    silentLog('safe_subprocess', 'enumerate direct children', error, stack);
+    silentLog('safe_subprocess', '枚举直接子进程', error, stack);
   }
   return killed;
 }
@@ -1048,7 +1038,7 @@ Future<ProcessResult?> runProcessWithTimeout(
     try {
       return outputDecoder.convert(bytes);
     } catch (error, stack) {
-      silentLog(tag, 'decode $streamName $executable', error, stack);
+      silentLog(tag, '解码 $streamName $executable 输出', error, stack);
       return const Utf8Decoder(allowMalformed: true).convert(bytes);
     }
   }
@@ -1065,7 +1055,7 @@ Future<ProcessResult?> runProcessWithTimeout(
       // inherited the pipe therefore cannot keep buffering after this call.
       return false;
     } catch (error, stack) {
-      silentLog(tag, 'wait output streams $executable', error, stack);
+      silentLog(tag, '等待 $executable 输出流', error, stack);
       return false;
     }
   }
@@ -1109,7 +1099,7 @@ Future<ProcessResult?> runProcessWithTimeout(
           },
           onError: (Object error, StackTrace stack) {
             if (!_isMissingExecutableProcessException(error)) {
-              silentLog(tag, 'late process start $executable', error, stack);
+              silentLog(tag, '延迟启动进程 $executable', error, stack);
             }
           },
         ),
@@ -1139,7 +1129,7 @@ Future<ProcessResult?> runProcessWithTimeout(
     stdoutSubscription = process.stdout.listen(
       (chunk) => collectBounded(stdoutBytes, chunk, stdoutLimit),
       onError: (Object error, StackTrace stack) {
-        silentLog(tag, 'stdout $executable', error, stack);
+        silentLog(tag, '读取 $executable 标准输出', error, stack);
         completeStream(stdoutDone);
       },
       onDone: () => completeStream(stdoutDone),
@@ -1148,7 +1138,7 @@ Future<ProcessResult?> runProcessWithTimeout(
     stderrSubscription = process.stderr.listen(
       (chunk) => collectBounded(stderrBytes, chunk, stderrLimit),
       onError: (Object error, StackTrace stack) {
-        silentLog(tag, 'stderr $executable', error, stack);
+        silentLog(tag, '读取 $executable 标准错误', error, stack);
         completeStream(stderrDone);
       },
       onDone: () => completeStream(stderrDone),
@@ -1161,12 +1151,12 @@ Future<ProcessResult?> runProcessWithTimeout(
         if (stdinBytes.isNotEmpty) process!.stdin.add(stdinBytes);
         await process!.stdin.flush();
       } catch (error, stack) {
-        silentLog(tag, 'write stdin $executable', error, stack);
+        silentLog(tag, '写入 $executable 标准输入', error, stack);
       } finally {
         try {
           await process!.stdin.close();
         } catch (error, stack) {
-          silentLog(tag, 'close stdin $executable', error, stack);
+          silentLog(tag, '关闭 $executable 标准输入', error, stack);
         }
       }
     }
@@ -1214,12 +1204,7 @@ Future<ProcessResult?> runProcessWithTimeout(
     try {
       onFailure?.call(error, stack);
     } catch (callbackError, callbackStack) {
-      silentLog(
-        tag,
-        'process failure callback $executable',
-        callbackError,
-        callbackStack,
-      );
+      silentLog(tag, '执行 $executable 进程失败回调', callbackError, callbackStack);
     }
     if (!_isMissingExecutableProcessException(error)) {
       silentLog(
@@ -1247,7 +1232,7 @@ Future<void> _cancelProcessSubscription<T>(
     subscription,
     timeout: _processStreamCleanupTimeout,
     onError: (error, stack) =>
-        silentLog(tag, 'cancel $streamName subscription', error, stack),
+        silentLog(tag, '取消 $streamName 流订阅', error, stack),
   );
 }
 
@@ -1435,7 +1420,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     try {
       onTimeout?.call();
     } catch (error, stack) {
-      silentLog(tag, 'timeout handler $executable', error, stack);
+      silentLog(tag, '执行 $executable 超时处理器', error, stack);
     }
   }
 
@@ -1455,7 +1440,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     try {
       handler(boundedLine);
     } catch (error, stack) {
-      silentLog(tag, 'line handler $executable', error, stack);
+      silentLog(tag, '执行 $executable 行处理器', error, stack);
     }
   }
 
@@ -1478,7 +1463,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
         .listen(
           decoder.add,
           onError: (Object error, StackTrace stack) {
-            silentLog(tag, '$streamName $executable', error, stack);
+            silentLog(tag, '读取 $executable $streamName', error, stack);
             complete(done);
           },
           onDone: () {
@@ -1497,14 +1482,10 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       ]).timeout(effectiveDrainTimeout);
       return true;
     } on TimeoutException {
-      silentLog(
-        tag,
-        'stream drain timeout',
-        '$executable ${arguments.take(1).join(' ')}',
-      );
+      silentLog(tag, '输出流排空超时', '$executable ${arguments.take(1).join(' ')}');
       return false;
     } catch (error, stack) {
-      silentLog(tag, 'wait output streams $executable', error, stack);
+      silentLog(tag, '等待 $executable 输出流', error, stack);
       return false;
     }
   }
@@ -1540,7 +1521,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
           ),
           onError: (Object error, StackTrace stack) {
             if (!_isMissingExecutableProcessException(error)) {
-              silentLog(tag, 'late process start $executable', error, stack);
+              silentLog(tag, '延迟启动进程 $executable', error, stack);
             }
           },
         ),
@@ -1576,7 +1557,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
           try {
             await process!.stdin.close();
           } catch (error, stack) {
-            silentLog(tag, 'close stdin $executable', error, stack);
+            silentLog(tag, '关闭 $executable 标准输入', error, stack);
           }
           return process!.exitCode;
         })().timeout(
@@ -1887,7 +1868,7 @@ void _terminateLateBinaryProcess(
       },
       onError: (Object error, StackTrace stack) {
         if (!_isMissingExecutableProcessException(error)) {
-          silentLog(tag, 'late binary process start', error, stack);
+          silentLog(tag, '延迟启动二进制子进程', error, stack);
         }
       },
     ),
@@ -2083,7 +2064,7 @@ Future<bool> openExternalUriWithSystemApp(
     try {
       return openLocalPathWithSystemApp(uri.toFilePath(), tag: tag);
     } catch (error, stack) {
-      silentLog('safe_subprocess', 'open file uri', error, stack);
+      silentLog('safe_subprocess', '打开文件 URI', error, stack);
       return false;
     }
   }

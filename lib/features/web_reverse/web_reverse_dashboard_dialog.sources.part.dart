@@ -267,7 +267,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         cmdArgs: cfg?.args.isEmpty ?? true ? null : cfg!.args,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_sources_panel', 'lsp.start', error, stack);
+      silentLog('web_reverse_sources_panel', '启动 LSP', error, stack);
       if (!mounted) return;
       setState(() => _lspEnabled = false);
       final detail = clipTextWithEllipsis('$error', _kLspSnackErrorMaxChars);
@@ -1845,7 +1845,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         ja: 'コピーしました',
                       ),
                       logTag: 'web_reverse_sources_panel',
-                      logAction: 'copy source',
+                      logAction: '复制源代码',
                       successDuration: const Duration(seconds: 1),
                     );
                   },

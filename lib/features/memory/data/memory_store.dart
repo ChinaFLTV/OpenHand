@@ -82,7 +82,7 @@ class MemoryStore {
       try {
         await _markLegacyMigrationSatisfied();
       } catch (error, stack) {
-        silentLog('memory_store', 'mark legacy migration', error, stack);
+        silentLog('memory_store', '标记旧版数据迁移', error, stack);
       }
     }
 
@@ -295,12 +295,12 @@ class MemoryStore {
     });
   }
 
-  /// Deletes a single entry by id.
+  /// 按 ID 删除单条记录。
   Future<void> deleteEntry(String id) async {
     await _db.delete(_table, where: 'id = ?', whereArgs: <Object?>[id]);
   }
 
-  /// Updates a single entry.
+  /// 更新单条记录。
   Future<void> updateEntry(UserMemoryEntry entry) async {
     _validateEntryForWrite(entry);
     final row = _entryToRow(entry);
@@ -349,7 +349,7 @@ class MemoryStore {
     });
   }
 
-  /// Creates or updates the unique user profile entry.
+  /// 创建或更新唯一的用户资料记录。
   Future<UserMemoryEntry> upsertUserProfile({
     required String content,
     List<String>? tags,

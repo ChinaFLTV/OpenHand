@@ -71,7 +71,7 @@ Future<T?> runKnowledgeIndexingProgressTask<T>({
     controller.markFinished();
     await dialogSession.dismiss(
       logTag: 'knowledge_indexing',
-      logAction: 'dismissProgress',
+      logAction: '关闭索引进度对话框',
     );
   }
 }

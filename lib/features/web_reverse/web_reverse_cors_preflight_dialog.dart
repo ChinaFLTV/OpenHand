@@ -145,7 +145,7 @@ class _CorsDialogState extends State<_CorsDialog> {
         _result = res;
       });
     } catch (err, st) {
-      silentLog('web_reverse_cors_preflight_dialog', 'cors.run', err, st);
+      silentLog('web_reverse_cors_preflight_dialog', '执行 CORS 预检', err, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -238,7 +238,7 @@ class _CorsDialogState extends State<_CorsDialog> {
       text: prettyPrintJson(res),
       successBase: loc?.webReverseCorsResultCopied ?? 'Result copied',
       logTag: 'web_reverse_cors_preflight_dialog',
-      logAction: 'cors.copy',
+      logAction: '复制 CORS 预检结果',
     );
   }
 

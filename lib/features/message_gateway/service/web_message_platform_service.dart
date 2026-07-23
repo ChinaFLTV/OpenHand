@@ -7217,7 +7217,9 @@ class WebMessagePlatformService {
   bool _messageHasWebMultimediaPayload(AiSessionMessage message) {
     final metadata = message.metadata;
     if (_nonEmptyList(metadata['attachments'])) return true;
-    if (_intFromWebValue(metadata['attachment_count'], 0) > 0) return true;
+    if ((optionalRoundedIntFromValue(metadata['attachment_count']) ?? 0) > 0) {
+      return true;
+    }
     if (_nonEmptyList(metadata['generated_image_paths']) ||
         _nonEmptyList(metadata['generated_video_paths']) ||
         _nonEmptyList(metadata['generated_audio_paths'])) {
@@ -7270,10 +7272,6 @@ class WebMessagePlatformService {
     if (parsed != null) return parsed;
     if (value is num) return value != 0;
     return false;
-  }
-
-  int _intFromWebValue(Object? value, int fallback) {
-    return optionalRoundedIntFromValue(value) ?? fallback;
   }
 
   bool _isMultimediaConversationMode(String mode) {

@@ -111,12 +111,7 @@ class _ThreadSessionManagementDialogState
         _diskBytes = bytes;
       });
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'computeAllSessionDiskBytes',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', '统计全部会话磁盘占用', error, stack);
     } finally {
       _diskBytesLoading = false;
     }
@@ -149,12 +144,7 @@ class _ThreadSessionManagementDialogState
         _archivedSessions = archived;
       });
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'refreshFlags',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', '刷新会话标记', error, stack);
     }
   }
 
@@ -183,12 +173,7 @@ class _ThreadSessionManagementDialogState
           order.map((s) => s.id).toList(growable: false),
         );
       } catch (error, stack) {
-        silentLog(
-          'thread_session_management_dialog',
-          'reorderSessions',
-          error,
-          stack,
-        );
+        silentLog('thread_session_management_dialog', '调整会话顺序', error, stack);
       }
     });
   }
@@ -303,12 +288,7 @@ class _ThreadSessionManagementDialogState
     try {
       full = await controller.store.loadSession(headerOnly.id);
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'export.loadSession',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', '导出：加载会话', error, stack);
     }
     if (full == null || !mounted) {
       if (mounted) {
@@ -340,12 +320,7 @@ class _ThreadSessionManagementDialogState
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'export.getSaveLocation',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', '导出：选择保存位置', error, stack);
     }
     if (location == null || !mounted) return;
     final cancelToken = ExportCancelToken();
@@ -369,7 +344,7 @@ class _ThreadSessionManagementDialogState
         onProgress: progressController.updateProgress,
       );
     } catch (error, stack) {
-      silentLog('thread_session_management_dialog', 'export.run', error, stack);
+      silentLog('thread_session_management_dialog', '执行会话导出', error, stack);
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
@@ -403,12 +378,7 @@ class _ThreadSessionManagementDialogState
         confirmButtonText: AppLocalizations.of(context)!.tsmChooseExportFolder,
       );
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'batchExport.getDirectoryPath',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', '批量导出：选择目录', error, stack);
     }
     if (folderPath == null || !mounted) return;
     final config = await showAiSessionExportConfigDialog(
@@ -446,7 +416,7 @@ class _ThreadSessionManagementDialogState
       } catch (error, stack) {
         silentLog(
           'thread_session_management_dialog',
-          'batchExport.loadSession',
+          '批量导出：加载会话',
           error,
           stack,
         );
@@ -475,12 +445,7 @@ class _ThreadSessionManagementDialogState
           failed++;
         }
       } catch (error, stack) {
-        silentLog(
-          'thread_session_management_dialog',
-          'batchExport.run',
-          error,
-          stack,
-        );
+        silentLog('thread_session_management_dialog', '执行批量导出', error, stack);
         failed++;
       }
     }
@@ -663,12 +628,7 @@ class _ThreadSessionManagementDialogState
       final controller = context.read<AiSessionController>();
       full = await controller.store.loadSession(session.id);
     } catch (error, stack) {
-      silentLog(
-        'thread_session_management_dialog',
-        'openPreview.loadSession',
-        error,
-        stack,
-      );
+      silentLog('thread_session_management_dialog', '打开预览：加载会话', error, stack);
     }
     if (!mounted || generation != _previewGeneration) return;
     setState(() {

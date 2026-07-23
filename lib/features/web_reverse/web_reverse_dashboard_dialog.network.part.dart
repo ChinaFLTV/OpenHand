@@ -19,7 +19,7 @@ Future<void> _copyNetworkText(
     text: text,
     successBase: base,
     logTag: 'web_reverse_network_panel',
-    logAction: 'copy text',
+    logAction: '复制文本',
     successDuration: duration,
   );
 }
@@ -965,17 +965,12 @@ class _NetworkRow extends StatelessWidget {
         overrideHeaders: overrideHeaders,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        'replay network row',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_dashboard_dialog', '重放网络请求记录', error, stack);
       return null;
     } finally {
       await loadingDialog.dismiss(
         logTag: 'web_reverse_dashboard_dialog',
-        logAction: 'dismiss replay loading dialog',
+        logAction: '关闭重放加载对话框',
       );
     }
   }

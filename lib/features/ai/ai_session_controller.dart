@@ -1794,7 +1794,7 @@ class AiSessionController extends ChangeNotifier {
             ) {
               silentLog(
                 'ai_session_controller',
-                'retry auto title after session hydration',
+                '补全会话数据后重试生成自动标题',
                 error,
                 stackTrace,
               );
@@ -2012,12 +2012,7 @@ class AiSessionController extends ChangeNotifier {
       }
       return loaded;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'load full session message content',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '加载完整会话消息内容', error, stack);
       return null;
     } finally {
       if (_sessionMessageContentLoadGenerations[taskKey] == generation) {
@@ -2102,12 +2097,7 @@ class AiSessionController extends ChangeNotifier {
       await _store.saveSessionHeader(effective);
       return effective;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'hydrate session cache statistics',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '补全会话缓存统计', error, stack);
       return _sessionById(sessionId);
     } finally {
       _sessionCacheStatsHydrationTasks.remove(sessionId);
@@ -2209,12 +2199,7 @@ class AiSessionController extends ChangeNotifier {
       }
       return _sessionById(sessionId) ?? updatedSession;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'load older session messages',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '加载更早的会话消息', error, stack);
       _setLastSendErrorMessage(
         sessionId,
         _friendlyAiSessionPersistenceError(error, operation: 'load'),
@@ -2366,12 +2351,7 @@ class AiSessionController extends ChangeNotifier {
       }
       return _sessionById(sessionId) ?? normalized;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'hydrate session messages',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '补全会话消息', error, stack);
       _setLastSendErrorMessage(
         sessionId,
         _friendlyAiSessionPersistenceError(error, operation: 'load'),
@@ -2514,12 +2494,7 @@ class AiSessionController extends ChangeNotifier {
     } else {
       unawaited(
         startHookFuture.catchError((Object error, StackTrace stack) {
-          silentLog(
-            'ai_session_controller',
-            'session start hook',
-            error,
-            stack,
-          );
+          silentLog('ai_session_controller', '执行会话启动 Hook', error, stack);
         }),
       );
     }
@@ -2596,12 +2571,7 @@ class AiSessionController extends ChangeNotifier {
         if (shortestSide >= 600) return true;
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'detect tablet viewport',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '检测平板视口', error, stack);
     }
     return false;
   }
@@ -2622,7 +2592,7 @@ class AiSessionController extends ChangeNotifier {
       await writeFileAtomically(file, '$next\n');
       return next;
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'read/create device id', error, stack);
+      silentLog('ai_session_controller', '读取或创建设备 ID', error, stack);
       return 'openhand-${Platform.localHostname}';
     }
   }
@@ -2652,12 +2622,7 @@ class AiSessionController extends ChangeNotifier {
         interfaces: interfaceRows,
       );
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'local network snapshot',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '获取本地网络快照', error, stack);
       return (
         ipAddresses: const <String>[],
         interfaces: const <Map<String, Object?>>[],
@@ -2707,7 +2672,7 @@ class AiSessionController extends ChangeNotifier {
       );
       return _replaceSessionHeaderInMemoryAndPersist(
         updatedSession,
-        logOperation: 'persist session mode update',
+        logOperation: '持久化会话模式更新',
       );
     });
   }
@@ -2738,7 +2703,7 @@ class AiSessionController extends ChangeNotifier {
     );
     return _replaceSessionHeaderInMemoryAndPersist(
       updatedSession,
-      logOperation: 'persist permission update',
+      logOperation: '持久化权限更新',
     );
   }
 
@@ -2769,7 +2734,7 @@ class AiSessionController extends ChangeNotifier {
     );
     return _replaceSessionHeaderInMemoryAndPersist(
       updatedSession,
-      logOperation: 'persist metadata patch',
+      logOperation: '持久化元数据更新',
     );
   }
 
@@ -2924,12 +2889,7 @@ class AiSessionController extends ChangeNotifier {
           return false;
         }
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'persist message feedback',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '持久化消息反馈', error, stack);
         _setLastSendErrorMessage(
           normalizedSessionId,
           _friendlyAiSessionPersistenceError(error, operation: 'save'),
@@ -3797,12 +3757,7 @@ class AiSessionController extends ChangeNotifier {
         }
         return true;
       } catch (error, stackTrace) {
-        silentLog(
-          'ai_session_controller',
-          'regenerate assistant message variant',
-          error,
-          stackTrace,
-        );
+        silentLog('ai_session_controller', '重新生成助手消息变体', error, stackTrace);
         final restored = restoreTargetMessage(
           _sessionById(session.id) ?? session,
         );
@@ -3845,7 +3800,7 @@ class AiSessionController extends ChangeNotifier {
     );
     return _replaceSessionHeaderInMemoryAndPersist(
       updatedSession,
-      logOperation: 'persist last-used model',
+      logOperation: '持久化最近使用模型',
     );
   }
 
@@ -3872,7 +3827,7 @@ class AiSessionController extends ChangeNotifier {
     );
     return _replaceSessionHeaderInMemoryAndPersist(
       updatedSession,
-      logOperation: 'persist manual title update',
+      logOperation: '持久化手动标题更新',
       keepCurrentIfUnset: true,
     );
   }
@@ -3957,12 +3912,7 @@ class AiSessionController extends ChangeNotifier {
           cancelHandler: cancelHandler,
         ).timeout(_sessionDeletionCancellationTimeout);
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'cancel session before delete',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '删除前取消会话', error, stack);
       }
       try {
         await _store.delete(sessionId);
@@ -3981,7 +3931,7 @@ class AiSessionController extends ChangeNotifier {
         } catch (existsError, existsStack) {
           silentLog(
             'ai_session_controller',
-            'check session exists after delete failure',
+            '删除失败后检查会话是否存在',
             existsError,
             existsStack,
           );
@@ -4065,12 +4015,7 @@ class AiSessionController extends ChangeNotifier {
         );
         return true;
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'reorderSessions persist',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '持久化会话排序', error, stack);
         // Roll back in-memory ordering on persistence failure so the UI
         // matches the on-disk state.
         _setSessions(previousSessions);
@@ -4088,7 +4033,7 @@ class AiSessionController extends ChangeNotifier {
       try {
         await _store.setSessionPinned(sessionId, pinned);
       } catch (error, stack) {
-        silentLog('ai_session_controller', 'setSessionPinned', error, stack);
+        silentLog('ai_session_controller', '设置会话置顶状态', error, stack);
         return false;
       }
       // Refresh in-memory order so the sidebar picks up the new sort
@@ -4099,12 +4044,7 @@ class AiSessionController extends ChangeNotifier {
         _setSessions(_mergeHeaderSessionsWithLiveMessages(result.sessions));
         notifyListeners();
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'setSessionPinned.refresh',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '设置会话置顶状态后刷新', error, stack);
       }
       return true;
     });
@@ -4118,7 +4058,7 @@ class AiSessionController extends ChangeNotifier {
       try {
         await _store.setSessionArchived(sessionId, archived);
       } catch (error, stack) {
-        silentLog('ai_session_controller', 'setSessionArchived', error, stack);
+        silentLog('ai_session_controller', '设置会话归档状态', error, stack);
         return false;
       }
       try {
@@ -4126,12 +4066,7 @@ class AiSessionController extends ChangeNotifier {
         _setSessions(_mergeHeaderSessionsWithLiveMessages(result.sessions));
         notifyListeners();
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'setSessionArchived.refresh',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '设置会话归档状态后刷新', error, stack);
       }
       return true;
     });
@@ -4439,12 +4374,7 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return null;
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'fork session from message',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '从消息分叉会话', error, stack);
         _lastErrorMessage = _friendlyAiSessionPersistenceError(
           error,
           operation: 'save',
@@ -4571,12 +4501,7 @@ class AiSessionController extends ChangeNotifier {
       metadata[_toolOutputPersistedPathMetadataKey] = targetFile.path;
       metadata['tool_output_full_content_available'] = true;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'copy fork persisted tool output',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '复制分叉会话的持久化工具输出', error, stack);
     }
   }
 
@@ -4820,12 +4745,8 @@ class AiSessionController extends ChangeNotifier {
   }) async {
     await runAsyncCleanupBounded(
       () => _bashToolService.closeSession(sessionId),
-      onError: (error, stack) => silentLog(
-        'ai_session_controller',
-        'close persistent bash session after delete',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('ai_session_controller', '删除后关闭持久 Bash 会话', error, stack),
     );
     if (!_sessionOperationQueues.containsKey(sessionId)) {
       _clearSessionExecutionState(sessionId);
@@ -5101,12 +5022,7 @@ class AiSessionController extends ChangeNotifier {
           break;
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'delete persisted tool output',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '删除持久化工具输出', error, stack);
     }
   }
 
@@ -5116,12 +5032,7 @@ class AiSessionController extends ChangeNotifier {
         await directory.delete();
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'delete empty tool output directory',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '删除空工具输出目录', error, stack);
     }
   }
 
@@ -5156,7 +5067,7 @@ class AiSessionController extends ChangeNotifier {
           recentErrors: updatedErrors,
           updatedAt: session.updatedAt,
         ),
-        logOperation: 'persist presented error update',
+        logOperation: '持久化已展示错误更新',
       );
     });
   }
@@ -5251,7 +5162,7 @@ class AiSessionController extends ChangeNotifier {
     );
     final committed = await _replaceSessionHeaderInMemoryAndPersist(
       updatedSession,
-      logOperation: 'persist goal pause',
+      logOperation: '持久化目标暂停',
     );
     if (!committed) {
       return false;
@@ -5309,7 +5220,7 @@ class AiSessionController extends ChangeNotifier {
     );
     final committed = await _replaceSessionHeaderInMemoryAndPersist(
       updatedSession,
-      logOperation: 'persist goal termination',
+      logOperation: '持久化目标终止',
     );
     if (!committed) {
       return false;
@@ -5573,12 +5484,7 @@ class AiSessionController extends ChangeNotifier {
           return true;
         }
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'goal continuation yield predicate',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '判断目标继续执行是否让出', error, stack);
       }
     }
     return false;
@@ -6316,7 +6222,7 @@ class AiSessionController extends ChangeNotifier {
         if (!identical(deferredSession, session)) {
           final committed = await _replaceSessionHeaderInMemoryAndPersist(
             deferredSession,
-            logOperation: 'persist queued-message goal interruption',
+            logOperation: '持久化排队消息中断目标',
           );
           if (!committed) {
             _clearSessionExecutionState(session.id);
@@ -8123,12 +8029,8 @@ class AiSessionController extends ChangeNotifier {
         } on TimeoutException {
           await cancelStreamSubscriptionBounded<AiChatStreamEvent>(
             subscription,
-            onError: (error, stack) => silentLog(
-              'ai_session_controller',
-              'cancel delayed assistant event stream',
-              error,
-              stack,
-            ),
+            onError: (error, stack) =>
+                silentLog('ai_session_controller', '取消延迟的助手事件流', error, stack),
           );
           flushPreview();
         }
@@ -8155,7 +8057,7 @@ class AiSessionController extends ChangeNotifier {
           subscription,
           onError: (cancelError, stack) => silentLog(
             'ai_session_controller',
-            'cancel failed assistant event stream',
+            '取消失败的助手事件流',
             cancelError,
             stack,
           ),
@@ -10356,12 +10258,7 @@ class AiSessionController extends ChangeNotifier {
         if (replaced) notifyListeners();
       });
     } catch (error, stackTrace) {
-      silentLog(
-        'ai_session_controller',
-        'persist response regeneration recovery',
-        error,
-        stackTrace,
-      );
+      silentLog('ai_session_controller', '持久化响应重新生成恢复数据', error, stackTrace);
     }
   }
 
@@ -10874,12 +10771,7 @@ class AiSessionController extends ChangeNotifier {
             checkpoint: checkpoint,
           );
         } catch (error, stackTrace) {
-          silentLog(
-            'AiSessionController',
-            'saveCompressionMemorySidecar',
-            error,
-            stackTrace,
-          );
+          silentLog('AiSessionController', '保存压缩记忆旁路文件', error, stackTrace);
         }
         _markDidCompressInLastSend(session.id);
         await _emitCompactHooks(
@@ -11455,7 +11347,7 @@ $tail''';
         lastError = error;
         final shouldRetryAfterIdle =
             allowRetryAfterIdle &&
-            _isRetryableAutoTitleError(error) &&
+            AiTransportDiagnosticMessages.isRetryableTransportError(error) &&
             sendPhaseForSession(sessionId) != AiSendPhase.idle;
         if (shouldRetryAfterIdle) {
           final waitedForIdle = await _waitForSessionIdleForAutoTitleRetry(
@@ -11537,12 +11429,7 @@ $tail''';
           model: model,
         );
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'auto title generation',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', '生成自动标题', error, stack);
       }
     }());
   }
@@ -11955,12 +11842,7 @@ $tail''';
     try {
       restoredHeader = await _store.loadHeader(sessionId) ?? previousSession;
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'reload header after save failure',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '保存失败后重新加载会话头', error, stack);
     }
     if (_deletedSessionIds.contains(sessionId)) return;
     final liveSession = _sessionById(sessionId);
@@ -12300,7 +12182,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        'run claude-style hook $eventName',
+        '执行 Claude 风格 Hook：$eventName',
         error,
         stack,
       );
@@ -12394,7 +12276,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        'execute user hook ${event.name}',
+        '执行用户 Hook：${event.name}',
         error,
         stack,
       );
@@ -13319,12 +13201,7 @@ $tail''';
         return stringKeyedMapFromValue(decoded);
       }
     } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'parse tool call arguments',
-        error,
-        stack,
-      );
+      silentLog('ai_session_controller', '解析工具调用参数', error, stack);
       return const <String, Object?>{};
     }
     return const <String, Object?>{};
@@ -13989,7 +13866,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        'read Platform.environment',
+        '读取 Platform.environment',
         error,
         stack,
       );
@@ -14001,7 +13878,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        'read Platform.operatingSystemVersion',
+        '读取 Platform.operatingSystemVersion',
         error,
         stack,
       );
@@ -14013,7 +13890,7 @@ $tail''';
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
-        'read Platform.numberOfProcessors',
+        '读取 Platform.numberOfProcessors',
         error,
         stack,
       );

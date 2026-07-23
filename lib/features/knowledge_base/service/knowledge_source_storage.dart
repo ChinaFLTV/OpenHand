@@ -118,22 +118,12 @@ Future<void> retryPendingKnowledgeSourceFileCleanups({
           await _deleteManagedKnowledgeSourcePath(entry.path);
           await _deleteCleanupMarker(entry.sourceId);
         } catch (error, stack) {
-          silentLog(
-            'knowledge_source_storage',
-            'retry pending source cleanup',
-            error,
-            stack,
-          );
+          silentLog('knowledge_source_storage', '重试待处理知识源清理', error, stack);
           if (error is TimeoutException) break;
         }
       }
     } catch (error, stack) {
-      silentLog(
-        'knowledge_source_storage',
-        'process pending source cleanups',
-        error,
-        stack,
-      );
+      silentLog('knowledge_source_storage', '处理待处理知识源清理', error, stack);
     }
   });
 }
@@ -214,12 +204,7 @@ _loadPendingKnowledgeSourceCleanups() async {
       }
       entries.add((createdAt: createdAt, sourceId: sourceId, path: path));
     } catch (error, stack) {
-      silentLog(
-        'knowledge_source_storage',
-        'decode pending source cleanup',
-        error,
-        stack,
-      );
+      silentLog('knowledge_source_storage', '解码待处理知识源清理', error, stack);
       if (markerKey is String) {
         await db.delete(
           'app_settings',

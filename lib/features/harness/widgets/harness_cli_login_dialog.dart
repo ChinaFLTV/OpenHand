@@ -99,7 +99,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       );
       startedProcess = process;
       if (!_isRunActive(generation)) {
-        unawaited(_terminateProcess(process, 'terminate late login process'));
+        unawaited(_terminateProcess(process, '终止迟到的登录进程'));
         return;
       }
 
@@ -260,21 +260,13 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     await Future.wait<bool>(<Future<bool>>[
       cancelStreamSubscriptionBounded<String>(
         stdoutSubscription,
-        onError: (error, stack) => silentLog(
-          'harness_cli_login_dialog',
-          'cancel stdout subscription',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('harness_cli_login_dialog', '取消标准输出订阅', error, stack),
       ),
       cancelStreamSubscriptionBounded<String>(
         stderrSubscription,
-        onError: (error, stack) => silentLog(
-          'harness_cli_login_dialog',
-          'cancel stderr subscription',
-          error,
-          stack,
-        ),
+        onError: (error, stack) =>
+            silentLog('harness_cli_login_dialog', '取消标准错误订阅', error, stack),
       ),
     ]);
   }
@@ -297,12 +289,12 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                 process.stdin.close,
                 onError: (error, stack) => silentLog(
                   'harness_cli_login_dialog',
-                  'close login process stdin',
+                  '关闭登录进程标准输入',
                   error,
                   stack,
                 ),
               ).then((_) {}),
-              _terminateProcess(process, 'terminate login process'),
+              _terminateProcess(process, '终止登录进程'),
             ],
           ]);
         }().whenComplete(() {
@@ -340,12 +332,8 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     _outputFlushTimer ??= startSafeTimer(
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingOutput,
-      onError: (error, stack) => silentLog(
-        'harness_cli_login_dialog',
-        'flush login output',
-        error,
-        stack,
-      ),
+      onError: (error, stack) =>
+          silentLog('harness_cli_login_dialog', '刷新登录输出', error, stack),
     );
   }
 
@@ -407,7 +395,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       context: context,
       text: _commandPreview,
       successMessage: _l10n.commonCopiedToClipboard,
-      logAction: 'copy login command',
+      logAction: '复制登录命令',
     );
   }
 

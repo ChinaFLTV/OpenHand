@@ -40,7 +40,7 @@ showWriteCommandConfirmationDialogSession(
           activeSession.dismiss(
             result: decision,
             logTag: 'home',
-            logAction: 'resolve write command approval dialog',
+            logAction: '处理写入命令审批对话框',
           ),
         );
       },

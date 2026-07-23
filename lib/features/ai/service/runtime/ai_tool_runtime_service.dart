@@ -566,7 +566,7 @@ class AiToolRuntimeService {
       );
       if (configuredToolNames.isEmpty) return true;
       final configuredAgentToolNames = configuredToolNames
-          .where((name) => _looksLikeAgentBuiltinToolName(name))
+          .where(isAgentCoordinationBuiltinToolName)
           .toList(growable: false);
       if (configuredAgentToolNames.isEmpty) continue;
       if (configuredAgentToolNames.any(
@@ -576,10 +576,6 @@ class AiToolRuntimeService {
       }
     }
     return false;
-  }
-
-  bool _looksLikeAgentBuiltinToolName(String name) {
-    return isAgentCoordinationBuiltinToolName(name);
   }
 
   bool _agentBuiltinToolNameMatches(
@@ -1636,7 +1632,7 @@ class AiToolRuntimeService {
         originalChars: content.length,
       );
     } catch (error, stack) {
-      silentLog('ai_tool_runtime_service', 'persist tool output', error, stack);
+      silentLog('ai_tool_runtime_service', '持久化工具输出', error, stack);
       return null;
     }
   }

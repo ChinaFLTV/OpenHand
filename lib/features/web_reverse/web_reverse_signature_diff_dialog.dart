@@ -570,7 +570,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
           loc?.webReverseSignatureDiffReportCopied ??
           'Report copied to clipboard',
       logTag: 'web_reverse_signature_diff_dialog',
-      logAction: 'copy report',
+      logAction: '复制签名差异报告',
     );
   }
 }

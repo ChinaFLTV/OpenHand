@@ -4,7 +4,6 @@
 /// securityOrigin / loaderId / unreachableUrl。支持点击复制 url 与刷新。
 library;
 
-
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
@@ -74,7 +73,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     try {
       r = await widget.controller.sendRawCdp(method: 'Page.getFrameTree');
     } catch (e, s) {
-      silentLog('web_reverse_frame_tree_dialog', 'frame-tree.load', e, s);
+      silentLog('web_reverse_frame_tree_dialog', '加载页面帧树', e, s);
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {
@@ -126,7 +125,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
       successBase:
           AppLocalizations.of(context)?.webReverseFrameTreeCopied ?? 'Copied',
       logTag: 'web_reverse_frame_tree_dialog',
-      logAction: 'frame-tree.copy',
+      logAction: '复制页面帧树',
     );
   }
 

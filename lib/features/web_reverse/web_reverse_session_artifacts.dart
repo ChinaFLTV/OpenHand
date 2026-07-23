@@ -99,7 +99,7 @@ class WebReverseSessionArtifacts {
       _networkSink = null;
       _consoleSink = null;
       _ready = false;
-      silentLog('web_reverse_artifacts', 'init', error, stack);
+      silentLog('web_reverse_artifacts', '初始化会话产物', error, stack);
       await Future.wait<bool>(<Future<bool>>[
         _closeSink(networkSink, 'failed network'),
         _closeSink(consoleSink, 'failed console'),
@@ -197,19 +197,14 @@ class WebReverseSessionArtifacts {
       }
       buffer.writeln(line);
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_artifacts',
-        'encode $streamName event',
-        error,
-        stack,
-      );
+      silentLog('web_reverse_artifacts', '编码 $streamName 事件', error, stack);
     }
   }
 
   void _logBufferDropOnce(String streamName, String reason) {
     final key = '$streamName:$reason';
     if (!_reportedBufferDrops.add(key)) return;
-    silentLog('web_reverse_artifacts', 'drop $streamName event', reason);
+    silentLog('web_reverse_artifacts', '丢弃 $streamName 事件', reason);
   }
 
   void _flush() {
@@ -226,7 +221,7 @@ class WebReverseSessionArtifacts {
     try {
       sink?.write(pending);
     } catch (error, stack) {
-      silentLog('web_reverse_artifacts', 'flush $streamName', error, stack);
+      silentLog('web_reverse_artifacts', '刷新 $streamName 输出流', error, stack);
     }
   }
 
@@ -298,7 +293,7 @@ class WebReverseSessionArtifacts {
       await writeFileAtomically(File(path), prettyPrintJson(har));
       return path;
     } catch (error, stack) {
-      silentLog('web_reverse_artifacts', 'exportHar', error, stack);
+      silentLog('web_reverse_artifacts', '导出 HAR', error, stack);
       return null;
     }
   }
@@ -338,7 +333,7 @@ class WebReverseSessionArtifacts {
       sink.close,
       onError: (error, stack) => silentLog(
         'web_reverse_artifacts',
-        'close $streamName sink',
+        '关闭 $streamName 输出流',
         error,
         stack,
       ),

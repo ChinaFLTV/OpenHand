@@ -253,7 +253,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         ja: '$kind としてコピーしました',
       ),
       logTag: 'web_reverse_detail_panel',
-      logAction: 'copy $kind',
+      logAction: '复制 $kind',
       successDuration: const Duration(seconds: 1),
     );
   }

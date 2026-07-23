@@ -849,7 +849,7 @@ class AndroidReverseAdbClient {
       final stderr = nullIfBlank(result.stderr);
       silentLog(
         _kTag,
-        'adb ${args.join(' ')} exited ${result.exitCode}${stderr == null ? "" : ": $stderr"}',
+        '执行 adb ${args.join(' ')}，退出码 ${result.exitCode}${stderr == null ? "" : "：$stderr"}',
         'exitCode=${result.exitCode}',
       );
     }

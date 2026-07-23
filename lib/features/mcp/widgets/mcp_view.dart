@@ -615,7 +615,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     try {
       await context.read<McpController>().openStorageDirectory();
     } catch (error, stack) {
-      silentLog('mcp_view', 'open MCP storage directory', error, stack);
+      silentLog('mcp_view', '打开 MCP 存储目录', error, stack);
       if (!context.mounted) {
         return;
       }
@@ -832,12 +832,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             );
           }
         } catch (error, stack) {
-          silentLog(
-            'mcp_view',
-            'clear package cache $packageName',
-            error,
-            stack,
-          );
+          silentLog('mcp_view', '清理软件包缓存 $packageName', error, stack);
         }
       }
 
@@ -1052,7 +1047,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         de: 'Snapshot von ${entries.length} Diensten als $formatLabel in die Zwischenablage kopiert',
         ja: '${entries.length} 個のサービスのスナップショットを $formatLabel としてクリップボードにコピーしました',
       ),
-      logAction: 'export server snapshots',
+      logAction: '导出服务快照',
     );
   }
 
@@ -1754,7 +1749,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
         previousName: widget.initialServer?.name,
       );
     } catch (error, stack) {
-      silentLog('mcp_view', 'save MCP server', error, stack);
+      silentLog('mcp_view', '保存 MCP 服务', error, stack);
       if (!mounted) {
         return;
       }
@@ -2630,7 +2625,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         _hydratingConfig = false;
       });
     } catch (error, stack) {
-      silentLog('mcp', 'hydrate ops config from disk', error, stack);
+      silentLog('mcp', '从磁盘加载运维配置', error, stack);
       if (!mounted) return;
       setState(() {
         _hydratingConfig = false;
@@ -2764,7 +2759,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         zh: 'MCP入口已复制',
         en: 'MCP endpoint copied',
       ),
-      logAction: 'copy mcp ops endpoint',
+      logAction: '复制 MCP 运维端点',
     );
   }
 
@@ -2803,7 +2798,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         zh: 'Cursor MCP配置已复制',
         en: 'Cursor MCP config copied',
       ),
-      logAction: 'copy openhand mcp cursor config',
+      logAction: '复制 OpenHand MCP Cursor 配置',
     );
   }
 
@@ -2903,7 +2898,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         _configMessage = null;
       });
     } catch (error, stack) {
-      silentLog('mcp', 'browse workspace scope directory', error, stack);
+      silentLog('mcp', '浏览工作区范围目录', error, stack);
       if (!mounted) {
         return;
       }
@@ -4269,7 +4264,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         );
       });
     } catch (error, stack) {
-      silentLog('mcp', 'clear ops runtime data', error, stack);
+      silentLog('mcp', '清理运维运行时数据', error, stack);
       if (!context.mounted || !mounted) return;
       setState(() {
         _saving = false;
@@ -4490,7 +4485,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         );
       } catch (error, stack) {
         _auditDetailDialogQueued = false;
-        silentLog('mcp_view', 'show MCP ops audit detail', error, stack);
+        silentLog('mcp_view', '显示 MCP 运维审计详情', error, stack);
       }
     });
   }
@@ -7599,7 +7594,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
                 zh: '已复制结构定义',
                 en: 'Schema copied',
               ),
-              logAction: 'copy ops tool schema',
+              logAction: '复制运维工具 Schema',
             ),
           ),
         ],
@@ -11940,7 +11935,7 @@ class _ToolSchemaBlock extends StatelessWidget {
     try {
       pretty = prettyPrintJson(payload);
     } catch (error, stack) {
-      silentLog('mcp', 'render tool schema json', error, stack);
+      silentLog('mcp', '渲染工具 schema JSON', error, stack);
       pretty = payload.toString();
     }
     return Container(
@@ -11977,7 +11972,7 @@ class _ToolSchemaBlock extends StatelessWidget {
                         zh: '已复制结构定义',
                         en: 'Schema copied',
                       ),
-                      logAction: 'copy tool schema',
+                      logAction: '复制工具 Schema',
                     );
                   },
                 ),
@@ -12230,7 +12225,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
         de: '${probes.length} aktuelle Prüfungen als $formatLabel in die Zwischenablage kopiert',
         ja: '直近 ${probes.length} 件のプローブ記録を $formatLabel としてクリップボードにコピーしました',
       ),
-      logAction: 'copy probe history',
+      logAction: '复制探测历史',
     );
   }
 
@@ -14759,7 +14754,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
           revision,
         );
       } catch (error, stack) {
-        silentLog('mcp_view', 'format tool result', error, stack);
+        silentLog('mcp_view', '格式化工具结果', error, stack);
         if (!mounted || revision != _formatRevision) continue;
         final (display, truncated) = _capDisplay(rawText);
         _applyDisplay(

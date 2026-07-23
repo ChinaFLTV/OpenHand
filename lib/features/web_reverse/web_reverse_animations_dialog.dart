@@ -113,7 +113,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                   'global rate = ${rate.toStringAsFixed(2)}x');
       });
     } catch (e, st) {
-      silentLog('web_reverse_animations_dialog', 'setPlaybackRate', e, st);
+      silentLog('web_reverse_animations_dialog', '设置动画播放速率', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -281,7 +281,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
             '${rows.length} active animation(s)';
       });
     } catch (e, st) {
-      silentLog('web_reverse_animations_dialog', 'refresh', e, st);
+      silentLog('web_reverse_animations_dialog', '刷新动画列表', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -317,7 +317,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       });
       await _refresh();
     } catch (e, st) {
-      silentLog('web_reverse_animations_dialog', 'bulk.$method', e, st);
+      silentLog('web_reverse_animations_dialog', '批量操作动画：$method', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -339,7 +339,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         paramsJson: jsonEncode({'expression': expr, 'returnByValue': true}),
       );
     } catch (e, st) {
-      silentLog('web_reverse_animations_dialog', 'row.$method', e, st);
+      silentLog('web_reverse_animations_dialog', '操作单个动画：$method', e, st);
     }
     if (!mounted) return;
     await _refresh();

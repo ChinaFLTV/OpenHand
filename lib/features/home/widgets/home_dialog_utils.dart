@@ -28,7 +28,7 @@ Future<bool> copyHomeTextToClipboard({
   required String text,
   String? successMessage,
   String? errorMessage,
-  String logAction = 'copy',
+  String logAction = '复制',
   bool showSuccess = true,
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,

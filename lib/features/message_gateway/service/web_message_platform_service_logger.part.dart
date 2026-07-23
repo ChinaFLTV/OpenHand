@@ -100,7 +100,7 @@ class _WebGatewayRotatingLogger {
       bytes = _encodeEntry(entry);
     } catch (error, stack) {
       _recordDroppedWrite();
-      silentLog('web_gateway_logger', 'encode', error, stack);
+      silentLog('web_gateway_logger', '编码日志条目', error, stack);
       return Future<void>.value();
     }
     if (!_canAccept(bytes.length)) {
@@ -134,7 +134,7 @@ class _WebGatewayRotatingLogger {
       await File(filePath).writeAsBytes(bytes, mode: FileMode.append);
       _currentSizeBytes += bytes.length;
     } catch (error, stack) {
-      silentLog('web_gateway_logger', 'write', error, stack);
+      silentLog('web_gateway_logger', '写入日志文件', error, stack);
     }
   }
 
@@ -169,7 +169,7 @@ class _WebGatewayRotatingLogger {
       () => drain,
       timeout: _closeTimeout,
       onError: (error, stack) =>
-          silentLog('web_gateway_logger', 'close', error, stack),
+          silentLog('web_gateway_logger', '关闭文件日志器', error, stack),
     ).then<void>((_) {});
     _closeFuture = close;
     return close;
@@ -212,12 +212,7 @@ class _WebGatewayRotatingLogger {
         }
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
       } catch (error, stack) {
-        silentLog(
-          'web_gateway_logger',
-          'clear delete ${file.path}',
-          error,
-          stack,
-        );
+        silentLog('web_gateway_logger', '清空时删除文件：${file.path}', error, stack);
       }
     }
     return stats;
@@ -240,12 +235,7 @@ class _WebGatewayRotatingLogger {
         await file.delete();
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: item.stat.size);
       } catch (error, stack) {
-        silentLog(
-          'web_gateway_logger',
-          'prune delete ${file.path}',
-          error,
-          stack,
-        );
+        silentLog('web_gateway_logger', '裁剪时删除文件：${file.path}', error, stack);
       }
     }
 
@@ -301,12 +291,7 @@ class _WebGatewayRotatingLogger {
           'content': utf8.decode(bytes, allowMalformed: true),
         });
       } catch (error, stack) {
-        silentLog(
-          'web_gateway_logger',
-          'read bundle ${file.path}',
-          error,
-          stack,
-        );
+        silentLog('web_gateway_logger', '读取日志包：${file.path}', error, stack);
       }
     }
     return items;
@@ -369,7 +354,7 @@ class _WebGatewayRotatingLogger {
       } catch (error, stack) {
         silentLog(
           'web_gateway_logger',
-          'trim rotated ${old.file.path}',
+          '清理轮转日志：${old.file.path}',
           error,
           stack,
         );

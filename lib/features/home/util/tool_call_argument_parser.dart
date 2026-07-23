@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 
 String parseBashToolCommandFromArguments(String rawArguments) {
   return _readToolArgumentValue(
@@ -55,7 +56,7 @@ String _readToolArgumentValue(
       if (!looksIncomplete) {
         silentLog(
           'tool_call_argument_parser',
-          'decode tool arguments json',
+          '解码工具参数 JSON',
           'unrecoverable: ${_truncateForLog(trimmed)}',
         );
       }
@@ -91,7 +92,7 @@ Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
   var foundAny = false;
   while (cursor < source.length) {
     while (cursor < source.length &&
-        _isAsciiWhitespace(source.codeUnitAt(cursor))) {
+        isAsciiWhitespaceCodeUnit(source.codeUnitAt(cursor))) {
       cursor += 1;
     }
     if (cursor >= source.length) break;
@@ -180,7 +181,7 @@ String _readSinglePartialJsonStringField(String source, String key) {
   }
   var cursor = keyIndex + quotedKey.length;
   while (cursor < source.length &&
-      _isAsciiWhitespace(source.codeUnitAt(cursor))) {
+      isAsciiWhitespaceCodeUnit(source.codeUnitAt(cursor))) {
     cursor += 1;
   }
   if (cursor >= source.length || source.codeUnitAt(cursor) != 0x3A) {
@@ -188,7 +189,7 @@ String _readSinglePartialJsonStringField(String source, String key) {
   }
   cursor += 1;
   while (cursor < source.length &&
-      _isAsciiWhitespace(source.codeUnitAt(cursor))) {
+      isAsciiWhitespaceCodeUnit(source.codeUnitAt(cursor))) {
     cursor += 1;
   }
   if (cursor >= source.length || source.codeUnitAt(cursor) != 0x22) {
@@ -247,11 +248,4 @@ String _readSinglePartialJsonStringField(String source, String key) {
     cursor += 1;
   }
   return buffer.toString().trim();
-}
-
-bool _isAsciiWhitespace(int codeUnit) {
-  return codeUnit == 0x20 ||
-      codeUnit == 0x09 ||
-      codeUnit == 0x0A ||
-      codeUnit == 0x0D;
 }
