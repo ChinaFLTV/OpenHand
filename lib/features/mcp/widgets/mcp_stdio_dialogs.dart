@@ -919,7 +919,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     if (mounted) setState(() => _checking = false);
   }
 
-  Future<void> _runPackageOperation(
+  Future<bool> _runPackageOperation(
     String action,
     String executable,
     List<String> args,
@@ -932,6 +932,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     });
     _addLog('[${_ts()}] > $executable ${args.join(' ')}');
     _addLog('');
+    var succeeded = false;
     try {
       final result = await runTrackedProcessWithLineLogging(
         executable,
@@ -949,6 +950,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
       if (exitCode == 0) {
         _addLog(l10n.mcpStdioDialogOperationCompleted(_ts(), action, 0));
         await _checkDepsStatus();
+        succeeded = true;
       } else {
         _addLog(l10n.mcpStdioDialogOperationFailed(_ts(), action, exitCode));
         _error = l10n.mcpStdioDialogOperationFailedPlain(action, exitCode);
@@ -958,6 +960,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
       _error = '$e';
     }
     if (mounted) setState(() => _operating = false);
+    return succeeded;
   }
 
   Future<void> _installDeps() async {
@@ -965,11 +968,13 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     final cleanPkg = _cleanPackageName;
     if (cleanPkg.isEmpty) return;
     if (_isNpxService) {
-      await _runPackageOperation(l10n.mcpStdioDialogInstall, 'npm', [
-        'install',
-        '-g',
-        cleanPkg,
-      ]);
+      final installed = await _runPackageOperation(
+        l10n.mcpStdioDialogInstall,
+        'npm',
+        ['install', '-g', cleanPkg],
+      );
+      if (!installed || !mounted) return;
+      setState(() => _operating = true);
       // 同时预热隔离缓存
       _addLog('');
       _addLog(l10n.mcpStdioDialogWarmCache(_ts()));
@@ -988,6 +993,8 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         _addLog(l10n.mcpStdioDialogWarmCacheDone(_ts()));
       } catch (e) {
         _addLog(l10n.mcpStdioDialogWarmCacheSkipped(_ts(), '$e'));
+      } finally {
+        if (mounted) setState(() => _operating = false);
       }
     } else if (_isUvxService) {
       await _runPackageOperation(l10n.mcpStdioDialogInstall, 'uv', [
@@ -999,17 +1006,17 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _updateDeps() {
+  Future<void> _updateDeps() async {
     final l10n = _l10n;
     final cleanPkg = _cleanPackageName;
     if (_isNpxService) {
-      return _runPackageOperation(l10n.mcpStdioDialogUpdate, 'npm', [
+      await _runPackageOperation(l10n.mcpStdioDialogUpdate, 'npm', [
         'update',
         '-g',
         cleanPkg,
       ]);
     } else {
-      return _runPackageOperation(l10n.mcpStdioDialogUpdate, 'uv', [
+      await _runPackageOperation(l10n.mcpStdioDialogUpdate, 'uv', [
         'tool',
         'upgrade',
         cleanPkg,
@@ -1017,17 +1024,17 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     }
   }
 
-  Future<void> _uninstallDeps() {
+  Future<void> _uninstallDeps() async {
     final l10n = _l10n;
     final cleanPkg = _cleanPackageName;
     if (_isNpxService) {
-      return _runPackageOperation(l10n.mcpStdioDialogUninstall, 'npm', [
+      await _runPackageOperation(l10n.mcpStdioDialogUninstall, 'npm', [
         'uninstall',
         '-g',
         cleanPkg,
       ]);
     } else {
-      return _runPackageOperation(l10n.mcpStdioDialogUninstall, 'uv', [
+      await _runPackageOperation(l10n.mcpStdioDialogUninstall, 'uv', [
         'tool',
         'uninstall',
         cleanPkg,
