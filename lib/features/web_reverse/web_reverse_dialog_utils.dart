@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/motion_preference.dart';
+import 'web_reverse_session_controller.dart';
 
 const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,
@@ -73,6 +76,21 @@ Future<void> confirmWebReverseDiscardChanges({
   );
   if (!confirmed || !context.mounted) return;
   await onConfirmed();
+}
+
+Future<void> removeWebReverseNewDocumentScriptBestEffort({
+  required WebReverseSessionController controller,
+  required String identifier,
+}) async {
+  try {
+    await controller.sendRawCdp(
+      method: 'Page.removeScriptToEvaluateOnNewDocument',
+      paramsJson: jsonEncode(<String, Object?>{'identifier': identifier}),
+      timeout: const Duration(seconds: 3),
+    );
+  } catch (error, stack) {
+    silentLog('web_reverse_dialog', '移除页面预加载脚本', error, stack);
+  }
 }
 
 Widget buildWebReverseStatusBar(

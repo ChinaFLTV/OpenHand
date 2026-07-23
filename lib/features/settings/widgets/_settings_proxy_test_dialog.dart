@@ -106,9 +106,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         ),
       );
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollGuard.followToBottom(_scrollController, animated: true);
-    });
+    _scrollGuard.scheduleFollowToBottom(_scrollController, animated: true);
   }
 
   void _finalizeCurrentSection(int nowMs) {

@@ -86,6 +86,7 @@ class AutoFollowScrollGuard {
   AutoFollowScrollGuard();
 
   bool _userScrolling = false;
+  bool _followScheduled = false;
   final AutoFollowProgrammaticScrollWindow _programmaticScroll =
       AutoFollowProgrammaticScrollWindow();
 
@@ -112,6 +113,26 @@ class AutoFollowScrollGuard {
       _userScrolling = false;
     }
     return false;
+  }
+
+  /// 合并同一帧内的多次贴底请求，避免流式日志为每一行重复注册回调。
+  void scheduleFollowToBottom(
+    ScrollController controller, {
+    bool animated = false,
+    Duration animationDuration = const Duration(milliseconds: 180),
+    Curve curve = Curves.easeOutCubic,
+  }) {
+    if (_followScheduled) return;
+    _followScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followScheduled = false;
+      followToBottom(
+        controller,
+        animated: animated,
+        animationDuration: animationDuration,
+        curve: curve,
+      );
+    });
   }
 
   /// 尝试把 [controller] 移到底部；用户滚动期间直接跳过。

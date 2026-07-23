@@ -14,6 +14,10 @@ class _ScraplingRuntimeDialog extends StatefulWidget {
 }
 
 class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
+  static const int _maxLogEntries = 800;
+  static const int _maxLogCharacters = 400000;
+  static const int _maxLogLineCharacters = 4000;
+
   final List<_ScraplingRuntimeLogEntry> _entries =
       <_ScraplingRuntimeLogEntry>[];
   final ScrollController _scrollController = ScrollController();
@@ -21,6 +25,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
+  int _retainedLogCharacters = 0;
   bool _running = true;
   bool _success = false;
   String? _errorMessage;
@@ -75,21 +80,24 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
     _ScraplingRuntimeLogLevel level = _ScraplingRuntimeLogLevel.stdout,
   }) {
     if (!mounted) return;
+    final retainedLine = clipTextWithEllipsis(line, _maxLogLineCharacters);
     setState(() {
-      _entries.add(_ScraplingRuntimeLogEntry(line: line, level: level));
+      _entries.add(_ScraplingRuntimeLogEntry(line: retainedLine, level: level));
+      _retainedLogCharacters += retainedLine.length;
+      while (_entries.length > _maxLogEntries ||
+          _retainedLogCharacters > _maxLogCharacters) {
+        _retainedLogCharacters -= _entries.removeAt(0).line.length;
+      }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _scrollGuard.followToBottom(
-        _scrollController,
-        animated: true,
-        animationDuration: _settingsMotionDuration(
-          context,
-          const Duration(milliseconds: 100),
-        ),
-        curve: Curves.easeOut,
-      );
-    });
+    _scrollGuard.scheduleFollowToBottom(
+      _scrollController,
+      animated: true,
+      animationDuration: _settingsMotionDuration(
+        context,
+        const Duration(milliseconds: 100),
+      ),
+      curve: Curves.easeOut,
+    );
   }
 
   Future<void> _start() async {

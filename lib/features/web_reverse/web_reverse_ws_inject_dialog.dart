@@ -162,10 +162,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     if (scriptId == null) return;
     _scriptId = null;
     unawaited(
-      widget.controller.sendRawCdp(
-        method: 'Page.removeScriptToEvaluateOnNewDocument',
-        paramsJson: jsonEncode(<String, Object?>{'identifier': scriptId}),
-        timeout: const Duration(seconds: 3),
+      removeWebReverseNewDocumentScriptBestEffort(
+        controller: widget.controller,
+        identifier: scriptId,
       ),
     );
   }

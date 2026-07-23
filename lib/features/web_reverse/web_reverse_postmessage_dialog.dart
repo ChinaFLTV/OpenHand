@@ -163,10 +163,9 @@ class _PmDialogState extends State<_PmDialog> {
     if (scriptId == null) return;
     _hookScriptId = null;
     unawaited(
-      widget.controller.sendRawCdp(
-        method: 'Page.removeScriptToEvaluateOnNewDocument',
-        paramsJson: jsonEncode({'identifier': scriptId}),
-        timeout: const Duration(seconds: 3),
+      removeWebReverseNewDocumentScriptBestEffort(
+        controller: widget.controller,
+        identifier: scriptId,
       ),
     );
   }
