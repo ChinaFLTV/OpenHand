@@ -3362,6 +3362,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   List<WebGatewayLogEntry> _pendingRenderedTarget =
       const <WebGatewayLogEntry>[];
   bool _syncScheduled = false;
+  bool _viewUpdateScheduled = false;
   bool _isExportingLog = false;
 
   @override
@@ -3380,9 +3381,13 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   }
 
   void _onControllerChanged() {
-    if (!mounted) return;
-    setState(() {});
-    if (_follow) _scrollToBottomSoon();
+    if (!mounted || _viewUpdateScheduled) return;
+    _viewUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewUpdateScheduled = false;
+      if (!mounted) return;
+      setState(() {});
+    });
   }
 
   @override
@@ -3729,13 +3734,11 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   }
 
   void _scrollToBottomSoon() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollGuard.followToBottom(
-        _scrollController,
-        animated: true,
-        animationDuration: openHandMotionDurationMs(context, 220),
-      );
-    });
+    _scrollGuard.scheduleFollowToBottom(
+      _scrollController,
+      animated: true,
+      animationDuration: openHandMotionDurationMs(context, 220),
+    );
   }
 
   Future<void> _copyLogs(List<WebGatewayLogEntry> logs) async {
