@@ -111,6 +111,61 @@ void main() {
 
     expect(trackedChildPidsSnapshot(), isNot(contains(process.pid)));
   });
+
+  test('清理期间新增的子进程会被强制回收', () async {
+    if (!Platform.isMacOS && !Platform.isLinux) return;
+
+    final blocker = await startTrackedProcess('/bin/sh', const <String>[
+      '-c',
+      'trap "" TERM; printf ready; while :; do :; done',
+    ]);
+    addTearDown(() => killAllTrackedChildren(gracefulTimeout: Duration.zero));
+    await blocker.stdout.first.timeout(const Duration(seconds: 1));
+
+    final cleanup = killAllTrackedChildren(
+      gracefulTimeout: const Duration(milliseconds: 500),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final lateProcess = await startTrackedProcess('/bin/sleep', const <String>[
+      '10',
+    ]);
+
+    await cleanup;
+    await lateProcess.exitCode.timeout(const Duration(seconds: 1));
+    expect(trackedChildPidsSnapshot(), isNot(contains(lateProcess.pid)));
+  });
+
+  test('全局清理会回收未建组进程的后代', () async {
+    if (!Platform.isMacOS && !Platform.isLinux) return;
+
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_process_tree_test_',
+    );
+    final marker = File(
+      '${directory.path}${Platform.pathSeparator}orphan-output',
+    );
+    addTearDown(() async {
+      await killAllTrackedChildren(gracefulTimeout: Duration.zero);
+      await directory.delete(recursive: true);
+    });
+    final process = await startTrackedProcess(
+      '/bin/sh',
+      const <String>[
+        '-c',
+        'trap "" TERM; '
+            '(sleep 0.5; printf orphan > "\$OPENHAND_MARKER") & '
+            'printf ready; while :; do sleep 1; done',
+      ],
+      environment: <String, String>{'OPENHAND_MARKER': marker.path},
+    );
+    await process.stdout.first.timeout(const Duration(seconds: 1));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    await killAllTrackedChildren(gracefulTimeout: Duration.zero);
+
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    expect(await marker.exists(), isFalse);
+  });
 }
 
 Future<bool> _waitForFile(File file, Duration timeout) async {

@@ -66,32 +66,6 @@ Future<void> _bootstrap() async {
   // 节流自动模式与 UI 卡顿降级会读取 recentFps。
   OpenHandFpsMonitor.instance.start();
 
-  // 异常退出时先清理登记过的子进程，避免残留进程继续持有系统输入上下文。
-  // 正常退出由 OpenHandApp 内的 AppLifecycleListener 处理。
-  final signalSubscriptions = <StreamSubscription<ProcessSignal>>[];
-  if (!Platform.isWindows) {
-    for (final sig in <ProcessSignal>[
-      ProcessSignal.sigint,
-      ProcessSignal.sigterm,
-    ]) {
-      try {
-        final subscription = sig.watch().listen((_) async {
-          await runtimeCleanup.dispose();
-          try {
-            await killAllTrackedChildren();
-          } catch (error, stack) {
-            silentLog('main', '信号触发后清理子进程', error, stack);
-          }
-          exit(0);
-        });
-        signalSubscriptions.add(subscription);
-      } catch (error, stack) {
-        // 某些沙箱 / 测试环境不允许安装信号处理器，忽略。
-        silentLog('main', '安装信号处理器', error, stack);
-      }
-    }
-  }
-
   final originalOnError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
     if (_shouldSilenceRenderingError(details.exception)) {
@@ -475,9 +449,6 @@ Future<void> _bootstrap() async {
       await messageGateway.controller.shutdown();
     })
     ..register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
-  for (final subscription in signalSubscriptions) {
-    runtimeCleanup.register('进程信号订阅', subscription.cancel);
-  }
   runtimeCleanup
     ..register('定时任务智能体处理器', () => cronsController.registerAgentHandler(null))
     ..register(
@@ -489,6 +460,42 @@ Future<void> _bootstrap() async {
       () => settingsController.removeListener(syncRuntimeSettings),
     )
     ..register('节流自动同步服务', throttleAutoSyncService.dispose);
+
+  // 所有资源登记完成后再安装信号监听，避免启动期信号先锁定注册表，
+  // 导致后续资源无法登记或清理。
+  if (!Platform.isWindows) {
+    Future<void>? signalShutdownFuture;
+    Future<void> shutdownForSignal() {
+      return signalShutdownFuture ??= () async {
+        try {
+          await runtimeCleanup.dispose();
+        } catch (error, stack) {
+          silentLog('main', '信号触发后释放运行时资源', error, stack);
+        }
+        try {
+          await killAllTrackedChildren();
+        } catch (error, stack) {
+          silentLog('main', '信号触发后清理子进程', error, stack);
+        }
+        exit(0);
+      }();
+    }
+
+    for (final sig in <ProcessSignal>[
+      ProcessSignal.sigint,
+      ProcessSignal.sigterm,
+    ]) {
+      try {
+        final subscription = sig.watch().listen(
+          (_) => unawaited(shutdownForSignal()),
+        );
+        runtimeCleanup.register('进程信号订阅', subscription.cancel);
+      } catch (error, stack) {
+        // 某些沙箱 / 测试环境不允许安装信号处理器，忽略。
+        silentLog('main', '安装信号处理器', error, stack);
+      }
+    }
+  }
 
   runApp(
     MultiProvider(

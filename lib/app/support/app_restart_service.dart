@@ -6,11 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../shared/util/input_value_parsing.dart';
+import 'app_runtime_cleanup_registry.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
 const Duration _kRelaunchDelay = Duration(milliseconds: 1800);
-const Duration _kExitRequestTimeout = Duration(seconds: 3);
+const Duration _kExitRequestCleanupGrace = Duration(seconds: 5);
+final Duration _kExitRequestTimeout =
+    kOpenHandDefaultRuntimeCleanupTotalTimeout + _kExitRequestCleanupGrace;
 const Duration _kRelaunchChmodTimeout = Duration(seconds: 2);
 
 enum AppRestartFailure {
@@ -119,6 +122,7 @@ class AppRestartService {
 
   Future<void> exitCurrentProcess({AppRelaunchTicket? ticket}) async {
     try {
+      // onExitRequested 会等待运行时资源清理，短超时会截断关闭链路。
       final response = await ServicesBinding.instance
           .exitApplication(ui.AppExitType.cancelable)
           .timeout(_kExitRequestTimeout);

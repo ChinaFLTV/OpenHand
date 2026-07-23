@@ -63,15 +63,23 @@ final class AppRuntimeCleanupRegistry {
   Future<void> _disposeAll() async {
     final stopwatch = Stopwatch()..start();
     while (_entries.isNotEmpty) {
-      final entry = _entries.removeLast();
-      final remainingEntries = _entries.length + 1;
       final remainingMicros =
           _totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+      if (remainingMicros <= 0) {
+        final skippedCount = _entries.length;
+        _entries.clear();
+        _reportError(
+          '运行时资源释放总时限',
+          TimeoutException('总时限已耗尽，已跳过 $skippedCount 项清理。'),
+          StackTrace.current,
+        );
+        break;
+      }
+      final remainingEntries = _entries.length;
       final fairShare = Duration(
-        microseconds: remainingMicros <= 0
-            ? 0
-            : remainingMicros ~/ remainingEntries,
+        microseconds: remainingMicros ~/ remainingEntries,
       );
+      final entry = _entries.removeLast();
       await runAsyncCleanupBounded(
         entry.cleanup,
         timeout: fairShare < _cleanupTimeout ? fairShare : _cleanupTimeout,

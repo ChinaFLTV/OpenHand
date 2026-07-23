@@ -38,19 +38,35 @@ Future<_ProcessGroupLauncher?>? _processGroupLauncherProbe;
 Timer? _processGroupPruneTimer;
 bool _processGroupPruneRunning = false;
 Future<void>? _trackedChildrenCleanupFuture;
+_TrackedChildrenCleanupPhase _trackedChildrenCleanupPhase =
+    _TrackedChildrenCleanupPhase.idle;
+final Set<Process> _trackedChildrenRegisteredDuringCleanup =
+    HashSet<Process>.identity();
 
 const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
 const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _windowsTaskkillTimeout = Duration(seconds: 2);
+const Duration _processGroupSignalFallbackTimeout = Duration(seconds: 2);
 const Duration _processExecutableProbeTimeout = Duration(milliseconds: 500);
 const Duration _processGroupPruneInterval = Duration(seconds: 5);
 const Duration _processGroupProbeTimeout = Duration(milliseconds: 500);
+const Duration _trackedChildrenCleanupPreparationTimeout = Duration(
+  milliseconds: 250,
+);
 const Duration _maxTrackedChildrenGracefulTimeout = Duration(seconds: 5);
 const int _processGroupProbeConcurrency = 4;
 const int _maxDescendantProcesses = 256;
 const int _maxCapturedProcessBytesPerStream = 16 * 1024 * 1024;
+
+enum _TrackedChildrenCleanupPhase {
+  idle,
+  preparing,
+  terminating,
+  waitingForGrace,
+  forcing,
+}
 
 bool _isMissingExecutableProcessException(Object error) {
   if (error is! ProcessException) return false;
@@ -69,11 +85,18 @@ bool _isMissingExecutableProcessException(Object error) {
 
 void _registerTrackedChild(Process process) {
   _trackedChildren[process.pid] = process;
+  _applyTrackedChildrenCleanupPhase(process);
   unawaited(
     process.exitCode.then<void>(
-      (_) => _trackedChildren.remove(process.pid),
+      (_) {
+        if (identical(_trackedChildren[process.pid], process)) {
+          _trackedChildren.remove(process.pid);
+        }
+      },
       onError: (Object error, StackTrace stack) {
-        _trackedChildren.remove(process.pid);
+        if (identical(_trackedChildren[process.pid], process)) {
+          _trackedChildren.remove(process.pid);
+        }
         silentLog(
           'safe_subprocess',
           'observe tracked child exit',
@@ -83,6 +106,40 @@ void _registerTrackedChild(Process process) {
       },
     ),
   );
+}
+
+void _applyTrackedChildrenCleanupPhase(Process process) {
+  switch (_trackedChildrenCleanupPhase) {
+    case _TrackedChildrenCleanupPhase.idle:
+      return;
+    case _TrackedChildrenCleanupPhase.preparing:
+      _trackedChildrenRegisteredDuringCleanup.add(process);
+      return;
+    case _TrackedChildrenCleanupPhase.terminating:
+    case _TrackedChildrenCleanupPhase.waitingForGrace:
+      _trackedChildrenRegisteredDuringCleanup.add(process);
+      _signalTrackedProcessForCleanup(process, ProcessSignal.sigterm);
+      return;
+    case _TrackedChildrenCleanupPhase.forcing:
+      _trackedChildrenRegisteredDuringCleanup.add(process);
+      _signalTrackedProcessForCleanup(process, ProcessSignal.sigkill);
+      return;
+  }
+}
+
+void _signalTrackedProcessForCleanup(Process process, ProcessSignal signal) {
+  if (identical(_trackedProcessGroups[process.pid], process)) {
+    final delivered = _sendSignalToProcessGroupDirect(process.pid, signal);
+    if (delivered && signal == ProcessSignal.sigkill) {
+      _trackedProcessGroups.remove(process.pid);
+    }
+  }
+  if (!identical(_trackedChildren[process.pid], process)) return;
+  try {
+    process.kill(signal);
+  } catch (error, stack) {
+    silentLog('safe_subprocess', '终止清理期间新增的子进程', error, stack);
+  }
 }
 
 void _ensureProcessGroupPruner() {
@@ -255,6 +312,7 @@ Future<_TrackedProcessLaunch> _startTrackedProcessInNewGroup(
   );
   _trackedProcessGroupLeaders[process] = true;
   _trackedProcessGroups[process.pid] = process;
+  _applyTrackedChildrenCleanupPhase(process);
   unawaited(
     process.exitCode.then<void>(
       (_) {
@@ -423,19 +481,46 @@ Future<void> _runWindowsTaskkillTree(
   );
 }
 
-Future<List<int>> _collectDescendantPids(int rootPid) async {
+Future<List<int>> _collectDescendantPids(
+  int rootPid, {
+  Duration timeout = _directChildEnumerationTimeout,
+}) async {
   if ((!Platform.isMacOS && !Platform.isLinux) || rootPid <= 0) {
     return const <int>[];
   }
-  final pgrep =
-      await _firstExistingProcessExecutable(const <String>['/usr/bin/pgrep']) ??
-      'pgrep';
+  final boundedTimeout = timeout.isNegative
+      ? Duration.zero
+      : timeout > _directChildEnumerationTimeout
+      ? _directChildEnumerationTimeout
+      : timeout;
+  if (boundedTimeout <= Duration.zero) return const <int>[];
+  final stopwatch = Stopwatch()..start();
+
+  Duration remainingTime() {
+    final remaining = boundedTimeout - stopwatch.elapsed;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  String pgrep = 'pgrep';
+  try {
+    final remaining = remainingTime();
+    if (remaining <= Duration.zero) return const <int>[];
+    pgrep =
+        await _firstExistingProcessExecutable(const <String>[
+          '/usr/bin/pgrep',
+        ]).timeout(remaining) ??
+        pgrep;
+  } on TimeoutException {
+    return const <int>[];
+  } catch (error, stack) {
+    silentLog('safe_subprocess', '解析后代进程枚举器', error, stack);
+    return const <int>[];
+  }
   final pendingParents = ListQueue<int>()..add(rootPid);
   final descendants = <int>{};
-  final stopwatch = Stopwatch()..start();
   while (pendingParents.isNotEmpty &&
       descendants.length < _maxDescendantProcesses) {
-    final remaining = _directChildEnumerationTimeout - stopwatch.elapsed;
+    final remaining = remainingTime();
     if (remaining <= Duration.zero) break;
     final parentPid = pendingParents.removeFirst();
     try {
@@ -491,9 +576,9 @@ void _signalProcessIds(
 }
 
 /// 关闭所有登记在册的子进程：先批量发送 SIGTERM，统一等待
-/// [gracefulTimeout]，再批量发送 SIGKILL。宽限期最多五秒，收尾只等待一次
-/// 固定窗口，避免进程数量放大退出时延。所有失败都会被吞掉，因为这是退出
-/// 兜底路径，不能再抛新异常。
+/// [gracefulTimeout]，再批量发送 SIGKILL。先用最多 250ms 收集未建组进程
+/// 的后代 PID；宽限期最多五秒，收尾只等待一次固定窗口，避免进程数量放大
+/// 退出时延。所有失败都会被吞掉，因为这是退出兜底路径，不能再抛新异常。
 Future<void> killAllTrackedChildren({
   Duration gracefulTimeout = const Duration(milliseconds: 400),
 }) {
@@ -513,77 +598,135 @@ Future<void> killAllTrackedChildren({
 Future<void> _killAllTrackedChildren({
   Duration gracefulTimeout = const Duration(milliseconds: 400),
 }) async {
-  if (_trackedChildren.isEmpty && _trackedProcessGroups.isEmpty) return;
-  // 拷贝快照，避免退出回调修改原集合。
-  final snapshotByPid = <int, Process>{
-    ..._trackedProcessGroups,
-    ..._trackedChildren,
-  };
-  final snapshot = snapshotByPid.values.toList(growable: false);
-  final processGroupIds = _trackedProcessGroups.keys.toSet();
-  final boundedGracefulTimeout = _boundedTrackedChildrenGracefulTimeout(
-    gracefulTimeout,
-  );
-
-  Future<Set<int>> signalAll(ProcessSignal signal, String operation) async {
-    final groupSignals = <int, Future<bool>>{};
-    for (final process in snapshot) {
-      if (processGroupIds.contains(process.pid)) {
-        groupSignals[process.pid] = _sendSignalToProcessGroup(
-          process.pid,
-          signal,
-        );
-      }
-      try {
-        process.kill(signal);
-      } catch (error, stack) {
-        silentLog('safe_subprocess', operation, error, stack);
-      }
-    }
-    final deliveredGroupIds = <int>{};
-    await Future.wait<void>(<Future<void>>[
-      for (final entry in groupSignals.entries)
-        entry.value.then<void>((delivered) {
-          if (delivered) deliveredGroupIds.add(entry.key);
-        }),
-    ]);
-    return deliveredGroupIds;
-  }
-
-  await signalAll(ProcessSignal.sigterm, '终止已跟踪子进程');
-  if (boundedGracefulTimeout > Duration.zero) {
-    await Future<void>.delayed(boundedGracefulTimeout);
-  }
-  final forceKilledGroupIds = await signalAll(
-    ProcessSignal.sigkill,
-    '强制终止已跟踪子进程',
-  );
-
-  Future<void> waitForExit(Process process) async {
-    try {
-      await process.exitCode;
-    } catch (error, stack) {
-      silentLog('safe_subprocess', '等待已跟踪子进程退出', error, stack);
-    }
-  }
-
+  _trackedChildrenCleanupPhase = _TrackedChildrenCleanupPhase.preparing;
+  _trackedChildrenRegisteredDuringCleanup.clear();
   try {
-    await Future.wait<void>(
-      snapshot.map(waitForExit),
-    ).timeout(_processTreeFinalWait);
-  } on TimeoutException {
-    // 强制信号已发出，不能让异常子进程继续阻塞应用退出。
-  } catch (error, stack) {
-    silentLog('safe_subprocess', '收尾等待已跟踪子进程退出', error, stack);
-  }
-  for (final processGroupId in forceKilledGroupIds) {
-    final process = snapshotByPid[processGroupId];
-    if (process != null &&
-        identical(_trackedProcessGroups[processGroupId], process)) {
-      _trackedProcessGroups.remove(processGroupId);
+    // 使用对象身份去重，避免 PID 复用导致旧回调影响新登记。
+    final initialTargets = HashSet<Process>.identity()
+      ..addAll(_trackedProcessGroups.values)
+      ..addAll(_trackedChildren.values);
+    if (initialTargets.isEmpty) return;
+
+    final initialSnapshot = initialTargets.toList(growable: false);
+    final boundedGracefulTimeout = _boundedTrackedChildrenGracefulTimeout(
+      gracefulTimeout,
+    );
+    final descendantPidsByProcess = HashMap<Process, List<int>>.identity();
+    final preparationStopwatch = Stopwatch()..start();
+
+    Duration remainingPreparationTime() {
+      final remaining =
+          _trackedChildrenCleanupPreparationTimeout -
+          preparationStopwatch.elapsed;
+      return remaining.isNegative ? Duration.zero : remaining;
     }
+
+    List<Process> collectCleanupTargets() {
+      final targets = HashSet<Process>.identity()
+        ..addAll(initialSnapshot)
+        ..addAll(_trackedChildrenRegisteredDuringCleanup);
+      return targets.toList(growable: false);
+    }
+
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: initialSnapshot.length,
+      maxConcurrency: _processGroupProbeConcurrency,
+      shouldContinue: () => remainingPreparationTime() > Duration.zero,
+      task: (index) async {
+        final process = initialSnapshot[index];
+        if (identical(_trackedProcessGroups[process.pid], process)) return;
+        final remaining = remainingPreparationTime();
+        if (remaining <= Duration.zero) return;
+        final descendants = await _collectDescendantPids(
+          process.pid,
+          timeout: remaining,
+        ).timeout(remaining, onTimeout: () => const <int>[]);
+        if (descendants.isNotEmpty) {
+          descendantPidsByProcess[process] = descendants;
+        }
+      },
+    );
+    preparationStopwatch.stop();
+
+    Set<Process> signalAll(
+      Iterable<Process> targets,
+      ProcessSignal signal,
+      String operation,
+    ) {
+      final deliveredGroups = HashSet<Process>.identity();
+      for (final process in targets) {
+        final isCurrentGroup = identical(
+          _trackedProcessGroups[process.pid],
+          process,
+        );
+        if (isCurrentGroup) {
+          if (_sendSignalToProcessGroupDirect(process.pid, signal)) {
+            deliveredGroups.add(process);
+          }
+        } else {
+          _signalProcessIds(
+            (descendantPidsByProcess[process] ?? const <int>[]).reversed,
+            signal,
+            where: signal == ProcessSignal.sigkill
+                ? '强制终止已跟踪子进程后代'
+                : '终止已跟踪子进程后代',
+          );
+        }
+        if (!identical(_trackedChildren[process.pid], process)) continue;
+        try {
+          process.kill(signal);
+        } catch (error, stack) {
+          silentLog('safe_subprocess', operation, error, stack);
+        }
+      }
+      return deliveredGroups;
+    }
+
+    Future<void> waitForExit(Iterable<Process> targets) async {
+      try {
+        await Future.wait<void>(
+          targets.map((process) async {
+            try {
+              await process.exitCode;
+            } catch (error, stack) {
+              silentLog('safe_subprocess', '等待已跟踪子进程退出', error, stack);
+            }
+          }),
+        ).timeout(_processTreeFinalWait);
+      } on TimeoutException {
+        // 强制信号已发出，不能让异常子进程继续阻塞应用退出。
+      } catch (error, stack) {
+        silentLog('safe_subprocess', '收尾等待已跟踪子进程退出', error, stack);
+      }
+    }
+
+    _trackedChildrenCleanupPhase = _TrackedChildrenCleanupPhase.terminating;
+    signalAll(collectCleanupTargets(), ProcessSignal.sigterm, '终止已跟踪子进程');
+    _trackedChildrenCleanupPhase = _TrackedChildrenCleanupPhase.waitingForGrace;
+    if (boundedGracefulTimeout > Duration.zero) {
+      await Future<void>.delayed(boundedGracefulTimeout);
+    }
+
+    _trackedChildrenCleanupPhase = _TrackedChildrenCleanupPhase.forcing;
+    final forceTargets = collectCleanupTargets();
+    final forceKilledGroups = signalAll(
+      forceTargets,
+      ProcessSignal.sigkill,
+      '强制终止已跟踪子进程',
+    );
+    await waitForExit(forceTargets);
+    for (final process in forceKilledGroups) {
+      if (identical(_trackedProcessGroups[process.pid], process)) {
+        _trackedProcessGroups.remove(process.pid);
+      }
+    }
+  } catch (error, stack) {
+    silentLog('safe_subprocess', '清理已跟踪子进程', error, stack);
+  } finally {
+    _trackedChildrenRegisteredDuringCleanup.clear();
+    _trackedChildrenCleanupPhase = _TrackedChildrenCleanupPhase.idle;
+    _stopProcessGroupPrunerIfIdle();
   }
-  _stopProcessGroupPrunerIfIdle();
 }
 
 Duration _boundedTrackedChildrenGracefulTimeout(Duration timeout) {
@@ -644,23 +787,27 @@ Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
   return _processGroupLauncherProbe!;
 }
 
-Future<bool> _sendSignalToProcessGroup(
-  int processGroupId,
-  ProcessSignal signal,
-) async {
+bool _sendSignalToProcessGroupDirect(int processGroupId, ProcessSignal signal) {
   if (Platform.isWindows || processGroupId <= 0) return false;
-  final signalName = signal == ProcessSignal.sigkill ? 'KILL' : 'TERM';
   try {
     if (Process.killPid(-processGroupId, signal)) return true;
   } catch (error, stack) {
     silentLog('safe_subprocess', '向进程组发送信号', error, stack);
   }
-  // 兼容极少数不接受负 PID 的运行时实现。
+  return false;
+}
+
+Future<bool> _sendSignalToProcessGroup(
+  int processGroupId,
+  ProcessSignal signal,
+) async {
+  if (_sendSignalToProcessGroupDirect(processGroupId, signal)) return true;
+  final signalName = signal == ProcessSignal.sigkill ? 'KILL' : 'TERM';
   try {
     final result = await runBinaryProcessWithTimeout(
       '/bin/kill',
       <String>['-$signalName', '-$processGroupId'],
-      timeout: const Duration(seconds: 2),
+      timeout: _processGroupSignalFallbackTimeout,
       maxStdoutBytes: 0,
       maxStderrBytes: 8 * 1024,
       tag: 'safe_subprocess.kill_group',
@@ -668,7 +815,7 @@ Future<bool> _sendSignalToProcessGroup(
     );
     return result?.exitCode == 0;
   } catch (error, stack) {
-    silentLog('safe_subprocess', '向进程组发送信号', error, stack);
+    silentLog('safe_subprocess', '向进程组发送兼容信号', error, stack);
     return false;
   }
 }
