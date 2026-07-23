@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -231,6 +232,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
   String _filter = '';
   String _kindFilter = 'all'; // all|attributes|characterData|childList
   final ScrollController _scroll = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   bool _autoFollow = true;
 
   @override
@@ -374,12 +376,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       }
       if (dirty && mounted) {
         setState(() {});
-        if (_autoFollow && _scroll.hasClients) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_scroll.hasClients) {
-              _scroll.jumpTo(_scroll.position.maxScrollExtent);
-            }
-          });
+        if (_autoFollow) {
+          _scrollGuard.scheduleFollowToBottom(_scroll, animated: true);
         }
       }
     } catch (e, st) {
@@ -530,13 +528,16 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    controller: _scroll,
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) {
-                      final r = filtered[i];
-                      return _MutRow(rec: r);
-                    },
+                : NotificationListener<ScrollNotification>(
+                    onNotification: _scrollGuard.handleNotification,
+                    child: ListView.builder(
+                      controller: _scroll,
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final r = filtered[i];
+                        return _MutRow(rec: r);
+                      },
+                    ),
                   ),
           ),
           Divider(height: 1, color: cs.outlineVariant),

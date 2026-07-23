@@ -25,7 +25,18 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
+
+const int _kMaxAiCryptoScriptResources = 30;
+const int _kMaxAiCryptoHitsPerSuspect = 5;
+const int _kMaxAiCryptoHitLineChars = 200;
+const int _kMaxAiCryptoSamples = 64;
+const int _kMaxAiCryptoFieldsPerSample = 256;
+const int _kMaxAiCryptoCandidateFields = 512;
+const int _kMaxAiCryptoSuspects = 32;
+const int _kMaxAiCryptoFieldNameChars = 512;
+const int _kMaxAiCryptoValueChars = 8192;
 
 class _EndpointGroup {
   _EndpointGroup({required this.key, required this.entries});
@@ -117,11 +128,20 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     try {
       final v = jsonDecode(text);
       if (v is Map) {
-        v.forEach((k, val) {
-          if (val is String || val is num || val is bool) {
-            out['$k'] = '$val';
+        for (final entry in v.entries.take(_kMaxAiCryptoFieldsPerSample)) {
+          final k = entry.key;
+          final val = entry.value;
+          final key = '$k';
+          if (key.isEmpty || key.length > _kMaxAiCryptoFieldNameChars) {
+            continue;
           }
-        });
+          if (val is String || val is num || val is bool) {
+            final value = '$val';
+            if (value.length <= _kMaxAiCryptoValueChars) {
+              out[key] = value;
+            }
+          }
+        }
         if (out.isNotEmpty) return out;
       }
     } catch (error, stack) {
@@ -130,12 +150,17 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     // form-urlencoded
     if (text.contains('=')) {
       for (final pair in text.split('&')) {
+        if (out.length >= _kMaxAiCryptoFieldsPerSample) break;
         final eq = pair.indexOf('=');
         if (eq <= 0) continue;
         try {
           final k = Uri.decodeQueryComponent(pair.substring(0, eq));
           final v = Uri.decodeQueryComponent(pair.substring(eq + 1));
-          out[k] = v;
+          if (k.isNotEmpty &&
+              k.length <= _kMaxAiCryptoFieldNameChars &&
+              v.length <= _kMaxAiCryptoValueChars) {
+            out[k] = v;
+          }
         } catch (error, stack) {
           silentLog('web_reverse_ai_crypto_dialog', '解析表单字段', error, stack);
         }
@@ -168,14 +193,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
 
   List<String> _detectSuspects(_EndpointGroup g) {
     final samples = <Map<String, String>>[];
-    for (final e in g.entries) {
+    for (final e in g.entries.take(_kMaxAiCryptoSamples)) {
       final m = _tryParseFlatPairs(e.requestPostData);
       if (m != null) samples.add(m);
     }
     if (samples.length < 2) {
       // 也尝试 URL query 参数
       final qs = <Map<String, String>>[];
-      for (final e in g.entries) {
+      for (final e in g.entries.take(_kMaxAiCryptoSamples)) {
         try {
           final u = Uri.parse(e.url);
           if (u.queryParameters.isNotEmpty) {
@@ -192,7 +217,11 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     // 所有 key 的并集
     final keys = <String>{};
     for (final s in samples) {
-      keys.addAll(s.keys);
+      for (final key in s.keys) {
+        if (keys.length >= _kMaxAiCryptoCandidateFields) break;
+        keys.add(key);
+      }
+      if (keys.length >= _kMaxAiCryptoCandidateFields) break;
     }
     final variable = <String>[];
     for (final k in keys) {
@@ -209,7 +238,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       }
     }
     variable.sort((a, b) => a.compareTo(b));
-    return variable;
+    return variable.take(_kMaxAiCryptoSuspects).toList(growable: false);
   }
 
   bool _isWellKnownSignKey(String k) {
@@ -260,47 +289,23 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       method: 'Page.getResourceTree',
       paramsJson: '{}',
     );
+    if (!mounted) return const <String, List<_JsHit>>{};
     if (tree == null || tree['error'] != null) {
       return const <String, List<_JsHit>>{};
     }
-    final scripts = <_ScriptResource>[];
-    void walk(Object? node) {
-      if (node is! Map) return;
-      final frame = node['frame'];
-      if (frame is Map) {
-        final fid = frame['id']?.toString();
-        final resources = node['resources'];
-        if (resources is List && fid != null) {
-          for (final r in resources) {
-            if (r is Map &&
-                (r['type']?.toString().toLowerCase() == 'script') &&
-                r['url'] is String) {
-              scripts.add(
-                _ScriptResource(frameId: fid, url: r['url'] as String),
-              );
-            }
-          }
-        }
-      }
-      final children = node['childFrames'];
-      if (children is List) {
-        for (final c in children) {
-          walk(c);
-        }
-      }
-    }
-
-    walk(tree['frameTree']);
+    final scripts = collectWebReverseScriptResources(
+      tree['frameTree'],
+      maxEntries: _kMaxAiCryptoScriptResources,
+    );
     if (scripts.isEmpty) return const <String, List<_JsHit>>{};
 
-    // 限制以防扫死页面
-    final scriptsToSearch = scripts.take(30).toList();
     final out = <String, List<_JsHit>>{};
     var done = 0;
     for (final key in suspects) {
       final list = <_JsHit>[];
-      for (final s in scriptsToSearch) {
-        if (list.length >= 5) break;
+      for (final s in scripts) {
+        if (!mounted) return const <String, List<_JsHit>>{};
+        if (list.length >= _kMaxAiCryptoHitsPerSuspect) break;
         try {
           final r = await widget.controller.sendRawCdp(
             method: 'Page.searchInResource',
@@ -321,16 +326,18 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                     ? m['lineNumber'] as int
                     : 0;
                 final content = m['lineContent']?.toString() ?? '';
+                final retainedContent = clipTextWithEllipsis(
+                  content,
+                  _kMaxAiCryptoHitLineChars,
+                );
                 list.add(
                   _JsHit(
                     url: s.url,
                     lineNumber: line,
-                    lineContent: content.length > 200
-                        ? '${content.substring(0, 200)}…'
-                        : content,
+                    lineContent: retainedContent,
                   ),
                 );
-                if (list.length >= 5) break;
+                if (list.length >= _kMaxAiCryptoHitsPerSuspect) break;
               }
             }
           }
@@ -696,10 +703,4 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       ),
     );
   }
-}
-
-class _ScriptResource {
-  _ScriptResource({required this.frameId, required this.url});
-  final String frameId;
-  final String url;
 }

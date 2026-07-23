@@ -1,6 +1,7 @@
 /// Web 逆向面板共用的纯函数与数据边界处理。
 library;
 
+import 'dart:collection';
 import 'dart:convert';
 
 import '../../shared/util/input_value_parsing.dart';
@@ -54,6 +55,9 @@ const int kWebReverseMaxLongTasks = 200;
 const int kWebReverseMaxLongTaskAttributionChars = 1024;
 const int kWebReverseMaxTraceEventChars = 256 * 1024;
 const int kWebReverseMaxTraceEventFields = 128;
+const int kWebReverseMaxScriptResourceFrames = 256;
+const int kWebReverseMaxScriptResourceUrlChars = 16 * 1024;
+const int kWebReverseMaxInspectedScriptResources = 4096;
 final RegExp _consoleIsoTimestampPattern = RegExp(
   r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*',
 );
@@ -64,6 +68,69 @@ final RegExp _consoleLocationTailPattern = RegExp(r':\d+:\d+\)');
 final RegExp _consoleWhitespacePattern = RegExp(r'\s+');
 
 typedef WebReversePageTargetData = ({String id, String url, String title});
+typedef WebReverseScriptResource = ({String frameId, String url});
+
+/// 有界收集资源树中的脚本，统一限制帧、资源、URL 和重复项。
+List<WebReverseScriptResource> collectWebReverseScriptResources(
+  Object? rawTree, {
+  required int maxEntries,
+  int maxFrames = kWebReverseMaxScriptResourceFrames,
+  int maxInspectedResources = kWebReverseMaxInspectedScriptResources,
+}) {
+  _validatePositiveWebReverseLimits([
+    maxEntries,
+    maxFrames,
+    maxInspectedResources,
+  ]);
+  if (rawTree is! Map) return const <WebReverseScriptResource>[];
+  final queue = ListQueue<Object?>()..add(rawTree);
+  final result = <WebReverseScriptResource>[];
+  final seen = <(String, String)>{};
+  var inspectedFrames = 0;
+  var inspectedResources = 0;
+  while (queue.isNotEmpty &&
+      result.length < maxEntries &&
+      inspectedFrames < maxFrames) {
+    final node = queue.removeFirst();
+    if (node is! Map) continue;
+    inspectedFrames++;
+    final frame = node['frame'];
+    final frameId = frame is Map ? frame['id'] : null;
+    final resources = node['resources'];
+    if (frameId is String &&
+        frameId.isNotEmpty &&
+        frameId.length <= kWebReverseMaxPageTargetIdChars &&
+        resources is Iterable) {
+      for (final resource in resources) {
+        if (inspectedResources++ >= maxInspectedResources ||
+            result.length >= maxEntries) {
+          break;
+        }
+        if (resource is! Map ||
+            resource['type']?.toString().toLowerCase() != 'script') {
+          continue;
+        }
+        final url = resource['url'];
+        if (url is! String ||
+            url.isEmpty ||
+            url.length > kWebReverseMaxScriptResourceUrlChars) {
+          continue;
+        }
+        final key = (frameId, url);
+        if (!seen.add(key)) continue;
+        result.add((frameId: frameId, url: url));
+      }
+    }
+    final children = node['childFrames'];
+    if (children is Iterable && inspectedFrames < maxFrames) {
+      for (final child in children) {
+        if (inspectedFrames + queue.length >= maxFrames) break;
+        if (child is Map) queue.addLast(child);
+      }
+    }
+  }
+  return List<WebReverseScriptResource>.unmodifiable(result);
+}
 
 String _boundedWebReverseText(
   Object? value,

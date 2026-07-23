@@ -23,6 +23,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -72,40 +73,17 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         method: 'Page.getResourceTree',
         paramsJson: '{}',
       );
+      if (!mounted) return;
       if (tree == null || tree['error'] != null) {
         setState(
           () => _status = loc?.webReverseCallgraphFetchFailed ?? 'Fetch failed',
         );
         return;
       }
-      final scripts = <_ScriptResource>[];
-      void walk(Object? node) {
-        if (node is! Map) return;
-        final frame = node['frame'];
-        if (frame is Map) {
-          final fid = frame['id']?.toString();
-          final resources = node['resources'];
-          if (resources is List && fid != null) {
-            for (final r in resources) {
-              if (r is Map &&
-                  r['type']?.toString().toLowerCase() == 'script' &&
-                  r['url'] is String) {
-                scripts.add(
-                  _ScriptResource(frameId: fid, url: r['url'] as String),
-                );
-              }
-            }
-          }
-        }
-        final children = node['childFrames'];
-        if (children is List) {
-          for (final c in children) {
-            walk(c);
-          }
-        }
-      }
-
-      walk(tree['frameTree']);
+      final scripts = collectWebReverseScriptResources(
+        tree['frameTree'],
+        maxEntries: _scriptLimit,
+      );
       if (scripts.isEmpty) {
         setState(
           () => _status =
@@ -113,9 +91,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         );
         return;
       }
-      final pickList = scripts.take(_scriptLimit).toList();
+      final pickList = scripts.toList(growable: false);
       var done = 0;
       for (final s in pickList) {
+        if (!mounted) return;
         done++;
         if (mounted) {
           setState(
@@ -751,12 +730,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
       ],
     );
   }
-}
-
-class _ScriptResource {
-  const _ScriptResource({required this.frameId, required this.url});
-  final String frameId;
-  final String url;
 }
 
 class _ScriptGraph {

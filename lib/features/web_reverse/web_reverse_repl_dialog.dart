@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
@@ -48,6 +49,7 @@ class _ReplEntry {
 class _ReplDialogState extends State<_ReplDialog> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final List<_ReplEntry> _log = [];
   int _historyCursor = -1;
   bool _busy = false;
@@ -104,15 +106,11 @@ class _ReplDialogState extends State<_ReplDialog> {
       _busy = false;
       _input.clear();
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    });
+    _scrollGuard.scheduleFollowToBottom(
+      _scroll,
+      animated: true,
+      animationDuration: const Duration(milliseconds: 240),
+    );
   }
 
   void _historyUp() {
@@ -194,14 +192,17 @@ class _ReplDialogState extends State<_ReplDialog> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    itemCount: _log.length,
-                    itemBuilder: (_, i) {
-                      final e = _log[i];
-                      return _LogTile(entry: e, onCopy: _copy, cs: cs);
-                    },
+                : NotificationListener<ScrollNotification>(
+                    onNotification: _scrollGuard.handleNotification,
+                    child: ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      itemCount: _log.length,
+                      itemBuilder: (_, i) {
+                        final e = _log[i];
+                        return _LogTile(entry: e, onCopy: _copy, cs: cs);
+                      },
+                    ),
                   ),
           ),
           Divider(height: 1, color: cs.outlineVariant),

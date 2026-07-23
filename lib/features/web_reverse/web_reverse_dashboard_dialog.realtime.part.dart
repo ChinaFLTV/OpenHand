@@ -27,7 +27,9 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   };
   bool _autoFollow = true;
   final ScrollController _scroll = ScrollController();
-  int _lastFrameCount = 0;
+  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
+  CdpWebSocketFrame? _lastFrame;
+  bool _updateScheduled = false;
 
   @override
   void initState() {
@@ -43,19 +45,20 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   }
 
   void _onControllerChanged() {
-    if (!mounted) return;
+    if (!mounted || _updateScheduled) return;
+    _updateScheduled = true;
     setState(() {});
-    // 新帧到达时按需自动滚到底。
-    if (_autoFollow && _selectedReqId != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScheduled = false;
+      if (!mounted || !_autoFollow || _selectedReqId == null) return;
       final entry = _selectedEntry();
-      if (entry != null && entry.wsFrames.length != _lastFrameCount) {
-        _lastFrameCount = entry.wsFrames.length;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_scroll.hasClients) return;
-          _scroll.jumpTo(_scroll.position.maxScrollExtent);
-        });
-      }
-    }
+      final latest = entry == null || entry.wsFrames.isEmpty
+          ? null
+          : entry.wsFrames.last;
+      if (latest == null || identical(latest, _lastFrame)) return;
+      _lastFrame = latest;
+      _scrollGuard.followToBottom(_scroll, animated: true);
+    });
   }
 
   List<CdpNetworkEntry> _wsEntries() {
@@ -200,10 +203,18 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                               return _ConnTile(
                                 entry: e,
                                 selected: isSel,
-                                onTap: () => setState(() {
-                                  _selectedReqId = e.requestId;
-                                  _lastFrameCount = e.wsFrames.length;
-                                }),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedReqId = e.requestId;
+                                    _lastFrame = e.wsFrames.isEmpty
+                                        ? null
+                                        : e.wsFrames.last;
+                                  });
+                                  _scrollGuard.scheduleFollowToBottom(
+                                    _scroll,
+                                    animated: true,
+                                  );
+                                },
                               );
                             },
                           ),
@@ -344,20 +355,23 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                     ),
                   ),
                 )
-              : ListView.separated(
-                  controller: _scroll,
-                  itemCount: frames.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 4),
-                  itemBuilder: (_, i) {
-                    final f = frames[i];
-                    return _FrameTile(
-                      frame: f,
-                      icon: _dirIcon(f.direction),
-                      color: _dirColor(f.direction, cs),
-                      label: _dirLabel(f.direction, loc),
-                      onCopy: () => _copyFrame(f),
-                    );
-                  },
+              : NotificationListener<ScrollNotification>(
+                  onNotification: _scrollGuard.handleNotification,
+                  child: ListView.separated(
+                    controller: _scroll,
+                    itemCount: frames.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    itemBuilder: (_, i) {
+                      final f = frames[i];
+                      return _FrameTile(
+                        frame: f,
+                        icon: _dirIcon(f.direction),
+                        color: _dirColor(f.direction, cs),
+                        label: _dirLabel(f.direction, loc),
+                        onCopy: () => _copyFrame(f),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
