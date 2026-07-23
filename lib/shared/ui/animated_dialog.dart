@@ -981,6 +981,8 @@ Future<T?> _pushOpenHandDialogRoute<T>({
     },
     entranceDuration: settings.entranceDuration,
     exitDuration: settings.exitDuration,
+    entranceBarrierCurve: settings.curve.curve,
+    exitBarrierCurve: settings.curve.reverseCurve,
     barrierDismissible: barrierDismissible,
     barrierLabel: resolvedBarrierLabel,
     barrierColor: resolveAnimatedDialogBarrierColor(
@@ -1035,11 +1037,15 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
     required RouteTransitionsBuilder transitionBuilder,
     required Duration entranceDuration,
     required Duration exitDuration,
+    required Curve entranceBarrierCurve,
+    required Curve exitBarrierCurve,
     required super.barrierDismissible,
     required super.barrierLabel,
     required super.barrierColor,
     required super.settings,
   }) : _exitDuration = exitDuration,
+       _entranceBarrierCurve = entranceBarrierCurve,
+       _exitBarrierCurve = exitBarrierCurve,
        super(
          transitionBuilder: transitionBuilder,
          transitionDuration: entranceDuration,
@@ -1047,9 +1053,36 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
        );
 
   final Duration _exitDuration;
+  final Curve _entranceBarrierCurve;
+  final Curve _exitBarrierCurve;
 
   @override
   Duration get reverseTransitionDuration => _exitDuration;
+
+  @override
+  Widget buildModalBarrier() {
+    final color = barrierColor;
+    if (color == null || color.a == 0 || offstage) {
+      return ModalBarrier(
+        dismissible: barrierDismissible,
+        semanticsLabel: barrierLabel,
+        barrierSemanticsDismissible: semanticsDismissible,
+      );
+    }
+    final curvedAnimation = CurvedAnimation(
+      parent: animation!,
+      curve: _entranceBarrierCurve,
+      reverseCurve: _exitBarrierCurve,
+    );
+    return AnimatedModalBarrier(
+      color: curvedAnimation.drive(
+        ColorTween(begin: color.withValues(alpha: 0), end: color),
+      ),
+      dismissible: barrierDismissible,
+      semanticsLabel: barrierLabel,
+      barrierSemanticsDismissible: semanticsDismissible,
+    );
+  }
 }
 
 /// Shows a dialog with a caller-provided motion profile.
@@ -1980,6 +2013,8 @@ Widget buildAnimationStyleTransition({
     ),
     DialogAnimationStyle.springScale => _SpringScaleTransition(
       animation: safeAnimation,
+      curve: curve,
+      reverseCurve: reverseCurve,
       profile: profile,
       child: child,
     ),
@@ -2226,10 +2261,14 @@ class _ElasticTransition extends StatelessWidget {
 class _SpringScaleTransition extends StatelessWidget {
   const _SpringScaleTransition({
     required this.animation,
+    required this.curve,
+    required this.reverseCurve,
     required this.profile,
     required this.child,
   });
   final Animation<double> animation;
+  final Curve curve;
+  final Curve reverseCurve;
   final OpenHandAnimationTransitionProfile profile;
   final Widget child;
 
@@ -2237,13 +2276,13 @@ class _SpringScaleTransition extends StatelessWidget {
   Widget build(BuildContext context) {
     final opacity = openHandBoundedCurveAnimation(
       parent: animation,
-      curve: const Interval(0.0, 0.50, curve: Curves.easeOutCubic),
-      reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+      curve: curve,
+      reverseCurve: reverseCurve,
     );
     final scaleMotion = openHandCurveAnimation(
       parent: animation,
-      curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeInBack,
+      curve: curve,
+      reverseCurve: reverseCurve,
     );
     return FadeTransition(
       opacity: opacity,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../../shared/util/input_value_parsing.dart';
@@ -122,6 +123,42 @@ String _unescapeForwardSlashes(String value) {
 
 String? agentFetchBlockReasonForUri(Uri uri) {
   return agentFetchBlockReasonForHost(uri.host);
+}
+
+typedef AgentFetchHostLookup =
+    Future<List<InternetAddress>> Function(String host);
+
+const Duration _agentFetchDnsResolutionTimeout = Duration(seconds: 2);
+
+/// 校验 HTTP 地址及其 DNS 解析结果，避免抓取流程访问本机或保留网络。
+Future<String?> agentFetchBlockReasonForResolvedUri(
+  Uri uri, {
+  AgentFetchHostLookup? hostLookup,
+  Duration dnsTimeout = _agentFetchDnsResolutionTimeout,
+}) async {
+  final normalized = normalizeValidHttpUri(uri);
+  if (normalized == null) return '无效的 HTTP 地址';
+  final directReason = agentFetchBlockReasonForUri(normalized);
+  if (directReason != null) return directReason;
+  if (InternetAddress.tryParse(normalized.host) != null) return null;
+  try {
+    final addresses = await (hostLookup ?? InternetAddress.lookup)(
+      normalized.host,
+    ).timeout(dnsTimeout);
+    for (final address in addresses) {
+      final addressReason = agentFetchBlockReasonForAddress(address);
+      if (addressReason != null) {
+        return '$addressReason (${address.address})';
+      }
+    }
+  } on SocketException {
+    return null;
+  } on TimeoutException {
+    return 'DNS 解析超时';
+  } catch (_) {
+    return null;
+  }
+  return null;
 }
 
 String? agentFetchBlockReasonForHost(String rawHost) {

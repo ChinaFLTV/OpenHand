@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../app/support/url_validation.dart';
 import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../model/ai_web_fetch_settings.dart';
@@ -42,6 +43,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       Uri.parse(req.url),
       maxRedirects: 5,
       cancelSignal: req.cancelSignal,
+      uriBlockReason: req.uriBlockReason ?? agentFetchBlockReasonForResolvedUri,
     );
     final status = response.statusCode;
     if (status < 200 || status >= 400) {
@@ -75,9 +77,16 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     Uri uri, {
     required int maxRedirects,
     Future<void>? cancelSignal,
+    required WebFetchUriBlockReason uriBlockReason,
   }) async {
     var current = uri;
     for (var i = 0; i < maxRedirects; i++) {
+      final blockedReason = await uriBlockReason(current);
+      if (blockedReason != null) {
+        throw WebEngineHttpException(
+          '${kind.name} 拒绝访问 ${current.host}: $blockedReason',
+        );
+      }
       final request = http.Request('GET', current);
       request.followRedirects = false;
       request.headers['user-agent'] = userAgent;
@@ -112,12 +121,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
         totalTimeout: _redirectDrainTotalTimeout,
       );
     } catch (error, stack) {
-      silentLog(
-        'web_fetch_direct_engine',
-        'discard HTTP response',
-        error,
-        stack,
-      );
+      silentLog('web_fetch_direct_engine', '丢弃 HTTP 响应', error, stack);
     }
   }
 

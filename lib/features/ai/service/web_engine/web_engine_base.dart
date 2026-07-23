@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/exponential_backoff.dart';
+import '../../model/ai_web_engine_resilience.dart';
 
 /// WebSearch / WebFetch 引擎共用的请求基类。
 ///
@@ -16,7 +17,7 @@ abstract class WebEngineRequest {
 
 /// WebSearch / WebFetch 引擎共用的执行壳：
 ///
-/// * 失败重试（最多 `maxRetries+1` 次，clamp 到 8）
+/// * 失败重试（最多 `maxRetries+1` 次，受统一执行上限约束）
 /// * 指数退避 250ms·2^attempt（上限 4s）
 /// * 单次 fetch 硬超时 [fetchTimeout]
 /// * 每次重试前检查 `cancelSignal`
@@ -60,7 +61,10 @@ abstract class WebEngineBase<
     }
     final stopwatch = Stopwatch()..start();
     Object? lastError;
-    final maxAttempts = (maxRetries + 1).clamp(1, 8);
+    final maxAttempts = (maxRetries + 1).clamp(
+      1,
+      AiWebEngineExecutionPolicy.maxAttempts,
+    );
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       if (await isCancelSignalCompleted(request.cancelSignal)) {
         return buildResult(

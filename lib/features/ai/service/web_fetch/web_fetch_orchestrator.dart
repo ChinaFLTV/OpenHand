@@ -59,6 +59,7 @@ class WebFetchOrchestrator {
     required this.httpClient,
     required this.availableModels,
     this.scraplingBridge,
+    this.uriBlockReason,
   });
 
   static final RegExp _leadingWwwPattern = RegExp(r'^www\.');
@@ -67,6 +68,7 @@ class WebFetchOrchestrator {
   final http.Client httpClient;
   final List<AiModelConfig> availableModels;
   final WebFetchScraplingBridge? scraplingBridge;
+  final WebFetchUriBlockReason? uriBlockReason;
 
   Future<WebFetchOrchestrationResult> run({
     required String url,
@@ -77,18 +79,7 @@ class WebFetchOrchestrator {
     final activeConfigs = settings.engines
         .where((c) => c.enabled)
         .toList(growable: false);
-
-    // 推当前 settings 的 cooldown 阈值到 telemetry store，让 _writeCall 能按
-    // 用户调整后的阈值计算 cooldown。
-    WebFetchTelemetryStore.instance.cooldownConfig = WebFetchCooldownConfig(
-      tier1Failures: settings.cooldownTier1Failures,
-      tier1Seconds: settings.cooldownTier1Seconds,
-      tier2Failures: settings.cooldownTier2Failures,
-      tier2Seconds: settings.cooldownTier2Seconds,
-      tier3Failures: settings.cooldownTier3Failures,
-      tier3Seconds: settings.cooldownTier3Seconds,
-      quotaSeconds: settings.cooldownQuotaSeconds,
-    );
+    final resilience = settings.resilience;
 
     // 处于 cooldown 中或已超 throttle 上限的引擎：跳过。primary 全部被跳时
     // 只尝试未被跳过的无 Key 兜底引擎，不再把 skipped 引擎放回去偷跑。
@@ -102,7 +93,7 @@ class WebFetchOrchestrator {
           fallbackConfigs: _fallbackConfigs(),
           kindOf: (c) => c.kind,
           telemetry: telemetry,
-          throttlePerMinute: settings.throttlePerMinute,
+          throttlePerMinute: resilience.throttlePerMinute,
         );
     final effectiveConfigs = outcome.usable;
     final skippedRuns = outcome.skipped
@@ -167,6 +158,7 @@ class WebFetchOrchestrator {
       url: url,
       prompt: prompt,
       maxChars: maxChars,
+      uriBlockReason: uriBlockReason,
       cancelSignal: cancelSignal,
     );
 

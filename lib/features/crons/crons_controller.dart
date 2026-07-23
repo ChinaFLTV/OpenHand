@@ -322,10 +322,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// Currently running jobs keyed by cron job id.
   final Map<String, CronExecutionHandle> _runningJobs = {};
 
-  /// Currently running agent-typed jobs keyed by cron job id. Separate from
-  /// [_runningJobs] because agent jobs don't spawn a process and therefore
-  /// have no [CronExecutionHandle] to track; we only need an overlap guard.
-  final Set<String> _runningAgentJobIds = <String>{};
+  /// 智能体任务的执行令牌。超时后原任务仍未结束时保留令牌，避免重复调度。
+  final Map<String, Object> _runningAgentJobTokens = <String, Object>{};
 
   StreamSubscription<ProcessSignal>? _sigTermWatcher;
   StreamSubscription<ProcessSignal>? _sigIntWatcher;
@@ -509,13 +507,14 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     CronEntry entry, {
     required String triggerType,
     required int generation,
+    required Object executionToken,
   }) async {
+    var keepsExecutionLock = false;
     final startedAt = DateTime.now();
     String stdout = '';
     Map<String, String> appContext = const <String, String>{};
     String status = 'success';
     String? errorMessage;
-    var completed = true;
     try {
       final handler = _agentHandler;
       if (handler == null) {
@@ -528,17 +527,21 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
             Duration(seconds: entry.timeoutSeconds),
           );
         } on TimeoutException {
-          completed = false;
           status = 'timed_out';
-          errorMessage = 'Agent cron timed out after ${entry.timeoutSeconds}s.';
-          _watchTimedOutAgentCompletion(entry.id, pending);
+          errorMessage = '智能体定时任务超时（${entry.timeoutSeconds} 秒）。';
+          keepsExecutionLock = true;
+          _observeTimedOutAgentCompletion(
+            pending,
+            entryId: entry.id,
+            executionToken: executionToken,
+          );
           rethrow;
         }
         stdout = result.stdout;
         appContext = result.appContext;
       }
     } on TimeoutException {
-      // The original handler remains guarded until it actually completes.
+      // 超时后仅在后台观察原任务，当前执行立即结束。
     } catch (error) {
       status = 'failed';
       errorMessage = '$error';
@@ -556,7 +559,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       triggerType: triggerType,
       appContext: appContext,
     );
-    if (!_isCurrentRuntime(generation)) return completed;
+    if (!_isCurrentRuntime(generation)) return keepsExecutionLock;
     try {
       await _store.insertHistory(record);
       await _store.pruneHistory(entry.id);
@@ -583,29 +586,32 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       generation: generation,
     );
     notifyListeners();
-    return completed;
+    return keepsExecutionLock;
   }
 
-  void _watchTimedOutAgentCompletion(
-    String id,
-    Future<AgentHandlerResult> pending,
-  ) {
-    unawaited(() async {
-      try {
-        await pending;
-      } catch (error, stack) {
-        silentLog(
-          'crons_controller',
-          'late agent cron completion',
-          error,
-          stack,
-        );
-      } finally {
-        _runningAgentJobIds.remove(id);
-        if (_activeExecutionCount > 0) _activeExecutionCount--;
-        _scheduleCurrentEntry(id);
-      }
-    }());
+  /// 原 Future 完成后才释放超时任务的重入锁，防止同一任务并发积压。
+  void _observeTimedOutAgentCompletion(
+    Future<AgentHandlerResult> pending, {
+    required String entryId,
+    required Object executionToken,
+  }) {
+    void release() {
+      if (!identical(_runningAgentJobTokens[entryId], executionToken)) return;
+      _runningAgentJobTokens.remove(entryId);
+      if (_activeExecutionCount > 0) _activeExecutionCount--;
+      _scheduleCurrentEntry(entryId);
+      notifyListeners();
+    }
+
+    unawaited(
+      pending.then<void>(
+        (_) => release(),
+        onError: (Object error, StackTrace stack) {
+          silentLog('crons_controller', '观察超时智能体任务的迟到异常', error, stack);
+          release();
+        },
+      ),
+    );
   }
 
   Future<bool> toggleCronEnabled(String id, {required bool enabled}) async {
@@ -914,7 +920,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     if (!_canExecuteInCurrentState) return;
     if (_runningJobs.containsKey(entry.id) ||
-        _runningAgentJobIds.contains(entry.id) ||
+        _runningAgentJobTokens.containsKey(entry.id) ||
         _activeExecutionCount >= _maxConcurrentExecutions) {
       _scheduleCurrentEntry(entry.id);
       return;
@@ -927,20 +933,26 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     // spawned process. If bootstrap has not registered the handler yet, the job
     // is reported as a no-op success so the scheduler can retry on the next tick.
     if (entry.scriptType == CronScriptType.agent) {
-      _runningAgentJobIds.add(entry.id);
-      var completed = true;
+      final executionToken = Object();
+      var keepsExecutionLock = false;
+      _runningAgentJobTokens[entry.id] = executionToken;
       try {
-        completed = await _executeAgentJob(
+        keepsExecutionLock = await _executeAgentJob(
           entry,
           triggerType: triggerType,
           generation: generation,
+          executionToken: executionToken,
         );
       } finally {
-        if (completed) {
-          _runningAgentJobIds.remove(entry.id);
-          if (_activeExecutionCount > 0) _activeExecutionCount--;
+        if (!keepsExecutionLock &&
+            identical(_runningAgentJobTokens[entry.id], executionToken)) {
+          _runningAgentJobTokens.remove(entry.id);
         }
-        _scheduleCurrentEntry(entry.id);
+        if (!keepsExecutionLock && _activeExecutionCount > 0) {
+          _activeExecutionCount--;
+        }
+        if (!keepsExecutionLock) _scheduleCurrentEntry(entry.id);
+        notifyListeners();
       }
       return;
     }

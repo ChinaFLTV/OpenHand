@@ -31,7 +31,10 @@ class WebFetchTelemetryStore
     return enumByName(AiWebFetchEngineKind.values, name);
   }
 
-  Future<void> recordCall(WebFetchCallLog call) {
+  Future<void> recordCall(
+    WebFetchCallLog call, {
+    required WebFetchCooldownConfig cooldownConfig,
+  }) {
     return recordCallRaw(
       callJson: call.toJson(),
       timestampMs: call.timestampMs,
@@ -47,6 +50,7 @@ class WebFetchTelemetryStore
             ),
           )
           .toList(growable: false),
+      cooldownConfig: cooldownConfig,
     );
   }
 

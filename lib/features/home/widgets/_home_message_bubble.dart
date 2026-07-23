@@ -2859,6 +2859,10 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     final viewport = _adaptivePreviewDialogViewport(context);
     _scheduleHeaderHeightSync();
 
@@ -2892,9 +2896,10 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         maxHeight: metrics.maxDialogHeight,
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: AnimatedSize(
-          duration: cardMotionDurationFor(context, expanding: true),
-          curve: kCardMotionCurve,
+        child: maybeAnimatedSize(
+          duration: motionSettings.entranceDuration,
+          curve: motionSettings.curve.curve,
+          alignment: Alignment.center,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: metrics.maxDialogWidth,
@@ -5091,9 +5096,14 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
     ColorScheme colorScheme,
     _AdaptivePreviewDialogMetrics metrics,
   ) {
-    return AnimatedSize(
-      duration: cardMotionDurationFor(context, expanding: true),
-      curve: kCardMotionCurve,
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return maybeAnimatedSize(
+      duration: motionSettings.entranceDuration,
+      curve: motionSettings.curve.curve,
+      alignment: Alignment.center,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: metrics.maxDialogWidth,

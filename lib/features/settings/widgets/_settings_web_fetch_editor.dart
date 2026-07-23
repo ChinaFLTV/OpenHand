@@ -740,144 +740,18 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
 
         const SizedBox(height: 16),
-        ..._buildAdvancedSection(context, theme, colorScheme, v),
+        ..._buildWebEngineResilienceSettingsSection(
+          context: context,
+          theme: theme,
+          colorScheme: colorScheme,
+          resilience: v.resilience,
+          onChanged: (resilience) => _emit(v.copyWith(resilience: resilience)),
+        ),
 
         const SizedBox(height: 16),
         ..._buildTelemetrySection(context, theme, colorScheme, v),
       ],
     );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // 高级设置（cooldown 阈值 / 告警 / throttle）
-  // ───────────────────────────────────────────────────────────────────────────
-  List<Widget> _buildAdvancedSection(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-    AiWebFetchSettings v,
-  ) {
-    return [
-      Text(
-        openHandLocalizedText(
-          context,
-          zh: '高级（健壮性）',
-          en: 'Advanced (resilience)',
-        ),
-        style: theme.textTheme.titleSmall,
-      ),
-      const SizedBox(height: 8),
-      // 三档冷却阈值
-      Text(
-        openHandLocalizedText(
-          context,
-          zh: '失败自动降级（cooldown）阈值',
-          en: 'Failure auto-cooldown thresholds',
-        ),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-      const SizedBox(height: 6),
-      _ToolAdvancedCooldownTierRow(
-        label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
-        failures: v.cooldownTier1Failures,
-        seconds: v.cooldownTier1Seconds,
-        onChangedFailures: (n) =>
-            _updateAdvanced(v.copyWith(cooldownTier1Failures: n)),
-        onChangedSeconds: (n) =>
-            _updateAdvanced(v.copyWith(cooldownTier1Seconds: n)),
-      ),
-      _ToolAdvancedCooldownTierRow(
-        label: openHandLocalizedText(context, zh: '二级', en: 'Tier 2'),
-        failures: v.cooldownTier2Failures,
-        seconds: v.cooldownTier2Seconds,
-        onChangedFailures: (n) =>
-            _updateAdvanced(v.copyWith(cooldownTier2Failures: n)),
-        onChangedSeconds: (n) =>
-            _updateAdvanced(v.copyWith(cooldownTier2Seconds: n)),
-      ),
-      _ToolAdvancedCooldownTierRow(
-        label: openHandLocalizedText(context, zh: '三级', en: 'Tier 3'),
-        failures: v.cooldownTier3Failures,
-        seconds: v.cooldownTier3Seconds,
-        onChangedFailures: (n) =>
-            _updateAdvanced(v.copyWith(cooldownTier3Failures: n)),
-        onChangedSeconds: (n) =>
-            _updateAdvanced(v.copyWith(cooldownTier3Seconds: n)),
-      ),
-      const SizedBox(height: 4),
-      _ToolAdvancedNumberRow(
-        label: openHandLocalizedText(
-          context,
-          zh: '配额/限流冷却（秒）',
-          en: 'Quota cooldown (s)',
-        ),
-        value: v.cooldownQuotaSeconds,
-        min: AiWebEngineResiliencePolicy.minCooldownSeconds,
-        max: AiWebEngineResiliencePolicy.maxCooldownSeconds,
-        onChanged: (n) => _updateAdvanced(v.copyWith(cooldownQuotaSeconds: n)),
-      ),
-      const SizedBox(height: 12),
-      // 告警
-      Text(
-        openHandLocalizedText(
-          context,
-          zh: '健康度告警（0 = 关闭，至少 5 次调用后才会触发）',
-          en: 'Health alerts (0 = off; needs ≥5 calls)',
-        ),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-      const SizedBox(height: 6),
-      _ToolAdvancedNumberRow(
-        label: openHandLocalizedText(
-          context,
-          zh: '成功率低于（%）',
-          en: 'Success rate below (%)',
-        ),
-        value: v.alertSuccessRatePct,
-        min: 0,
-        max: AiWebEngineResiliencePolicy.maxAlertSuccessRatePct,
-        onChanged: (n) => _updateAdvanced(v.copyWith(alertSuccessRatePct: n)),
-      ),
-      _ToolAdvancedNumberRow(
-        label: openHandLocalizedText(
-          context,
-          zh: '平均耗时高于（毫秒）',
-          en: 'Avg duration above (ms)',
-        ),
-        value: v.alertAvgDurationMs,
-        min: 0,
-        max: AiWebEngineResiliencePolicy.maxAlertAvgDurationMs,
-        onChanged: (n) => _updateAdvanced(v.copyWith(alertAvgDurationMs: n)),
-      ),
-      const SizedBox(height: 12),
-      // 速率限制。
-      Text(
-        openHandLocalizedText(
-          context,
-          zh: '速率限制（每引擎每分钟最大调用数；0 = 不限）',
-          en: 'Rate limit (per engine, per minute; 0 = off)',
-        ),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-      const SizedBox(height: 6),
-      _ToolAdvancedNumberRow(
-        label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
-        value: v.throttlePerMinute,
-        min: 0,
-        max: AiWebEngineResiliencePolicy.maxThrottlePerMinute,
-        onChanged: (n) => _updateAdvanced(v.copyWith(throttlePerMinute: n)),
-      ),
-    ];
-  }
-
-  void _updateAdvanced(AiWebFetchSettings next) {
-    _emit(next);
   }
 
   // ───────────────────────────────────────────────────────────────────────────

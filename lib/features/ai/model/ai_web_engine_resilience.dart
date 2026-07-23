@@ -1,17 +1,118 @@
 import '../../../shared/util/input_value_parsing.dart';
 
-typedef AiWebEngineResilienceValues = ({
-  int cooldownTier1Failures,
-  int cooldownTier1Seconds,
-  int cooldownTier2Failures,
-  int cooldownTier2Seconds,
-  int cooldownTier3Failures,
-  int cooldownTier3Seconds,
-  int cooldownQuotaSeconds,
-  int alertSuccessRatePct,
-  int alertAvgDurationMs,
-  int throttlePerMinute,
-});
+/// WebFetch 与 WebSearch 共用的故障降级、告警和限流配置。
+final class AiWebEngineResilienceSettings {
+  const AiWebEngineResilienceSettings({
+    this.cooldownTier1Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier1Failures,
+    this.cooldownTier1Seconds =
+        AiWebEngineResiliencePolicy.defaultCooldownTier1Seconds,
+    this.cooldownTier2Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier2Failures,
+    this.cooldownTier2Seconds =
+        AiWebEngineResiliencePolicy.defaultCooldownTier2Seconds,
+    this.cooldownTier3Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier3Failures,
+    this.cooldownTier3Seconds =
+        AiWebEngineResiliencePolicy.defaultCooldownTier3Seconds,
+    this.cooldownQuotaSeconds =
+        AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds,
+    this.alertSuccessRatePct = 0,
+    this.alertAvgDurationMs = 0,
+    this.throttlePerMinute = 0,
+  });
+
+  static const AiWebEngineResilienceSettings defaults =
+      AiWebEngineResilienceSettings();
+
+  final int cooldownTier1Failures;
+  final int cooldownTier1Seconds;
+  final int cooldownTier2Failures;
+  final int cooldownTier2Seconds;
+  final int cooldownTier3Failures;
+  final int cooldownTier3Seconds;
+  final int cooldownQuotaSeconds;
+  final int alertSuccessRatePct;
+  final int alertAvgDurationMs;
+  final int throttlePerMinute;
+
+  AiWebEngineResilienceSettings copyWith({
+    int? cooldownTier1Failures,
+    int? cooldownTier1Seconds,
+    int? cooldownTier2Failures,
+    int? cooldownTier2Seconds,
+    int? cooldownTier3Failures,
+    int? cooldownTier3Seconds,
+    int? cooldownQuotaSeconds,
+    int? alertSuccessRatePct,
+    int? alertAvgDurationMs,
+    int? throttlePerMinute,
+  }) {
+    return AiWebEngineResilienceSettings(
+      cooldownTier1Failures:
+          cooldownTier1Failures ?? this.cooldownTier1Failures,
+      cooldownTier1Seconds: cooldownTier1Seconds ?? this.cooldownTier1Seconds,
+      cooldownTier2Failures:
+          cooldownTier2Failures ?? this.cooldownTier2Failures,
+      cooldownTier2Seconds: cooldownTier2Seconds ?? this.cooldownTier2Seconds,
+      cooldownTier3Failures:
+          cooldownTier3Failures ?? this.cooldownTier3Failures,
+      cooldownTier3Seconds: cooldownTier3Seconds ?? this.cooldownTier3Seconds,
+      cooldownQuotaSeconds: cooldownQuotaSeconds ?? this.cooldownQuotaSeconds,
+      alertSuccessRatePct: alertSuccessRatePct ?? this.alertSuccessRatePct,
+      alertAvgDurationMs: alertAvgDurationMs ?? this.alertAvgDurationMs,
+      throttlePerMinute: throttlePerMinute ?? this.throttlePerMinute,
+    );
+  }
+
+  static AiWebEngineResilienceSettings fromJson(Map<String, Object?> json) {
+    return AiWebEngineResilienceSettings(
+      cooldownTier1Failures: AiWebEngineResiliencePolicy
+          ._cooldownTier1FailuresRange
+          .fromValue(json['cooldown_tier1_failures']),
+      cooldownTier1Seconds: AiWebEngineResiliencePolicy
+          ._cooldownTier1SecondsRange
+          .fromValue(json['cooldown_tier1_seconds']),
+      cooldownTier2Failures: AiWebEngineResiliencePolicy
+          ._cooldownTier2FailuresRange
+          .fromValue(json['cooldown_tier2_failures']),
+      cooldownTier2Seconds: AiWebEngineResiliencePolicy
+          ._cooldownTier2SecondsRange
+          .fromValue(json['cooldown_tier2_seconds']),
+      cooldownTier3Failures: AiWebEngineResiliencePolicy
+          ._cooldownTier3FailuresRange
+          .fromValue(json['cooldown_tier3_failures']),
+      cooldownTier3Seconds: AiWebEngineResiliencePolicy
+          ._cooldownTier3SecondsRange
+          .fromValue(json['cooldown_tier3_seconds']),
+      cooldownQuotaSeconds: AiWebEngineResiliencePolicy
+          ._cooldownQuotaSecondsRange
+          .fromValue(json['cooldown_quota_seconds']),
+      alertSuccessRatePct: AiWebEngineResiliencePolicy._alertSuccessRatePctRange
+          .fromValue(json['alert_success_rate_pct']),
+      alertAvgDurationMs: AiWebEngineResiliencePolicy._alertAvgDurationMsRange
+          .fromValue(json['alert_avg_duration_ms']),
+      throttlePerMinute: AiWebEngineResiliencePolicy._throttlePerMinuteRange
+          .fromValue(json['throttle_per_minute']),
+    );
+  }
+
+  /// 将配置写入父对象，保持既有扁平 JSON 结构。
+  void writeJsonTo(Map<String, Object?> json) {
+    json.addAll({
+      'cooldown_tier1_failures': cooldownTier1Failures,
+      'cooldown_tier1_seconds': cooldownTier1Seconds,
+      'cooldown_tier2_failures': cooldownTier2Failures,
+      'cooldown_tier2_seconds': cooldownTier2Seconds,
+      'cooldown_tier3_failures': cooldownTier3Failures,
+      'cooldown_tier3_seconds': cooldownTier3Seconds,
+      'cooldown_quota_seconds': cooldownQuotaSeconds,
+      'alert_success_rate_pct': alertSuccessRatePct,
+      'alert_avg_duration_ms': alertAvgDurationMs,
+      'throttle_per_minute': throttlePerMinute,
+    });
+  }
+}
 
 abstract final class AiWebEngineResiliencePolicy {
   static const int defaultCooldownTier1Failures = 3;
@@ -79,39 +180,10 @@ abstract final class AiWebEngineResiliencePolicy {
     min: 0,
     max: maxThrottlePerMinute,
   );
+}
 
-  static AiWebEngineResilienceValues valuesFromJson(Map<String, Object?> json) {
-    return (
-      cooldownTier1Failures: _cooldownTier1FailuresRange.fromValue(
-        json['cooldown_tier1_failures'],
-      ),
-      cooldownTier1Seconds: _cooldownTier1SecondsRange.fromValue(
-        json['cooldown_tier1_seconds'],
-      ),
-      cooldownTier2Failures: _cooldownTier2FailuresRange.fromValue(
-        json['cooldown_tier2_failures'],
-      ),
-      cooldownTier2Seconds: _cooldownTier2SecondsRange.fromValue(
-        json['cooldown_tier2_seconds'],
-      ),
-      cooldownTier3Failures: _cooldownTier3FailuresRange.fromValue(
-        json['cooldown_tier3_failures'],
-      ),
-      cooldownTier3Seconds: _cooldownTier3SecondsRange.fromValue(
-        json['cooldown_tier3_seconds'],
-      ),
-      cooldownQuotaSeconds: _cooldownQuotaSecondsRange.fromValue(
-        json['cooldown_quota_seconds'],
-      ),
-      alertSuccessRatePct: _alertSuccessRatePctRange.fromValue(
-        json['alert_success_rate_pct'],
-      ),
-      alertAvgDurationMs: _alertAvgDurationMsRange.fromValue(
-        json['alert_avg_duration_ms'],
-      ),
-      throttlePerMinute: _throttlePerMinuteRange.fromValue(
-        json['throttle_per_minute'],
-      ),
-    );
-  }
+/// Web 引擎单次调用的统一执行上限。
+abstract final class AiWebEngineExecutionPolicy {
+  static const int maxAttempts = 8;
+  static const int maxRetries = maxAttempts - 1;
 }

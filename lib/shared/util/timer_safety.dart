@@ -154,17 +154,17 @@ Timer startSafeTimer(
 }) {
   final zone = Zone.current;
   return Timer(safeTimerDelay(delay, min: min, max: max), () {
-    unawaited(
-      Future<void>.sync(callback).catchError((Object error, StackTrace stack) {
-        _reportTimerError(error, stack, zone, onError);
-      }),
-    );
+    _runSafeTimerCallback(callback, zone: zone, onError: onError);
   });
 }
 
+/// 启动周期定时器，并统一转交同步与异步回调异常。
+///
+/// 周期回调不等待上一轮结束；需要防止重入时应使用
+/// [startNonOverlappingPeriodicTimer]。
 Timer startSafePeriodicTimer(
   Duration interval,
-  void Function(Timer timer) callback, {
+  FutureOr<void> Function(Timer timer) callback, {
   Duration min = kOpenHandMinPeriodicTimerInterval,
   Duration max = kOpenHandMaxPeriodicTimerInterval,
   OpenHandTimerErrorHandler? onError,
@@ -173,12 +173,24 @@ Timer startSafePeriodicTimer(
   return Timer.periodic(
     safePeriodicTimerInterval(interval, min: min, max: max),
     (timer) {
-      try {
-        callback(timer);
-      } catch (error, stack) {
-        _reportTimerError(error, stack, zone, onError);
-      }
+      _runSafeTimerCallback(
+        () => callback(timer),
+        zone: zone,
+        onError: onError,
+      );
     },
+  );
+}
+
+void _runSafeTimerCallback(
+  FutureOr<void> Function() callback, {
+  required Zone zone,
+  required OpenHandTimerErrorHandler? onError,
+}) {
+  unawaited(
+    Future<void>.sync(callback).catchError((Object error, StackTrace stack) {
+      _reportTimerError(error, stack, zone, onError);
+    }),
   );
 }
 

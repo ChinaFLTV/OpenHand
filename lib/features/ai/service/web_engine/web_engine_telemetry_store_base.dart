@@ -149,9 +149,6 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   List<TKind> get kindValues;
   TKind? parseKind(String name);
 
-  /// orchestrator 在每次 run() 之前注入当前 settings 的阈值。
-  WebEngineCooldownConfig cooldownConfig = const WebEngineCooldownConfig();
-
   Future<void> _chain = Future.value();
   static const int _maxPersistedCalls = 2000;
   static const int _maxPersistedHistorySamples = 2000;
@@ -339,6 +336,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     required Map<String, Object?> callJson,
     required int timestampMs,
     required List<WebEngineCallEvent> perEngine,
+    required WebEngineCooldownConfig cooldownConfig,
     int maxRecentCalls = 200,
     int maxHistorySamples = 200,
   }) async {
@@ -353,6 +351,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
             callJson: callJson,
             timestampMs: timestampMs,
             perEngine: perEngine,
+            cooldownConfig: cooldownConfig,
             maxRecentCalls: retainedCalls,
             maxHistorySamples: retainedHistory,
           ),
@@ -367,6 +366,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     required Map<String, Object?> callJson,
     required int timestampMs,
     required List<WebEngineCallEvent> perEngine,
+    required WebEngineCooldownConfig cooldownConfig,
     required int maxRecentCalls,
     required int maxHistorySamples,
   }) async {
@@ -409,7 +409,6 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         /* corrupted: rebuild */
       }
     }
-    final cfg = cooldownConfig;
     for (final per in perEngine) {
       final key = per.kindName;
       final cur = agg[key] ?? <String, Object?>{};
@@ -441,13 +440,13 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         if (looksLikeQuotaError(per.error)) {
           lastQuotaError = per.error;
           lastQuotaAt = timestampMs;
-          cooldownUntilMs = timestampMs + cfg.quotaSeconds * 1000;
-        } else if (consecFail >= cfg.tier3Failures) {
-          cooldownUntilMs = timestampMs + cfg.tier3Seconds * 1000;
-        } else if (consecFail >= cfg.tier2Failures) {
-          cooldownUntilMs = timestampMs + cfg.tier2Seconds * 1000;
-        } else if (consecFail >= cfg.tier1Failures) {
-          cooldownUntilMs = timestampMs + cfg.tier1Seconds * 1000;
+          cooldownUntilMs = timestampMs + cooldownConfig.quotaSeconds * 1000;
+        } else if (consecFail >= cooldownConfig.tier3Failures) {
+          cooldownUntilMs = timestampMs + cooldownConfig.tier3Seconds * 1000;
+        } else if (consecFail >= cooldownConfig.tier2Failures) {
+          cooldownUntilMs = timestampMs + cooldownConfig.tier2Seconds * 1000;
+        } else if (consecFail >= cooldownConfig.tier1Failures) {
+          cooldownUntilMs = timestampMs + cooldownConfig.tier1Seconds * 1000;
         }
       }
 

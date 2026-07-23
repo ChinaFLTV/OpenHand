@@ -97,6 +97,15 @@ class AiWebSearchTool extends AiTool {
     final settings =
         resolved?.builtinConfig?.webSearchSettings ??
         AiWebSearchSettings.defaults();
+    final cooldownConfig = WebSearchCooldownConfig(
+      tier1Failures: settings.resilience.cooldownTier1Failures,
+      tier1Seconds: settings.resilience.cooldownTier1Seconds,
+      tier2Failures: settings.resilience.cooldownTier2Failures,
+      tier2Seconds: settings.resilience.cooldownTier2Seconds,
+      tier3Failures: settings.resilience.cooldownTier3Failures,
+      tier3Seconds: settings.resilience.cooldownTier3Seconds,
+      quotaSeconds: settings.resilience.cooldownQuotaSeconds,
+    );
 
     final progress = StringBuffer()
       ..writeln('query: $query')
@@ -152,7 +161,7 @@ class AiWebSearchTool extends AiTool {
           perEngine.add(
             WebSearchPerEngineLog(
               kind: r.kind,
-              success: r.isSuccess,
+              success: r.error == null,
               hitCount: r.hits.length,
               elapsedMs: r.elapsedMs,
               error: r.error,
@@ -180,6 +189,7 @@ class AiWebSearchTool extends AiTool {
                 modelId: summaryModel?.modelId,
                 perEngine: perEngine,
               ),
+              cooldownConfig: cooldownConfig,
             )
             .then((_) => _maybeFireHealthAlerts(settings)),
       );
@@ -199,6 +209,11 @@ class AiWebSearchTool extends AiTool {
       'Dispatching to enabled search engines.',
     );
 
+    final summaryModel = _resolveSummaryModel(
+      settings: settings,
+      sessionModel: context.model,
+    );
+
     // 优先查本地缓存：同一 query+设置在 TTL 内直接复用 summary。
     final cacheKey = WebSearchCacheStore.computeKey(
       query: query,
@@ -206,6 +221,9 @@ class AiWebSearchTool extends AiTool {
       allowedDomains: allowedDomains,
       blockedDomains: blockedDomains,
       localeTag: Platform.localeName,
+      modelProtocol: summaryModel.protocolType.name,
+      modelId: summaryModel.modelId,
+      modelConfigId: summaryModel.id,
     );
     final cached = await WebSearchCacheStore.instance.lookup(
       key: cacheKey,
@@ -328,11 +346,6 @@ class AiWebSearchTool extends AiTool {
     progressReporter.emit(
       'summarizing',
       'Asking summary model to compose the final answer.',
-    );
-
-    final summaryModel = _resolveSummaryModel(
-      settings: settings,
-      sessionModel: context.model,
     );
 
     final prompt = await _composeSummaryPrompt(settings, query, merged);
@@ -604,8 +617,8 @@ language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
     return _healthAlertTracker.notifyFromStats(
       loadStats: WebSearchTelemetryStore.instance.engineStats,
       engineName: (engine) => engine.name,
-      successRateThresholdPct: settings.alertSuccessRatePct,
-      averageDurationThresholdMs: settings.alertAvgDurationMs,
+      successRateThresholdPct: settings.resilience.alertSuccessRatePct,
+      averageDurationThresholdMs: settings.resilience.alertAvgDurationMs,
       titlePrefix: 'WebSearch',
       logTag: 'ai_web_search_tool',
     );

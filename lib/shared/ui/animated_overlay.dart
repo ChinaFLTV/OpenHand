@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
@@ -178,7 +180,7 @@ class AnimatedOverlayContent extends StatefulWidget {
   const AnimatedOverlayContent({
     super.key,
     required this.child,
-    this.useMenuSettings = false,
+    this.useMenuSettings = true,
     this.customDuration,
     this.customCurve,
     this.enableScaleAnimation = true,
@@ -191,8 +193,8 @@ class AnimatedOverlayContent extends StatefulWidget {
 
   final Widget child;
 
-  /// If true, reads animation settings from [SettingsController.menuAnimationSettings].
-  /// If false, uses quick default animations (150ms, easeOutCubic).
+  /// 是否读取 [SettingsController.menuAnimationSettings]。
+  /// 默认读取全局菜单动画设置；显式关闭时使用快速默认动画。
   final bool useMenuSettings;
 
   /// Override the animation duration.
@@ -233,6 +235,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     durationMs: 150,
   );
   bool _animationsDisabled = false;
+  SettingsController? _settingsController;
   bool _exitCompletionScheduled = false;
   bool _exitCompletionDelivered = false;
   int _exitCompletionGeneration = 0;
@@ -250,12 +253,14 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _bindSettingsController();
     _syncAnimationPreference();
   }
 
   @override
   void didUpdateWidget(covariant AnimatedOverlayContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _bindSettingsController();
     if (oldWidget.visibility != widget.visibility) {
       oldWidget.visibility?.removeListener(_handleVisibilityChanged);
       widget.visibility?.addListener(_handleVisibilityChanged);
@@ -300,6 +305,31 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
           : DialogAnimationStyle.fade,
       durationMs: widget.customDuration?.inMilliseconds ?? 150,
     );
+  }
+
+  void _bindSettingsController() {
+    final shouldListen = widget.useMenuSettings && widget.customSettings == null;
+    SettingsController? nextController;
+    if (shouldListen) {
+      try {
+        nextController = context.read<SettingsController>();
+      } on ProviderNotFoundException {
+        nextController = null;
+      }
+    }
+    if (identical(_settingsController, nextController)) return;
+    _settingsController?.removeListener(_handleSettingsChanged);
+    _settingsController = nextController;
+    _settingsController?.addListener(_handleSettingsChanged);
+  }
+
+  void _handleSettingsChanged() {
+    if (!mounted) return;
+    final resolved = _resolveSettings();
+    final disabled =
+        !openHandTickerMotionEnabled(context) || openHandMotionDisabled(resolved);
+    if (resolved == _settings && disabled == _animationsDisabled) return;
+    setState(_syncAnimationPreference);
   }
 
   void _syncAnimationPreference() {
@@ -396,6 +426,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   @override
   void dispose() {
     widget.visibility?.removeListener(_handleVisibilityChanged);
+    _settingsController?.removeListener(_handleSettingsChanged);
     _controller.removeStatusListener(_handleAnimationStatus);
     _controller.dispose();
     super.dispose();
@@ -418,13 +449,17 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     if (_animationsDisabled) {
       return _isVisible ? widget.child : const SizedBox.shrink();
     }
-    return buildAnimationStyleTransition(
+    return AnimatedBuilder(
       animation: _controller,
-      settings: _settings,
-      profile: _transitionProfile(),
-      curveOverride: widget.customCurve,
-      reverseCurveOverride: widget.customCurve,
       child: widget.child,
+      builder: (context, child) => buildAnimationStyleTransition(
+        animation: _controller,
+        settings: _settings,
+        profile: _transitionProfile(),
+        curveOverride: widget.customCurve,
+        reverseCurveOverride: widget.customCurve,
+        child: child!,
+      ),
     );
   }
 }

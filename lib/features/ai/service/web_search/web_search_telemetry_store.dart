@@ -37,7 +37,10 @@ class WebSearchTelemetryStore
 
   /// 记录一次完整调用：把 call log 追加到 calls.json，并把 perEngine 增量
   /// 折叠到 engines.json。永不抛异常。
-  Future<void> recordCall(WebSearchCallLog call) {
+  Future<void> recordCall(
+    WebSearchCallLog call, {
+    required WebSearchCooldownConfig cooldownConfig,
+  }) {
     return recordCallRaw(
       callJson: call.toJson(),
       timestampMs: call.timestampMs,
@@ -53,6 +56,7 @@ class WebSearchTelemetryStore
             ),
           )
           .toList(growable: false),
+      cooldownConfig: cooldownConfig,
     );
   }
 

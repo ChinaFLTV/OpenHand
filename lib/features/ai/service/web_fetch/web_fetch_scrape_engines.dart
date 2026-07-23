@@ -125,14 +125,6 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
   bool get isReady => true;
 
   @override
-  Duration get fetchTimeout =>
-      Duration(
-        seconds:
-            config.connectionTimeoutSeconds + config.responseTimeoutSeconds,
-      ) +
-      const Duration(seconds: 2);
-
-  @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final targetUri = _normalizeTargetUri(req.url);
     final readerUri = Uri.parse(

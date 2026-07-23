@@ -18,6 +18,8 @@ export '../web_engine/web_engine_json_utils.dart'
 export '../web_engine/web_engine_value_parsing.dart'
     show resolveWebEngineApiKey;
 
+typedef WebFetchUriBlockReason = Future<String?> Function(Uri uri);
+
 /// 单个 URL 抓取的统一返回。
 class WebFetchEngineContent {
   WebFetchEngineContent({
@@ -61,12 +63,14 @@ class WebFetchEngineRequest extends WebEngineRequest {
     required this.url,
     required this.prompt,
     required this.maxChars,
+    this.uriBlockReason,
     super.cancelSignal,
   });
 
   final String url;
   final String prompt;
   final int maxChars;
+  final WebFetchUriBlockReason? uriBlockReason;
 }
 
 class WebFetchEngineResult {
@@ -109,7 +113,12 @@ abstract class WebFetchEngine
   int get maxRetries => config.maxRetries;
 
   @override
-  Duration get fetchTimeout => const Duration(seconds: 30);
+  Duration get fetchTimeout =>
+      Duration(
+        seconds:
+            config.connectionTimeoutSeconds + config.responseTimeoutSeconds,
+      ) +
+      const Duration(seconds: 2);
 
   @override
   WebFetchEngineResult buildResult({

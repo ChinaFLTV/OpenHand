@@ -66,6 +66,8 @@ class _OpenHandSessionTokenUsageDialState
   final OverlayPortalController _portalController = OverlayPortalController();
   final GlobalKey _anchorKey = GlobalKey();
   late final AnimationController _transitionController;
+  SettingsController? _menuSettingsController;
+  DialogAnimationSettings? _menuSettingsSnapshot;
   Timer? _hideTimer;
   bool _showQueued = false;
   bool _touchSheetOpen = false;
@@ -106,10 +108,41 @@ class _OpenHandSessionTokenUsageDialState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _bindMenuSettingsController();
+    _syncMenuMotionSettings();
+  }
+
+  void _bindMenuSettingsController() {
+    SettingsController? nextController;
+    try {
+      nextController = context.read<SettingsController>();
+    } on ProviderNotFoundException {
+      nextController = null;
+    }
+    if (identical(_menuSettingsController, nextController)) return;
+    _menuSettingsController?.removeListener(_handleMenuSettingsChanged);
+    _menuSettingsController = nextController;
+    _menuSettingsController?.addListener(_handleMenuSettingsChanged);
+  }
+
+  void _handleMenuSettingsChanged() {
+    if (!mounted) return;
     final settings = _menuSettings(context);
+    if (settings == _menuSettingsSnapshot) return;
+    setState(() => _syncMenuMotionSettings(settings));
+  }
+
+  void _syncMenuMotionSettings([DialogAnimationSettings? value]) {
+    final settings = value ?? _menuSettings(context);
+    _menuSettingsSnapshot = settings;
     _transitionController
       ..duration = settings.entranceDuration
       ..reverseDuration = settings.exitDuration;
+    if (_transitionController.status == AnimationStatus.forward) {
+      _transitionController.forward();
+    } else if (_transitionController.status == AnimationStatus.reverse) {
+      _transitionController.reverse();
+    }
   }
 
   @override
@@ -128,6 +161,7 @@ class _OpenHandSessionTokenUsageDialState
   void dispose() {
     _popupGeneration += 1;
     _hideTimer?.cancel();
+    _menuSettingsController?.removeListener(_handleMenuSettingsChanged);
     _transitionController.dispose();
     super.dispose();
   }
@@ -369,15 +403,19 @@ class _TokenDialPopupOverlay extends StatelessWidget {
             child: MouseRegion(
               onEnter: (_) => onEnter(),
               onExit: (_) => onExit(),
-              child: buildAnimationStyleTransition(
+              child: AnimatedBuilder(
                 animation: animation,
-                settings: settings,
-                profile: OpenHandAnimationTransitionProfile(
-                  alignment: metrics.placedAbove
-                      ? Alignment.bottomRight
-                      : Alignment.topRight,
-                ),
                 child: builder(context, metrics),
+                builder: (context, child) => buildAnimationStyleTransition(
+                  animation: animation,
+                  settings: settings,
+                  profile: OpenHandAnimationTransitionProfile(
+                    alignment: metrics.placedAbove
+                        ? Alignment.bottomRight
+                        : Alignment.topRight,
+                  ),
+                  child: child!,
+                ),
               ),
             ),
           );
@@ -887,12 +925,16 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             child: AnimatedSwitcher(
               duration: sectionMotionSettings.entranceDuration,
               reverseDuration: sectionMotionSettings.exitDuration,
-              transitionBuilder: (child, animation) =>
-                  buildAnimationStyleTransition(
-                    animation: animation,
-                    settings: sectionMotionSettings,
-                    child: child,
-                  ),
+              transitionBuilder: (child, animation) => AnimatedBuilder(
+                animation: animation,
+                child: child,
+                builder: (context, animatedChild) =>
+                    buildAnimationStyleTransition(
+                      animation: animation,
+                      settings: sectionMotionSettings,
+                      child: animatedChild!,
+                    ),
+              ),
               layoutBuilder: (currentChild, previousChildren) =>
                   buildCollisionSafeAnimatedSwitcherLayout(
                     currentChild,

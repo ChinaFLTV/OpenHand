@@ -42,7 +42,7 @@ class WebSearchCacheStore extends WebEngineCacheStoreBase<AiWebSearchSettings> {
   @override
   int cacheMaxBytes(AiWebSearchSettings settings) => settings.cacheMaxBytes;
 
-  /// 计算缓存键：covers query + 启用的引擎 + 结果数 + summary 风格/长度 + locale。
+  /// 计算缓存键：覆盖 query、引擎、摘要模型、结果数、风格/长度和语言环境。
   /// 任何会显著影响 summary 内容的设置都参与摘要，避免脏读。
   static String computeKey({
     required String query,
@@ -50,13 +50,23 @@ class WebSearchCacheStore extends WebEngineCacheStoreBase<AiWebSearchSettings> {
     required List<String> allowedDomains,
     required List<String> blockedDomains,
     required String localeTag,
+    required String modelProtocol,
+    required String modelId,
+    required String modelConfigId,
   }) {
-    final enabled =
-        settings
-            .enabledEnginesInOrder()
-            .map((e) => '${e.kind.name}:${e.weight}:${e.truncationChars}')
-            .toList(growable: false)
-          ..sort();
+    final enabled = settings
+        .enabledEnginesInOrder()
+        .map(
+          (e) => <String, Object?>{
+            'kind': e.kind.name,
+            'weight': e.weight,
+            'max_retries': e.maxRetries,
+            'truncation_chars': e.truncationChars,
+            'provider_config_id': e.providerConfigId?.trim() ?? '',
+            'endpoint_override': e.endpointOverride?.trim() ?? '',
+          },
+        )
+        .toList(growable: false);
     final allow = [...allowedDomains]..sort();
     final block = [...blockedDomains]..sort();
     final payload = jsonEncode(<String, Object?>{
@@ -72,7 +82,12 @@ class WebSearchCacheStore extends WebEngineCacheStoreBase<AiWebSearchSettings> {
       'mode': settings.modelMode.name,
       'fixed':
           '${settings.fixedModelProviderConfigId ?? ''}/${settings.fixedModelId ?? ''}',
+      'parallel': settings.parallel,
+      'workers': settings.parallelWorkers,
       'locale': localeTag,
+      'model_protocol': modelProtocol,
+      'model_id': modelId,
+      'model_config_id': modelConfigId,
     });
     return sha256.convert(utf8.encode(payload)).toString();
   }

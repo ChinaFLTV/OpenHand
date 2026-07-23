@@ -184,10 +184,11 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
     Animation<double> secondaryAnimation,
   ) {
     final mediaPadding = MediaQuery.paddingOf(context);
-    var menu = capturedThemes.wrap(Builder(builder: builder));
-    if (!openHandMotionDisabled(animationSettings)) {
-      menu = _buildMenuTransition(animation, animationSettings, menu);
-    }
+    final menu = _buildMenuTransition(
+      animation,
+      animationSettings,
+      capturedThemes.wrap(Builder(builder: builder)),
+    );
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
@@ -301,14 +302,11 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    Widget menuContent = capturedThemes.wrap(_PopupMenuContent<T>(route: this));
-    if (!openHandMotionDisabled(animationSettings)) {
-      menuContent = _buildMenuTransition(
-        animation,
-        animationSettings,
-        menuContent,
-      );
-    }
+    final menuContent = _buildMenuTransition(
+      animation,
+      animationSettings,
+      capturedThemes.wrap(_PopupMenuContent<T>(route: this)),
+    );
 
     // `paddingOf` only subscribes to padding changes; full `MediaQuery.of`
     // would rebuild this overlay on unrelated viewInsets / textScale events.
@@ -655,10 +653,15 @@ Widget _buildMenuTransition(
   DialogAnimationSettings settings,
   Widget child,
 ) {
-  return buildAnimationStyleTransition(
+  if (openHandMotionDisabled(settings)) return child;
+  return AnimatedBuilder(
     animation: animation,
-    settings: settings,
     child: child,
+    builder: (context, builtChild) => buildAnimationStyleTransition(
+      animation: animation,
+      settings: settings,
+      child: builtChild!,
+    ),
   );
 }
 

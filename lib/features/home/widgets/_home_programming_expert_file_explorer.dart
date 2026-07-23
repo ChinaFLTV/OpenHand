@@ -14819,7 +14819,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         rebuildIfPresent: !diagnosticsUnchanged || !anchorUnchanged,
         builder: (overlayContext, visibility, onExitCompleted) =>
             AnimatedOverlayContent(
-              useMenuSettings: true,
               visibility: visibility,
               onExitCompleted: onExitCompleted,
               child: _buildDiagnosticTooltipOverlay(overlayContext),

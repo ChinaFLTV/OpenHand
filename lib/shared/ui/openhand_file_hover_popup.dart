@@ -111,7 +111,6 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
       Alignment alignment = Alignment.center,
     }) {
       return AnimatedOverlayContent(
-        useMenuSettings: true,
         visibility: visibility,
         onExitCompleted: onExitCompleted,
         alignment: alignment,

@@ -44,18 +44,30 @@ class WebFetchCacheStore extends WebEngineCacheStoreBase<AiWebFetchSettings> {
   /// 缓存键：URL + 用户 prompt + 调度/引擎/模型。
   ///
   /// WebFetch 缓存的是最终 focused answer，不只是原始页面正文；因此引擎顺序
-  /// （串行短路）、并行模式、权重、截断阈值与会话模型都要进入 key，避免用户
-  /// 调整设置或切模型后读到旧答案。
+  /// （串行短路）、并行模式、引擎端点、重试/超时、权重、截断阈值与会话模型都
+  /// 要进入 key，避免用户调整设置或切模型后读到旧答案。
   static String computeKey({
     required String url,
     required String prompt,
     required AiWebFetchSettings settings,
     required String modelProtocol,
     required String modelId,
+    required String modelConfigId,
   }) {
     final enabled = settings
         .enabledEnginesInOrder()
-        .map((e) => '${e.kind.name}:${e.weight}:${e.truncationChars}')
+        .map(
+          (e) => <String, Object?>{
+            'kind': e.kind.name,
+            'weight': e.weight,
+            'max_retries': e.maxRetries,
+            'truncation_chars': e.truncationChars,
+            'connection_timeout_seconds': e.connectionTimeoutSeconds,
+            'response_timeout_seconds': e.responseTimeoutSeconds,
+            'provider_config_id': e.providerConfigId?.trim() ?? '',
+            'endpoint_override': e.endpointOverride?.trim() ?? '',
+          },
+        )
         .toList(growable: false);
     final payload = jsonEncode(<String, Object?>{
       'url': url.trim(),
@@ -65,6 +77,7 @@ class WebFetchCacheStore extends WebEngineCacheStoreBase<AiWebFetchSettings> {
       'workers': settings.parallelWorkers,
       'model_protocol': modelProtocol,
       'model_id': modelId,
+      'model_config_id': modelConfigId,
     });
     return sha256.convert(utf8.encode(payload)).toString();
   }
@@ -77,7 +90,9 @@ class WebFetchCacheStore extends WebEngineCacheStoreBase<AiWebFetchSettings> {
     if (raw == null) return null;
     return WebFetchCacheLookup(
       content: raw.payload,
-      metadata: raw.metadata,
+      metadata: Map<String, Object?>.unmodifiable(
+        Map<String, Object?>.of(raw.metadata)..remove('response_headers'),
+      ),
       cachedAt: raw.cachedAt,
       expiresAt: raw.expiresAt,
     );

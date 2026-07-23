@@ -97,19 +97,8 @@ class WebSearchOrchestrator {
     final activeConfigs = settings.engines
         .where((c) => c.enabled)
         .toList(growable: false);
+    final resilience = settings.resilience;
 
-    // 失败自动降级：跳过当前 cooldown 中的引擎。一次成功 stat 自动清掉
-    // cooldown，所以这里只需要静默过滤 + 汇报 progress.failed("cooldown")。
-    // 同时把用户配置的 cooldown 阈值推到 store，确保下一次失败按用户阈值落库。
-    WebSearchTelemetryStore.instance.cooldownConfig = WebSearchCooldownConfig(
-      tier1Failures: settings.cooldownTier1Failures,
-      tier1Seconds: settings.cooldownTier1Seconds,
-      tier2Failures: settings.cooldownTier2Failures,
-      tier2Seconds: settings.cooldownTier2Seconds,
-      tier3Failures: settings.cooldownTier3Failures,
-      tier3Seconds: settings.cooldownTier3Seconds,
-      quotaSeconds: settings.cooldownQuotaSeconds,
-    );
     final outcome =
         await filterByCooldownThrottleWithFallback<
           AiWebSearchEngineConfig,
@@ -119,7 +108,7 @@ class WebSearchOrchestrator {
           fallbackConfigs: _fallbackConfigs(),
           kindOf: (c) => c.kind,
           telemetry: WebSearchTelemetryStore.instance,
-          throttlePerMinute: settings.throttlePerMinute,
+          throttlePerMinute: resilience.throttlePerMinute,
         );
     final effectiveConfigs = outcome.usable;
     final skippedRuns = outcome.skipped

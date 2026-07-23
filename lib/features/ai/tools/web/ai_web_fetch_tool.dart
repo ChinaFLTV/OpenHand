@@ -98,6 +98,15 @@ class AiWebFetchTool extends AiTool {
     final settings =
         resolved?.builtinConfig?.webFetchSettings ??
         AiWebFetchSettings.defaults();
+    final cooldownConfig = WebFetchCooldownConfig(
+      tier1Failures: settings.resilience.cooldownTier1Failures,
+      tier1Seconds: settings.resilience.cooldownTier1Seconds,
+      tier2Failures: settings.resilience.cooldownTier2Failures,
+      tier2Seconds: settings.resilience.cooldownTier2Seconds,
+      tier3Failures: settings.resilience.cooldownTier3Failures,
+      tier3Seconds: settings.resilience.cooldownTier3Seconds,
+      quotaSeconds: settings.resilience.cooldownQuotaSeconds,
+    );
 
     final progress = StringBuffer()
       ..writeln('url: $rawUrl')
@@ -153,7 +162,7 @@ class AiWebFetchTool extends AiTool {
           perEngine.add(
             WebFetchPerEngineLog(
               kind: r.kind,
-              success: r.isSuccess,
+              success: r.error == null,
               contentBytes: r.contents.isEmpty
                   ? 0
                   : r.contents.first.content.length,
@@ -178,6 +187,7 @@ class AiWebFetchTool extends AiTool {
                 winningEngine: orchestration?.winningKind,
                 perEngine: perEngine,
               ),
+              cooldownConfig: cooldownConfig,
             )
             .then((_) => _maybeFireHealthAlerts(settings)),
       );
@@ -190,6 +200,7 @@ class AiWebFetchTool extends AiTool {
       settings: settings,
       modelProtocol: context.model.protocolType.name,
       modelId: context.model.modelId,
+      modelConfigId: context.model.id,
     );
     final cached = await WebFetchCacheStore.instance.lookup(
       key: cacheKey,
@@ -233,6 +244,7 @@ class AiWebFetchTool extends AiTool {
       httpClient: _httpClient,
       availableModels: availableModels,
       scraplingBridge: _scraplingBridge,
+      uriBlockReason: _blockedReason,
     );
 
     final WebFetchOrchestrationResult orchestrationResult;
@@ -450,7 +462,6 @@ class AiWebFetchTool extends AiTool {
             'final_url': winner.url,
             'content_type': winner.contentType,
             'http_status': winner.statusCode,
-            'response_headers': winner.responseHeaders,
             'duration_ms': stopwatch.elapsedMilliseconds,
           },
         );
@@ -494,30 +505,11 @@ class AiWebFetchTool extends AiTool {
   }
 
   Future<String?> _blockedReason(Uri uri) async {
-    final directReason = agentFetchBlockReasonForUri(uri);
-    if (directReason != null) {
-      return 'WebFetch blocks $directReason: ${uri.host}';
-    }
-    if (InternetAddress.tryParse(uri.host) != null) return null;
-    try {
-      final resolvedAddresses = await _hostLookup(
-        uri.host,
-      ).timeout(const Duration(seconds: 2));
-      for (final address in resolvedAddresses) {
-        final addressReason = agentFetchBlockReasonForAddress(address);
-        if (addressReason != null) {
-          return 'WebFetch blocked ${uri.host} because it resolved to '
-              '$addressReason (${address.address}).';
-        }
-      }
-    } on SocketException {
-      return null;
-    } on TimeoutException {
-      return 'WebFetch blocked ${uri.host} because DNS resolution timed out.';
-    } catch (_) {
-      return null;
-    }
-    return null;
+    final reason = await agentFetchBlockReasonForResolvedUri(
+      uri,
+      hostLookup: _hostLookup,
+    );
+    return reason == null ? null : 'WebFetch 拒绝访问 ${uri.host}: $reason。';
   }
 
   final WebEngineHealthAlertTracker _healthAlertTracker =
@@ -527,8 +519,8 @@ class AiWebFetchTool extends AiTool {
     return _healthAlertTracker.notifyFromStats(
       loadStats: WebFetchTelemetryStore.instance.engineStats,
       engineName: (engine) => engine.name,
-      successRateThresholdPct: settings.alertSuccessRatePct,
-      averageDurationThresholdMs: settings.alertAvgDurationMs,
+      successRateThresholdPct: settings.resilience.alertSuccessRatePct,
+      averageDurationThresholdMs: settings.resilience.alertAvgDurationMs,
       titlePrefix: 'WebFetch',
       logTag: 'ai_web_fetch_tool',
     );

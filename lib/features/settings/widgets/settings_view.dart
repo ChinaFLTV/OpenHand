@@ -690,6 +690,133 @@ class _ToolAdvancedCooldownTierRow extends StatelessWidget {
   }
 }
 
+List<Widget> _buildWebEngineResilienceSettingsSection({
+  required BuildContext context,
+  required ThemeData theme,
+  required ColorScheme colorScheme,
+  required AiWebEngineResilienceSettings resilience,
+  required ValueChanged<AiWebEngineResilienceSettings> onChanged,
+}) {
+  return [
+    Text(
+      openHandLocalizedText(
+        context,
+        zh: '高级（健壮性）',
+        en: 'Advanced (resilience)',
+      ),
+      style: theme.textTheme.titleSmall,
+    ),
+    const SizedBox(height: 8),
+    Text(
+      openHandLocalizedText(
+        context,
+        zh: '失败自动降级（cooldown）阈值',
+        en: 'Failure auto-cooldown thresholds',
+      ),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
+    const SizedBox(height: 6),
+    _ToolAdvancedCooldownTierRow(
+      label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
+      failures: resilience.cooldownTier1Failures,
+      seconds: resilience.cooldownTier1Seconds,
+      onChangedFailures: (value) =>
+          onChanged(resilience.copyWith(cooldownTier1Failures: value)),
+      onChangedSeconds: (value) =>
+          onChanged(resilience.copyWith(cooldownTier1Seconds: value)),
+    ),
+    _ToolAdvancedCooldownTierRow(
+      label: openHandLocalizedText(context, zh: '二级', en: 'Tier 2'),
+      failures: resilience.cooldownTier2Failures,
+      seconds: resilience.cooldownTier2Seconds,
+      onChangedFailures: (value) =>
+          onChanged(resilience.copyWith(cooldownTier2Failures: value)),
+      onChangedSeconds: (value) =>
+          onChanged(resilience.copyWith(cooldownTier2Seconds: value)),
+    ),
+    _ToolAdvancedCooldownTierRow(
+      label: openHandLocalizedText(context, zh: '三级', en: 'Tier 3'),
+      failures: resilience.cooldownTier3Failures,
+      seconds: resilience.cooldownTier3Seconds,
+      onChangedFailures: (value) =>
+          onChanged(resilience.copyWith(cooldownTier3Failures: value)),
+      onChangedSeconds: (value) =>
+          onChanged(resilience.copyWith(cooldownTier3Seconds: value)),
+    ),
+    const SizedBox(height: 4),
+    _ToolAdvancedNumberRow(
+      label: openHandLocalizedText(
+        context,
+        zh: '配额/限流冷却（秒）',
+        en: 'Quota cooldown (s)',
+      ),
+      value: resilience.cooldownQuotaSeconds,
+      min: AiWebEngineResiliencePolicy.minCooldownSeconds,
+      max: AiWebEngineResiliencePolicy.maxCooldownSeconds,
+      onChanged: (value) =>
+          onChanged(resilience.copyWith(cooldownQuotaSeconds: value)),
+    ),
+    const SizedBox(height: 12),
+    Text(
+      openHandLocalizedText(
+        context,
+        zh: '健康度告警（0 = 关闭，至少 5 次调用后才会触发）',
+        en: 'Health alerts (0 = off; needs ≥5 calls)',
+      ),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
+    const SizedBox(height: 6),
+    _ToolAdvancedNumberRow(
+      label: openHandLocalizedText(
+        context,
+        zh: '成功率低于（%）',
+        en: 'Success rate below (%)',
+      ),
+      value: resilience.alertSuccessRatePct,
+      min: 0,
+      max: AiWebEngineResiliencePolicy.maxAlertSuccessRatePct,
+      onChanged: (value) =>
+          onChanged(resilience.copyWith(alertSuccessRatePct: value)),
+    ),
+    _ToolAdvancedNumberRow(
+      label: openHandLocalizedText(
+        context,
+        zh: '平均耗时高于（毫秒）',
+        en: 'Avg duration above (ms)',
+      ),
+      value: resilience.alertAvgDurationMs,
+      min: 0,
+      max: AiWebEngineResiliencePolicy.maxAlertAvgDurationMs,
+      onChanged: (value) =>
+          onChanged(resilience.copyWith(alertAvgDurationMs: value)),
+    ),
+    const SizedBox(height: 12),
+    Text(
+      openHandLocalizedText(
+        context,
+        zh: '速率限制（每引擎每分钟最大调用数；0 = 不限）',
+        en: 'Rate limit (per engine, per minute; 0 = off)',
+      ),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
+    const SizedBox(height: 6),
+    _ToolAdvancedNumberRow(
+      label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
+      value: resilience.throttlePerMinute,
+      min: 0,
+      max: AiWebEngineResiliencePolicy.maxThrottlePerMinute,
+      onChanged: (value) =>
+          onChanged(resilience.copyWith(throttlePerMinute: value)),
+    ),
+  ];
+}
+
 class _ToolTelemetrySparklinePainter<T extends WebEngineSampleBase>
     extends CustomPainter {
   const _ToolTelemetrySparklinePainter({

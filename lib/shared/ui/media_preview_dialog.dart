@@ -395,9 +395,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: AnimatedSize(
         duration: motionEnabled
-            ? const Duration(milliseconds: 320)
+            ? motionSettings.entranceDuration
             : Duration.zero,
-        curve: Curves.easeOutCubic,
+        curve: motionSettings.curve.curve,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: maxDialogW,

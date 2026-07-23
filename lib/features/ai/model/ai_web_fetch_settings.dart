@@ -82,7 +82,7 @@ class AiWebFetchEngineConfig {
   static const int minWeight = 1;
   static const int maxWeight = 100;
   static const int defaultMaxRetries = 3;
-  static const int maxRetriesUpperBound = 10;
+  static const int maxRetriesUpperBound = AiWebEngineExecutionPolicy.maxRetries;
 
   /// 用户层标注「tokens」，按 ~4 字符 / token 估算 → 25000 tokens ≈ 100000 字符。
   static const int defaultTruncationChars = 100000;
@@ -305,23 +305,7 @@ class AiWebFetchSettings {
     this.parallelWorkers = defaultParallelWorkers,
     this.cacheTtlSeconds = defaultCacheTtlSeconds,
     this.cacheMaxBytes = defaultCacheMaxBytes,
-    this.cooldownTier1Failures =
-        AiWebEngineResiliencePolicy.defaultCooldownTier1Failures,
-    this.cooldownTier1Seconds =
-        AiWebEngineResiliencePolicy.defaultCooldownTier1Seconds,
-    this.cooldownTier2Failures =
-        AiWebEngineResiliencePolicy.defaultCooldownTier2Failures,
-    this.cooldownTier2Seconds =
-        AiWebEngineResiliencePolicy.defaultCooldownTier2Seconds,
-    this.cooldownTier3Failures =
-        AiWebEngineResiliencePolicy.defaultCooldownTier3Failures,
-    this.cooldownTier3Seconds =
-        AiWebEngineResiliencePolicy.defaultCooldownTier3Seconds,
-    this.cooldownQuotaSeconds =
-        AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds,
-    this.alertSuccessRatePct = 0,
-    this.alertAvgDurationMs = 0,
-    this.throttlePerMinute = 0,
+    this.resilience = AiWebEngineResilienceSettings.defaults,
     this.scrapling = const AiWebFetchScraplingSettings(),
   });
 
@@ -379,26 +363,7 @@ class AiWebFetchSettings {
   final int parallelWorkers;
   final int cacheTtlSeconds;
   final int cacheMaxBytes;
-
-  /// 失败自动降级 (cooldown) 三档阈值与时长（秒）。
-  final int cooldownTier1Failures;
-  final int cooldownTier1Seconds;
-  final int cooldownTier2Failures;
-  final int cooldownTier2Seconds;
-  final int cooldownTier3Failures;
-  final int cooldownTier3Seconds;
-
-  /// 显式 quota / 429 / rate-limit 错误的固定 cooldown 时长（秒）。
-  final int cooldownQuotaSeconds;
-
-  /// 单引擎成功率低于此百分比触发告警。0 = 关闭。
-  final int alertSuccessRatePct;
-
-  /// 单引擎平均耗时高于此毫秒触发告警。0 = 关闭。
-  final int alertAvgDurationMs;
-
-  /// 单引擎 60 秒内最多调用次数。0 = 不限制。
-  final int throttlePerMinute;
+  final AiWebEngineResilienceSettings resilience;
   final AiWebFetchScraplingSettings scrapling;
 
   bool get cacheEnabled => cacheTtlSeconds > 0;
@@ -413,16 +378,7 @@ class AiWebFetchSettings {
     int? parallelWorkers,
     int? cacheTtlSeconds,
     int? cacheMaxBytes,
-    int? cooldownTier1Failures,
-    int? cooldownTier1Seconds,
-    int? cooldownTier2Failures,
-    int? cooldownTier2Seconds,
-    int? cooldownTier3Failures,
-    int? cooldownTier3Seconds,
-    int? cooldownQuotaSeconds,
-    int? alertSuccessRatePct,
-    int? alertAvgDurationMs,
-    int? throttlePerMinute,
+    AiWebEngineResilienceSettings? resilience,
     AiWebFetchScraplingSettings? scrapling,
   }) {
     return AiWebFetchSettings(
@@ -432,43 +388,23 @@ class AiWebFetchSettings {
       parallelWorkers: parallelWorkers ?? this.parallelWorkers,
       cacheTtlSeconds: cacheTtlSeconds ?? this.cacheTtlSeconds,
       cacheMaxBytes: cacheMaxBytes ?? this.cacheMaxBytes,
-      cooldownTier1Failures:
-          cooldownTier1Failures ?? this.cooldownTier1Failures,
-      cooldownTier1Seconds: cooldownTier1Seconds ?? this.cooldownTier1Seconds,
-      cooldownTier2Failures:
-          cooldownTier2Failures ?? this.cooldownTier2Failures,
-      cooldownTier2Seconds: cooldownTier2Seconds ?? this.cooldownTier2Seconds,
-      cooldownTier3Failures:
-          cooldownTier3Failures ?? this.cooldownTier3Failures,
-      cooldownTier3Seconds: cooldownTier3Seconds ?? this.cooldownTier3Seconds,
-      cooldownQuotaSeconds: cooldownQuotaSeconds ?? this.cooldownQuotaSeconds,
-      alertSuccessRatePct: alertSuccessRatePct ?? this.alertSuccessRatePct,
-      alertAvgDurationMs: alertAvgDurationMs ?? this.alertAvgDurationMs,
-      throttlePerMinute: throttlePerMinute ?? this.throttlePerMinute,
+      resilience: resilience ?? this.resilience,
       scrapling: scrapling ?? this.scrapling,
     );
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
+    final json = <String, Object?>{
       'engines': engines.map((e) => e.toJson()).toList(growable: false),
       'result_count': resultCount,
       'parallel': parallel,
       'parallel_workers': parallelWorkers,
       'cache_ttl_seconds': cacheTtlSeconds,
       'cache_max_bytes': cacheMaxBytes,
-      'cooldown_tier1_failures': cooldownTier1Failures,
-      'cooldown_tier1_seconds': cooldownTier1Seconds,
-      'cooldown_tier2_failures': cooldownTier2Failures,
-      'cooldown_tier2_seconds': cooldownTier2Seconds,
-      'cooldown_tier3_failures': cooldownTier3Failures,
-      'cooldown_tier3_seconds': cooldownTier3Seconds,
-      'cooldown_quota_seconds': cooldownQuotaSeconds,
-      'alert_success_rate_pct': alertSuccessRatePct,
-      'alert_avg_duration_ms': alertAvgDurationMs,
-      'throttle_per_minute': throttlePerMinute,
-      'scrapling': scrapling.toJson(),
     };
+    resilience.writeJsonTo(json);
+    json['scrapling'] = scrapling.toJson();
+    return json;
   }
 
   static AiWebFetchSettings? fromJson(Object? raw) {
@@ -493,7 +429,7 @@ class AiWebFetchSettings {
         engines.add(AiWebFetchEngineConfig(kind: kind));
       }
     }
-    final resilience = AiWebEngineResiliencePolicy.valuesFromJson(json);
+    final resilience = AiWebEngineResilienceSettings.fromJson(json);
 
     return AiWebFetchSettings(
       engines: engines,
@@ -511,16 +447,7 @@ class AiWebFetchSettings {
       cacheMaxBytes: _cacheMaxBytesRange.fromValue(
         optionalPositiveIntFromValue(json['cache_max_bytes']),
       ),
-      cooldownTier1Failures: resilience.cooldownTier1Failures,
-      cooldownTier1Seconds: resilience.cooldownTier1Seconds,
-      cooldownTier2Failures: resilience.cooldownTier2Failures,
-      cooldownTier2Seconds: resilience.cooldownTier2Seconds,
-      cooldownTier3Failures: resilience.cooldownTier3Failures,
-      cooldownTier3Seconds: resilience.cooldownTier3Seconds,
-      cooldownQuotaSeconds: resilience.cooldownQuotaSeconds,
-      alertSuccessRatePct: resilience.alertSuccessRatePct,
-      alertAvgDurationMs: resilience.alertAvgDurationMs,
-      throttlePerMinute: resilience.throttlePerMinute,
+      resilience: resilience,
     );
   }
 }
