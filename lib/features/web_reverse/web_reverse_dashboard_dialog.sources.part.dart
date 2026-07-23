@@ -2168,6 +2168,10 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
   final TextEditingController _watchCtrl = TextEditingController();
   final Map<String, String> _watchValues = <String, String>{};
   int _selectedFrame = 0;
+  bool _watchEvaluationRunning = false;
+  bool _watchEvaluationQueued = false;
+  String? _lastPauseFrameId;
+  bool _hasPauseSnapshot = false;
 
   @override
   void initState() {
@@ -2184,18 +2188,55 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
 
   void _onCtrl() {
     if (!mounted) return;
-    _selectedFrame = 0;
-    _evaluateAllWatches();
+    final paused = widget.controller.pausedState;
+    final pauseFrameId = paused == null
+        ? null
+        : '${paused.callFrames.firstOrNull?['callFrameId'] ?? ''}';
+    if (!_hasPauseSnapshot || pauseFrameId != _lastPauseFrameId) {
+      _selectedFrame = 0;
+      _lastPauseFrameId = pauseFrameId;
+      _hasPauseSnapshot = true;
+    }
+    _requestWatchEvaluation();
     setState(() {});
   }
 
-  Future<void> _evaluateAllWatches() async {
-    for (final w in widget.controller.watchExpressions) {
-      final r = await widget.controller.evaluateWatch(w);
-      if (!mounted) return;
-      _watchValues[w] = _formatRemote(r);
+  void _requestWatchEvaluation() {
+    _watchEvaluationQueued = true;
+    if (_watchEvaluationRunning) return;
+    unawaited(_drainWatchEvaluations());
+  }
+
+  Future<void> _drainWatchEvaluations() async {
+    _watchEvaluationRunning = true;
+    try {
+      while (mounted && _watchEvaluationQueued) {
+        _watchEvaluationQueued = false;
+        final watches = widget.controller.watchExpressions;
+        final values = <String, String>{};
+        for (final watch in watches) {
+          final result = await widget.controller.evaluateWatch(watch);
+          if (!mounted) return;
+          if (_watchEvaluationQueued) break;
+          values[watch] = _formatRemote(result);
+        }
+        if (!mounted) return;
+        if (_watchEvaluationQueued) continue;
+        final activeWatches = watches.toSet();
+        _watchValues.removeWhere(
+          (expression, _) => !activeWatches.contains(expression),
+        );
+        _watchValues.addAll(values);
+        setState(() {});
+      }
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard', '刷新调试器 Watch', error, stack);
+    } finally {
+      _watchEvaluationRunning = false;
+      if (mounted && _watchEvaluationQueued) {
+        unawaited(_drainWatchEvaluations());
+      }
     }
-    if (mounted) setState(() {});
   }
 
   String _formatRemote(Map<String, Object?>? r) {
@@ -2205,7 +2246,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
     return '$desc';
   }
 
-  Future<void> _addWatch() async {
+  void _addWatch() {
     final v = _watchCtrl.text.trim();
     if (v.isEmpty) return;
     if (!widget.controller.addWatchExpression(v)) {
@@ -2225,9 +2266,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
       return;
     }
     _watchCtrl.clear();
-    final r = await widget.controller.evaluateWatch(v);
-    if (!mounted) return;
-    setState(() => _watchValues[v] = _formatRemote(r));
+    _requestWatchEvaluation();
   }
 
   @override
@@ -2457,7 +2496,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                   ja: '再評価',
                 ),
                 iconSize: 16,
-                onPressed: _evaluateAllWatches,
+                onPressed: _requestWatchEvaluation,
                 icon: const Icon(Icons.refresh_rounded),
               ),
               child: Column(
@@ -2540,8 +2579,6 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                             icon: Icon(Icons.close_rounded, color: cs.error),
                             onPressed: () {
                               widget.controller.removeWatchExpression(w);
-                              _watchValues.remove(w);
-                              setState(() {});
                             },
                           ),
                         ],
