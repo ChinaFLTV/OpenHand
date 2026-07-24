@@ -211,6 +211,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<AdbCommandResult>? _networkCaptureStartFuture;
   Future<void>? _networkCaptureStopFuture;
   int _networkCaptureGeneration = 0;
+  Future<void>? _startFuture;
   Future<void>? _deviceRefreshFuture;
   Future<void>? _shutdownFuture;
 
@@ -222,7 +223,23 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> start() async {
+  Future<void> start() {
+    final active = _startFuture;
+    if (active != null) return active;
+    if (_disposed || _state != AndroidReverseSessionState.idle) {
+      return Future<void>.value();
+    }
+    late final Future<void> starting;
+    starting = _startOnce().whenComplete(() {
+      if (identical(_startFuture, starting)) {
+        _startFuture = null;
+      }
+    });
+    _startFuture = starting;
+    return starting;
+  }
+
+  Future<void> _startOnce() async {
     if (_disposed || _state != AndroidReverseSessionState.idle) return;
     await _ensureArtifactDirectories();
     await _writeMcpLinkageArtifacts(updateError: false);
@@ -232,6 +249,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     await _refreshDevices();
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     _state = AndroidReverseSessionState.running;
+    _watchdogTimer?.cancel();
     _watchdogTimer = startNonOverlappingPeriodicTimer(
       _kDeviceWatchdogInterval,
       (_) => _refreshDevices(),
@@ -244,6 +262,14 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _state = AndroidReverseSessionState.stopped;
+    final starting = _startFuture;
+    if (starting != null) {
+      await runAsyncCleanupBounded(
+        () => starting,
+        timeout: _kRuntimeCleanupTimeout,
+        onError: (error, stack) => silentLog(_kTag, '停止时等待会话启动', error, stack),
+      );
+    }
     await _stopNetworkCaptureResources();
     _safeNotify();
   }
@@ -260,24 +286,32 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _state = AndroidReverseSessionState.stopped;
     final shutdown =
         () async {
-          final starting = _networkCaptureStartFuture;
-          if (starting != null) {
-            await runAsyncCleanupBounded(
-              () => starting,
-              timeout: _kRuntimeCleanupTimeout,
-              onError: (error, stack) =>
-                  silentLog(_kTag, '等待网络捕获启动', error, stack),
-            );
-          }
+          final startingSession = _startFuture;
+          final startingCapture = _networkCaptureStartFuture;
           final refreshing = _deviceRefreshFuture;
-          if (refreshing != null) {
-            await runAsyncCleanupBounded(
-              () => refreshing,
-              timeout: _kRuntimeCleanupTimeout,
-              onError: (error, stack) =>
-                  silentLog(_kTag, '等待设备刷新', error, stack),
-            );
-          }
+          await Future.wait<bool>(<Future<bool>>[
+            if (startingSession != null)
+              runAsyncCleanupBounded(
+                () => startingSession,
+                timeout: _kRuntimeCleanupTimeout,
+                onError: (error, stack) =>
+                    silentLog(_kTag, '等待会话启动', error, stack),
+              ),
+            if (startingCapture != null)
+              runAsyncCleanupBounded(
+                () => startingCapture,
+                timeout: _kRuntimeCleanupTimeout,
+                onError: (error, stack) =>
+                    silentLog(_kTag, '等待网络捕获启动', error, stack),
+              ),
+            if (refreshing != null)
+              runAsyncCleanupBounded(
+                () => refreshing,
+                timeout: _kRuntimeCleanupTimeout,
+                onError: (error, stack) =>
+                    silentLog(_kTag, '等待设备刷新', error, stack),
+              ),
+          ]);
           await _stopNetworkCaptureResources();
         }().catchError((Object error, StackTrace stack) {
           silentLog(_kTag, '关闭 Android 逆向会话', error, stack);
