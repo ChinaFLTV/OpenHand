@@ -21,6 +21,7 @@ class _CronsBodyState extends State<_CronsBody> {
   bool _runningNow = false;
   String? _lastResultPreview;
   Timer? _tickTimer;
+  bool _controllerUpdateScheduled = false;
 
   @override
   void initState() {
@@ -48,9 +49,14 @@ class _CronsBodyState extends State<_CronsBody> {
   }
 
   void _onControllerChanged() {
-    if (!mounted) return;
-    setState(() {});
-    _syncSelectionFromController();
+    if (!mounted || _controllerUpdateScheduled) return;
+    _controllerUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerUpdateScheduled = false;
+      if (!mounted) return;
+      _syncSelectionFromController();
+      setState(() {});
+    });
   }
 
   void _syncSelectionFromController() {

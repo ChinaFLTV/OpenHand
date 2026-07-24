@@ -17,6 +17,7 @@ class _HooksBodyState extends State<_HooksBody> {
   final TextEditingController _codeCtrl = TextEditingController();
   final FocusNode _codeFocus = FocusNode();
   bool _dirty = false;
+  bool _controllerUpdateScheduled = false;
 
   @override
   void initState() {
@@ -37,9 +38,14 @@ class _HooksBodyState extends State<_HooksBody> {
   }
 
   void _onControllerChanged() {
-    if (!mounted) return;
-    setState(() {});
-    _syncSelectionFromController();
+    if (!mounted || _controllerUpdateScheduled) return;
+    _controllerUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerUpdateScheduled = false;
+      if (!mounted) return;
+      _syncSelectionFromController();
+      setState(() {});
+    });
   }
 
   void _syncSelectionFromController() {

@@ -96,6 +96,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
 
   bool _gListLoading = false;
   List<Map<String, Object?>>? _globalListeners;
+  bool _controllerUpdateScheduled = false;
 
   @override
   void initState() {
@@ -112,7 +113,12 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
   }
 
   void _onControllerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || _controllerUpdateScheduled) return;
+    _controllerUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerUpdateScheduled = false;
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _removeSourceBp(({String url, int line}) b) async {

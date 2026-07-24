@@ -19,6 +19,7 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
   bool _dirty = false;
   bool _running = false;
   String? _lastResultPreview;
+  bool _controllerUpdateScheduled = false;
 
   @override
   void initState() {
@@ -39,9 +40,14 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
   }
 
   void _onControllerChanged() {
-    if (!mounted) return;
-    setState(() {});
-    _syncSelectionFromController();
+    if (!mounted || _controllerUpdateScheduled) return;
+    _controllerUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerUpdateScheduled = false;
+      if (!mounted) return;
+      _syncSelectionFromController();
+      setState(() {});
+    });
   }
 
   void _syncSelectionFromController() {
