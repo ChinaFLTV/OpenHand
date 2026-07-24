@@ -691,6 +691,7 @@ class _AndroidReverseDashboardDialogState
   final Set<String> _runningToolchainCommandIds = <String>{};
   List<AndroidProcess> _processes = const <AndroidProcess>[];
   String? _selectedPackageName;
+  String? _pendingPackageAnalysis;
   String? _packageAnalysisOutput;
   String? _selectedFridaSnippetAsset;
   String? _lastSavedFridaScriptPath;
@@ -826,7 +827,12 @@ class _AndroidReverseDashboardDialogState
     final normalized = serial?.trim();
     final next = normalized == null || normalized.isEmpty ? null : normalized;
     if (_selectedDeviceSerial == next) return;
-    setState(() => _selectedDeviceSerial = next);
+    _pendingPackageAnalysis = null;
+    setState(() {
+      _selectedDeviceSerial = next;
+      _selectedPackageName = null;
+      _packageAnalysisOutput = null;
+    });
   }
 
   void _refreshAll() {
@@ -875,6 +881,7 @@ class _AndroidReverseDashboardDialogState
         _packages = pkgs;
         if (_selectedPackageName != null &&
             !pkgs.contains(_selectedPackageName)) {
+          _pendingPackageAnalysis = null;
           _selectedPackageName = null;
           _packageAnalysisOutput = null;
         }
@@ -891,34 +898,46 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _analyzePackage(String packageName) async {
-    if (_loadingPackageAnalysis) return;
+    if (_loadingPackageAnalysis || _capturingPackageReport) {
+      _pendingPackageAnalysis = packageName;
+      setState(() {
+        _selectedPackageName = packageName;
+        _packageAnalysisOutput = null;
+      });
+      return;
+    }
+    _pendingPackageAnalysis = null;
+    final serial = _targetSerial;
     setState(() {
       _selectedPackageName = packageName;
+      _packageAnalysisOutput = null;
       _loadingPackageAnalysis = true;
     });
     try {
-      final pathFuture = _ctrl.getPackagePath(
-        packageName,
-        serial: _targetSerial,
-      );
+      final pathFuture = _ctrl.getPackagePath(packageName, serial: serial);
       final versionFuture = _ctrl.getPackageVersion(
         packageName,
-        serial: _targetSerial,
+        serial: serial,
       );
       final launcherFuture = _ctrl.resolveLauncherActivity(
         packageName,
-        serial: _targetSerial,
+        serial: serial,
       );
       final dumpsysFuture = _ctrl.shellDetailed(
         'dumpsys package $packageName',
-        serial: _targetSerial,
+        serial: serial,
         timeout: _kPackageDumpsysTimeout,
       );
       final path = await pathFuture;
       final version = await versionFuture;
       final launcher = await launcherFuture;
       final dumpsys = await dumpsysFuture;
-      if (!mounted) return;
+      if (!mounted ||
+          _pendingPackageAnalysis != null ||
+          serial != _targetSerial ||
+          packageName != _selectedPackageName) {
+        return;
+      }
       final summary = _summarizePackageDumpsys(dumpsys.stdout);
       final buf = StringBuffer()
         ..writeln(
@@ -983,23 +1002,35 @@ class _AndroidReverseDashboardDialogState
       }
       setState(() => _packageAnalysisOutput = buf.toString());
     } finally {
-      if (mounted) setState(() => _loadingPackageAnalysis = false);
+      if (mounted) {
+        final pending = _pendingPackageAnalysis;
+        _pendingPackageAnalysis = null;
+        setState(() => _loadingPackageAnalysis = false);
+        if (pending != null) unawaited(_analyzePackage(pending));
+      }
     }
   }
 
   Future<void> _capturePackageReport(String packageName) async {
-    if (_capturingPackageReport) return;
+    if (_capturingPackageReport || _loadingPackageAnalysis) return;
+    _pendingPackageAnalysis = null;
+    final serial = _targetSerial;
     setState(() {
       _selectedPackageName = packageName;
+      _packageAnalysisOutput = null;
       _capturingPackageReport = true;
     });
     try {
       final result = await _ctrl.capturePackageReportToArtifacts(
         packageName,
-        serial: _targetSerial,
+        serial: serial,
       );
       if (!mounted) return;
-      setState(() => _packageAnalysisOutput = _formatAdbResult(result));
+      final isCurrentTarget =
+          serial == _targetSerial && packageName == _selectedPackageName;
+      if (isCurrentTarget) {
+        setState(() => _packageAnalysisOutput = _formatAdbResult(result));
+      }
       if (result.ok || result.partialOk) {
         _showSnack(
           openHandLocalizedText(
@@ -1016,13 +1047,22 @@ class _AndroidReverseDashboardDialogState
         );
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted ||
+          serial != _targetSerial ||
+          packageName != _selectedPackageName) {
+        return;
+      }
       setState(() {
         _packageAnalysisOutput =
             '${openHandLocalizedText(context, zh: "生成 APP 信息报告失败", zhHant: "產生 APP 資訊報告失敗", en: "Failed to generate APP report", fr: "Échec de génération du rapport APP", de: "APP-Bericht konnte nicht erstellt werden", ja: "APP レポートの生成に失敗しました")}: $error';
       });
     } finally {
-      if (mounted) setState(() => _capturingPackageReport = false);
+      if (mounted) {
+        final pending = _pendingPackageAnalysis;
+        _pendingPackageAnalysis = null;
+        setState(() => _capturingPackageReport = false);
+        if (pending != null) unawaited(_analyzePackage(pending));
+      }
     }
   }
 
@@ -7863,7 +7903,8 @@ fi
                           de: 'APP-Bericht erstellen',
                           ja: 'APP レポートを生成',
                         ),
-                        onPressed: _capturingPackageReport
+                        onPressed:
+                            _capturingPackageReport || _loadingPackageAnalysis
                             ? null
                             : () =>
                                   _capturePackageReport(_selectedPackageName!),
