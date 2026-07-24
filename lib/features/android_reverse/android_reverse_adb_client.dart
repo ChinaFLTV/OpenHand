@@ -529,23 +529,11 @@ class AndroidReverseAdbClient {
 
   // ── 文件传输 ──────────────────────────────────────────────────────────
 
-  Future<bool> push(String localPath, String remotePath) async {
-    final result = await _runDevice(<String>[
-      'push',
-      localPath,
-      remotePath,
-    ], timeout: _kAdbTransferTimeout);
-    return result != null && !result.toLowerCase().contains('error');
-  }
+  Future<bool> push(String localPath, String remotePath) async =>
+      (await pushDetailed(localPath, remotePath)).ok;
 
-  Future<bool> pull(String remotePath, String localPath) async {
-    final result = await _runDevice(<String>[
-      'pull',
-      remotePath,
-      localPath,
-    ], timeout: _kAdbTransferTimeout);
-    return result != null && !result.toLowerCase().contains('error');
-  }
+  Future<bool> pull(String remotePath, String localPath) async =>
+      (await pullDetailed(remotePath, localPath)).ok;
 
   Future<AdbCommandResult> pushDetailed(String localPath, String remotePath) {
     final local = nullIfBlank(localPath);
@@ -635,35 +623,22 @@ class AndroidReverseAdbClient {
 
   // ── 端口转发 ──────────────────────────────────────────────────────────
 
-  Future<bool> forwardPort(int localPort, int remotePort) async {
-    if (!_isValidTcpPort(localPort) || !_isValidTcpPort(remotePort)) {
-      return false;
-    }
-    final result = await _runDevice(<String>[
-      'forward',
-      'tcp:$localPort',
-      'tcp:$remotePort',
-    ]);
-    return result != null;
-  }
+  Future<bool> forwardPort(int localPort, int remotePort) async =>
+      (await forwardPortDetailed(localPort, remotePort)).ok;
 
-  Future<bool> removeForward(int localPort) async {
-    if (!_isValidTcpPort(localPort)) return false;
-    final result = await _runDevice(<String>[
-      'forward',
-      '--remove',
-      'tcp:$localPort',
-    ]);
-    return result != null;
-  }
+  Future<bool> removeForward(int localPort) async =>
+      (await removeForwardDetailed(localPort)).ok;
 
   Future<String?> listForwards() {
     return _runDevice(<String>['forward', '--list']);
   }
 
   Future<bool> removeAllForwards() async {
-    final result = await _runDevice(<String>['forward', '--remove-all']);
-    return result != null;
+    final result = await _runDeviceDetailed(<String>[
+      'forward',
+      '--remove-all',
+    ]);
+    return result.ok;
   }
 
   Future<AdbCommandResult> forwardPortDetailed(int localPort, int remotePort) {
@@ -688,35 +663,22 @@ class AndroidReverseAdbClient {
     ]);
   }
 
-  Future<bool> reversePort(int devicePort, int hostPort) async {
-    if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
-      return false;
-    }
-    final result = await _runDevice(<String>[
-      'reverse',
-      'tcp:$devicePort',
-      'tcp:$hostPort',
-    ]);
-    return result != null;
-  }
+  Future<bool> reversePort(int devicePort, int hostPort) async =>
+      (await reversePortDetailed(devicePort, hostPort)).ok;
 
-  Future<bool> removeReverse(int devicePort) async {
-    if (!_isValidTcpPort(devicePort)) return false;
-    final result = await _runDevice(<String>[
-      'reverse',
-      '--remove',
-      'tcp:$devicePort',
-    ]);
-    return result != null;
-  }
+  Future<bool> removeReverse(int devicePort) async =>
+      (await removeReverseDetailed(devicePort)).ok;
 
   Future<String?> listReverses() {
     return _runDevice(<String>['reverse', '--list']);
   }
 
   Future<bool> removeAllReverses() async {
-    final result = await _runDevice(<String>['reverse', '--remove-all']);
-    return result != null;
+    final result = await _runDeviceDetailed(<String>[
+      'reverse',
+      '--remove-all',
+    ]);
+    return result.ok;
   }
 
   Future<AdbCommandResult> reversePortDetailed(int devicePort, int hostPort) {
@@ -852,6 +814,7 @@ class AndroidReverseAdbClient {
         '执行 adb ${args.join(' ')}，退出码 ${result.exitCode}${stderr == null ? "" : "：$stderr"}',
         'exitCode=${result.exitCode}',
       );
+      return null;
     }
     return result.stdout.trim();
   }
