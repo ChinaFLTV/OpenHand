@@ -88,6 +88,15 @@ const List<String> _kAndroidMcpKeywords =
 const List<String> _kAndroidRuntimePluginIds =
     TemplateRuntimeDependencyRegistry.androidReversePluginIds;
 
+typedef _LogcatQueryContext = ({
+  int generation,
+  String? serial,
+  String tag,
+  String level,
+  String explicitPid,
+  String? packageName,
+});
+
 String _androidToolchainInstallHint(
   BuildContext context,
   AndroidReverseToolchainProbe probe,
@@ -641,6 +650,7 @@ class _AndroidReverseDashboardDialogState
   final TextEditingController _base64Ctrl = TextEditingController();
   final TextEditingController _base64OutCtrl = TextEditingController();
   bool _loadingLogcat = false;
+  bool _logcatRefreshQueued = false;
   bool _loadingPackages = false;
   bool _loadingProcesses = false;
   bool _packagesRefreshQueued = false;
@@ -681,7 +691,7 @@ class _AndroidReverseDashboardDialogState
   String? _logcatError;
   String _logcatLevel = 'V';
   int _logcatCacheLimit = _kDefaultLogcatCacheLimit;
-  int _logcatMutationGeneration = 0;
+  int _logcatContextGeneration = 0;
   Map<String, String> _deviceProps = const <String, String>{};
   List<String> _forwardRows = const <String>[];
   List<String> _reverseRows = const <String>[];
@@ -837,6 +847,11 @@ class _AndroidReverseDashboardDialogState
       _selectedDeviceSerial = next;
       _selectedPackageName = null;
       _packageAnalysisOutput = null;
+      _logcatContextGeneration += 1;
+      _logcatLines.clear();
+      _logcatParseCache.clear();
+      _logcatError = null;
+      _logcatArtifactOutput = null;
       _lastShellResult = null;
       _shellOutputCtrl.clear();
       if (!preserveDeviceActionOutput) {
@@ -1248,23 +1263,27 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _fetchLogcat({bool append = false, bool silent = false}) async {
-    if (_loadingLogcat) return;
-    final generation = _logcatMutationGeneration;
+    if (_loadingLogcat || _clearingLogcat) {
+      _logcatRefreshQueued = true;
+      return;
+    }
+    _logcatRefreshQueued = false;
+    final query = _captureLogcatQueryContext();
     setState(() {
       _loadingLogcat = true;
       if (!silent) _logcatError = null;
     });
     try {
-      final tag = _logcatFilterCtrl.text.trim();
-      final pidFilter = await _resolveLogcatPidFilter();
+      final pidFilter = await _resolveLogcatPidFilter(query);
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       final result = await _ctrl.logcatDetailed(
         lines: append ? _kAutoLogcatLines : _kDefaultLogcatLines,
-        tag: tag.isEmpty ? null : tag,
-        level: _logcatLevel,
+        tag: query.tag.isEmpty ? null : query.tag,
+        level: query.level,
         pid: pidFilter.pid,
-        serial: _targetSerial,
+        serial: query.serial,
       );
-      if (mounted && generation == _logcatMutationGeneration) {
+      if (mounted && _isCurrentLogcatQueryContext(query)) {
         final incoming = result.stdout
             .split('\n')
             .map(_sanitizeLogcatLine)
@@ -1308,14 +1327,42 @@ class _AndroidReverseDashboardDialogState
         }
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       setState(() {
         if (!append) _logcatLines.clear();
         if (!silent || !append) _logcatError = '$error';
       });
     } finally {
-      if (mounted) setState(() => _loadingLogcat = false);
+      if (mounted) {
+        final shouldRefreshAgain = _logcatRefreshQueued;
+        _logcatRefreshQueued = false;
+        setState(() => _loadingLogcat = false);
+        if (shouldRefreshAgain) unawaited(_fetchLogcat());
+      }
     }
+  }
+
+  _LogcatQueryContext _captureLogcatQueryContext() {
+    return (
+      generation: _logcatContextGeneration,
+      serial: _targetSerial,
+      tag: _logcatFilterCtrl.text.trim(),
+      level: _logcatLevel,
+      explicitPid: _logcatPidCtrl.text.trim(),
+      packageName: _logcatPackageFilterEnabled ? _logcatPackageTarget() : null,
+    );
+  }
+
+  bool _isCurrentLogcatQueryContext(_LogcatQueryContext query) {
+    if (!mounted || query.generation != _logcatContextGeneration) {
+      return false;
+    }
+    return query.serial == _targetSerial &&
+        query.tag == _logcatFilterCtrl.text.trim() &&
+        query.level == _logcatLevel &&
+        query.explicitPid == _logcatPidCtrl.text.trim() &&
+        query.packageName ==
+            (_logcatPackageFilterEnabled ? _logcatPackageTarget() : null);
   }
 
   int _replaceLogcatLines(List<String> lines) {
@@ -1374,7 +1421,7 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _clearLogcat() async {
-    if (_clearingLogcat) return;
+    if (_clearingLogcat || _capturingLogcatSnapshot) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: openHandLocalizedText(
@@ -1412,7 +1459,7 @@ class _AndroidReverseDashboardDialogState
       _clearingLogcat = true;
       _logcatLines.clear();
       _logcatParseCache.clear();
-      _logcatMutationGeneration++;
+      _logcatContextGeneration++;
       _logcatError = openHandLocalizedText(
         context,
         zh: '正在清空设备 Logcat...',
@@ -1423,9 +1470,10 @@ class _AndroidReverseDashboardDialogState
         ja: 'デバイス Logcat をクリアしています...',
       );
     });
+    final query = _captureLogcatQueryContext();
     try {
-      final result = await _ctrl.clearLogcatDetailed(serial: _targetSerial);
-      if (!mounted) return;
+      final result = await _ctrl.clearLogcatDetailed(serial: query.serial);
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       setState(() {
         _logcatError = result.ok
             ? openHandLocalizedText(
@@ -1440,13 +1488,19 @@ class _AndroidReverseDashboardDialogState
             : _formatAdbResult(result);
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       setState(() {
         _logcatError =
             '${openHandLocalizedText(context, zh: "清空 Logcat 失败", zhHant: "清空 Logcat 失敗", en: "Failed to clear logcat", fr: "Échec de l’effacement de Logcat", de: "Logcat konnte nicht geleert werden", ja: "Logcat のクリアに失敗しました")}: $error';
       });
     } finally {
-      if (mounted) setState(() => _clearingLogcat = false);
+      if (mounted) {
+        setState(() => _clearingLogcat = false);
+        if (_logcatRefreshQueued && !_loadingLogcat) {
+          _logcatRefreshQueued = false;
+          unawaited(_fetchLogcat());
+        }
+      }
     }
   }
 
@@ -1639,7 +1693,7 @@ class _AndroidReverseDashboardDialogState
         if (index < 0 || index >= _logcatLines.length) return;
         setState(() {
           _logcatLines.removeAt(index);
-          _logcatMutationGeneration++;
+          _logcatContextGeneration++;
           _compactLogcatParseCache();
         });
     }
@@ -1647,6 +1701,8 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _saveLogcatSnapshot() async {
     if (_logcatLines.isEmpty || _savingLogcatFile) return;
+    final lineCount = _logcatLines.length;
+    final content = '${_logcatLines.join('\n')}\n';
     setState(() => _savingLogcatFile = true);
     String? path;
     Object? failure;
@@ -1655,7 +1711,7 @@ class _AndroidReverseDashboardDialogState
         suggestedName: 'openhand-logcat-${_fileTimestamp()}.log',
         typeLabel: 'LOG',
         extensions: const <String>['log', 'txt'],
-        content: '${_logcatLines.join('\n')}\n',
+        content: content,
       );
     } catch (error) {
       failure = error;
@@ -1671,35 +1727,36 @@ class _AndroidReverseDashboardDialogState
       _showSnack(
         openHandLocalizedText(
           context,
-          zh: '已保存 ${_logcatLines.length} 行到 $path',
-          zhHant: '已儲存 ${_logcatLines.length} 行到 $path',
-          en: 'Saved ${_logcatLines.length} lines to $path',
-          fr: '${_logcatLines.length} lignes enregistrées dans $path',
-          de: '${_logcatLines.length} Zeilen in $path gespeichert',
-          ja: '${_logcatLines.length} 行を $path に保存しました',
+          zh: '已保存 $lineCount 行到 $path',
+          zhHant: '已儲存 $lineCount 行到 $path',
+          en: 'Saved $lineCount lines to $path',
+          fr: '$lineCount lignes enregistrées dans $path',
+          de: '$lineCount Zeilen in $path gespeichert',
+          ja: '$lineCount 行を $path に保存しました',
         ),
       );
     }
   }
 
   Future<void> _captureLogcatArtifactSnapshot() async {
-    if (_capturingLogcatSnapshot) return;
+    if (_capturingLogcatSnapshot || _clearingLogcat) return;
+    final query = _captureLogcatQueryContext();
     setState(() {
       _capturingLogcatSnapshot = true;
       _logcatArtifactOutput = null;
     });
     try {
-      final tag = _logcatFilterCtrl.text.trim();
-      final pidFilter = await _resolveLogcatPidFilter();
+      final pidFilter = await _resolveLogcatPidFilter(query);
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       final result = await _ctrl.captureLogcatSnapshotToArtifacts(
-        tag: tag.isEmpty ? null : tag,
-        level: _logcatLevel,
+        tag: query.tag.isEmpty ? null : query.tag,
+        level: query.level,
         pid: pidFilter.pid,
         packageName: pidFilter.packageName,
-        serial: _targetSerial,
+        serial: query.serial,
         lines: _kDefaultLogcatLines,
       );
-      if (!mounted) return;
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       final formattedResult = _formatAdbResult(result);
       setState(() {
         _logcatArtifactOutput = <String>[
@@ -1728,7 +1785,7 @@ class _AndroidReverseDashboardDialogState
         );
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_isCurrentLogcatQueryContext(query)) return;
       setState(() {
         _logcatArtifactOutput =
             '${openHandLocalizedText(context, zh: "生成 Logcat 快照失败", zhHant: "產生 Logcat 快照失敗", en: "Failed to capture Logcat snapshot", fr: "Échec de capture du snapshot Logcat", de: "Logcat-Snapshot konnte nicht erstellt werden", ja: "Logcat スナップショットの取得に失敗しました")}: $error';
@@ -1740,11 +1797,9 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<({String? pid, String? notice, String? packageName})>
-  _resolveLogcatPidFilter() async {
-    final explicitPid = _logcatPidCtrl.text.trim();
-    final packageName = _logcatPackageFilterEnabled
-        ? _logcatPackageTarget()
-        : null;
+  _resolveLogcatPidFilter(_LogcatQueryContext query) async {
+    final explicitPid = query.explicitPid;
+    final packageName = query.packageName;
     final explicitPidValid = RegExp(r'^\d+$').hasMatch(explicitPid);
     if (explicitPidValid) {
       return (pid: explicitPid, notice: null, packageName: packageName);
@@ -1769,8 +1824,11 @@ class _AndroidReverseDashboardDialogState
     }
     final lookup = await _ctrl.pidOfPackageDetailed(
       packageName,
-      serial: _targetSerial,
+      serial: query.serial,
     );
+    if (!mounted || !_isCurrentLogcatQueryContext(query)) {
+      return (pid: null, notice: null, packageName: packageName);
+    }
     final pid = lookup.pid?.trim();
     if (pid != null && pid.isNotEmpty) {
       return (pid: pid, notice: null, packageName: packageName);
@@ -8292,7 +8350,7 @@ fi
                     filled: _logcatAutoRefresh,
                   ),
                   _DashboardActionButton(
-                    onPressed: _capturingLogcatSnapshot
+                    onPressed: _capturingLogcatSnapshot || _clearingLogcat
                         ? null
                         : _captureLogcatArtifactSnapshot,
                     icon: _capturingLogcatSnapshot
@@ -8349,7 +8407,9 @@ fi
                     ),
                   ),
                   _DashboardActionButton(
-                    onPressed: _clearingLogcat ? null : _clearLogcat,
+                    onPressed: _clearingLogcat || _capturingLogcatSnapshot
+                        ? null
+                        : _clearLogcat,
                     icon: _clearingLogcat
                         ? const SizedBox(
                             width: 14,
@@ -8450,6 +8510,7 @@ fi
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() => _logcatLevel = value);
+                      unawaited(_fetchLogcat());
                     },
                   ),
                 ),
