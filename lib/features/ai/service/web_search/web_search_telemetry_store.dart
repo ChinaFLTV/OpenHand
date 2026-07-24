@@ -39,7 +39,7 @@ class WebSearchTelemetryStore
   /// 折叠到 engines.json。永不抛异常。
   Future<void> recordCall(
     WebSearchCallLog call, {
-    required WebSearchCooldownConfig cooldownConfig,
+    required WebEngineCooldownConfig cooldownConfig,
   }) {
     return recordCallRaw(
       callJson: call.toJson(),
@@ -83,9 +83,6 @@ class WebSearchTelemetryStore
     );
   }
 }
-
-/// WebSearch 共享 [WebEngineCooldownConfig]：保留旧名做无破坏切换。
-typedef WebSearchCooldownConfig = WebEngineCooldownConfig;
 
 /// 单次 WebSearch 调用日志。
 class WebSearchCallLog {

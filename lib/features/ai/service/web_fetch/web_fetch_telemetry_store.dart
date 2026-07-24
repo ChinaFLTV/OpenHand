@@ -33,7 +33,7 @@ class WebFetchTelemetryStore
 
   Future<void> recordCall(
     WebFetchCallLog call, {
-    required WebFetchCooldownConfig cooldownConfig,
+    required WebEngineCooldownConfig cooldownConfig,
   }) {
     return recordCallRaw(
       callJson: call.toJson(),
@@ -76,8 +76,6 @@ class WebFetchTelemetryStore
     );
   }
 }
-
-typedef WebFetchCooldownConfig = WebEngineCooldownConfig;
 
 class WebFetchCallLog {
   const WebFetchCallLog({

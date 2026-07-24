@@ -13,6 +13,15 @@ const int _resolvedMessagePathCacheLimit = 512;
 const int _messagePathProbeCandidateLimit = 64;
 const Duration _messagePathProbeIdleTimeout = Duration(seconds: 3);
 const Duration _messagePathProbeTotalTimeout = Duration(seconds: 10);
+const String messageResolvedPathElementTag = 'openhand-file-resolved';
+const String messagePendingPathElementTag = 'openhand-file-pending';
+
+const String _resolvedPathAttribute = 'resolved_path';
+const String _entityTypeAttribute = 'entity_type';
+const String _normalizedPathAttribute = 'normalized_path';
+const String _candidateRootsAttribute = 'candidate_roots';
+const String _trailingAttribute = 'trailing';
+const String _isCodeSpanAttribute = 'is_code_span';
 
 final Map<String, MessageResolvedPath?> _resolvedMessagePathCache =
     <String, MessageResolvedPath?>{};
@@ -23,18 +32,7 @@ final RegExp _detectedStandaloneFileNamePattern = RegExp(
   r'''^(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)$''',
 );
 
-/// Matches strings that begin with a domain-qualified path segment, e.g.
-/// `gitee.com/org/repo`, `github.com/user/project`, `golang.org/x/tools`.
-/// These are Go/Java/Maven-style import paths and should NOT be treated as
-/// local file paths.  The pattern requires a domain with a TLD-like suffix
-/// (2+ letters after the final dot) followed by `/`.
-///
-/// Examples that match:
-/// - `github.com/user/project` (domain.TLD/path)
-/// - `gitee.com/org/repo` (domain.TLD/path)
-/// - `golang.org/x/tools` (domain.TLD/path)
-/// - `git.zuoyebang.cc/org/repo` (subdomain.domain.TLD/path)
-/// - `pkg.go.dev/golang.org/x/tools` (multi-level domain)
+/// 匹配域名开头的包导入路径，避免将其误识别为本地文件路径。
 final RegExp _domainQualifiedPathPattern = RegExp(
   r'^[A-Za-z0-9][-A-Za-z0-9]*(?:\.[A-Za-z0-9][-A-Za-z0-9]*)*\.[A-Za-z]{2,}/',
 );
@@ -92,7 +90,7 @@ MessageResolvedPath? resolveExistingMessagePath(
   return _resolvedMessagePathCache[request.cacheKey];
 }
 
-/// Returns the first normalized lexical candidate without touching disk.
+/// 返回首个规范化候选路径，不访问磁盘。
 String? firstMessagePathCandidate(String rawPath, List<String> candidateRoots) {
   final request = _prepareMessagePathResolution(rawPath, candidateRoots);
   return request?.candidates.firstOrNull;
@@ -142,14 +140,8 @@ void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
   _resolvedMessagePathCache[cacheKey] = value;
 }
 
-/// Synchronous cache probe used by widgets that want to avoid spinning up
-/// a `FutureBuilder` / extra frame when the path has already been resolved
-/// (either by an earlier async lookup or by the inline markdown syntax).
-///
-/// Returns a record of `(hit, value)` where `hit` indicates whether the
-/// cache contained an entry (regardless of whether that entry was `null`
-/// for "does not exist"); callers can use `hit` to distinguish a cache miss
-/// from a genuinely unresolved path.
+/// 同步读取路径缓存，避免已解析路径再次创建异步构建帧。
+/// [hit] 用于区分缓存未命中和已确认不存在。
 ({bool hit, MessageResolvedPath? value}) lookupResolvedMessagePathFromCache(
   String rawPath,
   List<String> candidateRoots,
@@ -174,9 +166,7 @@ bool looksLikeResolvableMessagePath(String path) {
   if (normalized.isEmpty) {
     return false;
   }
-  // Reject strings that look like domain-qualified package/import paths
-  // (e.g. "gitee.com/org/repo/pkg" or "github.com/user/project") — these
-  // are not local file system paths and should never become capsules.
+  // 域名开头的包导入路径不是本地文件，不能渲染为路径胶囊。
   if (_domainQualifiedPathPattern.hasMatch(normalized)) {
     return false;
   }
@@ -241,6 +231,57 @@ class MessageResolvedPath {
   final String displayPath;
   final String resolvedPath;
   final bool isDirectory;
+}
+
+typedef MessagePendingPathElement = ({
+  String normalizedPath,
+  List<String> candidateRoots,
+  String fullMatch,
+  String trailing,
+  bool isCodeSpan,
+});
+
+MessageResolvedPath messageResolvedPathFromElement(md.Element element) {
+  return MessageResolvedPath(
+    displayPath: element.textContent.trim(),
+    resolvedPath: (element.attributes[_resolvedPathAttribute] ?? '').trim(),
+    isDirectory:
+        (element.attributes[_entityTypeAttribute] ?? '').trim() == 'directory',
+  );
+}
+
+MessagePendingPathElement messagePendingPathFromElement(md.Element element) {
+  return (
+    normalizedPath: element.attributes[_normalizedPathAttribute] ?? '',
+    candidateRoots: (element.attributes[_candidateRootsAttribute] ?? '').split(
+      '\r',
+    ),
+    fullMatch: element.textContent,
+    trailing: element.attributes[_trailingAttribute] ?? '',
+    isCodeSpan: element.attributes[_isCodeSpanAttribute] == 'true',
+  );
+}
+
+md.Element _resolvedMessagePathElement(MessageResolvedPath path) {
+  return md.Element.text(messageResolvedPathElementTag, path.displayPath)
+    ..attributes[_resolvedPathAttribute] = path.resolvedPath
+    ..attributes[_entityTypeAttribute] = path.isDirectory
+        ? 'directory'
+        : 'file';
+}
+
+md.Element _pendingMessagePathElement({
+  required String text,
+  required String normalizedPath,
+  required List<String> candidateRoots,
+  required String trailing,
+  required bool isCodeSpan,
+}) {
+  return md.Element.text(messagePendingPathElementTag, text)
+    ..attributes[_normalizedPathAttribute] = normalizedPath
+    ..attributes[_candidateRootsAttribute] = candidateRoots.join('\r')
+    ..attributes[_trailingAttribute] = trailing
+    ..attributes[_isCodeSpanAttribute] = '$isCodeSpan';
 }
 
 Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
@@ -323,13 +364,7 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
         parser.addNode(codeElement);
         return true;
       }
-      parser.addNode(
-        md.Element.text('openhand-file-resolved', resolvedPath.displayPath)
-          ..attributes['resolved_path'] = resolvedPath.resolvedPath
-          ..attributes['entity_type'] = resolvedPath.isDirectory
-              ? 'directory'
-              : 'file',
-      );
+      parser.addNode(_resolvedMessagePathElement(resolvedPath));
       if (trailing.isNotEmpty) {
         parser.addNode(md.Text(trailing));
       }
@@ -337,11 +372,13 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
     }
 
     parser.addNode(
-      md.Element.text('openhand-file-pending', text)
-        ..attributes['normalized_path'] = normalizedPath
-        ..attributes['candidate_roots'] = candidateRoots.join('\r')
-        ..attributes['trailing'] = trailing
-        ..attributes['is_code_span'] = 'true',
+      _pendingMessagePathElement(
+        text: text,
+        normalizedPath: normalizedPath,
+        candidateRoots: candidateRoots,
+        trailing: trailing,
+        isCodeSpan: true,
+      ),
     );
     return true;
   }
@@ -381,13 +418,7 @@ class MessageFilePathSyntax extends md.InlineSyntax {
       if (prefix.isNotEmpty) {
         parser.addNode(md.Text(prefix));
       }
-      parser.addNode(
-        md.Element.text('openhand-file-resolved', resolvedPath.displayPath)
-          ..attributes['resolved_path'] = resolvedPath.resolvedPath
-          ..attributes['entity_type'] = resolvedPath.isDirectory
-              ? 'directory'
-              : 'file',
-      );
+      parser.addNode(_resolvedMessagePathElement(resolvedPath));
       if (trailing.isNotEmpty) {
         parser.addNode(md.Text(trailing));
       }
@@ -398,11 +429,13 @@ class MessageFilePathSyntax extends md.InlineSyntax {
       parser.addNode(md.Text(prefix));
     }
     parser.addNode(
-      md.Element.text('openhand-file-pending', matchedPath)
-        ..attributes['normalized_path'] = normalizedPath
-        ..attributes['candidate_roots'] = candidateRoots.join('\r')
-        ..attributes['trailing'] = trailing
-        ..attributes['is_code_span'] = 'false',
+      _pendingMessagePathElement(
+        text: matchedPath,
+        normalizedPath: normalizedPath,
+        candidateRoots: candidateRoots,
+        trailing: trailing,
+        isCodeSpan: false,
+      ),
     );
     return true;
   }

@@ -1,18 +1,4 @@
-// 基于 Monaco Editor 的代码编辑器, 通过 jsDelivr CDN 加载
-// (~3 MB AMD 包, 不计入主 bundle)。
-//
-// 用法:
-//   <CodeEditor value={content} onChange={setContent}
-//               filename="src/main.dart" readOnly={false}/>
-//
-// 设计:
-// - 单例 loader, 多次挂载不会重复 fetch
-// - filename 决定语法高亮 (Monaco 内置 languages)
-// - readOnly 切换走 updateOptions, 不重建实例
-// - 监听 onDidChangeModelContent 回吐外部
-// - 外部 value prop 变化时, 仅当与编辑器内值不同才 setValue
-//   (避免输入同步过程中游标抖动)
-// - 主题随 prefers-color-scheme 切换 vs / vs-dark
+// Monaco 编辑器按需从 CDN 加载，复用单例加载任务并跟随系统主题。
 
 import { useEffect, useRef } from 'preact/hooks';
 
@@ -69,7 +55,7 @@ const LANGUAGE_SUFFIX_RULES: ReadonlyArray<{
 function loadMonaco(): Promise<MonacoStub> {
   if (monacoLoadPromise) return monacoLoadPromise;
   monacoLoadPromise = new Promise((resolve, reject) => {
-    // 已加载?
+    // 复用页面中已加载的实例。
     const existing = (window as unknown as { monaco?: MonacoStub }).monaco;
     if (existing) {
       resolve(existing);

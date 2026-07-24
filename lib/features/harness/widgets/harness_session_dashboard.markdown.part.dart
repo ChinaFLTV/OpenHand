@@ -16,9 +16,7 @@ class _HeSafeMarkdownBody extends StatefulWidget {
   final List<String> filePathRoots;
   final Color? textColor;
 
-  /// When non-null, overrides the markdown colour palette so that text,
-  /// code blocks, blockquotes, etc. are legible on this background colour
-  /// (e.g. the always-dark thinking card).
+  /// 非空时覆盖 Markdown 配色，确保内容在指定背景上清晰可读。
   final Color? cardBackground;
 
   @override
@@ -60,8 +58,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       widget.cardBackground?.toARGB32(),
       widget.filePathRoots.join('\u0000'),
     ]);
-    // Fast-path: if the raw content and relevant theme inputs are unchanged
-    // we can skip even the sanitization work.
+    // 内容和主题未变化时跳过重复清洗与解析。
     if (_children != null &&
         _lastRawContent == widget.content &&
         _lastThemeHash == themeHash) {
@@ -120,10 +117,10 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         darkSurface: darkSurface,
       ),
       if (widget.filePathRoots.isNotEmpty) ...{
-        'openhand-file-resolved': _HeFilePathBuilder(
+        messageResolvedPathElementTag: _HeFilePathBuilder(
           textColor: widget.textColor ?? widget.colorScheme.onSurface,
         ),
-        'openhand-file-pending': _HeFilePathBuilder(
+        messagePendingPathElementTag: _HeFilePathBuilder(
           textColor: widget.textColor ?? widget.colorScheme.onSurface,
         ),
       },
@@ -270,7 +267,7 @@ class _HeMarkdownContent extends StatefulWidget {
   final ColorScheme colorScheme;
   final List<String> filePathRoots;
 
-  // When the rendered content looks long, start collapsed.
+  // 长内容默认折叠。
   static const int _collapseCharThreshold = 1800;
   static const int _previewChars = 1200;
 
@@ -289,7 +286,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
 
   String get _displayContent {
     if (!_needsCollapse || _expanded) return widget.content;
-    // Find the last word boundary before the char limit.
+    // 优先在字符上限前的词边界截断。
     final cut = widget.content.lastIndexOf(
       RegExp(r'\s'),
       _HeMarkdownContent._previewChars,
@@ -340,7 +337,6 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
         ),
         if (_needsCollapse && !_expanded) ...[
           const SizedBox(height: 6),
-          // Fading gradient overlay + expand button
           ClipRect(
             child: Column(
               children: [
@@ -405,7 +401,6 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
   }
 }
 
-// _HeSmallPill — compact action chip used in the log section header
 class _HeSmallPill extends StatelessWidget {
   const _HeSmallPill({
     required this.icon,
@@ -449,8 +444,6 @@ class _HeSmallPill extends StatelessWidget {
   }
 }
 
-// Log line — renders one CLI output line with level-based colouring
-// Used only in the raw view.
 class _LogLine extends StatelessWidget {
   const _LogLine({required this.line, required this.colorScheme});
 
@@ -509,9 +502,7 @@ class _LogLine extends StatelessWidget {
   }
 }
 
-// _HeDiffBuilder — MarkdownElementBuilder that intercepts fenced code blocks
-// whose language tag is "diff" or "patch" and renders them with a dedicated
-// side-by-side / unified diff widget instead of a plain code block.
+/// 将 diff 或 patch 围栏代码块渲染为专用差异视图。
 class _HeDiffBuilder extends MarkdownElementBuilder {
   _HeDiffBuilder({required this.colorScheme, this.darkSurface = false});
 
@@ -533,8 +524,6 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    // We intercept <pre> elements.  The child <code> carries the language class
-    // and the text content.
     if (element.tag != 'pre') return null;
 
     final codeEl = element.children
@@ -546,7 +535,6 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
 
     final cls = codeEl.attributes['class'] ?? '';
 
-    // Collect plain text from all descendant text nodes.
     final buf = StringBuffer();
     void collect(md.Node node) {
       if (node is md.Text) {
@@ -561,7 +549,6 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
     final rawText = buf.toString();
     if (rawText.isEmpty) return null;
 
-    // Diff language → specialized diff block
     if (_diffLangRe.hasMatch(cls)) {
       return _HeDiffBlock(
         rawDiff: rawText,
@@ -570,7 +557,6 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
       );
     }
 
-    // All other code blocks → highlighted code panel with copy/language header
     final language = _heExtractCodeLanguage(cls);
     return RepaintBoundary(
       child: _HeHighlightedCodePanel(
@@ -604,8 +590,7 @@ String? _heNormalizeCodeLanguage(String? language) {
   return normalized;
 }
 
-/// Highlighted code panel for the Harness (WEB) session — provides language
-/// label, copy button, and syntax highlighting consistent with the APP side.
+/// Harness 会话的高亮代码面板，与应用端保持一致。
 class _HeHighlightedCodePanel extends StatefulWidget {
   const _HeHighlightedCodePanel({
     required this.content,
@@ -664,7 +649,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
           : widget.colorScheme.onSurface,
     );
 
-    // Skip highlighting for very large blocks
+    // 超大代码块跳过高亮，避免阻塞界面。
     if (widget.content.length > 80 * 1024) {
       _highlightedSpan = TextSpan(text: widget.content, style: baseStyle);
       return;
@@ -858,7 +843,6 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with language label and copy button
             Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               decoration: BoxDecoration(
@@ -971,7 +955,6 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                 ],
               ),
             ),
-            // Code body with syntax highlighting
             Container(
               width: double.infinity,
               margin: const EdgeInsets.all(10),
@@ -999,7 +982,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
   }
 }
 
-// _HeDiffBlock — renders a unified diff with coloured line backgrounds.
+/// 带行背景色的统一差异视图。
 class _HeDiffBlock extends StatelessWidget {
   const _HeDiffBlock({
     required this.rawDiff,
@@ -1024,7 +1007,7 @@ class _HeDiffBlock extends StatelessWidget {
         darkSurface || Theme.of(context).brightness == Brightness.dark;
     final lines = rawDiff.split('\n');
 
-    // Remove a trailing empty line that the Markdown parser often appends.
+    // 移除 Markdown 解析器常附加的末尾空行。
     if (lines.isNotEmpty && lines.last.isEmpty) lines.removeLast();
     final trimmed = lines;
 
@@ -1114,8 +1097,7 @@ class _DiffLine extends StatelessWidget {
   }
 }
 
-/// Closes an unterminated fenced code block so the Markdown parser never
-/// produces garbage output on streaming/partial content.
+/// 补齐未闭合的围栏代码块，避免流式片段产生错误结构。
 String _heCloseUnterminatedCodeBlock(String source) {
   final fenceRe = RegExp(r'^[ ]{0,3}(`{3,}|~{3,})[^\n]*$', multiLine: true);
   String? openFence;
@@ -1146,11 +1128,7 @@ String _heSanitizeMarkdownSource(String source) {
   return _heCloseUnterminatedCodeBlock(escapedSetext);
 }
 
-/// Strip or normalize markdown attributes that flutter_markdown_plus would
-/// feed into `int.parse` (currently only ordered-list `start`). Without this
-/// guard a malformed attribute value can surface as an uncaught
-/// FormatException that the Flutter engine reports from an async binding
-/// callback, causing noticeable jank on first paint of a long thread.
+/// 规范化 Markdown 有序列表的 start 属性，避免格式错误影响首帧渲染。
 void _heSanitizeMarkdownAst(List<md.Node> nodes) {
   for (final node in nodes) {
     if (node is! md.Element) {
@@ -1173,7 +1151,6 @@ void _heSanitizeMarkdownAst(List<md.Node> nodes) {
   }
 }
 
-// _HeChip — matches _ToolExecutionChip (surface overlay bg, rounded)
 class _HeChip extends StatelessWidget {
   const _HeChip({required this.icon, required this.label});
 
@@ -1201,7 +1178,6 @@ class _HeChip extends StatelessWidget {
   }
 }
 
-// _HeReadyPlaceholder — idle orchestrator (restored from disk); tap Start
 class _HeReadyPlaceholder extends StatelessWidget {
   const _HeReadyPlaceholder({required this.isZh, required this.onStart});
 
@@ -1255,7 +1231,6 @@ class _HeReadyPlaceholder extends StatelessWidget {
   }
 }
 
-// _InitializingPlaceholder — spinner while phases are being set up
 class _InitializingPlaceholder extends StatelessWidget {
   const _InitializingPlaceholder({required this.isZh});
 
@@ -1418,6 +1393,3 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
     );
   }
 }
-
-// _HeComposer — HE composer with active permission toggle, collapse state,
-// auto-follow control, and a conditional manual-review input.

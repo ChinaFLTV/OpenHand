@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/url_validation.dart';
 import '../../../../shared/net/abortable_http_request.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../../tools/ai_tool_utils.dart';
 import '../web_engine/web_engine_http_utils.dart';
@@ -31,6 +33,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
   );
   static const Duration _redirectDrainIdleTimeout = Duration(seconds: 2);
   static const Duration _redirectDrainTotalTimeout = Duration(seconds: 3);
+  static const int _maxRedirects = 5;
 
   final String userAgent;
 
@@ -41,12 +44,12 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final response = await _followRedirects(
       Uri.parse(req.url),
-      maxRedirects: 5,
+      maxRedirects: _maxRedirects,
       cancelSignal: req.cancelSignal,
       uriBlockReason: req.uriBlockReason ?? agentFetchBlockReasonForResolvedUri,
     );
     final status = response.statusCode;
-    if (status < 200 || status >= 400) {
+    if (!isHttpSuccessStatus(status)) {
       await _discardResponse(response.stream);
       throw WebEngineHttpException('${kind.name} HTTP $status');
     }
@@ -80,7 +83,8 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     required WebFetchUriBlockReason uriBlockReason,
   }) async {
     var current = uri;
-    for (var i = 0; i < maxRedirects; i++) {
+    var redirectCount = 0;
+    while (true) {
       final blockedReason = await uriBlockReason(current);
       if (blockedReason != null) {
         throw WebEngineHttpException(
@@ -97,20 +101,20 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
         connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
         cancelSignal: cancelSignal,
       );
-      if (stream.statusCode >= 300 && stream.statusCode < 400) {
-        final loc = stream.headers['location'];
+      if (!isRedirectStatusCode(stream.statusCode)) return stream;
+
+      if (redirectCount >= maxRedirects) {
         await _discardResponse(stream.stream);
-        if (loc == null || loc.isEmpty) {
-          throw WebEngineHttpException(
-            '${kind.name} redirect missing Location',
-          );
-        }
-        current = current.resolve(loc);
-        continue;
+        throw WebEngineHttpException('${kind.name} 重定向次数过多');
       }
-      return stream;
+      final location = readResponseHeader(stream.headers, 'location');
+      await _discardResponse(stream.stream);
+      if (location.isEmpty) {
+        throw WebEngineHttpException('${kind.name} 重定向缺少 Location');
+      }
+      current = current.resolve(location);
+      redirectCount++;
     }
-    throw WebEngineHttpException('${kind.name} too many redirects');
   }
 
   Future<void> _discardResponse(Stream<List<int>> stream) async {

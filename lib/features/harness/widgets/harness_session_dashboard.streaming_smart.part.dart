@@ -30,9 +30,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   int? _lastThemeHash;
   final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
 
-  // Revision counter that increments whenever a new rendered block is added.
-  // Used to key a TweenAnimationBuilder so only newly-appeared blocks
-  // animate — existing blocks stay stable.
+  // 仅递增新内容修订号，避免已有区块重复播放动画。
   int _contentRevision = 0;
   int _lastChildCount = 0;
 
@@ -85,8 +83,6 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     _disposeRecognizers();
     _parseMarkdown(sanitised);
 
-    // If a new rendered block was added, bump the revision so the last block
-    // gets a fresh fade-in animation (Q弹 entrance for new content chunks).
     final newCount = _markdownChildren?.length ?? 0;
     if (newCount > _lastChildCount) {
       _contentRevision++;
@@ -109,10 +105,10 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     final builders = <String, MarkdownElementBuilder>{
       'pre': _HeDiffBuilder(colorScheme: widget.colorScheme),
       if (widget.filePathRoots.isNotEmpty) ...{
-        'openhand-file-resolved': _HeFilePathBuilder(
+        messageResolvedPathElementTag: _HeFilePathBuilder(
           textColor: widget.colorScheme.onSurface,
         ),
-        'openhand-file-pending': _HeFilePathBuilder(
+        messagePendingPathElementTag: _HeFilePathBuilder(
           textColor: widget.colorScheme.onSurface,
         ),
       },
@@ -142,7 +138,6 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       );
       _markdownChildren = builder.build(astNodes);
     } catch (_) {
-      // Fallback to plain text on parse error.
       _markdownChildren = <Widget>[
         Text(
           source,
@@ -257,10 +252,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
             ).createShader(bounds),
             blendMode: BlendMode.dstIn,
             child: () {
-              // Wrap the last rendered block in a Q弹 entrance animation:
-              // whenever a new markdown block appears (_contentRevision ticks),
-              // it fades in and slides up slightly. Existing blocks stay on
-              // screen without flickering.
+              // 仅让最新区块淡入上移，已有区块保持稳定。
               Widget animatedLast(Widget w) => TweenAnimationBuilder<double>(
                 key: ValueKey<int>(_contentRevision),
                 tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -288,7 +280,6 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
               );
             }(),
           ),
-        // Streaming indicator
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Row(
@@ -326,9 +317,6 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   }
 }
 
-// _HeFilePathBuilder — renders file path elements detected in markdown content.
-// Supports both resolved (cached) and pending (async-resolved) paths following
-// the same _AsyncFilePathChip pattern from the main chat.
 class _HeFilePathBuilder extends MarkdownElementBuilder {
   _HeFilePathBuilder({required this.textColor});
 
@@ -341,20 +329,17 @@ class _HeFilePathBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    if (element.tag == 'openhand-file-resolved') {
-      final resolvedPath = (element.attributes['resolved_path'] ?? '').trim();
-      final displayPath = element.textContent.trim();
-      final isDirectory =
-          (element.attributes['entity_type'] ?? '').trim() == 'directory';
+    if (element.tag == messageResolvedPathElementTag) {
+      final path = messageResolvedPathFromElement(element);
       return Text.rich(
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: Padding(
             padding: const EdgeInsets.only(right: 4),
             child: _HeFilePathChipInline(
-              displayPath: displayPath,
-              resolvedPath: resolvedPath,
-              isDirectory: isDirectory,
+              displayPath: path.displayPath,
+              resolvedPath: path.resolvedPath,
+              isDirectory: path.isDirectory,
               textColor: textColor,
             ),
           ),
@@ -362,24 +347,17 @@ class _HeFilePathBuilder extends MarkdownElementBuilder {
       );
     }
 
-    // Pending path — async resolve, then show chip or fallback.
-    final normalizedPath = element.attributes['normalized_path'] ?? '';
-    final candidateRoots = (element.attributes['candidate_roots'] ?? '').split(
-      '\r',
-    );
-    final fullMatch = element.textContent;
-    final trailing = element.attributes['trailing'] ?? '';
-    final isCodeSpan = element.attributes['is_code_span'] == 'true';
+    final path = messagePendingPathFromElement(element);
 
     return Text.rich(
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: _HeAsyncFilePathChip(
-          normalizedPath: normalizedPath,
-          candidateRoots: candidateRoots,
-          fullMatch: fullMatch,
-          trailing: trailing,
-          isCodeSpan: isCodeSpan,
+          normalizedPath: path.normalizedPath,
+          candidateRoots: path.candidateRoots,
+          fullMatch: path.fullMatch,
+          trailing: path.trailing,
+          isCodeSpan: path.isCodeSpan,
           parentStyle: parentStyle,
           textColor: textColor,
         ),
@@ -388,8 +366,6 @@ class _HeFilePathBuilder extends MarkdownElementBuilder {
   }
 }
 
-/// Async file-path chip that resolves paths in the background, matching
-/// the _AsyncFilePathChip pattern from the main thread chat.
 class _HeAsyncFilePathChip extends StatefulWidget {
   const _HeAsyncFilePathChip({
     required this.normalizedPath,
@@ -444,7 +420,6 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
       builder: (context, snapshot) {
         final resolvedPath = snapshot.data;
         if (resolvedPath == null) {
-          // Not resolved — show as code span or plain text.
           if (widget.isCodeSpan) {
             return _buildCodeSpan(context, widget.fullMatch);
           }

@@ -3585,11 +3585,8 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    if (element.tag == 'openhand-file-resolved') {
-      final resolvedPath = (element.attributes['resolved_path'] ?? '').trim();
-      final displayPath = element.textContent.trim();
-      final isDirectory =
-          (element.attributes['entity_type'] ?? '').trim() == 'directory';
+    if (element.tag == messageResolvedPathElementTag) {
+      final path = messageResolvedPathFromElement(element);
       return Text.rich(
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
@@ -3597,32 +3594,26 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
             padding: const EdgeInsets.only(right: 4),
             child: _buildChip(
               context,
-              displayPath: displayPath,
-              resolvedPath: resolvedPath,
-              isDirectory: isDirectory,
+              displayPath: path.displayPath,
+              resolvedPath: path.resolvedPath,
+              isDirectory: path.isDirectory,
             ),
           ),
         ),
       );
     }
 
-    final normalizedPath = element.attributes['normalized_path'] ?? '';
-    final candidateRoots = (element.attributes['candidate_roots'] ?? '').split(
-      '\r',
-    );
-    final fullMatch = element.textContent;
-    final trailing = element.attributes['trailing'] ?? '';
-    final isCodeSpan = element.attributes['is_code_span'] == 'true';
+    final path = messagePendingPathFromElement(element);
 
     return Text.rich(
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: _AsyncFilePathChip(
-          normalizedPath: normalizedPath,
-          candidateRoots: candidateRoots,
-          fullMatch: fullMatch,
-          trailing: trailing,
-          isCodeSpan: isCodeSpan,
+          normalizedPath: path.normalizedPath,
+          candidateRoots: path.candidateRoots,
+          fullMatch: path.fullMatch,
+          trailing: path.trailing,
+          isCodeSpan: path.isCodeSpan,
           parentStyle: parentStyle,
           builder: this,
         ),

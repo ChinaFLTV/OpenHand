@@ -15,6 +15,7 @@ import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/usage/ai_usage_tracker.dart';
 import '../../service/web_engine/web_engine_concurrency.dart';
 import '../../service/web_engine/web_engine_health_alert_tracker.dart';
+import '../../service/web_engine/web_engine_telemetry_store_base.dart';
 import '../../service/web_fetch/web_fetch_cache_store.dart';
 import '../../service/web_fetch/web_fetch_orchestrator.dart';
 import '../../service/web_fetch/web_fetch_scrapling_bridge.dart';
@@ -98,7 +99,7 @@ class AiWebFetchTool extends AiTool {
     final settings =
         resolved?.builtinConfig?.webFetchSettings ??
         AiWebFetchSettings.defaults();
-    final cooldownConfig = WebFetchCooldownConfig(
+    final cooldownConfig = WebEngineCooldownConfig(
       tier1Failures: settings.resilience.cooldownTier1Failures,
       tier1Seconds: settings.resilience.cooldownTier1Seconds,
       tier2Failures: settings.resilience.cooldownTier2Failures,

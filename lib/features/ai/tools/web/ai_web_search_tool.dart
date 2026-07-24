@@ -15,6 +15,7 @@ import '../../service/usage/ai_usage_tracker.dart';
 import '../../service/web_engine/web_engine_concurrency.dart';
 import '../../service/web_engine/web_engine_health_alert_tracker.dart';
 import '../../service/web_engine/web_engine_quality.dart';
+import '../../service/web_engine/web_engine_telemetry_store_base.dart';
 import '../../service/web_search/web_search_cache_store.dart';
 import '../../service/web_search/web_search_orchestrator.dart';
 import '../../service/web_search/web_search_telemetry_store.dart';
@@ -97,7 +98,7 @@ class AiWebSearchTool extends AiTool {
     final settings =
         resolved?.builtinConfig?.webSearchSettings ??
         AiWebSearchSettings.defaults();
-    final cooldownConfig = WebSearchCooldownConfig(
+    final cooldownConfig = WebEngineCooldownConfig(
       tier1Failures: settings.resilience.cooldownTier1Failures,
       tier1Seconds: settings.resilience.cooldownTier1Seconds,
       tier2Failures: settings.resilience.cooldownTier2Failures,

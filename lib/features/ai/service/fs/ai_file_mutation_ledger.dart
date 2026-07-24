@@ -445,14 +445,7 @@ class AiFileMutationLedger {
       <String, _LedgerSessionMutationLane>{};
   Completer<void>? _maintenanceGate;
 
-  // Per-session in-memory caches for records and undone set. The session
-  // ledger / state files are mutated only through this class, so we can
-  // invalidate the cache reliably whenever this instance writes. Cross-
-  // process mutations (extremely rare for app state) would not be reflected,
-  // but no such writers exist today; the trade-off saves up to N redundant
-  // disk reads when N round summary cards open simultaneously on session
-  // resume — each card was previously triggering a full ledger.jsonl scan
-  // plus a state.json read.
+  // 按会话缓存记录和撤销集合；本类写入后统一失效，避免恢复会话时重复扫描磁盘。
   final LifecycleLruCache<List<FileMutationRecord>> _recordsCache =
       LifecycleLruCache<List<FileMutationRecord>>(
         maxEntries: _maxCachedRecordSessions,
@@ -584,12 +577,8 @@ class AiFileMutationLedger {
           }
         }
       }
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '加载账本配置', error, stack);
-      }
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '加载账本配置', error, stack);
+      _logFileErrorUnlessMissing('加载账本配置', error, stack);
     }
     _cachedConfig = const LedgerConfig();
     return _cachedConfig!;
@@ -709,12 +698,8 @@ class AiFileMutationLedger {
             maxBytes: _blobRecoveryMaxBytes,
           );
           await _writeBlobIfMissing(_sha256Of(content), content);
-        } on FileSystemException catch (error, stack) {
-          if (!_isMissingFileSystemException(error)) {
-            silentLog('ai_file_mutation_ledger', '迁移 blob', error, stack);
-          }
         } catch (error, stack) {
-          silentLog('ai_file_mutation_ledger', '迁移 blob', error, stack);
+          _logFileErrorUnlessMissing('迁移 blob', error, stack);
         }
       }
       if (!listing.truncated) {
@@ -896,13 +881,8 @@ class AiFileMutationLedger {
           firstMalformedStack,
         );
       }
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '读取账本', error, stack);
-      }
-      return (records: const <FileMutationRecord>[], succeeded: false);
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '读取账本', error, stack);
+      _logFileErrorUnlessMissing('读取账本', error, stack);
       return (records: const <FileMutationRecord>[], succeeded: false);
     }
     records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -924,8 +904,7 @@ class AiFileMutationLedger {
     return viewsByToolCall[normalizedToolCallId] ?? const <FileMutationView>[];
   }
 
-  /// Counts mutation records for the requested tool calls with one ledger
-  /// scan. IDs that have no records are omitted from the result.
+  /// 单次扫描统计指定工具调用的变更记录，无记录的 ID 不返回。
   Future<Map<String, int>> recordCountsForToolCalls({
     required String sessionId,
     required Iterable<String> toolCallIds,
@@ -956,9 +935,8 @@ class AiFileMutationLedger {
     return Map<String, int>.unmodifiable(requestedCounts);
   }
 
-  /// Builds mutation views for multiple tool calls with one ledger/state read.
-  /// Requested IDs and their views retain ledger order; IDs without records
-  /// are omitted. Line-delta work remains bounded by [_lineDeltaConcurrency].
+  /// 单次读取账本和状态，按账本顺序构建多个工具调用的变更视图。
+  /// 无记录的 ID 不返回，行差异计算受 [_lineDeltaConcurrency] 限制。
   Future<Map<String, List<FileMutationView>>> viewsForToolCalls({
     required String sessionId,
     required Iterable<String> toolCallIds,
@@ -1151,16 +1129,11 @@ class AiFileMutationLedger {
         if (await outFile.exists()) {
           try {
             await outFile.delete();
-          } on FileSystemException catch (error, stack) {
-            if (_isMissingFileSystemException(error)) {
-              // 已被外部删除时，撤销 create 的目标状态已经达成。
-            } else {
+          } catch (error, stack) {
+            if (!_isMissingFileError(error)) {
               silentLog('ai_file_mutation_ledger', '撤销删除', error, stack);
               return FileMutationOutcome.fail('delete-failed:$error');
             }
-          } catch (error, stack) {
-            silentLog('ai_file_mutation_ledger', '撤销删除', error, stack);
-            return FileMutationOutcome.fail('delete-failed:$error');
           }
         }
       } else {
@@ -1222,16 +1195,11 @@ class AiFileMutationLedger {
         if (await outFile.exists()) {
           try {
             await outFile.delete();
-          } on FileSystemException catch (error, stack) {
-            if (_isMissingFileSystemException(error)) {
-              // 已被外部删除时，重做 delete 的目标状态已经达成。
-            } else {
+          } catch (error, stack) {
+            if (!_isMissingFileError(error)) {
               silentLog('ai_file_mutation_ledger', '重做删除', error, stack);
               return FileMutationOutcome.fail('delete-failed:$error');
             }
-          } catch (error, stack) {
-            silentLog('ai_file_mutation_ledger', '重做删除', error, stack);
-            return FileMutationOutcome.fail('delete-failed:$error');
           }
         }
       } else {
@@ -1258,15 +1226,8 @@ class AiFileMutationLedger {
     }
   }
 
-  /// Reads both ledger snapshots with conservative recovery:
-  ///
-  /// - primary source: content-addressed blobs;
-  /// - missing blob fallback: legacy pre-edit history snapshots by sha;
-  /// - final fallback: current disk file only when its sha matches the ledger.
-  ///
-  /// The current-file check is intentionally hash-gated. Rendering a stale
-  /// current file as the historical after/before side is worse than showing an
-  /// unavailable snapshot because it creates a plausible but false diff.
+  /// 读取账本两侧快照：优先内容寻址 blob，其次旧版历史快照，最后仅在
+  /// 当前文件哈希匹配时回退磁盘内容，避免生成看似可信的错误差异。
   Future<({String? before, String? after})> readSnapshots(
     FileMutationRecord record,
   ) async {
@@ -1320,12 +1281,8 @@ class AiFileMutationLedger {
             for (final line in _ledgerLines(content)) {
               if (nullIfBlank(line) != null) recordCount += 1;
             }
-          } on FileSystemException catch (error, stack) {
-            if (!_isMissingFileSystemException(error)) {
-              silentLog('ai_file_mutation_ledger', '统计会话快照', error, stack);
-            }
           } catch (error, stack) {
-            silentLog('ai_file_mutation_ledger', '统计会话快照', error, stack);
+            _logFileErrorUnlessMissing('统计会话快照', error, stack);
           }
         }
       }
@@ -1633,12 +1590,8 @@ class AiFileMutationLedger {
             await blob.delete();
             removed += 1;
             bytesFreed += stat.size;
-          } on FileSystemException catch (error, stack) {
-            if (!_isMissingFileSystemException(error)) {
-              silentLog('ai_file_mutation_ledger', '回收 blob', error, stack);
-            }
           } catch (error, stack) {
-            silentLog('ai_file_mutation_ledger', '回收 blob', error, stack);
+            _logFileErrorUnlessMissing('回收 blob', error, stack);
           }
         }
       }
@@ -1678,13 +1631,8 @@ class AiFileMutationLedger {
       }
       await file.delete();
       return stat.size;
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '回收过期原子 blob 产物', error, stack);
-      }
-      return 0;
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '回收过期原子 blob 产物', error, stack);
+      _logFileErrorUnlessMissing('回收过期原子 blob 产物', error, stack);
       return 0;
     }
   }
@@ -1698,15 +1646,26 @@ class AiFileMutationLedger {
         message.contains('path not found');
   }
 
+  bool _isMissingFileError(Object error) {
+    return error is FileSystemException && _isMissingFileSystemException(error);
+  }
+
+  void _logFileErrorUnlessMissing(
+    String action,
+    Object error,
+    StackTrace stack,
+  ) {
+    if (_isMissingFileError(error)) {
+      return;
+    }
+    silentLog('ai_file_mutation_ledger', action, error, stack);
+  }
+
   Future<void> _deleteFileIfPresent(File file, String where) async {
     try {
       if (await file.exists()) await file.delete();
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', where, error, stack);
-      }
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', where, error, stack);
+      _logFileErrorUnlessMissing(where, error, stack);
     }
   }
 
@@ -1737,12 +1696,8 @@ class AiFileMutationLedger {
           return undone;
         }
       }
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '加载撤销集合', error, stack);
-      }
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '加载撤销集合', error, stack);
+      _logFileErrorUnlessMissing('加载撤销集合', error, stack);
     }
     _undoneCache.put(cacheKey, const <String>{});
     return <String>{};
@@ -1764,13 +1719,8 @@ class AiFileMutationLedger {
         jsonEncode(<String, Object?>{'undone': undone.toList()..sort()}),
       );
       _undoneCache.put(cacheKey, Set<String>.unmodifiable(undone));
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '保存撤销集合', error, stack);
-      }
-      _undoneCache.remove(cacheKey);
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '保存撤销集合', error, stack);
+      _logFileErrorUnlessMissing('保存撤销集合', error, stack);
       _undoneCache.remove(cacheKey);
     }
   }
@@ -1803,13 +1753,8 @@ class AiFileMutationLedger {
         return _recoverBlobFromLegacyVersions(sha);
       }
       return await readBoundedFileString(file, maxBytes: _blobRecoveryMaxBytes);
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '读取 blob', error, stack);
-      }
-      return null;
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '读取 blob', error, stack);
+      _logFileErrorUnlessMissing('读取 blob', error, stack);
       return null;
     }
   }
@@ -1837,13 +1782,8 @@ class AiFileMutationLedger {
       if (_sha256Of(content) != expectedSha) return null;
       await _cacheRecoveredBlob(expectedSha, content, '缓存当前 blob');
       return content;
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '恢复当前文件 blob', error, stack);
-      }
-      return null;
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '恢复当前文件 blob', error, stack);
+      _logFileErrorUnlessMissing('恢复当前文件 blob', error, stack);
       return null;
     }
   }
@@ -1879,21 +1819,14 @@ class AiFileMutationLedger {
       }
       await _cacheRecoveredBlob(sha, content, '缓存旧版 blob');
       return content;
-    } on FileSystemException catch (error, stack) {
-      if (!_isMissingFileSystemException(error)) {
-        silentLog('ai_file_mutation_ledger', '恢复旧版 blob', error, stack);
-      }
-      _recordLegacyBlobRecoveryMiss(sha);
-      return null;
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '恢复旧版 blob', error, stack);
+      _logFileErrorUnlessMissing('恢复旧版 blob', error, stack);
       _recordLegacyBlobRecoveryMiss(sha);
       return null;
     }
   }
 
-  /// Records [sha] in the negative-recovery cache, evicting the oldest entry
-  /// once the cap is reached so the set never grows without bound.
+  /// 记录恢复失败的 [sha]，达到上限时淘汰最早条目。
   void _recordLegacyBlobRecoveryMiss(String sha) {
     if (_legacyBlobRecoveryMisses.length >= _maxLegacyBlobRecoveryMisses) {
       _legacyBlobRecoveryMisses.remove(_legacyBlobRecoveryMisses.first);
@@ -1933,12 +1866,8 @@ class AiFileMutationLedger {
             maxBytes: _blobRecoveryMaxBytes,
           );
           index.putIfAbsent(_sha256Of(content), () => entity.path);
-        } on FileSystemException catch (error, stack) {
-          if (!_isMissingFileSystemException(error)) {
-            silentLog('ai_file_mutation_ledger', '索引旧版 blob', error, stack);
-          }
         } catch (error, stack) {
-          silentLog('ai_file_mutation_ledger', '索引旧版 blob', error, stack);
+          _logFileErrorUnlessMissing('索引旧版 blob', error, stack);
         }
       }
     } catch (error, stack) {
@@ -2268,13 +2197,8 @@ class AiFileMutationLedger {
                 buffer.writeln();
               }
             }
-          } on FileSystemException catch (error, stack) {
-            if (!_isMissingFileSystemException(error)) {
-              silentLog('ai_file_mutation_ledger', '读取现有账本以导入', error, stack);
-            }
-            return 0;
           } catch (error, stack) {
-            silentLog('ai_file_mutation_ledger', '读取现有账本以导入', error, stack);
+            _logFileErrorUnlessMissing('读取现有账本以导入', error, stack);
             return 0;
           }
           var added = 0;

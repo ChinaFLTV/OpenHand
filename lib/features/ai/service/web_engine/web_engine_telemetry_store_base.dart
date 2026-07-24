@@ -9,10 +9,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
-/// WebSearch / WebFetch 调用日志的共用 cooldown 阈值配置。
-///
-/// 两个领域的策略完全一致（Tier1/2/3 + Quota），统一成同一个类，以 typedef
-/// 暴露给原有名字 `WebSearchCooldownConfig` / `WebFetchCooldownConfig`。
+/// WebSearch / WebFetch 调用日志共用的冷却阈值配置。
 class WebEngineCooldownConfig {
   const WebEngineCooldownConfig({
     this.tier1Failures = 3,

@@ -555,11 +555,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
           // 但选择/复制不再需要预先点击进入选中态。
           selectable: true,
         ),
-        'openhand-file-resolved': _FilePathMarkdownBuilder(
+        messageResolvedPathElementTag: _FilePathMarkdownBuilder(
           textColor: textColor,
           onOpenPath: _openResolvedMessagePath,
         ),
-        'openhand-file-pending': _FilePathMarkdownBuilder(
+        messagePendingPathElementTag: _FilePathMarkdownBuilder(
           textColor: textColor,
           onOpenPath: _openResolvedMessagePath,
         ),
