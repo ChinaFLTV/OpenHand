@@ -138,8 +138,9 @@ class AndroidPackagePidLookupResult {
 /// 所有操作均通过 `adb` 可执行文件完成；调用方需确保 adb 已在 PATH 中
 /// 或通过 [adbPath] 显式指定路径。
 class AndroidReverseAdbClient {
-  AndroidReverseAdbClient({String? adbPath, this.deviceSerial})
-    : adbPath = adbPath ?? 'adb';
+  AndroidReverseAdbClient({String? adbPath, String? deviceSerial})
+    : adbPath = nullIfBlank(adbPath) ?? 'adb',
+      deviceSerial = nullIfBlank(deviceSerial);
 
   final String adbPath;
 
@@ -493,21 +494,21 @@ class AndroidReverseAdbClient {
       'ps',
       '-A',
     ], timeout: _kAdbPidLookupTimeout);
-    final procs = _parseProcessList(
-      ps.stdout,
-      filterName: normalizedPackageName,
-    );
-    String? pid;
+    final procs = _parseProcessList(ps.stdout);
+    AndroidProcess? matchedProcess;
     for (final proc in procs) {
       if (proc.name == normalizedPackageName) {
-        pid = '${proc.pid}';
+        matchedProcess = proc;
         break;
       }
+      if (matchedProcess == null &&
+          proc.name.startsWith('$normalizedPackageName:')) {
+        matchedProcess = proc;
+      }
     }
-    pid ??= procs.isEmpty ? null : '${procs.first.pid}';
     return AndroidPackagePidLookupResult(
       packageName: normalizedPackageName,
-      pid: pid,
+      pid: matchedProcess?.pid.toString(),
       timedOut: direct.timedOut || ps.timedOut,
       stderr: _combineAdbErrors(<AdbCommandResult>[direct, ps]),
     );

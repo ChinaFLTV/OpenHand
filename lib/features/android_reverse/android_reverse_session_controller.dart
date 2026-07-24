@@ -356,7 +356,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final normalizedSerial = serial?.trim();
     if (normalizedSerial == null ||
         normalizedSerial.isEmpty ||
-        normalizedSerial == config.deviceSerial) {
+        normalizedSerial == _adbClient.deviceSerial) {
       return _adbClient;
     }
     return AndroidReverseAdbClient(
