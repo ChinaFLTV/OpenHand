@@ -97,6 +97,12 @@ typedef _LogcatQueryContext = ({
   String? packageName,
 });
 
+typedef _AndroidTargetContext = ({
+  int generation,
+  String? serial,
+  String? packageName,
+});
+
 String _androidToolchainInstallHint(
   BuildContext context,
   AndroidReverseToolchainProbe probe,
@@ -683,6 +689,8 @@ class _AndroidReverseDashboardDialogState
   bool _didKickInitialRefresh = false;
   bool _controllerUpdateScheduled = false;
   int _deviceContextGeneration = 0;
+  int _fridaScriptRevision = 0;
+  int _fridaSnippetLoadGeneration = 0;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
   AdbCommandResult? _lastShellResult;
@@ -785,7 +793,10 @@ class _AndroidReverseDashboardDialogState
   }
 
   void _onFridaScriptChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _fridaScriptRevision += 1;
+    _lastSavedFridaScriptPath = null;
+    setState(() {});
   }
 
   void _onLogcatScroll() {
@@ -832,6 +843,34 @@ class _AndroidReverseDashboardDialogState
     final configured = _ctrl.config.deviceSerial?.trim();
     if (configured != null && configured.isNotEmpty) return configured;
     return _ctrl.connectedDevice?.serial;
+  }
+
+  _AndroidTargetContext _captureAndroidTargetContext() {
+    return (
+      generation: _deviceContextGeneration,
+      serial: _targetSerial?.trim(),
+      packageName: _logcatPackageTarget(),
+    );
+  }
+
+  bool _isCurrentAndroidTargetContext(
+    _AndroidTargetContext target, {
+    bool includePackage = true,
+  }) {
+    if (!mounted ||
+        target.generation != _deviceContextGeneration ||
+        target.serial != _targetSerial?.trim()) {
+      return false;
+    }
+    return !includePackage || target.packageName == _logcatPackageTarget();
+  }
+
+  bool _isCurrentFridaScriptContext(
+    _AndroidTargetContext target,
+    int scriptRevision,
+  ) {
+    return scriptRevision == _fridaScriptRevision &&
+        _isCurrentAndroidTargetContext(target);
   }
 
   void _setTargetDevice(
@@ -2087,14 +2126,28 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _loadFridaSnippet(_FridaSnippetPreset preset) async {
+    final loadGeneration = ++_fridaSnippetLoadGeneration;
+    final scriptRevision = _fridaScriptRevision;
     try {
       final script = await rootBundle.loadString(preset.assetPath);
-      if (!mounted) return;
+      if (!mounted ||
+          loadGeneration != _fridaSnippetLoadGeneration ||
+          scriptRevision != _fridaScriptRevision) {
+        return;
+      }
       _selectedFridaSnippetAsset = preset.assetPath;
-      _fridaScriptCtrl.text = script.trimRight();
-      setState(() {});
+      final nextScript = script.trimRight();
+      if (_fridaScriptCtrl.text == nextScript) {
+        setState(() {});
+      } else {
+        _fridaScriptCtrl.text = nextScript;
+      }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted ||
+          loadGeneration != _fridaSnippetLoadGeneration ||
+          scriptRevision != _fridaScriptRevision) {
+        return;
+      }
       _showSnack(
         openHandLocalizedText(
           context,
@@ -2112,17 +2165,20 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _saveFridaScriptArtifact() async {
-    if (_savingFridaScript) return;
+    if (_savingFridaScript || _runningFridaAction) return;
     final script = _fridaScriptCtrl.text;
     if (script.trim().isEmpty) return;
+    final scriptRevision = _fridaScriptRevision;
+    final presetAssetPath = _selectedFridaSnippetAsset;
+    final packageName = _logcatPackageTarget();
     setState(() => _savingFridaScript = true);
     try {
       final result = await _ctrl.saveFridaScriptToArtifacts(
         script: script,
-        presetAssetPath: _selectedFridaSnippetAsset,
-        packageName: _logcatPackageTarget(),
+        presetAssetPath: presetAssetPath,
+        packageName: packageName,
       );
-      if (!mounted) return;
+      if (!mounted || scriptRevision != _fridaScriptRevision) return;
       setState(() {
         _lastSavedFridaScriptPath = _extractFridaScriptPath(result.stdout);
         _fridaArtifactOutput = _formatAdbResult(result);
@@ -2143,7 +2199,7 @@ class _AndroidReverseDashboardDialogState
         );
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || scriptRevision != _fridaScriptRevision) return;
       setState(() {
         _fridaArtifactOutput =
             '${openHandLocalizedText(context, zh: "保存 Frida 脚本失败", zhHant: "儲存 Frida 腳本失敗", en: "Failed to save Frida script", fr: "Échec d’enregistrement du script Frida", de: "Frida-Skript konnte nicht gespeichert werden", ja: "Frida スクリプトの保存に失敗しました")}: $error';
@@ -2155,6 +2211,7 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _runFridaDoctor() async {
     if (_runningFridaDoctor) return;
+    final target = _captureAndroidTargetContext();
     setState(() {
       _runningFridaDoctor = true;
       _fridaArtifactOutput = openHandLocalizedText(
@@ -2169,8 +2226,9 @@ class _AndroidReverseDashboardDialogState
     });
     try {
       await _ctrl.ensureMcpLinkageArtifacts();
-      final pkg = _logcatPackageTarget();
-      final serial = _targetSerial?.trim();
+      if (!_isCurrentAndroidTargetContext(target)) return;
+      final pkg = target.packageName;
+      final serial = target.serial;
       final result = await _ctrl.runLocalArtifactScriptDetailed(
         scriptPath: _ctrl.fridaDoctorScriptPath,
         args: <String>[
@@ -2181,11 +2239,14 @@ class _AndroidReverseDashboardDialogState
         ],
         timeout: const Duration(seconds: 15),
         displayCommand:
-            'bash ${_shellQuote(_ctrl.fridaDoctorScriptPath)} --timeout 6${pkg == null ? "" : " --package ${_shellQuote(pkg)}"}',
+            'bash ${_shellQuote(_ctrl.fridaDoctorScriptPath)} --timeout 6${pkg == null ? "" : " --package ${_shellQuote(pkg)}"}${serial == null || serial.isEmpty ? "" : " -s ${_shellQuote(serial)}"}',
         tag: 'android_reverse.frida_doctor',
       );
-      if (!mounted) return;
+      if (!mounted || !_isCurrentAndroidTargetContext(target)) return;
       setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted || !_isCurrentAndroidTargetContext(target)) return;
+      _setFridaOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningFridaDoctor = false);
     }
@@ -2194,20 +2255,22 @@ class _AndroidReverseDashboardDialogState
   Future<String?> _ensureFridaScriptPath() async {
     final cached = _lastSavedFridaScriptPath?.trim();
     if (cached != null && cached.isNotEmpty) return cached;
-    final script = _fridaScriptCtrl.text.trim();
-    if (script.isEmpty) return null;
+    final script = _fridaScriptCtrl.text;
+    if (script.trim().isEmpty) return null;
+    final scriptRevision = _fridaScriptRevision;
+    final presetAssetPath = _selectedFridaSnippetAsset;
+    final packageName = _logcatPackageTarget();
     final result = await _ctrl.saveFridaScriptToArtifacts(
-      script: _fridaScriptCtrl.text,
-      presetAssetPath: _selectedFridaSnippetAsset,
-      packageName: _logcatPackageTarget(),
+      script: script,
+      presetAssetPath: presetAssetPath,
+      packageName: packageName,
     );
     final path = _extractFridaScriptPath(result.stdout);
-    if (mounted) {
-      setState(() {
-        _lastSavedFridaScriptPath = path;
-        _fridaArtifactOutput = _formatAdbResult(result);
-      });
-    }
+    if (!mounted || scriptRevision != _fridaScriptRevision) return null;
+    setState(() {
+      _lastSavedFridaScriptPath = path;
+      _fridaArtifactOutput = _formatAdbResult(result);
+    });
     return path;
   }
 
@@ -2217,9 +2280,17 @@ class _AndroidReverseDashboardDialogState
     return path == null || path.isEmpty ? null : path;
   }
 
+  void _setFridaOperationFailure(Object error) {
+    setState(() {
+      _fridaArtifactOutput =
+          '${openHandLocalizedText(context, zh: "Frida 操作失败", zhHant: "Frida 操作失敗", en: "Frida operation failed", fr: "Échec de l’opération Frida", de: "Frida-Vorgang fehlgeschlagen", ja: "Frida 操作に失敗しました")}: $error';
+    });
+  }
+
   Future<void> _runFridaCapture({required bool spawn}) async {
-    if (_runningFridaAction) return;
-    final pkg = _logcatPackageTarget();
+    if (_runningFridaAction || _savingFridaScript) return;
+    final target = _captureAndroidTargetContext();
+    final pkg = target.packageName;
     if (pkg == null || pkg.isEmpty) {
       _showSnack(
         openHandLocalizedText(
@@ -2234,6 +2305,7 @@ class _AndroidReverseDashboardDialogState
       );
       return;
     }
+    final scriptRevision = _fridaScriptRevision;
     setState(() {
       _runningFridaAction = true;
       _fridaArtifactOutput = openHandLocalizedText(
@@ -2248,7 +2320,9 @@ class _AndroidReverseDashboardDialogState
     });
     try {
       await _ctrl.ensureMcpLinkageArtifacts();
+      if (!_isCurrentFridaScriptContext(target, scriptRevision)) return;
       final scriptPath = await _ensureFridaScriptPath();
+      if (!_isCurrentFridaScriptContext(target, scriptRevision)) return;
       if (scriptPath == null || scriptPath.isEmpty) {
         if (mounted) {
           setState(() {
@@ -2265,7 +2339,7 @@ class _AndroidReverseDashboardDialogState
         }
         return;
       }
-      final serial = _targetSerial?.trim();
+      final serial = target.serial;
       final result = await _ctrl.runLocalArtifactScriptDetailed(
         scriptPath: _ctrl.fridaCaptureScriptPath,
         args: <String>[
@@ -2278,13 +2352,20 @@ class _AndroidReverseDashboardDialogState
         ],
         timeout: const Duration(seconds: 28),
         displayCommand:
-            'bash ${_shellQuote(_ctrl.fridaCaptureScriptPath)} --package ${_shellQuote(pkg)} --script ${_shellQuote(scriptPath)} ${spawn ? "--spawn" : "--attach"}',
+            'bash ${_shellQuote(_ctrl.fridaCaptureScriptPath)} --package ${_shellQuote(pkg)} --script ${_shellQuote(scriptPath)} ${spawn ? "--spawn" : "--attach"}${serial == null || serial.isEmpty ? "" : " -s ${_shellQuote(serial)}"}',
         tag: spawn
             ? 'android_reverse.frida_spawn_capture'
             : 'android_reverse.frida_attach_capture',
       );
-      if (!mounted) return;
+      if (!mounted || !_isCurrentFridaScriptContext(target, scriptRevision)) {
+        return;
+      }
       setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted || !_isCurrentFridaScriptContext(target, scriptRevision)) {
+        return;
+      }
+      _setFridaOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningFridaAction = false);
     }
@@ -2330,6 +2411,9 @@ fi
       );
       if (!mounted) return;
       setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted) return;
+      _setFridaOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningFridaAction = false);
     }
@@ -2369,7 +2453,8 @@ fi
         ja: '起動',
       ),
     );
-    if (!confirmed || !mounted) return;
+    if (!confirmed || !mounted || _runningFridaAction) return;
+    final target = _captureAndroidTargetContext();
     setState(() {
       _runningFridaAction = true;
       _fridaArtifactOutput = openHandLocalizedText(
@@ -2385,21 +2470,33 @@ fi
     try {
       final start = await _ctrl.shellDetailed(
         'if [ -x /data/local/tmp/frida-server ]; then pidof frida-server >/dev/null 2>&1 || nohup /data/local/tmp/frida-server >/dev/null 2>&1 & echo started; else echo missing:/data/local/tmp/frida-server; exit 2; fi',
-        serial: _targetSerial,
+        serial: target.serial,
         timeout: const Duration(seconds: 8),
       );
+      if (!_isCurrentAndroidTargetContext(target, includePackage: false)) {
+        return;
+      }
       final forward = await _ctrl.forwardPortDetailed(
         27042,
         27042,
-        serial: _targetSerial,
+        serial: target.serial,
       );
       final output = <String>[
         _formatAdbResult(start),
         '',
         _formatAdbResult(forward),
       ].join('\n');
-      if (!mounted) return;
+      if (!mounted ||
+          !_isCurrentAndroidTargetContext(target, includePackage: false)) {
+        return;
+      }
       setState(() => _fridaArtifactOutput = output);
+    } catch (error) {
+      if (!mounted ||
+          !_isCurrentAndroidTargetContext(target, includePackage: false)) {
+        return;
+      }
+      _setFridaOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningFridaAction = false);
     }
@@ -8816,7 +8913,10 @@ fi
     );
     final actions = <Widget>[
       _DashboardActionButton(
-        onPressed: _fridaScriptCtrl.text.trim().isEmpty || _savingFridaScript
+        onPressed:
+            _fridaScriptCtrl.text.trim().isEmpty ||
+                _savingFridaScript ||
+                _runningFridaAction
             ? null
             : _saveFridaScriptArtifact,
         icon: _savingFridaScript
@@ -8911,7 +9011,10 @@ fi
         ),
       ),
       _DashboardActionButton(
-        onPressed: _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
+        onPressed:
+            _runningFridaAction ||
+                _savingFridaScript ||
+                _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _runFridaCapture(spawn: true),
         icon: const Icon(Icons.rocket_launch_rounded),
@@ -8926,7 +9029,10 @@ fi
         ),
       ),
       _DashboardActionButton(
-        onPressed: _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
+        onPressed:
+            _runningFridaAction ||
+                _savingFridaScript ||
+                _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _runFridaCapture(spawn: false),
         icon: const Icon(Icons.link_rounded),
