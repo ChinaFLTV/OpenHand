@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../model/ai_thread_template.dart';
 import 'ai_prompt_template_assembly.dart';
-import 'machine_expert_prompts.dart';
-import 'programming_expert_prompts.dart';
 
 class AiPromptTemplateBundle {
   const AiPromptTemplateBundle({
@@ -234,32 +232,32 @@ AiThreadTemplateAvailability _availabilityFromScope(
   };
 }
 
-// ── Emergency fallback prompts ────────────────────────────────────────────────
-// 这些常量仅在 [rootBundle.loadString] 加载 `assets/prompts/{template_id}/*.md`
-// 失败时（譬如打包损坏 / 资源未注册）才会被使用。生产构建中几乎不会触发。
-// 模板的真正提示词内容以 `assets/prompts/` 下的 Markdown 文件为唯一可信来源。
-// 此处保留极简的英文/中文双语桩，向用户与日志说明加载失败并请求修复，
-// 避免与资源版本漂移。修改资源时请只改 `assets/prompts/`，无需同步本桩。
+// ── 紧急兜底提示词 ────────────────────────────────────────────────
+// 仅用于提示词资源加载失败；完整内容统一在 assets/prompts/ 维护。
 
 const String _fallbackNotice = '''
-[OpenHand prompt asset failed to load]
+[OpenHand prompt assets unavailable]
 
-The template prompt could not be read from `assets/prompts/`.
-Falling back to a minimal safe stub. Please tell the user that
-the bundled prompt assets are missing or unreadable, and ask them
-to reinstall or re-run the build.
+The template prompt could not be loaded from `assets/prompts/`. Tell the user
+to reinstall or rebuild the app. Do not fabricate results, files, tools, or
+success. Respond briefly using only verified information.
 
-[OpenHand 提示词资源加载失败]
+[OpenHand 提示词资源不可用]
 
-模板提示词无法从 `assets/prompts/` 读取。当前使用极简兜底文本。
-请告知用户：打包的提示词资源缺失或不可读，建议重新安装或重新构建后再使用。
+无法从 `assets/prompts/` 加载模板。请告知用户重新安装或构建应用。
+禁止伪造结果、文件、工具或成功状态；仅用已验证信息简洁回复。
+''';
 
-# Minimum behaviour while in fallback
+const String _machineExpertFallbackNotice =
+    '''
+$_fallbackNotice
 
-- Do not fabricate tool results, file contents, or success status.
-- Do not invent tool names that are not in the runtime tool catalog.
-- Reply concisely in plain language and ask the user to recover the assets.
-- 简洁、坦诚地告知用户当前是兜底模式，避免做出超出已掌握信息的承诺。
+# Machine Expert fallback
+
+- Use only MachineTerminal tools for terminal operations.
+- Obtain user approval before write operations.
+- 终端操作仅使用 MachineTerminal 工具。
+- 写操作前必须征得用户同意。
 ''';
 
 const String _webReverseFallbackNotice =
@@ -289,13 +287,7 @@ $_fallbackNotice
 ''';
 
 class _TemplatePromptFallback {
-  const _TemplatePromptFallback({
-    required this.systemInstructions,
-    required this.developerInstructions,
-    required this.compressionSummaryInstructions,
-  });
-
-  const _TemplatePromptFallback.same(String instructions)
+  const _TemplatePromptFallback(String instructions)
     : systemInstructions = instructions,
       developerInstructions = instructions,
       compressionSummaryInstructions = instructions;
@@ -308,33 +300,19 @@ class _TemplatePromptFallback {
 class _TemplatePromptFallbacks {
   const _TemplatePromptFallbacks._();
 
-  static const _TemplatePromptFallback _default = _TemplatePromptFallback.same(
+  static const _TemplatePromptFallback _default = _TemplatePromptFallback(
     _fallbackNotice,
   );
 
-  static const Map<String, _TemplatePromptFallback>
-  _byTemplateId = <String, _TemplatePromptFallback>{
-    AiPromptTemplatePolicies.defaultTemplateId: _default,
-    AiPromptTemplatePolicies.machineExpertTemplateId: _TemplatePromptFallback(
-      systemInstructions: expertSystemInstructions,
-      developerInstructions: expertDeveloperInstructions,
-      compressionSummaryInstructions: expertCompressionSummaryInstructions,
-    ),
-    AiPromptTemplatePolicies.harnessEngineeringTemplateId: _default,
-    AiPromptTemplatePolicies.programmingExpertTemplateId:
-        _TemplatePromptFallback(
-          systemInstructions: programmingExpertSystemInstructions,
-          developerInstructions: programmingExpertDeveloperInstructions,
-          compressionSummaryInstructions:
-              programmingExpertCompressionSummaryInstructions,
-        ),
-    AiPromptTemplatePolicies.hermesTalkerTemplateId: _default,
-    AiPromptTemplatePolicies.webReverseExpertTemplateId:
-        _TemplatePromptFallback.same(_webReverseFallbackNotice),
-    AiPromptTemplatePolicies.androidReverseExpertTemplateId:
-        _TemplatePromptFallback.same(_androidReverseFallbackNotice),
-    AiPromptTemplatePolicies.siriHelperTemplateId: _default,
-  };
+  static const Map<String, _TemplatePromptFallback> _byTemplateId =
+      <String, _TemplatePromptFallback>{
+        AiPromptTemplatePolicies.machineExpertTemplateId:
+            _TemplatePromptFallback(_machineExpertFallbackNotice),
+        AiPromptTemplatePolicies.webReverseExpertTemplateId:
+            _TemplatePromptFallback(_webReverseFallbackNotice),
+        AiPromptTemplatePolicies.androidReverseExpertTemplateId:
+            _TemplatePromptFallback(_androidReverseFallbackNotice),
+      };
 
   static _TemplatePromptFallback resolve(String templateId) {
     return _byTemplateId[templateId] ?? _default;
