@@ -103,6 +103,8 @@ typedef _AndroidTargetContext = ({
   String? packageName,
 });
 
+typedef _StaticAnalysisContext = ({String? apkPath, String? packageName});
+
 String _androidToolchainInstallHint(
   BuildContext context,
   AndroidReverseToolchainProbe probe,
@@ -872,6 +874,21 @@ class _AndroidReverseDashboardDialogState
   ) {
     return scriptRevision == _fridaScriptRevision &&
         _isCurrentAndroidTargetContext(target);
+  }
+
+  _StaticAnalysisContext _captureStaticAnalysisContext() {
+    final apkPath = _ctrl.config.apkPath?.trim();
+    return (
+      apkPath: apkPath == null || apkPath.isEmpty ? null : apkPath,
+      packageName: _logcatPackageTarget(),
+    );
+  }
+
+  bool _isCurrentStaticAnalysisContext(_StaticAnalysisContext target) {
+    if (!mounted) return false;
+    final current = _captureStaticAnalysisContext();
+    return target.apkPath == current.apkPath &&
+        target.packageName == current.packageName;
   }
 
   void _setTargetDevice(
@@ -1916,17 +1933,18 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _runStaticQuickScan() async {
-    if (_runningStaticQuickScan) return;
+    if (_runningStaticQuickScan || _runningStaticAction) return;
+    final target = _captureStaticAnalysisContext();
     setState(() {
       _runningStaticQuickScan = true;
       _staticQuickScanOutput = null;
     });
     try {
       final result = await _ctrl.runStaticQuickScan(
-        apkPath: _ctrl.config.apkPath,
-        packageName: _logcatPackageTarget(),
+        apkPath: target.apkPath,
+        packageName: target.packageName,
       );
-      if (!mounted) return;
+      if (!mounted || !_isCurrentStaticAnalysisContext(target)) return;
       setState(() => _staticQuickScanOutput = _formatAdbResult(result));
       if (!result.ok && !result.hasUsableStdout) {
         _showSnack(
@@ -1944,11 +1962,8 @@ class _AndroidReverseDashboardDialogState
         );
       }
     } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _staticQuickScanOutput =
-            '${openHandLocalizedText(context, zh: "静态扫描失败", zhHant: "靜態掃描失敗", en: "Static scan failed", fr: "Échec du scan statique", de: "Statischer Scan fehlgeschlagen", ja: "静的スキャンに失敗しました")}: $error';
-      });
+      if (!mounted || !_isCurrentStaticAnalysisContext(target)) return;
+      _setStaticAnalysisFailure(error);
     } finally {
       if (mounted) setState(() => _runningStaticQuickScan = false);
     }
@@ -2733,9 +2748,10 @@ fi
   }
 
   Future<void> _runStaticAction(
-    Future<AdbCommandResult> Function() action,
+    Future<AdbCommandResult> Function(_StaticAnalysisContext target) action,
   ) async {
-    if (_runningStaticAction) return;
+    if (_runningStaticAction || _runningStaticQuickScan) return;
+    final target = _captureStaticAnalysisContext();
     setState(() {
       _runningStaticAction = true;
       _staticQuickScanOutput = openHandLocalizedText(
@@ -2749,12 +2765,22 @@ fi
       );
     });
     try {
-      final result = await action();
-      if (!mounted) return;
+      final result = await action(target);
+      if (!mounted || !_isCurrentStaticAnalysisContext(target)) return;
       setState(() => _staticQuickScanOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted || !_isCurrentStaticAnalysisContext(target)) return;
+      _setStaticAnalysisFailure(error);
     } finally {
       if (mounted) setState(() => _runningStaticAction = false);
     }
+  }
+
+  void _setStaticAnalysisFailure(Object error) {
+    setState(() {
+      _staticQuickScanOutput =
+          '${openHandLocalizedText(context, zh: "静态分析失败", zhHant: "靜態分析失敗", en: "Static analysis failed", fr: "Échec de l’analyse statique", de: "Statische Analyse fehlgeschlagen", ja: "静的解析に失敗しました")}: $error';
+    });
   }
 
   String? _mitmCertPathArg() {
@@ -9448,9 +9474,9 @@ fi
                 onPressed: staticBusy
                     ? null
                     : () => _runStaticAction(
-                        () => _ctrl.readStaticQuickScanArtifacts(
-                          apkPath: _ctrl.config.apkPath,
-                          packageName: _logcatPackageTarget(),
+                        (target) => _ctrl.readStaticQuickScanArtifacts(
+                          apkPath: target.apkPath,
+                          packageName: target.packageName,
                         ),
                       ),
                 icon: const Icon(Icons.folder_open_rounded),
@@ -9468,9 +9494,9 @@ fi
                 onPressed: staticBusy
                     ? null
                     : () => _runStaticAction(
-                        () => _ctrl.inspectApkIdentity(
-                          apkPath: _ctrl.config.apkPath,
-                          packageName: _logcatPackageTarget(),
+                        (target) => _ctrl.inspectApkIdentity(
+                          apkPath: target.apkPath,
+                          packageName: target.packageName,
                         ),
                       ),
                 icon: const Icon(Icons.badge_rounded),
@@ -9488,9 +9514,9 @@ fi
                 onPressed: staticBusy
                     ? null
                     : () => _runStaticAction(
-                        () => _ctrl.runJadxDecompile(
-                          apkPath: _ctrl.config.apkPath,
-                          packageName: _logcatPackageTarget(),
+                        (target) => _ctrl.runJadxDecompile(
+                          apkPath: target.apkPath,
+                          packageName: target.packageName,
                         ),
                       ),
                 icon: const Icon(Icons.code_rounded),
@@ -9508,9 +9534,9 @@ fi
                 onPressed: staticBusy
                     ? null
                     : () => _runStaticAction(
-                        () => _ctrl.runApktoolUnpack(
-                          apkPath: _ctrl.config.apkPath,
-                          packageName: _logcatPackageTarget(),
+                        (target) => _ctrl.runApktoolUnpack(
+                          apkPath: target.apkPath,
+                          packageName: target.packageName,
                         ),
                       ),
                 icon: const Icon(Icons.inventory_2_rounded),
@@ -9528,9 +9554,9 @@ fi
                 onPressed: staticBusy
                     ? null
                     : () => _runStaticAction(
-                        () => _ctrl.runStaticStringsScan(
-                          apkPath: _ctrl.config.apkPath,
-                          packageName: _logcatPackageTarget(),
+                        (target) => _ctrl.runStaticStringsScan(
+                          apkPath: target.apkPath,
+                          packageName: target.packageName,
                         ),
                       ),
                 icon: const Icon(Icons.search_rounded),
