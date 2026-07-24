@@ -10,6 +10,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../hooks_controller.dart';
@@ -22,6 +23,7 @@ const int _maxContextEnvironmentBytes = 32 * 1024;
 const int _maxHookTempLabelCharacters = 32;
 const int _maxHookTempIdentifierCharacters = 64;
 const int _maxHookTempCleanupEntries = 10000;
+const Duration _hookTempFileOperationTimeout = Duration(seconds: 5);
 
 final RegExp _unsafeHookTempFileSegmentPattern = RegExp(r'[^\w\-]');
 
@@ -45,8 +47,8 @@ String _safeHookTempIdentifier(String value) {
 
 Future<void> _deleteHookTempContextFile(File file) async {
   try {
-    if (await file.exists()) {
-      await file.delete();
+    if (await file.exists().timeout(_hookTempFileOperationTimeout)) {
+      await file.delete().timeout(_hookTempFileOperationTimeout);
     }
   } catch (error, stack) {
     silentLog('hooks_executor', '删除临时上下文文件', error, stack);
@@ -166,7 +168,7 @@ class HooksExecutor {
       final tmpDir = Directory(
         p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
       );
-      if (!await tmpDir.exists()) return;
+      if (!await tmpDir.exists().timeout(_hookTempFileOperationTimeout)) return;
       final cutoff = DateTime.now().subtract(_tmpFileMaxAge);
       final listing = await listDirectoryBounded(
         tmpDir,
@@ -175,9 +177,11 @@ class HooksExecutor {
       for (final entity in listing.entries) {
         if (entity is! File) continue;
         try {
-          final stat = await entity.stat();
+          final stat = await entity.stat().timeout(
+            _hookTempFileOperationTimeout,
+          );
           if (stat.modified.isBefore(cutoff)) {
-            await entity.delete();
+            await entity.delete().timeout(_hookTempFileOperationTimeout);
           }
         } on FileSystemException {
           // Best-effort — skip files we cannot stat or delete.
@@ -397,7 +401,9 @@ class HooksExecutor {
       final tmpDir = Directory(
         p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
       );
-      await tmpDir.create(recursive: true);
+      await tmpDir
+          .create(recursive: true)
+          .timeout(_hookTempFileOperationTimeout);
       final safeName = _safeHookTempLabel(hook.label);
       final safeSessionId = _safeHookTempIdentifier(sessionId);
       final safeHookId = _safeHookTempIdentifier(hook.id);
@@ -407,7 +413,13 @@ class HooksExecutor {
           '$safeSessionId-$safeName-$safeHookId-${_uuid.v4()}.json',
         ),
       );
-      await contextFile.writeAsString(contextJson, flush: true);
+      await writeTemporaryFileTextBounded(
+        contextFile,
+        contextJson,
+        timeout: _hookTempFileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('hooks_executor', '清理临时上下文文件', error, stack),
+      );
     } catch (_) {
       // If file creation fails, scripts can still read from stdin.
       contextFile = null;
@@ -604,7 +616,9 @@ class HooksExecutor {
       final tmpDir = Directory(
         p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
       );
-      await tmpDir.create(recursive: true);
+      await tmpDir
+          .create(recursive: true)
+          .timeout(_hookTempFileOperationTimeout);
       final safeName = _safeHookTempLabel(hookLabel);
       final safeSessionId = _safeHookTempIdentifier(sessionId);
       final file = File(
@@ -613,7 +627,13 @@ class HooksExecutor {
           'output-$safeSessionId-$safeName-${_uuid.v4()}.$suffix',
         ),
       );
-      await file.writeAsString(content, flush: true);
+      await writeTemporaryFileTextBounded(
+        file,
+        content,
+        timeout: _hookTempFileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('hooks_executor', '清理 Hook 输出文件', error, stack),
+      );
       return file.path;
     } catch (_) {
       return null;

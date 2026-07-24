@@ -5,6 +5,7 @@ part of 'web_reverse_dashboard_dialog.dart';
 const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
 const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
 const int _kWebcrackMaxOutputEntries = 512;
+const Duration _kWebcrackTempWriteTimeout = Duration(seconds: 10);
 const BoundedDeletePolicy _kWebcrackTempDeletePolicy = BoundedDeletePolicy(
   maxEntries: 4096,
   maxDepth: 32,
@@ -3635,8 +3636,18 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
   }
   final tmpDir = await Directory.systemTemp.createTemp('oh-webcrack-');
   final input = File('${tmpDir.path}/input.js');
-  await input.writeAsString(src);
   try {
+    await writeTemporaryFileTextBounded(
+      input,
+      src,
+      timeout: _kWebcrackTempWriteTimeout,
+      onSecondaryError: (error, stack) => silentLog(
+        'web_reverse_dashboard_dialog',
+        '清理 webcrack 输入文件',
+        error,
+        stack,
+      ),
+    );
     // npx 第一次需要联网拉包；--yes 跳过提示。
     final result = await runTrackedProcessOrFailed(
       'npx',

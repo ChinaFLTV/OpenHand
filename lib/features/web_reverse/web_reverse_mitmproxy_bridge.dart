@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:path/path.dart' as p;
+
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// mitmproxy 桥接：通过 spawn `mitmdump` 子进程 + 自定义 inline addon，
@@ -58,6 +61,7 @@ class WebReverseMitmproxyBridge {
   static const Duration _kBindTimeout = Duration(seconds: 5);
   static const Duration _kCallbackBodyIdleTimeout = Duration(seconds: 5);
   static const Duration _kCallbackBodyTotalTimeout = Duration(seconds: 20);
+  static const Duration _kAddonFileOperationTimeout = Duration(seconds: 5);
 
   final Process _process;
   final HttpServer _server;
@@ -66,7 +70,7 @@ class WebReverseMitmproxyBridge {
   final StreamSubscription<List<int>> _stdoutSub;
   final StreamSubscription<List<int>> _stderrSub;
   final String _addonPath;
-  bool _closed = false;
+  Future<void>? _closeFuture;
 
   /// 探测 mitmdump 是否可用，返回可执行路径或 null。
   /// macOS 优先 Homebrew (`/opt/homebrew/bin/mitmdump`、`/usr/local/bin/mitmdump`)，
@@ -175,7 +179,24 @@ class WebReverseMitmproxyBridge {
       }
     });
 
-    final addonPath = await _writeAddon(actualCbPort);
+    late final String addonPath;
+    try {
+      addonPath = await _writeAddon(actualCbPort);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_mitmproxy_bridge',
+        '写入 mitmproxy 插件',
+        error,
+        stack,
+      );
+      await _closeCallbackResources(
+        serverSubscription: serverSub,
+        server: cbServer,
+        controller: controller,
+        phase: '插件写入失败后',
+      );
+      return null;
+    }
     Process p;
     try {
       p = await startTrackedProcess(exec, <String>[
@@ -188,11 +209,12 @@ class WebReverseMitmproxyBridge {
       ]);
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', '启动 mitmdump', error, stack);
-      await _cancelSubscription(serverSub, '启动后取消回调服务器订阅');
-      await Future.wait<bool>(<Future<bool>>[
-        _closeResource(() => cbServer.close(force: true), '启动后关闭回调服务器'),
-        _closeResource(controller.close, '启动后关闭事件流'),
-      ]);
+      await _closeCallbackResources(
+        serverSubscription: serverSub,
+        server: cbServer,
+        controller: controller,
+        phase: '进程启动失败后',
+      );
       await _deleteAddon(addonPath);
       return null;
     }
@@ -214,12 +236,13 @@ class WebReverseMitmproxyBridge {
       await Future.wait<bool>(<Future<bool>>[
         _cancelSubscription(stdoutSub, '提前退出后取消标准输出订阅'),
         _cancelSubscription(stderrSub, '提前退出后取消标准错误订阅'),
-        _cancelSubscription(serverSub, '提前退出后取消回调订阅'),
       ]);
-      await Future.wait<bool>(<Future<bool>>[
-        _closeResource(() => cbServer.close(force: true), '提前退出后关闭回调服务器'),
-        _closeResource(controller.close, '提前退出后关闭事件流'),
-      ]);
+      await _closeCallbackResources(
+        serverSubscription: serverSub,
+        server: cbServer,
+        controller: controller,
+        phase: '进程提前退出后',
+      );
       await _deleteAddon(addonPath);
       return null;
     }
@@ -317,17 +340,32 @@ def response(flow):
     except Exception:
         pass
 ''';
-    final dir = Directory.systemTemp;
     final f = File(
-      '${dir.path}/oh-mitm-addon-${DateTime.now().microsecondsSinceEpoch}.py',
+      p.join(
+        Directory.systemTemp.path,
+        'oh-mitm-addon-$pid-${DateTime.now().microsecondsSinceEpoch}.py',
+      ),
     );
-    await f.writeAsString(addon);
+    await writeTemporaryFileTextBounded(
+      f,
+      addon,
+      timeout: _kAddonFileOperationTimeout,
+      onSecondaryError: (error, stack) => silentLog(
+        'web_reverse_mitmproxy_bridge',
+        '清理 mitmproxy 插件文件',
+        error,
+        stack,
+      ),
+    );
     return f.path;
   }
 
   static Future<void> _deleteAddon(String addonPath) async {
     try {
-      await File(addonPath).delete();
+      final file = File(addonPath);
+      if (await file.exists().timeout(_kAddonFileOperationTimeout)) {
+        await file.delete().timeout(_kAddonFileOperationTimeout);
+      }
     } catch (error, stack) {
       silentLog(
         'web_reverse_mitmproxy_bridge',
@@ -360,22 +398,39 @@ def response(flow):
     );
   }
 
-  Future<void> close() async {
-    if (_closed) return;
-    _closed = true;
-    await terminateTrackedProcessTree(
-      _process,
-      gracefulTimeout: const Duration(milliseconds: 1500),
+  static Future<void> _closeCallbackResources({
+    required StreamSubscription<HttpRequest> serverSubscription,
+    required HttpServer server,
+    required StreamController<Map<String, Object?>> controller,
+    required String phase,
+  }) async {
+    await _cancelSubscription(serverSubscription, '$phase取消回调订阅');
+    await Future.wait<bool>(<Future<bool>>[
+      _closeResource(() => server.close(force: true), '$phase关闭回调服务器'),
+      _closeResource(controller.close, '$phase关闭事件流'),
+    ]);
+  }
+
+  Future<void> close() => _closeFuture ??= _performClose();
+
+  Future<void> _performClose() async {
+    await _closeResource(
+      () => terminateTrackedProcessTree(
+        _process,
+        gracefulTimeout: const Duration(milliseconds: 1500),
+      ),
+      '终止 mitmdump 进程',
     );
     await Future.wait<bool>(<Future<bool>>[
       _cancelSubscription(_stdoutSub, '取消标准输出订阅'),
       _cancelSubscription(_stderrSub, '取消标准错误订阅'),
-      _cancelSubscription(_serverSub, '取消回调服务器订阅'),
     ]);
-    await Future.wait<bool>(<Future<bool>>[
-      _closeResource(() => _server.close(force: true), '关闭回调服务器'),
-      _closeResource(_controller.close, '关闭事件流'),
-    ]);
+    await _closeCallbackResources(
+      serverSubscription: _serverSub,
+      server: _server,
+      controller: _controller,
+      phase: '',
+    );
     await _deleteAddon(_addonPath);
   }
 }

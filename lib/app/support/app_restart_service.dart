@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'app_runtime_cleanup_registry.dart';
 import 'safe_subprocess.dart';
@@ -15,6 +16,7 @@ const Duration _kExitRequestCleanupGrace = Duration(seconds: 5);
 final Duration _kExitRequestTimeout =
     kOpenHandDefaultRuntimeCleanupTotalTimeout + _kExitRequestCleanupGrace;
 const Duration _kRelaunchChmodTimeout = Duration(seconds: 2);
+const Duration _kRelaunchFileOperationTimeout = Duration(seconds: 5);
 
 enum AppRestartFailure {
   missingExecutable,
@@ -44,8 +46,8 @@ class AppRelaunchTicket {
   Future<void> cancel() async {
     try {
       final flag = File(pendingFlagPath);
-      if (await flag.exists()) {
-        await flag.delete();
+      if (await flag.exists().timeout(_kRelaunchFileOperationTimeout)) {
+        await flag.delete().timeout(_kRelaunchFileOperationTimeout);
       }
     } catch (error, stack) {
       silentLog('app_restart', '取消重启任务', error, stack);
@@ -66,14 +68,14 @@ class AppRestartService {
     final executablePath = p.normalize(rawExecutablePath);
 
     final tempDir = Directory.systemTemp;
-    if (!await tempDir.exists()) {
-      await tempDir.create(recursive: true);
+    if (!await tempDir.exists().timeout(_kRelaunchFileOperationTimeout)) {
+      await tempDir
+          .create(recursive: true)
+          .timeout(_kRelaunchFileOperationTimeout);
     }
 
     final suffix = '${pid}_${DateTime.now().microsecondsSinceEpoch}';
     final pendingFlag = File(p.join(tempDir.path, 'relaunch_$suffix.pending'));
-    await pendingFlag.writeAsString('pending', flush: true);
-
     final script = Platform.isWindows
         ? File(p.join(tempDir.path, 'relaunch_$suffix.cmd'))
         : File(p.join(tempDir.path, 'relaunch_$suffix.sh'));
@@ -92,7 +94,20 @@ class AppRestartService {
           );
 
     try {
-      await script.writeAsString(scriptBody, flush: true);
+      await writeTemporaryFileTextBounded(
+        pendingFlag,
+        'pending',
+        timeout: _kRelaunchFileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('app_restart', '清理重启标记文件', error, stack),
+      );
+      await writeTemporaryFileTextBounded(
+        script,
+        scriptBody,
+        timeout: _kRelaunchFileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('app_restart', '清理重启脚本', error, stack),
+      );
       if (!Platform.isWindows) {
         final chmodResult = await runTrackedProcessOrFailed(
           '/bin/chmod',
@@ -245,8 +260,8 @@ class AppRestartService {
 
   Future<void> _deleteIfExists(File file) async {
     try {
-      if (await file.exists()) {
-        await file.delete();
+      if (await file.exists().timeout(_kRelaunchFileOperationTimeout)) {
+        await file.delete().timeout(_kRelaunchFileOperationTimeout);
       }
     } catch (error, stack) {
       silentLog('app_restart', '删除 ${file.path}', error, stack);

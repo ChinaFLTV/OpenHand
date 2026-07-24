@@ -15,6 +15,108 @@ const int _posixRegularFileType = 0x8000;
 
 enum BoundedFileReadFailure { tooLarge, changedDuringRead }
 
+/// 在明确时限内写入临时二进制文件；失败或超时后自动删除残留文件。
+///
+/// Dart 文件写入无法主动取消。超时后若底层写入迟到完成，本方法会在其结束后
+/// 再删除文件，避免未登记的临时文件长期残留。
+Future<void> writeTemporaryFileBytesBounded(
+  File file,
+  List<int> bytes, {
+  required Duration timeout,
+  bool flush = true,
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) {
+  return _writeTemporaryFileBounded(
+    file,
+    () async {
+      await file.writeAsBytes(bytes, flush: flush);
+    },
+    timeout: timeout,
+    onSecondaryError: onSecondaryError,
+  );
+}
+
+/// 在明确时限内写入临时文本文件；失败清理语义与
+/// [writeTemporaryFileBytesBounded] 一致。
+Future<void> writeTemporaryFileTextBounded(
+  File file,
+  String text, {
+  required Duration timeout,
+  Encoding encoding = utf8,
+  bool flush = true,
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) {
+  return _writeTemporaryFileBounded(
+    file,
+    () async {
+      await file.writeAsString(text, encoding: encoding, flush: flush);
+    },
+    timeout: timeout,
+    onSecondaryError: onSecondaryError,
+  );
+}
+
+Future<void> _writeTemporaryFileBounded(
+  File file,
+  Future<void> Function() write, {
+  required Duration timeout,
+  required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) async {
+  requirePositiveDuration(timeout, 'timeout');
+  final writeFuture = Future<void>.sync(write);
+  try {
+    await writeFuture.timeout(timeout);
+  } on TimeoutException {
+    unawaited(
+      writeFuture.then<void>(
+        (_) => _deleteTemporaryFileAfterWriteFailure(
+          file,
+          onSecondaryError: onSecondaryError,
+        ),
+        onError: (Object error, StackTrace stack) async {
+          _reportSecondaryFileError(onSecondaryError, error, stack);
+          await _deleteTemporaryFileAfterWriteFailure(
+            file,
+            onSecondaryError: onSecondaryError,
+          );
+        },
+      ),
+    );
+    rethrow;
+  } catch (_) {
+    await _deleteTemporaryFileAfterWriteFailure(
+      file,
+      onSecondaryError: onSecondaryError,
+    );
+    rethrow;
+  }
+}
+
+Future<void> _deleteTemporaryFileAfterWriteFailure(
+  File file, {
+  required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) async {
+  try {
+    if (await file.exists().timeout(_boundedFileCleanupTimeout)) {
+      await file.delete().timeout(_boundedFileCleanupTimeout);
+    }
+  } catch (error, stack) {
+    _reportSecondaryFileError(onSecondaryError, error, stack);
+  }
+}
+
+void _reportSecondaryFileError(
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+  Object error,
+  StackTrace stack,
+) {
+  try {
+    onSecondaryError?.call(error, stack);
+  } catch (_) {
+    // 次要错误处理器不能覆盖原始写入结果。
+  }
+}
+
 abstract interface class BoundedFileHandleOwner {
   Future<RandomAccessFile> acquireFile(
     Future<RandomAccessFile> acquisition, {

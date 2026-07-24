@@ -67,8 +67,12 @@ Future<void> _bootstrap() async {
   OpenHandFpsMonitor.instance.start();
 
   final originalOnError = FlutterError.onError;
+  final originalPlatformOnError = PlatformDispatcher.instance.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
-    if (_shouldSilenceRenderingError(details.exception)) {
+    if (_shouldSilenceHighlightFormattingError(
+      details.exception,
+      details.stack,
+    )) {
       return;
     }
     if (_isRecoverableOverlayPortalHitTestRace(
@@ -78,7 +82,7 @@ Future<void> _bootstrap() async {
       return;
     }
     // 平台 IME 选区越界断言会在 reportError 后再次抛出；这里转为轻量恢复。
-    if (_isComposerImeRangeOverflow(details.exception)) {
+    if (_isComposerImeRangeOverflow(details.exception, details.stack)) {
       _triggerComposerImeSoftRecovery();
       return;
     }
@@ -99,20 +103,20 @@ Future<void> _bootstrap() async {
 
   // 吃掉平台分发器上报的可恢复异步异常，避免单次渲染噪声触发连续重建。
   PlatformDispatcher.instance.onError = (error, stack) {
-    if (_shouldSilenceRenderingError(error)) {
+    if (_shouldSilenceHighlightFormattingError(error, stack)) {
       return true;
     }
     if (_isRecoverableOverlayPortalHitTestRace(error, stack)) {
       return true;
     }
-    if (_isComposerImeRangeOverflow(error)) {
+    if (_isComposerImeRangeOverflow(error, stack)) {
       _triggerComposerImeSoftRecovery();
       return true;
     }
     if (_shouldSilenceMcpLifecycleError(error)) {
       return true;
     }
-    return false;
+    return originalPlatformOnError?.call(error, stack) ?? false;
   };
 
   // 先初始化数据库，再创建依赖数据库的控制器。
@@ -557,14 +561,17 @@ Future<AppInfo> _loadAppInfo() async {
   }
 }
 
-/// 判断是否为渲染链路中可恢复、无需展示给用户的格式化异常。
-bool _shouldSilenceRenderingError(Object error) {
-  if (error is FormatException) {
-    return true;
-  }
+/// 仅过滤 highlight 已知的数字解析噪声，其他格式异常必须继续上报。
+bool _shouldSilenceHighlightFormattingError(Object error, StackTrace? stack) {
   final message = error.toString();
-  return message.contains('FormatException: Invalid number') ||
-      message.contains('FormatException: Invalid radix-10 number');
+  final isKnownFormattingNoise =
+      message.contains('FormatException: Invalid number') ||
+      message.contains('FormatException: Invalid radix-10 number') ||
+      message.contains('FormatException: Invalid radix-16 number');
+  if (!isKnownFormattingNoise) return false;
+  final trace = stack?.toString() ?? '';
+  return trace.contains('package:highlight/') ||
+      trace.contains('package:flutter_highlight/');
 }
 
 /// 过滤 highlight 通过裸 print 打出的可恢复格式化异常，避免刷屏和首屏卡顿。
@@ -606,16 +613,15 @@ bool _isRecoverableOverlayPortalHitTestRace(Object error, StackTrace? stack) {
 }
 
 /// 识别 TextInput 选区越界断言，命中即交给 composer 软恢复处理。
-bool _isComposerImeRangeOverflow(Object error) {
-  if (error is AssertionError) {
-    final message = error.message?.toString() ?? '';
-    if (message.contains('is out of text of length')) {
-      return true;
-    }
-  }
-  final str = error.toString();
-  return str.contains('TextInputClient.updateEditingState') &&
-      str.contains('is out of text of length');
+bool _isComposerImeRangeOverflow(Object error, StackTrace? stack) {
+  final message = error is AssertionError
+      ? error.message?.toString() ?? error.toString()
+      : error.toString();
+  if (!message.contains('is out of text of length')) return false;
+  if (message.contains('TextInputClient.updateEditingState')) return true;
+  final trace = stack?.toString() ?? '';
+  return trace.contains('package:flutter/src/services/text_input.dart') ||
+      trace.contains('package:flutter/src/widgets/editable_text.dart');
 }
 
 /// 触发 composer 的轻量级 IME 软恢复，避免每次越界都跑完整 repair 流程。
@@ -628,13 +634,13 @@ void _triggerComposerImeSoftRecovery() {
 }
 
 void _handleUncaughtZoneError(Object error, StackTrace stack) {
-  if (_shouldSilenceRenderingError(error)) {
+  if (_shouldSilenceHighlightFormattingError(error, stack)) {
     return;
   }
   if (_isRecoverableOverlayPortalHitTestRace(error, stack)) {
     return;
   }
-  if (_isComposerImeRangeOverflow(error)) {
+  if (_isComposerImeRangeOverflow(error, stack)) {
     _triggerComposerImeSoftRecovery();
     return;
   }

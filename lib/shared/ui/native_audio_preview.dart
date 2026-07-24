@@ -733,9 +733,13 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         final file = File(
           '${Directory.systemTemp.path}/openhand-audio-${DateTime.now().microsecondsSinceEpoch}.$ext',
         );
-        await file
-            .writeAsBytes(bytes, flush: true)
-            .timeout(kNativeAudioControlTimeout);
+        await writeTemporaryFileBytesBounded(
+          file,
+          bytes,
+          timeout: kNativeAudioControlTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('native_audio_preview', '清理音频临时文件', error, stack),
+        );
         _tempAudioPath = file.path;
         return _NativeAudioResolvedSource(
           filePath: file.path,

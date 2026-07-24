@@ -8254,23 +8254,13 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
           '.openhand_thumb_capture_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
       final tempFile = File(p.join(dir, tempName));
       _tempHtmlPath = tempFile.path;
-      final writeFuture = tempFile.writeAsString(_buildCaptureHtml());
-      try {
-        await writeFuture.timeout(_thumbnailFileOperationTimeout);
-      } on TimeoutException {
-        unawaited(
-          writeFuture.then<void>(
-            (_) => _deleteThumbnailTempFile(tempFile.path),
-            onError: (Object error, StackTrace stack) => silentLog(
-              'home_message_bubble',
-              '视频缩略图临时页面迟到写入失败',
-              error,
-              stack,
-            ),
-          ),
-        );
-        rethrow;
-      }
+      await writeTemporaryFileTextBounded(
+        tempFile,
+        _buildCaptureHtml(),
+        timeout: _thumbnailFileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('home_message_bubble', '清理视频缩略图临时页面', error, stack),
+      );
       if (_done || !mounted) {
         _deleteTempHtmlInBackground();
         return;
@@ -8323,23 +8313,13 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
       stagingPath =
           '$outPath.${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.tmp';
       final stagingFile = File(stagingPath);
-      final writeFuture = stagingFile.writeAsBytes(bytes, flush: true);
-      try {
-        await writeFuture.timeout(_thumbnailFileOperationTimeout);
-      } on TimeoutException {
-        unawaited(
-          writeFuture.then<void>(
-            (_) => _deleteThumbnailTempFile(stagingFile.path),
-            onError: (Object error, StackTrace stack) => silentLog(
-              'home_message_bubble',
-              '视频缩略图临时文件迟到写入失败',
-              error,
-              stack,
-            ),
-          ),
-        );
-        rethrow;
-      }
+      await writeTemporaryFileBytesBounded(
+        stagingFile,
+        bytes,
+        timeout: _thumbnailFileOperationTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('home_message_bubble', '清理视频缩略图临时文件', error, stack),
+      );
       if (_done || !mounted) return;
       final outputFile = File(outPath);
       if (await outputFile.exists().timeout(_thumbnailFileOperationTimeout)) {

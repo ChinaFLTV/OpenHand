@@ -63,50 +63,6 @@ String _mediaFileExtension(MediaPreviewKind kind, String? rawMimeType) {
       (kind == MediaPreviewKind.video ? 'mp4' : 'mp3');
 }
 
-Future<void> _writeTempBytesBounded(
-  File file,
-  Uint8List bytes, {
-  required Duration timeout,
-}) async {
-  final write = file.writeAsBytes(bytes, flush: true);
-  try {
-    await write.timeout(timeout);
-  } on TimeoutException {
-    unawaited(
-      write.then<void>(
-        (_) => _deleteTempFile(file),
-        onError: (Object _, StackTrace _) {},
-      ),
-    );
-    rethrow;
-  } catch (_) {
-    await _deleteTempFile(file);
-    rethrow;
-  }
-}
-
-Future<void> _writeTempTextBounded(
-  File file,
-  String text, {
-  required Duration timeout,
-}) async {
-  final write = file.writeAsString(text, flush: true);
-  try {
-    await write.timeout(timeout);
-  } on TimeoutException {
-    unawaited(
-      write.then<void>(
-        (_) => _deleteTempFile(file),
-        onError: (Object _, StackTrace _) {},
-      ),
-    );
-    rethrow;
-  } catch (_) {
-    await _deleteTempFile(file);
-    rethrow;
-  }
-}
-
 Future<void> _deleteTempFile(
   File file, {
   Duration timeout = const Duration(seconds: 2),
@@ -123,6 +79,10 @@ Future<void> _deleteTempFile(
   } finally {
     deadline.stop();
   }
+}
+
+void _reportMediaTempWriteError(Object error, StackTrace stack) {
+  silentLog('media_preview_dialog', '清理媒体临时文件', error, stack);
 }
 
 Future<void> _pruneMediaTempFiles(
@@ -658,7 +618,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     final file = File(
       p.join(dir.path, '$_kClipboardTempFilePrefix$stamp-$pid-$serial.$ext'),
     );
-    await _writeTempBytesBounded(file, bytes, timeout: _kClipboardTimeout);
+    await writeTemporaryFileBytesBounded(
+      file,
+      bytes,
+      timeout: _kClipboardTimeout,
+      onSecondaryError: _reportMediaTempWriteError,
+    );
     return file.path;
   }
 
@@ -824,10 +789,11 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
             tempDirectory,
             _mediaFileExtension(widget.kind, widget.mimeType),
           );
-          await _writeTempBytesBounded(
+          await writeTemporaryFileBytesBounded(
             mediaFile,
             widget.bytes!,
             timeout: deadline.remaining(),
+            onSecondaryError: _reportMediaTempWriteError,
           );
           _tempMediaPath = mediaFile.path;
           _activeMediaPreviewTempPaths.add(_mediaTempPathKey(mediaFile.path));
@@ -846,10 +812,11 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       }
       final html = _buildVideoPlayerHtml(src: src);
       final htmlFile = _newPreviewTempFile(tempDirectory, 'html');
-      await _writeTempTextBounded(
+      await writeTemporaryFileTextBounded(
         htmlFile,
         html,
         timeout: deadline.remaining(),
+        onSecondaryError: _reportMediaTempWriteError,
       );
       _tempHtmlPath = htmlFile.path;
       _activeMediaPreviewTempPaths.add(_mediaTempPathKey(htmlFile.path));
