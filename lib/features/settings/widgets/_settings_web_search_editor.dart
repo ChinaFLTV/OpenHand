@@ -86,17 +86,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
     try {
-      // 并行读取三组独立数据，降低刷新等待时间。
-      final results = await Future.wait<Object>([
+      final (calls, stats, history) = await (
         WebSearchTelemetryStore.instance.recentCalls(),
         WebSearchTelemetryStore.instance.engineStats(),
         WebSearchTelemetryStore.instance.engineHistory(),
-      ]);
-      final calls = results[0] as List<WebSearchCallLog>;
-      final stats =
-          results[1] as Map<AiWebSearchEngineKind, WebSearchEngineStat>;
-      final history =
-          results[2] as Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>;
+      ).wait;
       if (!mounted) return;
       setState(() {
         _recentCalls = calls;
@@ -135,6 +129,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await _exportToolTelemetry<WebSearchCallLog>(
         context: context,
+        logTag: 'Web 搜索设置',
         fileStem: 'websearch',
         asCsv: asCsv,
         loadCalls: () => WebSearchTelemetryStore.instance.recentCalls(
@@ -142,13 +137,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         encodeJson: _callsToJson,
         encodeCsv: _callsToCsv,
-      );
-    } catch (e, st) {
-      silentLog('Web 搜索设置', '导出遥测数据', e, st);
-      if (!mounted) return;
-      showOpenHandErrorSnack(
-        context,
-        openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);

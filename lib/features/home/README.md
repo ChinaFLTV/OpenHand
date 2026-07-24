@@ -32,7 +32,7 @@ lib/features/home/
     _home_file_mutation_widgets.dart  # 同上（4.1k 行）
     _home_programming_expert_file_explorer.dart  # 同上（14.4k 行，文件浏览器）
     ... 13 其他 _home_*.dart
-  util/                          # 4 个工具：
+  util/                          # 页面工具
     editor_indentation.dart      # 编辑器缩进推断
     slash_command_parser.dart    # /command 解析
     tool_call_argument_parser.dart # 工具调用参数解析

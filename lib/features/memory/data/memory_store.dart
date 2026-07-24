@@ -9,6 +9,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/db/legacy_persistence.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/collection_equality.dart';
 import '../model/user_memory_entry.dart';
 
 class MemoryPersistenceIssue {
@@ -506,7 +507,7 @@ class MemoryStore {
       parsedTags.add(tag);
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(parsedTags);
-    if (!_sameStrings(parsedTags, normalizedTags) ||
+    if (!orderedListsEqual(parsedTags, normalizedTags) ||
         parsedTags.length > UserMemoryEntry.maxTags ||
         parsedTags.any(
           (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
@@ -588,7 +589,7 @@ class MemoryStore {
       );
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(entry.tags);
-    if (!_sameStrings(entry.tags, normalizedTags) ||
+    if (!orderedListsEqual(entry.tags, normalizedTags) ||
         entry.tags.length > UserMemoryEntry.maxTags ||
         entry.tags.any(
           (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
@@ -753,14 +754,6 @@ class MemoryStore {
       total += utf8.encode(value).length;
     }
     return total;
-  }
-
-  bool _sameStrings(List<String> left, List<String> right) {
-    if (left.length != right.length) return false;
-    for (var index = 0; index < left.length; index++) {
-      if (left[index] != right[index]) return false;
-    }
-    return true;
   }
 }
 

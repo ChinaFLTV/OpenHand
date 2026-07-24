@@ -19,11 +19,11 @@
 - `data/harness_session_store.dart` — sqflite + 文件系统
 - `service/harness_{orchestrator, api_phase_runner, cli_catalog, prompt_builder}.dart`
 - `widgets/harness_engineering_dialog.dart`、`widgets/harness_cli_{install,login}_dialog.dart`
-- `widgets/harness_session_dashboard.dart` 与 13 个 `*.part.dart` 共生（同目录、part of 同文件名）
+- `widgets/harness_session_dashboard.dart` 与配套 `*.part.dart` 共生
 - `widgets/harness_pending_replay_badge.dart` — 列表项 badge widget
 - `model/` — phase / role / session config / record 等领域模型
 
 ## 不变量
-- 13 个 `*.part.dart` 必须与 `harness_session_dashboard.dart` 同目录
+- `*.part.dart` 必须与 `harness_session_dashboard.dart` 同目录并保持 `part of` 一致
 - orchestrator 为单例式状态机，不要多实例化
 - session record 改动必须通过 store 串行化

@@ -91,16 +91,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
     try {
-      // 并行读取三组独立数据，降低冷启动等待时间。
-      final results = await Future.wait<Object>([
+      final (calls, stats, history) = await (
         WebFetchTelemetryStore.instance.recentCalls(),
         WebFetchTelemetryStore.instance.engineStats(),
         WebFetchTelemetryStore.instance.engineHistory(),
-      ]);
-      final calls = results[0] as List<WebFetchCallLog>;
-      final stats = results[1] as Map<AiWebFetchEngineKind, WebFetchEngineStat>;
-      final history =
-          results[2] as Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>;
+      ).wait;
       if (!mounted) return;
       setState(() {
         _recentCalls = calls;
@@ -275,6 +270,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await _exportToolTelemetry<WebFetchCallLog>(
         context: context,
+        logTag: 'Web 抓取设置',
         fileStem: 'webfetch',
         asCsv: asCsv,
         loadCalls: () => WebFetchTelemetryStore.instance.recentCalls(
@@ -282,13 +278,6 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
         encodeJson: _callsToJson,
         encodeCsv: _callsToCsv,
-      );
-    } catch (e, st) {
-      silentLog('Web 抓取设置', '导出遥测数据', e, st);
-      if (!mounted) return;
-      showOpenHandErrorSnack(
-        context,
-        openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);

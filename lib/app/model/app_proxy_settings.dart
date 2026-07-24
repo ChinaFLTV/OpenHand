@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/collection_equality.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 enum AppProxyMode { disabled, automatic, manual }
@@ -233,8 +234,7 @@ class AppProxySettings {
         other.password == password &&
         other.protocols.length == protocols.length &&
         other.protocols.containsAll(protocols) &&
-        other.exceptions.length == exceptions.length &&
-        _listEquals(other.exceptions, exceptions) &&
+        orderedListsEqual(other.exceptions, exceptions) &&
         other.testEndpoint == testEndpoint;
   }
 
@@ -250,15 +250,6 @@ class AppProxySettings {
     Object.hashAll(exceptions),
     testEndpoint,
   );
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
 }
 
 String _credentialFromValue(Object? value) {

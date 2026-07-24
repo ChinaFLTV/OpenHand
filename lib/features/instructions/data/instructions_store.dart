@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/collection_equality.dart';
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {
@@ -181,7 +182,7 @@ class InstructionsStore {
       maxItemLength: maxItemLength,
       dedupeCaseInsensitive: dedupeCaseInsensitive,
     );
-    if (!_sameStrings(decoded.cast<String>(), normalized)) {
+    if (!orderedListsEqual(decoded.cast<String>(), normalized)) {
       throw const FormatException('Instruction list field is not canonical.');
     }
     return normalized;
@@ -200,13 +201,5 @@ class InstructionsStore {
       throw FormatException('Instruction field $key is invalid.');
     }
     return parsed;
-  }
-
-  bool _sameStrings(List<String> source, List<String> normalized) {
-    if (source.length != normalized.length) return false;
-    for (var index = 0; index < source.length; index++) {
-      if (source[index] != normalized[index]) return false;
-    }
-    return true;
   }
 }

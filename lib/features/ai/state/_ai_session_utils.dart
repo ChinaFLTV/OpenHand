@@ -42,18 +42,6 @@ bool _environmentEquals(AiSessionEnvironment left, AiSessionEnvironment right) {
       left.compressionThresholdChars == right.compressionThresholdChars;
 }
 
-bool _stringListsEqual(List<String> left, List<String> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
 String _toolCallLimitWarningMessage({
   required AiSessionRuntimeContext runtimeContext,
   required int toolCallCount,

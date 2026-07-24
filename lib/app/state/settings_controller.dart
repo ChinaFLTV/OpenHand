@@ -1861,7 +1861,7 @@ class SettingsController extends ChangeNotifier {
         ..._recentModelSelections,
       ];
       final sanitized = _sanitizeRecentModelSelections(next, _aiModels);
-      if (_sameRecentSelectionList(sanitized, _recentModelSelections)) {
+      if (listEquals(sanitized, _recentModelSelections)) {
         return _MutationDisposition.successNoChange;
       }
       _recentModelSelections = sanitized;
@@ -1903,7 +1903,7 @@ class SettingsController extends ChangeNotifier {
     }
     return _commitMutation(() {
       final currentKeyIds = _shortcutBindings[action] ?? const <int>[];
-      if (_sameIntList(currentKeyIds, normalizedKeyIds)) {
+      if (listEquals(currentKeyIds, normalizedKeyIds)) {
         return _MutationDisposition.successNoChange;
       }
       _shortcutBindings = <OpenHandShortcutAction, List<int>>{
@@ -1931,7 +1931,7 @@ class SettingsController extends ChangeNotifier {
     }
     return _commitMutation(() {
       final currentKeyIds = _editorShortcutBindings[action] ?? const <int>[];
-      if (_sameIntList(currentKeyIds, normalizedKeyIds)) {
+      if (listEquals(currentKeyIds, normalizedKeyIds)) {
         return _MutationDisposition.successNoChange;
       }
       _editorShortcutBindings = <EditorShortcutAction, List<int>>{
@@ -2797,21 +2797,6 @@ class SettingsController extends ChangeNotifier {
     }
     return result;
   }
-
-  bool _sameRecentSelectionList(
-    List<RecentModelSelection> left,
-    List<RecentModelSelection> right,
-  ) {
-    if (left.length != right.length) {
-      return false;
-    }
-    for (var i = 0; i < left.length; i++) {
-      if (left[i] != right[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
 }
 
 Map<String, AiLspLanguageSettings> _cloneEditorLspSettingsMap(
@@ -2838,16 +2823,4 @@ Map<EditorShortcutAction, List<int>> _cloneEditorShortcutBindings(
     for (final entry in bindings.entries)
       entry.key: List<int>.from(entry.value, growable: false),
   };
-}
-
-bool _sameIntList(List<int> left, List<int> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) {
-      return false;
-    }
-  }
-  return true;
 }

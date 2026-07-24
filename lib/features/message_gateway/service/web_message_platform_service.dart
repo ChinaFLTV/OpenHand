@@ -27,6 +27,7 @@ import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/collection_equality.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1818,7 +1819,7 @@ class WebMessagePlatformService {
         if (addrs.length >= _maxLocalAddresses) break;
       }
       final next = addrs.toList(growable: false)..sort();
-      final changed = !_sameStringList(_localAddressesCache, next);
+      final changed = !orderedListsEqual(_localAddressesCache, next);
       if (changed) _localAddressesCache = List<String>.unmodifiable(next);
       _localAddressesAt = DateTime.now().toUtc();
       return changed;
@@ -9287,14 +9288,6 @@ class WebMessagePlatformService {
         normalized == '0.0.0.0' ||
         normalized == '::' ||
         normalized == '::0';
-  }
-
-  bool _sameStringList(List<String> left, List<String> right) {
-    if (left.length != right.length) return false;
-    for (var i = 0; i < left.length; i++) {
-      if (left[i] != right[i]) return false;
-    }
-    return true;
   }
 
   InternetAddress _bindAddress(String host) {

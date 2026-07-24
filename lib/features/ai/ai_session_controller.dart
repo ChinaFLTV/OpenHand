@@ -12055,7 +12055,7 @@ $tail''';
     final previousInstructionPaths = _readStringList(
       previousPromptMetadata['workspace_instruction_paths'],
     );
-    if (!_stringListsEqual(currentInstructionPaths, previousInstructionPaths)) {
+    if (!listEquals(currentInstructionPaths, previousInstructionPaths)) {
       for (final document in runtimeContext.workspaceInstructionDocuments) {
         await _safeRunHook(
           eventName: 'InstructionsLoaded',

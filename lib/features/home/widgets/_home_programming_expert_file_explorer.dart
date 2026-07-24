@@ -14522,21 +14522,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     return sorted.first;
   }
 
-  bool _sameDiagnosticsList(
-    List<_EditorDiagnostic> left,
-    List<_EditorDiagnostic> right,
-  ) {
-    if (left.length != right.length) {
-      return false;
-    }
-    for (var index = 0; index < left.length; index++) {
-      if (!identical(left[index], right[index])) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   Rect? _diagnosticAnchorRectForRange({
     required _EditorDiagnosticResolvedRange range,
     required int hoveredOffset,
@@ -14778,7 +14763,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         _removeDiagnosticTooltip();
         return;
       }
-      final diagnosticsUnchanged = _sameDiagnosticsList(
+      final diagnosticsUnchanged = listEquals(
         _hoveredTextDiagnostics,
         tooltipState.diagnostics,
       );

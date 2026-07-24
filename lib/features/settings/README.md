@@ -14,7 +14,7 @@
 - barrel: `features/settings/index.dart`
 
 ## 文件组织
-- `widgets/settings_view.dart` — 主页面，组合 15 个 `_settings_*.dart` 片段
+- `widgets/settings_view.dart` — 主页面，组合 `_settings_*.dart` 片段
 - `widgets/_settings_*.dart` — 内部 widget 片段（不对外暴露）
 - `widgets/prompt_cache_breakpoint_bar.dart` — prompt 缓存断点 widget
 - `widgets/thread_session_management_dialog.dart` — 会话管理对话框
