@@ -643,6 +643,9 @@ class _AndroidReverseDashboardDialogState
   bool _loadingLogcat = false;
   bool _loadingPackages = false;
   bool _loadingProcesses = false;
+  bool _packagesRefreshQueued = false;
+  bool _processesRefreshQueued = false;
+  bool _deviceDetailsRefreshQueued = false;
   bool _loadingToolchain = false;
   bool _loadingPackageAnalysis = false;
   bool _capturingPackageReport = false;
@@ -668,6 +671,7 @@ class _AndroidReverseDashboardDialogState
   bool _logcatAutoRefresh = false;
   bool _logcatStickToBottom = true;
   bool _didKickInitialRefresh = false;
+  bool _controllerUpdateScheduled = false;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
   AdbCommandResult? _lastShellResult;
@@ -760,7 +764,12 @@ class _AndroidReverseDashboardDialogState
   }
 
   void _onControllerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || _controllerUpdateScheduled) return;
+    _controllerUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerUpdateScheduled = false;
+      if (mounted) setState(() {});
+    });
   }
 
   void _onFridaScriptChanged() {
@@ -813,6 +822,13 @@ class _AndroidReverseDashboardDialogState
     return _ctrl.connectedDevice?.serial;
   }
 
+  void _setTargetDevice(String? serial) {
+    final normalized = serial?.trim();
+    final next = normalized == null || normalized.isEmpty ? null : normalized;
+    if (_selectedDeviceSerial == next) return;
+    setState(() => _selectedDeviceSerial = next);
+  }
+
   void _refreshAll() {
     unawaited(_doRefreshDevices());
     unawaited(_doRefreshPackages());
@@ -838,27 +854,39 @@ class _AndroidReverseDashboardDialogState
     final selected = _selectedDeviceSerial;
     if (selected != null &&
         !_ctrl.allDevices.any((device) => device.serial == selected)) {
-      setState(() => _selectedDeviceSerial = null);
+      _setTargetDevice(null);
     }
   }
 
   Future<void> _doRefreshPackages() async {
-    if (_loadingPackages) return;
+    if (_loadingPackages) {
+      _packagesRefreshQueued = true;
+      return;
+    }
+    _packagesRefreshQueued = false;
+    final serial = _targetSerial;
     setState(() => _loadingPackages = true);
     try {
-      final pkgs = await _ctrl.listPackages(serial: _targetSerial);
-      if (mounted) {
-        setState(() {
-          _packages = pkgs;
-          if (_selectedPackageName != null &&
-              !pkgs.contains(_selectedPackageName)) {
-            _selectedPackageName = null;
-            _packageAnalysisOutput = null;
-          }
-        });
+      final pkgs = await _ctrl.listPackages(serial: serial);
+      if (!mounted || _packagesRefreshQueued || serial != _targetSerial) {
+        return;
       }
+      setState(() {
+        _packages = pkgs;
+        if (_selectedPackageName != null &&
+            !pkgs.contains(_selectedPackageName)) {
+          _selectedPackageName = null;
+          _packageAnalysisOutput = null;
+        }
+      });
     } finally {
-      if (mounted) setState(() => _loadingPackages = false);
+      if (mounted) {
+        final shouldRefreshAgain =
+            _packagesRefreshQueued || serial != _targetSerial;
+        _packagesRefreshQueued = false;
+        setState(() => _loadingPackages = false);
+        if (shouldRefreshAgain) unawaited(_doRefreshPackages());
+      }
     }
   }
 
@@ -1037,7 +1065,12 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _doRefreshProcesses() async {
-    if (_loadingProcesses) return;
+    if (_loadingProcesses) {
+      _processesRefreshQueued = true;
+      return;
+    }
+    _processesRefreshQueued = false;
+    final serial = _targetSerial;
     setState(() => _loadingProcesses = true);
     try {
       final filter = _processFilter.text.trim().isEmpty
@@ -1045,16 +1078,29 @@ class _AndroidReverseDashboardDialogState
           : _processFilter.text.trim();
       final procs = await _ctrl.refreshProcesses(
         filterName: filter,
-        serial: _targetSerial,
+        serial: serial,
       );
-      if (mounted) setState(() => _processes = procs);
+      if (!mounted || _processesRefreshQueued || serial != _targetSerial) {
+        return;
+      }
+      setState(() => _processes = procs);
     } finally {
-      if (mounted) setState(() => _loadingProcesses = false);
+      if (mounted) {
+        final shouldRefreshAgain =
+            _processesRefreshQueued || serial != _targetSerial;
+        _processesRefreshQueued = false;
+        setState(() => _loadingProcesses = false);
+        if (shouldRefreshAgain) unawaited(_doRefreshProcesses());
+      }
     }
   }
 
   Future<void> _refreshDeviceDetails() async {
-    if (_loadingDeviceDetails) return;
+    if (_loadingDeviceDetails) {
+      _deviceDetailsRefreshQueued = true;
+      return;
+    }
+    _deviceDetailsRefreshQueued = false;
     final serial = _targetSerial;
     if (serial == null || serial.isEmpty) {
       if (mounted) {
@@ -1081,7 +1127,9 @@ class _AndroidReverseDashboardDialogState
       final forwards = await forwardsFuture;
       final reverses = await reversesFuture;
       final snapshot = await snapshotFuture;
-      if (!mounted) return;
+      if (!mounted || _deviceDetailsRefreshQueued || serial != _targetSerial) {
+        return;
+      }
       setState(() {
         _deviceProps = props;
         _forwardRows = splitTrimmedNonEmpty(forwards ?? '', separator: '\n');
@@ -1089,7 +1137,9 @@ class _AndroidReverseDashboardDialogState
         _deviceSnapshotOutput = _formatDeviceSnapshot(snapshot);
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _deviceDetailsRefreshQueued || serial != _targetSerial) {
+        return;
+      }
       setState(() {
         _deviceSnapshotOutput = openHandLocalizedText(
           context,
@@ -1102,7 +1152,13 @@ class _AndroidReverseDashboardDialogState
         );
       });
     } finally {
-      if (mounted) setState(() => _loadingDeviceDetails = false);
+      if (mounted) {
+        final shouldRefreshAgain =
+            _deviceDetailsRefreshQueued || serial != _targetSerial;
+        _deviceDetailsRefreshQueued = false;
+        setState(() => _loadingDeviceDetails = false);
+        if (shouldRefreshAgain) unawaited(_refreshDeviceDetails());
+      }
     }
   }
 
@@ -3512,7 +3568,7 @@ fi
                 side: BorderSide.none,
               ),
               onTap: () {
-                setState(() => _selectedDeviceSerial = d.serial);
+                _setTargetDevice(d.serial);
                 unawaited(_refreshDeviceDetails());
                 unawaited(_doRefreshPackages());
                 unawaited(_doRefreshProcesses());
@@ -4852,33 +4908,33 @@ fi
     if (!mounted || selected == null) return;
     switch (selected) {
       case _DeviceMenuAction.useForPanel:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _refreshDeviceDetails();
         await _doRefreshPackages();
         await _doRefreshProcesses();
       case _DeviceMenuAction.copySerial:
         await _copyText(device.serial);
       case _DeviceMenuAction.refreshProps:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _refreshDeviceDetails();
       case _DeviceMenuAction.listForwards:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _refreshDeviceDetails();
       case _DeviceMenuAction.tcpip5555:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _runDeviceAction(() => _ctrl.tcpip(5555, serial: device.serial));
       case _DeviceMenuAction.deviceReport:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _runDeviceAction(
           () => _ctrl.captureDeviceReportToArtifacts(serial: device.serial),
         );
       case _DeviceMenuAction.screenshot:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _runDeviceAction(
           () => _ctrl.captureScreenshotToArtifacts(serial: device.serial),
         );
       case _DeviceMenuAction.screenRecord:
-        setState(() => _selectedDeviceSerial = device.serial);
+        _setTargetDevice(device.serial);
         await _runDeviceAction(
           () => _ctrl.screenRecordToArtifacts(serial: device.serial),
         );
