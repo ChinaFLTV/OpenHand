@@ -748,7 +748,10 @@ class WebFetchScraplingBridge {
         started = true;
         unawaited(run());
       },
-      onCancel: () => cancelled = true,
+      onCancel: () {
+        cancelled = true;
+        return _stopRuntimeCommandProcess();
+      },
     );
     return controller.stream;
   }

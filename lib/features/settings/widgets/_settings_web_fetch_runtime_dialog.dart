@@ -24,6 +24,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
+  StreamSubscription<WebFetchScraplingRuntimeEvent>? _runtimeSubscription;
 
   int _retainedLogCharacters = 0;
   bool _running = true;
@@ -39,6 +40,8 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
 
   @override
   void dispose() {
+    unawaited(_runtimeSubscription?.cancel());
+    _runtimeSubscription = null;
     _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
@@ -100,7 +103,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
     );
   }
 
-  Future<void> _start() async {
+  void _start() {
     if (!mounted) return;
     final runtime = context.read<AiSessionController>().toolRuntimeService;
     final l10n = AppLocalizations.of(context)!;
@@ -112,61 +115,69 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
       level: _ScraplingRuntimeLogLevel.command,
     );
     _append('');
-    try {
-      final stream = widget.action == _ScraplingRuntimeAction.install
-          ? runtime.installWebFetchScraplingRuntimeStreaming(
-              settings: widget.settings,
-            )
-          : runtime.uninstallWebFetchScraplingRuntimeStreaming(
-              settings: widget.settings,
-            );
-      await for (final event in stream) {
-        switch (event.type) {
-          case WebFetchScraplingRuntimeEventType.command:
-            _append(event.line, level: _ScraplingRuntimeLogLevel.command);
-            break;
-          case WebFetchScraplingRuntimeEventType.stdout:
-            _append(event.line, level: _inferLevel(event.line));
-            break;
-          case WebFetchScraplingRuntimeEventType.stderr:
-            _append(event.line, level: _inferLevel(event.line, stderr: true));
-            break;
-          case WebFetchScraplingRuntimeEventType.status:
-            _append(event.line, level: _ScraplingRuntimeLogLevel.status);
-            break;
-          case WebFetchScraplingRuntimeEventType.success:
-            _append(event.line, level: _ScraplingRuntimeLogLevel.success);
-            break;
-          case WebFetchScraplingRuntimeEventType.warning:
-            _append(event.line, level: _ScraplingRuntimeLogLevel.warning);
-            break;
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _running = false;
-        _success = true;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _running = false;
-        _success = false;
-        _errorMessage = '$e';
-      });
-      _append('✗ $e', level: _ScraplingRuntimeLogLevel.error);
-    }
-    if (!_running) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _pulsedOutcome) return;
-        _pulsedOutcome = true;
-        if (_success) {
-          _successPulse.value = _successPulse.value + 1;
-        } else {
-          _errorPulse.value = _errorPulse.value + 1;
-        }
-      });
-    }
+    final stream = widget.action == _ScraplingRuntimeAction.install
+        ? runtime.installWebFetchScraplingRuntimeStreaming(
+            settings: widget.settings,
+          )
+        : runtime.uninstallWebFetchScraplingRuntimeStreaming(
+            settings: widget.settings,
+          );
+    _runtimeSubscription = stream.listen(
+      _handleRuntimeEvent,
+      onError: _handleRuntimeError,
+      onDone: _handleRuntimeDone,
+      cancelOnError: true,
+    );
+  }
+
+  void _handleRuntimeEvent(WebFetchScraplingRuntimeEvent event) {
+    final level = switch (event.type) {
+      WebFetchScraplingRuntimeEventType.command =>
+        _ScraplingRuntimeLogLevel.command,
+      WebFetchScraplingRuntimeEventType.stdout => _inferLevel(event.line),
+      WebFetchScraplingRuntimeEventType.stderr => _inferLevel(
+        event.line,
+        stderr: true,
+      ),
+      WebFetchScraplingRuntimeEventType.status =>
+        _ScraplingRuntimeLogLevel.status,
+      WebFetchScraplingRuntimeEventType.success =>
+        _ScraplingRuntimeLogLevel.success,
+      WebFetchScraplingRuntimeEventType.warning =>
+        _ScraplingRuntimeLogLevel.warning,
+    };
+    _append(event.line, level: level);
+  }
+
+  void _handleRuntimeError(Object error, StackTrace stack) {
+    if (!mounted) return;
+    _runtimeSubscription = null;
+    setState(() {
+      _running = false;
+      _success = false;
+      _errorMessage = '$error';
+    });
+    _append('✗ $error', level: _ScraplingRuntimeLogLevel.error);
+    _scheduleOutcomePulse();
+  }
+
+  void _handleRuntimeDone() {
+    if (!mounted || !_running) return;
+    _runtimeSubscription = null;
+    setState(() {
+      _running = false;
+      _success = true;
+    });
+    _scheduleOutcomePulse();
+  }
+
+  void _scheduleOutcomePulse() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pulsedOutcome) return;
+      _pulsedOutcome = true;
+      final signal = _success ? _successPulse : _errorPulse;
+      signal.value += 1;
+    });
   }
 
   @override
