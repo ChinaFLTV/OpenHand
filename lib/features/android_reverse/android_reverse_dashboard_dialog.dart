@@ -672,6 +672,7 @@ class _AndroidReverseDashboardDialogState
   bool _logcatStickToBottom = true;
   bool _didKickInitialRefresh = false;
   bool _controllerUpdateScheduled = false;
+  int _deviceContextGeneration = 0;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
   AdbCommandResult? _lastShellResult;
@@ -823,15 +824,25 @@ class _AndroidReverseDashboardDialogState
     return _ctrl.connectedDevice?.serial;
   }
 
-  void _setTargetDevice(String? serial) {
+  void _setTargetDevice(
+    String? serial, {
+    bool preserveDeviceActionOutput = false,
+  }) {
     final normalized = serial?.trim();
     final next = normalized == null || normalized.isEmpty ? null : normalized;
     if (_selectedDeviceSerial == next) return;
+    _deviceContextGeneration += 1;
     _pendingPackageAnalysis = null;
     setState(() {
       _selectedDeviceSerial = next;
       _selectedPackageName = null;
       _packageAnalysisOutput = null;
+      _lastShellResult = null;
+      _shellOutputCtrl.clear();
+      if (!preserveDeviceActionOutput) {
+        _lastDeviceActionResult = null;
+        _lastDeviceActionOutput = null;
+      }
     });
   }
 
@@ -860,7 +871,7 @@ class _AndroidReverseDashboardDialogState
     final selected = _selectedDeviceSerial;
     if (selected != null &&
         !_ctrl.allDevices.any((device) => device.serial == selected)) {
-      _setTargetDevice(null);
+      _setTargetDevice(null, preserveDeviceActionOutput: true);
     }
   }
 
@@ -2771,6 +2782,7 @@ fi
       return;
     }
     final serial = _targetSerial;
+    final contextGeneration = _deviceContextGeneration;
     setState(() {
       _runningShell = true;
       _lastShellResult = null;
@@ -2786,14 +2798,22 @@ fi
         serial: serial,
         timeout: _kInteractiveShellTimeout,
       );
-      if (!mounted) return;
+      if (!mounted ||
+          contextGeneration != _deviceContextGeneration ||
+          serial != _targetSerial) {
+        return;
+      }
       final output = _formatAdbResult(result);
       setState(() {
         _lastShellResult = result;
         _shellOutputCtrl.text = output;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted ||
+          contextGeneration != _deviceContextGeneration ||
+          serial != _targetSerial) {
+        return;
+      }
       setState(() {
         _shellOutputCtrl.text =
             '${openHandLocalizedText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
@@ -2883,6 +2903,7 @@ fi
     Future<AdbCommandResult> Function() action,
   ) async {
     if (_runningDeviceAction) return;
+    final contextGeneration = _deviceContextGeneration;
     setState(() {
       _runningDeviceAction = true;
       _lastDeviceActionResult = null;
@@ -2899,20 +2920,22 @@ fi
     try {
       final result = await action();
       if (!mounted) return;
-      setState(() {
-        _lastDeviceActionResult = result;
-        _lastDeviceActionOutput = _formatAdbResult(result);
-        _runningDeviceAction = false;
-      });
+      if (contextGeneration == _deviceContextGeneration) {
+        setState(() {
+          _lastDeviceActionResult = result;
+          _lastDeviceActionOutput = _formatAdbResult(result);
+        });
+      }
       unawaited(_refreshDeviceStateAfterAction());
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || contextGeneration != _deviceContextGeneration) return;
       setState(() {
         _lastDeviceActionResult = null;
         _lastDeviceActionOutput =
             '${openHandLocalizedText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
-        _runningDeviceAction = false;
       });
+    } finally {
+      if (mounted) setState(() => _runningDeviceAction = false);
     }
   }
 
@@ -4979,12 +5002,16 @@ fi
           () => _ctrl.screenRecordToArtifacts(serial: device.serial),
         );
       case _DeviceMenuAction.root:
+        _setTargetDevice(device.serial);
         await _runDeviceAction(() => _ctrl.root(serial: device.serial));
       case _DeviceMenuAction.remount:
+        _setTargetDevice(device.serial);
         await _runDeviceAction(() => _ctrl.remount(serial: device.serial));
       case _DeviceMenuAction.reboot:
+        _setTargetDevice(device.serial);
         await _runDeviceAction(() => _ctrl.reboot(serial: device.serial));
       case _DeviceMenuAction.disconnect:
+        _setTargetDevice(device.serial);
         await _runDeviceAction(() => _ctrl.disconnect(device.serial));
     }
   }
