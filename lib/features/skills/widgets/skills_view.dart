@@ -20,7 +20,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart'
     show
         AiResourceUsageKind,
-        resourceUsageStatisticsButton,
+        resourceUsageStatisticsLabel,
         showResourceUsageStatisticsDialog;
 import '../model/local_skill.dart';
 import '../skills_controller.dart';
@@ -151,11 +151,8 @@ class _SkillsViewState extends State<SkillsView> {
     final skillsController = context.watch<SkillsController>();
     final filteredSkills = _filterSkills(skillsController.skills);
 
-    final actions = Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      alignment: WrapAlignment.end,
-      children: [
+    final actions = FeaturePageToolbar(
+      primaryActions: [
         ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 320, maxWidth: 340),
           child: SearchBar(
@@ -176,8 +173,11 @@ class _SkillsViewState extends State<SkillsView> {
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.skillsRefresh),
         ),
-        resourceUsageStatisticsButton(
-          context,
+      ],
+      secondaryActions: [
+        FeaturePageToolbarIconButton(
+          tooltip: resourceUsageStatisticsLabel(context),
+          icon: Icons.insights_rounded,
           onPressed: () => showResourceUsageStatisticsDialog(
             context,
             kind: AiResourceUsageKind.skill,
@@ -189,35 +189,33 @@ class _SkillsViewState extends State<SkillsView> {
             },
           ),
         ),
-        FilledButton.tonalIcon(
-          onPressed: () => _showSkillMarket(context),
-          icon: const Icon(Icons.storefront_rounded),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '技能市场',
-              zhHant: '技能市場',
-              en: 'Skill Market',
-              fr: 'Marché des compétences',
-              de: 'Skill-Markt',
-              ja: 'スキルマーケット',
-            ),
+        FeaturePageToolbarIconButton(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '技能市场',
+            zhHant: '技能市場',
+            en: 'Skill Market',
+            fr: 'Marché des compétences',
+            de: 'Skill-Markt',
+            ja: 'スキルマーケット',
           ),
+          icon: Icons.storefront_rounded,
+          onPressed: () => _showSkillMarket(context),
         ),
-        OutlinedButton.icon(
+        FeaturePageToolbarIconButton(
+          tooltip: l10n.skillsOpenDirectory,
+          icon: Icons.folder_open_rounded,
           onPressed: () => _openSkillsDirectory(context),
-          icon: const Icon(Icons.folder_open_rounded),
-          label: Text(l10n.skillsOpenDirectory),
         ),
-        OutlinedButton.icon(
+        FeaturePageToolbarIconButton(
+          tooltip: l10n.skillsImport,
+          icon: Icons.drive_folder_upload_outlined,
           onPressed: () => _importSkillDirectory(context),
-          icon: const Icon(Icons.drive_folder_upload_outlined),
-          label: Text(l10n.skillsImport),
         ),
-        FilledButton.icon(
+        FeaturePageToolbarIconButton(
+          tooltip: l10n.skillsNewSkill,
+          icon: Icons.add_rounded,
           onPressed: () => _showCreateSkillDialog(context),
-          icon: const Icon(Icons.add_rounded),
-          label: Text(l10n.skillsNewSkill),
         ),
       ],
     );

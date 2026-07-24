@@ -36,17 +36,19 @@ Widget resourceUsageStatisticsButton(
   return OutlinedButton.icon(
     onPressed: onPressed,
     icon: const Icon(Icons.insights_rounded),
-    label: Text(
-      openHandLocalizedText(
-        context,
-        zh: '使用统计',
-        zhHant: '使用統計',
-        en: 'Usage',
-        fr: 'Utilisation',
-        de: 'Nutzung',
-        ja: '使用状況',
-      ),
-    ),
+    label: Text(resourceUsageStatisticsLabel(context)),
+  );
+}
+
+String resourceUsageStatisticsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '使用统计',
+    zhHant: '使用統計',
+    en: 'Usage',
+    fr: 'Utilisation',
+    de: 'Nutzung',
+    ja: '使用状況',
   );
 }
 
