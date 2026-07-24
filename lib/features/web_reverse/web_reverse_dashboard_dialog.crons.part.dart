@@ -11,25 +11,19 @@ class _CronsBody extends StatefulWidget {
   State<_CronsBody> createState() => _CronsBodyState();
 }
 
-class _CronsBodyState extends State<_CronsBody> {
-  String? _selectedId;
-  final TextEditingController _nameCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
+class _CronsBodyState extends State<_CronsBody>
+    with _DashboardScriptEditorLifecycle<_CronsBody> {
   final TextEditingController _intervalCtrl = TextEditingController(text: '60');
-  final FocusNode _codeFocus = FocusNode();
-  bool _dirty = false;
   bool _runningNow = false;
   String? _lastResultPreview;
   Timer? _tickTimer;
-  bool _controllerUpdateScheduled = false;
+
+  @override
+  Listenable get _dashboardScriptController => widget.controller;
 
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onControllerChanged);
-    _syncSelectionFromController();
-    _nameCtrl.addListener(_markDirty);
-    _codeCtrl.addListener(_markDirty);
     _intervalCtrl.addListener(_markDirty);
     // 每秒刷一次「上次执行 X 秒前」标签。
     _tickTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
@@ -40,75 +34,35 @@ class _CronsBodyState extends State<_CronsBody> {
   @override
   void dispose() {
     _tickTimer?.cancel();
-    widget.controller.removeListener(_onControllerChanged);
-    _nameCtrl.dispose();
-    _codeCtrl.dispose();
     _intervalCtrl.dispose();
-    _codeFocus.dispose();
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    if (!mounted || _controllerUpdateScheduled) return;
-    _controllerUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controllerUpdateScheduled = false;
-      if (!mounted) return;
-      _syncSelectionFromController();
-      setState(() {});
-    });
-  }
-
+  @override
   void _syncSelectionFromController() {
-    final list = widget.controller.crons;
-    if (list.isEmpty) {
-      _selectedId = null;
-      if (_nameCtrl.text.isNotEmpty || _codeCtrl.text.isNotEmpty) {
-        _nameCtrl.text = '';
-        _codeCtrl.text = '';
-        _intervalCtrl.text = '60';
-      }
-      _dirty = false;
-      return;
-    }
-    final found = list.firstWhere(
-      (e) => e.id == _selectedId,
-      orElse: () => list.first,
+    _syncDashboardScriptSelection(
+      items: widget.controller.crons,
+      itemId: (cron) => cron.id,
+      itemName: (cron) => cron.name,
+      itemCode: (cron) => cron.code,
+      syncAdditionalFields: (cron) {
+        _intervalCtrl.text = cron.intervalSeconds.toString();
+        _lastResultPreview = null;
+      },
+      clearAdditionalFields: () => _intervalCtrl.text = '60',
     );
-    if (_selectedId != found.id) {
-      _selectedId = found.id;
-      _nameCtrl.text = found.name;
-      _codeCtrl.text = found.code;
-      _intervalCtrl.text = found.intervalSeconds.toString();
-      _dirty = false;
-      _lastResultPreview = null;
-    }
   }
 
+  @override
   void _markDirty() {
-    final id = _selectedId;
-    if (id == null) {
-      _dirty = _nameCtrl.text.isNotEmpty || _codeCtrl.text.isNotEmpty;
-    } else {
-      final cur = widget.controller.crons.firstWhere(
-        (e) => e.id == id,
-        orElse: () => const WebReverseCron(
-          id: '',
-          name: '',
-          code: '',
-          intervalSeconds: 0,
-          enabled: false,
-          updatedAt: null,
-        ),
-      );
-      final iv =
-          optionalIntFromValue(_intervalCtrl.text) ?? cur.intervalSeconds;
-      _dirty =
-          cur.name != _nameCtrl.text ||
-          cur.code != _codeCtrl.text ||
-          cur.intervalSeconds != iv;
-    }
-    if (mounted) setState(() {});
+    _updateDashboardScriptDirty(
+      items: widget.controller.crons,
+      itemId: (cron) => cron.id,
+      itemName: (cron) => cron.name,
+      itemCode: (cron) => cron.code,
+      additionalFieldsMatch: (cron) =>
+          cron.intervalSeconds == optionalIntFromValue(_intervalCtrl.text),
+    );
   }
 
   void _select(WebReverseCron c) {
@@ -126,12 +80,15 @@ class _CronsBodyState extends State<_CronsBody> {
 
   void _doSelect(WebReverseCron c) {
     setState(() {
-      _selectedId = c.id;
-      _nameCtrl.text = c.name;
-      _codeCtrl.text = c.code;
-      _intervalCtrl.text = c.intervalSeconds.toString();
-      _dirty = false;
-      _lastResultPreview = null;
+      _setDashboardScriptSelection(
+        id: c.id,
+        name: c.name,
+        code: c.code,
+        syncAdditionalFields: () {
+          _intervalCtrl.text = c.intervalSeconds.toString();
+          _lastResultPreview = null;
+        },
+      );
     });
   }
 
@@ -159,12 +116,15 @@ class _CronsBodyState extends State<_CronsBody> {
     widget.onPersist();
     if (!mounted) return;
     setState(() {
-      _selectedId = c.id;
-      _nameCtrl.text = c.name;
-      _codeCtrl.text = c.code;
-      _intervalCtrl.text = c.intervalSeconds.toString();
-      _dirty = false;
-      _lastResultPreview = null;
+      _setDashboardScriptSelection(
+        id: c.id,
+        name: c.name,
+        code: c.code,
+        syncAdditionalFields: () {
+          _intervalCtrl.text = c.intervalSeconds.toString();
+          _lastResultPreview = null;
+        },
+      );
     });
   }
 
@@ -393,302 +353,184 @@ class _CronsBodyState extends State<_CronsBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = !_wrMotionEnabled(context);
     final list = [...widget.controller.crons]
       ..sort(
         (a, b) =>
             (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
       );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 300,
-            child: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 16,
-                          color: cs.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _text(
-                              zh: '定时任务',
-                              zhHant: '定時任務',
-                              en: 'Crons',
-                              fr: 'Tâches',
-                              de: 'Cronjobs',
-                              ja: '定期タスク',
-                            ),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: _text(
-                            zh: '新建任务',
-                            zhHant: '新增任務',
-                            en: 'New cron',
-                            fr: 'Nouvelle tâche',
-                            de: 'Neuer Cron',
-                            ja: '新規タスク',
-                          ),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          onPressed: _newCron,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: list.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                _text(
-                                  zh: '暂无任务。\n点 + 新建第一个。',
-                                  zhHant: '暫無任務。\n點 + 新增第一個。',
-                                  en: 'No crons yet.\nTap + to create one.',
-                                  fr: 'Aucune tâche.\nTouchez + pour en créer une.',
-                                  de: 'Noch keine Crons.\nMit + den ersten erstellen.',
-                                  ja: 'タスクはまだありません。\n+ で作成します。',
-                                ),
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            itemCount: list.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 2),
-                            itemBuilder: (_, i) {
-                              final c = list[i];
-                              final selected = c.id == _selectedId;
-                              return _DashboardToggleTile(
-                                title: c.name,
-                                subtitle: _cronStatusLabel(c),
-                                enabled: c.enabled,
-                                selected: selected,
-                                onTap: () => _select(c),
-                                onToggle: (v) => _toggle(c, v),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: AnimatedContainer(
-              duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-              curve: _kSwitchInCurve,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: _selectedId == null
-                  ? Center(
-                      child: Text(
-                        _text(
-                          zh: '从左侧选一个任务，或新建一个。',
-                          zhHant: '從左側選一個任務，或新增一個。',
-                          en: 'Pick a cron or create one.',
-                          fr: 'Choisissez une tâche ou créez-en une.',
-                          de: 'Cron auswählen oder erstellen.',
-                          ja: 'タスクを選択するか新規作成してください。',
-                        ),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
+    return _DashboardScriptWorkspace(
+      sidebarWidth: 300,
+      libraryIcon: Icons.schedule_rounded,
+      libraryTitle: _text(
+        zh: '定时任务',
+        zhHant: '定時任務',
+        en: 'Crons',
+        fr: 'Tâches',
+        de: 'Cronjobs',
+        ja: '定期タスク',
+      ),
+      createTooltip: _text(
+        zh: '新建任务',
+        zhHant: '新增任務',
+        en: 'New cron',
+        fr: 'Nouvelle tâche',
+        de: 'Neuer Cron',
+        ja: '新規タスク',
+      ),
+      onCreate: _newCron,
+      emptyLibraryLabel: _text(
+        zh: '暂无任务。\n点 + 新建第一个。',
+        zhHant: '暫無任務。\n點 + 新增第一個。',
+        en: 'No crons yet.\nTap + to create one.',
+        fr: 'Aucune tâche.\nTouchez + pour en créer une.',
+        de: 'Noch keine Crons.\nMit + den ersten erstellen.',
+        ja: 'タスクはまだありません。\n+ で作成します。',
+      ),
+      itemCount: list.length,
+      itemBuilder: (_, index) {
+        final cron = list[index];
+        return _DashboardToggleTile(
+          title: cron.name,
+          subtitle: _cronStatusLabel(cron),
+          enabled: cron.enabled,
+          selected: cron.id == _selectedId,
+          onTap: () => _select(cron),
+          onToggle: (value) => _toggle(cron, value),
+        );
+      },
+      emptyEditorLabel: _text(
+        zh: '从左侧选一个任务，或新建一个。',
+        zhHant: '從左側選一個任務，或新增一個。',
+        en: 'Pick a cron or create one.',
+        fr: 'Choisissez une tâche ou créez-en une.',
+        de: 'Cron auswählen oder erstellen.',
+        ja: 'タスクを選択するか新規作成してください。',
+      ),
+      editor: _selectedId == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: _DashboardScriptNameField(
+                        controller: _nameCtrl,
+                        label: _text(
+                          zh: '名称',
+                          zhHant: '名稱',
+                          en: 'Name',
+                          fr: 'Nom',
+                          de: 'Name',
+                          ja: '名前',
                         ),
                       ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                controller: _nameCtrl,
-                                maxLength: WebReverseSessionController
-                                    .maxSavedScriptNameChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideTextFieldCounter,
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  labelText: _text(
-                                    zh: '名称',
-                                    zhHant: '名稱',
-                                    en: 'Name',
-                                    fr: 'Nom',
-                                    de: 'Name',
-                                    ja: '名前',
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 110,
-                              child: TextField(
-                                controller: _intervalCtrl,
-                                keyboardType: TextInputType.number,
-                                maxLength: 5,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideTextFieldCounter,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  labelText: _text(
-                                    zh: '周期(秒)',
-                                    zhHant: '週期(秒)',
-                                    en: 'Every (s)',
-                                    fr: 'Toutes les (s)',
-                                    de: 'Alle (s)',
-                                    ja: '間隔(秒)',
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.icon(
-                              onPressed: _runningNow ? null : _runNow,
-                              icon: _runningNow
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 18,
-                                    ),
-                              label: Text(
-                                _text(
-                                  zh: '立即跑',
-                                  zhHant: '立即執行',
-                                  en: 'Run now',
-                                  fr: 'Exécuter',
-                                  de: 'Jetzt ausführen',
-                                  ja: '今すぐ実行',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            FilledButton.tonalIcon(
-                              onPressed: _dirty ? _save : null,
-                              icon: const Icon(Icons.save_rounded, size: 18),
-                              label: Text(
-                                _dirty
-                                    ? _text(
-                                        zh: '保存 (⌘S)',
-                                        zhHant: '儲存 (⌘S)',
-                                        en: 'Save (⌘S)',
-                                        fr: 'Enregistrer (⌘S)',
-                                        de: 'Speichern (⌘S)',
-                                        ja: '保存 (⌘S)',
-                                      )
-                                    : _text(
-                                        zh: '已保存',
-                                        zhHant: '已儲存',
-                                        en: 'Saved',
-                                        fr: 'Enregistré',
-                                        de: 'Gespeichert',
-                                        ja: '保存済み',
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            IconButton(
-                              tooltip: _text(
-                                zh: '删除',
-                                zhHant: '刪除',
-                                en: 'Delete',
-                                fr: 'Supprimer',
-                                de: 'Löschen',
-                                ja: '削除',
-                              ),
-                              icon: Icon(
-                                Icons.delete_outline_rounded,
-                                color: cs.error,
-                              ),
-                              onPressed: _delete,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: _DashboardScriptCodeEditor(
-                            controller: _codeCtrl,
-                            focusNode: _codeFocus,
-                            bindings: <ShortcutActivator, VoidCallback>{
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyS,
-                                meta: true,
-                              ): () {
-                                if (_dirty) _save();
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyS,
-                                control: true,
-                              ): () {
-                                if (_dirty) _save();
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyR,
-                                meta: true,
-                              ): () {
-                                if (!_runningNow) _runNow();
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyR,
-                                control: true,
-                              ): () {
-                                if (!_runningNow) _runNow();
-                              },
-                            },
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 110,
+                      child: TextField(
+                        controller: _intervalCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 5,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        buildCounter: _hideTextFieldCounter,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                          labelText: _text(
+                            zh: '周期(秒)',
+                            zhHant: '週期(秒)',
+                            en: 'Every (s)',
+                            fr: 'Toutes les (s)',
+                            de: 'Alle (s)',
+                            ja: '間隔(秒)',
                           ),
                         ),
-                        _DashboardScriptResultPreview(text: _lastResultPreview),
-                      ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _runningNow ? null : _runNow,
+                      icon: _runningNow
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: Text(
+                        _text(
+                          zh: '立即跑',
+                          zhHant: '立即執行',
+                          en: 'Run now',
+                          fr: 'Exécuter',
+                          de: 'Jetzt ausführen',
+                          ja: '今すぐ実行',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    FilledButton.tonalIcon(
+                      onPressed: _dirty ? _save : null,
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: Text(
+                        _dirty
+                            ? _text(
+                                zh: '保存 (⌘S)',
+                                zhHant: '儲存 (⌘S)',
+                                en: 'Save (⌘S)',
+                                fr: 'Enregistrer (⌘S)',
+                                de: 'Speichern (⌘S)',
+                                ja: '保存 (⌘S)',
+                              )
+                            : _text(
+                                zh: '已保存',
+                                zhHant: '已儲存',
+                                en: 'Saved',
+                                fr: 'Enregistré',
+                                de: 'Gespeichert',
+                                ja: '保存済み',
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: _text(
+                        zh: '删除',
+                        zhHant: '刪除',
+                        en: 'Delete',
+                        fr: 'Supprimer',
+                        de: 'Löschen',
+                        ja: '削除',
+                      ),
+                      icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+                      onPressed: _delete,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: _DashboardScriptCodeEditor(
+                    controller: _codeCtrl,
+                    focusNode: _codeFocus,
+                    bindings: _dashboardScriptEditorBindings(
+                      onSave: () {
+                        if (_dirty) _save();
+                      },
+                      onRun: () {
+                        if (!_runningNow) _runNow();
+                      },
+                    ),
+                  ),
+                ),
+                _DashboardScriptResultPreview(text: _lastResultPreview),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

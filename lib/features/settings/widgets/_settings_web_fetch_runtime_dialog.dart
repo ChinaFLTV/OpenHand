@@ -276,30 +276,12 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                 ],
                 const SizedBox(height: 10),
                 Expanded(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D1117),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                    ),
-                    child: OpenHandSafeScrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: _scrollGuard.handleNotification,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _entries.length,
-                          itemBuilder: (context, index) =>
-                              _ScraplingRuntimeLogLine(entry: _entries[index]),
-                        ),
-                      ),
-                    ),
+                  child: OpenHandConsoleLogView(
+                    controller: _scrollController,
+                    onNotification: _scrollGuard.handleNotification,
+                    itemCount: _entries.length,
+                    itemBuilder: (_, index) =>
+                        _ScraplingRuntimeLogLine(entry: _entries[index]),
                   ),
                 ),
               ],

@@ -2,16 +2,30 @@ import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
 
-/// Wraps a child with a subtle pointer-hover lift: on hover, the child
-/// translates upwards by [liftDistance] pixels and gains a slightly
-/// stronger shadow. Designed for list/grid cards where a faint
-/// "rises to meet the cursor" affordance is desired.
-///
-/// Honors the shared motion preference, including reduce motion and
-/// `TickerMode`: when motion is unavailable, the child renders directly.
-///
-/// On touch-only platforms `MouseRegion` simply never fires, so this
-/// wrapper is a no-op in that case — no extra cost on mobile.
+mixin OpenHandHoverState<W extends StatefulWidget> on State<W> {
+  bool _openHandHovered = false;
+  bool _openHandHoverUpdateScheduled = false;
+
+  bool get openHandHovered => _openHandHovered;
+
+  void setOpenHandHovered(bool value) {
+    if (_openHandHovered == value) return;
+    _openHandHovered = value;
+    if (_openHandHoverUpdateScheduled) return;
+    _openHandHoverUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openHandHoverUpdateScheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  void clearOpenHandHovered() {
+    _openHandHovered = false;
+  }
+}
+
+/// 为子组件提供轻微上浮的指针悬浮反馈，并遵循全局动效偏好。
+/// 动效不可用或仅支持触控时直接保持原位。
 class HoverLift extends StatefulWidget {
   const HoverLift({
     super.key,
@@ -23,7 +37,7 @@ class HoverLift extends StatefulWidget {
 
   final Widget child;
 
-  /// Vertical translation distance at the lifted peak (pixels).
+  /// 悬浮时向上移动的像素距离。
   final double liftDistance;
 
   final Duration duration;
@@ -33,9 +47,8 @@ class HoverLift extends StatefulWidget {
   State<HoverLift> createState() => _HoverLiftState();
 }
 
-class _HoverLiftState extends State<HoverLift> {
-  bool _hovered = false;
-
+class _HoverLiftState extends State<HoverLift>
+    with OpenHandHoverState<HoverLift> {
   double get _safeLiftDistance {
     return widget.liftDistance.isFinite && widget.liftDistance > 0
         ? widget.liftDistance
@@ -46,7 +59,7 @@ class _HoverLiftState extends State<HoverLift> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!openHandTickerMotionEnabled(context)) {
-      _hovered = false;
+      clearOpenHandHovered();
     }
   }
 
@@ -55,22 +68,10 @@ class _HoverLiftState extends State<HoverLift> {
     if (!openHandTickerMotionEnabled(context)) {
       return widget.child;
     }
-    final lift = _hovered ? -_safeLiftDistance : 0.0;
+    final lift = openHandHovered ? -_safeLiftDistance : 0.0;
     return MouseRegion(
-      onEnter: (_) {
-        if (_hovered) return;
-        _hovered = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hovered) return;
-        _hovered = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
+      onEnter: (_) => setOpenHandHovered(true),
+      onExit: (_) => setOpenHandHovered(false),
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: lift),
         duration: openHandMotionDuration(context, widget.duration),

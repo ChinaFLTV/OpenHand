@@ -1,5 +1,6 @@
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
+import 'ai_provider_settings_shared.dart';
 
 enum AiTranslationProvider {
   ai('ai'),
@@ -24,20 +25,25 @@ enum AiTranslationProvider {
   }
 }
 
-class AiTranslationProviderSettings {
+class AiTranslationProviderSettings extends AiProviderCoreSettings {
   const AiTranslationProviderSettings({
     required this.provider,
-    required this.enabled,
-    required this.endpoint,
-    required this.appId,
-    required this.apiKey,
-    required this.apiSecret,
-    required this.accessToken,
-    required this.region,
-    required this.modelConfigId,
-    required this.modelId,
-    required this.extra,
+    required super.enabled,
+    required super.endpoint,
+    required super.appId,
+    required super.apiKey,
+    required super.apiSecret,
+    required super.accessToken,
+    required super.region,
+    required super.modelConfigId,
+    required super.modelId,
+    required super.extra,
   });
+
+  AiTranslationProviderSettings._({
+    required this.provider,
+    required AiProviderCoreSettings core,
+  }) : super.from(core);
 
   factory AiTranslationProviderSettings.defaults(
     AiTranslationProvider provider,
@@ -155,36 +161,15 @@ class AiTranslationProviderSettings {
     final defaults = AiTranslationProviderSettings.defaults(provider);
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return defaults;
-    return defaults
-        .copyWith(
-          enabled: optionalBoolFromValue(json['enabled']),
-          endpoint: optionalStringFromValue(json['endpoint']),
-          appId: optionalStringFromValue(json['app_id']),
-          apiKey: optionalStringFromValue(json['api_key']),
-          apiSecret: optionalStringFromValue(json['api_secret']),
-          accessToken: optionalStringFromValue(json['access_token']),
-          region: optionalStringFromValue(json['region']),
-          modelConfigId: optionalStringFromValue(json['model_config_id']),
-          modelId: optionalStringFromValue(json['model_id']),
-          extra: json['extra'] is Map
-              ? stringKeyedMapFromValue(json['extra'])
-              : null,
-        )
-        .normalized();
+    return AiTranslationProviderSettings._(
+      provider: provider,
+      core: AiProviderCoreSettings.fromJson(json, fallback: defaults),
+    ).normalized();
   }
 
   final AiTranslationProvider provider;
-  final bool enabled;
-  final String endpoint;
-  final String appId;
-  final String apiKey;
-  final String apiSecret;
-  final String accessToken;
-  final String region;
-  final String modelConfigId;
-  final String modelId;
-  final Map<String, Object?> extra;
 
+  @override
   AiTranslationProviderSettings copyWith({
     bool? enabled,
     String? endpoint,
@@ -197,48 +182,28 @@ class AiTranslationProviderSettings {
     String? modelId,
     Map<String, Object?>? extra,
   }) {
-    return AiTranslationProviderSettings(
+    return AiTranslationProviderSettings._(
       provider: provider,
-      enabled: enabled ?? this.enabled,
-      endpoint: endpoint ?? this.endpoint,
-      appId: appId ?? this.appId,
-      apiKey: apiKey ?? this.apiKey,
-      apiSecret: apiSecret ?? this.apiSecret,
-      accessToken: accessToken ?? this.accessToken,
-      region: region ?? this.region,
-      modelConfigId: modelConfigId ?? this.modelConfigId,
-      modelId: modelId ?? this.modelId,
-      extra: extra ?? this.extra,
+      core: super.copyWith(
+        enabled: enabled,
+        endpoint: endpoint,
+        appId: appId,
+        apiKey: apiKey,
+        apiSecret: apiSecret,
+        accessToken: accessToken,
+        region: region,
+        modelConfigId: modelConfigId,
+        modelId: modelId,
+        extra: extra,
+      ),
     );
   }
 
   AiTranslationProviderSettings normalized() {
-    return copyWith(
-      endpoint: endpoint.trim(),
-      appId: appId.trim(),
-      apiKey: apiKey.trim(),
-      apiSecret: apiSecret.trim(),
-      accessToken: accessToken.trim(),
-      region: region.trim(),
-      modelConfigId: modelConfigId.trim(),
-      modelId: modelId.trim(),
-      extra: Map<String, Object?>.unmodifiable(extra),
+    return AiTranslationProviderSettings._(
+      provider: provider,
+      core: normalizedCore(),
     );
-  }
-
-  Map<String, Object?> toJson() {
-    return <String, Object?>{
-      'enabled': enabled,
-      'endpoint': endpoint,
-      'app_id': appId,
-      'api_key': apiKey,
-      'api_secret': apiSecret,
-      'access_token': accessToken,
-      'region': region,
-      'model_config_id': modelConfigId,
-      'model_id': modelId,
-      'extra': extra,
-    };
   }
 }
 
@@ -272,22 +237,6 @@ class AiTranslationSettings {
     final defaults = AiTranslationSettings.defaults();
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return defaults;
-    final rawProviders = json['providers'];
-    final providers = <AiTranslationProvider, AiTranslationProviderSettings>{
-      for (final provider in AiTranslationProvider.values)
-        provider: AiTranslationProviderSettings.fromJson(
-          rawProviders is Map ? rawProviders[provider.storageKey] : null,
-          provider: provider,
-        ),
-    };
-    final rawPriority = json['provider_priority'];
-    final rawPriorityValues = stringListFromValueOrJsonText(rawPriority);
-    final priority = rawPriorityValues.isNotEmpty
-        ? rawPriorityValues
-              .map(AiTranslationProvider.fromStorageKey)
-              .toSet()
-              .toList(growable: false)
-        : defaultProviderPriority;
     return AiTranslationSettings(
       enabled: boolFromValue(json['enabled']),
       sourceLanguage:
@@ -304,8 +253,18 @@ class AiTranslationSettings {
       maxTextCharacters: maxTextCharactersFromValue(
         json['max_text_characters'],
       ),
-      providers: providers,
-      providerPriority: _normalizePriority(priority),
+      providers: parseAiProviderSettings(
+        json['providers'],
+        providers: AiTranslationProvider.values,
+        storageKey: (provider) => provider.storageKey,
+        parse: (provider, raw) =>
+            AiTranslationProviderSettings.fromJson(raw, provider: provider),
+      ),
+      providerPriority: parseAiProviderPriority(
+        json['provider_priority'],
+        fallback: defaultProviderPriority,
+        parse: AiTranslationProvider.fromStorageKey,
+      ),
     ).normalized();
   }
 
@@ -438,7 +397,7 @@ class AiTranslationSettings {
             AiTranslationProviderSettings
           >.unmodifiable(normalizedProviders),
       providerPriority: List<AiTranslationProvider>.unmodifiable(
-        _normalizePriority(providerPriority),
+        normalizeAiProviderPriority(providerPriority, defaultProviderPriority),
       ),
     );
   }
@@ -467,15 +426,6 @@ class AiTranslationSettings {
 
   String get cacheFingerprint {
     return stableJsonSha256(normalized().toJson());
-  }
-
-  static List<AiTranslationProvider> _normalizePriority(
-    List<AiTranslationProvider> priority,
-  ) {
-    return <AiTranslationProvider>{
-      ...priority,
-      ...defaultProviderPriority,
-    }.toList(growable: false);
   }
 }
 

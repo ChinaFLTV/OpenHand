@@ -139,7 +139,8 @@ class _WebReverseSetupDialog extends StatefulWidget {
   State<_WebReverseSetupDialog> createState() => _WebReverseSetupDialogState();
 }
 
-class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
+class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
+    with OpenHandModelSelectionState<_WebReverseSetupDialog> {
   late final TextEditingController _urlCtrl;
   late final TextEditingController _objectiveCtrl;
   late final TextEditingController _triggerCtrl;
@@ -148,8 +149,6 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   WebReverseLoginMode _loginMode = WebReverseLoginMode.none;
   late WebReverseBrowserProbeResult _selectedProbe;
   bool _cdpMcpEnabled = false;
-  String? _selectedModelConfigId;
-  String? _selectedModelId;
 
   @override
   void initState() {
@@ -160,12 +159,11 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     _proxyCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();
     _selectedProbe = widget.probes.first;
-    _selectedModelConfigId = widget.initialSelectedModelConfigId?.trim();
-    _selectedModelId = widget.initialSelectedModelId?.trim();
-    if (!_hasValidModelSelection) {
-      _selectedModelConfigId = null;
-      _selectedModelId = null;
-    }
+    initializeOpenHandModelSelection(
+      initialConfigId: widget.initialSelectedModelConfigId,
+      initialModelId: widget.initialSelectedModelId,
+      availableModels: widget.availableModels,
+    );
   }
 
   @override
@@ -198,17 +196,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   }
 
   bool get _hasValidModelSelection {
-    final configId = _selectedModelConfigId;
-    final modelId = _selectedModelId;
-    if (configId == null ||
-        configId.isEmpty ||
-        modelId == null ||
-        modelId.isEmpty) {
-      return false;
-    }
-    return widget.availableModels.any(
-      (config) => config.id == configId && config.allModelIds.contains(modelId),
-    );
+    return hasValidOpenHandModelSelection(widget.availableModels);
   }
 
   void _submit() {
@@ -232,8 +220,8 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
       WebReverseSetupResult(
         config: config,
         executablePath: _selectedProbe.executablePath!,
-        selectedModelConfigId: _selectedModelConfigId,
-        selectedModelId: _selectedModelId,
+        selectedModelConfigId: selectedModelConfigId,
+        selectedModelId: selectedModelId,
       ),
     );
   }
@@ -300,15 +288,10 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                   OpenHandModelSelectorField(
                     models: widget.availableModels,
                     recentSelections: widget.recentModelSelections,
-                    selectedConfigId: _selectedModelConfigId,
-                    selectedModelId: _selectedModelId,
+                    selectedConfigId: selectedModelConfigId,
+                    selectedModelId: selectedModelId,
                     required: true,
-                    onSelected: (selection) {
-                      setState(() {
-                        _selectedModelConfigId = selection.$1;
-                        _selectedModelId = selection.$2;
-                      });
-                    },
+                    onSelected: selectOpenHandModel,
                   ),
                   const SizedBox(height: 14),
                   OpenHandFormLabel(
@@ -337,7 +320,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                         .map(
                           (m) => ButtonSegment(
                             value: m,
-                            label: Text(_loginModeLabel(context, m)),
+                            label: Text(webReverseLoginModeLabel(context, m)),
                           ),
                         )
                         .toList(growable: false),
@@ -456,38 +439,6 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
         ],
       ),
     );
-  }
-
-  String _loginModeLabel(BuildContext context, WebReverseLoginMode m) {
-    return switch (m) {
-      WebReverseLoginMode.none => openHandLocalizedText(
-        context,
-        zh: '无需登录',
-        zhHant: '無需登入',
-        en: 'None',
-        fr: 'Aucune',
-        de: 'Keine',
-        ja: '不要',
-      ),
-      WebReverseLoginMode.manual => openHandLocalizedText(
-        context,
-        zh: '手动登录',
-        zhHant: '手動登入',
-        en: 'Manual',
-        fr: 'Manuelle',
-        de: 'Manuell',
-        ja: '手動',
-      ),
-      WebReverseLoginMode.storageState => openHandLocalizedText(
-        context,
-        zh: '已有状态',
-        zhHant: '既有狀態',
-        en: 'Storage state',
-        fr: 'État stocké',
-        de: 'Gespeicherter Status',
-        ja: '保存済み状態',
-      ),
-    };
   }
 }
 

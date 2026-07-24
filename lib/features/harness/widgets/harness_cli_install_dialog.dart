@@ -10,14 +10,13 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_dialog_utils.dart';
 
-/// Shows a dialog that runs the CLI install command and streams output in real time.
-/// Pops with `true` when installation succeeds, `false` otherwise.
+/// 执行 CLI 安装命令并实时展示输出；安装成功时返回 `true`。
 class HarnessCliInstallDialog extends StatefulWidget {
   const HarnessCliInstallDialog({super.key, required this.cli});
 
@@ -38,9 +37,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   bool _running = true;
   bool _success = false;
   bool _cancelled = false;
-  // Set to true when EACCES / permission-denied is detected in the output.
   bool _isPermissionError = false;
-  // Set to true after the user has tried the elevated retry once.
   bool _elevatedRetryAttempted = false;
   Process? _process;
   Timer? _logFlushTimer;
@@ -49,14 +46,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
 
-  /// Pulses the green top-edge confirmation flash on successful install.
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
-
-  /// Pulses the red top-edge flash on install failure.
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
-  /// Tracks whether we've already pulsed for this run, so the periodic
-  /// rebuilds from streaming log appends don't re-trigger.
+  /// 防止日志流触发的重建重复播放结果反馈。
   bool _pulsedOutcome = false;
   AppLocalizations get _l10n => AppLocalizations.of(context)!;
 
@@ -73,7 +66,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   @override
   void initState() {
     super.initState();
-    // Defer to next frame so the dialog is fully built before async work starts.
+    // 等弹窗首帧完成后再启动异步安装。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_disposed) _startInstall();
     });
@@ -95,7 +88,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
   void _appendLine(String line) {
     if (!mounted || _disposed) return;
-    // Detect permission / EACCES errors so we can offer the elevated retry.
     if (!_isPermissionError) {
       final lower = line.toLowerCase();
       if (lower.contains('eacces') ||
@@ -234,16 +226,13 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     }
   }
 
-  /// Builds the install process launch.
-  /// On macOS/Linux: wraps command in an interactive login shell so user-managed
-  /// runtimes such as nvm / pyenv / conda match the orchestrator runtime.
-  /// On Windows: runs directly with runInShell=true.
+  /// macOS/Linux 使用交互式登录 Shell，确保能找到 nvm、pyenv、conda 等运行时。
+  /// Windows 直接通过系统 Shell 执行。
   ({String executable, List<String> arguments, bool runInShell})
   _buildInstallLaunch(List<String> cmd) {
     if (Platform.isWindows) {
       return (executable: cmd[0], arguments: cmd.sublist(1), runInShell: true);
     }
-    // Single-quote each arg to prevent word splitting.
     final cmdStr = cmd.map(_shellQuote).join(' ');
     return (
       executable: resolveHarnessCliShellExecutable(),
@@ -313,7 +302,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     _appendLine(_l10n.harnessCliInstallLogCancelled);
   }
 
-  // ── Elevated install (macOS: osascript; others: display manual command) ─────
+  // 提权安装：macOS 使用 osascript，其它平台展示手工命令。
 
   Future<void> _retryWithAdminPrivileges() async {
     final generation = ++_runGeneration;
@@ -333,14 +322,13 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     final cmd = widget.cli.installCommand!;
 
     if (!Platform.isMacOS && !Platform.isLinux) {
-      // Windows: just show the manual command.
       setState(() => _running = false);
       _appendLine(_l10n.harnessCliInstallWindowsAdminManual);
       _appendLine('  ${cmd.join(' ')}');
       return;
     }
 
-    // ── Step 1: resolve full installer path via login shell ──────────────────
+    // 先通过登录 Shell 解析安装器的完整路径。
     String installerPath = cmd[0];
     try {
       final r = await runHarnessCliShellCommand(
@@ -370,15 +358,11 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     _appendLine('');
 
     if (Platform.isMacOS) {
-      // ── macOS: AppleScript do shell script with administrator privileges ────
-      // Append '; echo __EC__:$?' so the outer shell always exits 0
-      // (otherwise AppleScript propagates the inner exit code as an error,
-      // which prevents us from reading the captured output).
+      // 让外层 Shell 固定成功退出，避免 AppleScript 丢弃内部命令输出。
       final escapedCmd = shellCmdStr
           .replaceAll('\\', '\\\\')
           .replaceAll('"', '\\"');
-      // \$? → literal $? at runtime (Dart escapes $ to prevent interpolation)
-      // Note: '2>&1' must not be split; keep it as a raw string fragment.
+      // `\$?` 在运行时还原为 `$?`；`2>&1` 必须保持为完整片段。
       final appleScript =
           'do shell script "$escapedCmd 2>&'
           '1; echo __EC__:\$?" '
@@ -386,17 +370,9 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
       Process? startedProcess;
       try {
-        // Use the safe subprocess wrapper: `Process.run(...).timeout(...)`
-        // is a TRAP — Future.timeout only abandons the Dart future while the
-        // underlying osascript child keeps running and continues sending
-        // Apple Events to other GUI apps. On macOS this corrupts the host
-        // process's IMK input context, observed as "every TextField in the
-        // app silently refuses input/paste" plus
-        // `error messaging the mach port for IMKCFRunLoopWakeUpReliable`
-        // console spam. The wrapper does Process.start + concurrent stdio
-        // drain + hard SIGKILL on timeout so the child cannot leak.
-        // Timeout is generous because `with administrator privileges` opens
-        // the system auth prompt which the user may take a while to answer.
+        // Future.timeout 不会终止 osascript，泄漏的 Apple Events 会破坏 macOS
+        // 输入法上下文。安全进程封装会并发排空输出，并在超时后强制终止子进程。
+        // 授权弹窗可能等待用户操作，因此沿用完整安装超时。
         final result = await runProcessWithTimeout(
           'osascript',
           ['-e', appleScript],
@@ -411,7 +387,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         if (!_isRunActive(generation)) return;
 
         if (result == null) {
-          // Timed out (child SIGKILLed) or failed to launch.
           setState(() {
             _running = false;
             _success = false;
@@ -424,7 +399,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         final stderr = (result.stderr as String).trim();
 
         if (result.exitCode != 0) {
-          // osascript itself failed — most likely user cancelled the auth dialog.
+          // osascript 自身失败时优先识别用户取消授权。
           final lower = stderr.toLowerCase();
           if (lower.contains('user cancel') || lower.contains('user-cancel')) {
             setState(() {
@@ -450,7 +425,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
           return;
         }
 
-        // Parse inner exit code and log output (strip the __EC__: marker line).
+        // 提取内部退出码，标记行不进入用户日志。
         int? innerExitCode;
         for (final line in stdout.split('\n')) {
           final m = RegExp(r'^__EC__:(\d+)$').firstMatch(line.trim());
@@ -462,7 +437,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         }
         _appendLine('');
 
-        // Re-probe to confirm the binary is now reachable in the login shell.
         final probe = await probeCliInstallation(widget.cli);
         if (!_isRunActive(generation)) return;
         setState(() {
@@ -486,12 +460,11 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
             );
           }
         } else {
-          // Installed but not yet on PATH — might need a new shell session.
+          // 已安装但当前 PATH 尚未刷新；按成功返回，让调用方重新扫描。
           _appendLine(
             _l10n.harnessCliInstallPathMissingWarning(widget.cli.executable),
           );
           _appendLine(_l10n.harnessCliInstallRestartPathHint);
-          // Treat as success so the caller re-scans.
           if (mounted) setState(() => _success = true);
         }
       } on TimeoutException {
@@ -520,7 +493,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         if (identical(_process, startedProcess)) _process = null;
       }
     } else {
-      // Linux: no GUI sudo helper — show manual command to copy.
+      // Linux 没有统一的图形化提权入口，改为展示可复制的手工命令。
       setState(() {
         _running = false;
         _success = false;
@@ -535,7 +508,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     }
   }
 
-  /// Single-quotes a shell argument, escaping embedded single quotes.
+  /// 使用单引号安全包裹 Shell 参数。
   String _shellQuote(String s) => "'${s.replaceAll("'", "'\\''")}'";
 
   @override
@@ -565,7 +538,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         : l10n.harnessCliInstallStatusFailed;
 
     if (!_running) {
-      // Defer to next frame so the pulse fires after the build is committed.
+      // 等当前构建提交后再播放结果反馈。
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _pulseOutcome();
       });
@@ -587,7 +560,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Status row
                 Row(
                   children: [
                     if (_running)
@@ -632,33 +604,12 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // Log output area
                 Expanded(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D1117),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                    ),
-                    child: OpenHandSafeScrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: _scrollGuard.handleNotification,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _logLines.length,
-                          itemBuilder: (context, index) {
-                            return _LogLine(line: _logLines[index]);
-                          },
-                        ),
-                      ),
-                    ),
+                  child: OpenHandConsoleLogView(
+                    controller: _scrollController,
+                    onNotification: _scrollGuard.handleNotification,
+                    itemCount: _logLines.length,
+                    itemBuilder: (_, index) => _LogLine(line: _logLines[index]),
                   ),
                 ),
               ],
@@ -681,8 +632,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
             onPressed: () => Navigator.of(context).pop(false),
             label: l10n.commonClose,
           ),
-          // Show elevated-retry button when a permission error was detected
-          // and we haven't already attempted an elevated install.
           if (!_success &&
               _isPermissionError &&
               !_elevatedRetryAttempted &&

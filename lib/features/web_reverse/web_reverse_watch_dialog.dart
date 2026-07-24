@@ -348,85 +348,64 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 itemBuilder: (_, i) {
                                   final e = _exprs[i];
                                   final sel = i == _selected;
-                                  return Material(
-                                    color: sel
-                                        ? cs.primaryContainer.withValues(
-                                            alpha: 0.4,
-                                          )
-                                        : cs.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () =>
-                                          setState(() => _selected = i),
-                                      child: Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          10,
-                                          6,
-                                          4,
-                                          6,
+                                  return WebReverseSelectableListTile(
+                                    selected: sel,
+                                    onTap: () => setState(() => _selected = i),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          e.error
+                                              ? Icons.error_outline
+                                              : Icons.check_circle_outline,
+                                          size: 16,
+                                          color: e.error
+                                              ? cs.error
+                                              : cs.primary,
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              e.error
-                                                  ? Icons.error_outline
-                                                  : Icons.check_circle_outline,
-                                              size: 16,
-                                              color: e.error
-                                                  ? cs.error
-                                                  : cs.primary,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    e.name,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: theme
-                                                        .textTheme
-                                                        .labelMedium,
-                                                  ),
-                                                  Text(
-                                                    e.last.isEmpty
-                                                        ? (loc?.webReverseWatchAwaiting ??
-                                                              'awaiting…')
-                                                        : e.last,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: theme
-                                                        .textTheme
-                                                        .labelSmall
-                                                        ?.copyWith(
-                                                          color: e.error
-                                                              ? cs.error
-                                                              : cs.onSurfaceVariant,
-                                                          fontFamily:
-                                                              'monospace',
-                                                        ),
-                                                  ),
-                                                ],
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                e.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style:
+                                                    theme.textTheme.labelMedium,
                                               ),
-                                            ),
-                                            IconButton(
-                                              tooltip:
-                                                  loc?.webReverseWatchDelete ??
-                                                  'Delete',
-                                              onPressed: () => _removeAt(i),
-                                              icon: const Icon(
-                                                Icons.delete_outline,
-                                                size: 16,
+                                              Text(
+                                                e.last.isEmpty
+                                                    ? (loc?.webReverseWatchAwaiting ??
+                                                          'awaiting…')
+                                                    : e.last,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color: e.error
+                                                          ? cs.error
+                                                          : cs.onSurfaceVariant,
+                                                      fontFamily: 'monospace',
+                                                    ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
-                                      ),
+                                        IconButton(
+                                          tooltip:
+                                              loc?.webReverseWatchDelete ??
+                                              'Delete',
+                                          onPressed: () => _removeAt(i),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },

@@ -6,6 +6,7 @@ export 'web_reverse_cdp_client.dart';
 export 'web_reverse_cdp_http.dart';
 export 'web_reverse_cdp_mcp_bridge.dart';
 export 'web_reverse_dashboard_dialog.dart';
+export 'web_reverse_dialog_utils.dart' show webReverseLoginModeLabel;
 export 'web_reverse_har_replay_server.dart';
 export 'web_reverse_install_guide_dialog.dart';
 export 'web_reverse_launch_diagnosis.dart';

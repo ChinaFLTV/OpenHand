@@ -71,8 +71,8 @@ class _AndroidReverseSetupDialog extends StatefulWidget {
       _AndroidReverseSetupDialogState();
 }
 
-class _AndroidReverseSetupDialogState
-    extends State<_AndroidReverseSetupDialog> {
+class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
+    with OpenHandModelSelectionState<_AndroidReverseSetupDialog> {
   late final TextEditingController _objectiveCtrl;
   late final TextEditingController _packageCtrl;
   late final TextEditingController _apkCtrl;
@@ -84,8 +84,6 @@ class _AndroidReverseSetupDialogState
       AndroidReverseAnalysisMode.balanced;
   bool _adbMcpEnabled = false;
   bool _fridaMcpEnabled = false;
-  String? _selectedModelConfigId;
-  String? _selectedModelId;
 
   @override
   void initState() {
@@ -97,12 +95,11 @@ class _AndroidReverseSetupDialogState
     _authorizationScopeCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();
     _notesCtrl = TextEditingController();
-    _selectedModelConfigId = widget.initialSelectedModelConfigId?.trim();
-    _selectedModelId = widget.initialSelectedModelId?.trim();
-    if (!_hasValidModelSelection) {
-      _selectedModelConfigId = null;
-      _selectedModelId = null;
-    }
+    initializeOpenHandModelSelection(
+      initialConfigId: widget.initialSelectedModelConfigId,
+      initialModelId: widget.initialSelectedModelId,
+      availableModels: widget.availableModels,
+    );
   }
 
   @override
@@ -118,17 +115,7 @@ class _AndroidReverseSetupDialogState
   }
 
   bool get _hasValidModelSelection {
-    final configId = _selectedModelConfigId;
-    final modelId = _selectedModelId;
-    if (configId == null ||
-        configId.isEmpty ||
-        modelId == null ||
-        modelId.isEmpty) {
-      return false;
-    }
-    return widget.availableModels.any(
-      (config) => config.id == configId && config.allModelIds.contains(modelId),
-    );
+    return hasValidOpenHandModelSelection(widget.availableModels);
   }
 
   bool get _requiresAuthorizationScope =>
@@ -161,8 +148,8 @@ class _AndroidReverseSetupDialogState
     Navigator.of(context).pop(
       AndroidReverseSetupResult(
         config: config,
-        selectedModelConfigId: _selectedModelConfigId,
-        selectedModelId: _selectedModelId,
+        selectedModelConfigId: selectedModelConfigId,
+        selectedModelId: selectedModelId,
       ),
     );
   }
@@ -257,15 +244,10 @@ class _AndroidReverseSetupDialogState
                   OpenHandModelSelectorField(
                     models: widget.availableModels,
                     recentSelections: widget.recentModelSelections,
-                    selectedConfigId: _selectedModelConfigId,
-                    selectedModelId: _selectedModelId,
+                    selectedConfigId: selectedModelConfigId,
+                    selectedModelId: selectedModelId,
                     required: true,
-                    onSelected: (selection) {
-                      setState(() {
-                        _selectedModelConfigId = selection.$1;
-                        _selectedModelId = selection.$2;
-                      });
-                    },
+                    onSelected: selectOpenHandModel,
                   ),
                   const SizedBox(height: 14),
                   OpenHandFormLabel(

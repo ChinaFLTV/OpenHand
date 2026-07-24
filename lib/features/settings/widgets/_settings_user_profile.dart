@@ -14,10 +14,8 @@ class _UserProfileSettingsButton extends StatefulWidget {
       _UserProfileSettingsButtonState();
 }
 
-class _UserProfileSettingsButtonState
-    extends State<_UserProfileSettingsButton> {
-  bool _hovered = false;
-
+class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
+    with OpenHandHoverState<_UserProfileSettingsButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -37,20 +35,8 @@ class _UserProfileSettingsButtonState
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),
       child: MouseRegion(
-        onEnter: (_) {
-          if (_hovered) return;
-          _hovered = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() {});
-          });
-        },
-        onExit: (_) {
-          if (!_hovered) return;
-          _hovered = false;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() {});
-          });
-        },
+        onEnter: (_) => setOpenHandHovered(true),
+        onExit: (_) => setOpenHandHovered(false),
         child: MicroPressFeedback(
           child: Material(
             color: colorScheme.surfaceContainerHighest,
@@ -138,7 +124,10 @@ class _UserProfileSettingsButtonState
                     ),
                     const SizedBox(width: 8),
                     AnimatedSlide(
-                      offset: Offset(_hovered && motionEnabled ? 0.18 : 0, 0),
+                      offset: Offset(
+                        openHandHovered && motionEnabled ? 0.18 : 0,
+                        0,
+                      ),
                       duration: _settingsMotionDuration(
                         context,
                         const Duration(milliseconds: 180),

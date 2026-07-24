@@ -227,79 +227,62 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                 itemBuilder: (_, i) {
                                   final r = _draft[i];
                                   final sel = i == _selected;
-                                  return Material(
-                                    color: sel
-                                        ? cs.primaryContainer.withValues(
-                                            alpha: 0.4,
-                                          )
-                                        : cs.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () =>
-                                          setState(() => _selected = i),
-                                      child: Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          8,
-                                          6,
-                                          4,
-                                          6,
+                                  return WebReverseSelectableListTile(
+                                    selected: sel,
+                                    onTap: () => setState(() => _selected = i),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      8,
+                                      6,
+                                      4,
+                                      6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Switch(
+                                          value: r.enabled,
+                                          onChanged: (v) => setState(() {
+                                            _draft[i] = r.copyWith(enabled: v);
+                                          }),
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Switch(
-                                              value: r.enabled,
-                                              onChanged: (v) => setState(() {
-                                                _draft[i] = r.copyWith(
-                                                  enabled: v,
-                                                );
-                                              }),
-                                            ),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    r.name,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: theme
-                                                        .textTheme
-                                                        .labelMedium,
-                                                  ),
-                                                  Text(
-                                                    r.urlPattern,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: theme
-                                                        .textTheme
-                                                        .labelSmall
-                                                        ?.copyWith(
-                                                          color: cs
-                                                              .onSurfaceVariant,
-                                                          fontFamily:
-                                                              'monospace',
-                                                        ),
-                                                  ),
-                                                ],
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                r.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style:
+                                                    theme.textTheme.labelMedium,
                                               ),
-                                            ),
-                                            IconButton(
-                                              tooltip:
-                                                  loc?.webReverseMockRulesDelete ??
-                                                  'Delete',
-                                              onPressed: () => _removeAt(i),
-                                              icon: const Icon(
-                                                Icons.delete_outline,
-                                                size: 16,
+                                              Text(
+                                                r.urlPattern,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color:
+                                                          cs.onSurfaceVariant,
+                                                      fontFamily: 'monospace',
+                                                    ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
-                                      ),
+                                        IconButton(
+                                          tooltip:
+                                              loc?.webReverseMockRulesDelete ??
+                                              'Delete',
+                                          onPressed: () => _removeAt(i),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },

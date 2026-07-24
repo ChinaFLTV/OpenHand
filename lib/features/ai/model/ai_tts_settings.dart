@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import 'ai_provider_settings_shared.dart';
 
 const String aiMimoDefaultAudioFormat = 'wav';
 
@@ -46,25 +47,35 @@ enum AiTtsProvider {
   }
 }
 
-class AiTtsProviderSettings {
+class AiTtsProviderSettings extends AiProviderCoreSettings {
   const AiTtsProviderSettings({
     required this.provider,
-    required this.enabled,
+    required super.enabled,
     required this.voice,
     required this.language,
     required this.speed,
     required this.volume,
     required this.pitch,
-    required this.endpoint,
-    required this.appId,
-    required this.apiKey,
-    required this.apiSecret,
-    required this.accessToken,
-    required this.region,
-    required this.modelConfigId,
-    required this.modelId,
-    required this.extra,
+    required super.endpoint,
+    required super.appId,
+    required super.apiKey,
+    required super.apiSecret,
+    required super.accessToken,
+    required super.region,
+    required super.modelConfigId,
+    required super.modelId,
+    required super.extra,
   });
+
+  AiTtsProviderSettings._({
+    required this.provider,
+    required AiProviderCoreSettings core,
+    required this.voice,
+    required this.language,
+    required this.speed,
+    required this.volume,
+    required this.pitch,
+  }) : super.from(core);
 
   factory AiTtsProviderSettings.defaults(AiTtsProvider provider) {
     switch (provider) {
@@ -288,46 +299,25 @@ class AiTtsProviderSettings {
     final defaults = AiTtsProviderSettings.defaults(provider);
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return defaults;
-    return defaults
-        .copyWith(
-          enabled: optionalBoolFromValue(json['enabled']),
-          voice: optionalStringFromValue(json['voice']),
-          language: optionalStringFromValue(json['language']),
-          speed: optionalDoubleFromValue(json['speed']),
-          volume: optionalDoubleFromValue(json['volume']),
-          pitch: optionalDoubleFromValue(json['pitch']),
-          endpoint: optionalStringFromValue(json['endpoint']),
-          appId: optionalStringFromValue(json['app_id']),
-          apiKey: optionalStringFromValue(json['api_key']),
-          apiSecret: optionalStringFromValue(json['api_secret']),
-          accessToken: optionalStringFromValue(json['access_token']),
-          region: optionalStringFromValue(json['region']),
-          modelConfigId: optionalStringFromValue(json['model_config_id']),
-          modelId: optionalStringFromValue(json['model_id']),
-          extra: json['extra'] is Map
-              ? stringKeyedMapFromValue(json['extra'])
-              : null,
-        )
-        .normalized();
+    return AiTtsProviderSettings._(
+      provider: provider,
+      core: AiProviderCoreSettings.fromJson(json, fallback: defaults),
+      voice: optionalStringFromValue(json['voice']) ?? defaults.voice,
+      language: optionalStringFromValue(json['language']) ?? defaults.language,
+      speed: optionalDoubleFromValue(json['speed']) ?? defaults.speed,
+      volume: optionalDoubleFromValue(json['volume']) ?? defaults.volume,
+      pitch: optionalDoubleFromValue(json['pitch']) ?? defaults.pitch,
+    ).normalized();
   }
 
   final AiTtsProvider provider;
-  final bool enabled;
   final String voice;
   final String language;
   final double speed;
   final double volume;
   final double pitch;
-  final String endpoint;
-  final String appId;
-  final String apiKey;
-  final String apiSecret;
-  final String accessToken;
-  final String region;
-  final String modelConfigId;
-  final String modelId;
-  final Map<String, Object?> extra;
 
+  @override
   AiTtsProviderSettings copyWith({
     bool? enabled,
     String? voice,
@@ -346,23 +336,25 @@ class AiTtsProviderSettings {
     Map<String, Object?>? extra,
   }) {
     final defaults = AiTtsProviderSettings.defaults(provider);
-    return AiTtsProviderSettings(
+    return AiTtsProviderSettings._(
       provider: provider,
-      enabled: enabled ?? this.enabled,
+      core: super.copyWith(
+        enabled: enabled,
+        endpoint: endpoint,
+        appId: appId,
+        apiKey: apiKey,
+        apiSecret: apiSecret,
+        accessToken: accessToken,
+        region: region,
+        modelConfigId: modelConfigId,
+        modelId: modelId,
+        extra: extra,
+      ),
       voice: voice ?? this.voice,
       language: language ?? this.language,
       speed: normalizeSpeed(speed ?? this.speed, fallback: defaults.speed),
       volume: normalizeVolume(volume ?? this.volume, fallback: defaults.volume),
       pitch: normalizePitch(pitch ?? this.pitch, fallback: defaults.pitch),
-      endpoint: endpoint ?? this.endpoint,
-      appId: appId ?? this.appId,
-      apiKey: apiKey ?? this.apiKey,
-      apiSecret: apiSecret ?? this.apiSecret,
-      accessToken: accessToken ?? this.accessToken,
-      region: region ?? this.region,
-      modelConfigId: modelConfigId ?? this.modelConfigId,
-      modelId: modelId ?? this.modelId,
-      extra: extra ?? this.extra,
     );
   }
 
@@ -380,7 +372,9 @@ class AiTtsProviderSettings {
           ? 'mp3'
           : aiMimoDefaultAudioFormat;
     }
-    return copyWith(
+    return AiTtsProviderSettings._(
+      provider: provider,
+      core: normalizedCore(extra: normalizedExtra),
       voice: normalizedVoice.isEmpty ? defaults.voice : normalizedVoice,
       language: normalizedLanguage.isEmpty
           ? defaults.language
@@ -388,36 +382,22 @@ class AiTtsProviderSettings {
       speed: normalizeSpeed(speed, fallback: defaults.speed),
       volume: normalizeVolume(volume, fallback: defaults.volume),
       pitch: normalizePitch(pitch, fallback: defaults.pitch),
-      endpoint: endpoint.trim(),
-      appId: appId.trim(),
-      apiKey: apiKey.trim(),
-      apiSecret: apiSecret.trim(),
-      accessToken: accessToken.trim(),
-      region: region.trim(),
-      modelConfigId: modelConfigId.trim(),
-      modelId: modelId.trim(),
-      extra: Map<String, Object?>.unmodifiable(normalizedExtra),
     );
   }
 
+  @override
   Map<String, Object?> toJson() {
     final defaults = AiTtsProviderSettings.defaults(provider);
+    final coreJson = super.toJson();
+    final enabledValue = coreJson.remove('enabled');
     return <String, Object?>{
-      'enabled': enabled,
+      'enabled': enabledValue,
       'voice': voice,
       'language': language,
       'speed': normalizeSpeed(speed, fallback: defaults.speed),
       'volume': normalizeVolume(volume, fallback: defaults.volume),
       'pitch': normalizePitch(pitch, fallback: defaults.pitch),
-      'endpoint': endpoint,
-      'app_id': appId,
-      'api_key': apiKey,
-      'api_secret': apiSecret,
-      'access_token': accessToken,
-      'region': region,
-      'model_config_id': modelConfigId,
-      'model_id': modelId,
-      'extra': extra,
+      ...coreJson,
     };
   }
 
@@ -482,30 +462,24 @@ class AiTtsSettings {
     final defaults = AiTtsSettings.defaults();
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return defaults;
-    final rawProviders = json['providers'];
-    final providers = <AiTtsProvider, AiTtsProviderSettings>{
-      for (final provider in AiTtsProvider.values)
-        provider: AiTtsProviderSettings.fromJson(
-          rawProviders is Map ? rawProviders[provider.storageKey] : null,
-          provider: provider,
-        ),
-    };
-    final rawPriority = json['provider_priority'];
-    final rawPriorityValues = stringListFromValueOrJsonText(rawPriority);
-    final priority = rawPriorityValues.isNotEmpty
-        ? rawPriorityValues
-              .map(AiTtsProvider.fromStorageKey)
-              .toSet()
-              .toList(growable: false)
-        : defaultProviderPriority;
     return AiTtsSettings(
       enabled: boolFromValue(json['enabled']),
       timeoutSeconds: timeoutSecondsFromValue(json['timeout_seconds']),
       maxTextCharacters: maxTextCharactersFromValue(
         json['max_text_characters'],
       ),
-      providers: providers,
-      providerPriority: _normalizePriority(priority),
+      providers: parseAiProviderSettings(
+        json['providers'],
+        providers: AiTtsProvider.values,
+        storageKey: (provider) => provider.storageKey,
+        parse: (provider, raw) =>
+            AiTtsProviderSettings.fromJson(raw, provider: provider),
+      ),
+      providerPriority: parseAiProviderPriority(
+        json['provider_priority'],
+        fallback: defaultProviderPriority,
+        parse: AiTtsProvider.fromStorageKey,
+      ),
     ).normalized();
   }
 
@@ -595,7 +569,7 @@ class AiTtsSettings {
         normalizedProviders,
       ),
       providerPriority: List<AiTtsProvider>.unmodifiable(
-        _normalizePriority(providerPriority),
+        normalizeAiProviderPriority(providerPriority, defaultProviderPriority),
       ),
     );
   }
@@ -617,12 +591,5 @@ class AiTtsSettings {
           entry.key.storageKey: entry.value.toJson(),
       },
     };
-  }
-
-  static List<AiTtsProvider> _normalizePriority(List<AiTtsProvider> priority) {
-    return <AiTtsProvider>{
-      ...priority,
-      ...defaultProviderPriority,
-    }.toList(growable: false);
   }
 }

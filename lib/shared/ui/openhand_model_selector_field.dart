@@ -5,6 +5,50 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
 import 'model_search_selector.dart';
 
+mixin OpenHandModelSelectionState<W extends StatefulWidget> on State<W> {
+  String? _openHandSelectedModelConfigId;
+  String? _openHandSelectedModelId;
+
+  String? get selectedModelConfigId => _openHandSelectedModelConfigId;
+  String? get selectedModelId => _openHandSelectedModelId;
+
+  void initializeOpenHandModelSelection({
+    required String? initialConfigId,
+    required String? initialModelId,
+    required List<AiModelConfig> availableModels,
+  }) {
+    _openHandSelectedModelConfigId = initialConfigId?.trim();
+    _openHandSelectedModelId = initialModelId?.trim();
+    if (!hasValidOpenHandModelSelection(availableModels)) {
+      _openHandSelectedModelConfigId = null;
+      _openHandSelectedModelId = null;
+    }
+  }
+
+  bool hasValidOpenHandModelSelection(List<AiModelConfig> availableModels) {
+    final configId = _openHandSelectedModelConfigId;
+    final modelId = _openHandSelectedModelId;
+    if (configId == null ||
+        configId.isEmpty ||
+        modelId == null ||
+        modelId.isEmpty) {
+      return false;
+    }
+    return availableModels.any(
+      (config) => config.id == configId && config.allModelIds.contains(modelId),
+    );
+  }
+
+  void selectOpenHandModel(
+    (String providerConfigId, String modelId) selection,
+  ) {
+    setState(() {
+      _openHandSelectedModelConfigId = selection.$1;
+      _openHandSelectedModelId = selection.$2;
+    });
+  }
+}
+
 class OpenHandModelSelectorField extends StatefulWidget {
   const OpenHandModelSelectorField({
     super.key,

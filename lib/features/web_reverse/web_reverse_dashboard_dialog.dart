@@ -23,6 +23,7 @@ import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../shared/ui/hover_lift.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
@@ -217,6 +218,174 @@ class _DashboardScriptCodeEditor extends StatelessWidget {
   }
 }
 
+class _DashboardScriptNameField extends StatelessWidget {
+  const _DashboardScriptNameField({
+    required this.controller,
+    required this.label,
+  });
+
+  final TextEditingController controller;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      maxLength: WebReverseSessionController.maxSavedScriptNameChars,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+      buildCounter: _hideTextFieldCounter,
+      decoration: InputDecoration(
+        isDense: true,
+        border: const OutlineInputBorder(),
+        labelText: label,
+      ),
+    );
+  }
+}
+
+Map<ShortcutActivator, VoidCallback> _dashboardScriptEditorBindings({
+  required VoidCallback onSave,
+  VoidCallback? onRun,
+}) {
+  return <ShortcutActivator, VoidCallback>{
+    const SingleActivator(LogicalKeyboardKey.keyS, meta: true): onSave,
+    const SingleActivator(LogicalKeyboardKey.keyS, control: true): onSave,
+    if (onRun != null) ...<ShortcutActivator, VoidCallback>{
+      const SingleActivator(LogicalKeyboardKey.keyR, meta: true): onRun,
+      const SingleActivator(LogicalKeyboardKey.keyR, control: true): onRun,
+    },
+  };
+}
+
+mixin _DashboardScriptEditorLifecycle<W extends StatefulWidget> on State<W> {
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _codeCtrl = TextEditingController();
+  final FocusNode _codeFocus = FocusNode();
+  String? _selectedId;
+  bool _dirty = false;
+  bool _controllerUpdateScheduled = false;
+  bool _syncingScriptFields = false;
+
+  Listenable get _dashboardScriptController;
+
+  void _syncSelectionFromController();
+
+  void _markDirty();
+
+  void _syncDashboardScriptSelection<E>({
+    required List<E> items,
+    required String Function(E item) itemId,
+    required String Function(E item) itemName,
+    required String Function(E item) itemCode,
+    void Function(E item)? syncAdditionalFields,
+    VoidCallback? clearAdditionalFields,
+  }) {
+    if (items.isEmpty) {
+      _syncingScriptFields = true;
+      try {
+        _selectedId = null;
+        _nameCtrl.clear();
+        _codeCtrl.clear();
+        clearAdditionalFields?.call();
+        _dirty = false;
+      } finally {
+        _syncingScriptFields = false;
+      }
+      return;
+    }
+    var selected = items.first;
+    for (final item in items) {
+      if (itemId(item) == _selectedId) {
+        selected = item;
+        break;
+      }
+    }
+    if (_selectedId == itemId(selected)) return;
+    _setDashboardScriptSelection(
+      id: itemId(selected),
+      name: itemName(selected),
+      code: itemCode(selected),
+      syncAdditionalFields: () => syncAdditionalFields?.call(selected),
+    );
+  }
+
+  void _setDashboardScriptSelection({
+    required String id,
+    required String name,
+    required String code,
+    VoidCallback? syncAdditionalFields,
+  }) {
+    _syncingScriptFields = true;
+    try {
+      _selectedId = id;
+      _nameCtrl.text = name;
+      _codeCtrl.text = code;
+      syncAdditionalFields?.call();
+      _dirty = false;
+    } finally {
+      _syncingScriptFields = false;
+    }
+  }
+
+  void _updateDashboardScriptDirty<E>({
+    required Iterable<E> items,
+    required String Function(E item) itemId,
+    required String Function(E item) itemName,
+    required String Function(E item) itemCode,
+    bool Function(E item)? additionalFieldsMatch,
+  }) {
+    if (_syncingScriptFields) return;
+    final selectedId = _selectedId;
+    E? selected;
+    if (selectedId != null) {
+      for (final item in items) {
+        if (itemId(item) == selectedId) {
+          selected = item;
+          break;
+        }
+      }
+    }
+    final dirty = selectedId == null
+        ? _nameCtrl.text.isNotEmpty || _codeCtrl.text.isNotEmpty
+        : selected == null ||
+              itemName(selected) != _nameCtrl.text ||
+              itemCode(selected) != _codeCtrl.text ||
+              !(additionalFieldsMatch?.call(selected) ?? true);
+    if (_dirty == dirty) return;
+    _dirty = dirty;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _dashboardScriptController.addListener(_onDashboardControllerChanged);
+    _syncSelectionFromController();
+    _nameCtrl.addListener(_markDirty);
+    _codeCtrl.addListener(_markDirty);
+  }
+
+  @override
+  void dispose() {
+    _dashboardScriptController.removeListener(_onDashboardControllerChanged);
+    _nameCtrl.dispose();
+    _codeCtrl.dispose();
+    _codeFocus.dispose();
+    super.dispose();
+  }
+
+  void _onDashboardControllerChanged() {
+    if (!mounted || _controllerUpdateScheduled) return;
+    _controllerUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerUpdateScheduled = false;
+      if (!mounted) return;
+      _syncSelectionFromController();
+      setState(() {});
+    });
+  }
+}
+
 class _DashboardScriptResultPreview extends StatelessWidget {
   const _DashboardScriptResultPreview({required this.text});
 
@@ -267,6 +436,127 @@ class _DashboardScriptResultPreview extends StatelessWidget {
   }
 }
 
+class _DashboardScriptWorkspace extends StatelessWidget {
+  const _DashboardScriptWorkspace({
+    required this.sidebarWidth,
+    required this.libraryIcon,
+    required this.libraryTitle,
+    required this.createTooltip,
+    required this.onCreate,
+    required this.emptyLibraryLabel,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.emptyEditorLabel,
+    required this.editor,
+  });
+
+  final double sidebarWidth;
+  final IconData libraryIcon;
+  final String libraryTitle;
+  final String createTooltip;
+  final VoidCallback onCreate;
+  final String emptyLibraryLabel;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final String emptyEditorLabel;
+  final Widget? editor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final paneDecoration = BoxDecoration(
+      color: colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: colorScheme.outlineVariant),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: sidebarWidth,
+            child: Container(
+              decoration: paneDecoration,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+                    child: Row(
+                      children: [
+                        Icon(libraryIcon, size: 16, color: colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            libraryTitle,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: createTooltip,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          onPressed: onCreate,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: itemCount == 0
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                emptyLibraryLabel,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            itemCount: itemCount,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 2),
+                            itemBuilder: itemBuilder,
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: AnimatedContainer(
+              duration: _wrMotionEnabled(context)
+                  ? _kSwitchDuration
+                  : Duration.zero,
+              curve: _kSwitchInCurve,
+              decoration: paneDecoration,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child:
+                  editor ??
+                  Center(
+                    child: Text(
+                      emptyEditorLabel,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DashboardToggleTile extends StatefulWidget {
   const _DashboardToggleTile({
     required this.title,
@@ -288,24 +578,15 @@ class _DashboardToggleTile extends StatefulWidget {
   State<_DashboardToggleTile> createState() => _DashboardToggleTileState();
 }
 
-class _DashboardToggleTileState extends State<_DashboardToggleTile> {
-  bool _hover = false;
-
-  void _setHovered(bool value) {
-    if (_hover == value) return;
-    _hover = value;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
-  }
-
+class _DashboardToggleTileState extends State<_DashboardToggleTile>
+    with OpenHandHoverState<_DashboardToggleTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final background = widget.selected
         ? cs.primary.withValues(alpha: 0.12)
-        : (_hover ? cs.surfaceContainerHighest : Colors.transparent);
+        : (openHandHovered ? cs.surfaceContainerHighest : Colors.transparent);
     final border = widget.selected
         ? cs.primary.withValues(alpha: 0.45)
         : cs.outlineVariant.withValues(alpha: 0);
@@ -319,8 +600,8 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile> {
       ),
     );
     return MouseRegion(
-      onEnter: (_) => _setHovered(true),
-      onExit: (_) => _setHovered(false),
+      onEnter: (_) => setOpenHandHovered(true),
+      onExit: (_) => setOpenHandHovered(false),
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
@@ -382,19 +663,8 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile> {
   }
 }
 
-/// Web 逆向 CDP 仪表盘弹窗。
-///
-/// 核心 tab：
-///   - Overview: 关键统计大格子
-///   - Network: Chrome DevTools Network 面板等价（过滤 / 搜索 / 节流 / 详情）
-///   - Console: 控制台日志（按 level 过滤 + 搜索）
-///
-/// 占位 tab（点开引导用户使用浏览器原生 DevTools 的对应面板）：
-///   - Performance / Memory / Application / Security / Recorder
-///
-/// 真正的 F12 全功能由「打开官方 DevTools」按钮拉起，这是 OpenHand 与
-/// Chrome DevTools 1:1 对齐的物理学最优解：浏览器自身的 inspector.html
-/// 即原生面板，无任何功能裁剪。
+/// Web 逆向 CDP 仪表盘，统一承载浏览器、网络、控制台、源码和性能等面板。
+/// 完整原生能力仍可通过「打开官方 DevTools」进入浏览器检查器。
 Future<void> showWebReverseDashboardDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -1069,7 +1339,7 @@ class _WebReverseDashboardDialogState
     await widget.controller.enableDebugger();
     final c = widget.controller;
 
-    // pauseOnExceptions
+    // 恢复异常暂停模式。
     if (rawPause is String && (rawPause == 'uncaught' || rawPause == 'all')) {
       try {
         await c.setPauseOnExceptions(rawPause);

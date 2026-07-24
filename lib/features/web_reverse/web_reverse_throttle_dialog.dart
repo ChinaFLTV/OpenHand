@@ -416,20 +416,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                   ),
                   if (_status.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: cs.outlineVariant),
-                      ),
-                      child: Text(
-                        _status,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
+                    buildWebReverseStatusCard(context, _status),
                   ],
                   const SizedBox(height: 18),
                   Text(

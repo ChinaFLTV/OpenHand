@@ -636,7 +636,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           de: 'Login-Modus',
           ja: 'ログインモード',
         ),
-        value: _webReverseLoginModeLabel(context, config.loginMode),
+        value: webReverseLoginModeLabel(context, config.loginMode),
       ),
       if (config.proxy != null && config.proxy!.isNotEmpty)
         _MetadataEntryRow(
@@ -691,41 +691,6 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       ),
     ],
   );
-}
-
-String _webReverseLoginModeLabel(
-  BuildContext context,
-  WebReverseLoginMode mode,
-) {
-  return switch (mode) {
-    WebReverseLoginMode.none => openHandLocalizedText(
-      context,
-      zh: '无需登录',
-      zhHant: '無需登入',
-      en: 'None',
-      fr: 'Aucune',
-      de: 'Keine',
-      ja: '不要',
-    ),
-    WebReverseLoginMode.manual => openHandLocalizedText(
-      context,
-      zh: '手动登录',
-      zhHant: '手動登入',
-      en: 'Manual',
-      fr: 'Manuelle',
-      de: 'Manuell',
-      ja: '手動',
-    ),
-    WebReverseLoginMode.storageState => openHandLocalizedText(
-      context,
-      zh: '已有状态',
-      zhHant: '既有狀態',
-      en: 'Storage state',
-      fr: 'État stocké',
-      de: 'Gespeicherter Status',
-      ja: '保存済み状態',
-    ),
-  };
 }
 
 Future<String?> _showEditQueuedMessageDialog(
@@ -968,7 +933,7 @@ String _localizedMetadataField(BuildContext context, String field) {
   };
 }
 
-// ── Harness Engineering annotation parsing ───────────────────────────────────
+// Harness Engineering 注解解析。
 
 final RegExp _heAgentPattern = RegExp(r'\[HE_AGENT:(\w+)\|([^\]]+)\]');
 final RegExp _hePhasePattern = RegExp(r'\[HE_PHASE:(\w+)\]');

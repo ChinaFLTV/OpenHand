@@ -11,84 +11,33 @@ class _SnippetsBody extends StatefulWidget {
   State<_SnippetsBody> createState() => _SnippetsBodyState();
 }
 
-class _SnippetsBodyState extends State<_SnippetsBody> {
-  String? _selectedId;
-  final TextEditingController _nameCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
-  final FocusNode _codeFocus = FocusNode();
-  bool _dirty = false;
+class _SnippetsBodyState extends State<_SnippetsBody>
+    with _DashboardScriptEditorLifecycle<_SnippetsBody> {
   bool _running = false;
   String? _lastResultPreview;
-  bool _controllerUpdateScheduled = false;
 
   @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_onControllerChanged);
-    _syncSelectionFromController();
-    _nameCtrl.addListener(_markDirty);
-    _codeCtrl.addListener(_markDirty);
-  }
+  Listenable get _dashboardScriptController => widget.controller;
 
   @override
-  void dispose() {
-    widget.controller.removeListener(_onControllerChanged);
-    _nameCtrl.dispose();
-    _codeCtrl.dispose();
-    _codeFocus.dispose();
-    super.dispose();
-  }
-
-  void _onControllerChanged() {
-    if (!mounted || _controllerUpdateScheduled) return;
-    _controllerUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controllerUpdateScheduled = false;
-      if (!mounted) return;
-      _syncSelectionFromController();
-      setState(() {});
-    });
-  }
-
   void _syncSelectionFromController() {
-    final list = widget.controller.snippets;
-    if (list.isEmpty) {
-      _selectedId = null;
-      if (_nameCtrl.text.isNotEmpty || _codeCtrl.text.isNotEmpty) {
-        _nameCtrl.text = '';
-        _codeCtrl.text = '';
-      }
-      _dirty = false;
-      return;
-    }
-    final found = list.firstWhere(
-      (e) => e.id == _selectedId,
-      orElse: () => list.first,
+    _syncDashboardScriptSelection(
+      items: widget.controller.snippets,
+      itemId: (snippet) => snippet.id,
+      itemName: (snippet) => snippet.name,
+      itemCode: (snippet) => snippet.code,
+      syncAdditionalFields: (_) => _lastResultPreview = null,
     );
-    if (_selectedId != found.id) {
-      _selectedId = found.id;
-      _nameCtrl.text = found.name;
-      _codeCtrl.text = found.code;
-      _dirty = false;
-    }
   }
 
+  @override
   void _markDirty() {
-    if (_selectedId == null) {
-      _dirty = _nameCtrl.text.isNotEmpty || _codeCtrl.text.isNotEmpty;
-    } else {
-      final cur = widget.controller.snippets.firstWhere(
-        (e) => e.id == _selectedId,
-        orElse: () => const WebReverseSnippet(
-          id: '',
-          name: '',
-          code: '',
-          updatedAt: null,
-        ),
-      );
-      _dirty = cur.name != _nameCtrl.text || cur.code != _codeCtrl.text;
-    }
-    if (mounted) setState(() {});
+    _updateDashboardScriptDirty(
+      items: widget.controller.snippets,
+      itemId: (snippet) => snippet.id,
+      itemName: (snippet) => snippet.name,
+      itemCode: (snippet) => snippet.code,
+    );
   }
 
   void _select(WebReverseSnippet snip) {
@@ -106,11 +55,12 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
 
   void _doSelect(WebReverseSnippet snip) {
     setState(() {
-      _selectedId = snip.id;
-      _nameCtrl.text = snip.name;
-      _codeCtrl.text = snip.code;
-      _dirty = false;
-      _lastResultPreview = null;
+      _setDashboardScriptSelection(
+        id: snip.id,
+        name: snip.name,
+        code: snip.code,
+        syncAdditionalFields: () => _lastResultPreview = null,
+      );
     });
   }
 
@@ -136,11 +86,12 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     );
     widget.onPersist();
     setState(() {
-      _selectedId = s.id;
-      _nameCtrl.text = s.name;
-      _codeCtrl.text = s.code;
-      _dirty = false;
-      _lastResultPreview = null;
+      _setDashboardScriptSelection(
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        syncAdditionalFields: () => _lastResultPreview = null,
+      );
     });
   }
 
@@ -199,209 +150,92 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final reduceMotion = !_wrMotionEnabled(context);
     final list = [...widget.controller.snippets]
       ..sort(
         (a, b) =>
             (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
       );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 260,
-            child: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-                    child: Row(
-                      children: [
-                        Icon(Icons.code_rounded, size: 16, color: cs.primary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            loc?.webReverseSnippetsTitle ?? 'Snippet pad',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: loc?.webReverseSnippetsNew ?? 'New snippet',
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          onPressed: _newSnippet,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: list.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                loc?.webReverseSnippetsEmpty ??
-                                    'No snippets yet.\nTap + to create one.',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            itemCount: list.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 2),
-                            itemBuilder: (_, i) {
-                              final s = list[i];
-                              final selected = s.id == _selectedId;
-                              return _SnippetTile(
-                                snippet: s,
-                                selected: selected,
-                                onTap: () => _select(s),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: AnimatedContainer(
-              duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-              curve: _kSwitchInCurve,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: _selectedId == null
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseSnippetsPickPrompt ??
-                            'Pick a snippet or create one.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+    return _DashboardScriptWorkspace(
+      sidebarWidth: 260,
+      libraryIcon: Icons.code_rounded,
+      libraryTitle: loc?.webReverseSnippetsTitle ?? 'Snippet pad',
+      createTooltip: loc?.webReverseSnippetsNew ?? 'New snippet',
+      onCreate: _newSnippet,
+      emptyLibraryLabel:
+          loc?.webReverseSnippetsEmpty ??
+          'No snippets yet.\nTap + to create one.',
+      itemCount: list.length,
+      itemBuilder: (_, index) {
+        final snippet = list[index];
+        return _SnippetTile(
+          snippet: snippet,
+          selected: snippet.id == _selectedId,
+          onTap: () => _select(snippet),
+        );
+      },
+      emptyEditorLabel:
+          loc?.webReverseSnippetsPickPrompt ?? 'Pick a snippet or create one.',
+      editor: _selectedId == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DashboardScriptNameField(
+                        controller: _nameCtrl,
+                        label: loc?.webReverseHooksNameLabel ?? 'Name',
                       ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _nameCtrl,
-                                maxLength: WebReverseSessionController
-                                    .maxSavedScriptNameChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideTextFieldCounter,
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  labelText:
-                                      loc?.webReverseHooksNameLabel ?? 'Name',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.icon(
-                              onPressed: _running ? null : _run,
-                              icon: _running
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 18,
-                                    ),
-                              label: Text(
-                                loc?.webReverseSnippetsRun ?? 'Run (⌘R)',
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            FilledButton.tonalIcon(
-                              onPressed: _dirty ? _save : null,
-                              icon: const Icon(Icons.save_rounded, size: 18),
-                              label: Text(
-                                _dirty
-                                    ? (loc?.webReverseSnippetsSaveDirty ??
-                                          'Save *')
-                                    : (loc?.webReverseHooksSaved ?? 'Saved'),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            IconButton(
-                              tooltip:
-                                  loc?.webReverseSnippetsDelete ?? 'Delete',
-                              icon: Icon(
-                                Icons.delete_outline_rounded,
-                                color: cs.error,
-                              ),
-                              onPressed: _delete,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: _DashboardScriptCodeEditor(
-                            controller: _codeCtrl,
-                            focusNode: _codeFocus,
-                            bindings: <ShortcutActivator, VoidCallback>{
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyR,
-                                meta: true,
-                              ): () {
-                                if (!_running) _run();
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyR,
-                                control: true,
-                              ): () {
-                                if (!_running) _run();
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyS,
-                                meta: true,
-                              ): () {
-                                if (_dirty) _save();
-                              },
-                              const SingleActivator(
-                                LogicalKeyboardKey.keyS,
-                                control: true,
-                              ): () {
-                                if (_dirty) _save();
-                              },
-                            },
-                          ),
-                        ),
-                        _DashboardScriptResultPreview(text: _lastResultPreview),
-                      ],
                     ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _running ? null : _run,
+                      icon: _running
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: Text(loc?.webReverseSnippetsRun ?? 'Run (⌘R)'),
+                    ),
+                    const SizedBox(width: 6),
+                    FilledButton.tonalIcon(
+                      onPressed: _dirty ? _save : null,
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: Text(
+                        _dirty
+                            ? (loc?.webReverseSnippetsSaveDirty ?? 'Save *')
+                            : (loc?.webReverseHooksSaved ?? 'Saved'),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: loc?.webReverseSnippetsDelete ?? 'Delete',
+                      icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+                      onPressed: _delete,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: _DashboardScriptCodeEditor(
+                    controller: _codeCtrl,
+                    focusNode: _codeFocus,
+                    bindings: _dashboardScriptEditorBindings(
+                      onRun: () {
+                        if (!_running) _run();
+                      },
+                      onSave: () {
+                        if (_dirty) _save();
+                      },
+                    ),
+                  ),
+                ),
+                _DashboardScriptResultPreview(text: _lastResultPreview),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -420,9 +254,8 @@ class _SnippetTile extends StatefulWidget {
   State<_SnippetTile> createState() => _SnippetTileState();
 }
 
-class _SnippetTileState extends State<_SnippetTile> {
-  bool _hover = false;
-
+class _SnippetTileState extends State<_SnippetTile>
+    with OpenHandHoverState<_SnippetTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -430,7 +263,7 @@ class _SnippetTileState extends State<_SnippetTile> {
     final reduceMotion = !_wrMotionEnabled(context);
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.16)
-        : (_hover ? cs.surfaceContainerHighest : Colors.transparent);
+        : (openHandHovered ? cs.surfaceContainerHighest : Colors.transparent);
     final border = widget.selected
         ? cs.primary.withValues(alpha: 0.55)
         : Colors.transparent;
@@ -438,20 +271,8 @@ class _SnippetTileState extends State<_SnippetTile> {
     final tsText = ts == null ? '' : formatHourMinute(ts);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        if (_hover) return;
-        _hover = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hover) return;
-        _hover = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
+      onEnter: (_) => setOpenHandHovered(true),
+      onExit: (_) => setOpenHandHovered(false),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
