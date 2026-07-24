@@ -17,6 +17,7 @@ const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
 const int _kMaxAdbStdoutBytes = 4 * kBytesPerMiB;
 const int _kMaxAdbStderrBytes = 512 * kBytesPerKiB;
 const int _kMaxLogcatLines = 2000;
+const int _kMaxPackageApkPaths = 64;
 const int _kMinTcpPort = kTcpPortMin;
 const int _kMaxTcpPort = kTcpPortMax;
 
@@ -75,6 +76,19 @@ class AdbCommandResult {
   }
 }
 
+/// 修正 `adb connect` 失败时仍返回退出码 0 的平台工具行为。
+AdbCommandResult normalizeAdbConnectResult(AdbCommandResult result) {
+  if (!result.ok) return result;
+  final output = result.combinedOutput.toLowerCase();
+  final connected = output.contains('connected to ');
+  if (connected) return result;
+  final message =
+      nullIfBlank(result.stderr) ??
+      nullIfBlank(result.stdout) ??
+      'ADB 连接未返回成功结果。';
+  return result.copyWith(exitCode: -1, stdout: '', stderr: message);
+}
+
 /// ADB 设备信息。
 class AdbDevice {
   const AdbDevice({
@@ -115,6 +129,57 @@ class AndroidProcess {
 
   @override
   String toString() => '$name (pid=$pid)';
+}
+
+/// 解析不同 Android 版本和厂商实现输出的 `ps` 进程列表。
+List<AndroidProcess> parseAndroidProcessList(String raw, {String? filterName}) {
+  final lines = splitTrimmedNonEmpty(raw, separator: '\n');
+  if (lines.isEmpty) return const <AndroidProcess>[];
+
+  final header = lines.first.split(RegExp(r'\s+'));
+  final normalizedHeader = header.map((value) => value.toUpperCase()).toList();
+  final pidIndex = normalizedHeader.indexOf('PID');
+  final hasHeader = pidIndex >= 0;
+  final userIndex = hasHeader ? normalizedHeader.indexOf('USER') : 0;
+  final ppidIndex = hasHeader ? normalizedHeader.indexOf('PPID') : 2;
+  final nameIndex = hasHeader
+      ? <String>['NAME', 'CMDLINE', 'CMD', 'COMMAND', 'ARGS']
+            .map(normalizedHeader.indexOf)
+            .firstWhere((index) => index >= 0, orElse: () => -1)
+      : -1;
+  final normalizedFilter = nullIfBlank(filterName)?.toLowerCase();
+  final processes = <AndroidProcess>[];
+
+  for (final line in lines.skip(hasHeader ? 1 : 0)) {
+    final parts = line.split(RegExp(r'\s+'));
+    final resolvedPidIndex = hasHeader ? pidIndex : (parts.length > 1 ? 1 : -1);
+    if (resolvedPidIndex < 0 || resolvedPidIndex >= parts.length) continue;
+    final pid = optionalIntFromValue(parts[resolvedPidIndex]);
+    if (pid == null || pid <= 0) continue;
+
+    final resolvedNameIndex = nameIndex >= 0 && nameIndex < parts.length
+        ? nameIndex
+        : parts.length - 1;
+    final name = parts[resolvedNameIndex].trim();
+    if (name.isEmpty ||
+        (normalizedFilter != null &&
+            !name.toLowerCase().contains(normalizedFilter))) {
+      continue;
+    }
+    processes.add(
+      AndroidProcess(
+        pid: pid,
+        name: name,
+        user: userIndex >= 0 && userIndex < parts.length
+            ? nullIfBlank(parts[userIndex])
+            : null,
+        ppid: ppidIndex >= 0 && ppidIndex < parts.length
+            ? optionalIntFromValue(parts[ppidIndex])
+            : null,
+      ),
+    );
+  }
+  return List<AndroidProcess>.unmodifiable(processes);
 }
 
 class AndroidPackagePidLookupResult {
@@ -244,6 +309,7 @@ class AndroidReverseAdbClient {
         .where((line) => line.startsWith('package:'))
         .map((line) => line.substring(8).trim())
         .where((line) => line.isNotEmpty)
+        .take(_kMaxPackageApkPaths)
         .toList(growable: false);
     return List<String>.unmodifiable(paths);
   }
@@ -429,33 +495,7 @@ class AndroidReverseAdbClient {
     if (!result.ok && !result.hasUsableStdout) {
       return const <AndroidProcess>[];
     }
-    return _parseProcessList(result.stdout, filterName: filterName);
-  }
-
-  List<AndroidProcess> _parseProcessList(String raw, {String? filterName}) {
-    final processes = <AndroidProcess>[];
-    final normalizedFilter = nullIfBlank(filterName)?.toLowerCase();
-    final lines = raw.split('\n');
-    for (final line in lines.skip(1)) {
-      final parts = line.trim().split(RegExp(r'\s+'));
-      if (parts.length < 9) continue;
-      final pid = optionalIntFromValue(parts[1]);
-      if (pid == null) continue;
-      final name = parts.last;
-      if (normalizedFilter != null &&
-          !name.toLowerCase().contains(normalizedFilter)) {
-        continue;
-      }
-      processes.add(
-        AndroidProcess(
-          pid: pid,
-          name: name,
-          user: parts[0],
-          ppid: optionalIntFromValue(parts[2]),
-        ),
-      );
-    }
-    return processes;
+    return parseAndroidProcessList(result.stdout, filterName: filterName);
   }
 
   Future<String?> pidOfPackage(String packageName) async {
@@ -494,7 +534,7 @@ class AndroidReverseAdbClient {
       'ps',
       '-A',
     ], timeout: _kAdbPidLookupTimeout);
-    final procs = _parseProcessList(ps.stdout);
+    final procs = parseAndroidProcessList(ps.stdout);
     AndroidProcess? matchedProcess;
     for (final proc in procs) {
       if (proc.name == normalizedPackageName) {
@@ -704,7 +744,7 @@ class AndroidReverseAdbClient {
     ]);
   }
 
-  Future<AdbCommandResult> connect(String endpoint) {
+  Future<AdbCommandResult> connect(String endpoint) async {
     final normalizedEndpoint = nullIfBlank(endpoint);
     if (normalizedEndpoint == null) {
       return Future<AdbCommandResult>.value(
@@ -716,7 +756,9 @@ class AndroidReverseAdbClient {
         ),
       );
     }
-    return _runDetailed(<String>['connect', normalizedEndpoint]);
+    return normalizeAdbConnectResult(
+      await _runDetailed(<String>['connect', normalizedEndpoint]),
+    );
   }
 
   Future<AdbCommandResult> disconnect([String? endpoint]) {

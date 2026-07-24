@@ -82,10 +82,13 @@ class AndroidReverseSessionController extends ChangeNotifier {
     required this.config,
     required this.artifactsRootDir,
     String? adbPath,
-  }) : _adbClient = AndroidReverseAdbClient(
-         adbPath: adbPath,
-         deviceSerial: config.deviceSerial,
-       );
+    AndroidReverseAdbClient? adbClient,
+  }) : _adbClient =
+           adbClient ??
+           AndroidReverseAdbClient(
+             adbPath: adbPath,
+             deviceSerial: config.deviceSerial,
+           );
 
   final AndroidReverseSessionConfig config;
   final String artifactsRootDir;
@@ -214,6 +217,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<void>? _startFuture;
   Future<void>? _deviceRefreshFuture;
   Future<void>? _shutdownFuture;
+  bool _deviceRefreshQueued = false;
+  int _processRefreshGeneration = 0;
 
   bool get isRunning => _state == AndroidReverseSessionState.running;
 
@@ -339,16 +344,23 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String? filterName,
     String? serial,
   }) async {
+    final generation = ++_processRefreshGeneration;
     try {
       final procs = await _clientForSerial(
         serial,
       ).listProcesses(filterName: filterName);
-      _processes = procs;
-      _safeNotify();
+      if (!_disposed && generation == _processRefreshGeneration) {
+        _processes = procs;
+        _safeNotify();
+      }
       return procs;
     } catch (e, st) {
       silentLog(_kTag, '刷新进程列表失败', e, st);
-      return _processes;
+      if (!_disposed && generation == _processRefreshGeneration) {
+        _processes = const <AndroidProcess>[];
+        _safeNotify();
+      }
+      return const <AndroidProcess>[];
     }
   }
 
@@ -1978,15 +1990,27 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<void> _refreshDevices() {
     final active = _deviceRefreshFuture;
-    if (active != null) return active;
+    if (active != null) {
+      _deviceRefreshQueued = true;
+      return active;
+    }
     late final Future<void> tracked;
-    tracked = _refreshDevicesOnce().whenComplete(() {
+    tracked = _drainDeviceRefreshQueue().whenComplete(() {
       if (identical(_deviceRefreshFuture, tracked)) {
         _deviceRefreshFuture = null;
       }
     });
     _deviceRefreshFuture = tracked;
     return tracked;
+  }
+
+  Future<void> _drainDeviceRefreshQueue() async {
+    do {
+      _deviceRefreshQueued = false;
+      await _refreshDevicesOnce();
+    } while (_deviceRefreshQueued &&
+        !_disposed &&
+        _state != AndroidReverseSessionState.stopped);
   }
 
   Future<void> _refreshDevicesOnce() async {

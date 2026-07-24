@@ -16,6 +16,7 @@ import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/structured_text_format.dart';
@@ -59,6 +60,8 @@ const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
 const int _kMcpToolPreviewLimit = 8;
 const int _kMcpReconnectConcurrency = 4;
+const int _kMaxNetworkFlowExportBytes = 1024 * kBytesPerMiB;
+const Duration _kArtifactFileProbeTimeout = Duration(seconds: 3);
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
@@ -903,6 +906,12 @@ class _AndroidReverseDashboardDialogState
     setState(() {
       _selectedDeviceSerial = next;
       _selectedPackageName = null;
+      _packages = const <String>[];
+      _processes = const <AndroidProcess>[];
+      _deviceProps = const <String, String>{};
+      _forwardRows = const <String>[];
+      _reverseRows = const <String>[];
+      _deviceSnapshotOutput = null;
       _packageAnalysisOutput = null;
       _logcatContextGeneration += 1;
       _logcatLines.clear();
@@ -911,6 +920,9 @@ class _AndroidReverseDashboardDialogState
       _logcatArtifactOutput = null;
       _lastShellResult = null;
       _shellOutputCtrl.clear();
+      _fridaArtifactOutput = null;
+      _networkAddonOutput = null;
+      _certificateArtifactOutput = null;
       if (!preserveDeviceActionOutput) {
         _lastDeviceActionResult = null;
         _lastDeviceActionOutput = null;
@@ -1111,9 +1123,8 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       final isCurrentTarget =
           serial == _targetSerial && packageName == _selectedPackageName;
-      if (isCurrentTarget) {
-        setState(() => _packageAnalysisOutput = _formatAdbResult(result));
-      }
+      if (!isCurrentTarget) return;
+      setState(() => _packageAnalysisOutput = _formatAdbResult(result));
       if (result.ok || result.partialOk) {
         _showSnack(
           openHandLocalizedText(
@@ -2192,7 +2203,11 @@ class _AndroidReverseDashboardDialogState
         presetAssetPath: presetAssetPath,
         packageName: packageName,
       );
-      if (!mounted || scriptRevision != _fridaScriptRevision) return;
+      if (!mounted ||
+          scriptRevision != _fridaScriptRevision ||
+          packageName != _logcatPackageTarget()) {
+        return;
+      }
       setState(() {
         _lastSavedFridaScriptPath = _extractFridaScriptPath(result.stdout);
         _fridaArtifactOutput = _formatAdbResult(result);
@@ -2213,7 +2228,11 @@ class _AndroidReverseDashboardDialogState
         );
       }
     } catch (error) {
-      if (!mounted || scriptRevision != _fridaScriptRevision) return;
+      if (!mounted ||
+          scriptRevision != _fridaScriptRevision ||
+          packageName != _logcatPackageTarget()) {
+        return;
+      }
       setState(() {
         _fridaArtifactOutput =
             '${openHandLocalizedText(context, zh: "保存 Frida 脚本失败", zhHant: "儲存 Frida 腳本失敗", en: "Failed to save Frida script", fr: "Échec d’enregistrement du script Frida", de: "Frida-Skript konnte nicht gespeichert werden", ja: "Frida スクリプトの保存に失敗しました")}: $error';
@@ -2280,7 +2299,11 @@ class _AndroidReverseDashboardDialogState
       packageName: packageName,
     );
     final path = _extractFridaScriptPath(result.stdout);
-    if (!mounted || scriptRevision != _fridaScriptRevision) return null;
+    if (!mounted ||
+        scriptRevision != _fridaScriptRevision ||
+        packageName != _logcatPackageTarget()) {
+      return null;
+    }
     setState(() {
       _lastSavedFridaScriptPath = path;
       _fridaArtifactOutput = _formatAdbResult(result);
@@ -2726,7 +2749,7 @@ fi
       final result = await _ctrl.exportMitmproxyFlows();
       if (!result.ok && !result.partialOk) return result;
       final source = File('${_ctrl.networkDir}/flows.txt');
-      if (!await source.exists()) {
+      if (!await source.exists().timeout(_kArtifactFileProbeTimeout)) {
         return AdbCommandResult(
           args: const <String>['network-capture-export'],
           exitCode: -1,
@@ -2735,7 +2758,11 @@ fi
           displayCommand: result.displayCommand,
         );
       }
-      await source.copy(destination);
+      await copyFileAtomically(
+        source,
+        File(destination),
+        maxBytes: _kMaxNetworkFlowExportBytes,
+      );
       return AdbCommandResult(
         args: const <String>['network-capture-export'],
         exitCode: result.exitCode,
@@ -2804,7 +2831,7 @@ fi
     required String displayCommand,
   }) async {
     if (_runningCertificateAction || _writingCertificateArtifacts) return;
-    final packageName = _logcatPackageTarget();
+    final target = _captureStaticAnalysisContext();
     setState(() {
       _runningCertificateAction = true;
       _certificateArtifactOutput = openHandLocalizedText(
@@ -2818,17 +2845,18 @@ fi
       );
     });
     try {
-      await _ctrl.ensureCertificateArtifacts(packageName: packageName);
+      await _ctrl.ensureCertificateArtifacts(packageName: target.packageName);
+      if (!_isCurrentStaticAnalysisContext(target)) return;
       final result = await _ctrl.runLocalArtifactScriptDetailed(
         scriptPath: scriptPath,
         args: args,
         displayCommand: displayCommand,
         tag: 'android_reverse.certificate_action',
       );
-      if (!mounted) return;
+      if (!mounted || !_isCurrentStaticAnalysisContext(target)) return;
       setState(() => _certificateArtifactOutput = _formatAdbResult(result));
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_isCurrentStaticAnalysisContext(target)) return;
       _setCertificateOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningCertificateAction = false);
