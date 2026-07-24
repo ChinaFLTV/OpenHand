@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../util/timer_safety.dart';
+
 const Duration _kStableScrollbarSettleDelay = Duration(milliseconds: 140);
 const Duration _kStableScrollbarSettleDuration = Duration(milliseconds: 180);
 
@@ -263,7 +265,7 @@ class _OpenHandStableRawScrollbarState
 
   void _scheduleSettle() {
     _settleTimer?.cancel();
-    _settleTimer = Timer(_kStableScrollbarSettleDelay, () {
+    _settleTimer = startSafeTimer(_kStableScrollbarSettleDelay, () {
       _settleTimer = null;
       _startSettle();
     });

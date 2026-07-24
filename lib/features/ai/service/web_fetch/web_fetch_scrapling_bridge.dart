@@ -714,12 +714,14 @@ class WebFetchScraplingBridge {
     bool runtimeInstalledOnSuccess = true,
   }) {
     late final StreamController<WebFetchScraplingRuntimeEvent> controller;
+    final cancellation = _RuntimeCommandCancellation();
     var started = false;
     var cancelled = false;
 
     Future<void> run() async {
       try {
         await _runExclusive(() async {
+          if (cancellation.isCancelled) return;
           await for (final event in _runRuntimeCommandStreamingExclusive(
             settings: settings,
             command: command,
@@ -729,6 +731,7 @@ class WebFetchScraplingBridge {
             successCode: successCode,
             runtimeInstalledOnFailure: runtimeInstalledOnFailure,
             runtimeInstalledOnSuccess: runtimeInstalledOnSuccess,
+            cancellation: cancellation,
           )) {
             if (!cancelled && !controller.isClosed) controller.add(event);
           }
@@ -750,7 +753,7 @@ class WebFetchScraplingBridge {
       },
       onCancel: () {
         cancelled = true;
-        return _stopRuntimeCommandProcess();
+        return cancellation.cancel();
       },
     );
     return controller.stream;
@@ -765,8 +768,11 @@ class WebFetchScraplingBridge {
     required String successCode,
     required bool runtimeInstalledOnFailure,
     required bool runtimeInstalledOnSuccess,
+    required _RuntimeCommandCancellation cancellation,
   }) async* {
+    if (cancellation.isCancelled) return;
     final python = await _resolvePythonExecutable(settings);
+    if (cancellation.isCancelled) return;
     _throwIfDisposed();
     if (python == null) {
       _lastProbe = _pythonNotFoundProbeStatus();
@@ -774,6 +780,7 @@ class WebFetchScraplingBridge {
     }
 
     await _killProcess();
+    if (cancellation.isCancelled) return;
     _throwIfDisposed();
     yield const WebFetchScraplingRuntimeEvent(
       type: WebFetchScraplingRuntimeEventType.status,
@@ -789,13 +796,16 @@ class WebFetchScraplingBridge {
       command: command,
       timeoutSeconds: settings.installTimeoutSeconds,
       tag: tag,
+      cancellation: cancellation,
     );
+    if (cancellation.isCancelled) return;
     _throwIfDisposed();
     for (final event in attempt.events) {
       yield event;
     }
 
     final tlsBundle = await _detectTlsBundle(attempt);
+    if (cancellation.isCancelled) return;
     _throwIfDisposed();
     if (!attempt.succeeded && tlsBundle != null) {
       yield WebFetchScraplingRuntimeEvent(
@@ -808,6 +818,7 @@ class WebFetchScraplingBridge {
         command: command,
         timeoutSeconds: settings.installTimeoutSeconds,
         tag: '$tag.ca_retry',
+        cancellation: cancellation,
         environment: <String, String>{
           ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           'PIP_CERT': tlsBundle,
@@ -816,6 +827,7 @@ class WebFetchScraplingBridge {
           'CURL_CA_BUNDLE': tlsBundle,
         },
       );
+      if (cancellation.isCancelled) return;
       _throwIfDisposed();
       for (final event in attempt.events) {
         yield event;
@@ -859,6 +871,7 @@ class WebFetchScraplingBridge {
     required List<String> command,
     required int timeoutSeconds,
     required String tag,
+    required _RuntimeCommandCancellation cancellation,
     Map<String, String>? environment,
   }) async {
     final events = ListQueue<WebFetchScraplingRuntimeEvent>();
@@ -895,6 +908,7 @@ class WebFetchScraplingBridge {
         onProcessStarted: (process) {
           attemptProcess = process;
           _runtimeCommandProcess = process;
+          cancellation.attach(process);
           if (_disposed) unawaited(_stopRuntimeCommandProcess());
         },
         streamDrainTimeout: _defaultProcessKillTimeout,
@@ -936,6 +950,7 @@ class WebFetchScraplingBridge {
       );
     } finally {
       final process = attemptProcess;
+      if (process != null) cancellation.detach(process);
       if (process != null && identical(_runtimeCommandProcess, process)) {
         _runtimeCommandProcess = null;
       }
@@ -1206,6 +1221,40 @@ class _ScraplingProcessRuntime {
   String stderrTail = '';
   bool stopHandlingScheduled = false;
   Future<void>? cleanupFuture;
+}
+
+class _RuntimeCommandCancellation {
+  Process? _process;
+  bool _cancelled = false;
+
+  bool get isCancelled => _cancelled;
+
+  void attach(Process process) {
+    _process = process;
+    if (_cancelled) unawaited(_terminate(process));
+  }
+
+  void detach(Process process) {
+    if (identical(_process, process)) _process = null;
+  }
+
+  Future<void> cancel() async {
+    if (_cancelled) return;
+    _cancelled = true;
+    final process = _process;
+    if (process != null) await _terminate(process);
+  }
+
+  Future<void> _terminate(Process process) async {
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: WebFetchScraplingBridge._defaultProcessStopTimeout,
+      );
+    } catch (error, stack) {
+      silentLog('web_fetch_scrapling_bridge', '取消运行时命令', error, stack);
+    }
+  }
 }
 
 class _RuntimeAttemptResult {

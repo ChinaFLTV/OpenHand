@@ -36,7 +36,6 @@ final Expando<bool> _trackedProcessGroupLeaders = Expando<bool>(
 );
 Future<_ProcessGroupLauncher?>? _processGroupLauncherProbe;
 Timer? _processGroupPruneTimer;
-bool _processGroupPruneRunning = false;
 Future<void>? _trackedChildrenCleanupFuture;
 _TrackedChildrenCleanupPhase _trackedChildrenCleanupPhase =
     _TrackedChildrenCleanupPhase.idle;
@@ -139,9 +138,11 @@ void _signalTrackedProcessForCleanup(Process process, ProcessSignal signal) {
 
 void _ensureProcessGroupPruner() {
   if (_processGroupPruneTimer?.isActive ?? false) return;
-  _processGroupPruneTimer = Timer.periodic(
+  _processGroupPruneTimer = startNonOverlappingPeriodicTimer(
     _processGroupPruneInterval,
-    (_) => unawaited(_pruneExitedProcessGroups()),
+    (_) => _pruneExitedProcessGroups(),
+    onError: (error, stack) =>
+        silentLog('safe_subprocess', '清理已退出进程组', error, stack),
   );
 }
 
@@ -152,12 +153,10 @@ void _stopProcessGroupPrunerIfIdle() {
 }
 
 Future<void> _pruneExitedProcessGroups() async {
-  if (_processGroupPruneRunning) return;
   if (_trackedProcessGroups.isEmpty) {
     _stopProcessGroupPrunerIfIdle();
     return;
   }
-  _processGroupPruneRunning = true;
   final snapshot = _trackedProcessGroups.entries.toList(growable: false);
   try {
     await forEachIndexWithConcurrencyLimit(
@@ -172,7 +171,6 @@ Future<void> _pruneExitedProcessGroups() async {
       },
     );
   } finally {
-    _processGroupPruneRunning = false;
     _stopProcessGroupPrunerIfIdle();
   }
 }

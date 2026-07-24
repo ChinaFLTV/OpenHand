@@ -240,12 +240,14 @@ const String _fallbackNotice = '''
 
 The template prompt could not be loaded from `assets/prompts/`. Tell the user
 to reinstall or rebuild the app. Do not fabricate results, files, tools, or
-success. Respond briefly using only verified information.
+success. Use only tools listed in the runtime catalog. Respond briefly using
+only verified information.
 
 [OpenHand 提示词资源不可用]
 
 无法从 `assets/prompts/` 加载模板。请告知用户重新安装或构建应用。
-禁止伪造结果、文件、工具或成功状态；仅用已验证信息简洁回复。
+禁止伪造结果、文件、工具或成功状态；仅使用运行时目录中的工具，
+并根据已验证信息简洁回复。
 ''';
 
 const String _machineExpertFallbackNotice =

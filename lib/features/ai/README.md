@@ -10,9 +10,9 @@ Controller-bearing。`AiModule.bootstrap()` 注入 hooks executor / skills dir p
 
 - **Module**：`AiModule.bootstrap()` / `AiModule.providers(m)`
 - **Controller**：`AiSessionController`（状态机心脏）
-- **Model**（19 个）：`AiSession / AiSessionMessage / AiSessionRuntimeContext / AiModelConfig / AiThreadTemplate / AiAttachment / AiAllowCommandRule / AiDenyCommandRule / AiBuiltinToolConfig / AiCostBreakdown / AiCreationMode / AiInputCacheRuntimeConfig / AiLspBackendCatalog / AiLspLanguageSettings / AiModelCatalog / AiSandboxSettings / AiTokenUsage / AiWebFetchSettings / AiWebSearchSettings`
-- **Service**（按职责分 17 子目录，41 文件 + web_fetch/ + web_search/ 各 7）
-- **Tool**（按类型分 9 子目录，26 文件 + 4 infra 基类）
+- **Model**：会话、模型配置、上下文、用量与内置工具等领域模型
+- **Service**：按聊天、Prompt、运行时、文件、媒体、沙箱与 Web 能力分组
+- **Tool**：按文件、终端、搜索、Web、Git、规划和资源能力分组
 - **Store**：`AiSessionStore`（data/）
 
 ## 目录组织
@@ -27,10 +27,10 @@ lib/features/ai/
   README.md
   data/
     ai_session_store.dart         # SQLite 持久化
-  model/                          # 19 个领域模型
-  service/                        # 17 子目录 + web_fetch/ + web_search/
+  model/                          # 领域模型
+  service/                        # 按能力分组的服务
     chat/                         # ai_chat_service, ai_protocol_adapter, ai_transport_diagnostic_messages
-    prompt/                       # ai_prompt_builder, ai_prompt_template_repository, machine_expert_prompts, programming_expert_prompts
+    prompt/                       # ai_prompt_builder, ai_prompt_template_repository, ai_prompt_template_assembly
     runtime/                      # ai_tool_execution_registry, ai_tool_runtime_service, ai_plan_approval_detector
     dsml/                         # ai_dsml_partial_stream_scanner, ai_dsml_tool_call_parser
     fs/                           # ai_file_history_service, ai_file_mutation_ledger, ai_file_tracker_service, ai_attachment_service
@@ -45,10 +45,13 @@ lib/features/ai/
     workspace/                    # ai_workspace_instruction_service
     model_registry/               # ai_model_scanner
     mcp_bridge/                   # mcp_loaded_tools_tracker
+    operations/                   # 模型操作与媒体能力
+    usage/                        # 用量跟踪
     web_engine/                   # web_engine_base / cache_store_base / concurrency / http_exception / json_utils / quality / telemetry_store_base
     web_fetch/                    # web_fetch_orchestrator / engine / direct_engines / scrape_engines / search_engines / cache_store / telemetry_store
     web_search/                   # web_search_orchestrator / engine / api_engines / html_engines / provider_engines / cache_store / telemetry_store
-  tools/                          # 9 子目录 + 4 infra 基类
+  tools/                          # 按能力分组的内置工具
+    agents/                       # 智能体工具
     fs/                           # read/write/edit/multi_edit/delete/glob/ls/file_read_renderer/apply_file_diffs/notebook_edit (10)
     bash/                         # bash/bash_background
     search/                       # grep/codebase_search/tool_search
@@ -57,7 +60,9 @@ lib/features/ai/
     git/                          # git
     planning/                     # exit_plan_mode/todo_write/task/ask_user_choice
     memory/                       # memory
+    knowledge/                    # knowledge_base
     skill/                        # skill_manager
+    terminal/                     # MachineTerminal
     ai_tool.dart                  # 基类（不分类）
     ai_tool_registry.dart         # 工具注册中心（不分类）
     ai_tool_execution_context.dart # 执行上下文（不分类）
