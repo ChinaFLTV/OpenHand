@@ -854,11 +854,12 @@ class _AndroidReverseDashboardDialogState
   }
 
   bool _isCurrentAndroidTargetContext(
-    _AndroidTargetContext target, {
+    _AndroidTargetContext? target, {
     bool includePackage = true,
   }) {
-    if (!mounted ||
-        target.generation != _deviceContextGeneration ||
+    if (!mounted) return false;
+    if (target == null) return true;
+    if (target.generation != _deviceContextGeneration ||
         target.serial != _targetSerial?.trim()) {
       return false;
     }
@@ -2017,20 +2018,18 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _ensureCertificateArtifacts() async {
-    if (_writingCertificateArtifacts) return;
+    if (_writingCertificateArtifacts || _runningCertificateAction) return;
+    final packageName = _logcatPackageTarget();
     setState(() => _writingCertificateArtifacts = true);
     try {
       final output = await _ctrl.ensureCertificateArtifacts(
-        packageName: _logcatPackageTarget(),
+        packageName: packageName,
       );
-      if (!mounted) return;
+      if (!mounted || packageName != _logcatPackageTarget()) return;
       setState(() => _certificateArtifactOutput = output);
     } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _certificateArtifactOutput =
-            '${openHandLocalizedText(context, zh: "生成证书工件失败", zhHant: "產生憑證工件失敗", en: "Failed to generate certificate artifacts", fr: "Échec de génération des artefacts certificat", de: "Zertifikatsartefakte konnten nicht erstellt werden", ja: "証明書成果物の生成に失敗しました")}: $error';
-      });
+      if (!mounted || packageName != _logcatPackageTarget()) return;
+      _setCertificateOperationFailure(error);
       _showSnack(
         openHandLocalizedText(
           context,
@@ -2504,6 +2503,7 @@ fi
 
   Future<void> _runNetworkProxyProbe() async {
     if (_runningNetworkProbe) return;
+    final target = _captureAndroidTargetContext();
     setState(() {
       _runningNetworkProbe = true;
       _networkAddonOutput = openHandLocalizedText(
@@ -2518,30 +2518,36 @@ fi
     });
     try {
       await _ctrl.ensureMitmproxyJsonlAddon();
-      final serial = _targetSerial?.trim();
+      if (!_isCurrentAndroidTargetContext(target)) return;
+      final serial = target.serial;
+      final packageName = target.packageName;
       final result = await _ctrl.runLocalArtifactScriptDetailed(
         scriptPath: _ctrl.networkProxyProbeScriptPath,
         args: const <String>['--timeout', '6'],
         environment: <String, String>{
           if (serial != null && serial.isNotEmpty) 'ADB_SERIAL': serial,
-          if (_logcatPackageTarget() != null)
-            'ANDROID_PACKAGE_NAME': _logcatPackageTarget()!,
+          if (packageName != null && packageName.isNotEmpty)
+            'ANDROID_PACKAGE_NAME': packageName,
         },
         timeout: const Duration(seconds: 18),
         displayCommand:
             'bash ${_shellQuote(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
         tag: 'android_reverse.network_proxy_probe',
       );
-      if (!mounted) return;
+      if (!mounted || !_isCurrentAndroidTargetContext(target)) return;
       setState(() => _networkAddonOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted || !_isCurrentAndroidTargetContext(target)) return;
+      _setNetworkOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningNetworkProbe = false);
     }
   }
 
   Future<void> _runNetworkAction(
-    Future<AdbCommandResult> Function() action,
-  ) async {
+    Future<AdbCommandResult> Function() action, {
+    _AndroidTargetContext? target,
+  }) async {
     if (_runningNetworkAction) return;
     setState(() {
       _runningNetworkAction = true;
@@ -2557,8 +2563,17 @@ fi
     });
     try {
       final result = await action();
-      if (!mounted) return;
+      if (!mounted ||
+          !_isCurrentAndroidTargetContext(target, includePackage: false)) {
+        return;
+      }
       setState(() => _networkAddonOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted ||
+          !_isCurrentAndroidTargetContext(target, includePackage: false)) {
+        return;
+      }
+      _setNetworkOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningNetworkAction = false);
     }
@@ -2577,6 +2592,13 @@ fi
     if (host.isEmpty || host.length > 255) return null;
     if (!RegExp(r'^[A-Za-z0-9_.:-]+$').hasMatch(host)) return null;
     return host;
+  }
+
+  void _setNetworkOperationFailure(Object error) {
+    setState(() {
+      _networkAddonOutput =
+          '${openHandLocalizedText(context, zh: "网络操作失败", zhHant: "網路操作失敗", en: "Network operation failed", fr: "Échec de l’opération réseau", de: "Netzwerkvorgang fehlgeschlagen", ja: "ネットワーク操作に失敗しました")}: $error';
+    });
   }
 
   Future<void> _startNetworkCapture() async {
@@ -2615,32 +2637,38 @@ fi
       );
       return;
     }
+    final target = _captureAndroidTargetContext();
     await _runNetworkAction(
       () => _ctrl.shellDetailed(
         'settings put global http_proxy ${_shellQuote('$host:$port')}; settings get global http_proxy',
-        serial: _targetSerial,
+        serial: target.serial,
         timeout: const Duration(seconds: 8),
       ),
+      target: target,
     );
   }
 
   Future<void> _readDeviceProxy() {
+    final target = _captureAndroidTargetContext();
     return _runNetworkAction(
       () => _ctrl.shellDetailed(
         'settings get global http_proxy; settings get global global_http_proxy_host 2>/dev/null; settings get global global_http_proxy_port 2>/dev/null',
-        serial: _targetSerial,
+        serial: target.serial,
         timeout: const Duration(seconds: 8),
       ),
+      target: target,
     );
   }
 
   Future<void> _clearDeviceProxy() {
+    final target = _captureAndroidTargetContext();
     return _runNetworkAction(
       () => _ctrl.shellDetailed(
         'settings delete global http_proxy; settings delete global global_http_proxy_host 2>/dev/null; settings delete global global_http_proxy_port 2>/dev/null; settings get global http_proxy',
-        serial: _targetSerial,
+        serial: target.serial,
         timeout: const Duration(seconds: 8),
       ),
+      target: target,
     );
   }
 
@@ -2673,6 +2701,7 @@ fi
         ],
       );
     } catch (error) {
+      if (!mounted) return;
       _showSnack('$saveDialogErrorPrefix: $error');
       return;
     }
@@ -2736,12 +2765,20 @@ fi
     return value;
   }
 
+  void _setCertificateOperationFailure(Object error) {
+    setState(() {
+      _certificateArtifactOutput =
+          '${openHandLocalizedText(context, zh: "证书操作失败", zhHant: "憑證操作失敗", en: "Certificate operation failed", fr: "Échec de l’opération certificat", de: "Zertifikatsvorgang fehlgeschlagen", ja: "証明書操作に失敗しました")}: $error';
+    });
+  }
+
   Future<void> _runCertificateArtifactScript({
     required String scriptPath,
     required List<String> args,
     required String displayCommand,
   }) async {
-    if (_runningCertificateAction) return;
+    if (_runningCertificateAction || _writingCertificateArtifacts) return;
+    final packageName = _logcatPackageTarget();
     setState(() {
       _runningCertificateAction = true;
       _certificateArtifactOutput = openHandLocalizedText(
@@ -2755,21 +2792,18 @@ fi
       );
     });
     try {
-      await _ctrl.ensureCertificateArtifacts(
-        packageName: _logcatPackageTarget(),
-      );
-      final serial = _targetSerial?.trim();
+      await _ctrl.ensureCertificateArtifacts(packageName: packageName);
       final result = await _ctrl.runLocalArtifactScriptDetailed(
         scriptPath: scriptPath,
         args: args,
-        environment: <String, String>{
-          if (serial != null && serial.isNotEmpty) 'ADB_SERIAL': serial,
-        },
         displayCommand: displayCommand,
         tag: 'android_reverse.certificate_action',
       );
       if (!mounted) return;
       setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted) return;
+      _setCertificateOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningCertificateAction = false);
     }
@@ -2809,7 +2843,8 @@ fi
   }
 
   Future<void> _readCertificateArtifacts() async {
-    if (_runningCertificateAction) return;
+    if (_runningCertificateAction || _writingCertificateArtifacts) return;
+    final packageName = _logcatPackageTarget();
     setState(() {
       _runningCertificateAction = true;
       _certificateArtifactOutput = openHandLocalizedText(
@@ -2824,17 +2859,21 @@ fi
     });
     try {
       final result = await _ctrl.readCertificateArtifacts(
-        packageName: _logcatPackageTarget(),
+        packageName: packageName,
       );
-      if (!mounted) return;
+      if (!mounted || packageName != _logcatPackageTarget()) return;
       setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted || packageName != _logcatPackageTarget()) return;
+      _setCertificateOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningCertificateAction = false);
     }
   }
 
   Future<void> _inspectMitmproxyCa() async {
-    if (_runningCertificateAction) return;
+    if (_runningCertificateAction || _writingCertificateArtifacts) return;
+    final certPath = _mitmCertPathArg();
     setState(() {
       _runningCertificateAction = true;
       _certificateArtifactOutput = openHandLocalizedText(
@@ -2848,18 +2887,19 @@ fi
       );
     });
     try {
-      final result = await _ctrl.inspectMitmproxyCa(
-        certPath: _mitmCertPathArg(),
-      );
-      if (!mounted) return;
+      final result = await _ctrl.inspectMitmproxyCa(certPath: certPath);
+      if (!mounted || certPath != _mitmCertPathArg()) return;
       setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted || certPath != _mitmCertPathArg()) return;
+      _setCertificateOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningCertificateAction = false);
     }
   }
 
   Future<void> _installMitmproxySystemCa() async {
-    if (_runningCertificateAction) return;
+    if (_runningCertificateAction || _writingCertificateArtifacts) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: openHandLocalizedText(
@@ -2893,7 +2933,14 @@ fi
       ),
       destructive: true,
     );
-    if (!confirmed || !mounted) return;
+    if (!confirmed ||
+        !mounted ||
+        _runningCertificateAction ||
+        _writingCertificateArtifacts) {
+      return;
+    }
+    final target = _captureAndroidTargetContext();
+    final certPath = _mitmCertPathArg();
     setState(() {
       _runningCertificateAction = true;
       _certificateArtifactOutput = openHandLocalizedText(
@@ -2908,11 +2955,22 @@ fi
     });
     try {
       final result = await _ctrl.installMitmproxyCaAsSystemCert(
-        certPath: _mitmCertPathArg(),
-        serial: _targetSerial,
+        certPath: certPath,
+        serial: target.serial,
       );
-      if (!mounted) return;
+      if (!mounted ||
+          !_isCurrentAndroidTargetContext(target, includePackage: false) ||
+          certPath != _mitmCertPathArg()) {
+        return;
+      }
       setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } catch (error) {
+      if (!mounted ||
+          !_isCurrentAndroidTargetContext(target, includePackage: false) ||
+          certPath != _mitmCertPathArg()) {
+        return;
+      }
+      _setCertificateOperationFailure(error);
     } finally {
       if (mounted) setState(() => _runningCertificateAction = false);
     }
@@ -9516,6 +9574,8 @@ fi
 
   Widget _buildCertsTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final artifactOutput = _certificateArtifactOutput?.trim();
+    final certificateBusy =
+        _writingCertificateArtifacts || _runningCertificateAction;
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -9524,9 +9584,7 @@ fi
             leading: const [],
             actions: [
               _DashboardActionButton(
-                onPressed: _writingCertificateArtifacts
-                    ? null
-                    : _ensureCertificateArtifacts,
+                onPressed: certificateBusy ? null : _ensureCertificateArtifacts,
                 icon: _writingCertificateArtifacts
                     ? const SizedBox(
                         width: 14,
@@ -9545,9 +9603,7 @@ fi
                 ),
               ),
               _DashboardActionButton(
-                onPressed: _runningCertificateAction
-                    ? null
-                    : _readCertificateArtifacts,
+                onPressed: certificateBusy ? null : _readCertificateArtifacts,
                 icon: _runningCertificateAction
                     ? const SizedBox(
                         width: 14,
@@ -9566,9 +9622,7 @@ fi
                 ),
               ),
               _DashboardActionButton(
-                onPressed: _runningCertificateAction
-                    ? null
-                    : _generateDebugKeystore,
+                onPressed: certificateBusy ? null : _generateDebugKeystore,
                 icon: _runningCertificateAction
                     ? const SizedBox(
                         width: 14,
@@ -9587,7 +9641,7 @@ fi
                 ),
               ),
               _DashboardActionButton(
-                onPressed: _runningCertificateAction
+                onPressed: certificateBusy
                     ? null
                     : _verifyConfiguredApkSignature,
                 icon: _runningCertificateAction
@@ -9608,9 +9662,7 @@ fi
                 ),
               ),
               _DashboardActionButton(
-                onPressed: _runningCertificateAction
-                    ? null
-                    : _inspectMitmproxyCa,
+                onPressed: certificateBusy ? null : _inspectMitmproxyCa,
                 icon: _runningCertificateAction
                     ? const SizedBox(
                         width: 14,
@@ -9629,9 +9681,7 @@ fi
                 ),
               ),
               _DashboardActionButton(
-                onPressed: _runningCertificateAction
-                    ? null
-                    : _installMitmproxySystemCa,
+                onPressed: certificateBusy ? null : _installMitmproxySystemCa,
                 icon: _runningCertificateAction
                     ? const SizedBox(
                         width: 14,
