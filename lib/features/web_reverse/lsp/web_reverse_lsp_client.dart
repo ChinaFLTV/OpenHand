@@ -33,6 +33,7 @@ final RegExp _lspContentLengthPattern = RegExp(
 );
 const int _kMaxPendingLspRequests = 256;
 const int _kMaxOpenLspDocuments = 256;
+const int _kMaxLspMessagesPerDrain = 64;
 final int _maxLspContentLengthDigits = _kMaxLspFrameBytes.toString().length;
 
 class WebReverseLspClient {
@@ -45,6 +46,7 @@ class WebReverseLspClient {
   final List<int> _buf = <int>[];
   int _nextId = 1;
   final Map<int, Completer<Map<String, Object?>>> _pending = {};
+  bool _bufferDrainScheduled = false;
 
   WebReverseLspStatus status = WebReverseLspStatus.idle;
   String? lastError;
@@ -67,6 +69,7 @@ class WebReverseLspClient {
     lastError = null;
     _initDone = initDone;
     _buf.clear();
+    _bufferDrainScheduled = false;
     _documentVersions.clear();
     _failPendingRequests('restarted');
     await _cleanupCurrentProcess();
@@ -244,6 +247,7 @@ class WebReverseLspClient {
     _proc = null;
     _stdoutSub = null;
     _stderrSub = null;
+    _bufferDrainScheduled = false;
     _buf.clear();
     _documentVersions.clear();
     if (status == WebReverseLspStatus.ready ||
@@ -275,6 +279,7 @@ class WebReverseLspClient {
     if (initDone != null && !initDone.isCompleted) initDone.complete(false);
     status = WebReverseLspStatus.idle;
     lastError = null;
+    _bufferDrainScheduled = false;
     _buf.clear();
     _documentVersions.clear();
     _failPendingRequests('stopped');
@@ -612,7 +617,13 @@ class WebReverseLspClient {
 
   void _onStdout(List<int> bytes) {
     _buf.addAll(bytes);
-    while (true) {
+    if (_bufferDrainScheduled) return;
+    _drainStdoutBuffer();
+  }
+
+  void _drainStdoutBuffer() {
+    var processedMessages = 0;
+    while (_proc != null) {
       final end = _findHeaderEnd(_buf);
       if (end < 0) {
         if (_buf.length > _kMaxLspHeaderBytes) {
@@ -654,7 +665,23 @@ class WebReverseLspClient {
         _failProtocol('invalid JSON-RPC payload: $error', stack: stack);
         return;
       }
+      processedMessages += 1;
+      if (processedMessages >= _kMaxLspMessagesPerDrain) {
+        _scheduleBufferDrain();
+        return;
+      }
     }
+  }
+
+  void _scheduleBufferDrain() {
+    if (_bufferDrainScheduled || _buf.isEmpty) return;
+    final generation = _lifecycleGeneration;
+    _bufferDrainScheduled = true;
+    Timer.run(() {
+      if (generation != _lifecycleGeneration) return;
+      _bufferDrainScheduled = false;
+      _drainStdoutBuffer();
+    });
   }
 
   void _failProtocol(String message, {StackTrace? stack}) {
@@ -665,6 +692,7 @@ class WebReverseLspClient {
     _proc = null;
     _stdoutSub = null;
     _stderrSub = null;
+    _bufferDrainScheduled = false;
     _buf.clear();
     _documentVersions.clear();
     status = WebReverseLspStatus.failed;

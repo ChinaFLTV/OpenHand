@@ -2530,6 +2530,7 @@ class _StdioSession {
   late final StreamSubscription<List<int>> _stdoutSubscription;
   late final StreamSubscription<String> _stderrSubscription;
   Future<void>? _closeFuture;
+  bool _stdoutDrainScheduled = false;
 
   Future<Map<String, Object?>?> sendRequest(
     Map<String, Object?> payload, {
@@ -2587,8 +2588,7 @@ class _StdioSession {
   }
 
   void _drainStdoutBuffer() {
-    // Count every take (including empty frames) so whitespace floods cannot
-    // busy-loop the event loop without hitting the batch ceiling.
+    // 无效行和空帧同样计入批次，避免异常输出长时间独占事件循环。
     var takes = 0;
     while (takes < DefaultMcpToolDiscoveryService._maxStdoutMessagesPerDrain) {
       final payload = _takeNextMessage();
@@ -2631,40 +2631,50 @@ class _StdioSession {
         }
       }
     }
-    // 单次 drain 达到上限时，若缓冲区仍有数据，调度后续 drain，避免阻塞事件循环。
-    if (_stdoutBuffer.isNotEmpty) {
-      scheduleMicrotask(_drainStdoutBuffer);
-    }
+    _scheduleStdoutDrain();
   }
 
   String? _takeNextMessage() {
-    while (true) {
-      final framedMessage = _tryTakeFramedMessage();
-      if (framedMessage != null) {
-        return framedMessage;
-      }
-      _trimLeadingWhitespace();
-      if (_stdoutBuffer.isEmpty) {
-        return null;
-      }
-      if (_looksLikeFramedMessagePrefix()) {
-        return null;
-      }
-      if (_looksLikeJsonLine(_stdoutBuffer.first)) {
-        final newlineIndex = _stdoutBuffer.indexOf(10);
-        if (newlineIndex == -1) {
-          return null;
-        }
-        final lineBytes = _stdoutBuffer.sublist(0, newlineIndex);
-        _stdoutBuffer.removeRange(0, newlineIndex + 1);
-        return utf8.decode(lineBytes).trim();
-      }
+    final framedMessage = _tryTakeFramedMessage();
+    if (framedMessage != null) {
+      return framedMessage;
+    }
+    _trimLeadingWhitespace();
+    if (_stdoutBuffer.isEmpty) {
+      return null;
+    }
+    if (_looksLikeFramedMessagePrefix()) {
+      return null;
+    }
+    if (_looksLikeJsonLine(_stdoutBuffer.first)) {
       final newlineIndex = _stdoutBuffer.indexOf(10);
       if (newlineIndex == -1) {
         return null;
       }
+      final lineBytes = _stdoutBuffer.sublist(0, newlineIndex);
       _stdoutBuffer.removeRange(0, newlineIndex + 1);
+      return utf8.decode(lineBytes).trim();
     }
+    final newlineIndex = _stdoutBuffer.indexOf(10);
+    if (newlineIndex == -1) {
+      return null;
+    }
+    _stdoutBuffer.removeRange(0, newlineIndex + 1);
+    return '';
+  }
+
+  void _scheduleStdoutDrain() {
+    if (_stdoutDrainScheduled || _stdoutBuffer.isEmpty) return;
+    _stdoutDrainScheduled = true;
+    Timer.run(() {
+      _stdoutDrainScheduled = false;
+      try {
+        _drainStdoutBuffer();
+        _enforceStdoutBufferLimit();
+      } catch (error, stackTrace) {
+        _failPendingResponses(error, stackTrace);
+      }
+    });
   }
 
   String? _tryTakeFramedMessage() {

@@ -2652,7 +2652,7 @@ class _AiLspSession {
       processedMessages += 1;
       if (processedMessages >= _maxMessagesPerDrain) {
         _bufferDrainScheduled = true;
-        scheduleMicrotask(() {
+        Timer.run(() {
           _bufferDrainScheduled = false;
           if (!_shutdownRequested) _processBuffer();
         });
