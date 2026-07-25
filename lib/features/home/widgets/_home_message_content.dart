@@ -5,6 +5,7 @@ part of '../openhand_home_page.dart';
 const int _messageMarkdownCollapseCharThreshold = 2400;
 const int _toolResultMarkdownCollapseCharThreshold = 800;
 const int _messageMarkdownCollapseLineThreshold = 45;
+const int _markdownCollapsedPreviewMaxChars = 1200;
 const double _messageResponsePreviewMaxHeight = 240;
 const double _toolResultPreviewMaxHeight = 176;
 const double _collapsedMessageFadeHeight = 40;
@@ -344,6 +345,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
                         child: _MarkdownPreviewBody(
                           data: content.isEmpty ? ' ' : content,
                           maxHeight: 122,
+                          selectable: selectable,
                           styleSheet: styleSheet,
                           builders: builders,
                           inlineSyntaxes: inlineSyntaxes,
@@ -430,6 +432,7 @@ class _ReasoningBody extends StatelessWidget {
             child: _MarkdownPreviewBody(
               data: content.isEmpty ? ' ' : content,
               maxHeight: _reasoningPreviewMaxHeight,
+              selectable: selectable,
               styleSheet: styleSheet,
               builders: builders,
               inlineSyntaxes: inlineSyntaxes,
@@ -825,7 +828,7 @@ class _CollapsibleMessageMarkdownBodyState
           child: collapsed
               ? KeyedSubtree(
                   key: const ValueKey<String>('message-markdown-preview'),
-                  child: _CollapsedFullMarkdownBody(
+                  child: _MarkdownPreviewBody(
                     data: data,
                     maxHeight: widget.previewMaxHeight,
                     selectable: widget.selectable,
@@ -833,7 +836,7 @@ class _CollapsibleMessageMarkdownBodyState
                     builders: widget.builders,
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
-                    parseKey: widget.parseKey,
+                    parseKey: '${widget.parseKey}|message-preview',
                     scrollStateKey: _scrollStateKey,
                     fadeColor: widget.fadeColor,
                   ),
@@ -1002,8 +1005,8 @@ class _MessageCollapseToggleCapsuleState
   }
 }
 
-class _CollapsedFullMarkdownBody extends StatefulWidget {
-  const _CollapsedFullMarkdownBody({
+class _MarkdownPreviewBody extends StatefulWidget {
+  const _MarkdownPreviewBody({
     required this.data,
     required this.maxHeight,
     required this.selectable,
@@ -1028,182 +1031,10 @@ class _CollapsedFullMarkdownBody extends StatefulWidget {
   final String? scrollStateKey;
 
   @override
-  State<_CollapsedFullMarkdownBody> createState() =>
-      _CollapsedFullMarkdownBodyState();
-}
-
-class _CollapsedFullMarkdownBodyState
-    extends State<_CollapsedFullMarkdownBody> {
-  double? _contentHeight;
-  late final ScrollController _scrollController;
-  late final _CollapsedPreviewScrollCoordinator _scrollCoordinator;
-  bool _atBottom = false;
-  bool _userScrollingPreview = false;
-
-  String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController(
-      initialScrollOffset:
-          _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
-    );
-    _scrollCoordinator = _CollapsedPreviewScrollCoordinator(
-      controller: _scrollController,
-      isMounted: () => mounted,
-      isUserScrolling: () => _userScrollingPreview,
-      setUserScrolling: _setUserScrollingPreview,
-    );
-    _scrollController.addListener(_onScroll);
-    _restoreScrollOffset();
-  }
-
-  @override
-  void dispose() {
-    _scrollCoordinator.dispose();
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant _CollapsedFullMarkdownBody oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final scrollStateChanged =
-        (oldWidget.scrollStateKey ?? oldWidget.parseKey) != _scrollStateKey;
-    if (scrollStateChanged ||
-        oldWidget.parseKey != widget.parseKey ||
-        oldWidget.data != widget.data ||
-        oldWidget.maxHeight != widget.maxHeight) {
-      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
-      _contentHeight = null;
-      _atBottom = false;
-      _userScrollingPreview = false;
-      _scrollCoordinator.cancelSettleTimer();
-    }
-    _restoreScrollOffset();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final pos = _scrollController.position;
-    _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    _scrollCoordinator.markUserScrolling();
-    final atBottom = _isCollapsedPreviewAtBottom(
-      pos,
-      currentlyAtBottom: _atBottom,
-    );
-    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
-  }
-
-  void _setUserScrollingPreview(bool value) {
-    if (_userScrollingPreview == value) return;
-    setState(() => _userScrollingPreview = value);
-  }
-
-  void _restoreScrollOffset() {
-    _restoreCollapsedBodyScrollOffset(
-      state: this,
-      controller: _scrollController,
-      key: _scrollStateKey,
-      onRestored: _syncAtBottom,
-    );
-  }
-
-  void _syncAtBottom() {
-    if (!mounted || !_scrollController.hasClients) return;
-    final pos = _scrollController.position;
-    final atBottom = _isCollapsedPreviewAtBottom(
-      pos,
-      currentlyAtBottom: _atBottom,
-    );
-    if (atBottom != _atBottom) {
-      setState(() => _atBottom = atBottom);
-    }
-  }
-
-  void _handleContentSizeChanged(Size size) {
-    if (!mounted) return;
-    if (_scrollController.hasClients &&
-        _scrollController.position.isScrollingNotifier.value) {
-      _scrollCoordinator.markUserScrolling();
-      return;
-    }
-    if (_userScrollingPreview) {
-      _scrollCoordinator.armSettleTimer();
-      return;
-    }
-    final nextHeight = size.height;
-    final currentHeight = _contentHeight;
-    if (currentHeight != null && (currentHeight - nextHeight).abs() < 0.5) {
-      return;
-    }
-    setState(() => _contentHeight = nextHeight);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final measuredHeight = _contentHeight;
-    final hasOverflow =
-        measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
-    final showFade = hasOverflow && !_atBottom;
-
-    return _buildCollapsedPreviewScrollableFrame(
-      context: context,
-      maxHeight: widget.maxHeight,
-      hasOverflow: hasOverflow,
-      showFade: showFade,
-      controller: _scrollController,
-      fadeColor: widget.fadeColor,
-      animateFade: !_userScrollingPreview,
-      onSizeChanged: _handleContentSizeChanged,
-      child: _SafeMarkdownBody(
-        data: widget.data,
-        selectable: widget.selectable,
-        builders: widget.builders,
-        styleSheet: widget.styleSheet,
-        inlineSyntaxes: widget.inlineSyntaxes,
-        pathRoots: widget.pathRoots,
-        parseKey: widget.parseKey,
-      ),
-    );
-  }
-}
-
-class _MarkdownPreviewBody extends StatefulWidget {
-  const _MarkdownPreviewBody({
-    required this.data,
-    required this.maxHeight,
-    required this.styleSheet,
-    required this.builders,
-    required this.inlineSyntaxes,
-    required this.pathRoots,
-    required this.parseKey,
-    required this.fadeColor,
-    this.scrollStateKey,
-  });
-
-  final String data;
-  final double maxHeight;
-  final MarkdownStyleSheet styleSheet;
-  final Map<String, MarkdownElementBuilder> builders;
-  final List<md.InlineSyntax> inlineSyntaxes;
-  final List<String> pathRoots;
-  final String parseKey;
-  final Color fadeColor;
-  final String? scrollStateKey;
-
-  @override
   State<_MarkdownPreviewBody> createState() => _MarkdownPreviewBodyState();
 }
 
 class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
-  // 预览字符上限：解析量 O(constant)，防止流式大块重复 parse/layout。
-  // 1200 chars ≈ 30 行 markdown，远超 maxHeight 可见行数，
-  // 可滚动后用户能看到约 15 行预览内容（约 maxHeight 的 2-3 倍）。
-  static const int _previewCharCap = 1200;
-
   double? _contentHeight;
   late final ScrollController _scrollController;
   late final _CollapsedPreviewScrollCoordinator _scrollCoordinator;
@@ -1216,7 +1047,10 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
 
   int get _previewDataLength {
     final data = widget.data.isEmpty ? ' ' : widget.data;
-    final cappedLength = math.min(data.length, _previewCharCap);
+    final cappedLength = math.min(
+      data.length,
+      _markdownCollapsedPreviewMaxChars,
+    );
     final lockedLength = _lockedPreviewLength;
     return lockedLength == null
         ? cappedLength
@@ -1225,7 +1059,10 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
 
   String get _effectiveData {
     final data = widget.data.isEmpty ? ' ' : widget.data;
-    return data.substring(0, _previewDataLength);
+    return TranscriptListWindowing.boundedContentPreview(
+      data,
+      maxCharacters: _previewDataLength,
+    );
   }
 
   @override
@@ -1358,7 +1195,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
       onSizeChanged: _handleContentSizeChanged,
       child: _SafeMarkdownBody(
         data: _effectiveData,
-        selectable: true,
+        selectable: widget.selectable,
         builders: widget.builders,
         styleSheet: widget.styleSheet,
         inlineSyntaxes: widget.inlineSyntaxes,

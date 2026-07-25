@@ -160,4 +160,21 @@ abstract final class TranscriptListWindowing {
     final desired = math.max(initialWindowSize, windowIncrement);
     return math.max(1, math.min(desired, maxWarmup));
   }
+
+  /// 截取固定开销的正文预览，并避免切断 UTF-16 代理对。
+  static String boundedContentPreview(
+    String value, {
+    required int maxCharacters,
+  }) {
+    var end = math.min(value.length, math.max(0, maxCharacters));
+    if (end == value.length) return value;
+    if (end > 0 &&
+        value.codeUnitAt(end - 1) >= 0xD800 &&
+        value.codeUnitAt(end - 1) <= 0xDBFF &&
+        value.codeUnitAt(end) >= 0xDC00 &&
+        value.codeUnitAt(end) <= 0xDFFF) {
+      end -= 1;
+    }
+    return value.substring(0, end);
+  }
 }

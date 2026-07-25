@@ -5,7 +5,7 @@
 //   react-markdown 在 Preact 上零侵入运行.
 // - 代码块走 rehype-highlight (内置 highlight.js 子集), 按需 lazy-load
 //   主题样式; 主题样式由 components/markdown_styles.css 全局引入一次.
-// - 长内容 (> CONTENT_TOO_BIG_BYTES) 跳过 markdown, 直接 pre 渲染原文,
+// - 长内容 (> CONTENT_TOO_BIG_CHARS) 跳过 markdown，仅渲染有界文本预览，
 //   避免 reactdom 在 200KB+ 树上花费百毫秒. 与 App 端
 //   _SafeMarkdownBody 阈值语义对齐.
 // - 表格 / 任务列表 / 删除线由 remark-gfm 提供.
@@ -96,7 +96,8 @@ function loadRehypeKatex(): Promise<MarkdownPlugin> {
   return rehypeKatexLoading;
 }
 
-const CONTENT_TOO_BIG_BYTES = 120 * 1024;
+const CONTENT_TOO_BIG_CHARS = 120 * 1024;
+const OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS = 12 * 1024;
 /// 8 KB 以上才走帧节流 deferred 路径 (首帧骨架占位 + 下一空闲帧
 /// 补回 markdown)。早期 1 KB 阈值过保守：用户截图中的 mermaid 流程图 + 图例
 /// 文本普遍 2-4 KB，会被错误丢进占位符。8 KB 以上通常已经包含较长正文、
@@ -1199,8 +1200,17 @@ function MarkdownRenderPlaceholder({ source }: { source: string }) {
 
 export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
   const content = source ?? '';
-  const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
-  const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
+  const tooBig = content.length > CONTENT_TOO_BIG_CHARS;
+  const markdownContent = useMemo(
+    () => tooBig ? '' : stripLocalMediaReferences(content),
+    [content, tooBig],
+  );
+  const oversizedMarkdownPreview = useMemo(
+    () => tooBig
+      ? truncateEndText(content, OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS, { ellipsis: '' })
+      : '',
+    [content, tooBig],
+  );
   const {
     clearTimer: clearStreamFlushTimer,
     scheduleTimer: scheduleStreamFlushTimer,
@@ -1550,8 +1560,8 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
         class="whitespace-pre-wrap break-words text-sm"
         style={{ margin: 0, fontFamily }}
       >
-        {content}
-        {`\n\n[content truncated for performance — ${content.length} bytes]`}
+        {oversizedMarkdownPreview}
+        {`\n\n[内容过长，已为保证性能仅显示前 ${OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS} 个字符；可通过消息操作复制完整内容。原文长度：${content.length}]`}
       </pre>
     );
   }

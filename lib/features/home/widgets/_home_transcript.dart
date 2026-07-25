@@ -1073,7 +1073,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         lineThreshold: _messageMarkdownCollapseLineThreshold,
       )) {
         _warmMarkdownRenderPath(
-          data: normalizedContent,
+          data: TranscriptListWindowing.boundedContentPreview(
+            normalizedContent,
+            maxCharacters: _markdownCollapsedPreviewMaxChars,
+          ),
           parseKey: '$parseKey|compression-preview',
           inlineSyntaxes: inlineSyntaxes,
           theme: theme,
@@ -1108,7 +1111,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
       } else {
         _warmMarkdownRenderPath(
-          data: normalizedContent,
+          data: TranscriptListWindowing.boundedContentPreview(
+            normalizedContent,
+            maxCharacters: _markdownCollapsedPreviewMaxChars,
+          ),
           parseKey: '$parseKey|reasoning-preview',
           inlineSyntaxes: inlineSyntaxes,
           theme: theme,
@@ -1131,9 +1137,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _containsMarkdownCodeFence(normalizedContent.trim());
 
     void warmMarkdownBody() {
+      final shouldWarmPreview = _messageShouldCollapse(
+        normalizedContent,
+        charThreshold: isToolResult
+            ? _toolResultMarkdownCollapseCharThreshold
+            : _messageMarkdownCollapseCharThreshold,
+        lineThreshold: isToolResult
+            ? _toolResultMarkdownCollapseLineThreshold
+            : _messageMarkdownCollapseLineThreshold,
+      );
       _warmMarkdownRenderPath(
-        data: normalizedContent,
-        parseKey: parseKey,
+        data: shouldWarmPreview
+            ? TranscriptListWindowing.boundedContentPreview(
+                normalizedContent,
+                maxCharacters: _markdownCollapsedPreviewMaxChars,
+              )
+            : normalizedContent,
+        parseKey: shouldWarmPreview ? '$parseKey|message-preview' : parseKey,
         inlineSyntaxes: inlineSyntaxes,
         theme: theme,
         textColor: textColor,

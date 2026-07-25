@@ -1627,7 +1627,8 @@ function messageActionVisualStyle(
 // 以 14px 行高 + 1.55 line-height ≈ 22px / 行换算，5-6 行约 110-130 字符的单行长度；
 // 保守取 6 行 + 一个字符容差 ≈ 260 字符作为「超长」阈值。
 const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 260;
-const GENERAL_AUTO_COLLAPSE_CHAR_LIMIT = 1200;
+const COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS = 1200;
+const GENERAL_AUTO_COLLAPSE_CHAR_LIMIT = COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS;
 const GENERAL_AUTO_COLLAPSE_LINE_LIMIT = 12;
 // 折叠预览容器 max-height，像素值。≈ 6 行 × 22px = 132px，多给 10px 呼吸量，
 // 对应 APP 端 _MarkdownPreviewBody maxHeight: 142。
@@ -2599,6 +2600,15 @@ function MessageCardImpl({
     !goalMessageView &&
     (effectiveFormat === 'html' || effectiveFormat === 'markdown');
   const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
+  const renderedBodyContent = useMemo(() => {
+    if (!badgeBodyCollapsed || activelyStreaming || contentLooksHtml) {
+      return visibleContent;
+    }
+    return truncateEndText(
+      visibleContent,
+      COLLAPSED_RICH_BODY_PREVIEW_MAX_CHARS,
+    );
+  }, [activelyStreaming, badgeBodyCollapsed, contentLooksHtml, visibleContent]);
   const htmlRenderableMessage =
     !isUserBubble &&
     !useToolBody &&
@@ -3042,14 +3052,15 @@ function MessageCardImpl({
           responseCollapsedWhileStreaming ||
           (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
-              content={visibleContent}
+              content={renderedBodyContent}
               streaming={!reasoningPreviewCollapsed}
               reduceMotion={reduceMotion}
               mono={style.mono === true}
             />
           ) : (
             <StreamingMarkdownReveal
-              content={visibleContent}
+              key={badgeBodyCollapsed ? 'collapsed-preview' : 'expanded-body'}
+              content={renderedBodyContent}
               streaming={streamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
               raw={
