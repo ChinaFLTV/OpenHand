@@ -2066,6 +2066,17 @@ class OpenHandAnimationTransitionProfile {
   final Offset slideRightOffset;
 }
 
+/// 列表和 Sliver 动态布局使用像素级绘制位移，避免尺寸动画期间命中测试
+/// 访问仍待布局的 RenderFractionalTranslation。
+const OpenHandAnimationTransitionProfile kOpenHandLayoutSafeTransitionProfile =
+    OpenHandAnimationTransitionProfile(
+      slideMode: OpenHandSlideTransitionMode.paintOffset,
+      slideUpOffset: Offset(0, 12),
+      slideDownOffset: Offset(0, -12),
+      slideLeftOffset: Offset(-12, 0),
+      slideRightOffset: Offset(12, 0),
+    );
+
 double _finiteDouble(double value, double fallback) {
   return value.isFinite ? value : fallback;
 }
@@ -2393,11 +2404,11 @@ class _PaintOffsetRenderObject extends RenderProxyBox {
   set animation(Animation<double> value) {
     if (identical(_animation, value)) return;
     if (attached) {
-      _animation.removeListener(markNeedsPaint);
-      value.addListener(markNeedsPaint);
+      _animation.removeListener(_handleAnimationTick);
+      value.addListener(_handleAnimationTick);
     }
     _animation = value;
-    markNeedsPaint();
+    _handleAnimationTick();
   }
 
   set maxYOffset(double value) {
@@ -2415,21 +2426,51 @@ class _PaintOffsetRenderObject extends RenderProxyBox {
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _animation.addListener(markNeedsPaint);
+    _animation.addListener(_handleAnimationTick);
   }
 
   @override
   void detach() {
-    _animation.removeListener(markNeedsPaint);
+    _animation.removeListener(_handleAnimationTick);
     super.detach();
+  }
+
+  void _handleAnimationTick() {
+    markNeedsPaint();
+    markNeedsSemanticsUpdate();
+  }
+
+  Offset get _paintOffset {
+    final value = _finiteDouble(_animation.value, 1.0);
+    return Offset(
+      (1 - value) * _finiteDouble(_maxXOffset, 0.0),
+      (1 - value) * _finiteDouble(_maxYOffset, 0.0),
+    );
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
     if (child == null) return;
-    final value = _finiteDouble(_animation.value, 1.0);
-    final dy = (1 - value) * _finiteDouble(_maxYOffset, 0.0);
-    final dx = (1 - value) * _finiteDouble(_maxXOffset, 0.0);
-    super.paint(context, offset + Offset(dx, dy));
+    super.paint(context, offset + _paintOffset);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    final currentChild = child;
+    if (currentChild == null) return false;
+    return result.addWithPaintOffset(
+      offset: _paintOffset,
+      position: position,
+      hitTest: (result, transformed) {
+        return currentChild.hitTest(result, position: transformed);
+      },
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    super.applyPaintTransform(child, transform);
+    final offset = _paintOffset;
+    transform.translateByDouble(offset.dx, offset.dy, 0, 1);
   }
 }

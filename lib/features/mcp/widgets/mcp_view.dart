@@ -89,6 +89,7 @@ const double _mcpTemplateChipLabelMaxWidth = 280;
 const double _mcpChipStripHeight = 40;
 const double _mcpToolPreviewExpandedHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
+const double _mcpScrollCorrectionEpsilon = 0.5;
 const Duration _mcpChipTransitionDuration = Duration(milliseconds: 220);
 const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
@@ -11237,7 +11238,9 @@ class _McpHorizontalChipStrip extends StatefulWidget {
 }
 
 class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
+  final ScrollController _scrollController = ScrollController();
   late List<_McpChipStripItem> _displayedItems;
+  bool _scrollCorrectionScheduled = false;
 
   @override
   void initState() {
@@ -11249,6 +11252,10 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
   void didUpdateWidget(covariant _McpHorizontalChipStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
     final nextItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    final geometryChanged = !_sameMcpChipStripGeometry(
+      oldWidget.resolvedItems,
+      nextItems,
+    );
     final nextItemsById = <String, _McpChipStripItem>{
       for (final item in nextItems) item.id: item,
     };
@@ -11266,6 +11273,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
       }
     }
     _displayedItems = nextItems;
+    if (geometryChanged) _scheduleScrollCorrection();
   }
 
   void _removeDismissedItem(String itemId) {
@@ -11273,6 +11281,41 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     setState(() {
       _displayedItems.removeWhere((item) => item.id == itemId);
     });
+    _scheduleScrollCorrection();
+  }
+
+  void _scheduleScrollCorrection() {
+    if (_scrollCorrectionScheduled) return;
+    _scrollCorrectionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollCorrectionScheduled = false;
+      if (!mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      final target = position.pixels
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if ((target - position.pixels).abs() < _mcpScrollCorrectionEpsilon) {
+        return;
+      }
+      final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+      if (duration == Duration.zero) {
+        _scrollController.jumpTo(target);
+      } else {
+        unawaited(
+          _scrollController.animateTo(
+            target,
+            duration: duration,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -11284,7 +11327,9 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     return SizedBox(
       height: _mcpChipStripHeight,
       child: SingleChildScrollView(
+        controller: _scrollController,
         primary: false,
+        physics: const ClampingScrollPhysics(),
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
@@ -11316,6 +11361,23 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
       ),
     );
   }
+}
+
+bool _sameMcpChipStripGeometry(
+  List<_McpChipStripItem> previous,
+  List<_McpChipStripItem> next,
+) {
+  if (previous.length != next.length) return false;
+  for (var index = 0; index < previous.length; index++) {
+    final oldItem = previous[index];
+    final newItem = next[index];
+    if (oldItem.id != newItem.id ||
+        oldItem.contentKey != newItem.contentKey ||
+        oldItem.trailingSpacing != newItem.trailingSpacing) {
+      return false;
+    }
+  }
+  return true;
 }
 
 _McpChipStripItem _mcpChipStripItemFromChild(Widget child, int index) {

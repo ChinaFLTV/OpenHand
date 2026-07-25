@@ -24,10 +24,8 @@ import 'motion_preference.dart';
 ///   [SizeTransition] that smoothly collapses the layout slot during
 ///   exit so neighbours flow into place rather than jumping.
 ///
-/// Safe under `LayoutBuilder` / sliver contexts because the underlying
-/// transitions in [buildAnimationStyleTransition] use only
-/// [FadeTransition] / [SlideTransition] / [Opacity] / [Transform]
-/// composed at paint-time.
+/// 动态列表默认使用 [kOpenHandLayoutSafeTransitionProfile]，尺寸变化期间不会
+/// 创建依赖布局状态的 `RenderFractionalTranslation`。
 enum AnimatedAppearancePhase { enter, exit }
 
 class AnimatedAppearance extends StatefulWidget {
@@ -40,6 +38,7 @@ class AnimatedAppearance extends StatefulWidget {
     this.collapseSize = true,
     this.collapseAxis = Axis.vertical,
     this.collapseAxisAlignment = -1.0,
+    this.transitionProfile = kOpenHandLayoutSafeTransitionProfile,
   });
 
   final Widget child;
@@ -62,6 +61,8 @@ class AnimatedAppearance extends StatefulWidget {
   /// 0 = center, 1 = bottom/trailing). Defaults to leading so a chip
   /// removed from a `Wrap` collapses leftward into the row.
   final double collapseAxisAlignment;
+
+  final OpenHandAnimationTransitionProfile transitionProfile;
 
   @override
   State<AnimatedAppearance> createState() => _AnimatedAppearanceState();
@@ -235,6 +236,7 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     Widget content = buildAnimationStyleTransition(
       animation: _ctrl,
       settings: widget.settings,
+      profile: widget.transitionProfile,
       child: widget.child,
     );
     if (widget.collapseSize) {
@@ -269,6 +271,7 @@ class AnimatedListAppearance extends StatelessWidget {
     this.collapseSize = true,
     this.collapseAxis = Axis.vertical,
     this.collapseAxisAlignment = -1.0,
+    this.transitionProfile = kOpenHandLayoutSafeTransitionProfile,
   });
 
   final Animation<double> animation;
@@ -278,6 +281,7 @@ class AnimatedListAppearance extends StatelessWidget {
   final bool collapseSize;
   final Axis collapseAxis;
   final double collapseAxisAlignment;
+  final OpenHandAnimationTransitionProfile transitionProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -296,6 +300,7 @@ class AnimatedListAppearance extends StatelessWidget {
     Widget content = buildAnimationStyleTransition(
       animation: animation,
       settings: transitionSettings,
+      profile: transitionProfile,
       child: child,
     );
     if (collapseSize) {
