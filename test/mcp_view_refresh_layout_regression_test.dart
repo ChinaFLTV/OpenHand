@@ -55,11 +55,10 @@ void main() {
     await directory.delete(recursive: true);
   });
 
-  testWidgets('自动刷新改变卡片高度时不创建隐式尺寸动画', (tester) async {
+  Future<Finder> pumpMcpView(WidgetTester tester) async {
     addTearDown(() async {
       await tester.binding.setSurfaceSize(null);
     });
-
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     await tester.pumpWidget(
       MultiProvider(
@@ -87,6 +86,11 @@ void main() {
     await tester.scrollUntilVisible(card, 400, scrollable: serverList.first);
     await tester.pump(const Duration(milliseconds: 300));
     expect(card, findsOneWidget);
+    return card;
+  }
+
+  testWidgets('自动刷新改变卡片高度时不创建隐式尺寸动画', (tester) async {
+    final card = await pumpMcpView(tester);
     expect(
       find.descendant(of: card, matching: find.byType(AnimatedSize)),
       findsNothing,
@@ -110,6 +114,49 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await mouse.removePointer();
   });
+
+  testWidgets('探测状态胶囊先连续补位再弹性插入', (tester) async {
+    final card = await pumpMcpView(tester);
+    final latencyChip = find.descendant(
+      of: card,
+      matching: find.byIcon(Icons.speed_rounded),
+    );
+    final attentionChip = find.descendant(
+      of: card,
+      matching: find.byIcon(Icons.priority_high_rounded),
+    );
+
+    await controller.checkServerHealth('layout-server');
+    await tester.pumpAndSettle();
+    expect(latencyChip, findsOneWidget);
+
+    discovery.healthStatus = McpServerHealthStatus.unhealthy;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await controller.checkServerHealth('layout-server');
+      for (var frame = 0; frame < 18; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpAndSettle();
+    }
+    expect(attentionChip, findsOneWidget);
+    expect(latencyChip, findsNothing);
+
+    discovery.healthStatus = McpServerHealthStatus.healthy;
+    await controller.checkServerHealth('layout-server');
+    await tester.pump();
+    expect(attentionChip, findsOneWidget);
+    expect(latencyChip, findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(attentionChip, findsOneWidget);
+    expect(latencyChip, findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(attentionChip, findsNothing);
+    expect(latencyChip, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _MemorySettingsStore extends SettingsStore {
@@ -127,6 +174,7 @@ class _MemorySettingsStore extends SettingsStore {
 
 class _RefreshLayoutDiscoveryService implements McpToolDiscoveryService {
   bool failNextRefresh = false;
+  McpServerHealthStatus healthStatus = McpServerHealthStatus.healthy;
 
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) async {
@@ -150,7 +198,7 @@ class _RefreshLayoutDiscoveryService implements McpToolDiscoveryService {
 
   @override
   Future<McpServerHealth> checkHealth(McpServer server) async {
-    return const McpServerHealth(status: McpServerHealthStatus.healthy);
+    return McpServerHealth(status: healthStatus);
   }
 
   @override

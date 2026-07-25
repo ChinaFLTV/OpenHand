@@ -9139,6 +9139,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             projectLspPath: _programmingExpertLspPath(session),
           );
         });
+    final homeContentConstraints = BoxConstraints.tight(
+      _homeContentViewportSize(context),
+    );
     // 顶层注入滚动活动信号：让 transcript 子树里的 `_HtmlBubbleWebView`
     // 通过安全 helper 订阅，滚动期间冻结
     // 高度应用，滚动结束再一次性应用累积的最新值。
@@ -9155,9 +9158,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               ),
             ),
             child: SafeArea(
-              minimum: const EdgeInsets.all(20),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
+              minimum: _homeContentSafeAreaMinimum,
+              child: Builder(
+                builder: (context) {
+                  final constraints = homeContentConstraints;
                   final stackedLayout =
                       constraints.maxWidth < _sideBySideLayoutMinWidth;
                   final stackedNavigationHeight = (constraints.maxHeight * 0.34)

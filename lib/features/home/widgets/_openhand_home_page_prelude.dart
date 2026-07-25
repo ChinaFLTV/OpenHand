@@ -18,6 +18,7 @@ enum AppSection {
 
 const double _desktopNavigationWidth = 264;
 const double _contentPaneGap = 20;
+const EdgeInsets _homeContentSafeAreaMinimum = EdgeInsets.all(20);
 const double _sideBySideLayoutMinWidth = 980;
 const double _stackedNavigationMinHeight = 280;
 const double _stackedNavigationMaxHeight = 360;
@@ -51,6 +52,22 @@ const int _htmlWebViewMaxConcurrentBootstraps = 1;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
+
+Size _homeContentViewportSize(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  final padding = mediaQuery.padding;
+  final horizontalInsets =
+      math.max(_homeContentSafeAreaMinimum.left, padding.left) +
+      math.max(_homeContentSafeAreaMinimum.right, padding.right);
+  final verticalInsets =
+      math.max(_homeContentSafeAreaMinimum.top, padding.top) +
+      math.max(_homeContentSafeAreaMinimum.bottom, padding.bottom) +
+      mediaQuery.viewInsets.bottom;
+  return Size(
+    math.max(0, mediaQuery.size.width - horizontalInsets),
+    math.max(0, mediaQuery.size.height - verticalInsets),
+  );
+}
 
 @immutable
 class _WorkspaceSessionSnapshot {

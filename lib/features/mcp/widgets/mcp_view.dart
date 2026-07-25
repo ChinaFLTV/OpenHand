@@ -24,6 +24,7 @@ import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
@@ -91,6 +92,13 @@ const double _mcpToolPreviewExpandedHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
 const Duration _mcpChipTransitionDuration = Duration(milliseconds: 220);
+const DialogAnimationSettings _mcpChipAnimationSettings =
+    DialogAnimationSettings(
+      durationMs: 220,
+      curve: DialogAnimationCurve.elasticOut,
+    );
+const OpenHandAnimationTransitionProfile _mcpChipTransitionProfile =
+    OpenHandAnimationTransitionProfile(alignment: Alignment.centerLeft);
 const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
@@ -5143,13 +5151,7 @@ class _McpOpsHeaderControls extends StatelessWidget {
               switchInCurve: Curves.easeOutBack,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {
-                // Drive both transitions from the switcher's animation directly.
-                // AnimatedSwitcher already applies the elastic easeOutBack curve
-                // (which overshoots past 1.0); re-wrapping it in another
-                // CurvedAnimation would feed that >1.0 value into Curve.transform
-                // and trip its t∈[0,1] assert. SizeTransition clamps its factor
-                // to ≥0 and FadeTransition clamps opacity into [0,1] internally,
-                // so the overshoot stays safe while the Q-elastic feel is kept.
+                // 直接复用切换器曲线，避免把回弹超调值再次传入 Curve。
                 return FadeTransition(
                   opacity: animation,
                   child: SizeTransition(
@@ -11162,8 +11164,6 @@ class _McpStdioProcessChip extends StatelessWidget {
               );
         return AnimatedSwitcher(
           duration: duration,
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeInCubic,
           layoutBuilder: (currentChild, previousChildren) => Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -11172,15 +11172,15 @@ class _McpStdioProcessChip extends StatelessWidget {
             ],
           ),
           transitionBuilder: (child, animation) {
-            final curved = CurvedAnimation(
+            final sizeMotion = openHandBoundedCurveAnimation(
               parent: animation,
-              curve: Curves.easeOutBack,
-              reverseCurve: Curves.easeInCubic,
+              curve: _mcpChipAnimationSettings.curve.curve,
+              reverseCurve: _mcpChipAnimationSettings.curve.reverseCurve,
             );
             return SizeTransition(
               axis: Axis.horizontal,
               axisAlignment: -1,
-              sizeFactor: curved,
+              sizeFactor: sizeMotion,
               child: _mcpChipTransition(child, animation),
             );
           },
@@ -11257,21 +11257,26 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     })) {
       dismissOpenHandTooltipsSafely(debugLabel: '更新MCP胶囊前收起工具提示');
     }
-    final nextIds = nextItems.map((item) => item.id).toSet();
-    for (var index = 0; index < _displayedItems.length; index++) {
-      final previous = _displayedItems[index];
-      if (!nextIds.contains(previous.id)) {
-        nextItems.insert(index.clamp(0, nextItems.length), previous);
-      }
-    }
-    _displayedItems = nextItems;
+    final hasOutgoingItems = _displayedItems.any(
+      (item) => !nextItemsById.containsKey(item.id),
+    );
+    _displayedItems = hasOutgoingItems
+        ? <_McpChipStripItem>[
+            for (final item in _displayedItems) nextItemsById[item.id] ?? item,
+          ]
+        : nextItems;
     if (geometryChanged) _scheduleScrollCorrection();
   }
 
   void _removeDismissedItem(String itemId) {
-    if (widget.resolvedItems.any((item) => item.id == itemId)) return;
+    final nextItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    final nextIds = nextItems.map((item) => item.id).toSet();
+    if (nextIds.contains(itemId)) return;
     setState(() {
       _displayedItems.removeWhere((item) => item.id == itemId);
+      if (!_displayedItems.any((item) => !nextIds.contains(item.id))) {
+        _displayedItems = nextItems;
+      }
     });
     _scheduleScrollCorrection();
   }
@@ -11402,10 +11407,10 @@ class _McpAnimatedChipContent extends StatelessWidget {
     final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
     return AnimatedSwitcher(
       duration: duration,
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) =>
-          currentChild ?? const SizedBox.shrink(),
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.centerLeft,
+        children: [...previousChildren, if (currentChild != null) currentChild],
+      ),
       transitionBuilder: _mcpChipTransition,
       child: KeyedSubtree(key: ValueKey<Object>(contentKey), child: child),
     );
@@ -11413,18 +11418,11 @@ class _McpAnimatedChipContent extends StatelessWidget {
 }
 
 Widget _mcpChipTransition(Widget child, Animation<double> animation) {
-  final curved = CurvedAnimation(
-    parent: animation,
-    curve: Curves.easeOutBack,
-    reverseCurve: Curves.easeInCubic,
-  );
-  return FadeTransition(
-    opacity: animation,
-    child: ScaleTransition(
-      alignment: Alignment.centerLeft,
-      scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
-      child: child,
-    ),
+  return buildAnimationStyleTransition(
+    animation: animation,
+    settings: _mcpChipAnimationSettings,
+    profile: _mcpChipTransitionProfile,
+    child: child,
   );
 }
 
@@ -13472,8 +13470,6 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                       padding: const EdgeInsets.only(right: 12),
                       child: AnimatedSwitcher(
                         duration: animationDuration,
-                        switchInCurve: Curves.easeOutBack,
-                        switchOutCurve: Curves.easeInCubic,
                         transitionBuilder: _mcpChipTransition,
                         child: filteredTools.isEmpty
                             ? _buildEmptyState(
@@ -13500,8 +13496,6 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                   )
                 : AnimatedSwitcher(
                     duration: animationDuration,
-                    switchInCurve: Curves.easeOutBack,
-                    switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: _mcpChipTransition,
                     child: filteredTools.isEmpty
                         ? _buildEmptyState(
