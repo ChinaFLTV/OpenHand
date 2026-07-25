@@ -11336,6 +11336,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
                 settings: settings,
                 present: currentIds.contains(item.id),
                 collapseAxis: Axis.horizontal,
+                keepContentVisibleDuringExitCollapse: true,
                 onDismissed: () => _removeDismissedItem(item.id),
                 child: TooltipVisibility(
                   visible: currentIds.contains(item.id),

@@ -39,7 +39,8 @@ class AnimatedAppearance extends StatefulWidget {
     this.collapseAxis = Axis.vertical,
     this.collapseAxisAlignment = -1.0,
     this.transitionProfile = kOpenHandLayoutSafeTransitionProfile,
-  });
+    this.keepContentVisibleDuringExitCollapse = false,
+  }) : assert(!keepContentVisibleDuringExitCollapse || collapseSize);
 
   final Widget child;
   final DialogAnimationSettings settings;
@@ -63,6 +64,9 @@ class AnimatedAppearance extends StatefulWidget {
   final double collapseAxisAlignment;
 
   final OpenHandAnimationTransitionProfile transitionProfile;
+
+  /// 退出时仅收缩布局槽并保持内容可见，避免透明内容继续占位。
+  final bool keepContentVisibleDuringExitCollapse;
 
   @override
   State<AnimatedAppearance> createState() => _AnimatedAppearanceState();
@@ -233,12 +237,15 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
       }
       return widget.child;
     }
-    Widget content = buildAnimationStyleTransition(
-      animation: _ctrl,
-      settings: widget.settings,
-      profile: widget.transitionProfile,
-      child: widget.child,
-    );
+    Widget content =
+        !widget.present && widget.keepContentVisibleDuringExitCollapse
+        ? widget.child
+        : buildAnimationStyleTransition(
+            animation: _ctrl,
+            settings: widget.settings,
+            profile: widget.transitionProfile,
+            child: widget.child,
+          );
     if (widget.collapseSize) {
       content = SizeTransition(
         sizeFactor: openHandBoundedCurveAnimation(

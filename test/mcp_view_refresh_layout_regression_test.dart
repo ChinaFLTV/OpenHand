@@ -151,6 +151,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(attentionChip, findsOneWidget);
     expect(latencyChip, findsNothing);
+    final exitingFadeTransitions = tester.widgetList<FadeTransition>(
+      find.ancestor(of: attentionChip, matching: find.byType(FadeTransition)),
+    );
+    expect(exitingFadeTransitions, isNotEmpty);
+    for (final transition in exitingFadeTransitions) {
+      expect(transition.opacity.value, closeTo(1, 0.001));
+    }
 
     await tester.pumpAndSettle();
     expect(attentionChip, findsNothing);
