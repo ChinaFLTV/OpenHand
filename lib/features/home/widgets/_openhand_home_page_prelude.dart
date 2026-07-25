@@ -137,9 +137,12 @@ final RegExp _tomlBareKeyPattern = RegExp(r'^[A-Za-z0-9_.-]+$');
 
 // 共用圆角常量，避免每次构建重复分配对象。
 const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
-// 外层 clip 容器专用：比 _borderRadius18 大 1px，补偿 Border.all 的
-// 外溢像素，防止 flutter_markdown_plus 的 Clip.hardEdge 裁掉圆角边框。
-const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
+const BorderRadius _markdownCodeBlockRadius = BorderRadius.all(
+  Radius.circular(14),
+);
+const BorderRadius _markdownCodeBlockClipRadius = BorderRadius.all(
+  Radius.circular(15),
+);
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
 
 /// 会话渲染预热使用的逐帧有界任务队列。

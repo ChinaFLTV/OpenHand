@@ -1977,7 +1977,7 @@ class _CodexDiffLineRow extends StatelessWidget {
     var span = _highlightSpanCache.get(spanKey);
     if (span == null) {
       span = highlighter.build(text, language: language);
-      _highlightSpanCache.put(spanKey, span);
+      _highlightSpanCache.put(spanKey, span, text.length);
     }
     if (line.kind == _CodexDiffLineKind.context) return span;
     final fallbackColor = line.kind == _CodexDiffLineKind.addition

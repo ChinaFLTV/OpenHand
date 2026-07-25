@@ -1485,28 +1485,39 @@ class _MessageMarkdownThemeData {
           backgroundColor,
         );
     final quoteSurface = Color.alphaBlend(
-      accentColor.withValues(alpha: bubbleIsDark ? 0.22 : 0.10),
+      accentColor.withValues(alpha: bubbleIsDark ? 0.16 : 0.07),
       elevatedSurface,
     );
     final secondaryTextColor = textColor.withValues(
       alpha: bubbleIsDark ? 0.92 : 0.88,
     );
+    final bodyFontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
     final bodyStyle =
-        theme.textTheme.bodyLarge?.copyWith(color: textColor, height: 1.55) ??
-        TextStyle(color: textColor, height: 1.55);
-    final tableBodyStyle =
-        theme.textTheme.bodyMedium?.copyWith(color: textColor, height: 1.5) ??
-        TextStyle(color: textColor, height: 1.5);
+        theme.textTheme.bodyMedium?.copyWith(
+          color: textColor,
+          fontSize: bodyFontSize * 1.04,
+          height: 1.5,
+          letterSpacing: 0.02,
+        ) ??
+        TextStyle(color: textColor, fontSize: bodyFontSize, height: 1.5);
+    final headingStyle = bodyStyle.copyWith(height: 1.24, letterSpacing: -0.22);
+    final tableBodyStyle = bodyStyle.copyWith(
+      fontSize: bodyFontSize * 0.95,
+      height: 1.42,
+    );
     final codeStyle =
         theme.textTheme.bodyMedium?.copyWith(
           color: textColor,
           fontFamily: 'monospace',
-          fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.94,
+          fontSize: bodyFontSize * 0.9,
+          fontWeight: FontWeight.w500,
+          height: 1.35,
           backgroundColor: subtleSurface,
         ) ??
         TextStyle(
           color: textColor,
           fontFamily: 'monospace',
+          fontSize: bodyFontSize * 0.9,
           backgroundColor: subtleSurface,
         );
     return _MessageMarkdownThemeData(
@@ -1518,49 +1529,72 @@ class _MessageMarkdownThemeData {
           decorationColor: linkColor.withValues(alpha: 0.78),
         ),
         p: bodyStyle,
+        pPadding: EdgeInsets.zero,
         code: codeStyle,
+        h1: headingStyle.copyWith(
+          fontSize: bodyFontSize * 1.46,
+          fontWeight: FontWeight.w800,
+        ),
+        h1Padding: const EdgeInsets.only(top: 4, bottom: 2),
+        h2: headingStyle.copyWith(
+          fontSize: bodyFontSize * 1.28,
+          fontWeight: FontWeight.w800,
+        ),
+        h2Padding: const EdgeInsets.only(top: 3, bottom: 1),
+        h3: headingStyle.copyWith(
+          fontSize: bodyFontSize * 1.15,
+          fontWeight: FontWeight.w700,
+        ),
+        h3Padding: const EdgeInsets.only(top: 2),
+        h4: headingStyle.copyWith(
+          fontSize: bodyFontSize * 1.07,
+          fontWeight: FontWeight.w700,
+        ),
+        h4Padding: const EdgeInsets.only(top: 1),
+        h5: headingStyle.copyWith(fontWeight: FontWeight.w700),
+        h6: headingStyle.copyWith(
+          color: secondaryTextColor,
+          fontWeight: FontWeight.w700,
+        ),
         em: bodyStyle.copyWith(fontStyle: FontStyle.italic),
         strong: bodyStyle.copyWith(fontWeight: FontWeight.w700),
+        del: bodyStyle.copyWith(decoration: TextDecoration.lineThrough),
         blockquote: bodyStyle.copyWith(color: secondaryTextColor),
+        blockSpacing: 10,
+        listIndent: 22,
         listBullet: bodyStyle.copyWith(
           color: secondaryTextColor,
           fontWeight: FontWeight.w700,
         ),
-        listBulletPadding: const EdgeInsets.only(right: 8),
+        listBulletPadding: const EdgeInsets.only(right: 7),
         tableHead: bodyStyle.copyWith(fontWeight: FontWeight.w700),
         tableBody: tableBodyStyle,
-        tableBorder: TableBorder.all(color: borderColor),
-        tableCellsPadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        tableBorder: TableBorder.all(
+          color: borderColor,
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+        ),
+        tablePadding: const EdgeInsets.symmetric(vertical: 2),
+        tableCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         tableCellsDecoration: BoxDecoration(color: subtleSurface),
-        tableHeadCellsPadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         tableHeadCellsDecoration: BoxDecoration(color: elevatedSurface),
         tableColumnWidth: const IntrinsicColumnWidth(),
         blockquotePadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+          horizontal: 14,
+          vertical: 11,
         ),
         blockquoteDecoration: BoxDecoration(
           color: quoteSurface,
-          borderRadius: _borderRadius18,
-          border: Border(left: BorderSide(color: accentColor, width: 3)),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: Border(left: BorderSide(color: accentColor, width: 2.5)),
         ),
-        // Message bubbles render fenced code blocks through the custom
-        // `_HighlightedCodeBlockBuilder`, and `flutter_markdown_plus`
-        // still wraps every `pre` in `codeblockDecoration`. Keep the
-        // markdown-level wrapper inert here so only the highlighted panel
-        // owns the visible border/radius; otherwise the two shells drift
-        // apart (14 vs 18 radius) and create a double-outline ghost.
-        // 注意: flutter_markdown_plus 的 builder.dart 对 `pre` 元素强制
-        // 设置了 `clipBehavior: Clip.hardEdge`。如果 codeblockDecoration
-        // 的 borderRadius 为 null (默认 BorderRadius.zero), 则子组件
-        // (_HighlightedCodePanel) 的圆角会被矩形裁剪掉。因此这里必须
-        // 给 codeblockDecoration 设置比代码面板稍大的 borderRadius (19
-        // vs 18), 让 clip path 完全包含内层 Border.all 的外边缘像素,
-        // 避免 Clip.hardEdge 在圆角处裁掉边框。
+        // 第三方渲染器会裁剪 pre，外层圆角需略大于代码面板，避免边框缺角。
         codeblockPadding: EdgeInsets.zero,
-        codeblockDecoration: const BoxDecoration(borderRadius: _borderRadius19),
+        codeblockDecoration: const BoxDecoration(
+          borderRadius: _markdownCodeBlockClipRadius,
+        ),
         horizontalRuleDecoration: BoxDecoration(
-          border: Border(top: BorderSide(color: borderColor, width: 1.2)),
+          border: Border(top: BorderSide(color: borderColor)),
         ),
       ),
     );
@@ -1617,34 +1651,48 @@ const double _markdownDeferredPlaceholderMinHeight = 44;
 const double _markdownDeferredPlaceholderMaxHeight = 520;
 const double _markdownPlaceholderMaxWidth = 560;
 
-/// 进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
-/// 主题/builder 签名 hash 索引）在多次 mount 之间复用 AST 节点，
-/// 避免「滚回去再滚回来」「跨会话引用同一段示例代码」时反复跑
-/// `md.Document.parseLines()`。AST 节点是纯数据结构，体积远小于
-/// 构建出的 widget 树，整体内存压力可控；512 entries 对单条 ~几 KiB
-/// 的消息内容已经足够覆盖典型 60+ 长会话。
+/// 进程级 AST LRU 缓存，同时限制条目数和源文本总量，避免长会话挤占内存。
 class _MarkdownAstCache {
   _MarkdownAstCache();
 
   static const int _maxEntries = 512;
-  final LinkedHashMap<int, List<md.Node>> _entries =
-      LinkedHashMap<int, List<md.Node>>();
+  static const int _maxSourceChars = 4 * 1024 * 1024;
+  final LinkedHashMap<int, _MarkdownAstCacheEntry> _entries =
+      LinkedHashMap<int, _MarkdownAstCacheEntry>();
+  int _sourceChars = 0;
 
   List<md.Node>? get(int key) {
-    final value = _entries.remove(key);
-    if (value != null) {
-      _entries[key] = value;
+    final entry = _entries.remove(key);
+    if (entry != null) {
+      _entries[key] = entry;
     }
-    return value;
+    return entry?.nodes;
   }
 
-  void put(int key, List<md.Node> value) {
-    _entries.remove(key);
-    _entries[key] = value;
-    while (_entries.length > _maxEntries) {
-      _entries.remove(_entries.keys.first);
+  void put(int key, List<md.Node> nodes, int sourceChars) {
+    final previous = _entries.remove(key);
+    if (previous != null) {
+      _sourceChars -= previous.sourceChars;
+    }
+    if (sourceChars > _maxSourceChars) {
+      return;
+    }
+    _entries[key] = _MarkdownAstCacheEntry(nodes, sourceChars);
+    _sourceChars += sourceChars;
+    while (_entries.length > _maxEntries || _sourceChars > _maxSourceChars) {
+      final removed = _entries.remove(_entries.keys.first);
+      if (removed != null) {
+        _sourceChars -= removed.sourceChars;
+      }
     }
   }
+}
+
+class _MarkdownAstCacheEntry {
+  const _MarkdownAstCacheEntry(this.nodes, this.sourceChars);
+
+  final List<md.Node> nodes;
+  final int sourceChars;
 }
 
 final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
@@ -1869,7 +1917,7 @@ void _warmMarkdownAst({
         const LineSplitter().convert(normalizedSource),
       );
       _sanitizeMarkdownAst(astNodes);
-      _markdownAstCache.put(astCacheKey, astNodes);
+      _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
       onReady?.call(astNodes);
     } finally {
       _pendingMarkdownWarmups.remove(astCacheKey);
@@ -2401,7 +2449,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         );
         _sanitizeMarkdownAst(astNodes);
         if (shouldCacheAst) {
-          _markdownAstCache.put(astCacheKey, astNodes);
+          _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
         }
       }
       final builder = MarkdownBuilder(

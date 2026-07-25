@@ -67,24 +67,44 @@ class _HighlightFrameScheduler {
 class _HighlightSpanCache {
   _HighlightSpanCache({required this.maxEntries});
 
+  static const int _maxSourceChars = 4 * 1024 * 1024;
   final int maxEntries;
-  final LinkedHashMap<int, TextSpan> _entries = LinkedHashMap<int, TextSpan>();
+  final LinkedHashMap<int, _HighlightSpanCacheEntry> _entries =
+      LinkedHashMap<int, _HighlightSpanCacheEntry>();
+  int _sourceChars = 0;
 
   TextSpan? get(int key) {
-    final value = _entries.remove(key);
-    if (value != null) {
-      _entries[key] = value;
+    final entry = _entries.remove(key);
+    if (entry != null) {
+      _entries[key] = entry;
     }
-    return value;
+    return entry?.span;
   }
 
-  void put(int key, TextSpan value) {
-    _entries.remove(key);
-    _entries[key] = value;
-    while (_entries.length > maxEntries) {
-      _entries.remove(_entries.keys.first);
+  void put(int key, TextSpan span, int sourceChars) {
+    final previous = _entries.remove(key);
+    if (previous != null) {
+      _sourceChars -= previous.sourceChars;
+    }
+    if (sourceChars > _maxSourceChars) {
+      return;
+    }
+    _entries[key] = _HighlightSpanCacheEntry(span, sourceChars);
+    _sourceChars += sourceChars;
+    while (_entries.length > maxEntries || _sourceChars > _maxSourceChars) {
+      final removed = _entries.remove(_entries.keys.first);
+      if (removed != null) {
+        _sourceChars -= removed.sourceChars;
+      }
     }
   }
+}
+
+class _HighlightSpanCacheEntry {
+  const _HighlightSpanCacheEntry(this.span, this.sourceChars);
+
+  final TextSpan span;
+  final int sourceChars;
 }
 
 int _highlightSignatureForInputs({
@@ -110,12 +130,21 @@ TextStyle _baseCodeStyleForTheme({
   required Color baseColor,
   required bool useDarkPalette,
 }) {
+  final fontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
   return theme.textTheme.bodyMedium?.copyWith(
         color: baseColor,
         fontFamily: 'monospace',
-        height: 1.48,
+        fontSize: fontSize * 0.94,
+        height: 1.5,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
       ) ??
-      TextStyle(color: baseColor, fontFamily: 'monospace', height: 1.48);
+      TextStyle(
+        color: baseColor,
+        fontFamily: 'monospace',
+        fontSize: fontSize * 0.94,
+        height: 1.5,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+      );
 }
 
 TextSpan _computeHighlightedCodeSpan({
@@ -137,7 +166,7 @@ TextSpan _computeHighlightedCodeSpan({
   );
   if (content.length > _highlightSkipThresholdChars) {
     final span = TextSpan(text: content, style: baseStyle);
-    _highlightSpanCache.put(signature, span);
+    _highlightSpanCache.put(signature, span, content.length);
     return span;
   }
   final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
@@ -150,7 +179,7 @@ TextSpan _computeHighlightedCodeSpan({
     );
     return highlighter.build(content, language: effectiveLanguage);
   });
-  _highlightSpanCache.put(signature, span);
+  _highlightSpanCache.put(signature, span, content.length);
   return span;
 }
 
@@ -185,6 +214,7 @@ void _warmHighlightedCodeSpan({
           useDarkPalette: useDarkPalette,
         ),
       ),
+      content.length,
     );
     return;
   }
@@ -957,6 +987,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   int? _highlightSignature;
   bool _copied = false;
   bool _downloaded = false;
+  bool _copying = false;
+  bool _downloading = false;
   bool _mermaidViewActive = false;
   Timer? _copiedResetTimer;
   Timer? _downloadedResetTimer;
@@ -967,9 +999,16 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   ScrollController? _internalScrollController;
   TranscriptScrollActivity? _scrollActivity;
   bool _highlightPendingAfterScroll = false;
+  int _lineCount = 1;
 
   ScrollController get _effectiveInternalScrollController {
     return _internalScrollController ??= ScrollController();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _lineCount = _countLines(widget.content);
   }
 
   @override
@@ -1006,6 +1045,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _highlightIsPlaceholder = false;
     }
     if (oldWidget.content != widget.content) {
+      _lineCount = _countLines(widget.content);
       _copiedResetTimer?.cancel();
       _copied = false;
       _downloadedResetTimer?.cancel();
@@ -1043,11 +1083,20 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     });
   }
 
+  int _countLines(String source) {
+    var count = 1;
+    for (final unit in source.codeUnits) {
+      if (unit == 0x0A) count += 1;
+    }
+    return count;
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
-    final displayLanguage = effectiveLanguage == 'plaintext'
-        ? null
+    final displayLanguage =
+        effectiveLanguage == null || effectiveLanguage == 'plaintext'
+        ? openHandLocalizedText(context, zh: '纯文本', en: 'Plain text')
         : effectiveLanguage;
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
@@ -1084,17 +1133,26 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       zh: _mermaidViewActive ? '代码' : '视图',
       en: _mermaidViewActive ? 'Code' : 'View',
     );
-    // 将 border 移至 foregroundDecoration，确保边框绘制在子组件
-    // 之上，避免 header 背景色在圆角处覆盖 border。
-    // decoration 仅负责背景色 + 圆角裁剪；foregroundDecoration 负责边框。
+    final lineCountLabel = openHandLocalizedText(
+      context,
+      zh: '$_lineCount 行',
+      en: '$_lineCount lines',
+    );
     return Container(
       decoration: BoxDecoration(
         color: palette.containerColor,
-        borderRadius: _borderRadius18,
+        borderRadius: _markdownCodeBlockRadius,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: palette.shadowColor,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       foregroundDecoration: BoxDecoration(
-        borderRadius: _borderRadius18,
-        border: Border.all(color: palette.borderColor),
+        borderRadius: _markdownCodeBlockRadius,
+        border: Border.all(color: palette.borderColor, width: 0.8),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -1102,44 +1160,58 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         children: [
           if (widget.showToolbar)
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
               decoration: BoxDecoration(
                 color: palette.headerColor,
                 border: Border(bottom: BorderSide(color: palette.dividerColor)),
               ),
               child: Row(
                 children: [
-                  if (displayLanguage != null)
-                    _buildToolPill(
-                      label: displayLanguage,
-                      icon: Icons.code_rounded,
-                      backgroundColor: palette.badgeColor,
-                      foregroundColor: palette.badgeTextColor,
-                    )
-                  else
-                    const SizedBox(height: 32),
-                  const Spacer(),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.code_rounded,
+                          size: 15,
+                          color: palette.badgeTextColor.withValues(alpha: 0.8),
+                        ),
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            '$displayLanguage · $lineCountLabel',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: widget.theme.textTheme.labelMedium?.copyWith(
+                              color: palette.badgeTextColor.withValues(
+                                alpha: 0.82,
+                              ),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   if (isMermaidLanguage) ...[
-                    _buildToolPill(
+                    _buildToolbarAction(
                       label: viewLabel,
                       icon: _mermaidViewActive
                           ? Icons.code_rounded
                           : Icons.visibility_outlined,
-                      backgroundColor: _mermaidViewActive
-                          ? palette.actionColor
-                          : palette.actionColor,
-                      foregroundColor: palette.actionTextColor,
+                      palette: palette,
+                      active: _mermaidViewActive,
                       onTap: _toggleMermaidView,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                   ],
-                  _buildToolPill(
+                  _buildToolbarAction(
                     label: copyLabel,
                     icon: _copied
                         ? Icons.check_rounded
                         : Icons.content_copy_rounded,
-                    backgroundColor: palette.actionColor,
-                    foregroundColor: palette.actionTextColor,
+                    palette: palette,
+                    active: _copied,
                     onTap: () {
                       _BubbleHtmlInteractiveScope.maybeOf(
                         context,
@@ -1147,14 +1219,14 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                       _copyCodeBlock();
                     },
                   ),
-                  const SizedBox(width: 8),
-                  _buildToolPill(
+                  const SizedBox(width: 4),
+                  _buildToolbarAction(
                     label: downloadLabel,
                     icon: _downloaded
                         ? Icons.check_rounded
                         : Icons.download_rounded,
-                    backgroundColor: palette.actionColor,
-                    foregroundColor: palette.actionTextColor,
+                    palette: palette,
+                    active: _downloaded,
                     onTap: () {
                       _BubbleHtmlInteractiveScope.maybeOf(
                         context,
@@ -1163,12 +1235,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                     },
                   ),
                   if (isHtmlLanguage) ...[
-                    const SizedBox(width: 8),
-                    _buildToolPill(
+                    const SizedBox(width: 4),
+                    _buildToolbarAction(
                       label: runLabel,
                       icon: Icons.play_arrow_rounded,
-                      backgroundColor: palette.actionColor,
-                      foregroundColor: palette.actionTextColor,
+                      palette: palette,
                       onTap: () {
                         _BubbleHtmlInteractiveScope.maybeOf(
                           context,
@@ -1410,102 +1481,107 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
   }
 
-  Widget _buildToolPill({
+  Widget _buildToolbarAction({
     required String label,
     required IconData icon,
-    required Color backgroundColor,
-    required Color foregroundColor,
-    VoidCallback? onTap,
+    required _CodeBlockPalette palette,
+    required VoidCallback onTap,
+    bool active = false,
   }) {
-    final child = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: foregroundColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: widget.theme.textTheme.labelMedium?.copyWith(
-              color: foregroundColor,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-    final decoration = BoxDecoration(
-      color: backgroundColor,
-      borderRadius: _borderRadius999,
-    );
-    if (onTap == null) {
-      return DecoratedBox(decoration: decoration, child: child);
-    }
-    return Material(
+    final button = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: _borderRadius999,
-        child: Ink(decoration: decoration, child: child),
+        child: Ink(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: active ? palette.badgeColor : palette.actionColor,
+            borderRadius: _borderRadius999,
+          ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 160),
+              ),
+              switchInCurve: Curves.easeOutBack,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              ),
+              child: Icon(
+                icon,
+                key: ValueKey<IconData>(icon),
+                size: 16,
+                color: active
+                    ? palette.badgeTextColor
+                    : palette.actionTextColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: MicroPressFeedback(scale: 0.9, child: button),
       ),
     );
   }
 
   void _copyCodeBlock() {
     _copiedResetTimer?.cancel();
-    setState(() {
-      _copied = true;
-    });
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.hideCurrentOn(messenger);
-    showOpenHandSnackBarOn(
-      context,
-      messenger,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
-        ),
-      ),
-    );
-    _copiedResetTimer = startSafeTimer(_codeActionResetDelay, () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _copied = false;
-      });
-    });
-    unawaited(_writeCodeBlockToClipboard());
+    unawaited(_performCodeBlockCopy());
   }
 
-  Future<void> _writeCodeBlockToClipboard() async {
+  Future<void> _performCodeBlockCopy() async {
+    if (_copying) return;
+    _copying = true;
     try {
       await setOpenHandClipboardText(widget.content);
-    } catch (error, stack) {
-      silentLog('home_code_highlighting', '复制代码块', error, stack);
-      if (!mounted) {
-        return;
-      }
-      _copiedResetTimer?.cancel();
-      setState(() {
-        _copied = false;
-      });
+      if (!mounted) return;
+      setState(() => _copied = true);
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '复制代码块失败。',
-              en: 'Failed to copy code.',
-            ),
+        OpenHandSnackBar.success(
+          context,
+          openHandLocalizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
+        ),
+      );
+      _copiedResetTimer = startSafeTimer(_codeActionResetDelay, () {
+        if (!mounted) return;
+        setState(() => _copied = false);
+      });
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', '复制代码块', error, stack);
+      if (!mounted) return;
+      _copiedResetTimer?.cancel();
+      if (_copied) setState(() => _copied = false);
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.hideCurrentOn(messenger);
+      showOpenHandSnackBarOn(
+        context,
+        messenger,
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '复制代码块失败。',
+            en: 'Failed to copy code.',
           ),
         ),
       );
+    } finally {
+      _copying = false;
     }
   }
 
@@ -1515,6 +1591,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   }
 
   Future<void> _performCodeBlockDownload(String? language) async {
+    if (_downloading) return;
+    _downloading = true;
     final extension = _getFileExtensionForLanguage(language);
     final suggestedName = 'code_block$extension';
     try {
@@ -1538,13 +1616,12 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '代码已下载为 ${p.basename(selectedPath)}',
-              en: 'Code downloaded as ${p.basename(selectedPath)}',
-            ),
+        OpenHandSnackBar.success(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '代码已下载为 ${p.basename(selectedPath)}',
+            en: 'Code downloaded as ${p.basename(selectedPath)}',
           ),
         ),
       );
@@ -1566,12 +1643,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(context, zh: '下载失败。', en: 'Download failed.'),
-          ),
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(context, zh: '下载失败。', en: 'Download failed.'),
         ),
       );
+    } finally {
+      _downloading = false;
     }
   }
 
@@ -1625,7 +1703,6 @@ class _CodeBlockPalette {
           Colors.black.withValues(alpha: 0.14),
           darkScheme.surfaceContainerLow,
         ),
-        bodyBorderColor: darkScheme.outlineVariant.withValues(alpha: 0.34),
         badgeColor: Color.alphaBlend(
           tint.withValues(alpha: 0.16),
           darkScheme.surfaceContainerHighest,
@@ -1654,7 +1731,6 @@ class _CodeBlockPalette {
       ),
       dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.62),
       bodyColor: Colors.white.withValues(alpha: 0.45),
-      bodyBorderColor: colorScheme.outlineVariant.withValues(alpha: 0.38),
       badgeColor: Color.alphaBlend(
         tint.withValues(alpha: 0.08),
         colorScheme.surface,
@@ -1674,7 +1750,6 @@ class _CodeBlockPalette {
     required this.headerColor,
     required this.dividerColor,
     required this.bodyColor,
-    required this.bodyBorderColor,
     required this.badgeColor,
     required this.badgeTextColor,
     required this.actionColor,
@@ -1682,7 +1757,7 @@ class _CodeBlockPalette {
     required this.shadowColor,
   });
 
-  // Static cache for the expensive ColorScheme.fromSeed dark palette.
+  // 缓存开销较高的深色动态配色。
   static ColorScheme? _cachedDarkScheme;
   static int? _cachedDarkSchemeTintValue;
 
@@ -1691,7 +1766,6 @@ class _CodeBlockPalette {
   final Color headerColor;
   final Color dividerColor;
   final Color bodyColor;
-  final Color bodyBorderColor;
   final Color badgeColor;
   final Color badgeTextColor;
   final Color actionColor;
