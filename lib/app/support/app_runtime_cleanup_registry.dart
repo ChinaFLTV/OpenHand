@@ -32,15 +32,25 @@ final class AppRuntimeCleanupRegistry {
   final Duration _cleanupTimeout;
   final Duration _totalTimeout;
   final AppRuntimeCleanupErrorHandler? _onError;
-  final List<({String name, AppRuntimeCleanup cleanup})> _entries =
-      <({String name, AppRuntimeCleanup cleanup})>[];
+  final List<({String name, AppRuntimeCleanup cleanup, Duration timeout})>
+  _entries = <({String name, AppRuntimeCleanup cleanup, Duration timeout})>[];
   Future<void>? _disposeFuture;
 
-  void register(String name, AppRuntimeCleanup cleanup) {
+  void register(String name, AppRuntimeCleanup cleanup, {Duration? timeout}) {
     if (_disposeFuture != null) {
       throw StateError('运行时资源释放开始后不能再注册：$name');
     }
-    _entries.add((name: name, cleanup: cleanup));
+    _entries.add((
+      name: name,
+      cleanup: cleanup,
+      timeout: timeout == null
+          ? _cleanupTimeout
+          : _positiveCleanupDuration(
+              timeout,
+              'timeout',
+              maximum: kOpenHandMaxAsyncCleanupTimeout,
+            ),
+    ));
   }
 
   Future<void> dispose() {
@@ -78,14 +88,10 @@ final class AppRuntimeCleanupRegistry {
           );
           break;
         }
-        final remainingEntries = _entries.length;
-        final fairShare = Duration(
-          microseconds: remaining.inMicroseconds ~/ remainingEntries,
-        );
         final entry = _entries.removeLast();
         await runAsyncCleanupBounded(
           entry.cleanup,
-          timeout: fairShare < _cleanupTimeout ? fairShare : _cleanupTimeout,
+          timeout: remaining < entry.timeout ? remaining : entry.timeout,
           onError: (error, stack) => _reportError(entry.name, error, stack),
         );
       }
@@ -97,7 +103,16 @@ final class AppRuntimeCleanupRegistry {
   void _reportError(String name, Object error, StackTrace stack) {
     final handler = _onError;
     if (handler != null) {
-      handler(name, error, stack);
+      try {
+        handler(name, error, stack);
+      } catch (handlerError, handlerStack) {
+        silentLog(
+          'app_runtime_cleanup',
+          '上报运行时资源释放异常',
+          handlerError,
+          handlerStack,
+        );
+      }
       return;
     }
     silentLog('app_runtime_cleanup', name, error, stack);

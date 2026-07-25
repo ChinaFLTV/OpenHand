@@ -23,6 +23,7 @@ const int _jsonRpcMalformedLinePreviewChars = 200;
 const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
 const int _stopAllConcurrency = 8;
+const int _shutdownStopAllConcurrency = 16;
 
 Map<String, Object?>? _parseMcpStdioJsonRpcLine(String line) {
   final trimmed = nullIfBlank(line);
@@ -124,6 +125,9 @@ class McpStdioProcessManager extends ChangeNotifier {
   );
   static const Duration _borrowReleaseTimeout = Duration(seconds: 2);
   static const Duration _borrowPollInterval = Duration(milliseconds: 80);
+  static const Duration _shutdownGracefulStopTimeout = Duration(
+    milliseconds: 250,
+  );
   static const int _defaultResponseBufferLimit = kBytesPerMiB;
   static const int _maxLogLineChars = 4 * kBytesPerKiB;
   static const int _maxRuntimeCacheScanEntries = 20000;
@@ -131,6 +135,10 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _runtimeCacheStatTimeout = Duration(milliseconds: 500);
 
   final Map<String, _ManagedProcess> _processes = {};
+  final Map<String, Future<void>> _stopFutures = <String, Future<void>>{};
+  final Set<String> _immediateStopRequests = <String>{};
+  bool _isShuttingDown = false;
+  bool _isDisposed = false;
   final Duration _stdinCloseTimeout;
   final Duration _gracefulStopTimeout;
   final Duration _forceStopTimeout;
@@ -148,7 +156,9 @@ class McpStdioProcessManager extends ChangeNotifier {
 
   /// 启动指定 STDIO MCP 服务进程。
   Future<void> startServer(McpServer server) async {
-    if (server.type != McpServerType.stdio) return;
+    if (_isDisposed || _isShuttingDown || server.type != McpServerType.stdio) {
+      return;
+    }
     final name = server.name;
     final fingerprint = _serverFingerprint(server);
 
@@ -444,25 +454,27 @@ class McpStdioProcessManager extends ChangeNotifier {
     ]);
   }
 
-  Future<void> _terminateProcessTreeBounded(Process process) async {
-    // Signal the direct process immediately. Descendant enumeration inside
-    // the shared tree terminator is bounded but may still take a moment on a
-    // congested host; Stop must never return before even attempting TERM.
+  Future<void> _terminateProcessTreeBounded(
+    Process process, {
+    Duration? gracefulTimeout,
+  }) async {
+    // 先终止直接进程；后代枚举虽有时限，但繁忙主机仍可能稍有延迟。
     try {
       process.kill();
     } catch (error, stack) {
       silentLog('mcp_stdio_process_manager', '清理进程树前发送终止信号', error, stack);
     }
+    final effectiveGracefulTimeout = gracefulTimeout ?? _gracefulStopTimeout;
     final totalTimeout = Duration(
       microseconds:
-          _gracefulStopTimeout.inMicroseconds +
+          effectiveGracefulTimeout.inMicroseconds +
           _forceStopTimeout.inMicroseconds +
           const Duration(seconds: 3).inMicroseconds,
     );
     try {
       await terminateTrackedProcessTree(
         process,
-        gracefulTimeout: _gracefulStopTimeout,
+        gracefulTimeout: effectiveGracefulTimeout,
       ).timeout(totalTimeout);
     } on TimeoutException catch (error, stack) {
       silentLog('mcp_stdio_process_manager', '终止进程树超时', error, stack);
@@ -484,7 +496,31 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   /// 停止指定 STDIO MCP 服务进程。
-  Future<void> stopServer(String serverName) async {
+  Future<void> stopServer(String serverName) {
+    return _stopServerSingleFlight(serverName);
+  }
+
+  Future<void> _stopServerSingleFlight(
+    String serverName, {
+    bool immediate = false,
+  }) {
+    if (immediate) {
+      _immediateStopRequests.add(serverName);
+    }
+    final active = _stopFutures[serverName];
+    if (active != null) return active;
+    late final Future<void> future;
+    future = _stopServer(serverName).whenComplete(() {
+      if (identical(_stopFutures[serverName], future)) {
+        _stopFutures.remove(serverName);
+        _immediateStopRequests.remove(serverName);
+      }
+    });
+    _stopFutures[serverName] = future;
+    return future;
+  }
+
+  Future<void> _stopServer(String serverName) async {
     final managed = _processes[serverName];
     if (managed == null) return;
     if (managed.info.state == StdioProcessState.stopping) return;
@@ -515,7 +551,9 @@ class McpStdioProcessManager extends ChangeNotifier {
 
     try {
       managed.responseRouter?.rejectNewWrites(_stoppingException(serverName));
-      await _waitForBorrowedSessions(serverName, generation);
+      if (!_immediateStopRequests.contains(serverName)) {
+        await _waitForBorrowedSessions(serverName, generation);
+      }
       await managed.responseRouter?.drainWrites(_stdinCloseTimeout);
       await closeMcpStdioSinkQuietly(
         stdin: managed.process!.stdin,
@@ -523,7 +561,12 @@ class McpStdioProcessManager extends ChangeNotifier {
         logTag: 'mcp_stdio_process_manager',
         logWhere: '关闭进程标准输入：$serverName',
       );
-      await _terminateProcessTreeBounded(managed.process!);
+      await _terminateProcessTreeBounded(
+        managed.process!,
+        gracefulTimeout: _immediateStopRequests.contains(serverName)
+            ? _shutdownGracefulStopTimeout
+            : null,
+      );
     } catch (e) {
       _appendLog(
         serverName,
@@ -559,15 +602,22 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   /// 停止所有正在运行的进程（应用退出时调用）。
-  Future<void> stopAll() async {
-    final names = _processes.entries
-        .where((entry) => !entry.value.info.isStopped)
-        .map((entry) => entry.key)
-        .toList(growable: false);
+  Future<void> stopAll({bool immediate = false}) async {
+    if (immediate) {
+      _isShuttingDown = true;
+    }
+    final names = <String>{
+      ..._stopFutures.keys,
+      for (final entry in _processes.entries)
+        if (!entry.value.info.isStopped) entry.key,
+    }.toList(growable: false);
     await forEachIndexWithConcurrencyLimit(
       itemCount: names.length,
-      maxConcurrency: _stopAllConcurrency,
-      task: (index) => stopServer(names[index]),
+      maxConcurrency: immediate
+          ? _shutdownStopAllConcurrency
+          : _stopAllConcurrency,
+      task: (index) =>
+          _stopServerSingleFlight(names[index], immediate: immediate),
     );
   }
 
@@ -604,6 +654,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   Future<ManagedStdioSession?> borrowSessionForDiscovery(
     String serverName,
   ) async {
+    if (_isDisposed || _isShuttingDown) return null;
     _ManagedProcess? managed = _processes[serverName];
     // 完全不存在 entry — 调用方应先触发 startServer
     if (managed == null) {
@@ -671,6 +722,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     final deadline = MonotonicDeadline(_borrowReleaseTimeout);
     try {
       while ((_sessionBorrowCount[serverName] ?? 0) > 0) {
+        if (_immediateStopRequests.contains(serverName)) return;
         if (_processes[serverName]?.generation != generation) return;
         if (deadline.isExpired) {
           _appendLog(
@@ -1080,9 +1132,16 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     unawaited(
-      stopAll().catchError((Object error, StackTrace stack) {
+      stopAll(immediate: true).catchError((Object error, StackTrace stack) {
         silentLog('mcp_stdio_process_manager', '释放时停止全部进程', error, stack);
       }),
     );

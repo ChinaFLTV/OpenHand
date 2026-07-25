@@ -40,6 +40,8 @@ import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/structured_error_text.dart';
 
+const Duration _mcpRuntimeCleanupTimeout = Duration(seconds: 10);
+
 Future<void> main() async {
   // 用 Zone 统一兜住异步异常，并拦截 highlight 内部裸 print 产生的可恢复噪声。
   await runZonedGuarded<Future<void>>(
@@ -437,7 +439,6 @@ Future<void> _bootstrap() async {
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
     ..register('插件服务控制器', pluginService.controller.dispose)
     ..register('知识库控制器', knowledgeBase.controller.dispose)
-    ..register('MCP 控制器', mcp.controller.shutdown)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
     ..register('AI 会话控制器', aiSessionController.shutdown)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
@@ -451,6 +452,11 @@ Future<void> _bootstrap() async {
       messageGateway.controller.pluginServiceController = null;
       await messageGateway.controller.shutdown();
     })
+    ..register(
+      'MCP 控制器',
+      mcp.controller.shutdown,
+      timeout: _mcpRuntimeCleanupTimeout,
+    )
     ..register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
   runtimeCleanup
     ..register('定时任务智能体处理器', () => cronsController.registerAgentHandler(null))
@@ -578,7 +584,9 @@ bool _shouldSilenceHighlightFormattingError(Object error, StackTrace? stack) {
 bool _shouldSilencePrintLine(String line) {
   return line.contains('FormatException: Invalid number') ||
       line.contains('FormatException: Invalid radix-10 number') ||
-      line.contains('FormatException: Invalid radix-16 number');
+      line.contains('FormatException: Invalid radix-16 number') ||
+      line.startsWith('media_kit: NativeReferenceHolder: Allocated ') ||
+      line.startsWith('media_kit: NativeReferenceHolder: Located ');
 }
 
 /// Flutter 3.41 的浮层 / 弹窗子树在关闭、滚动或路由切换的同一帧里，

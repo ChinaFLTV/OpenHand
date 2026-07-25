@@ -273,6 +273,7 @@ class McpServerOpsRuntime {
   final Map<String, int> _requestDistribution = <String, int>{};
   final Map<String, int> _protocolDistribution = <String, int>{};
   final Set<String> _sessionIds = <String>{};
+  bool _isShuttingDown = false;
   // 按 UTC 分钟汇总所有请求，为趋势和延迟图提供完整数据。
   final Map<DateTime, _McpOpsMinuteBucket> _trafficBuckets =
       <DateTime, _McpOpsMinuteBucket>{};
@@ -352,10 +353,12 @@ class McpServerOpsRuntime {
   }
 
   Future<void> start(McpOpsConfig config) {
+    if (_isShuttingDown) return Future<void>.value();
     return _runLifecycleLocked(() => _startUnlocked(config));
   }
 
   Future<void> _startUnlocked(McpOpsConfig config) async {
+    if (_isShuttingDown) return;
     if (_server != null) {
       _config = config;
       if (_listenerMatches(config)) {
@@ -390,6 +393,10 @@ class McpServerOpsRuntime {
         unawaited(_closeLateServer(serverFuture));
         rethrow;
       }
+      if (_isShuttingDown) {
+        await _stopUnlocked();
+        return;
+      }
       final bound = _server!;
       _setSnapshot(
         _snapshot.copyWith(
@@ -415,6 +422,11 @@ class McpServerOpsRuntime {
   }
 
   Future<void> stop() {
+    return _runLifecycleLocked(_stopUnlocked);
+  }
+
+  Future<void> shutdown() {
+    _isShuttingDown = true;
     return _runLifecycleLocked(_stopUnlocked);
   }
 
@@ -451,14 +463,17 @@ class McpServerOpsRuntime {
   }
 
   Future<void> restart(McpOpsConfig config) {
+    if (_isShuttingDown) return Future<void>.value();
     return _runLifecycleLocked(() => _restartUnlocked(config));
   }
 
   Future<void> _restartUnlocked(McpOpsConfig config) async {
+    if (_isShuttingDown) return;
     _setSnapshot(
       _snapshot.copyWith(lifecycle: McpOpsLifecycleState.restarting),
     );
     await _stopUnlocked();
+    if (_isShuttingDown) return;
     await _startUnlocked(config);
   }
 

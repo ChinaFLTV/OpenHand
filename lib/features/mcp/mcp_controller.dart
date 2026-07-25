@@ -576,10 +576,11 @@ class McpController extends ChangeNotifier {
     McpServerOpsRuntime? opsRuntime,
   ) async {
     await Future.wait<void>(<Future<void>>[
-      if (opsRuntime != null) _runShutdownStep('停止 MCP 运维服务', opsRuntime.stop),
+      if (opsRuntime != null)
+        _runShutdownStep('停止 MCP 运维服务', opsRuntime.shutdown),
       _runShutdownStep(
         '停止 STDIO MCP 进程',
-        McpStdioProcessManager.instance.stopAll,
+        () => McpStdioProcessManager.instance.stopAll(immediate: true),
       ),
     ]);
     await _runShutdownStep('保存 MCP 运维数据', _persistOpsRuntimeData);
