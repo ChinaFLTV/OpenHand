@@ -1409,7 +1409,10 @@ class _RenderMeasureSize extends RenderProxyBox {
 }
 
 class _MessageMarkdownThemeData {
-  const _MessageMarkdownThemeData({required this.styleSheet});
+  const _MessageMarkdownThemeData({
+    required this.styleSheet,
+    required this.inlineCodeBuilder,
+  });
 
   factory _MessageMarkdownThemeData.fromMessageBubble({
     required ThemeData theme,
@@ -1471,6 +1474,10 @@ class _MessageMarkdownThemeData {
       overlayBase.withValues(alpha: bubbleIsDark ? 0.11 : 0.06),
       backgroundColor,
     );
+    final inlineCodeSurface = Color.alphaBlend(
+      overlayBase.withValues(alpha: bubbleIsDark ? 0.12 : 0.055),
+      backgroundColor,
+    );
     final accentColor = bubbleIsDark
         ? Color.lerp(colorScheme.primaryContainer, Colors.white, 0.08) ??
               colorScheme.primaryContainer
@@ -1509,18 +1516,22 @@ class _MessageMarkdownThemeData {
         theme.textTheme.bodyMedium?.copyWith(
           color: textColor,
           fontFamily: 'monospace',
-          fontSize: bodyFontSize * 0.9,
+          fontSize: bodyFontSize * 0.92,
           fontWeight: FontWeight.w500,
-          height: 1.35,
-          backgroundColor: subtleSurface,
+          height: 1.28,
         ) ??
         TextStyle(
           color: textColor,
           fontFamily: 'monospace',
-          fontSize: bodyFontSize * 0.9,
-          backgroundColor: subtleSurface,
+          fontSize: bodyFontSize * 0.92,
+          fontWeight: FontWeight.w500,
+          height: 1.28,
         );
     return _MessageMarkdownThemeData(
+      inlineCodeBuilder: OpenHandMarkdownInlineCodeBuilder(
+        textStyle: codeStyle,
+        backgroundColor: inlineCodeSurface,
+      ),
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         a: bodyStyle.copyWith(
           color: linkColor,
@@ -1601,6 +1612,7 @@ class _MessageMarkdownThemeData {
   }
 
   final MarkdownStyleSheet styleSheet;
+  final OpenHandMarkdownInlineCodeBuilder inlineCodeBuilder;
 }
 
 /// [_MessageMarkdownThemeData] 的 LRU 缓存。容量 64 足以覆盖

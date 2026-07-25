@@ -3568,9 +3568,14 @@ void _showMessageLinkOpenError(BuildContext context, Object error) {
 }
 
 class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
-  _FilePathMarkdownBuilder({required this.textColor, required this.onOpenPath});
+  _FilePathMarkdownBuilder({
+    required this.textColor,
+    required this.inlineCodeBuilder,
+    required this.onOpenPath,
+  });
 
   final Color textColor;
+  final OpenHandMarkdownInlineCodeBuilder inlineCodeBuilder;
   final Future<void> Function(
     BuildContext context,
     MessageResolvedPath resolvedPath,
@@ -3606,7 +3611,11 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
 
     return Text.rich(
       WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
+        alignment: path.isCodeSpan
+            ? PlaceholderAlignment.baseline
+            : PlaceholderAlignment.middle,
+        baseline: path.isCodeSpan ? TextBaseline.alphabetic : null,
+        style: path.isCodeSpan ? inlineCodeBuilder.textStyle : null,
         child: _AsyncFilePathChip(
           normalizedPath: path.normalizedPath,
           candidateRoots: path.candidateRoots,
@@ -3620,34 +3629,7 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     );
   }
 
-  Widget _buildCodeSpan(
-    BuildContext context,
-    String text,
-    TextStyle? parentStyle,
-  ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style:
-            parentStyle?.copyWith(
-              fontFamily: 'monospace',
-              fontSize: (parentStyle.fontSize ?? 14) * 0.9,
-              color: colorScheme.onSurface,
-            ) ??
-            theme.textTheme.bodyMedium?.copyWith(
-              fontFamily: 'monospace',
-              color: colorScheme.onSurface,
-            ),
-      ),
-    );
-  }
+  Widget _buildCodeSpan(String text) => inlineCodeBuilder.buildChip(text);
 
   Widget _buildChip(
     BuildContext context, {
@@ -3749,11 +3731,7 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
   ) {
     if (resolvedPath == null) {
       if (widget.isCodeSpan) {
-        return widget.builder._buildCodeSpan(
-          context,
-          widget.fullMatch,
-          widget.parentStyle,
-        );
+        return widget.builder._buildCodeSpan(widget.fullMatch);
       }
       final isExplicitPath =
           widget.normalizedPath.startsWith('~/') ||

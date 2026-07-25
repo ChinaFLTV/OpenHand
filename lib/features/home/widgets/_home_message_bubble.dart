@@ -546,6 +546,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       );
       _cachedFilePathParseKey = _cachedFilePathRoots!.join('|');
       _cachedBuilders = <String, MarkdownElementBuilder>{
+        'code': _cachedMarkdownThemeData!.inlineCodeBuilder,
         'pre': _HighlightedCodeBlockBuilder(
           theme: theme,
           baseColor: textColor,
@@ -557,10 +558,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ),
         messageResolvedPathElementTag: _FilePathMarkdownBuilder(
           textColor: textColor,
+          inlineCodeBuilder: _cachedMarkdownThemeData!.inlineCodeBuilder,
           onOpenPath: _openResolvedMessagePath,
         ),
         messagePendingPathElementTag: _FilePathMarkdownBuilder(
           textColor: textColor,
+          inlineCodeBuilder: _cachedMarkdownThemeData!.inlineCodeBuilder,
           onOpenPath: _openResolvedMessagePath,
         ),
         'openhand-generated-media': _GeneratedMediaLinkMarkdownBuilder(
