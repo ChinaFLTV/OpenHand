@@ -52,6 +52,10 @@ const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _mcpSessionCloseTimeout = Duration(seconds: 2);
+const String _httpClientAlreadyClosedMessage =
+    'HTTP request failed. Client is already closed.';
+const String _httpConnectionClosedBeforeHeadersMessage =
+    'Connection closed before full header was received';
 const Duration _mcpStdioFileOperationTimeout = mcpStdioFileOperationTimeout;
 const int _mcpStdioPathProbeLimit = 256;
 const Map<String, String> _mcpFreshRequestHeaders = <String, String>{
@@ -110,6 +114,16 @@ Future<void> _drainMcpHttpResponse(
     idleTimeout: totalTimeout,
     totalTimeout: totalTimeout,
   );
+}
+
+bool _isExpectedStreamableSessionCloseError(Object error) {
+  if (error is TimeoutException || error is http.RequestAbortedException) {
+    return true;
+  }
+  if (error is! http.ClientException) return false;
+  final message = error.message.trim();
+  return message == _httpClientAlreadyClosedMessage ||
+      message.startsWith(_httpConnectionClosedBeforeHeadersMessage);
 }
 
 String _mcpDiscoveryText({
@@ -225,6 +239,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   final http.Client _client;
   final bool _ownsClient;
   int _nextRequestId = 0;
+  bool _isDisposed = false;
 
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) async {
@@ -739,7 +754,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, String>? customHeaders,
   }) async {
     final sessionId = nullIfBlank(session.sessionId);
-    if (sessionId == null) return;
+    if (sessionId == null || _isDisposed) return;
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
         'accept': 'application/json',
@@ -770,6 +785,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       );
       await _drainMcpHttpResponse(response, timeout: _mcpSessionCloseTimeout);
     } catch (error, stack) {
+      if (_isExpectedStreamableSessionCloseError(error)) return;
       silentLog(
         'mcp_tool_discovery_service',
         '关闭 Streamable HTTP 会话',
@@ -1589,6 +1605,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   @override
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     if (_ownsClient) {
       _client.close();
     }
