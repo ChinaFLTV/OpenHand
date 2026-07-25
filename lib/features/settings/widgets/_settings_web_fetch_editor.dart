@@ -451,113 +451,21 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
         const SizedBox(height: 14),
 
-        // 结果数量。
-        TextField(
-          controller: _resultCountController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            labelText: openHandLocalizedText(
-              context,
-              zh:
-                  '结果数量 (${AiWebFetchSettings.minResultCount}-'
-                  '${AiWebFetchSettings.maxResultCount})',
-              en:
-                  'Result Count (${AiWebFetchSettings.minResultCount}-'
-                  '${AiWebFetchSettings.maxResultCount})',
-            ),
-            helperText: openHandLocalizedText(
-              context,
-              zh:
-                  '默认 ${AiWebFetchSettings.defaultResultCount},'
-                  '控制 WebFetch 返回给模型的条目个数。',
-              en:
-                  'Default ${AiWebFetchSettings.defaultResultCount}; '
-                  'caps how many hits are forwarded to the summary model.',
-            ),
-          ),
-          onChanged: (s) {
-            final parsed = optionalIntFromText(s);
-            if (parsed == null) return;
-            _emit(
-              v.copyWith(
-                resultCount: parsed
-                    .clamp(
-                      AiWebFetchSettings.minResultCount,
-                      AiWebFetchSettings.maxResultCount,
-                    )
-                    .toInt(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-
-        // 并行开关与工作数。
-        Row(
-          children: [
-            Expanded(
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '并行调度引擎',
-                    en: 'Parallel Engines',
-                  ),
-                ),
-                subtitle: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '启用后通过信号量限流并行调用多个引擎,提速明显;关闭后串行依次调用。',
-                    en:
-                        'When on, engines fan out under a semaphore-bounded '
-                        'concurrency limit; off = strict serial.',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                value: v.parallel,
-                onChanged: (b) => _emit(v.copyWith(parallel: b)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 120,
-              child: TextField(
-                enabled: v.parallel,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                controller: _parallelWorkersController,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh:
-                        'Workers (${AiWebFetchSettings.minParallelWorkers}-'
-                        '${AiWebFetchSettings.maxParallelWorkers})',
-                    en:
-                        'Workers (${AiWebFetchSettings.minParallelWorkers}-'
-                        '${AiWebFetchSettings.maxParallelWorkers})',
-                  ),
-                ),
-                onChanged: (s) {
-                  final parsed = optionalIntFromText(s);
-                  if (parsed == null) return;
-                  _emit(
-                    v.copyWith(
-                      parallelWorkers: parsed
-                          .clamp(
-                            AiWebFetchSettings.minParallelWorkers,
-                            AiWebFetchSettings.maxParallelWorkers,
-                          )
-                          .toInt(),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+        _WebEngineDispatchControls(
+          featureName: 'WebFetch',
+          resultCountController: _resultCountController,
+          defaultResultCount: AiWebFetchSettings.defaultResultCount,
+          minResultCount: AiWebFetchSettings.minResultCount,
+          maxResultCount: AiWebFetchSettings.maxResultCount,
+          onResultCountChanged: (value) =>
+              _emit(v.copyWith(resultCount: value)),
+          parallel: v.parallel,
+          onParallelChanged: (value) => _emit(v.copyWith(parallel: value)),
+          parallelWorkersController: _parallelWorkersController,
+          minParallelWorkers: AiWebFetchSettings.minParallelWorkers,
+          maxParallelWorkers: AiWebFetchSettings.maxParallelWorkers,
+          onParallelWorkersChanged: (value) =>
+              _emit(v.copyWith(parallelWorkers: value)),
         ),
         const SizedBox(height: 14),
 

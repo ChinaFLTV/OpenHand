@@ -5738,6 +5738,128 @@ class _AiModelTileState extends State<_AiModelTile> {
   }
 }
 
+class _WebEngineDispatchControls extends StatelessWidget {
+  const _WebEngineDispatchControls({
+    required this.featureName,
+    required this.resultCountController,
+    required this.defaultResultCount,
+    required this.minResultCount,
+    required this.maxResultCount,
+    required this.onResultCountChanged,
+    required this.parallel,
+    required this.onParallelChanged,
+    required this.parallelWorkersController,
+    required this.minParallelWorkers,
+    required this.maxParallelWorkers,
+    required this.onParallelWorkersChanged,
+  });
+
+  final String featureName;
+  final TextEditingController resultCountController;
+  final int defaultResultCount;
+  final int minResultCount;
+  final int maxResultCount;
+  final ValueChanged<int> onResultCountChanged;
+  final bool parallel;
+  final ValueChanged<bool> onParallelChanged;
+  final TextEditingController parallelWorkersController;
+  final int minParallelWorkers;
+  final int maxParallelWorkers;
+  final ValueChanged<int> onParallelWorkersChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        TextField(
+          controller: resultCountController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(
+              context,
+              zh: '结果数量 ($minResultCount-$maxResultCount)',
+              en: 'Result Count ($minResultCount-$maxResultCount)',
+            ),
+            helperText: openHandLocalizedText(
+              context,
+              zh: '默认 $defaultResultCount，控制 $featureName 返回给模型的条目个数。',
+              en:
+                  'Default $defaultResultCount; caps how many $featureName '
+                  'results are forwarded to the model.',
+            ),
+          ),
+          onChanged: (value) {
+            final parsed = optionalIntFromText(value);
+            if (parsed == null) return;
+            onResultCountChanged(
+              parsed.clamp(minResultCount, maxResultCount).toInt(),
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '并行调度引擎',
+                    en: 'Parallel Engines',
+                  ),
+                ),
+                subtitle: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '启用后限流并行调用多个引擎；关闭后按顺序串行调用。',
+                    en:
+                        'Calls engines concurrently within the worker limit; '
+                        'off uses strict serial execution.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                value: parallel,
+                onChanged: onParallelChanged,
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 120,
+              child: TextField(
+                enabled: parallel,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                controller: parallelWorkersController,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: 'Workers ($minParallelWorkers-$maxParallelWorkers)',
+                    en: 'Workers ($minParallelWorkers-$maxParallelWorkers)',
+                  ),
+                ),
+                onChanged: (value) {
+                  final parsed = optionalIntFromText(value);
+                  if (parsed == null) return;
+                  onParallelWorkersChanged(
+                    parsed
+                        .clamp(minParallelWorkers, maxParallelWorkers)
+                        .toInt(),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// 设置保存反馈对共享 [HighlightPulse] 的轻量适配。
 class _SettingsSavePulse extends StatelessWidget {
   const _SettingsSavePulse({required this.signal});

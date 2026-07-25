@@ -166,11 +166,7 @@ export function t(key: string, fallback?: string): string {
   return fallback ?? key;
 }
 
-// 带占位符的翻译助手：词条中以 {name} 形式描述变量，
-// 调用时传入 params 同名键即可。例：
-//   t('ops.cleanup.result') === '{target} · 删除 {files} 个文件…'
-//   tFmt('ops.cleanup.result', { target: 'all', files: 12, dirs: 3, bytes: '4.2 MB' })
-// 同一占位可重复出现，所有同名位置都会被替换。
+// 替换词条中的同名占位符。
 export function tFmt(key: string, params: Record<string, string | number>, fallback?: string): string {
   return formatTemplate(t(key, fallback), params);
 }

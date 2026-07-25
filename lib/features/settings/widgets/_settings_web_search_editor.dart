@@ -430,113 +430,21 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ],
         const SizedBox(height: 14),
 
-        // 结果数量。
-        TextField(
-          controller: _resultCountController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            labelText: openHandLocalizedText(
-              context,
-              zh:
-                  '结果数量 (${AiWebSearchSettings.minResultCount}-'
-                  '${AiWebSearchSettings.maxResultCount})',
-              en:
-                  'Result Count (${AiWebSearchSettings.minResultCount}-'
-                  '${AiWebSearchSettings.maxResultCount})',
-            ),
-            helperText: openHandLocalizedText(
-              context,
-              zh:
-                  '默认 ${AiWebSearchSettings.defaultResultCount},'
-                  '控制 WebSearch 返回给模型的条目个数。',
-              en:
-                  'Default ${AiWebSearchSettings.defaultResultCount}; '
-                  'caps how many hits are forwarded to the summary model.',
-            ),
-          ),
-          onChanged: (s) {
-            final parsed = optionalIntFromText(s);
-            if (parsed == null) return;
-            _emit(
-              v.copyWith(
-                resultCount: parsed
-                    .clamp(
-                      AiWebSearchSettings.minResultCount,
-                      AiWebSearchSettings.maxResultCount,
-                    )
-                    .toInt(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-
-        // 并行开关与工作数。
-        Row(
-          children: [
-            Expanded(
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '并行调度引擎',
-                    en: 'Parallel Engines',
-                  ),
-                ),
-                subtitle: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '启用后通过信号量限流并行调用多个引擎,提速明显;关闭后串行依次调用。',
-                    en:
-                        'When on, engines fan out under a semaphore-bounded '
-                        'concurrency limit; off = strict serial.',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                value: v.parallel,
-                onChanged: (b) => _emit(v.copyWith(parallel: b)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 120,
-              child: TextField(
-                enabled: v.parallel,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                controller: _parallelWorkersController,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh:
-                        'Workers (${AiWebSearchSettings.minParallelWorkers}-'
-                        '${AiWebSearchSettings.maxParallelWorkers})',
-                    en:
-                        'Workers (${AiWebSearchSettings.minParallelWorkers}-'
-                        '${AiWebSearchSettings.maxParallelWorkers})',
-                  ),
-                ),
-                onChanged: (s) {
-                  final parsed = optionalIntFromText(s);
-                  if (parsed == null) return;
-                  _emit(
-                    v.copyWith(
-                      parallelWorkers: parsed
-                          .clamp(
-                            AiWebSearchSettings.minParallelWorkers,
-                            AiWebSearchSettings.maxParallelWorkers,
-                          )
-                          .toInt(),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+        _WebEngineDispatchControls(
+          featureName: 'WebSearch',
+          resultCountController: _resultCountController,
+          defaultResultCount: AiWebSearchSettings.defaultResultCount,
+          minResultCount: AiWebSearchSettings.minResultCount,
+          maxResultCount: AiWebSearchSettings.maxResultCount,
+          onResultCountChanged: (value) =>
+              _emit(v.copyWith(resultCount: value)),
+          parallel: v.parallel,
+          onParallelChanged: (value) => _emit(v.copyWith(parallel: value)),
+          parallelWorkersController: _parallelWorkersController,
+          minParallelWorkers: AiWebSearchSettings.minParallelWorkers,
+          maxParallelWorkers: AiWebSearchSettings.maxParallelWorkers,
+          onParallelWorkersChanged: (value) =>
+              _emit(v.copyWith(parallelWorkers: value)),
         ),
         const SizedBox(height: 14),
 

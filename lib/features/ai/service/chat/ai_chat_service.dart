@@ -1884,33 +1884,17 @@ class AiChatService implements AiChatClient {
       }
     }
 
+    bool isStreamComplete() => resultCompleter.isCompleted;
+
     void processChunk(String chunk) {
-      lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
-      while (!resultCompleter.isCompleted) {
-        if (lineBuffer.length < 2) break;
-        final current = lineBuffer.toString();
-        final separatorIndex = current.indexOf('\n\n');
-        if (separatorIndex < 0) {
-          if (lineBuffer.length > maxStreamLineBufferBytes) {
-            final preserveBoundaryPrefix = current.endsWith('\n');
-            lineBuffer.clear();
-            if (preserveBoundaryPrefix) lineBuffer.write('\n');
-            discardingOversizedEvent = true;
-          }
-          break;
-        }
-        final block = current.substring(0, separatorIndex);
-        final remaining = current.substring(separatorIndex + 2);
-        lineBuffer
-          ..clear()
-          ..write(remaining);
-        if (discardingOversizedEvent ||
-            block.length > maxStreamLineBufferBytes) {
-          discardingOversizedEvent = false;
-          continue;
-        }
-        processEventBlock(block);
-      }
+      discardingOversizedEvent = _processBoundedSseChunk(
+        chunk: chunk,
+        lineBuffer: lineBuffer,
+        maxBufferLength: maxStreamLineBufferBytes,
+        discardingOversizedEvent: discardingOversizedEvent,
+        isComplete: isStreamComplete,
+        processEventBlock: processEventBlock,
+      );
     }
 
     responseSubscription = streamedResponse.stream
@@ -2468,33 +2452,17 @@ class AiChatService implements AiChatClient {
       );
     }
 
+    bool isStreamComplete() => resultCompleter.isCompleted;
+
     void processChunk(String chunk) {
-      lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
-      while (!resultCompleter.isCompleted) {
-        if (lineBuffer.length < 2) break;
-        final current = lineBuffer.toString();
-        final separatorIndex = current.indexOf('\n\n');
-        if (separatorIndex == -1) {
-          if (lineBuffer.length > maxStreamLineBufferBytes) {
-            final preserveBoundaryPrefix = current.endsWith('\n');
-            lineBuffer.clear();
-            if (preserveBoundaryPrefix) lineBuffer.write('\n');
-            discardingOversizedEvent = true;
-          }
-          break;
-        }
-        final block = current.substring(0, separatorIndex);
-        final remaining = current.substring(separatorIndex + 2);
-        lineBuffer
-          ..clear()
-          ..write(remaining);
-        if (discardingOversizedEvent ||
-            block.length > maxStreamLineBufferBytes) {
-          discardingOversizedEvent = false;
-          continue;
-        }
-        processEventBlock(block);
-      }
+      discardingOversizedEvent = _processBoundedSseChunk(
+        chunk: chunk,
+        lineBuffer: lineBuffer,
+        maxBufferLength: maxStreamLineBufferBytes,
+        discardingOversizedEvent: discardingOversizedEvent,
+        isComplete: isStreamComplete,
+        processEventBlock: processEventBlock,
+      );
     }
 
     responseSubscription = streamedResponse.stream
@@ -2864,6 +2832,42 @@ class AiChatService implements AiChatClient {
       _client.close();
     }
   }
+}
+
+bool _processBoundedSseChunk({
+  required String chunk,
+  required StringBuffer lineBuffer,
+  required int maxBufferLength,
+  required bool discardingOversizedEvent,
+  required bool Function() isComplete,
+  required void Function(String block) processEventBlock,
+}) {
+  lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+  while (!isComplete()) {
+    if (lineBuffer.length < 2) break;
+    final current = lineBuffer.toString();
+    final separatorIndex = current.indexOf('\n\n');
+    if (separatorIndex < 0) {
+      if (lineBuffer.length > maxBufferLength) {
+        final preserveBoundaryPrefix = current.endsWith('\n');
+        lineBuffer.clear();
+        if (preserveBoundaryPrefix) lineBuffer.write('\n');
+        discardingOversizedEvent = true;
+      }
+      break;
+    }
+    final block = current.substring(0, separatorIndex);
+    final remaining = current.substring(separatorIndex + 2);
+    lineBuffer
+      ..clear()
+      ..write(remaining);
+    if (discardingOversizedEvent || block.length > maxBufferLength) {
+      discardingOversizedEvent = false;
+      continue;
+    }
+    processEventBlock(block);
+  }
+  return discardingOversizedEvent;
 }
 
 const Object _cancelledRequestSentinel = Object();

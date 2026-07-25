@@ -69,7 +69,7 @@ function validateNamedModuleReference(fromFile, specList, specifier, kind) {
   const target = resolveRelativeModule(fromFile, specifier);
   if (!target) return;
   if (!existsSync(target)) {
-    errors.push(`${path.relative(outDir, fromFile)} ${kind} missing module ${specifier}`);
+    errors.push(`${path.relative(outDir, fromFile)} 的${kind}缺少模块 ${specifier}`);
     return;
   }
 
@@ -79,32 +79,30 @@ function validateNamedModuleReference(fromFile, specList, specifier, kind) {
     if (!exports.has(name)) {
       const relFrom = path.relative(outDir, fromFile);
       const relTarget = path.relative(outDir, target);
-      errors.push(`${relFrom} ${kind} ${name} from ${relTarget}, but that export is absent`);
+      errors.push(`${relFrom} 从 ${relTarget} ${kind} ${name}，但目标未导出该名称`);
     }
   }
 }
 
 if (!existsSync(outDir)) {
-  console.error(`[validate-bundle] missing output directory: ${outDir}`);
+  console.error(`[产物校验] 找不到输出目录：${outDir}`);
   process.exit(1);
 }
 
 for (const file of walkJsFiles(outDir)) {
   const source = readFileSync(file, 'utf8');
   for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)) {
-    validateNamedModuleReference(file, match[1], match[2], 'imports');
+    validateNamedModuleReference(file, match[1], match[2], '导入');
   }
   for (const match of source.matchAll(/export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)) {
-    validateNamedModuleReference(file, match[1], match[2], 're-exports');
+    validateNamedModuleReference(file, match[1], match[2], '重新导出');
   }
 }
 
 if (errors.length > 0) {
-  console.error('[validate-bundle] ESM import/export mismatch detected:');
+  console.error('[产物校验] 检测到 ESM 导入与导出不匹配：');
   for (const error of errors) {
     console.error(`- ${error}`);
   }
   process.exit(1);
 }
-
-console.log('[validate-bundle] OK');

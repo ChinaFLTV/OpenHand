@@ -2678,13 +2678,35 @@ Stop rules:
 - If static quick_scan already proves one business domain or URL, deliver the conclusion first; Frida is optional validation.
 ''';
 
-const String _fridaDoctorScript = r'''#!/usr/bin/env bash
-set -uo pipefail
+const String _boundedShellTimeoutFunction = r'''
+run_with_timeout() {
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$TIMEOUT_SECONDS" "$@"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    perl -e '
+my $timeout = shift @ARGV;
+my $pid = fork();
+die "fork failed\n" unless defined $pid;
+if ($pid == 0) { exec @ARGV or exit 127; }
+$SIG{ALRM} = sub {
+  kill "TERM", $pid;
+  select undef, undef, undef, 0.2;
+  kill "KILL", $pid;
+  exit 124;
+};
+alarm $timeout;
+waitpid($pid, 0);
+my $status = $?;
+alarm 0;
+exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
+' "$TIMEOUT_SECONDS" "$@"
+  fi
+}
+''';
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SESSION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SESSION_DIR/scripts/adb_one_shot.sh}"
-ADB_BIN="${ADB_BIN:-adb}"
+const String _androidAdbProbeArguments = r'''ADB_BIN="${ADB_BIN:-adb}"
 TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-6}"
 SERIAL="${ADB_SERIAL:-}"
 PACKAGE_NAME="${ANDROID_PACKAGE_NAME:-}"
@@ -2721,33 +2743,9 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+''';
 
-run_with_timeout() {
-  if command -v gtimeout >/dev/null 2>&1; then
-    gtimeout "$TIMEOUT_SECONDS" "$@"
-  elif command -v timeout >/dev/null 2>&1; then
-    timeout "$TIMEOUT_SECONDS" "$@"
-  else
-    perl -e '
-my $timeout = shift @ARGV;
-my $pid = fork();
-die "fork failed\n" unless defined $pid;
-if ($pid == 0) { exec @ARGV or exit 127; }
-$SIG{ALRM} = sub {
-  kill "TERM", $pid;
-  select undef, undef, undef, 0.2;
-  kill "KILL", $pid;
-  exit 124;
-};
-alarm $timeout;
-waitpid($pid, 0);
-my $status = $?;
-alarm 0;
-exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
-' "$TIMEOUT_SECONDS" "$@"
-  fi
-}
-
+const String _androidAdbQuickShellFunctions = r'''
 adb_quick() {
   local serial_args=()
   if [[ -n "$SERIAL" ]]; then
@@ -2763,7 +2761,20 @@ adb_quick() {
 section() {
   printf '\n[%s]\n' "$1"
 }
+''';
 
+const String _fridaDoctorScript =
+    r'''#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SESSION_DIR/scripts/adb_one_shot.sh}"
+''' +
+    _androidAdbProbeArguments +
+    _boundedShellTimeoutFunction +
+    _androidAdbQuickShellFunctions +
+    r'''
 run_section() {
   section "$1"
   shift
@@ -3005,7 +3016,8 @@ echo "Frida metadata: $META_PATH"
 frida "${frida_args[@]}" > >(tee "$STDOUT_PATH") 2> >(tee "$STDERR_PATH" >&2)
 ''';
 
-const String _adbOneShotScript = r'''#!/usr/bin/env bash
+const String _adbOneShotScript =
+    r'''#!/usr/bin/env bash
 set -uo pipefail
 
 ADB_BIN="${ADB_BIN:-adb}"
@@ -3044,33 +3056,9 @@ if [[ $# -eq 0 ]]; then
   echo "usage: adb_one_shot.sh [-s SERIAL] [--timeout SECONDS] <adb-subcommand|shell-command>" >&2
   exit 64
 fi
-
-run_with_timeout() {
-  if command -v gtimeout >/dev/null 2>&1; then
-    gtimeout "$TIMEOUT_SECONDS" "$@"
-  elif command -v timeout >/dev/null 2>&1; then
-    timeout "$TIMEOUT_SECONDS" "$@"
-  else
-    perl -e '
-my $timeout = shift @ARGV;
-my $pid = fork();
-die "fork failed\n" unless defined $pid;
-if ($pid == 0) { exec @ARGV or exit 127; }
-$SIG{ALRM} = sub {
-  kill "TERM", $pid;
-  select undef, undef, undef, 0.2;
-  kill "KILL", $pid;
-  exit 124;
-};
-alarm $timeout;
-waitpid($pid, 0);
-my $status = $?;
-alarm 0;
-exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
-' "$TIMEOUT_SECONDS" "$@"
-  fi
-}
-
+''' +
+    _boundedShellTimeoutFunction +
+    r'''
 run_adb() {
   if [[ -n "$SERIAL" ]]; then
     run_with_timeout "$ADB_BIN" -s "$SERIAL" "$@"
@@ -3112,91 +3100,17 @@ fi
 exit "$status"
 ''';
 
-const String _androidDynamicProbeScript = r'''#!/usr/bin/env bash
+const String _androidDynamicProbeScript =
+    r'''#!/usr/bin/env bash
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SCRIPT_DIR/adb_one_shot.sh}"
-ADB_BIN="${ADB_BIN:-adb}"
-TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-6}"
-SERIAL="${ADB_SERIAL:-}"
-PACKAGE_NAME="${ANDROID_PACKAGE_NAME:-}"
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -s|--serial)
-      if [[ $# -lt 2 ]]; then
-        echo "missing serial value" >&2
-        exit 64
-      fi
-      SERIAL="${2:-}"
-      shift 2
-      ;;
-    -p|--package)
-      if [[ $# -lt 2 ]]; then
-        echo "missing package value" >&2
-        exit 64
-      fi
-      PACKAGE_NAME="${2:-}"
-      shift 2
-      ;;
-    --timeout)
-      if [[ $# -lt 2 ]]; then
-        echo "missing timeout value" >&2
-        exit 64
-      fi
-      TIMEOUT_SECONDS="${2:-6}"
-      shift 2
-      ;;
-    *)
-      echo "unknown argument: $1" >&2
-      exit 64
-      ;;
-  esac
-done
-
-run_with_timeout() {
-  if command -v gtimeout >/dev/null 2>&1; then
-    gtimeout "$TIMEOUT_SECONDS" "$@"
-  elif command -v timeout >/dev/null 2>&1; then
-    timeout "$TIMEOUT_SECONDS" "$@"
-  else
-    perl -e '
-my $timeout = shift @ARGV;
-my $pid = fork();
-die "fork failed\n" unless defined $pid;
-if ($pid == 0) { exec @ARGV or exit 127; }
-$SIG{ALRM} = sub {
-  kill "TERM", $pid;
-  select undef, undef, undef, 0.2;
-  kill "KILL", $pid;
-  exit 124;
-};
-alarm $timeout;
-waitpid($pid, 0);
-my $status = $?;
-alarm 0;
-exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
-' "$TIMEOUT_SECONDS" "$@"
-  fi
-}
-
-adb_quick() {
-  local serial_args=()
-  if [[ -n "$SERIAL" ]]; then
-    serial_args=(-s "$SERIAL")
-  fi
-  if [[ -x "$ADB_ONE_SHOT" ]]; then
-    "$ADB_ONE_SHOT" "${serial_args[@]}" --timeout "$TIMEOUT_SECONDS" "$@"
-  else
-    run_with_timeout "$ADB_BIN" "${serial_args[@]}" "$@"
-  fi
-}
-
-section() {
-  printf '\n[%s]\n' "$1"
-}
-
+''' +
+    _androidAdbProbeArguments +
+    _boundedShellTimeoutFunction +
+    _androidAdbQuickShellFunctions +
+    r'''
 run_section() {
   section "$1"
   shift
@@ -3794,92 +3708,18 @@ Stop rules:
 - If static quick_scan already proves one business domain or URL, deliver the conclusion first; network capture is optional validation.
 ''';
 
-const String _networkProxyProbeScript = r'''#!/usr/bin/env bash
+const String _networkProxyProbeScript =
+    r'''#!/usr/bin/env bash
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SESSION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SESSION_DIR/scripts/adb_one_shot.sh}"
-ADB_BIN="${ADB_BIN:-adb}"
-TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-6}"
-SERIAL="${ADB_SERIAL:-}"
-PACKAGE_NAME="${ANDROID_PACKAGE_NAME:-}"
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -s|--serial)
-      if [[ $# -lt 2 ]]; then
-        echo "missing serial value" >&2
-        exit 64
-      fi
-      SERIAL="${2:-}"
-      shift 2
-      ;;
-    -p|--package)
-      if [[ $# -lt 2 ]]; then
-        echo "missing package value" >&2
-        exit 64
-      fi
-      PACKAGE_NAME="${2:-}"
-      shift 2
-      ;;
-    --timeout)
-      if [[ $# -lt 2 ]]; then
-        echo "missing timeout value" >&2
-        exit 64
-      fi
-      TIMEOUT_SECONDS="${2:-6}"
-      shift 2
-      ;;
-    *)
-      echo "unknown argument: $1" >&2
-      exit 64
-      ;;
-  esac
-done
-
-run_with_timeout() {
-  if command -v gtimeout >/dev/null 2>&1; then
-    gtimeout "$TIMEOUT_SECONDS" "$@"
-  elif command -v timeout >/dev/null 2>&1; then
-    timeout "$TIMEOUT_SECONDS" "$@"
-  else
-    perl -e '
-my $timeout = shift @ARGV;
-my $pid = fork();
-die "fork failed\n" unless defined $pid;
-if ($pid == 0) { exec @ARGV or exit 127; }
-$SIG{ALRM} = sub {
-  kill "TERM", $pid;
-  select undef, undef, undef, 0.2;
-  kill "KILL", $pid;
-  exit 124;
-};
-alarm $timeout;
-waitpid($pid, 0);
-my $status = $?;
-alarm 0;
-exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
-' "$TIMEOUT_SECONDS" "$@"
-  fi
-}
-
-adb_quick() {
-  local serial_args=()
-  if [[ -n "$SERIAL" ]]; then
-    serial_args=(-s "$SERIAL")
-  fi
-  if [[ -x "$ADB_ONE_SHOT" ]]; then
-    "$ADB_ONE_SHOT" "${serial_args[@]}" --timeout "$TIMEOUT_SECONDS" "$@"
-  else
-    run_with_timeout "$ADB_BIN" "${serial_args[@]}" "$@"
-  fi
-}
-
-section() {
-  printf '\n[%s]\n' "$1"
-}
-
+''' +
+    _androidAdbProbeArguments +
+    _boundedShellTimeoutFunction +
+    _androidAdbQuickShellFunctions +
+    r'''
 valid_package() {
   [[ "$PACKAGE_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$ ]]
 }
