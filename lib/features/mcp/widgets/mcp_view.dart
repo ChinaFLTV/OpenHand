@@ -85,6 +85,9 @@ const double _mcpServerCardSpacing = 14;
 const double _mcpServerCardHoverClearance = 6;
 const double _mcpTemplateHeaderCompactBreakpoint = 520;
 const double _mcpTemplateChipLabelMaxWidth = 280;
+const double _mcpChipStripHeight = 40;
+const double _mcpToolPreviewExpandedHeight = 160;
+const double _mcpToolChipMaxWidth = 360;
 const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
@@ -10432,7 +10435,10 @@ class _McpServerCardState extends State<_McpServerCard> {
 
     return HoverLift(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 320),
+        duration: _mcpMotionDuration(
+          context,
+          const Duration(milliseconds: 320),
+        ),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: Card(
@@ -10681,231 +10687,221 @@ class _McpServerCardState extends State<_McpServerCard> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _McpServerToggleChip(
-                          enabled: server.enabled,
-                          onPressed: () => onToggleEnabled(!server.enabled),
+                  _McpHorizontalChipStrip(
+                    children: [
+                      _McpServerToggleChip(
+                        enabled: server.enabled,
+                        onPressed: () => onToggleEnabled(!server.enabled),
+                      ),
+                      if (visibleToAllTemplates)
+                        _McpStatusChip(
+                          icon: Icons.public_rounded,
+                          label: _localizedText(
+                            context,
+                            zh: '全部线程模板',
+                            en: 'All thread templates',
+                            zhHant: '全部執行緒範本',
+                            fr: 'Tous les modèles de fil',
+                            de: 'Alle Thread-Vorlagen',
+                            ja: 'すべてのスレッドテンプレート',
+                          ),
                         ),
-                        if (visibleToAllTemplates)
+                      if (!visibleToAllTemplates)
+                        for (final template in visibleTemplates)
                           _McpStatusChip(
-                            icon: Icons.public_rounded,
-                            label: _localizedText(
-                              context,
-                              zh: '全部线程模板',
-                              en: 'All thread templates',
-                              zhHant: '全部執行緒範本',
-                              fr: 'Tous les modèles de fil',
-                              de: 'Alle Thread-Vorlagen',
-                              ja: 'すべてのスレッドテンプレート',
+                            icon: AiThreadTemplateIcons.resolve(
+                              template.iconName,
                             ),
+                            label: template.nameForLocale(locale),
                           ),
-                        if (!visibleToAllTemplates)
-                          for (final template in visibleTemplates)
-                            _McpStatusChip(
-                              icon: AiThreadTemplateIcons.resolve(
-                                template.iconName,
+                      for (final templateId in unknownVisibleTemplateIds)
+                        _McpStatusChip(
+                          icon: Icons.extension_rounded,
+                          label: templateId,
+                        ),
+                      // STDIO 进程运行状态 chip
+                      if (server.type == McpServerType.stdio)
+                        AnimatedBuilder(
+                          animation: McpStdioProcessManager.instance,
+                          builder: (context, _) {
+                            final processInfo = McpStdioProcessManager.instance
+                                .infoFor(server.name);
+                            if (processInfo.isStopped &&
+                                processInfo.errorMessage == null) {
+                              return const SizedBox.shrink();
+                            }
+                            final chipIcon = switch (processInfo.state) {
+                              StdioProcessState.running =>
+                                Icons.fiber_manual_record,
+                              StdioProcessState.starting =>
+                                Icons.hourglass_top_rounded,
+                              StdioProcessState.stopping =>
+                                Icons.hourglass_bottom_rounded,
+                              StdioProcessState.stopped =>
+                                Icons.error_outline_rounded,
+                            };
+                            final chipLabel = switch (processInfo.state) {
+                              StdioProcessState.running => _localizedText(
+                                context,
+                                zh: '进程运行中 · PID ${processInfo.pid}',
+                                en: 'Running · PID ${processInfo.pid}',
+                                zhHant: '進程運行中 · PID ${processInfo.pid}',
+                                fr: 'Processus en cours · PID ${processInfo.pid}',
+                                de: 'Prozess läuft · PID ${processInfo.pid}',
+                                ja: 'プロセス実行中 · PID ${processInfo.pid}',
                               ),
-                              label: template.nameForLocale(locale),
-                            ),
-                        for (final templateId in unknownVisibleTemplateIds)
-                          _McpStatusChip(
-                            icon: Icons.extension_rounded,
-                            label: templateId,
+                              StdioProcessState.starting => _localizedText(
+                                context,
+                                zh: '进程启动中',
+                                en: 'Starting',
+                              ),
+                              StdioProcessState.stopping => _localizedText(
+                                context,
+                                zh: '进程停止中',
+                                en: 'Stopping',
+                              ),
+                              StdioProcessState.stopped => _localizedText(
+                                context,
+                                zh: '进程异常退出',
+                                en: 'Process exited',
+                              ),
+                            };
+                            return _McpStatusChip(
+                              icon: chipIcon,
+                              label: chipLabel,
+                            );
+                          },
+                        ),
+                      if (server.headers.isNotEmpty)
+                        _McpStatusChip(
+                          icon: Icons.badge_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '${server.headers.length} 个 Header',
+                            en: '${server.headers.length} Headers',
+                            zhHant: '${server.headers.length} 個 Header',
+                            fr: '${server.headers.length} en-têtes',
+                            de: '${server.headers.length} Header',
+                            ja: '${server.headers.length} 件のヘッダー',
                           ),
-                        // STDIO 进程运行状态 chip
-                        if (server.type == McpServerType.stdio)
-                          AnimatedBuilder(
-                            animation: McpStdioProcessManager.instance,
-                            builder: (context, _) {
-                              final processInfo = McpStdioProcessManager
-                                  .instance
-                                  .infoFor(server.name);
-                              if (processInfo.isStopped &&
-                                  processInfo.errorMessage == null) {
-                                return const SizedBox.shrink();
-                              }
-                              final chipIcon = switch (processInfo.state) {
-                                StdioProcessState.running =>
-                                  Icons.fiber_manual_record,
-                                StdioProcessState.starting =>
-                                  Icons.hourglass_top_rounded,
-                                StdioProcessState.stopping =>
-                                  Icons.hourglass_bottom_rounded,
-                                StdioProcessState.stopped =>
-                                  Icons.error_outline_rounded,
-                              };
-                              final chipLabel = switch (processInfo.state) {
-                                StdioProcessState.running => _localizedText(
-                                  context,
-                                  zh: '进程运行中 · PID ${processInfo.pid}',
-                                  en: 'Running · PID ${processInfo.pid}',
-                                  zhHant: '進程運行中 · PID ${processInfo.pid}',
-                                  fr: 'Processus en cours · PID ${processInfo.pid}',
-                                  de: 'Prozess läuft · PID ${processInfo.pid}',
-                                  ja: 'プロセス実行中 · PID ${processInfo.pid}',
-                                ),
-                                StdioProcessState.starting => _localizedText(
-                                  context,
-                                  zh: '进程启动中',
-                                  en: 'Starting',
-                                ),
-                                StdioProcessState.stopping => _localizedText(
-                                  context,
-                                  zh: '进程停止中',
-                                  en: 'Stopping',
-                                ),
-                                StdioProcessState.stopped => _localizedText(
-                                  context,
-                                  zh: '进程异常退出',
-                                  en: 'Process exited',
-                                ),
-                              };
-                              return _McpStatusChip(
-                                icon: chipIcon,
-                                label: chipLabel,
-                              );
-                            },
+                        ),
+                      if (healthStatus.isChecking ||
+                          healthStatus.lastCheckedAt != null)
+                        _McpStatusChip(
+                          icon: _healthStatusChipIcon(healthStatus),
+                          label: _healthStatusSummary(context, healthStatus),
+                        ),
+                      if (healthStatus.latencyMs != null &&
+                          healthStatus.isHealthy)
+                        _McpStatusChip(
+                          icon: Icons.speed_rounded,
+                          label: _localizedText(
+                            context,
+                            zh: '${healthStatus.latencyMs} ms',
+                            en: '${healthStatus.latencyMs} ms',
                           ),
-                        if (server.headers.isNotEmpty)
-                          _McpStatusChip(
-                            icon: Icons.badge_outlined,
-                            label: _localizedText(
-                              context,
-                              zh: '${server.headers.length} 个 Header',
-                              en: '${server.headers.length} Headers',
-                              zhHant: '${server.headers.length} 個 Header',
-                              fr: '${server.headers.length} en-têtes',
-                              de: '${server.headers.length} Header',
-                              ja: '${server.headers.length} 件のヘッダー',
-                            ),
+                        ),
+                      if (healthStatus.lastCheckedAt != null &&
+                          !healthStatus.isChecking)
+                        _McpStatusChip(
+                          icon: Icons.history_toggle_off_rounded,
+                          label: _formatRelativePast(
+                            context,
+                            healthStatus.lastCheckedAt!,
                           ),
-                        if (healthStatus.isChecking ||
-                            healthStatus.lastCheckedAt != null)
-                          _McpStatusChip(
-                            icon: _healthStatusChipIcon(healthStatus),
-                            label: _healthStatusSummary(context, healthStatus),
+                        ),
+                      if (healthStatus.needsAttention)
+                        _McpAttentionChip(
+                          consecutiveFailures: healthStatus.consecutiveFailures,
+                        ),
+                      if (toolCatalog.isLoading)
+                        AnimatedBuilder(
+                          animation: mcpStdioBootstrapStatus,
+                          builder: (context, _) {
+                            final liveLine = server.type == McpServerType.stdio
+                                ? mcpStdioBootstrapStatus.statusOf(server.name)
+                                : null;
+                            final tooltipBase =
+                                server.type == McpServerType.stdio
+                                ? _localizedText(
+                                    context,
+                                    zh:
+                                        '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
+                                        '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
+                                    en:
+                                        'First launch is usually slow: npx / uvx '
+                                        'pulls npm / PyPI packages on demand. '
+                                        'OpenHand grants stdio MCP servers up to '
+                                        '6 minutes for discovery.',
+                                    zhHant:
+                                        '首次啟動通常較慢：npx / uvx 需要在線拉取 npm / PyPI 套件並安裝。\n'
+                                        '本應用給 stdio MCP 留最長 6 分鐘的發現視窗。',
+                                    fr:
+                                        'Le premier lancement est souvent lent : npx / uvx télécharge et installe les paquets npm / PyPI à la demande.\n'
+                                        'OpenHand accorde jusqu’à 6 minutes aux serveurs stdio MCP pour la découverte.',
+                                    de:
+                                        'Der erste Start ist oft langsam: npx / uvx lädt npm- / PyPI-Pakete bei Bedarf herunter und installiert sie.\n'
+                                        'OpenHand gibt stdio-MCP-Diensten bis zu 6 Minuten für die Erkennung.',
+                                    ja:
+                                        '初回起動は通常遅めです。npx / uvx が npm / PyPI パッケージを必要時に取得してインストールします。\n'
+                                        'OpenHand は stdio MCP サーバーの検出に最大 6 分を確保します。',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
+                                    en:
+                                        'Scanning the tool list exposed by this '
+                                        'MCP server.',
+                                  );
+                            final tooltipMsg =
+                                liveLine != null && liveLine.isNotEmpty
+                                ? '$tooltipBase\n\n$liveLine'
+                                : tooltipBase;
+                            // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
+                            final label = server.type == McpServerType.stdio
+                                ? (liveLine != null && liveLine.isNotEmpty
+                                      ? clipMiddleText(liveLine, maxChars: 36)
+                                      : _localizedText(
+                                          context,
+                                          zh: '首启准备中…',
+                                          en: 'Bootstrapping…',
+                                        ))
+                                : _localizedText(
+                                    context,
+                                    zh: '扫描 Tool 中',
+                                    en: 'Scanning Tools',
+                                  );
+                            return Tooltip(
+                              message: tooltipMsg,
+                              child: _McpStatusChip(
+                                icon: Icons.radar_rounded,
+                                label: label,
+                              ),
+                            );
+                          },
+                        )
+                      else if (toolCatalog.lastScannedAt != null)
+                        _McpStatusChip(
+                          icon: Icons.build_circle_outlined,
+                          label: _localizedText(
+                            context,
+                            zh: '${toolCatalog.tools.length} 个 Tool',
+                            en: '${toolCatalog.tools.length} Tools',
+                            zhHant: '${toolCatalog.tools.length} 個 Tool',
+                            fr: '${toolCatalog.tools.length} tools',
+                            de: '${toolCatalog.tools.length} Tools',
+                            ja: '${toolCatalog.tools.length} 件の Tool',
                           ),
-                        if (healthStatus.latencyMs != null &&
-                            healthStatus.isHealthy)
-                          _McpStatusChip(
-                            icon: Icons.speed_rounded,
-                            label: _localizedText(
-                              context,
-                              zh: '${healthStatus.latencyMs} ms',
-                              en: '${healthStatus.latencyMs} ms',
-                            ),
+                        ),
+                      if (toolCatalog.lastScannedAt != null)
+                        _McpStatusChip(
+                          icon: Icons.schedule_rounded,
+                          label: _formatStatusTime(
+                            context,
+                            toolCatalog.lastScannedAt!,
                           ),
-                        if (healthStatus.lastCheckedAt != null &&
-                            !healthStatus.isChecking)
-                          _McpStatusChip(
-                            icon: Icons.history_toggle_off_rounded,
-                            label: _formatRelativePast(
-                              context,
-                              healthStatus.lastCheckedAt!,
-                            ),
-                          ),
-                        if (healthStatus.needsAttention)
-                          _McpAttentionChip(
-                            consecutiveFailures:
-                                healthStatus.consecutiveFailures,
-                          ),
-                        if (toolCatalog.isLoading)
-                          AnimatedBuilder(
-                            animation: mcpStdioBootstrapStatus,
-                            builder: (context, _) {
-                              final liveLine =
-                                  server.type == McpServerType.stdio
-                                  ? mcpStdioBootstrapStatus.statusOf(
-                                      server.name,
-                                    )
-                                  : null;
-                              final tooltipBase =
-                                  server.type == McpServerType.stdio
-                                  ? _localizedText(
-                                      context,
-                                      zh:
-                                          '首次启动通常较慢：npx / uvx 需要在线拉取 npm / PyPI 包并安装。\n'
-                                          '本应用给 stdio MCP 留最长 6 分钟的发现窗口。',
-                                      en:
-                                          'First launch is usually slow: npx / uvx '
-                                          'pulls npm / PyPI packages on demand. '
-                                          'OpenHand grants stdio MCP servers up to '
-                                          '6 minutes for discovery.',
-                                      zhHant:
-                                          '首次啟動通常較慢：npx / uvx 需要在線拉取 npm / PyPI 套件並安裝。\n'
-                                          '本應用給 stdio MCP 留最長 6 分鐘的發現視窗。',
-                                      fr:
-                                          'Le premier lancement est souvent lent : npx / uvx télécharge et installe les paquets npm / PyPI à la demande.\n'
-                                          'OpenHand accorde jusqu’à 6 minutes aux serveurs stdio MCP pour la découverte.',
-                                      de:
-                                          'Der erste Start ist oft langsam: npx / uvx lädt npm- / PyPI-Pakete bei Bedarf herunter und installiert sie.\n'
-                                          'OpenHand gibt stdio-MCP-Diensten bis zu 6 Minuten für die Erkennung.',
-                                      ja:
-                                          '初回起動は通常遅めです。npx / uvx が npm / PyPI パッケージを必要時に取得してインストールします。\n'
-                                          'OpenHand は stdio MCP サーバーの検出に最大 6 分を確保します。',
-                                    )
-                                  : _localizedText(
-                                      context,
-                                      zh: '正在扫描该 MCP 服务暴露的 Tool 列表。',
-                                      en:
-                                          'Scanning the tool list exposed by this '
-                                          'MCP server.',
-                                    );
-                              final tooltipMsg =
-                                  liveLine != null && liveLine.isNotEmpty
-                                  ? '$tooltipBase\n\n$liveLine'
-                                  : tooltipBase;
-                              // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
-                              final label = server.type == McpServerType.stdio
-                                  ? (liveLine != null && liveLine.isNotEmpty
-                                        ? clipMiddleText(liveLine, maxChars: 36)
-                                        : _localizedText(
-                                            context,
-                                            zh: '首启准备中…',
-                                            en: 'Bootstrapping…',
-                                          ))
-                                  : _localizedText(
-                                      context,
-                                      zh: '扫描 Tool 中',
-                                      en: 'Scanning Tools',
-                                    );
-                              return Tooltip(
-                                message: tooltipMsg,
-                                child: _McpStatusChip(
-                                  icon: Icons.radar_rounded,
-                                  label: label,
-                                ),
-                              );
-                            },
-                          )
-                        else if (toolCatalog.lastScannedAt != null)
-                          _McpStatusChip(
-                            icon: Icons.build_circle_outlined,
-                            label: _localizedText(
-                              context,
-                              zh: '${toolCatalog.tools.length} 个 Tool',
-                              en: '${toolCatalog.tools.length} Tools',
-                              zhHant: '${toolCatalog.tools.length} 個 Tool',
-                              fr: '${toolCatalog.tools.length} tools',
-                              de: '${toolCatalog.tools.length} Tools',
-                              ja: '${toolCatalog.tools.length} 件の Tool',
-                            ),
-                          ),
-                        if (toolCatalog.lastScannedAt != null)
-                          _McpStatusChip(
-                            icon: Icons.schedule_rounded,
-                            label: _formatStatusTime(
-                              context,
-                              toolCatalog.lastScannedAt!,
-                            ),
-                          ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                   OpenHandInlineNoticeSlot(
                     child: healthStatus.hasError
@@ -10944,7 +10940,10 @@ class _McpServerCardState extends State<_McpServerCard> {
                         : null,
                   ),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
+                    duration: _mcpMotionDuration(
+                      context,
+                      const Duration(milliseconds: 400),
+                    ),
                     switchInCurve: Curves.easeOutBack,
                     switchOutCurve: Curves.easeInBack,
                     transitionBuilder: (child, animation) {
@@ -11008,36 +11007,12 @@ class _McpServerCardState extends State<_McpServerCard> {
                             key: ValueKey('mcp_tool_search_off'),
                           ),
                   ),
-                  if (toolCatalog.tools.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _McpToolPreview(
-                      server: server,
-                      toolCatalog: toolCatalog,
-                      searchKeyword: _toolSearchKeyword,
-                    ),
-                  ] else if (!toolCatalog.isLoading &&
-                      !toolCatalog.hasError) ...[
-                    const SizedBox(height: 14),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        server.enabled
-                            ? _localizedText(
-                                context,
-                                zh: '暂未发现可用 Tool，可手动刷新重试。',
-                                en: 'No tools were discovered yet. Try refreshing this service.',
-                              )
-                            : _localizedText(
-                                context,
-                                zh: '服务已禁用，可手动刷新检测 Tool 信息。',
-                                en: 'This service is disabled. Refresh manually to inspect its tools.',
-                              ),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: 14),
+                  _McpToolPreview(
+                    server: server,
+                    toolCatalog: toolCatalog,
+                    searchKeyword: _toolSearchKeyword,
+                  ),
                 ],
               ),
             ),
@@ -11156,6 +11131,26 @@ class _StdioProcessButtons extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _McpHorizontalChipStrip extends StatelessWidget {
+  const _McpHorizontalChipStrip({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _mcpChipStripHeight,
+      child: ClipRect(
+        child: SingleChildScrollView(
+          primary: false,
+          scrollDirection: Axis.horizontal,
+          child: Row(spacing: 10, children: children),
+        ),
+      ),
     );
   }
 }
@@ -13052,7 +13047,14 @@ class _McpToolPreview extends StatefulWidget {
 }
 
 class _McpToolPreviewState extends State<_McpToolPreview> {
+  final _expandedScrollController = ScrollController();
   bool _expanded = false;
+
+  @override
+  void dispose() {
+    _expandedScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13064,131 +13066,185 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
         : allTools
               .where((t) => t.name.toLowerCase().contains(keyword))
               .toList(growable: false);
-    final showAll =
-        _expanded || filteredTools.length <= _mcpToolPreviewCollapsedLimit;
-    final previewTools = showAll
+    final previewTools = _expanded
         ? filteredTools
         : filteredTools
               .take(_mcpToolPreviewCollapsedLimit)
               .toList(growable: false);
-    final hiddenToolCount = showAll
+    final hiddenToolCount = _expanded
         ? 0
         : filteredTools.length - previewTools.length;
-    final canExpand = filteredTools.length > _mcpToolPreviewCollapsedLimit;
-
+    final canToggleExpansion =
+        _expanded || filteredTools.length > _mcpToolPreviewCollapsedLimit;
+    final emptyLabel = keyword.isNotEmpty
+        ? _localizedText(context, zh: '没有匹配的 Tool', en: 'No matching tools')
+        : widget.toolCatalog.isLoading
+        ? _localizedText(context, zh: '正在扫描 Tool…', en: 'Scanning tools…')
+        : widget.toolCatalog.hasError
+        ? _localizedText(
+            context,
+            zh: 'Tool 目录暂不可用，请查看上方错误信息。',
+            en: 'The tool catalog is unavailable. Check the error above.',
+          )
+        : widget.server.enabled
+        ? _localizedText(
+            context,
+            zh: '暂未发现可用 Tool，可手动刷新重试。',
+            en: 'No tools were discovered yet. Try refreshing this service.',
+          )
+        : _localizedText(
+            context,
+            zh: '服务已禁用，可手动刷新检测 Tool 信息。',
+            en: 'This service is disabled. Refresh manually to inspect its tools.',
+          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                keyword.isEmpty
-                    ? _localizedText(
-                        context,
-                        zh: '可用 Tools',
-                        en: 'Available Tools',
-                      )
-                    : _localizedText(
-                        context,
-                        zh: '匹配 "${widget.searchKeyword}" 的 Tool',
-                        en: 'Tools matching "${widget.searchKeyword}"',
-                        zhHant: '匹配 "${widget.searchKeyword}" 的 Tool',
-                        fr: 'Tools correspondant à "${widget.searchKeyword}"',
-                        de: 'Tools passend zu "${widget.searchKeyword}"',
-                        ja: '"${widget.searchKeyword}" に一致する Tool',
-                      ),
-                style: theme.textTheme.titleMedium,
+        SizedBox(
+          height: _mcpChipStripHeight,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  keyword.isEmpty
+                      ? _localizedText(
+                          context,
+                          zh: '可用 Tools',
+                          en: 'Available Tools',
+                        )
+                      : _localizedText(
+                          context,
+                          zh: '匹配 "${widget.searchKeyword}" 的 Tool',
+                          en: 'Tools matching "${widget.searchKeyword}"',
+                          zhHant: '匹配 "${widget.searchKeyword}" 的 Tool',
+                          fr: 'Tools correspondant à "${widget.searchKeyword}"',
+                          de: 'Tools passend zu "${widget.searchKeyword}"',
+                          ja: '"${widget.searchKeyword}" に一致する Tool',
+                        ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
               ),
-            ),
-            if (canExpand)
-              TextButton.icon(
-                onPressed: () => setState(() => _expanded = !_expanded),
-                icon: AnimatedRotation(
-                  turns: _expanded ? 0.5 : 0.0,
-                  duration: _mcpMotionDuration(
-                    context,
-                    _mcpToolPreviewExpandDuration,
+              if (canToggleExpansion)
+                TextButton.icon(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: _mcpMotionDuration(
+                      context,
+                      _mcpToolPreviewExpandDuration,
+                    ),
+                    curve: Curves.easeOutCubic,
+                    child: const Icon(Icons.expand_more_rounded),
                   ),
-                  curve: Curves.easeOutCubic,
-                  child: const Icon(Icons.expand_more_rounded),
+                  label: Text(
+                    _expanded
+                        ? _localizedText(context, zh: '收起', en: 'Collapse')
+                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                  ),
                 ),
-                label: Text(
-                  _expanded
-                      ? _localizedText(context, zh: '收起', en: 'Collapse')
-                      : _localizedText(context, zh: '展开', en: 'Expand'),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 10),
-        if (filteredTools.isEmpty)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              _localizedText(
-                context,
-                zh: '没有匹配的 Tool',
-                en: 'No matching tools',
-              ),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          )
-        else
-          AnimatedSize(
-            duration: _mcpMotionDuration(
-              context,
-              _mcpToolPreviewExpandDuration,
-            ),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topLeft,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final tool in previewTools)
-                    ActionChip(
-                      avatar: Icon(
-                        tool.hasMetadataWarning
-                            ? Icons.warning_amber_rounded
-                            : Icons.build_circle_outlined,
-                        size: 18,
+        AnimatedSize(
+          duration: _mcpMotionDuration(context, _mcpToolPreviewExpandDuration),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            height: _expanded
+                ? _mcpToolPreviewExpandedHeight
+                : _mcpChipStripHeight,
+            width: double.infinity,
+            child: filteredTools.isEmpty
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      emptyLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      label: Text(tool.name),
-                      onPressed: () {
-                        _showToolDetailsDialog(
-                          context,
-                          mcpController: context.read<McpController>(),
-                          server: widget.server,
-                          toolCatalog: widget.toolCatalog,
-                          tool: tool,
-                        );
-                      },
                     ),
-                  if (hiddenToolCount > 0)
-                    Chip(
-                      avatar: const Icon(Icons.more_horiz_rounded),
-                      label: Text(
-                        _localizedText(
-                          context,
-                          zh: '还有 $hiddenToolCount 个',
-                          en: '+$hiddenToolCount more',
-                          zhHant: '還有 $hiddenToolCount 個',
-                          fr: '+$hiddenToolCount autres',
-                          de: '+$hiddenToolCount weitere',
-                          ja: 'ほか $hiddenToolCount 件',
+                  )
+                : _expanded
+                ? Scrollbar(
+                    controller: _expandedScrollController,
+                    child: SingleChildScrollView(
+                      controller: _expandedScrollController,
+                      primary: false,
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final tool in previewTools)
+                              _buildToolChip(context, tool),
+                          ],
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
+                  )
+                : SingleChildScrollView(
+                    primary: false,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      spacing: 10,
+                      children: [
+                        for (final tool in previewTools)
+                          _buildToolChip(context, tool),
+                        if (hiddenToolCount > 0)
+                          Chip(
+                            avatar: const Icon(Icons.more_horiz_rounded),
+                            label: Text(
+                              _localizedText(
+                                context,
+                                zh: '还有 $hiddenToolCount 个',
+                                en: '+$hiddenToolCount more',
+                                zhHant: '還有 $hiddenToolCount 個',
+                                fr: '+$hiddenToolCount autres',
+                                de: '+$hiddenToolCount weitere',
+                                ja: 'ほか $hiddenToolCount 件',
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
           ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildToolChip(BuildContext context, McpTool tool) {
+    return Tooltip(
+      message: tool.name,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _mcpToolChipMaxWidth),
+        child: ActionChip(
+          avatar: Icon(
+            tool.hasMetadataWarning
+                ? Icons.warning_amber_rounded
+                : Icons.build_circle_outlined,
+            size: 18,
+          ),
+          label: Text(tool.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onPressed: () {
+            _showToolDetailsDialog(
+              context,
+              mcpController: context.read<McpController>(),
+              server: widget.server,
+              toolCatalog: widget.toolCatalog,
+              tool: tool,
+            );
+          },
+        ),
+      ),
     );
   }
 }

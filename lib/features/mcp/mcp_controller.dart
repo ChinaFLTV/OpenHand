@@ -1790,7 +1790,10 @@ class McpController extends ChangeNotifier {
     }
   }
 
-  Future<void> checkServerHealth(String serverName) async {
+  Future<void> checkServerHealth(
+    String serverName, {
+    bool preserveCurrentStatus = false,
+  }) async {
     if (_isDisposed || !_isPageActive) {
       return;
     }
@@ -1806,11 +1809,13 @@ class McpController extends ChangeNotifier {
         (_healthCheckGenerationByServerName[normalizedServerName] ?? 0) + 1;
     _healthCheckGenerationByServerName[normalizedServerName] = nextGeneration;
     final previousHealth = healthStatusFor(normalizedServerName);
-    _healthByServerName[normalizedServerName] = previousHealth.copyWith(
-      status: McpServerHealthStatus.checking,
-      clearErrorMessage: true,
-    );
-    notifyListeners();
+    if (!preserveCurrentStatus) {
+      _healthByServerName[normalizedServerName] = previousHealth.copyWith(
+        status: McpServerHealthStatus.checking,
+        clearErrorMessage: true,
+      );
+      notifyListeners();
+    }
 
     final stopwatch = Stopwatch()..start();
     try {
@@ -2216,7 +2221,7 @@ class McpController extends ChangeNotifier {
       }
       await _runAutoProbeWorkerPool(
         targets,
-        (server) => checkServerHealth(server.name),
+        (server) => checkServerHealth(server.name, preserveCurrentStatus: true),
       );
     } finally {
       _autoHealthCheckInProgress = false;
