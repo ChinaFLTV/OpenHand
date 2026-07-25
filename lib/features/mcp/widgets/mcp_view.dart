@@ -32,6 +32,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
@@ -11248,6 +11249,15 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
   void didUpdateWidget(covariant _McpHorizontalChipStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
     final nextItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    final nextItemsById = <String, _McpChipStripItem>{
+      for (final item in nextItems) item.id: item,
+    };
+    if (_displayedItems.any((previous) {
+      final next = nextItemsById[previous.id];
+      return next == null || next.contentKey != previous.contentKey;
+    })) {
+      dismissOpenHandTooltipsSafely(debugLabel: '更新MCP胶囊前收起工具提示');
+    }
     final nextIds = nextItems.map((item) => item.id).toSet();
     for (var index = 0; index < _displayedItems.length; index++) {
       final previous = _displayedItems[index];
@@ -11285,15 +11295,18 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
                 present: currentIds.contains(item.id),
                 collapseAxis: Axis.horizontal,
                 onDismissed: () => _removeDismissedItem(item.id),
-                child: IgnorePointer(
-                  ignoring: !currentIds.contains(item.id),
-                  child: _McpAnimatedChipContent(
-                    contentKey: item.contentKey ?? item.id,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: item.trailingSpacing ? 10 : 0,
+                child: TooltipVisibility(
+                  visible: currentIds.contains(item.id),
+                  child: IgnorePointer(
+                    ignoring: !currentIds.contains(item.id),
+                    child: _McpAnimatedChipContent(
+                      contentKey: item.contentKey ?? item.id,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          right: item.trailingSpacing ? 10 : 0,
+                        ),
+                        child: item.child,
                       ),
-                      child: item.child,
                     ),
                   ),
                 ),
@@ -13246,6 +13259,12 @@ class _McpHealthStatusDot extends StatelessWidget {
   }
 }
 
+int _mcpToolVisualKey(Iterable<McpTool> tools) {
+  return Object.hashAll(
+    tools.map((tool) => Object.hash(tool.id, tool.name, tool.metadataWarning)),
+  );
+}
+
 class _McpToolPreview extends StatefulWidget {
   const _McpToolPreview({
     required this.server,
@@ -13264,6 +13283,16 @@ class _McpToolPreview extends StatefulWidget {
 class _McpToolPreviewState extends State<_McpToolPreview> {
   final _expandedScrollController = ScrollController();
   bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _McpToolPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchKeyword != widget.searchKeyword ||
+        _mcpToolVisualKey(oldWidget.toolCatalog.tools) !=
+            _mcpToolVisualKey(widget.toolCatalog.tools)) {
+      dismissOpenHandTooltipsSafely(debugLabel: '更新MCP工具列表前收起工具提示');
+    }
+  }
 
   @override
   void dispose() {
@@ -13312,11 +13341,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             zh: '服务已禁用，可手动刷新检测 Tool 信息。',
             en: 'This service is disabled. Refresh manually to inspect its tools.',
           );
-    final toolVisualKey = Object.hashAll(
-      filteredTools.map(
-        (tool) => Object.hash(tool.id, tool.name, tool.metadataWarning),
-      ),
-    );
+    final toolVisualKey = _mcpToolVisualKey(filteredTools);
     final animationDuration = _mcpMotionDuration(
       context,
       _mcpChipTransitionDuration,
@@ -13352,7 +13377,12 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
               ),
               if (canToggleExpansion)
                 TextButton.icon(
-                  onPressed: () => setState(() => _expanded = !_expanded),
+                  onPressed: () {
+                    dismissOpenHandTooltipsSafely(
+                      debugLabel: '切换MCP工具展开状态前收起工具提示',
+                    );
+                    setState(() => _expanded = !_expanded);
+                  },
                   icon: AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: _mcpMotionDuration(

@@ -84,6 +84,7 @@ import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../shared/ui/openhand_token_usage_capsule.dart';
+import '../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../shared/ui/openhand_video_player_web_styles.dart';
 import '../../shared/ui/reasoning_effort_selector.dart';
@@ -2642,6 +2643,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _selectSection(AppSection section) {
+    if (_selectedSection == section) return;
+    dismissOpenHandTooltipsSafely(debugLabel: '切换功能页面前收起工具提示');
     setState(() {
       _selectedSection = section;
     });
@@ -3111,6 +3114,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final activationGeneration = ++_sessionActivationGeneration;
     final sessionController = context.read<AiSessionController>();
     final switchingSessions = sessionController.currentSessionId != sessionId;
+    if (switchingSessions || _selectedSection != AppSection.workspace) {
+      dismissOpenHandTooltipsSafely(debugLabel: '切换线程会话前收起工具提示');
+    }
     _userScrollGraceDebouncer.cancel();
     _userScrollInProgress = false;
     _lastPointerSignalScrollAt = null;
@@ -7845,15 +7851,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _handleSlashCommand(OpenHandSlashCommand command) async {
     switch (command.kind) {
       case OpenHandSlashCommandKind.help:
-        setState(() {
-          _selectedSection = AppSection.settings;
-        });
+        _selectSection(AppSection.settings);
         await _showSlashHelpDialog();
         return;
       case OpenHandSlashCommandKind.feedback:
-        setState(() {
-          _selectedSection = AppSection.settings;
-        });
+        _selectSection(AppSection.settings);
         await _showFeedbackDialog(command.argument);
         return;
       case OpenHandSlashCommandKind.newSession:
@@ -7944,9 +7946,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _activateSlashCommandSection(AppSection section) {
-    setState(() {
-      _selectedSection = section;
-    });
+    _selectSection(section);
     final label = switch (section) {
       AppSection.workspace => openHandLocalizedText(
         context,
