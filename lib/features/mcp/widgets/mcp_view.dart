@@ -11322,6 +11322,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
     );
     final currentIds = widget.resolvedItems.map((item) => item.id).toSet();
     return SizedBox(
+      width: double.infinity,
       height: _mcpChipStripHeight,
       child: SingleChildScrollView(
         controller: _scrollController,

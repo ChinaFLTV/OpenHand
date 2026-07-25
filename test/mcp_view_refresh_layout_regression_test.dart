@@ -115,6 +115,23 @@ void main() {
     await mouse.removePointer();
   });
 
+  testWidgets('胶囊数量较少时仍从卡片左侧起排', (tester) async {
+    final card = await pumpMcpView(tester);
+    final toggleChip = find.ancestor(
+      of: find.descendant(
+        of: card,
+        matching: find.byIcon(Icons.check_circle_outline_rounded),
+      ),
+      matching: find.byType(ActionChip),
+    );
+
+    expect(toggleChip, findsOneWidget);
+    expect(
+      tester.getTopLeft(toggleChip).dx,
+      closeTo(tester.getTopLeft(card).dx + 24, 0.5),
+    );
+  });
+
   testWidgets('探测状态胶囊先连续补位再弹性插入', (tester) async {
     final card = await pumpMcpView(tester);
     final latencyChip = find.descendant(
