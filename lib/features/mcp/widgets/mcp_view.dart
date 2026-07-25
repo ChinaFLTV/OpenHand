@@ -88,6 +88,7 @@ const double _mcpTemplateChipLabelMaxWidth = 280;
 const double _mcpChipStripHeight = 40;
 const double _mcpToolPreviewExpandedHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
+const Duration _mcpChipTransitionDuration = Duration(milliseconds: 220);
 const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
@@ -10690,11 +10691,13 @@ class _McpServerCardState extends State<_McpServerCard> {
                   _McpHorizontalChipStrip(
                     children: [
                       _McpServerToggleChip(
+                        key: const ValueKey<String>('mcp-chip-toggle'),
                         enabled: server.enabled,
                         onPressed: () => onToggleEnabled(!server.enabled),
                       ),
                       if (visibleToAllTemplates)
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-template-all'),
                           icon: Icons.public_rounded,
                           label: _localizedText(
                             context,
@@ -10709,6 +10712,9 @@ class _McpServerCardState extends State<_McpServerCard> {
                       if (!visibleToAllTemplates)
                         for (final template in visibleTemplates)
                           _McpStatusChip(
+                            key: ValueKey<String>(
+                              'mcp-chip-template-${template.id}',
+                            ),
                             icon: AiThreadTemplateIcons.resolve(
                               template.iconName,
                             ),
@@ -10716,64 +10722,20 @@ class _McpServerCardState extends State<_McpServerCard> {
                           ),
                       for (final templateId in unknownVisibleTemplateIds)
                         _McpStatusChip(
+                          key: ValueKey<String>(
+                            'mcp-chip-template-$templateId',
+                          ),
                           icon: Icons.extension_rounded,
                           label: templateId,
                         ),
-                      // STDIO 进程运行状态 chip
                       if (server.type == McpServerType.stdio)
-                        AnimatedBuilder(
-                          animation: McpStdioProcessManager.instance,
-                          builder: (context, _) {
-                            final processInfo = McpStdioProcessManager.instance
-                                .infoFor(server.name);
-                            if (processInfo.isStopped &&
-                                processInfo.errorMessage == null) {
-                              return const SizedBox.shrink();
-                            }
-                            final chipIcon = switch (processInfo.state) {
-                              StdioProcessState.running =>
-                                Icons.fiber_manual_record,
-                              StdioProcessState.starting =>
-                                Icons.hourglass_top_rounded,
-                              StdioProcessState.stopping =>
-                                Icons.hourglass_bottom_rounded,
-                              StdioProcessState.stopped =>
-                                Icons.error_outline_rounded,
-                            };
-                            final chipLabel = switch (processInfo.state) {
-                              StdioProcessState.running => _localizedText(
-                                context,
-                                zh: '进程运行中 · PID ${processInfo.pid}',
-                                en: 'Running · PID ${processInfo.pid}',
-                                zhHant: '進程運行中 · PID ${processInfo.pid}',
-                                fr: 'Processus en cours · PID ${processInfo.pid}',
-                                de: 'Prozess läuft · PID ${processInfo.pid}',
-                                ja: 'プロセス実行中 · PID ${processInfo.pid}',
-                              ),
-                              StdioProcessState.starting => _localizedText(
-                                context,
-                                zh: '进程启动中',
-                                en: 'Starting',
-                              ),
-                              StdioProcessState.stopping => _localizedText(
-                                context,
-                                zh: '进程停止中',
-                                en: 'Stopping',
-                              ),
-                              StdioProcessState.stopped => _localizedText(
-                                context,
-                                zh: '进程异常退出',
-                                en: 'Process exited',
-                              ),
-                            };
-                            return _McpStatusChip(
-                              icon: chipIcon,
-                              label: chipLabel,
-                            );
-                          },
+                        _McpStdioProcessChip(
+                          key: const ValueKey<String>('mcp-chip-stdio-process'),
+                          serverName: server.name,
                         ),
                       if (server.headers.isNotEmpty)
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-headers'),
                           icon: Icons.badge_outlined,
                           label: _localizedText(
                             context,
@@ -10788,12 +10750,14 @@ class _McpServerCardState extends State<_McpServerCard> {
                       if (healthStatus.isChecking ||
                           healthStatus.lastCheckedAt != null)
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-health'),
                           icon: _healthStatusChipIcon(healthStatus),
                           label: _healthStatusSummary(context, healthStatus),
                         ),
                       if (healthStatus.latencyMs != null &&
-                          healthStatus.isHealthy)
+                          (healthStatus.isHealthy || healthStatus.isChecking))
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-latency'),
                           icon: Icons.speed_rounded,
                           label: _localizedText(
                             context,
@@ -10801,9 +10765,9 @@ class _McpServerCardState extends State<_McpServerCard> {
                             en: '${healthStatus.latencyMs} ms',
                           ),
                         ),
-                      if (healthStatus.lastCheckedAt != null &&
-                          !healthStatus.isChecking)
+                      if (healthStatus.lastCheckedAt != null)
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-relative-time'),
                           icon: Icons.history_toggle_off_rounded,
                           label: _formatRelativePast(
                             context,
@@ -10812,10 +10776,12 @@ class _McpServerCardState extends State<_McpServerCard> {
                         ),
                       if (healthStatus.needsAttention)
                         _McpAttentionChip(
+                          key: const ValueKey<String>('mcp-chip-attention'),
                           consecutiveFailures: healthStatus.consecutiveFailures,
                         ),
                       if (toolCatalog.isLoading)
                         AnimatedBuilder(
+                          key: const ValueKey<String>('mcp-chip-tool-state'),
                           animation: mcpStdioBootstrapStatus,
                           builder: (context, _) {
                             final liveLine = server.type == McpServerType.stdio
@@ -10871,17 +10837,21 @@ class _McpServerCardState extends State<_McpServerCard> {
                                     zh: '扫描 Tool 中',
                                     en: 'Scanning Tools',
                                   );
-                            return Tooltip(
-                              message: tooltipMsg,
-                              child: _McpStatusChip(
-                                icon: Icons.radar_rounded,
-                                label: label,
+                            return _McpAnimatedChipContent(
+                              contentKey: label,
+                              child: Tooltip(
+                                message: tooltipMsg,
+                                child: _McpStatusChip(
+                                  icon: Icons.radar_rounded,
+                                  label: label,
+                                ),
                               ),
                             );
                           },
                         )
                       else if (toolCatalog.lastScannedAt != null)
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-tool-state'),
                           icon: Icons.build_circle_outlined,
                           label: _localizedText(
                             context,
@@ -10895,6 +10865,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         ),
                       if (toolCatalog.lastScannedAt != null)
                         _McpStatusChip(
+                          key: const ValueKey<String>('mcp-chip-scanned-time'),
                           icon: Icons.schedule_rounded,
                           label: _formatStatusTime(
                             context,
@@ -11135,28 +11106,315 @@ class _StdioProcessButtons extends StatelessWidget {
   }
 }
 
-class _McpHorizontalChipStrip extends StatelessWidget {
-  const _McpHorizontalChipStrip({required this.children});
+class _McpStdioProcessChip extends StatelessWidget {
+  const _McpStdioProcessChip({super.key, required this.serverName});
 
+  final String serverName;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+    return AnimatedBuilder(
+      animation: McpStdioProcessManager.instance,
+      builder: (context, _) {
+        final processInfo = McpStdioProcessManager.instance.infoFor(serverName);
+        final visible =
+            !processInfo.isStopped || processInfo.errorMessage != null;
+        final child = visible
+            ? Padding(
+                key: const ValueKey<String>('mcp-stdio-process-visible'),
+                padding: const EdgeInsets.only(right: 10),
+                child: _McpAnimatedChipContent(
+                  contentKey: Object.hash(processInfo.state, processInfo.pid),
+                  child: _McpStatusChip(
+                    icon: switch (processInfo.state) {
+                      StdioProcessState.running => Icons.fiber_manual_record,
+                      StdioProcessState.starting => Icons.hourglass_top_rounded,
+                      StdioProcessState.stopping =>
+                        Icons.hourglass_bottom_rounded,
+                      StdioProcessState.stopped => Icons.error_outline_rounded,
+                    },
+                    label: switch (processInfo.state) {
+                      StdioProcessState.running => _localizedText(
+                        context,
+                        zh: '进程运行中 · PID ${processInfo.pid}',
+                        en: 'Running · PID ${processInfo.pid}',
+                        zhHant: '進程運行中 · PID ${processInfo.pid}',
+                        fr: 'Processus en cours · PID ${processInfo.pid}',
+                        de: 'Prozess läuft · PID ${processInfo.pid}',
+                        ja: 'プロセス実行中 · PID ${processInfo.pid}',
+                      ),
+                      StdioProcessState.starting => _localizedText(
+                        context,
+                        zh: '进程启动中',
+                        en: 'Starting',
+                      ),
+                      StdioProcessState.stopping => _localizedText(
+                        context,
+                        zh: '进程停止中',
+                        en: 'Stopping',
+                      ),
+                      StdioProcessState.stopped => _localizedText(
+                        context,
+                        zh: '进程异常退出',
+                        en: 'Process exited',
+                      ),
+                    },
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(
+                key: ValueKey<String>('mcp-stdio-process-hidden'),
+              );
+        return AnimatedSwitcher(
+          duration: duration,
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (currentChild, previousChildren) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          ),
+          transitionBuilder: (child, animation) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return SizeTransition(
+              axis: Axis.horizontal,
+              axisAlignment: -1,
+              sizeFactor: curved,
+              child: _mcpChipTransition(child, animation),
+            );
+          },
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+class _McpChipStripItem {
+  const _McpChipStripItem({
+    required this.id,
+    required this.child,
+    this.contentKey,
+    this.trailingSpacing = true,
+  });
+
+  final String id;
+  final Widget child;
+  final Object? contentKey;
+  final bool trailingSpacing;
+}
+
+class _McpHorizontalChipStrip extends StatefulWidget {
+  const _McpHorizontalChipStrip({
+    super.key,
+    this.items = const <_McpChipStripItem>[],
+    this.children = const <Widget>[],
+  }) : assert(items.length + children.length > 0),
+       assert(items.length == 0 || children.length == 0);
+
+  final List<_McpChipStripItem> items;
   final List<Widget> children;
+
+  List<_McpChipStripItem> get resolvedItems {
+    if (items.isNotEmpty) return items;
+    return <_McpChipStripItem>[
+      for (var index = 0; index < children.length; index++)
+        _mcpChipStripItemFromChild(children[index], index),
+    ];
+  }
+
+  @override
+  State<_McpHorizontalChipStrip> createState() =>
+      _McpHorizontalChipStripState();
+}
+
+_McpChipStripItem _mcpChipStripItemFromChild(Widget child, int index) {
+  final id = child.key?.toString() ?? 'mcp-chip-$index';
+  final contentKey = switch (child) {
+    _McpStatusChip() => Object.hash(child.icon, child.label),
+    _McpAttentionChip() => child.consecutiveFailures,
+    _McpServerToggleChip() => child.enabled,
+    _ => Object.hash(id, child.runtimeType),
+  };
+  return _McpChipStripItem(
+    id: id,
+    contentKey: contentKey,
+    child: child,
+    trailingSpacing: child is! _McpStdioProcessChip,
+  );
+}
+
+class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
+  final _listKey = GlobalKey<AnimatedListState>();
+  late List<_McpChipStripItem> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List<_McpChipStripItem>.of(widget.resolvedItems);
+  }
+
+  @override
+  void didUpdateWidget(covariant _McpHorizontalChipStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextItems = widget.resolvedItems;
+    final listState = _listKey.currentState;
+    if (listState == null) {
+      _items = List<_McpChipStripItem>.of(nextItems);
+      return;
+    }
+    final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+    final nextIds = nextItems.map((item) => item.id).toSet();
+    for (var index = _items.length - 1; index >= 0; index--) {
+      if (nextIds.contains(_items[index].id)) continue;
+      final removed = _items.removeAt(index);
+      listState.removeItem(
+        index,
+        (context, animation) => _buildPresenceTransition(
+          context,
+          item: removed,
+          animation: animation,
+          animateContent: false,
+        ),
+        duration: duration,
+      );
+    }
+    for (var index = 0; index < nextItems.length; index++) {
+      final next = nextItems[index];
+      final currentIndex = _items.indexWhere((item) => item.id == next.id);
+      if (currentIndex == index) {
+        _items[index] = next;
+        continue;
+      }
+      if (currentIndex > index) {
+        final moved = _items.removeAt(currentIndex);
+        listState.removeItem(
+          currentIndex,
+          (context, animation) => _buildPresenceTransition(
+            context,
+            item: moved,
+            animation: animation,
+            animateContent: false,
+          ),
+          duration: duration,
+        );
+      }
+      _items.insert(index, next);
+      listState.insertItem(index, duration: duration);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: _mcpChipStripHeight,
-      child: ClipRect(
-        child: SingleChildScrollView(
-          primary: false,
-          scrollDirection: Axis.horizontal,
-          child: Row(spacing: 10, children: children),
+      child: AnimatedList(
+        key: _listKey,
+        initialItemCount: _items.length,
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemBuilder: (context, index, animation) => _buildPresenceTransition(
+          context,
+          item: _items[index],
+          animation: animation,
+          animateContent: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresenceTransition(
+    BuildContext context, {
+    required _McpChipStripItem item,
+    required Animation<double> animation,
+    required bool animateContent,
+  }) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
+    final child = Padding(
+      padding: EdgeInsets.only(right: item.trailingSpacing ? 10 : 0),
+      child: animateContent
+          ? _McpAnimatedChipContent(
+              key: ValueKey<String>(item.id),
+              contentKey: item.contentKey ?? item.id,
+              child: item.child,
+            )
+          : item.child,
+    );
+    return SizeTransition(
+      axis: Axis.horizontal,
+      axisAlignment: -1,
+      sizeFactor: curved,
+      child: FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          alignment: Alignment.centerLeft,
+          scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
+          child: child,
         ),
       ),
     );
   }
 }
 
+class _McpAnimatedChipContent extends StatelessWidget {
+  const _McpAnimatedChipContent({
+    super.key,
+    required this.contentKey,
+    required this.child,
+  });
+
+  final Object contentKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.centerLeft,
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: Curves.easeOutBack,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) =>
+            currentChild ?? const SizedBox.shrink(),
+        transitionBuilder: _mcpChipTransition,
+        child: KeyedSubtree(key: ValueKey<Object>(contentKey), child: child),
+      ),
+    );
+  }
+}
+
+Widget _mcpChipTransition(Widget child, Animation<double> animation) {
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: Curves.easeOutBack,
+    reverseCurve: Curves.easeInCubic,
+  );
+  return FadeTransition(
+    opacity: animation,
+    child: ScaleTransition(
+      alignment: Alignment.centerLeft,
+      scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+      child: child,
+    ),
+  );
+}
+
 class _McpStatusChip extends StatelessWidget {
-  const _McpStatusChip({required this.icon, required this.label});
+  const _McpStatusChip({super.key, required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -11180,7 +11438,7 @@ class _McpStatusChip extends StatelessWidget {
 /// 当某个 MCP 服务连续探测失败 ≥ 3 次时，在卡片顶部胶囊行展示一枚醒目的警告标签，
 /// 引导用户去检查配置或网络。配色走 errorContainer，与下方错误提示框遥相呼应。
 class _McpAttentionChip extends StatelessWidget {
-  const _McpAttentionChip({required this.consecutiveFailures});
+  const _McpAttentionChip({super.key, required this.consecutiveFailures});
 
   final int consecutiveFailures;
 
@@ -12928,7 +13186,11 @@ class _ProbeServerRow extends StatelessWidget {
 /// 失败热点筛选栏：两枚等尺寸动作按钮，窄屏自动换成一行一个。
 
 class _McpServerToggleChip extends StatelessWidget {
-  const _McpServerToggleChip({required this.enabled, required this.onPressed});
+  const _McpServerToggleChip({
+    super.key,
+    required this.enabled,
+    required this.onPressed,
+  });
 
   final bool enabled;
   final VoidCallback onPressed;
@@ -13097,6 +13359,15 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             zh: '服务已禁用，可手动刷新检测 Tool 信息。',
             en: 'This service is disabled. Refresh manually to inspect its tools.',
           );
+    final toolVisualKey = Object.hashAll(
+      filteredTools.map(
+        (tool) => Object.hash(tool.id, tool.name, tool.metadataWarning),
+      ),
+    );
+    final animationDuration = _mcpMotionDuration(
+      context,
+      _mcpChipTransitionDuration,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -13157,67 +13428,114 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                 ? _mcpToolPreviewExpandedHeight
                 : _mcpChipStripHeight,
             width: double.infinity,
-            child: filteredTools.isEmpty
-                ? Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      emptyLabel,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                : _expanded
+            child: _expanded
                 ? Scrollbar(
                     controller: _expandedScrollController,
                     child: SingleChildScrollView(
                       controller: _expandedScrollController,
                       primary: false,
                       padding: const EdgeInsets.only(right: 12),
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            for (final tool in previewTools)
-                              _buildToolChip(context, tool),
-                          ],
-                        ),
+                      child: AnimatedSwitcher(
+                        duration: animationDuration,
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: _mcpChipTransition,
+                        child: filteredTools.isEmpty
+                            ? _buildEmptyState(
+                                context,
+                                key: ValueKey<String>(
+                                  'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
+                                ),
+                                label: emptyLabel,
+                              )
+                            : Align(
+                                key: ValueKey<int>(toolVisualKey),
+                                alignment: Alignment.topLeft,
+                                child: Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    for (final tool in previewTools)
+                                      _buildToolChip(context, tool),
+                                  ],
+                                ),
+                              ),
                       ),
                     ),
                   )
-                : SingleChildScrollView(
-                    primary: false,
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      spacing: 10,
-                      children: [
-                        for (final tool in previewTools)
-                          _buildToolChip(context, tool),
-                        if (hiddenToolCount > 0)
-                          Chip(
-                            avatar: const Icon(Icons.more_horiz_rounded),
-                            label: Text(
-                              _localizedText(
-                                context,
-                                zh: '还有 $hiddenToolCount 个',
-                                en: '+$hiddenToolCount more',
-                                zhHant: '還有 $hiddenToolCount 個',
-                                fr: '+$hiddenToolCount autres',
-                                de: '+$hiddenToolCount weitere',
-                                ja: 'ほか $hiddenToolCount 件',
-                              ),
+                : AnimatedSwitcher(
+                    duration: animationDuration,
+                    switchInCurve: Curves.easeOutBack,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: _mcpChipTransition,
+                    child: filteredTools.isEmpty
+                        ? _buildEmptyState(
+                            context,
+                            key: ValueKey<String>(
+                              'mcp-tools-empty-${widget.toolCatalog.status}-$keyword',
                             ),
+                            label: emptyLabel,
+                          )
+                        : _McpHorizontalChipStrip(
+                            key: const ValueKey<String>(
+                              'mcp-tools-collapsed-strip',
+                            ),
+                            items: [
+                              for (final tool in previewTools)
+                                _McpChipStripItem(
+                                  id: 'mcp-tool-${tool.id}',
+                                  contentKey: Object.hash(
+                                    tool.name,
+                                    tool.metadataWarning,
+                                  ),
+                                  child: _buildToolChip(context, tool),
+                                ),
+                              if (hiddenToolCount > 0)
+                                _McpChipStripItem(
+                                  id: 'mcp-tool-overflow',
+                                  contentKey: hiddenToolCount,
+                                  child: Chip(
+                                    avatar: const Icon(
+                                      Icons.more_horiz_rounded,
+                                    ),
+                                    label: Text(
+                                      _localizedText(
+                                        context,
+                                        zh: '还有 $hiddenToolCount 个',
+                                        en: '+$hiddenToolCount more',
+                                        zhHant: '還有 $hiddenToolCount 個',
+                                        fr: '+$hiddenToolCount autres',
+                                        de: '+$hiddenToolCount weitere',
+                                        ja: 'ほか $hiddenToolCount 件',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
                   ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyState(
+    BuildContext context, {
+    required Key key,
+    required String label,
+  }) {
+    return Align(
+      key: key,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 

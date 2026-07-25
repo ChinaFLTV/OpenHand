@@ -1631,7 +1631,7 @@ class McpController extends ChangeNotifier {
     ]);
   }
 
-  /// 手动刷新默认先清空旧目录；自动刷新可保留当前可用目录，成功后原子替换。
+  /// 刷新期间保留当前展示快照；自动刷新失败时继续复用完整目录。
   Future<void> refreshServerTools(
     String serverName, {
     bool requirePageActive = false,
@@ -1658,8 +1658,10 @@ class McpController extends ChangeNotifier {
         previousCatalog.status == McpToolCatalogStatus.ready &&
         previousCatalog.isComplete;
     if (!preserveDuringRefresh) {
-      _toolCatalogByServerName[normalizedServerName] = const McpToolCatalog(
+      _toolCatalogByServerName[normalizedServerName] = previousCatalog.copyWith(
         status: McpToolCatalogStatus.loading,
+        clearErrorMessage: true,
+        clearWarningMessage: true,
       );
       notifyListeners();
     }
@@ -1694,9 +1696,7 @@ class McpController extends ChangeNotifier {
         return;
       }
       if (_isLifecycleCancelledCatalog(discoveredCatalog)) {
-        _toolCatalogByServerName[normalizedServerName] = preserveDuringRefresh
-            ? previousCatalog
-            : const McpToolCatalog();
+        _toolCatalogByServerName[normalizedServerName] = previousCatalog;
         notifyListeners();
         return;
       }
@@ -1769,9 +1769,7 @@ class McpController extends ChangeNotifier {
         return;
       }
       if (isExpectedMcpToolDiscoveryLifecycleError(error)) {
-        _toolCatalogByServerName[normalizedServerName] = preserveDuringRefresh
-            ? previousCatalog
-            : const McpToolCatalog();
+        _toolCatalogByServerName[normalizedServerName] = previousCatalog;
         notifyListeners();
         return;
       }
