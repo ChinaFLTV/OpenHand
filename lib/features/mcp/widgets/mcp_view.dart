@@ -11211,7 +11211,7 @@ class _McpChipStripItem {
   final bool trailingSpacing;
 }
 
-class _McpHorizontalChipStrip extends StatefulWidget {
+class _McpHorizontalChipStrip extends StatelessWidget {
   const _McpHorizontalChipStrip({
     super.key,
     this.items = const <_McpChipStripItem>[],
@@ -11231,8 +11231,40 @@ class _McpHorizontalChipStrip extends StatefulWidget {
   }
 
   @override
-  State<_McpHorizontalChipStrip> createState() =>
-      _McpHorizontalChipStripState();
+  Widget build(BuildContext context) {
+    final resolved = resolvedItems;
+    final contentKey = Object.hashAll(
+      resolved.map(
+        (item) => Object.hash(item.id, item.contentKey, item.trailingSpacing),
+      ),
+    );
+    return SizedBox(
+      height: _mcpChipStripHeight,
+      child: SingleChildScrollView(
+        primary: false,
+        scrollDirection: Axis.horizontal,
+        child: AnimatedSwitcher(
+          duration: _mcpMotionDuration(context, _mcpChipTransitionDuration),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: _mcpImmediateFillLayout,
+          transitionBuilder: _mcpChipTransition,
+          child: Row(
+            key: ValueKey<int>(contentKey),
+            children: [
+              for (final item in resolved)
+                Padding(
+                  padding: EdgeInsets.only(
+                    right: item.trailingSpacing ? 10 : 0,
+                  ),
+                  child: item.child,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 _McpChipStripItem _mcpChipStripItemFromChild(Widget child, int index) {
@@ -11251,125 +11283,8 @@ _McpChipStripItem _mcpChipStripItemFromChild(Widget child, int index) {
   );
 }
 
-class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
-  final _listKey = GlobalKey<AnimatedListState>();
-  late List<_McpChipStripItem> _items;
-
-  @override
-  void initState() {
-    super.initState();
-    _items = List<_McpChipStripItem>.of(widget.resolvedItems);
-  }
-
-  @override
-  void didUpdateWidget(covariant _McpHorizontalChipStrip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final nextItems = widget.resolvedItems;
-    final listState = _listKey.currentState;
-    if (listState == null) {
-      _items = List<_McpChipStripItem>.of(nextItems);
-      return;
-    }
-    final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
-    final nextIds = nextItems.map((item) => item.id).toSet();
-    for (var index = _items.length - 1; index >= 0; index--) {
-      if (nextIds.contains(_items[index].id)) continue;
-      final removed = _items.removeAt(index);
-      listState.removeItem(
-        index,
-        (context, animation) => _buildPresenceTransition(
-          context,
-          item: removed,
-          animation: animation,
-          animateContent: false,
-        ),
-        duration: duration,
-      );
-    }
-    for (var index = 0; index < nextItems.length; index++) {
-      final next = nextItems[index];
-      final currentIndex = _items.indexWhere((item) => item.id == next.id);
-      if (currentIndex == index) {
-        _items[index] = next;
-        continue;
-      }
-      if (currentIndex > index) {
-        final moved = _items.removeAt(currentIndex);
-        listState.removeItem(
-          currentIndex,
-          (context, animation) => _buildPresenceTransition(
-            context,
-            item: moved,
-            animation: animation,
-            animateContent: false,
-          ),
-          duration: duration,
-        );
-      }
-      _items.insert(index, next);
-      listState.insertItem(index, duration: duration);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: _mcpChipStripHeight,
-      child: AnimatedList(
-        key: _listKey,
-        initialItemCount: _items.length,
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.zero,
-        itemBuilder: (context, index, animation) => _buildPresenceTransition(
-          context,
-          item: _items[index],
-          animation: animation,
-          animateContent: true,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPresenceTransition(
-    BuildContext context, {
-    required _McpChipStripItem item,
-    required Animation<double> animation,
-    required bool animateContent,
-  }) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeInCubic,
-    );
-    final child = Padding(
-      padding: EdgeInsets.only(right: item.trailingSpacing ? 10 : 0),
-      child: animateContent
-          ? _McpAnimatedChipContent(
-              key: ValueKey<String>(item.id),
-              contentKey: item.contentKey ?? item.id,
-              child: item.child,
-            )
-          : item.child,
-    );
-    return SizeTransition(
-      axis: Axis.horizontal,
-      axisAlignment: -1,
-      sizeFactor: curved,
-      child: FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          alignment: Alignment.centerLeft,
-          scale: Tween<double>(begin: 0.9, end: 1).animate(curved),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
 class _McpAnimatedChipContent extends StatelessWidget {
   const _McpAnimatedChipContent({
-    super.key,
     required this.contentKey,
     required this.child,
   });
@@ -11395,6 +11310,25 @@ class _McpAnimatedChipContent extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _mcpImmediateFillLayout(
+  Widget? currentChild,
+  List<Widget> previousChildren,
+) {
+  return Stack(
+    alignment: Alignment.centerLeft,
+    clipBehavior: Clip.none,
+    children: <Widget>[
+      for (final child in previousChildren)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Align(alignment: Alignment.centerLeft, child: child),
+          ),
+        ),
+      currentChild ?? const SizedBox.shrink(),
+    ],
+  );
 }
 
 Widget _mcpChipTransition(Widget child, Animation<double> animation) {
