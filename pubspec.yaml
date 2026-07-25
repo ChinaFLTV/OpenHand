@@ -51,6 +51,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 dependency_overrides:
+  # 上游 1.0.12 强制固定 Strut 高度，会让中文回退字形与混合样式上下重叠。
+  flutter_markdown_plus:
+    path: vendor/flutter_markdown_plus
   # Local xterm patch: guards terminal reflow from copying past the backing
   # line buffer when a wide glyph sits at the right edge.
   xterm:
