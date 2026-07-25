@@ -13,7 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/async_concurrency.dart';
-import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/bounded_text_buffer.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_dialog_utils.dart';
@@ -43,7 +43,12 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   StreamSubscription<String>? _stderrSubscription;
   Timer? _noOutputTimer;
   Timer? _outputFlushTimer;
-  final StringBuffer _pendingOutput = StringBuffer();
+  final BoundedTextBuffer _pendingOutput = BoundedTextBuffer(
+    maxCharacters: _maxBufferedChars,
+  );
+  final BoundedTextBuffer _outputBuffer = BoundedTextBuffer(
+    maxCharacters: _maxBufferedChars,
+  );
   Future<void>? _shutdownFuture;
   int _runGeneration = 0;
   bool _disposed = false;
@@ -51,7 +56,8 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   bool _finished = false;
   int? _exitCode;
   String? _errorMessage;
-  String _output = '';
+
+  String get _output => _outputBuffer.text;
 
   /// Pulses the green top-edge confirmation flash on successful login
   /// completion (exit 0).
@@ -323,13 +329,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     ).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     if (normalized.isEmpty) return;
 
-    _pendingOutput.write(normalized);
-    if (_pendingOutput.length > _maxBufferedChars) {
-      final boundedPending = _truncateOutput(_pendingOutput.toString());
-      _pendingOutput
-        ..clear()
-        ..write(boundedPending);
-    }
+    _pendingOutput.append(normalized);
     _outputFlushTimer ??= startSafeTimer(
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingOutput,
@@ -342,21 +342,12 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     _outputFlushTimer?.cancel();
     _outputFlushTimer = null;
     if (!mounted || _disposed || _pendingOutput.isEmpty) return;
-    final pending = _pendingOutput.toString();
+    final pending = _pendingOutput.text;
     _pendingOutput.clear();
     setState(() {
-      _output = _truncateOutput('$_output$pending');
+      _outputBuffer.append(pending);
     });
     _scrollToBottom();
-  }
-
-  String _truncateOutput(String value) {
-    if (value.length <= _maxBufferedChars) {
-      return value;
-    }
-    return value.substring(
-      safeUtf16SuffixStart(value, value.length - _maxBufferedChars),
-    );
   }
 
   void _scrollToBottom() {

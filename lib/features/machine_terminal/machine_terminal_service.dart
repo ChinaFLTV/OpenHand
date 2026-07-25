@@ -15,7 +15,10 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_text_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/storage_identifier.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 
 const String kMachineExpertTemplateId = 'machine_expert';
@@ -49,6 +52,7 @@ const int _maxCommandHistoryOutputCharacters = 40000;
 const int _maxPersistedTerminalSnapshots = 48;
 const int _maxTerminalSessionsPerWorkspace = _maxPersistedTerminalSnapshots;
 const Duration _commandPollInterval = Duration(milliseconds: 80);
+const Duration _commandInterruptSettleDelay = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
@@ -61,6 +65,9 @@ const String _machineTerminalWorkspacePrefix = 'machine-terminal';
 const String _machineTerminalHistoryFileName = 'machine-terminal-history.json';
 const int _machineTerminalHistoryStorageSchemaVersion = 1;
 const int _machineTerminalHistoryMaxBytes = 32 * 1024 * 1024;
+const String _terminalBusyError =
+    'Another terminal command is already running.';
+const String _terminalNotRunningError = 'Machine terminal is not running.';
 
 typedef MachineTerminalMetadataPersister =
     Future<void> Function(String sessionId, Map<String, Object?> metadata);
@@ -565,8 +572,8 @@ class MachineTerminalService extends ChangeNotifier {
   }
 
   Future<void> disposeWorkspace(String sessionId) {
-    final normalizedSessionId = nullIfBlank(sessionId);
-    if (normalizedSessionId == null) return Future<void>.value();
+    if (nullIfBlank(sessionId) == null) return Future<void>.value();
+    final normalizedSessionId = _normalizeSessionId(sessionId);
     final active = _workspaceDisposals[normalizedSessionId];
     if (active != null) return active;
     if (_isDisposed) return _shutdownFuture ?? Future<void>.value();
@@ -847,11 +854,16 @@ class MachineTerminalService extends ChangeNotifier {
     }
     final counter = ++_commandCounter;
     final token = 'OPENHAND_${DateTime.now().microsecondsSinceEpoch}_$counter';
+    final effectiveTimeout = Duration(
+      milliseconds: clampMachineTerminalCommandTimeoutMs(
+        timeout.inMilliseconds,
+      ),
+    );
     final result = await terminal.executeCommand(
       command: trimmed,
       beginMarker: '${token}_BEGIN',
       endMarker: '${token}_END',
-      timeout: timeout,
+      timeout: effectiveTimeout,
     );
     _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
@@ -1346,7 +1358,11 @@ class MachineTerminalService extends ChangeNotifier {
 
   void _scheduleHistoryPersist(String sessionId) {
     final normalizedSessionId = nullIfBlank(sessionId);
-    if (normalizedSessionId == null || _isDisposed) return;
+    if (normalizedSessionId == null ||
+        _isDisposed ||
+        _workspaceDisposals.containsKey(normalizedSessionId)) {
+      return;
+    }
     _historyPersistTimers[normalizedSessionId]?.cancel();
     _historyPersistTimers[normalizedSessionId] = startSafeTimer(
       _historyPersistDebounce,
@@ -1442,9 +1458,7 @@ class MachineTerminalService extends ChangeNotifier {
   Future<void> _deleteWorkspaceHistoryFile(String sessionId) async {
     final file = _workspaceHistoryFile(sessionId);
     try {
-      if (await file.exists()) {
-        await file.delete();
-      }
+      await deleteFileAtomically(file);
     } catch (error, stack) {
       silentLog('machine_terminal', '删除终端历史文件', error, stack);
     }
@@ -1454,7 +1468,7 @@ class MachineTerminalService extends ChangeNotifier {
     return File(
       p.join(
         _sessionsDirectoryPath,
-        _safeSessionStorageSegment(sessionId),
+        _normalizeSessionId(sessionId),
         _machineTerminalHistoryFileName,
       ),
     );
@@ -1462,7 +1476,12 @@ class MachineTerminalService extends ChangeNotifier {
 
   void _scheduleMetadataPersist(String sessionId) {
     final normalizedSessionId = nullIfBlank(sessionId);
-    if (normalizedSessionId == null || _metadataPersister == null) return;
+    if (normalizedSessionId == null ||
+        _metadataPersister == null ||
+        _isDisposed ||
+        _workspaceDisposals.containsKey(normalizedSessionId)) {
+      return;
+    }
     _metadataPersistTimers[normalizedSessionId]?.cancel();
     _metadataPersistTimers[normalizedSessionId] = startSafeTimer(
       _metadataPersistDebounce,
@@ -1546,10 +1565,16 @@ class MachineTerminalSession {
   int _rows = _defaultRows;
   int _columns = _defaultColumns;
   int _startGeneration = 0;
-  String _output = '';
-  String _historyOutput = _welcomeBanner();
+  final BoundedTextBuffer _output = BoundedTextBuffer(
+    maxCharacters: _maxRetainedOutputCharacters,
+  );
+  final BoundedTextBuffer _historyOutput = BoundedTextBuffer(
+    maxCharacters: _maxRetainedHistoryCharacters,
+    initialValue: _welcomeBanner(),
+  );
   final List<MachineTerminalCommandRecord> _commandHistory =
       <MachineTerminalCommandRecord>[];
+  Future<MachineTerminalCommandResult>? _commandExecution;
   int _commandSequence = 0;
   bool _attached = true;
   bool _hasUserActivity = false;
@@ -1567,13 +1592,13 @@ class MachineTerminalSession {
 
   MachineTerminalSnapshot snapshot() {
     final output = sanitizedOutput();
-    final ansiOutput = _clipString(_output, _maxToolOutputCharacters);
+    final ansiOutput = _clipString(_output.text, _maxToolOutputCharacters);
     final historyOutput = _clipString(
-      _plainText(_historyOutput),
+      _plainText(_historyOutput.text),
       _maxReplayOutputCharacters,
     );
     final historyAnsiOutput = _clipString(
-      _historyOutput,
+      _historyOutput.text,
       _maxReplayOutputCharacters,
     );
     return MachineTerminalSnapshot(
@@ -1611,16 +1636,10 @@ class MachineTerminalSession {
       optionalIntFromValue(raw['columns']) ?? _defaultColumns,
     );
     terminal.resize(_columns, _rows);
-    _output = _clipString(
-      '${raw['ansi_output'] ?? raw['output'] ?? ''}',
-      _maxRetainedOutputCharacters,
-    );
+    _output.replace('${raw['ansi_output'] ?? raw['output'] ?? ''}');
     final history =
-        '${raw['history_ansi_output'] ?? raw['history_output'] ?? _output}';
-    _historyOutput = _clipString(
-      history.trim().isEmpty ? _welcomeBanner() : history,
-      _maxRetainedHistoryCharacters,
-    );
+        '${raw['history_ansi_output'] ?? raw['history_output'] ?? _output.text}';
+    _historyOutput.replace(history.trim().isEmpty ? _welcomeBanner() : history);
     _commandHistory
       ..clear()
       ..addAll(
@@ -1651,9 +1670,9 @@ class MachineTerminalSession {
     _pid = null;
     _exitCode = optionalIntFromValue(raw['exit_code']);
     _errorMessage = nullIfBlank('${raw['error_message'] ?? ''}');
-    final visibleOutput = _output.trim().isEmpty
-        ? _clipString(_historyOutput, _maxToolOutputCharacters)
-        : _output;
+    final visibleOutput = _output.text.trim().isEmpty
+        ? _clipString(_historyOutput.text, _maxToolOutputCharacters)
+        : _output.text;
     terminal.write('\x1b[2J\x1b[H$visibleOutput');
   }
 
@@ -1828,7 +1847,7 @@ class MachineTerminalSession {
   }
 
   void clear() {
-    _output = '';
+    _output.clear();
     _appendHistory('\r\n[OpenHand terminal cleared]\r\n${_welcomeBanner()}');
     terminal.write('\x1b[2J\x1b[H${_welcomeBanner()}');
     _touch();
@@ -1862,12 +1881,56 @@ class MachineTerminalSession {
     required String beginMarker,
     required String endMarker,
     required Duration timeout,
+  }) {
+    if (_commandExecution != null) {
+      return Future<MachineTerminalCommandResult>.value(
+        MachineTerminalCommandResult(
+          terminalId: id,
+          command: command,
+          output: '',
+          status: _status,
+          durationMs: 0,
+          error: _terminalBusyError,
+        ),
+      );
+    }
+    late final Future<MachineTerminalCommandResult> tracked;
+    tracked =
+        _executeCommand(
+          command: command,
+          beginMarker: beginMarker,
+          endMarker: endMarker,
+          timeout: timeout,
+        ).whenComplete(() {
+          if (identical(_commandExecution, tracked)) {
+            _commandExecution = null;
+          }
+        });
+    _commandExecution = tracked;
+    return tracked;
+  }
+
+  Future<MachineTerminalCommandResult> _executeCommand({
+    required String command,
+    required String beginMarker,
+    required String endMarker,
+    required Duration timeout,
   }) async {
     final stopwatch = Stopwatch()..start();
     final startedAt = DateTime.now();
+    if (_pty == null || _status != MachineTerminalStatus.running) {
+      return _recordedCommandResult(
+        startedAt: startedAt,
+        command: command,
+        output: '',
+        durationMs: stopwatch.elapsedMilliseconds,
+        error: _terminalNotRunningError,
+      );
+    }
+    final startGeneration = _startGeneration;
     final begin = '__${beginMarker}__';
     final end = '__${endMarker}__';
-    final startOffset = _output.length;
+    final startOffset = _output.endOffset;
     try {
       await _disableEchoForCommand();
       final payload = _commandPayload(command: command, begin: begin, end: end);
@@ -1876,6 +1939,7 @@ class MachineTerminalSession {
         begin: begin,
         end: end,
         startOffset: startOffset,
+        startGeneration: startGeneration,
         timeout: timeout,
       );
       return _recordedCommandResult(
@@ -1886,7 +1950,7 @@ class MachineTerminalSession {
         durationMs: stopwatch.elapsedMilliseconds,
       );
     } on TimeoutException {
-      writeInput('stty echo 2>/dev/null\n');
+      await _interruptTimedOutCommand();
       return _recordedCommandResult(
         startedAt: startedAt,
         command: command,
@@ -1964,7 +2028,7 @@ class MachineTerminalSession {
   }
 
   String sanitizedOutput({int maxCharacters = _maxToolOutputCharacters}) {
-    return _clipString(_plainText(_output), maxCharacters);
+    return _clipString(_plainText(_output.text), maxCharacters);
   }
 
   void dispose() {
@@ -1998,22 +2062,12 @@ class MachineTerminalSession {
   }
 
   void _appendRaw(String text) {
-    _output += text;
-    if (_output.length > _maxRetainedOutputCharacters) {
-      _output = _output.substring(
-        _output.length - _maxRetainedOutputCharacters,
-      );
-    }
+    _output.append(text);
     _appendHistory(text);
   }
 
   void _appendHistory(String text) {
-    _historyOutput += text;
-    if (_historyOutput.length > _maxRetainedHistoryCharacters) {
-      _historyOutput = _historyOutput.substring(
-        _historyOutput.length - _maxRetainedHistoryCharacters,
-      );
-    }
+    _historyOutput.append(text);
   }
 
   void _touch() {
@@ -2027,38 +2081,61 @@ class MachineTerminalSession {
     await Future<void>.delayed(const Duration(milliseconds: 60));
   }
 
+  Future<void> _interruptTimedOutCommand() async {
+    writeInput('\x03');
+    await Future<void>.delayed(_commandInterruptSettleDelay);
+    if (!Platform.isWindows) {
+      writeInput('stty echo 2>/dev/null\n');
+    }
+  }
+
   Future<_ParsedCommandOutput> _waitForCommandOutput({
     required String begin,
     required String end,
     required int startOffset,
+    required int startGeneration,
     required Duration timeout,
   }) async {
     final deadline = MonotonicDeadline(timeout, timeoutMessage: '等待终端命令标记超时。');
     try {
-      while (!deadline.isExpired) {
+      while (true) {
         final segment = _plainText(_outputSince(startOffset));
         final beginIndex = segment.indexOf(begin);
-        final endIndex = segment.indexOf(end, beginIndex < 0 ? 0 : beginIndex);
-        if (beginIndex >= 0 && endIndex > beginIndex) {
+        final outputStart = beginIndex >= 0
+            ? beginIndex + begin.length
+            : _output.discardedSince(startOffset)
+            ? 0
+            : -1;
+        final endIndex = outputStart < 0
+            ? -1
+            : segment.indexOf(end, outputStart);
+        if (endIndex >= outputStart && outputStart >= 0) {
           final afterEnd = segment.substring(endIndex + end.length);
           final exitCodeMatch = RegExp(r':(-?\d+)').firstMatch(afterEnd);
-          final output = segment.substring(beginIndex + begin.length, endIndex);
+          final output = segment.substring(outputStart, endIndex);
           return _ParsedCommandOutput(
             output: _removeMarkerNoise(output),
             exitCode: optionalIntFromValue(exitCodeMatch?.group(1)),
           );
         }
-        await Future<void>.delayed(_commandPollInterval);
+        if (_startGeneration != startGeneration ||
+            _pty == null ||
+            _status != MachineTerminalStatus.running) {
+          throw StateError(_terminalNotRunningError);
+        }
+        final remaining = deadline.remainingOrNull();
+        if (remaining == null) throw deadline.timeoutException();
+        await Future<void>.delayed(
+          remaining < _commandPollInterval ? remaining : _commandPollInterval,
+        );
       }
-      throw deadline.timeoutException();
     } finally {
       deadline.stop();
     }
   }
 
   String _outputSince(int offset) {
-    final safeOffset = offset.clamp(0, _output.length).toInt();
-    return _output.substring(safeOffset);
+    return _output.textFrom(offset);
   }
 }
 
@@ -2239,11 +2316,6 @@ MachineTerminalStatus _restorableStatusFromValue(Object? value) {
   };
 }
 
-String _safeSessionStorageSegment(String sessionId) {
-  final normalized = _normalizeSessionId(sessionId);
-  return normalized.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-}
-
 String _resolveShellExecutable() {
   if (Platform.isWindows) {
     return Platform.environment['COMSPEC'] ?? 'cmd.exe';
@@ -2252,11 +2324,12 @@ String _resolveShellExecutable() {
 }
 
 String _normalizeSessionId(String sessionId) {
-  final normalized = nullIfBlank(sessionId);
-  if (normalized == null) {
-    throw ArgumentError('sessionId must not be empty.');
-  }
-  return normalized;
+  return requireSafeStorageIdentifier(
+    sessionId,
+    label: '会话标识符',
+    errorFactory: (message) =>
+        ArgumentError.value(sessionId, 'sessionId', message),
+  );
 }
 
 List<String> _shellArguments(String shell) {
@@ -2348,9 +2421,27 @@ String _clipToolOutput(String value) =>
 
 String _clipString(String value, int maxCharacters) {
   if (value.length <= maxCharacters) return value;
-  final head = maxCharacters ~/ 2;
-  final tail = maxCharacters - head;
-  return '${value.substring(0, head)}\n[... clipped ${value.length - maxCharacters} chars ...]\n${value.substring(value.length - tail)}';
+  if (maxCharacters <= 0) return '';
+  var omitted = value.length - maxCharacters;
+  for (var attempt = 0; attempt < 8; attempt++) {
+    final marker = '\n[... clipped $omitted chars ...]\n';
+    if (marker.length >= maxCharacters) {
+      return value.substring(0, safeUtf16PrefixCodeUnits(value, maxCharacters));
+    }
+    final retained = maxCharacters - marker.length;
+    final requestedHead = retained ~/ 2;
+    final headEnd = safeUtf16PrefixCodeUnits(value, requestedHead);
+    final tailStart = safeUtf16SuffixStart(
+      value,
+      value.length - (retained - headEnd),
+    );
+    final actualOmitted = tailStart - headEnd;
+    if (actualOmitted == omitted) {
+      return '${value.substring(0, headEnd)}$marker${value.substring(tailStart)}';
+    }
+    omitted = actualOmitted;
+  }
+  throw StateError('终端文本截断长度计算失败。');
 }
 
 int _coerceRows(int value) => math.min(math.max(1, value), _maxRows);
