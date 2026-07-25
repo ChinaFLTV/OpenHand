@@ -11211,7 +11211,7 @@ class _McpChipStripItem {
   final bool trailingSpacing;
 }
 
-class _McpHorizontalChipStrip extends StatelessWidget {
+class _McpHorizontalChipStrip extends StatefulWidget {
   const _McpHorizontalChipStrip({
     super.key,
     this.items = const <_McpChipStripItem>[],
@@ -11231,36 +11231,74 @@ class _McpHorizontalChipStrip extends StatelessWidget {
   }
 
   @override
+  State<_McpHorizontalChipStrip> createState() =>
+      _McpHorizontalChipStripState();
+}
+
+class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
+  late List<_McpChipStripItem> _displayedItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayedItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+  }
+
+  @override
+  void didUpdateWidget(covariant _McpHorizontalChipStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextItems = List<_McpChipStripItem>.of(widget.resolvedItems);
+    final nextIds = nextItems.map((item) => item.id).toSet();
+    for (var index = 0; index < _displayedItems.length; index++) {
+      final previous = _displayedItems[index];
+      if (!nextIds.contains(previous.id)) {
+        nextItems.insert(index.clamp(0, nextItems.length), previous);
+      }
+    }
+    _displayedItems = nextItems;
+  }
+
+  void _removeDismissedItem(String itemId) {
+    if (widget.resolvedItems.any((item) => item.id == itemId)) return;
+    setState(() {
+      _displayedItems.removeWhere((item) => item.id == itemId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final resolved = resolvedItems;
-    final contentKey = Object.hashAll(
-      resolved.map(
-        (item) => Object.hash(item.id, item.contentKey, item.trailingSpacing),
-      ),
+    final settings = context.select(
+      (SettingsController controller) => controller.listItemAnimationSettings,
     );
+    final currentIds = widget.resolvedItems.map((item) => item.id).toSet();
     return SizedBox(
       height: _mcpChipStripHeight,
       child: SingleChildScrollView(
         primary: false,
         scrollDirection: Axis.horizontal,
-        child: AnimatedSwitcher(
-          duration: _mcpMotionDuration(context, _mcpChipTransitionDuration),
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeInCubic,
-          layoutBuilder: _mcpImmediateFillLayout,
-          transitionBuilder: _mcpChipTransition,
-          child: Row(
-            key: ValueKey<int>(contentKey),
-            children: [
-              for (final item in resolved)
-                Padding(
-                  padding: EdgeInsets.only(
-                    right: item.trailingSpacing ? 10 : 0,
+        child: Row(
+          children: [
+            for (final item in _displayedItems)
+              AnimatedAppearance(
+                key: ValueKey<String>('mcp-chip-appearance-${item.id}'),
+                settings: settings,
+                present: currentIds.contains(item.id),
+                collapseAxis: Axis.horizontal,
+                onDismissed: () => _removeDismissedItem(item.id),
+                child: IgnorePointer(
+                  ignoring: !currentIds.contains(item.id),
+                  child: _McpAnimatedChipContent(
+                    contentKey: item.contentKey ?? item.id,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: item.trailingSpacing ? 10 : 0,
+                      ),
+                      child: item.child,
+                    ),
                   ),
-                  child: item.child,
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -11310,25 +11348,6 @@ class _McpAnimatedChipContent extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _mcpImmediateFillLayout(
-  Widget? currentChild,
-  List<Widget> previousChildren,
-) {
-  return Stack(
-    alignment: Alignment.centerLeft,
-    clipBehavior: Clip.none,
-    children: <Widget>[
-      for (final child in previousChildren)
-        Positioned.fill(
-          child: IgnorePointer(
-            child: Align(alignment: Alignment.centerLeft, child: child),
-          ),
-        ),
-      currentChild ?? const SizedBox.shrink(),
-    ],
-  );
 }
 
 Widget _mcpChipTransition(Widget child, Animation<double> animation) {

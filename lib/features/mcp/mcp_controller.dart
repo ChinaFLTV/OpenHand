@@ -187,6 +187,8 @@ class McpController extends ChangeNotifier {
   final Map<String, McpToolCatalog> _toolCatalogByServerName =
       <String, McpToolCatalog>{};
   final Map<String, int> _toolRefreshGenerationByServerName = <String, int>{};
+  final Map<String, Future<void>> _activeToolRefreshes =
+      <String, Future<void>>{};
   final Map<String, McpServerHealth> _healthByServerName =
       <String, McpServerHealth>{};
   final Map<String, int> _healthCheckGenerationByServerName = <String, int>{};
@@ -554,6 +556,7 @@ class McpController extends ChangeNotifier {
     _opsPersistenceDebouncer.dispose();
     _healthCheckTimer?.cancel();
     _opsSnapshotNotifyTimer?.cancel();
+    _activeToolRefreshes.clear();
     _cancelQueuedAutoProbeSlots();
     if (_ownsToolDiscoveryService) {
       try {
@@ -1631,28 +1634,63 @@ class McpController extends ChangeNotifier {
     ]);
   }
 
-  /// 刷新期间保留当前展示快照；自动刷新失败时继续复用完整目录。
+  /// 同一服务仅保留一个刷新任务，避免并发刷新互相覆盖为永久加载状态。
   Future<void> refreshServerTools(
     String serverName, {
     bool requirePageActive = false,
     bool clearCachedTools = true,
-  }) async {
+  }) {
     if (_isDisposed || requirePageActive && !_isPageActive) {
-      return;
+      return Future<void>.value();
     }
     final normalizedServerName = _normalizeServerName(serverName);
     if (normalizedServerName.isEmpty) {
-      return;
+      return Future<void>.value();
     }
+    final activeRefresh = _activeToolRefreshes[normalizedServerName];
+    if (activeRefresh != null) return activeRefresh;
+
+    late final Future<void> refresh;
+    refresh =
+        Future<void>.microtask(
+          () => _performServerToolRefresh(
+            normalizedServerName,
+            requirePageActive: requirePageActive,
+            clearCachedTools: clearCachedTools,
+          ),
+        ).whenComplete(() {
+          if (identical(_activeToolRefreshes[normalizedServerName], refresh)) {
+            _activeToolRefreshes.remove(normalizedServerName);
+          }
+        });
+    _activeToolRefreshes[normalizedServerName] = refresh;
+    return refresh;
+  }
+
+  /// 刷新期间保留当前展示快照；自动刷新失败时继续复用完整目录。
+  Future<void> _performServerToolRefresh(
+    String normalizedServerName, {
+    required bool requirePageActive,
+    required bool clearCachedTools,
+  }) async {
+    if (_isDisposed || requirePageActive && !_isPageActive) return;
     final server = _serverByName(normalizedServerName);
     if (server == null) {
       return;
     }
+    final connectionSignature = mcpServerConnectionSignature(server);
 
     final nextGeneration =
         (_toolRefreshGenerationByServerName[normalizedServerName] ?? 0) + 1;
     _toolRefreshGenerationByServerName[normalizedServerName] = nextGeneration;
-    final previousCatalog = toolCatalogFor(normalizedServerName);
+    final currentCatalog = toolCatalogFor(normalizedServerName);
+    final cachedCatalog = _cachedToolCatalogs[normalizedServerName];
+    final previousCatalog = currentCatalog.isLoading
+        ? cachedCatalog != null &&
+                  cachedCatalog.connectionSignature == connectionSignature
+              ? cachedCatalog.catalog
+              : const McpToolCatalog()
+        : currentCatalog;
     final preserveDuringRefresh =
         !clearCachedTools &&
         previousCatalog.status == McpToolCatalogStatus.ready &&
@@ -1734,12 +1772,14 @@ class McpController extends ChangeNotifier {
             discoveredCatalog.tools,
           );
         }
+      }
+      notifyListeners();
+      if (discoveredCatalog.isComplete) {
         try {
           final cachedCatalog = _cachedToolCatalogs[normalizedServerName];
           final catalogChanged =
               cachedCatalog == null ||
-              cachedCatalog.connectionSignature !=
-                  mcpServerConnectionSignature(server) ||
+              cachedCatalog.connectionSignature != connectionSignature ||
               mcpToolCatalogContentSignature(cachedCatalog.catalog) !=
                   mcpToolCatalogContentSignature(discoveredCatalog);
           if (catalogChanged) {
@@ -1748,10 +1788,19 @@ class McpController extends ChangeNotifier {
               catalog: discoveredCatalog,
             );
           }
+          if (_isDisposed ||
+              _toolRefreshGenerationByServerName[normalizedServerName] !=
+                  nextGeneration ||
+              !_sameServerConnection(
+                server,
+                _serverByName(normalizedServerName),
+              )) {
+            return;
+          }
           _cachedToolCatalogs = <String, McpCachedToolCatalog>{
             ..._cachedToolCatalogs,
             normalizedServerName: McpCachedToolCatalog(
-              connectionSignature: mcpServerConnectionSignature(server),
+              connectionSignature: connectionSignature,
               catalog: discoveredCatalog,
             ),
           };
@@ -1759,7 +1808,6 @@ class McpController extends ChangeNotifier {
           silentLog('mcp', '保存工具目录缓存', error, stack);
         }
       }
-      notifyListeners();
     } catch (error) {
       if (_isDisposed ||
           requirePageActive && !_isPageActive ||
@@ -1981,6 +2029,7 @@ class McpController extends ChangeNotifier {
           previousServerName != changedServerName) {
         _toolCatalogByServerName.remove(previousServerName);
         _toolRefreshGenerationByServerName.remove(previousServerName);
+        _activeToolRefreshes.remove(previousServerName);
         _healthByServerName.remove(previousServerName);
         _healthCheckGenerationByServerName.remove(previousServerName);
       }
@@ -2098,6 +2147,9 @@ class McpController extends ChangeNotifier {
       (serverName, value) => !serverNames.contains(serverName),
     );
     _toolRefreshGenerationByServerName.removeWhere(
+      (serverName, value) => !serverNames.contains(serverName),
+    );
+    _activeToolRefreshes.removeWhere(
       (serverName, value) => !serverNames.contains(serverName),
     );
     for (final server in servers) {
@@ -2345,6 +2397,7 @@ class McpController extends ChangeNotifier {
         clearErrorMessage: true,
       );
     }
+    _activeToolRefreshes.clear();
   }
 
   void _reconcileHealthCheckTimer() {
@@ -2413,6 +2466,7 @@ class McpController extends ChangeNotifier {
   void _invalidateToolRefreshGeneration(String serverName) {
     _toolRefreshGenerationByServerName[serverName] =
         (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
+    _activeToolRefreshes.remove(serverName);
   }
 
   void _invalidateHealthCheckGeneration(String serverName) {
