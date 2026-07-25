@@ -2109,13 +2109,12 @@ class _FadeScaleTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final begin = _positiveFiniteDouble(profile.fadeScaleBegin, 0.94);
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: _positiveFiniteDouble(profile.fadeScaleBegin, 0.94),
-          end: 1.0,
-        ).animate(motion),
+      child: _PaintMatrixTransition(
+        animation: motion,
+        transformBuilder: (value) => _scaleMatrix(begin, value),
         alignment: profile.alignment,
         child: child,
       ),
@@ -2173,16 +2172,15 @@ class _ExpandTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final begin = _positiveFiniteDouble(profile.expandScaleBegin, 0.88);
     return FadeTransition(
       opacity: openHandBoundedCurveAnimation(
         parent: parentAnimation,
         curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: _positiveFiniteDouble(profile.expandScaleBegin, 0.88),
-          end: 1.0,
-        ).animate(motion),
+      child: _PaintMatrixTransition(
+        animation: motion,
+        transformBuilder: (value) => _scaleMatrix(begin, value),
         alignment: profile.alignment,
         child: child,
       ),
@@ -2204,24 +2202,22 @@ class _RotateScaleTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scale = Tween<double>(
-      begin: _positiveFiniteDouble(profile.rotateScaleBegin, 0.9),
-      end: 1.0,
-    ).animate(motion);
-    final rotation = Tween<double>(
-      begin: _finiteDouble(profile.rotateTurnsBegin, -0.05),
-      end: 0.0,
-    ).animate(motion);
+    final scaleBegin = _positiveFiniteDouble(profile.rotateScaleBegin, 0.9);
+    final turnsBegin = _finiteDouble(profile.rotateTurnsBegin, -0.05);
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(
-        scale: scale,
+      child: _PaintMatrixTransition(
+        animation: motion,
+        transformBuilder: (value) {
+          final progress = _safeTransformProgress(value);
+          final scale = _interpolate(scaleBegin, 1.0, progress);
+          final turns = _interpolate(turnsBegin, 0.0, progress);
+          return Matrix4.identity()
+            ..scaleByDouble(scale, scale, 1.0, 1.0)
+            ..rotateZ(turns * math.pi * 2);
+        },
         alignment: profile.alignment,
-        child: RotationTransition(
-          turns: rotation,
-          alignment: profile.alignment,
-          child: child,
-        ),
+        child: child,
       ),
     );
   }
@@ -2253,13 +2249,12 @@ class _ElasticTransition extends StatelessWidget {
       curve: curve,
       reverseCurve: reverseCurve,
     );
+    final begin = _positiveFiniteDouble(profile.elasticScaleBegin, 0.94);
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: _positiveFiniteDouble(profile.elasticScaleBegin, 0.94),
-          end: 1.0,
-        ).animate(scaleMotion),
+      child: _PaintMatrixTransition(
+        animation: scaleMotion,
+        transformBuilder: (value) => _scaleMatrix(begin, value),
         alignment: profile.alignment,
         child: child,
       ),
@@ -2295,13 +2290,12 @@ class _SpringScaleTransition extends StatelessWidget {
       curve: curve,
       reverseCurve: reverseCurve,
     );
+    final begin = _positiveFiniteDouble(profile.springScaleBegin, 0.94);
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: _positiveFiniteDouble(profile.springScaleBegin, 0.94),
-          end: 1.0,
-        ).animate(scaleMotion),
+      child: _PaintMatrixTransition(
+        animation: scaleMotion,
+        transformBuilder: (value) => _scaleMatrix(begin, value),
         alignment: profile.alignment,
         child: child,
       ),
@@ -2327,26 +2321,127 @@ class _FlipXTransition extends StatelessWidget {
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: opacity,
-      child: AnimatedBuilder(
+      child: _PaintMatrixTransition(
         animation: motion,
-        builder: (context, c) {
-          final t = openHandBoundedProgress(motion.value);
+        transformBuilder: (value) {
+          final t = openHandBoundedProgress(value);
           final angle = (1.0 - t) * _finiteDouble(profile.flipMaxAngle, 1.5708);
           final tilt = (1.0 - t) * _finiteDouble(profile.flipMaxTilt, 0.0);
-          final matrix = Matrix4.identity()
+          return Matrix4.identity()
             ..setEntry(3, 2, _finiteDouble(profile.flipPerspective, 0.0015))
             ..rotateX(angle)
             ..rotateZ(tilt);
-          return Transform(
-            transform: matrix,
-            alignment: profile.alignment,
-            child: c,
-          );
         },
+        alignment: profile.alignment,
         child: child,
       ),
     );
   }
+}
+
+typedef _PaintTransformBuilder = Matrix4 Function(double value);
+const double _kMaxTransformProgressMagnitude = 4.0;
+
+Matrix4 _scaleMatrix(double begin, double value) {
+  final scale = _interpolate(begin, 1.0, _safeTransformProgress(value));
+  return Matrix4.diagonal3Values(scale, scale, 1.0);
+}
+
+double _interpolate(double begin, double end, double progress) {
+  final value = begin + (end - begin) * progress;
+  return value.isFinite ? value : end;
+}
+
+double _safeTransformProgress(double value) {
+  if (value.isNaN) return 0.0;
+  if (!value.isFinite) {
+    return value.isNegative
+        ? -_kMaxTransformProgressMagnitude
+        : _kMaxTransformProgressMagnitude;
+  }
+  return value
+      .clamp(-_kMaxTransformProgressMagnitude, _kMaxTransformProgressMagnitude)
+      .toDouble();
+}
+
+class _PaintMatrixTransition extends SingleChildRenderObjectWidget {
+  const _PaintMatrixTransition({
+    required this.animation,
+    required this.transformBuilder,
+    required this.alignment,
+    required Widget super.child,
+  });
+
+  final Animation<double> animation;
+  final _PaintTransformBuilder transformBuilder;
+  final Alignment alignment;
+
+  @override
+  _PaintMatrixRenderObject createRenderObject(BuildContext context) {
+    return _PaintMatrixRenderObject(
+      animation: animation,
+      transformBuilder: transformBuilder,
+      alignment: alignment,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _PaintMatrixRenderObject renderObject,
+  ) {
+    renderObject
+      ..animation = animation
+      ..transformBuilder = transformBuilder
+      ..alignment = alignment;
+  }
+}
+
+/// 仅在绘制阶段更新矩阵，避免动画帧在 LayoutBuilder 布局回调中请求重建。
+class _PaintMatrixRenderObject extends RenderTransform {
+  _PaintMatrixRenderObject({
+    required Animation<double> animation,
+    required _PaintTransformBuilder transformBuilder,
+    required Alignment alignment,
+  }) : _animation = animation,
+       _transformBuilder = transformBuilder,
+       super(
+         transform: transformBuilder(animation.value),
+         alignment: alignment,
+       );
+
+  Animation<double> _animation;
+  _PaintTransformBuilder _transformBuilder;
+
+  set animation(Animation<double> value) {
+    if (identical(_animation, value)) return;
+    if (attached) {
+      _animation.removeListener(_updateTransform);
+      value.addListener(_updateTransform);
+    }
+    _animation = value;
+    _updateTransform();
+  }
+
+  set transformBuilder(_PaintTransformBuilder value) {
+    if (identical(_transformBuilder, value)) return;
+    _transformBuilder = value;
+    _updateTransform();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _animation.addListener(_updateTransform);
+  }
+
+  @override
+  void detach() {
+    _animation.removeListener(_updateTransform);
+    super.detach();
+  }
+
+  void _updateTransform() => transform = _transformBuilder(_animation.value);
 }
 
 class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
