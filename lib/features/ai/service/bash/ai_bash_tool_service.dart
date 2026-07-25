@@ -9,6 +9,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/platform_shell.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../runtime/ai_tool_execution_registry.dart';
@@ -31,19 +32,15 @@ void _appendCapturedOutput(
   final markerLength = _capturedOutputTruncatedMarker.length < remaining
       ? _capturedOutputTruncatedMarker.length
       : remaining;
-  var contentLength = remaining - markerLength;
-  if (contentLength > 0 &&
-      contentLength < chunk.length &&
-      _isHighSurrogate(chunk.codeUnitAt(contentLength - 1))) {
-    contentLength -= 1;
-  }
+  final contentLength = safeUtf16PrefixCodeUnits(
+    chunk,
+    remaining - markerLength,
+  );
   if (contentLength > 0) {
     buffer.write(chunk.substring(0, contentLength));
   }
   buffer.write(_capturedOutputTruncatedMarker.substring(0, markerLength));
 }
-
-bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
 
 enum BashToolExecutionStatus {
   success('success'),
@@ -364,7 +361,7 @@ class _PersistentBashExecution {
 
   static String _tailString(String text, int maxChars) {
     if (text.length <= maxChars) return text;
-    return text.substring(text.length - maxChars);
+    return text.substring(safeUtf16SuffixStart(text, text.length - maxChars));
   }
 
   void appendStdoutChunk(String chunk, int maxCapturedCharacters) {
@@ -416,7 +413,9 @@ class _PersistentBashExecution {
       _stdoutLineBuffer.write(segment);
       return;
     }
-    _stdoutLineBuffer.write(segment.substring(0, remaining));
+    _stdoutLineBuffer.write(
+      segment.substring(0, safeUtf16PrefixCodeUnits(segment, remaining)),
+    );
     _stdoutLineTruncated = true;
   }
 

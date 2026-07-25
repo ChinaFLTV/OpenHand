@@ -1858,7 +1858,6 @@ String _toolContentDownloadFileName(String label, String? language) {
   final baseName = sanitizePortableFileNamePart(
     normalized,
     fallback: 'tool_output',
-    maxCharacters: null,
     collapseReplacement: true,
     trimBoundaryReplacement: true,
   );

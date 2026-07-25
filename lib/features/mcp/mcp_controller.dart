@@ -1372,12 +1372,10 @@ class McpController extends ChangeNotifier {
             registry.cancelRegistration(registration),
       ),
     );
-    final effectiveCancelSignal = registration == null
-        ? context.cancelSignal
-        : Future.any<void>(<Future<void>>[
-            context.cancelSignal,
-            registration.cancelSignal,
-          ]);
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      context.cancelSignal,
+      registration?.cancelSignal,
+    ])!;
     try {
       final result = await registry.runRegistered(
         registration,

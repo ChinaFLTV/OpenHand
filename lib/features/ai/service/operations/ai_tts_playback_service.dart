@@ -1692,7 +1692,9 @@ class AiTtsPlaybackService {
       final remaining = maxChars - stderrBuffer.length;
       if (remaining <= 0) return;
       stderrBuffer.write(
-        chunk.length <= remaining ? chunk : chunk.substring(0, remaining),
+        chunk.length <= remaining
+            ? chunk
+            : chunk.substring(0, safeUtf16PrefixCodeUnits(chunk, remaining)),
       );
     }, onError: (Object _, StackTrace _) {});
     final stdoutSubscription = process.stdout.listen(

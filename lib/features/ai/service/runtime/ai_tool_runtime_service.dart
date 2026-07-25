@@ -1178,13 +1178,11 @@ class AiToolRuntimeService {
       AiToolExecutionRegistration? registration,
     ) async {
       Future<void>? combinedCancelSignal([Future<void>? timeoutSignal]) {
-        final signals = <Future<void>>[
-          if (cancelSignal != null) cancelSignal,
-          if (registration != null) registration.cancelSignal,
-          if (timeoutSignal != null) timeoutSignal,
-        ];
-        if (signals.isEmpty) return null;
-        return signals.length == 1 ? signals.single : Future.any<void>(signals);
+        return combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          registration?.cancelSignal,
+          timeoutSignal,
+        ]);
       }
 
       final localTimeout = timeoutDuration;
@@ -1271,17 +1269,12 @@ class AiToolRuntimeService {
       );
       executionRegistration = registration;
       try {
-        final signals = <Future<void>>[
-          if (cancelSignal != null) cancelSignal,
-          if (registration != null) registration.cancelSignal,
-        ];
         return delayUntilCancelled(
           backoff,
-          cancelSignal: signals.isEmpty
-              ? null
-              : signals.length == 1
-              ? signals.single
-              : Future.any<void>(signals),
+          cancelSignal: combineCancelSignals(<Future<void>?>[
+            cancelSignal,
+            registration?.cancelSignal,
+          ]),
         );
       } finally {
         if (registration != null) {

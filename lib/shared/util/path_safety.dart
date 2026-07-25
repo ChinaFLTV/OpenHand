@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:path/path.dart' as p;
 
 import 'text_clip.dart';
 
 const int kOpenHandMaxAncestorDirectoryDepth = 256;
+const int kPortableFileNameMaxCodeUnits = 255;
+const int kPortableFileNameMaxUtf8Bytes = 255;
 const String _kEmptyPathError = 'path must not be empty.';
 const String _kRelativePathError = 'path must be relative.';
 const String _kParentTraversalError =
@@ -10,11 +14,16 @@ const String _kParentTraversalError =
 const String _kNullBytePathError = 'path must not contain null bytes.';
 final RegExp _portableFileNameUnsafeCharsPattern = RegExp(r'[^A-Za-z0-9._-]+');
 final RegExp _displayFileNameUnsafeCharsPattern = RegExp(
-  r'[\\/:*?"<>|\x00-\x1f]+',
+  r'[\\/:*?"<>|\x00-\x1f\x7f]+',
+);
+final RegExp _reservedWindowsFileNamePattern = RegExp(
+  r'^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$',
+  caseSensitive: false,
 );
 final RegExp _whitespacePattern = RegExp(r'\s+');
 final RegExp _replacementRunPattern = RegExp(r'_+');
 final RegExp _boundaryReplacementPattern = RegExp(r'^_+|_+$');
+final RegExp _trailingFileNameCharsPattern = RegExp(r'[ .]+$');
 
 /// Returns true when [candidate] resolves to [parent] or a descendant of it.
 ///
@@ -106,18 +115,67 @@ List<String> ancestorDirectoriesFrom(
   return directories.reversed.toList(growable: false);
 }
 
-/// Sanitizes a single portable file or directory name segment.
-///
-/// This helper intentionally handles only a basename-like segment, not a full
-/// path. Use [safeRelativePathError] for user-supplied relative paths.
+/// 判断字符串是否为可跨平台使用的单个文件名片段。
+bool isPortableFileNamePart(
+  String value, {
+  int maxCodeUnits = kPortableFileNameMaxCodeUnits,
+  int maxUtf8Bytes = kPortableFileNameMaxUtf8Bytes,
+}) {
+  if (value.isEmpty ||
+      maxCodeUnits <= 0 ||
+      maxUtf8Bytes <= 0 ||
+      value.length > maxCodeUnits ||
+      value == '.' ||
+      value == '..' ||
+      value.endsWith(' ') ||
+      value.endsWith('.') ||
+      _displayFileNameUnsafeCharsPattern.hasMatch(value) ||
+      _reservedWindowsFileNamePattern.hasMatch(value)) {
+    return false;
+  }
+  return utf8.encode(value).length <= maxUtf8Bytes;
+}
+
+/// 清理单个跨平台文件名或目录名片段，不处理完整路径。
 String sanitizePortableFileNamePart(
   String input, {
   String fallback = 'file',
   int? maxCharacters = 120,
+  int maxUtf8Bytes = kPortableFileNameMaxUtf8Bytes,
   bool allowWhitespace = false,
   bool collapseReplacement = false,
   bool trimBoundaryReplacement = false,
 }) {
+  final sanitized = _sanitizePortableFileNamePart(
+    input,
+    maxCharacters: maxCharacters,
+    maxUtf8Bytes: maxUtf8Bytes,
+    allowWhitespace: allowWhitespace,
+    collapseReplacement: collapseReplacement,
+    trimBoundaryReplacement: trimBoundaryReplacement,
+  );
+  if (sanitized.isNotEmpty) return sanitized;
+  return _sanitizePortableFileNamePart(
+    fallback,
+    maxCharacters: maxCharacters,
+    maxUtf8Bytes: maxUtf8Bytes,
+    allowWhitespace: allowWhitespace,
+    collapseReplacement: collapseReplacement,
+    trimBoundaryReplacement: trimBoundaryReplacement,
+  );
+}
+
+String _sanitizePortableFileNamePart(
+  String input, {
+  required int? maxCharacters,
+  required int maxUtf8Bytes,
+  required bool allowWhitespace,
+  required bool collapseReplacement,
+  required bool trimBoundaryReplacement,
+}) {
+  if (maxCharacters != null && maxCharacters <= 0 || maxUtf8Bytes <= 0) {
+    return '';
+  }
   var sanitized = input.replaceAll(
     allowWhitespace
         ? _displayFileNameUnsafeCharsPattern
@@ -133,8 +191,20 @@ String sanitizePortableFileNamePart(
   if (trimBoundaryReplacement) {
     sanitized = sanitized.replaceAll(_boundaryReplacementPattern, '');
   }
-  if (sanitized.isEmpty) return fallback;
-  if (maxCharacters == null) return sanitized;
-  if (maxCharacters <= 0) return fallback;
-  return clipText(sanitized, maxCharacters, suffix: '');
+  if (maxCharacters != null) {
+    sanitized = clipText(sanitized, maxCharacters, suffix: '');
+  }
+  final utf8PrefixLength = safeUtf8PrefixCodeUnits(sanitized, maxUtf8Bytes);
+  sanitized = sanitized
+      .substring(0, utf8PrefixLength)
+      .replaceFirst(_trailingFileNameCharsPattern, '');
+  if (_reservedWindowsFileNamePattern.hasMatch(sanitized)) {
+    sanitized = '_$sanitized';
+    final safeLength = safeUtf8PrefixCodeUnits(sanitized, maxUtf8Bytes);
+    sanitized = sanitized.substring(0, safeLength);
+    if (maxCharacters != null) {
+      sanitized = clipText(sanitized, maxCharacters, suffix: '');
+    }
+  }
+  return sanitized == '.' || sanitized == '..' ? '' : sanitized;
 }

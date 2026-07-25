@@ -502,7 +502,12 @@ class WebFetchScraplingBridge {
             final trimmed = nullIfBlank(line);
             if (trimmed == null) return;
             runtime.stderrTail = trimmed.length > _maxStderrTailLength
-                ? trimmed.substring(trimmed.length - _maxStderrTailLength)
+                ? trimmed.substring(
+                    safeUtf16SuffixStart(
+                      trimmed,
+                      trimmed.length - _maxStderrTailLength,
+                    ),
+                  )
                 : trimmed;
           },
           onError: (Object error, StackTrace stack) {
@@ -667,12 +672,10 @@ class WebFetchScraplingBridge {
       ]);
       final result = await awaitWithCancelSignal(
         commandOutcome,
-        cancelSignal: cancelSignal == null
-            ? _disposeSignal.future
-            : Future.any<void>(<Future<void>>[
-                cancelSignal,
-                _disposeSignal.future,
-              ]),
+        cancelSignal: combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          _disposeSignal.future,
+        ]),
       );
       if (result is _TimeoutToken) {
         runtime.pending.remove(id);

@@ -469,16 +469,10 @@ class AiFileHistoryService {
   }
 
   bool _isSafeVersionId(String versionId) {
-    if (versionId.isEmpty ||
-        versionId.length > _maxVersionIdCharacters ||
-        versionId == '.' ||
-        versionId == '..' ||
-        versionId.contains('\u0000')) {
-      return false;
-    }
-    return p.basename(versionId) == versionId &&
-        p.posix.basename(versionId) == versionId &&
-        p.windows.basename(versionId) == versionId;
+    return isPortableFileNamePart(
+      versionId,
+      maxCodeUnits: _maxVersionIdCharacters,
+    );
   }
 }
 

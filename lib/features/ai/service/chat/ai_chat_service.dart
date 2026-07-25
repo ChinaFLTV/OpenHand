@@ -2553,12 +2553,10 @@ class AiChatService implements AiChatClient {
     // Internal cancel signal so `cancel()` releases both the wrapper and the
     // underlying abortable request when no external signal was supplied.
     final internalCancelCompleter = Completer<void>();
-    final effectiveCancelSignal = cancelSignal == null
-        ? internalCancelCompleter.future
-        : Future.any<void>(<Future<void>>[
-            internalCancelCompleter.future,
-            cancelSignal,
-          ]);
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      internalCancelCompleter.future,
+      cancelSignal,
+    ])!;
     var cancelled = false;
 
     void completeCancelled() {

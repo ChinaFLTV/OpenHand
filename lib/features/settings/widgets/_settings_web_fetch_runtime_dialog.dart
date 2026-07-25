@@ -40,8 +40,19 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
 
   @override
   void dispose() {
-    unawaited(_runtimeSubscription?.cancel());
+    final runtimeSubscription = _runtimeSubscription;
     _runtimeSubscription = null;
+    unawaited(
+      cancelStreamSubscriptionBounded<WebFetchScraplingRuntimeEvent>(
+        runtimeSubscription,
+        onError: (error, stack) => silentLog(
+          'settings_web_fetch_runtime_dialog',
+          '取消 Scrapling 运行时事件订阅',
+          error,
+          stack,
+        ),
+      ),
+    );
     _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();

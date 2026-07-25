@@ -1,5 +1,6 @@
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
@@ -275,7 +276,7 @@ class KnowledgeChunker {
   String _tailOverlap(String text, int maxChars) {
     if (maxChars <= 0 || text.isEmpty) return '';
     if (text.length <= maxChars) return text;
-    return text.substring(text.length - maxChars);
+    return text.substring(safeUtf16SuffixStart(text, text.length - maxChars));
   }
 
   _ChunkTuning _tuning(KnowledgeBaseSettings settings) {

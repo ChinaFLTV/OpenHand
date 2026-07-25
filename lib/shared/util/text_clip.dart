@@ -1,6 +1,50 @@
+import 'dart:convert';
+
 import 'package:characters/characters.dart';
 
 import 'input_value_parsing.dart';
+
+/// 返回不拆分 UTF-16 代理对的安全前缀长度。
+int safeUtf16PrefixCodeUnits(String value, int requestedLength) {
+  var length = requestedLength.clamp(0, value.length);
+  if (length > 0 &&
+      length < value.length &&
+      _isHighSurrogate(value.codeUnitAt(length - 1)) &&
+      _isLowSurrogate(value.codeUnitAt(length))) {
+    length -= 1;
+  }
+  return length;
+}
+
+/// 返回不拆分 UTF-16 代理对的安全后缀起点。
+int safeUtf16SuffixStart(String value, int requestedStart) {
+  var start = requestedStart.clamp(0, value.length);
+  if (start > 0 &&
+      start < value.length &&
+      _isHighSurrogate(value.codeUnitAt(start - 1)) &&
+      _isLowSurrogate(value.codeUnitAt(start))) {
+    start += 1;
+  }
+  return start;
+}
+
+/// 返回不拆分字符且不超过 UTF-8 字节上限的安全前缀长度。
+int safeUtf8PrefixCodeUnits(String value, int maxBytes) {
+  if (maxBytes <= 0) return 0;
+  var byteLength = 0;
+  var codeUnitLength = 0;
+  for (final character in value.characters) {
+    final characterByteLength = utf8.encode(character).length;
+    if (byteLength + characterByteLength > maxBytes) break;
+    byteLength += characterByteLength;
+    codeUnitLength += character.length;
+  }
+  return codeUnitLength;
+}
+
+bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
+
+bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
 
 String clipText(String value, int maxChars, {String suffix = '...'}) {
   final safeMaxChars = maxChars < 0 ? 0 : maxChars;

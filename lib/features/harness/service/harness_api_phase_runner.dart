@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
@@ -448,20 +449,14 @@ class HarnessApiPhaseRunner {
     try {
       while (true) {
         // Check cancellation.
-        if (cancelSignal != null) {
-          try {
-            await cancelSignal.timeout(Duration.zero);
-            // If the signal has already completed, we're cancelled.
-            emit('');
-            emit('⚠ 已中止');
-            return HarnessApiPhaseResult(
-              success: false,
-              outputLines: outputLines,
-              errorMessage: '执行被用户中止。',
-            );
-          } on TimeoutException {
-            // Not yet cancelled — continue.
-          }
+        if (await isCancelSignalCompleted(cancelSignal)) {
+          emit('');
+          emit('⚠ 已中止');
+          return HarnessApiPhaseResult(
+            success: false,
+            outputLines: outputLines,
+            errorMessage: '执行被用户中止。',
+          );
         }
 
         // Handoff if approaching context window limit: generate a handoff

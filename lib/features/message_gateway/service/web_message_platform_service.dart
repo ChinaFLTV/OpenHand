@@ -4618,11 +4618,9 @@ class WebMessagePlatformService {
       });
     }
     final exportSession = await _loadExportSessionSnapshot(session);
-    final safeTitle =
-        (exportSession.title.isEmpty ? 'session' : exportSession.title)
-            .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
-    final filename = normalizeJsonlExportFilename(
-      '${safeTitle}_${exportSession.id}.jsonl',
+    final filename = buildJsonlExportFilename(
+      title: exportSession.title,
+      sessionId: exportSession.id,
     );
     return shelf.Response.ok(
       _observeOutboundByteStream(
@@ -9178,7 +9176,6 @@ class WebMessagePlatformService {
     final ascii = sanitizePortableFileNamePart(
       filename,
       fallback: '',
-      maxCharacters: null,
       collapseReplacement: true,
       trimBoundaryReplacement: true,
     );

@@ -307,15 +307,11 @@ class _ThreadSessionManagementDialogState
     );
     if (config == null || !mounted) return;
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
-    final safeTitle = full.title
-        .replaceAll(RegExp(r'[^A-Za-z0-9_\u4e00-\u9fa5]+'), '_')
-        .trim();
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
         suggestedName: jsonlExportPickerSuggestedName(
-          '${safeTitle.isEmpty ? "session" : safeTitle}_'
-          '${full.id}.jsonl',
+          buildJsonlExportFilename(title: full.title, sessionId: full.id),
         ),
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
@@ -425,11 +421,9 @@ class _ThreadSessionManagementDialogState
         failed++;
         continue;
       }
-      final safeTitle = full.title
-          .replaceAll(RegExp(r'[^A-Za-z0-9_\u4e00-\u9fa5]+'), '_')
-          .trim();
-      final fileName = normalizeJsonlExportFilename(
-        '${safeTitle.isEmpty ? "session" : safeTitle}_${full.id}.jsonl',
+      final fileName = buildJsonlExportFilename(
+        title: full.title,
+        sessionId: full.id,
       );
       final destPath = '$folderPath/$fileName';
       try {

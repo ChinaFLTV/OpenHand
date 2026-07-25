@@ -8514,17 +8514,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  /// Sanitises a session title for use in a default filename. Strips path
-  /// separators, control chars, and trims to a reasonable length.
-  String _sanitizeFileBasename(String input) {
-    return sanitizePortableFileNamePart(
-      input,
-      fallback: 'session',
-      maxCharacters: 80,
-      allowWhitespace: true,
-    );
-  }
-
   /// Hard cap on a single export operation so a corrupt session can never
   /// hang the UI indefinitely.
   static const Duration _exportTimeout = Duration(minutes: 5);
@@ -8575,7 +8564,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // Step 3: pick the destination file.
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
     final suggested = jsonlExportPickerSuggestedName(
-      '${_sanitizeFileBasename(loaded.title)}_${loaded.id}.jsonl',
+      buildJsonlExportFilename(title: loaded.title, sessionId: loaded.id),
     );
     FileSaveLocation? location;
     try {
@@ -8666,7 +8655,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // Step 2: pick the destination file.
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
     final suggested = jsonlExportPickerSuggestedName(
-      '${_sanitizeFileBasename(record.title)}_${record.id}.jsonl',
+      buildJsonlExportFilename(title: record.title, sessionId: record.id),
     );
     FileSaveLocation? location;
     try {

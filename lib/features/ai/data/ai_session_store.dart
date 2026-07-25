@@ -155,14 +155,14 @@ class AiSessionStore {
   String sessionAttachmentsDirectoryPath(String sessionId) {
     return p.join(
       attachmentsDirectoryPath,
-      _requireSafeStorageIdentifier(sessionId, label: '会话标识符'),
+      requireSafeStorageIdentifier(sessionId, label: '会话标识符'),
     );
   }
 
   String sessionDirectoryPath(String sessionId) {
     return p.join(
       _sessionsDirectoryPath,
-      _requireSafeStorageIdentifier(sessionId, label: '会话标识符'),
+      requireSafeStorageIdentifier(sessionId, label: '会话标识符'),
     );
   }
 
@@ -368,7 +368,7 @@ class AiSessionStore {
 
   /// Retained for backward compatibility (attachment management).
   String sessionFilePath(String sessionId) {
-    final normalizedSessionId = _requireSafeStorageIdentifier(
+    final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
       label: '会话标识符',
     );
@@ -606,7 +606,7 @@ class AiSessionStore {
   }
 
   Future<AiSession?> loadHeader(String sessionId) async {
-    final normalizedSessionId = _requireSafeStorageIdentifier(
+    final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
       label: '会话标识符',
     );
@@ -1332,11 +1332,11 @@ class AiSessionStore {
     String sessionId,
     String messageId,
   ) async {
-    final normalizedSessionId = _requireSafeStorageIdentifier(
+    final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
       label: '会话标识符',
     );
-    final normalizedMessageId = _requireSafeStorageIdentifier(
+    final normalizedMessageId = requireSafeStorageIdentifier(
       messageId,
       label: '消息标识符',
     );
@@ -1445,11 +1445,11 @@ class AiSessionStore {
     required String messageId,
     required Map<String, Object?> metadata,
   }) async {
-    final normalizedSessionId = _requireSafeStorageIdentifier(
+    final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
       label: '会话标识符',
     );
-    final normalizedMessageId = _requireSafeStorageIdentifier(
+    final normalizedMessageId = requireSafeStorageIdentifier(
       messageId,
       label: '消息标识符',
     );
@@ -1465,7 +1465,7 @@ class AiSessionStore {
   /// Deletes a session and all its messages from the database, plus
   /// per-session artifacts from disk.
   Future<void> delete(String sessionId) async {
-    final normalizedSessionId = _requireSafeStorageIdentifier(
+    final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
       label: '会话标识符',
     );
@@ -2092,20 +2092,12 @@ class AiSessionStore {
   }
 }
 
-String _requireSafeStorageIdentifier(String value, {required String label}) {
-  final normalizedValue = value.trim();
-  if (!isSafeStorageIdentifier(normalizedValue)) {
-    throw FormatException('$label 无效：$value');
-  }
-  return normalizedValue;
-}
-
 void _validateSessionForStorage(
   AiSession session, {
   Set<String>? seenSessionIds,
   bool checkDuplicateSessionIds = false,
 }) {
-  final sessionId = _requireSafeStorageIdentifier(session.id, label: '会话标识符');
+  final sessionId = requireSafeStorageIdentifier(session.id, label: '会话标识符');
   if (checkDuplicateSessionIds &&
       seenSessionIds != null &&
       !seenSessionIds.add(sessionId)) {
@@ -2114,7 +2106,7 @@ void _validateSessionForStorage(
 
   final seenMessageIds = <String>{};
   for (final message in session.messages) {
-    final messageId = _requireSafeStorageIdentifier(message.id, label: '消息标识符');
+    final messageId = requireSafeStorageIdentifier(message.id, label: '消息标识符');
     if (!seenMessageIds.add(messageId)) {
       throw FormatException('会话 $sessionId 中检测到重复消息标识符：$messageId');
     }

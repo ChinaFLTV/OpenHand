@@ -13,6 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_dialog_utils.dart';
@@ -353,7 +354,9 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     if (value.length <= _maxBufferedChars) {
       return value;
     }
-    return value.substring(value.length - _maxBufferedChars);
+    return value.substring(
+      safeUtf16SuffixStart(value, value.length - _maxBufferedChars),
+    );
   }
 
   void _scrollToBottom() {

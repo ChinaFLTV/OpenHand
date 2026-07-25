@@ -198,6 +198,22 @@ Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) {
   ]);
 }
 
+/// 合并多个取消信号；任一信号正常或异常完成时，合并信号均正常完成。
+///
+/// 空集合返回 `null`，避免调用方重复维护空集合和单信号分支。
+Future<void>? combineCancelSignals(Iterable<Future<void>?> signals) {
+  final normalized = signals
+      .whereType<Future<void>>()
+      .map(
+        (signal) =>
+            signal.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      )
+      .toList(growable: false);
+  if (normalized.isEmpty) return null;
+  if (normalized.length == 1) return normalized.single;
+  return Future.any<void>(normalized);
+}
+
 Future<bool> delayUntilCancelled(
   Duration delay, {
   Future<void>? cancelSignal,

@@ -1,5 +1,7 @@
 import 'dart:collection';
 
+import 'text_clip.dart';
+
 /// 保留最新日志，同时限制行数和字符数，避免单个超长日志撑爆内存。
 class BoundedLogBuffer {
   BoundedLogBuffer({
@@ -54,12 +56,7 @@ class BoundedLogBuffer {
 
   String _retainLatestCharacters(String value) {
     if (value.length <= maxCharacters) return value;
-    var start = value.length - maxCharacters;
-    if (start < value.length && _isLowSurrogate(value.codeUnitAt(start))) {
-      start += 1;
-    }
+    final start = safeUtf16SuffixStart(value, value.length - maxCharacters);
     return value.substring(start);
   }
 }
-
-bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;

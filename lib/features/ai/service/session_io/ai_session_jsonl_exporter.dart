@@ -5,6 +5,8 @@ import 'dart:io';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/stable_hash.dart';
 import '../../../harness/index.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_session.dart';
@@ -16,6 +18,11 @@ const int _maxJsonSanitizeDepth = 96;
 const String _jsonlExtension = '.jsonl';
 const String _defaultJsonlExportFilename = 'session.jsonl';
 final RegExp _jsonlExtensionPattern = RegExp(r'\.jsonl$', caseSensitive: false);
+const int _exportTitleMaxCharacters = 80;
+const int _exportTitleMaxUtf8Bytes = 100;
+const int _exportSessionIdPrefixMaxCharacters = 115;
+const int _exportSessionIdPrefixMaxUtf8Bytes = 115;
+const int _exportSessionIdHashLength = 12;
 
 /// A simple cooperative cancellation token for export operations.
 class ExportCancelToken {
@@ -833,6 +840,37 @@ String normalizeJsonlExportFilename(String input) {
     base = base.substring(0, base.length - _jsonlExtension.length);
   }
   return '${base.isEmpty ? 'session' : base}$suffix';
+}
+
+/// 生成长度受控且可跨平台使用的会话导出文件名。
+String buildJsonlExportFilename({
+  required String title,
+  required String sessionId,
+}) {
+  final normalizedTitle = sanitizePortableFileNamePart(
+    title,
+    fallback: 'session',
+    maxCharacters: _exportTitleMaxCharacters,
+    maxUtf8Bytes: _exportTitleMaxUtf8Bytes,
+    allowWhitespace: true,
+    collapseReplacement: true,
+  );
+  final rawSessionId = sessionId.trim();
+  var normalizedSessionId = sanitizePortableFileNamePart(
+    rawSessionId,
+    fallback: 'session',
+    maxCharacters: _exportSessionIdPrefixMaxCharacters,
+    maxUtf8Bytes: _exportSessionIdPrefixMaxUtf8Bytes,
+    allowWhitespace: true,
+    collapseReplacement: true,
+    trimBoundaryReplacement: true,
+  );
+  if (normalizedSessionId != rawSessionId) {
+    normalizedSessionId =
+        '${normalizedSessionId}_'
+        '${stableSha256Hex(rawSessionId, length: _exportSessionIdHashLength)}';
+  }
+  return '${normalizedTitle}_$normalizedSessionId$_jsonlExtension';
 }
 
 String jsonlExportPickerSuggestedName(String input) {

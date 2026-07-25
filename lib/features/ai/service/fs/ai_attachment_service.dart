@@ -818,7 +818,6 @@ class AiAttachmentService {
     final normalized = sanitizePortableFileNamePart(
       sourceName,
       fallback: 'attachment',
-      maxCharacters: null,
     );
     return '${sequence.toString().padLeft(2, '0')}-$normalized';
   }
@@ -1327,9 +1326,9 @@ class _ZipEntry {
 }
 
 String _requireSafeStorageIdentifier(String value, {required String label}) {
-  final normalizedValue = value.trim();
-  if (!isSafeStorageIdentifier(normalizedValue)) {
-    throw AiAttachmentException('$label 无效：$value');
-  }
-  return normalizedValue;
+  return requireSafeStorageIdentifier(
+    value,
+    label: label,
+    errorFactory: AiAttachmentException.new,
+  );
 }

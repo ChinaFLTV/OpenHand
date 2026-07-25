@@ -9,6 +9,7 @@ import '../../../app/support/app_runtime_context.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/text_clip.dart';
 
@@ -130,10 +131,10 @@ class CronExecutor {
             capSeconds: clampCronRetryDelaySeconds(entry.maxRetryDelaySeconds),
           ),
         );
-        await Future.any<void>(<Future<void>>[
-          Future<void>.delayed(delay),
-          cancellationToken.cancelled,
-        ]);
+        await delayUntilCancelled(
+          delay,
+          cancelSignal: cancellationToken.cancelled,
+        );
         if (cancellationToken.isCancelled) {
           return _buildRecord(
             id: id,

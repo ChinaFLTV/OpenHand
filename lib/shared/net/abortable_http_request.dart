@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../util/async_concurrency.dart';
+
 /// 将普通 package:http 请求作为 [http.AbortableRequest] 发送。
 ///
 /// 外部取消会中止响应头获取及后续响应流；响应头超时也会终止底层 I/O，
@@ -20,16 +22,10 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
   }
 
   final connectionTimeoutAbort = Completer<void>();
-  final normalizedCancelSignal = cancelSignal?.then<void>(
-    (_) {},
-    onError: (Object _, StackTrace _) {},
-  );
-  final abortTrigger = normalizedCancelSignal == null
-      ? connectionTimeoutAbort.future
-      : Future.any<void>([
-          normalizedCancelSignal,
-          connectionTimeoutAbort.future,
-        ]);
+  final abortTrigger = combineCancelSignals(<Future<void>?>[
+    cancelSignal,
+    connectionTimeoutAbort.future,
+  ])!;
   final abortableRequest =
       http.AbortableRequest(
           request.method,

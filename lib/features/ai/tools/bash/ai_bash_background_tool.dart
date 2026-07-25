@@ -6,6 +6,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -1092,7 +1093,9 @@ class _BgSession {
       // Trim oldest half to keep memory bounded.
       final retained = buffer.toString();
       final cut = retained.length - maxBytes;
-      final trimmed = cut > 0 ? retained.substring(cut) : retained;
+      final trimmed = cut > 0
+          ? retained.substring(safeUtf16SuffixStart(retained, cut))
+          : retained;
       buffer
         ..clear()
         ..write(trimmed);
@@ -1105,6 +1108,8 @@ class _BgSession {
     buffer.clear();
     if (pending.length <= maxBytes) return pending;
     // Keep the tail (most recent output) when oversized.
-    return pending.substring(pending.length - maxBytes);
+    return pending.substring(
+      safeUtf16SuffixStart(pending, pending.length - maxBytes),
+    );
   }
 }

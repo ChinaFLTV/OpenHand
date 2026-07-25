@@ -7046,14 +7046,10 @@ class AiSessionController extends ChangeNotifier {
       );
       _previewSession(workingSession);
       final stopSignal = _stopSignalForSession(workingSession.id);
-      if (stopSignal == null) {
-        await Future<void>.delayed(_transientModelRequestRetryDelay);
-      } else {
-        await Future.any<void>(<Future<void>>[
-          Future<void>.delayed(_transientModelRequestRetryDelay),
-          stopSignal,
-        ]);
-      }
+      await delayUntilCancelled(
+        _transientModelRequestRetryDelay,
+        cancelSignal: stopSignal,
+      );
       return !_isStopRequestedForSession(workingSession.id);
     }
 

@@ -9,6 +9,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
+import '../util/text_clip.dart';
 
 /// Process-local queue for each normalized target. A separate OS file lock is
 /// acquired inside the queue so independent app instances cannot clobber the
@@ -337,13 +338,8 @@ Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
       (output, nextOperationTimeout) async {
         var offset = 0;
         while (offset < content.length) {
-          var end = offset + _atomicTextChunkCodeUnits;
-          if (end >= content.length) {
-            end = content.length;
-          } else if (_isHighSurrogate(content.codeUnitAt(end - 1)) &&
-              _isLowSurrogate(content.codeUnitAt(end))) {
-            end += 1;
-          }
+          final requestedEnd = offset + _atomicTextChunkCodeUnits;
+          final end = safeUtf16PrefixCodeUnits(content, requestedEnd);
           final chunk = utf8.encode(content.substring(offset, end));
           await output.run(
             (file) => file.writeFrom(chunk),
@@ -380,10 +376,6 @@ Future<void> _writeBytesFileAtomicallyLocked(
     ),
   );
 }
-
-bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
-
-bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
 
 Future<void> _writeAtomicTempFile(
   File tempFile,
