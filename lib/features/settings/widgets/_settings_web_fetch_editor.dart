@@ -789,18 +789,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
         engineRows: _engineStats.entries
             .map(
-              (entry) => _buildEngineStatRow(
-                context,
-                theme,
-                colorScheme,
-                entry.key,
-                entry.value,
-              ),
+              (entry) => _buildEngineStatRow(context, entry.key, entry.value),
             )
             .toList(growable: false),
         callRows: _recentCalls
             .take(_maxToolTelemetryCallRows)
-            .map((call) => _buildCallLogRow(context, theme, colorScheme, call))
+            .map((call) => _buildCallLogRow(context, call))
             .toList(growable: false),
         totalCallCount: _recentCalls.length,
       ),
@@ -809,204 +803,53 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
 
   Widget _buildEngineStatRow(
     BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
     AiWebFetchEngineKind kind,
     WebFetchEngineStat stat,
   ) {
-    final pct = (stat.successRate * 100);
-    final pctColor = pct >= 80
-        ? Colors.green.shade600
-        : pct >= 50
-        ? Colors.orange.shade600
-        : colorScheme.error;
-    final inCooldown = stat.isInCooldown();
-    final samples = _engineHistory[kind] ?? const <WebFetchEngineSample>[];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 92,
-                child: Text(
-                  kind.name,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 84,
-                child: Stack(
-                  children: [
-                    Container(
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    FractionallySizedBox(
-                      widthFactor: finiteUnitInterval(stat.successRate),
-                      child: Container(
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: pctColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 48,
-                child: Text(
-                  '${pct.toStringAsFixed(0)}%',
-                  style: theme.textTheme.bodySmall?.copyWith(color: pctColor),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalBytes} 字节',
-                    en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalBytes} bytes',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (stat.lastError != null)
-                Tooltip(
-                  message: stat.lastError ?? '',
-                  child: Icon(
-                    Icons.error_outline,
-                    size: 14,
-                    color: colorScheme.error,
-                  ),
-                ),
-            ],
-          ),
-          ..._buildToolEngineStatusDetails<WebFetchEngineSample>(
-            context: context,
-            inCooldown: inCooldown,
-            cooldownUntilMs: stat.cooldownUntilMs,
-            quotaError: stat.lastQuotaError,
-            onResetCooldown: () => _resetEngineCooldown(kind),
-            samples: samples,
-          ),
-        ],
+    return _buildToolEngineStatRow<WebFetchEngineSample>(
+      context: context,
+      engineName: kind.name,
+      successRate: stat.successRate,
+      summary: openHandLocalizedText(
+        context,
+        zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalBytes} 字节',
+        en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalBytes} bytes',
       ),
+      lastError: stat.lastError,
+      inCooldown: stat.isInCooldown(),
+      cooldownUntilMs: stat.cooldownUntilMs,
+      quotaError: stat.lastQuotaError,
+      onResetCooldown: () => _resetEngineCooldown(kind),
+      samples: _engineHistory[kind] ?? const <WebFetchEngineSample>[],
     );
   }
 
-  Widget _buildCallLogRow(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-    WebFetchCallLog call,
-  ) {
-    final timeStr = _settingsFormatMonthDayHmsFromEpochMs(call.timestampMs);
-    final (chipBg, chipFg, chipLabel) = _toolCacheStatusStyle(
-      colorScheme,
-      call.cacheStatus,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              timeStr,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: chipBg,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              chipLabel,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: chipFg,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  call.url,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
-                ),
-                Text(
-                  openHandLocalizedText(
-                    context,
-                    zh:
-                        '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.contentChars} 字'
-                        '${call.fallbackUsed ? " · fallback" : ""}'
-                        '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
-                    en:
-                        '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.contentChars} chars'
-                        '${call.fallbackUsed ? " · fallback" : ""}'
-                        '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 11,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (call.perEngine.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: call.perEngine
-                          .map(
-                            (p) => Text(
-                              '${p.kind.name}:${p.success ? "✓${p.contentBytes}B" : "✗"}/${p.elapsedMs}ms',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                fontSize: 10,
-                                color: p.success
-                                    ? colorScheme.onSurfaceVariant
-                                    : colorScheme.error,
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+  Widget _buildCallLogRow(BuildContext context, WebFetchCallLog call) {
+    return _buildToolCallLogRow(
+      context: context,
+      timestampMs: call.timestampMs,
+      cacheStatus: call.cacheStatus,
+      title: call.url,
+      summary: openHandLocalizedText(
+        context,
+        zh:
+            '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.contentChars} 字'
+            '${call.fallbackUsed ? " · fallback" : ""}'
+            '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
+        en:
+            '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.contentChars} chars'
+            '${call.fallbackUsed ? " · fallback" : ""}'
+            '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
       ),
+      engineResults: call.perEngine
+          .map(
+            (result) => (
+              label:
+                  '${result.kind.name}:${result.success ? "✓${result.contentBytes}B" : "✗"}/${result.elapsedMs}ms',
+              success: result.success,
+            ),
+          )
+          .toList(growable: false),
     );
   }
 }

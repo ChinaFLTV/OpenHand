@@ -24,7 +24,13 @@ const int _exportSessionIdPrefixMaxCharacters = 115;
 const int _exportSessionIdPrefixMaxUtf8Bytes = 115;
 const int _exportSessionIdHashLength = 12;
 
-/// A simple cooperative cancellation token for export operations.
+typedef _JsonlExportSource = ({
+  Map<String, Object?> header,
+  int itemCount,
+  Map<String, Object?> Function(int index) itemAt,
+});
+
+/// 导出任务使用的协作式取消令牌。
 class ExportCancelToken {
   bool _cancelled = false;
   bool get isCancelled => _cancelled;
@@ -33,7 +39,6 @@ class ExportCancelToken {
   }
 }
 
-/// Progress payload reported during an export operation.
 class ExportProgress {
   const ExportProgress({required this.processed, required this.total});
   final int processed;
@@ -41,7 +46,6 @@ class ExportProgress {
   double get fraction => unitRatio(processed, total);
 }
 
-/// Result enum for an export attempt.
 enum ExportResultKind { success, cancelled, failure }
 
 class ExportResult {
@@ -57,12 +61,10 @@ class ExportResult {
   final Object? error;
 }
 
-/// Yield to the event loop so the UI thread stays responsive while exporting
-/// a large session. Using `Future.delayed(Duration.zero)` rather than just
-/// `Future(() {})` ensures we drain microtasks AND a render frame.
+/// 大批量导出时让出事件循环，避免阻塞界面渲染。
 Future<void> _yieldToEventLoop() => Future<void>.delayed(Duration.zero);
 
-/// Number of lines to write before flushing + yielding to the event loop.
+/// 每批写入行数。
 const int _flushEvery = 32;
 
 File _temporaryExportFile(File targetFile) {
@@ -130,14 +132,14 @@ class _SelectedAiSessionMessage {
 
   final AiSessionMessage message;
 
-  /// Zero-based index in the full persisted session message order.
+  /// 消息在完整持久化会话中的零基索引。
   final int originalIndex;
 
-  /// Zero-based index inside the exported selection after filters are applied.
+  /// 消息在过滤后导出集合中的零基索引。
   final int exportIndex;
 }
 
-/// User-tunable configuration for an AI session export operation.
+/// AI 会话导出配置。
 class AiSessionExportConfig {
   const AiSessionExportConfig({
     this.roles,
@@ -147,27 +149,21 @@ class AiSessionExportConfig {
     this.endIndex,
   });
 
-  /// When non-null, only messages whose [AiSessionMessageRole] is in this
-  /// set will be exported. `null` means "all roles".
+  /// 要导出的消息角色；`null` 表示全部角色。
   final Set<AiSessionMessageRole>? roles;
 
-  /// When non-null, only messages whose [AiSessionMessageKind] is in this
-  /// set will be exported. `null` means "all kinds".
+  /// 要导出的消息类型；`null` 表示全部类型。
   final Set<AiSessionMessageKind>? kinds;
 
-  /// When `true`, include messages where `isDeleted == true`.
+  /// 是否包含已删除消息。
   final bool includeDeleted;
 
-  /// 1-based inclusive lower bound applied to the message ordering before
-  /// any role/kind filter is run. `null` means "no lower bound".
+  /// 角色和类型过滤前的一基闭区间下界；`null` 表示不限制。
   final int? startIndex;
 
-  /// 1-based inclusive upper bound applied to the message ordering before
-  /// any role/kind filter is run. `null` means "no upper bound".
+  /// 角色和类型过滤前的一基闭区间上界；`null` 表示不限制。
   final int? endIndex;
 
-  /// All-defaults configuration (every role, every kind, no range filter,
-  /// skip deleted messages, single-line JSON).
   static const AiSessionExportConfig defaults = AiSessionExportConfig();
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -179,14 +175,14 @@ class AiSessionExportConfig {
   };
 }
 
-/// User-tunable configuration for a Harness session export operation.
+/// Harness 会话导出配置。
 class HarnessSessionExportConfig {
   const HarnessSessionExportConfig({this.startIndex, this.endIndex});
 
-  /// 1-based inclusive lower bound on phase logs.
+  /// 阶段日志的一基闭区间下界。
   final int? startIndex;
 
-  /// 1-based inclusive upper bound on phase logs.
+  /// 阶段日志的一基闭区间上界。
   final int? endIndex;
 
   static const HarnessSessionExportConfig defaults =
@@ -276,10 +272,7 @@ _selectAiSessionMessages({
   required AiSession session,
   required AiSessionExportConfig config,
 }) {
-  // Apply range first (1-based inclusive bounds), then role / kind /
-  // deleted filters. Range is interpreted against the full ordered
-  // message list so users can reason about indices the same way the UI
-  // shows them.
+  // 先按完整消息顺序应用一基闭区间，再过滤角色、类型和删除状态。
   final fullMessages = session.messages;
   final lower = (config.startIndex != null && config.startIndex! >= 1)
       ? config.startIndex! - 1
@@ -786,8 +779,7 @@ int _metadataListLength(Object? value) {
   return 0;
 }
 
-/// Streams a session export one JSONL line at a time so Web responses do not
-/// retain a second full-session string while the client downloads it.
+/// 逐行编码会话，避免 Web 下载期间额外保留完整会话字符串。
 Stream<List<int>> encodeAiSessionToJsonlByteStream({
   required AiSession session,
   AiSessionExportConfig config = AiSessionExportConfig.defaults,
@@ -907,140 +899,93 @@ String normalizeJsonlExportPath(String input) {
   return '$directory${normalizeJsonlExportFilename(basename)}';
 }
 
-/// Exports an [AiSession] to a JSONL file at [destinationPath].
-///
-/// The format mirrors the Hugging Face dataset card layout used by `pi-mono`:
-/// the first line is a `{"type":"session", ...}` header, followed by one
-/// `{"type":"message", ...}` line per [AiSessionMessage].
-///
-/// All non-deleted messages are exported regardless of [AiSessionMessageKind]
-/// (user / assistant / reasoning / tool_call / tool / mcp / skill / hook /
-/// self_learning / status / compression_point).
-///
-/// Reports incremental progress through [onProgress] and honours
-/// [cancelToken]. On cancellation or error, the partial file is removed.
+/// 将 [AiSession] 导出为 JSONL；取消或失败时删除临时文件。
 Future<ExportResult> exportAiSessionToJsonl({
   required AiSession session,
   required String destinationPath,
   required ExportCancelToken cancelToken,
   AiSessionExportConfig config = AiSessionExportConfig.defaults,
   void Function(ExportProgress progress)? onProgress,
-}) async {
-  final targetFile = File(destinationPath);
-  final tempFile = _temporaryExportFile(targetFile);
-  IOSink? sink;
-  var lines = 0;
-  var bytes = 0;
-  try {
-    await _prepareExportTempFile(targetFile, tempFile);
-    final localSink = tempFile.openWrite();
-    sink = localSink;
-
-    final selection = _selectAiSessionMessages(
-      session: session,
-      config: config,
-    );
-    final fullMessages = selection.fullMessages;
-    final messages = selection.messages;
-    final total = messages.length + 1; // +1 for the session header line.
-
-    Future<void> emit(Map<String, Object?> payload) async {
-      final encoded = _encodePayload(payload);
-      localSink.write(encoded);
-      localSink.write('\n');
-      bytes += utf8.encode(encoded).length + 1;
-      lines += 1;
-    }
-
-    final headerPayload = _buildAiSessionHeaderPayload(
-      session: session,
-      fullMessages: fullMessages,
-      messages: messages,
-      config: config,
-      exportedAt: DateTime.now().toUtc().toIso8601String(),
-    );
-    await emit(headerPayload);
-    onProgress?.call(ExportProgress(processed: lines, total: total));
-
-    for (var i = 0; i < messages.length; i++) {
-      if (cancelToken.isCancelled) {
-        await localSink.flush();
-        await localSink.close();
-        sink = null;
-        await _deleteExportTempFile(tempFile);
-        return ExportResult(
-          kind: ExportResultKind.cancelled,
-          bytesWritten: bytes,
-          linesWritten: lines,
-        );
-      }
-      await emit(_buildAiSessionMessagePayload(messages[i]));
-      if ((i + 1) % _flushEvery == 0) {
-        await localSink.flush();
-        onProgress?.call(ExportProgress(processed: lines, total: total));
-        await _yieldToEventLoop();
-      }
-    }
-
-    await localSink.flush();
-    await localSink.close();
-    sink = null;
-    await _commitExportTempFile(tempFile, targetFile);
-    onProgress?.call(ExportProgress(processed: lines, total: total));
-    return ExportResult(
-      kind: ExportResultKind.success,
-      bytesWritten: bytes,
-      linesWritten: lines,
-    );
-  } catch (error, stack) {
-    silentLog('ai_session_jsonl_exporter', '导出 AI 会话', error, stack);
-    try {
-      await sink?.close();
-    } catch (closeError, closeStack) {
-      silentLog(
-        'ai_session_jsonl_exporter',
-        '导出失败后关闭输出流',
-        closeError,
-        closeStack,
+}) {
+  return _writeJsonlExport(
+    destinationPath: destinationPath,
+    cancelToken: cancelToken,
+    logLabel: 'AI 会话',
+    onProgress: onProgress,
+    sourceBuilder: () {
+      final selection = _selectAiSessionMessages(
+        session: session,
+        config: config,
       );
-    }
-    sink = null;
-    await _deleteExportTempFile(tempFile);
-    return ExportResult(
-      kind: ExportResultKind.failure,
-      bytesWritten: bytes,
-      linesWritten: lines,
-      error: error,
-    );
-  } finally {
-    // `sink` was set to null whenever it's been closed. Defensive close in
-    // case an unexpected return path reaches `finally` with a live sink.
-    if (sink != null) {
-      try {
-        await sink.close();
-      } catch (closeError, closeStack) {
-        silentLog(
-          'ai_session_jsonl_exporter',
-          '最终关闭输出流',
-          closeError,
-          closeStack,
-        );
-      }
-    }
-  }
+      final messages = selection.messages;
+      return (
+        header: _buildAiSessionHeaderPayload(
+          session: session,
+          fullMessages: selection.fullMessages,
+          messages: messages,
+          config: config,
+          exportedAt: DateTime.now().toUtc().toIso8601String(),
+        ),
+        itemCount: messages.length,
+        itemAt: (index) => _buildAiSessionMessagePayload(messages[index]),
+      );
+    },
+  );
 }
 
-/// Exports a [HarnessSessionRecord] to a JSONL file at [destinationPath].
-///
-/// Layout:
-///   line 1   : `{"type":"harness_session", ...}` header (sans phase_logs).
-///   line 2..N: one `{"type":"phase_log", ...}` per [HarnessPhaseLogSnapshot].
+/// 将 [HarnessSessionRecord] 导出为 JSONL；首行为会话信息，后续每行为一条阶段日志。
 Future<ExportResult> exportHarnessSessionToJsonl({
   required HarnessSessionRecord record,
   required String destinationPath,
   required ExportCancelToken cancelToken,
   HarnessSessionExportConfig config = HarnessSessionExportConfig.defaults,
   void Function(ExportProgress progress)? onProgress,
+}) {
+  return _writeJsonlExport(
+    destinationPath: destinationPath,
+    cancelToken: cancelToken,
+    logLabel: 'Harness 会话',
+    onProgress: onProgress,
+    sourceBuilder: () {
+      final fullLogs = record.phaseLogs;
+      final lower = (config.startIndex != null && config.startIndex! >= 1)
+          ? config.startIndex! - 1
+          : 0;
+      final upperRaw = (config.endIndex != null && config.endIndex! >= 1)
+          ? config.endIndex!
+          : fullLogs.length;
+      final upper = upperRaw > fullLogs.length ? fullLogs.length : upperRaw;
+      final logs = lower >= upper
+          ? const <HarnessPhaseLogSnapshot>[]
+          : fullLogs.sublist(lower, upper);
+      final fullJson = record.toJson()..remove('phase_logs');
+      return (
+        header: <String, Object?>{
+          'type': 'harness_session',
+          'version': 1,
+          'phase_log_count': logs.length,
+          'total_phase_log_count': fullLogs.length,
+          'exported_at': DateTime.now().toUtc().toIso8601String(),
+          'export_config': config.toJson(),
+          ...fullJson,
+        },
+        itemCount: logs.length,
+        itemAt: (index) => <String, Object?>{
+          'type': 'phase_log',
+          'sort_order': index,
+          ...logs[index].toJson(),
+        },
+      );
+    },
+  );
+}
+
+Future<ExportResult> _writeJsonlExport({
+  required String destinationPath,
+  required ExportCancelToken cancelToken,
+  required String logLabel,
+  required _JsonlExportSource Function() sourceBuilder,
+  required void Function(ExportProgress progress)? onProgress,
 }) async {
   final targetFile = File(destinationPath);
   final tempFile = _temporaryExportFile(targetFile);
@@ -1051,18 +996,10 @@ Future<ExportResult> exportHarnessSessionToJsonl({
     await _prepareExportTempFile(targetFile, tempFile);
     final localSink = tempFile.openWrite();
     sink = localSink;
-    final fullLogs = record.phaseLogs;
-    final lower = (config.startIndex != null && config.startIndex! >= 1)
-        ? config.startIndex! - 1
-        : 0;
-    final upperRaw = (config.endIndex != null && config.endIndex! >= 1)
-        ? config.endIndex!
-        : fullLogs.length;
-    final upper = upperRaw > fullLogs.length ? fullLogs.length : upperRaw;
-    final logs = (lower >= upper) ? const [] : fullLogs.sublist(lower, upper);
-    final total = logs.length + 1;
+    final source = sourceBuilder();
+    final total = source.itemCount + 1;
 
-    Future<void> emit(Map<String, Object?> payload) async {
+    void emit(Map<String, Object?> payload) {
       final encoded = _encodePayload(payload);
       localSink.write(encoded);
       localSink.write('\n');
@@ -1070,20 +1007,10 @@ Future<ExportResult> exportHarnessSessionToJsonl({
       lines += 1;
     }
 
-    final fullJson = record.toJson();
-    fullJson.remove('phase_logs');
-    await emit(<String, Object?>{
-      'type': 'harness_session',
-      'version': 1,
-      'phase_log_count': logs.length,
-      'total_phase_log_count': fullLogs.length,
-      'exported_at': DateTime.now().toUtc().toIso8601String(),
-      'export_config': config.toJson(),
-      ...fullJson,
-    });
+    emit(source.header);
     onProgress?.call(ExportProgress(processed: lines, total: total));
 
-    for (var i = 0; i < logs.length; i++) {
+    for (var i = 0; i < source.itemCount; i++) {
       if (cancelToken.isCancelled) {
         await localSink.flush();
         await localSink.close();
@@ -1095,11 +1022,7 @@ Future<ExportResult> exportHarnessSessionToJsonl({
           linesWritten: lines,
         );
       }
-      await emit(<String, Object?>{
-        'type': 'phase_log',
-        'sort_order': i,
-        ...logs[i].toJson(),
-      });
+      emit(source.itemAt(i));
       if ((i + 1) % _flushEvery == 0) {
         await localSink.flush();
         onProgress?.call(ExportProgress(processed: lines, total: total));
@@ -1118,13 +1041,13 @@ Future<ExportResult> exportHarnessSessionToJsonl({
       linesWritten: lines,
     );
   } catch (error, stack) {
-    silentLog('ai_session_jsonl_exporter', '导出 Harness 会话', error, stack);
+    silentLog('ai_session_jsonl_exporter', '导出 $logLabel', error, stack);
     try {
       await sink?.close();
     } catch (closeError, closeStack) {
       silentLog(
         'ai_session_jsonl_exporter',
-        'Harness 导出失败后关闭输出流',
+        '$logLabel导出失败后关闭输出流',
         closeError,
         closeStack,
       );
@@ -1144,7 +1067,7 @@ Future<ExportResult> exportHarnessSessionToJsonl({
       } catch (closeError, closeStack) {
         silentLog(
           'ai_session_jsonl_exporter',
-          '最终关闭 Harness 输出流',
+          '$logLabel导出最终关闭输出流',
           closeError,
           closeStack,
         );

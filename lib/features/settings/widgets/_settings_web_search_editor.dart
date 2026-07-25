@@ -869,18 +869,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         engineRows: _engineStats.entries
             .map(
-              (entry) => _buildEngineStatRow(
-                context,
-                theme,
-                colorScheme,
-                entry.key,
-                entry.value,
-              ),
+              (entry) => _buildEngineStatRow(context, entry.key, entry.value),
             )
             .toList(growable: false),
         callRows: _recentCalls
             .take(_maxToolTelemetryCallRows)
-            .map((call) => _buildCallLogRow(context, theme, colorScheme, call))
+            .map((call) => _buildCallLogRow(context, call))
             .toList(growable: false),
         totalCallCount: _recentCalls.length,
       ),
@@ -889,204 +883,53 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
   Widget _buildEngineStatRow(
     BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
     AiWebSearchEngineKind kind,
     WebSearchEngineStat stat,
   ) {
-    final pct = (stat.successRate * 100);
-    final pctColor = pct >= 80
-        ? Colors.green.shade600
-        : pct >= 50
-        ? Colors.orange.shade600
-        : colorScheme.error;
-    final inCooldown = stat.isInCooldown();
-    final samples = _engineHistory[kind] ?? const <WebSearchEngineSample>[];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 92,
-                child: Text(
-                  kind.name,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 84,
-                child: Stack(
-                  children: [
-                    Container(
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    FractionallySizedBox(
-                      widthFactor: finiteUnitInterval(stat.successRate),
-                      child: Container(
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: pctColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 48,
-                child: Text(
-                  '${pct.toStringAsFixed(0)}%',
-                  style: theme.textTheme.bodySmall?.copyWith(color: pctColor),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalHits} 命中',
-                    en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalHits} hits',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (stat.lastError != null)
-                Tooltip(
-                  message: stat.lastError ?? '',
-                  child: Icon(
-                    Icons.error_outline,
-                    size: 14,
-                    color: colorScheme.error,
-                  ),
-                ),
-            ],
-          ),
-          ..._buildToolEngineStatusDetails<WebSearchEngineSample>(
-            context: context,
-            inCooldown: inCooldown,
-            cooldownUntilMs: stat.cooldownUntilMs,
-            quotaError: stat.lastQuotaError,
-            onResetCooldown: () => _resetEngineCooldown(kind),
-            samples: samples,
-          ),
-        ],
+    return _buildToolEngineStatRow<WebSearchEngineSample>(
+      context: context,
+      engineName: kind.name,
+      successRate: stat.successRate,
+      summary: openHandLocalizedText(
+        context,
+        zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalHits} 命中',
+        en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalHits} hits',
       ),
+      lastError: stat.lastError,
+      inCooldown: stat.isInCooldown(),
+      cooldownUntilMs: stat.cooldownUntilMs,
+      quotaError: stat.lastQuotaError,
+      onResetCooldown: () => _resetEngineCooldown(kind),
+      samples: _engineHistory[kind] ?? const <WebSearchEngineSample>[],
     );
   }
 
-  Widget _buildCallLogRow(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-    WebSearchCallLog call,
-  ) {
-    final timeStr = _settingsFormatMonthDayHmsFromEpochMs(call.timestampMs);
-    final (chipBg, chipFg, chipLabel) = _toolCacheStatusStyle(
-      colorScheme,
-      call.cacheStatus,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              timeStr,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: chipBg,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              chipLabel,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: chipFg,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  call.query,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
-                ),
-                Text(
-                  openHandLocalizedText(
-                    context,
-                    zh:
-                        '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} 条结果 · 摘要 ${call.summaryChars} 字'
-                        '${call.fallbackUsed ? " · fallback" : ""}'
-                        '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
-                    en:
-                        '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} hits · summary ${call.summaryChars} chars'
-                        '${call.fallbackUsed ? " · fallback" : ""}'
-                        '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 11,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (call.perEngine.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: call.perEngine
-                          .map(
-                            (p) => Text(
-                              '${p.kind.name}:${p.success ? "✓${p.hitCount}" : "✗"}/${p.elapsedMs}ms',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                fontSize: 10,
-                                color: p.success
-                                    ? colorScheme.onSurfaceVariant
-                                    : colorScheme.error,
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+  Widget _buildCallLogRow(BuildContext context, WebSearchCallLog call) {
+    return _buildToolCallLogRow(
+      context: context,
+      timestampMs: call.timestampMs,
+      cacheStatus: call.cacheStatus,
+      title: call.query,
+      summary: openHandLocalizedText(
+        context,
+        zh:
+            '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} 条结果 · 摘要 ${call.summaryChars} 字'
+            '${call.fallbackUsed ? " · fallback" : ""}'
+            '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
+        en:
+            '${call.success ? "ok" : "fail"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} hits · summary ${call.summaryChars} chars'
+            '${call.fallbackUsed ? " · fallback" : ""}'
+            '${call.errorMessage != null ? " · ${call.errorMessage}" : ""}',
       ),
+      engineResults: call.perEngine
+          .map(
+            (result) => (
+              label:
+                  '${result.kind.name}:${result.success ? "✓${result.hitCount}" : "✗"}/${result.elapsedMs}ms',
+              success: result.success,
+            ),
+          )
+          .toList(growable: false),
     );
   }
 }

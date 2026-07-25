@@ -482,6 +482,111 @@ Widget _buildToolCacheActions({
   );
 }
 
+Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
+  required BuildContext context,
+  required String engineName,
+  required double successRate,
+  required String summary,
+  required String? lastError,
+  required bool inCooldown,
+  required int? cooldownUntilMs,
+  required String? quotaError,
+  required VoidCallback onResetCooldown,
+  required List<T> samples,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final percentage = successRate * 100;
+  final percentageColor = percentage >= 80
+      ? Colors.green.shade600
+      : percentage >= 50
+      ? Colors.orange.shade600
+      : colorScheme.error;
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SizedBox(
+              width: 92,
+              child: Text(
+                engineName,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 84,
+              child: Stack(
+                children: [
+                  Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: finiteUnitInterval(successRate),
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: percentageColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 48,
+              child: Text(
+                '${percentage.toStringAsFixed(0)}%',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: percentageColor,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                summary,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (lastError != null)
+              Tooltip(
+                message: lastError,
+                child: Icon(
+                  Icons.error_outline,
+                  size: 14,
+                  color: colorScheme.error,
+                ),
+              ),
+          ],
+        ),
+        ..._buildToolEngineStatusDetails<T>(
+          context: context,
+          inCooldown: inCooldown,
+          cooldownUntilMs: cooldownUntilMs,
+          quotaError: quotaError,
+          onResetCooldown: onResetCooldown,
+          samples: samples,
+        ),
+      ],
+    ),
+  );
+}
+
 List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
   required BuildContext context,
   required bool inCooldown,
@@ -602,6 +707,100 @@ List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
       status,
     ),
   };
+}
+
+Widget _buildToolCallLogRow({
+  required BuildContext context,
+  required int timestampMs,
+  required String cacheStatus,
+  required String title,
+  required String summary,
+  required List<({String label, bool success})> engineResults,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final (chipBackground, chipForeground, chipLabel) = _toolCacheStatusStyle(
+    colorScheme,
+    cacheStatus,
+  );
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            _settingsFormatMonthDayHmsFromEpochMs(timestampMs),
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: chipBackground,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            chipLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: chipForeground,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall,
+              ),
+              Text(
+                summary,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (engineResults.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    children: engineResults
+                        .map(
+                          (result) => Text(
+                            result.label,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              color: result.success
+                                  ? colorScheme.onSurfaceVariant
+                                  : colorScheme.error,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ToolAdvancedNumberRow extends StatelessWidget {

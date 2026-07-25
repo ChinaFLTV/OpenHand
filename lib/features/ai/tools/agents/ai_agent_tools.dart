@@ -2544,50 +2544,19 @@ class AiAgentTool extends AiTool {
     required Set<String> callableAgentToolNames,
     required _AgentToolAccessPolicy accessPolicy,
   }) {
-    final identifier =
-        '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
-            .trim();
-    if (identifier.isNotEmpty) {
-      return _resolveAgent(controller, args, accessPolicy: accessPolicy);
-    }
-
-    final candidates = _enabledAgentsForCurrentTool(controller, accessPolicy);
-    if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
-    if (candidates.length == 1) {
-      return _AgentResolution.agent(
-        candidates.single,
-        routeReason: 'single_enabled_agent',
-        routeScore: 0,
-      );
-    }
-    final routed = _routeAgentForTask(
-      candidates,
+    return _resolveRoutedAgent(
+      controller,
+      args,
       title: name,
       description: '${args['target'] ?? ''}',
       content: '${args['plan'] ?? ''}',
       note: '${args['status'] ?? ''}',
       labels: labels,
-    );
-    if (routed != null) {
-      return _AgentResolution.agent(
-        routed.agent,
-        routeReason: routed.reason,
-        routeScore: routed.score,
-      );
-    }
-    return _AgentResolution.error(
-      _routingRequiredResult(
-        candidates,
-        contextKind: 'kpi',
-        guidance:
-            'agent_id, agent_name, or a routable KPI context is required. Use a candidate agent_id from routing_diagnostics before saving KPI when multiple agents are enabled.',
-        title: name,
-        description: '${args['target'] ?? ''}',
-        content: '${args['plan'] ?? ''}',
-        note: '${args['status'] ?? ''}',
-        labels: labels,
-        callableAgentToolNames: callableAgentToolNames,
-      ),
+      contextKind: 'kpi',
+      guidance:
+          'agent_id, agent_name, or a routable KPI context is required. Use a candidate agent_id from routing_diagnostics before saving KPI when multiple agents are enabled.',
+      callableAgentToolNames: callableAgentToolNames,
+      accessPolicy: accessPolicy,
     );
   }
 
@@ -2599,50 +2568,19 @@ class AiAgentTool extends AiTool {
     required Set<String> callableAgentToolNames,
     required _AgentToolAccessPolicy accessPolicy,
   }) {
-    final identifier =
-        '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
-            .trim();
-    if (identifier.isNotEmpty) {
-      return _resolveAgent(controller, args, accessPolicy: accessPolicy);
-    }
-
-    final candidates = _enabledAgentsForCurrentTool(controller, accessPolicy);
-    if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
-    if (candidates.length == 1) {
-      return _AgentResolution.agent(
-        candidates.single,
-        routeReason: 'single_enabled_agent',
-        routeScore: 0,
-      );
-    }
-    final routed = _routeAgentForTask(
-      candidates,
+    return _resolveRoutedAgent(
+      controller,
+      args,
       title: title,
       description: '${args['reason'] ?? ''}',
       content: '${args['requested_action'] ?? ''}',
       note: '',
       labels: labels,
-    );
-    if (routed != null) {
-      return _AgentResolution.agent(
-        routed.agent,
-        routeReason: routed.reason,
-        routeScore: routed.score,
-      );
-    }
-    return _AgentResolution.error(
-      _routingRequiredResult(
-        candidates,
-        contextKind: 'approval',
-        guidance:
-            'agent_id, agent_name, or a routable approval context is required. Use a candidate agent_id from routing_diagnostics before requesting approval when multiple agents are enabled.',
-        title: title,
-        description: '${args['reason'] ?? ''}',
-        content: '${args['requested_action'] ?? ''}',
-        note: '',
-        labels: labels,
-        callableAgentToolNames: callableAgentToolNames,
-      ),
+      contextKind: 'approval',
+      guidance:
+          'agent_id, agent_name, or a routable approval context is required. Use a candidate agent_id from routing_diagnostics before requesting approval when multiple agents are enabled.',
+      callableAgentToolNames: callableAgentToolNames,
+      accessPolicy: accessPolicy,
     );
   }
 
@@ -2651,6 +2589,35 @@ class AiAgentTool extends AiTool {
     Map<String, Object?> args, {
     required String title,
     required List<String> labels,
+    required Set<String> callableAgentToolNames,
+    required _AgentToolAccessPolicy accessPolicy,
+  }) {
+    return _resolveRoutedAgent(
+      controller,
+      args,
+      title: title,
+      description: '${args['description'] ?? ''}',
+      content: '${args['content'] ?? ''}',
+      note: '${args['note'] ?? ''}',
+      labels: labels,
+      contextKind: 'task',
+      guidance:
+          'agent_id, agent_name, or a routable task context is required. Use a candidate agent_id from routing_diagnostics before publishing when multiple agents are enabled.',
+      callableAgentToolNames: callableAgentToolNames,
+      accessPolicy: accessPolicy,
+    );
+  }
+
+  _AgentResolution _resolveRoutedAgent(
+    AgentsController controller,
+    Map<String, Object?> args, {
+    required String title,
+    required String description,
+    required String content,
+    required String note,
+    required List<String> labels,
+    required String contextKind,
+    required String guidance,
     required Set<String> callableAgentToolNames,
     required _AgentToolAccessPolicy accessPolicy,
   }) {
@@ -2673,9 +2640,9 @@ class AiAgentTool extends AiTool {
     final routed = _routeAgentForTask(
       candidates,
       title: title,
-      description: '${args['description'] ?? ''}',
-      content: '${args['content'] ?? ''}',
-      note: '${args['note'] ?? ''}',
+      description: description,
+      content: content,
+      note: note,
       labels: labels,
     );
     if (routed != null) {
@@ -2688,13 +2655,12 @@ class AiAgentTool extends AiTool {
     return _AgentResolution.error(
       _routingRequiredResult(
         candidates,
-        contextKind: 'task',
-        guidance:
-            'agent_id, agent_name, or a routable task context is required. Use a candidate agent_id from routing_diagnostics before publishing when multiple agents are enabled.',
+        contextKind: contextKind,
+        guidance: guidance,
         title: title,
-        description: '${args['description'] ?? ''}',
-        content: '${args['content'] ?? ''}',
-        note: '${args['note'] ?? ''}',
+        description: description,
+        content: content,
+        note: note,
         labels: labels,
         callableAgentToolNames: callableAgentToolNames,
       ),

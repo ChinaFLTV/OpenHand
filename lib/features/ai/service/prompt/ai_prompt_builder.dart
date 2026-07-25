@@ -3018,26 +3018,10 @@ class AiPromptBuilder {
   List<String> _webReverseDeferredCdpMcpToolNames(
     Map<String, AiResolvedTool> resolvedToolsByName,
   ) {
-    final toolSearch = resolvedToolsByName.values.where(
-      (tool) => tool.builtinKind == AiBuiltinToolKind.toolSearch,
+    return _deferredMcpToolNames(
+      resolvedToolsByName,
+      _webReverseCdpMcpToolNames,
     );
-    final deferredToolsByName = <String, AiResolvedTool>{};
-    for (final tool in toolSearch) {
-      deferredToolsByName.addAll(tool.toolSearchDeferredTools);
-    }
-    if (deferredToolsByName.isEmpty) {
-      for (final tool in toolSearch) {
-        for (final entry in tool.toolSearchDeferredToolDefinitions.entries) {
-          deferredToolsByName[entry.key] = AiResolvedTool(
-            name: entry.key,
-            definition: entry.value,
-            source: AiRuntimeToolSource.mcp,
-          );
-        }
-      }
-    }
-    if (deferredToolsByName.isEmpty) return const <String>[];
-    return _webReverseCdpMcpToolNames(deferredToolsByName);
   }
 
   List<String> _androidReverseMcpToolNames(
@@ -3056,6 +3040,16 @@ class AiPromptBuilder {
   List<String> _androidReverseDeferredMcpToolNames(
     Map<String, AiResolvedTool> resolvedToolsByName,
   ) {
+    return _deferredMcpToolNames(
+      resolvedToolsByName,
+      _androidReverseMcpToolNames,
+    );
+  }
+
+  List<String> _deferredMcpToolNames(
+    Map<String, AiResolvedTool> resolvedToolsByName,
+    List<String> Function(Map<String, AiResolvedTool>) visibleToolNames,
+  ) {
     final toolSearch = resolvedToolsByName.values.where(
       (tool) => tool.builtinKind == AiBuiltinToolKind.toolSearch,
     );
@@ -3075,7 +3069,7 @@ class AiPromptBuilder {
       }
     }
     if (deferredToolsByName.isEmpty) return const <String>[];
-    return _androidReverseMcpToolNames(deferredToolsByName);
+    return visibleToolNames(deferredToolsByName);
   }
 
   String _compressionSystemInstructionsForPolicy(

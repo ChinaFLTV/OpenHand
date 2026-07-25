@@ -3470,99 +3470,53 @@ class WebMessagePlatformService {
     }
   }
 
-  Future<shelf.Response> _pluginInstallHandler(shelf.Request request) async {
-    final body = await _readJsonBody(request, maxBytes: 1024);
-    final pluginId = body['plugin_id'] as String?;
-    if (pluginId == null || pluginId.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'success': false,
-        'message': 'plugin_id is required',
-      });
-    }
-    final controller = _pluginServiceController;
-    if (controller == null) {
-      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-        'success': false,
-        'message': 'Plugin service not available',
-      });
-    }
-    final busyResponse = _pluginBusyResponse(controller);
-    if (busyResponse != null) return busyResponse;
-    final success = await controller.installPlugin(pluginId);
-    return _json(HttpStatus.ok, <String, Object?>{
-      'success': success,
-      'message': controller.errorMessage,
-      'new_version': controller.pluginById(pluginId)?.installedVersion,
-    });
+  Future<shelf.Response> _pluginInstallHandler(shelf.Request request) {
+    return _pluginMutationHandler(
+      request,
+      (controller, pluginId) => controller.installPlugin(pluginId),
+      includeInstalledVersion: true,
+    );
   }
 
-  Future<shelf.Response> _pluginUpdateHandler(shelf.Request request) async {
-    final body = await _readJsonBody(request, maxBytes: 1024);
-    final pluginId = body['plugin_id'] as String?;
-    if (pluginId == null || pluginId.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'success': false,
-        'message': 'plugin_id is required',
-      });
-    }
-    final controller = _pluginServiceController;
-    if (controller == null) {
-      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-        'success': false,
-        'message': 'Plugin service not available',
-      });
-    }
-    final busyResponse = _pluginBusyResponse(controller);
-    if (busyResponse != null) return busyResponse;
-    final success = await controller.updatePlugin(pluginId);
-    return _json(HttpStatus.ok, <String, Object?>{
-      'success': success,
-      'message': controller.errorMessage,
-      'new_version': controller.pluginById(pluginId)?.installedVersion,
-    });
+  Future<shelf.Response> _pluginUpdateHandler(shelf.Request request) {
+    return _pluginMutationHandler(
+      request,
+      (controller, pluginId) => controller.updatePlugin(pluginId),
+      includeInstalledVersion: true,
+    );
   }
 
-  Future<shelf.Response> _pluginUninstallHandler(shelf.Request request) async {
-    final body = await _readJsonBody(request, maxBytes: 1024);
-    final pluginId = body['plugin_id'] as String?;
-    if (pluginId == null || pluginId.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'success': false,
-        'message': 'plugin_id is required',
-      });
-    }
-    final controller = _pluginServiceController;
-    if (controller == null) {
-      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-        'success': false,
-        'message': 'Plugin service not available',
-      });
-    }
-    final busyResponse = _pluginBusyResponse(controller);
-    if (busyResponse != null) return busyResponse;
-    final success = await controller.uninstallPlugin(pluginId);
-    return _json(HttpStatus.ok, <String, Object?>{
-      'success': success,
-      'message': controller.errorMessage,
-    });
+  Future<shelf.Response> _pluginUninstallHandler(shelf.Request request) {
+    return _pluginMutationHandler(
+      request,
+      (controller, pluginId) => controller.uninstallPlugin(pluginId),
+    );
   }
 
-  Future<shelf.Response> _pluginRescanHandler() async {
-    final controller = _pluginServiceController;
-    if (controller == null) {
-      return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
-    }
-    final busyResponse = _pluginBusyResponse(controller);
-    if (busyResponse != null) return busyResponse;
-    await controller.rescan();
-    final items = controller.plugins
-        .map(_pluginPayload)
-        .toList(growable: false);
-    return _json(HttpStatus.ok, <String, Object?>{'items': items});
-  }
-
-  Future<shelf.Response> _pluginCheckUpdateHandler(
+  Future<shelf.Response> _pluginMutationHandler(
     shelf.Request request,
+    Future<bool> Function(PluginServiceController controller, String pluginId)
+    operation, {
+    bool includeInstalledVersion = false,
+  }) {
+    return _pluginOperationHandler(request, (controller, pluginId) async {
+      final success = await operation(controller, pluginId);
+      return _json(HttpStatus.ok, <String, Object?>{
+        'success': success,
+        'message': controller.errorMessage,
+        if (includeInstalledVersion)
+          'new_version': controller.pluginById(pluginId)?.installedVersion,
+      });
+    });
+  }
+
+  Future<shelf.Response> _pluginOperationHandler(
+    shelf.Request request,
+    Future<shelf.Response> Function(
+      PluginServiceController controller,
+      String pluginId,
+    )
+    operation,
   ) async {
     final body = await _readJsonBody(request, maxBytes: 1024);
     final pluginId = body['plugin_id'] as String?;
@@ -3581,17 +3535,37 @@ class WebMessagePlatformService {
     }
     final busyResponse = _pluginBusyResponse(controller);
     if (busyResponse != null) return busyResponse;
-    final plugin = await controller.checkPluginUpdate(pluginId);
-    if (plugin == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'success': false,
-        'message': controller.errorMessage ?? 'Plugin not found',
-      });
+    return operation(controller, pluginId);
+  }
+
+  Future<shelf.Response> _pluginRescanHandler() async {
+    final controller = _pluginServiceController;
+    if (controller == null) {
+      return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
     }
-    return _json(HttpStatus.ok, <String, Object?>{
-      'success': true,
-      'message': controller.errorMessage,
-      'item': _pluginPayload(controller.pluginById(pluginId) ?? plugin),
+    final busyResponse = _pluginBusyResponse(controller);
+    if (busyResponse != null) return busyResponse;
+    await controller.rescan();
+    final items = controller.plugins
+        .map(_pluginPayload)
+        .toList(growable: false);
+    return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _pluginCheckUpdateHandler(shelf.Request request) {
+    return _pluginOperationHandler(request, (controller, pluginId) async {
+      final plugin = await controller.checkPluginUpdate(pluginId);
+      if (plugin == null) {
+        return _json(HttpStatus.notFound, <String, Object?>{
+          'success': false,
+          'message': controller.errorMessage ?? 'Plugin not found',
+        });
+      }
+      return _json(HttpStatus.ok, <String, Object?>{
+        'success': true,
+        'message': controller.errorMessage,
+        'item': _pluginPayload(controller.pluginById(pluginId) ?? plugin),
+      });
     });
   }
 
