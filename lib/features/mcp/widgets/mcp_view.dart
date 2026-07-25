@@ -509,32 +509,29 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         body: l10n.mcpEmptyBody,
       ),
       itemBuilder: (context, server, healthStatus, toolCatalog) {
-        return RepaintBoundary(
-          key: ValueKey<String>('mcp-server-${server.name}'),
-          child: _McpServerCard(
-            key: ValueKey<String>('mcp-server-card-${server.name}'),
-            server: server,
-            healthStatus: healthStatus,
-            toolCatalog: toolCatalog,
-            onTap: () => _showServerDialog(context, initialServer: server),
-            onToggleEnabled: (enabled) =>
-                _updateServerEnabled(context, server.name, enabled),
-            onCheckHealth: () => controller.checkServerHealth(server.name),
-            onRefreshTools: () => controller.refreshServerTools(server.name),
-            onReconnect: () => controller.reconnectServer(server.name),
-            onActionSelected: (action) {
-              switch (action) {
-                case _McpCardAction.edit:
-                  _showServerDialog(context, initialServer: server);
-                case _McpCardAction.delete:
-                  _confirmDeleteServer(context, server);
-                case _McpCardAction.viewHistory:
-                  _showHealthHistorySheet(context, server.name);
-                case _McpCardAction.viewDetails:
-                  _showServerDetailsSheet(context, server);
-              }
-            },
-          ),
+        return _McpServerCard(
+          key: ValueKey<String>('mcp-server-card-${server.name}'),
+          server: server,
+          healthStatus: healthStatus,
+          toolCatalog: toolCatalog,
+          onTap: () => _showServerDialog(context, initialServer: server),
+          onToggleEnabled: (enabled) =>
+              _updateServerEnabled(context, server.name, enabled),
+          onCheckHealth: () => controller.checkServerHealth(server.name),
+          onRefreshTools: () => controller.refreshServerTools(server.name),
+          onReconnect: () => controller.reconnectServer(server.name),
+          onActionSelected: (action) {
+            switch (action) {
+              case _McpCardAction.edit:
+                _showServerDialog(context, initialServer: server);
+              case _McpCardAction.delete:
+                _confirmDeleteServer(context, server);
+              case _McpCardAction.viewHistory:
+                _showHealthHistorySheet(context, server.name);
+              case _McpCardAction.viewDetails:
+                _showServerDetailsSheet(context, server);
+            }
+          },
         );
       },
     );
@@ -10437,13 +10434,8 @@ class _McpServerCardState extends State<_McpServerCard> {
     unknownVisibleTemplateIds.sort();
 
     return HoverLift(
-      child: AnimatedSize(
-        duration: _mcpMotionDuration(
-          context,
-          const Duration(milliseconds: 320),
-        ),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
+      child: RepaintBoundary(
+        key: ValueKey<String>('mcp-server-${server.name}'),
         child: Card(
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -11408,19 +11400,14 @@ class _McpAnimatedChipContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
-    return AnimatedSize(
+    return AnimatedSwitcher(
       duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.centerLeft,
-      child: AnimatedSwitcher(
-        duration: duration,
-        switchInCurve: Curves.easeOutBack,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder: (currentChild, previousChildren) =>
-            currentChild ?? const SizedBox.shrink(),
-        transitionBuilder: _mcpChipTransition,
-        child: KeyedSubtree(key: ValueKey<Object>(contentKey), child: child),
-      ),
+      switchInCurve: Curves.easeOutBack,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) =>
+          currentChild ?? const SizedBox.shrink(),
+      transitionBuilder: _mcpChipTransition,
+      child: KeyedSubtree(key: ValueKey<Object>(contentKey), child: child),
     );
   }
 }
@@ -13464,11 +13451,14 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           ),
         ),
         const SizedBox(height: 10),
-        AnimatedSize(
-          duration: _mcpMotionDuration(context, _mcpToolPreviewExpandDuration),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topLeft,
-          child: SizedBox(
+        ClipRect(
+          child: AnimatedContainer(
+            duration: _mcpMotionDuration(
+              context,
+              _mcpToolPreviewExpandDuration,
+            ),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
             height: _expanded
                 ? _mcpToolPreviewExpandedHeight
                 : _mcpChipStripHeight,

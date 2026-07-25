@@ -53,10 +53,48 @@ void main() {
     cache.releaseReplace();
     await firstRefresh;
   });
+
+  test('同一服务健康探测单飞且结果只记录一次', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_health_test_',
+    );
+    final discovery = _ImmediateDiscoveryService();
+    final controller = await McpController.create(
+      initialFilePath: '${directory.path}/mcp.json',
+      store: McpStore(serversFilePath: '${directory.path}/mcp.json'),
+      toolDiscoveryService: discovery,
+    );
+    addTearDown(() async {
+      controller.dispose();
+      await directory.delete(recursive: true);
+    });
+
+    const server = McpServer(
+      name: 'health-server',
+      type: McpServerType.streamableHttp,
+      enabled: true,
+      url: 'https://example.com/mcp',
+    );
+    expect(await controller.saveServer(server), isTrue);
+    controller.setPageActive(true);
+
+    final firstCheck = controller.checkServerHealth(server.name);
+    final secondCheck = controller.checkServerHealth(server.name);
+    expect(identical(firstCheck, secondCheck), isTrue);
+
+    await firstCheck;
+    expect(discovery.healthCheckCallCount, 1);
+    expect(
+      controller.healthStatusFor(server.name).status,
+      McpServerHealthStatus.healthy,
+    );
+    expect(controller.healthStatusFor(server.name).recentProbes, hasLength(1));
+  });
 }
 
 class _ImmediateDiscoveryService implements McpToolDiscoveryService {
   int discoverCallCount = 0;
+  int healthCheckCallCount = 0;
 
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) async {
@@ -77,6 +115,7 @@ class _ImmediateDiscoveryService implements McpToolDiscoveryService {
 
   @override
   Future<McpServerHealth> checkHealth(McpServer server) async {
+    healthCheckCallCount += 1;
     return const McpServerHealth(status: McpServerHealthStatus.healthy);
   }
 

@@ -192,6 +192,8 @@ class McpController extends ChangeNotifier {
   final Map<String, McpServerHealth> _healthByServerName =
       <String, McpServerHealth>{};
   final Map<String, int> _healthCheckGenerationByServerName = <String, int>{};
+  final Map<String, Future<void>> _activeHealthChecks =
+      <String, Future<void>>{};
   final Queue<Completer<bool>> _autoProbeSlotWaiters = Queue<Completer<bool>>();
   McpPersistenceIssue? _persistenceIssue;
   McpOpsConfig _opsConfig = const McpOpsConfig();
@@ -211,6 +213,7 @@ class McpController extends ChangeNotifier {
   bool _isPageActive = false;
   bool _autoToolRefreshInProgress = false;
   bool _autoHealthCheckInProgress = false;
+  bool _listenerNotificationScheduled = false;
   bool _opsPersistenceLoaded = false;
   Future<void>? _opsPersistenceLoadFuture;
   int _activeAutoProbeSlots = 0;
@@ -530,7 +533,10 @@ class McpController extends ChangeNotifier {
     if (phase == SchedulerPhase.persistentCallbacks ||
         phase == SchedulerPhase.transientCallbacks ||
         phase == SchedulerPhase.postFrameCallbacks) {
+      if (_listenerNotificationScheduled) return;
+      _listenerNotificationScheduled = true;
       SchedulerBinding.instance.addPostFrameCallback((_) {
+        _listenerNotificationScheduled = false;
         if (_isDisposed) return;
         super.notifyListeners();
       });
@@ -557,6 +563,7 @@ class McpController extends ChangeNotifier {
     _healthCheckTimer?.cancel();
     _opsSnapshotNotifyTimer?.cancel();
     _activeToolRefreshes.clear();
+    _activeHealthChecks.clear();
     _cancelQueuedAutoProbeSlots();
     if (_ownsToolDiscoveryService) {
       try {
@@ -1837,17 +1844,42 @@ class McpController extends ChangeNotifier {
     }
   }
 
+  /// 同一服务只保留一次健康探测，避免手动操作与自动探测重复占用连接。
   Future<void> checkServerHealth(
     String serverName, {
     bool preserveCurrentStatus = false,
-  }) async {
+  }) {
     if (_isDisposed || !_isPageActive) {
-      return;
+      return Future<void>.value();
     }
     final normalizedServerName = _normalizeServerName(serverName);
     if (normalizedServerName.isEmpty) {
-      return;
+      return Future<void>.value();
     }
+    final activeCheck = _activeHealthChecks[normalizedServerName];
+    if (activeCheck != null) return activeCheck;
+
+    late final Future<void> check;
+    check =
+        Future<void>.microtask(
+          () => _performServerHealthCheck(
+            normalizedServerName,
+            preserveCurrentStatus: preserveCurrentStatus,
+          ),
+        ).whenComplete(() {
+          if (identical(_activeHealthChecks[normalizedServerName], check)) {
+            _activeHealthChecks.remove(normalizedServerName);
+          }
+        });
+    _activeHealthChecks[normalizedServerName] = check;
+    return check;
+  }
+
+  Future<void> _performServerHealthCheck(
+    String normalizedServerName, {
+    required bool preserveCurrentStatus,
+  }) async {
+    if (_isDisposed || !_isPageActive) return;
     final server = _serverByName(normalizedServerName);
     if (server == null) {
       return;
@@ -2216,6 +2248,9 @@ class McpController extends ChangeNotifier {
         }
         targets.add(server);
       }
+      if (targets.isNotEmpty) {
+        _lastBatchProbeAt = DateTime.now().toUtc();
+      }
       await _runAutoProbeWorkerPool(
         targets,
         (server) => refreshServerTools(
@@ -2269,6 +2304,9 @@ class McpController extends ChangeNotifier {
           }
         }
         targets.add(server);
+      }
+      if (targets.isNotEmpty) {
+        _lastBatchProbeAt = DateTime.now().toUtc();
       }
       await _runAutoProbeWorkerPool(
         targets,
@@ -2382,6 +2420,7 @@ class McpController extends ChangeNotifier {
     for (final serverName in _healthByServerName.keys) {
       _invalidateHealthCheckGeneration(serverName);
     }
+    _activeHealthChecks.clear();
   }
 
   void _invalidateToolRefreshGenerations() {
