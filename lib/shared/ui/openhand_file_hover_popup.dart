@@ -446,3 +446,107 @@ class _MetadataRow extends StatelessWidget {
     );
   }
 }
+
+/// 路径胶囊的固定尺寸：圆角、内边距、图标边长与文本上限宽度。
+const BorderRadius _kFilePathChipRadius = BorderRadius.all(Radius.circular(999));
+const EdgeInsets _kFilePathChipPadding = EdgeInsets.symmetric(
+  horizontal: 10,
+  vertical: 5,
+);
+const double _kFilePathChipIconSize = 14;
+const double _kFilePathChipMaxTextWidth = 340;
+
+/// 消息正文里的文件路径胶囊：悬停出预览、点击打开，未解析时降级为灰态且不可点。
+///
+/// 主会话工具卡片与 Harness 流式视图此前各写了一份逐字节相同的实现，只有
+/// "打开"这一步的落点不同。
+class OpenHandFilePathChip extends StatelessWidget {
+  const OpenHandFilePathChip({
+    super.key,
+    required this.displayPath,
+    required this.resolvedPath,
+    required this.isDirectory,
+    required this.textColor,
+    required this.onOpen,
+    this.isUnresolved = false,
+  });
+
+  final String displayPath;
+  final String resolvedPath;
+  final bool isDirectory;
+  final Color textColor;
+
+  /// 点击后的打开动作；[isUnresolved] 为 true 时不会被调用。
+  final VoidCallback onOpen;
+
+  /// 路径未能在磁盘上定位；此时只做灰态展示。
+  final bool isUnresolved;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chipColor = theme.colorScheme.surface.withValues(alpha: 0.68);
+    final borderColor = textColor.withValues(alpha: 0.24);
+    final labelStyle =
+        theme.textTheme.labelMedium?.copyWith(
+          color: textColor,
+          fontWeight: FontWeight.w700,
+        ) ??
+        TextStyle(color: textColor, fontWeight: FontWeight.w700);
+
+    return OpenHandFileHoverPopup(
+      resolvedPath: resolvedPath,
+      isUnresolved: isUnresolved,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: _kFilePathChipRadius,
+          onTap: isUnresolved ? null : onOpen,
+          child: Ink(
+            padding: _kFilePathChipPadding,
+            decoration: BoxDecoration(
+              color: isUnresolved
+                  ? chipColor.withValues(alpha: 0.3)
+                  : chipColor,
+              borderRadius: _kFilePathChipRadius,
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isUnresolved
+                      ? Icons.help_outline
+                      : isDirectory
+                      ? Icons.folder_outlined
+                      : Icons.insert_drive_file_outlined,
+                  size: _kFilePathChipIconSize,
+                  color: isUnresolved
+                      ? textColor.withValues(alpha: 0.5)
+                      : textColor.withValues(alpha: 0.9),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _kFilePathChipMaxTextWidth,
+                    ),
+                    child: Text(
+                      displayPath,
+                      overflow: TextOverflow.ellipsis,
+                      style: isUnresolved
+                          ? labelStyle.copyWith(
+                              color: textColor.withValues(alpha: 0.5),
+                            )
+                          : labelStyle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

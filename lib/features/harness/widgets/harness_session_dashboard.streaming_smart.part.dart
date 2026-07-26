@@ -283,11 +283,13 @@ class _HeFilePathBuilder extends MarkdownElementBuilder {
           alignment: PlaceholderAlignment.middle,
           child: Padding(
             padding: const EdgeInsets.only(right: 4),
-            child: _HeFilePathChipInline(
+            child: OpenHandFilePathChip(
               displayPath: path.displayPath,
               resolvedPath: path.resolvedPath,
               isDirectory: path.isDirectory,
               textColor: textColor,
+              onOpen: () =>
+                  _heOpenPathInFileBrowser(context, path.resolvedPath),
             ),
           ),
         ),
@@ -382,12 +384,16 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
                 Flexible(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: _HeFilePathChipInline(
+                    child: OpenHandFilePathChip(
                       displayPath: widget.normalizedPath,
                       resolvedPath: widget.normalizedPath,
                       isDirectory: widget.trailing.contains('/'),
                       isUnresolved: true,
                       textColor: widget.textColor,
+                      onOpen: () => _heOpenPathInFileBrowser(
+                        context,
+                        widget.normalizedPath,
+                      ),
                     ),
                   ),
                 ),
@@ -405,11 +411,15 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
             Flexible(
               child: Padding(
                 padding: const EdgeInsets.only(right: 4),
-                child: _HeFilePathChipInline(
+                child: OpenHandFilePathChip(
                   displayPath: resolvedPath.displayPath,
                   resolvedPath: resolvedPath.resolvedPath,
                   isDirectory: resolvedPath.isDirectory,
                   textColor: widget.textColor,
+                  onOpen: () => _heOpenPathInFileBrowser(
+                    context,
+                    resolvedPath.resolvedPath,
+                  ),
                 ),
               ),
             ),
@@ -438,92 +448,5 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
         ),
       ),
     );
-  }
-}
-
-class _HeFilePathChipInline extends StatelessWidget {
-  const _HeFilePathChipInline({
-    required this.displayPath,
-    required this.resolvedPath,
-    required this.isDirectory,
-    this.isUnresolved = false,
-    required this.textColor,
-  });
-
-  final String displayPath;
-  final String resolvedPath;
-  final bool isDirectory;
-  final bool isUnresolved;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // 与文件路径标签保持一致的表面色和文字色。
-    final chipColor = theme.colorScheme.surface.withValues(alpha: 0.68);
-    final borderColor = textColor.withValues(alpha: 0.24);
-    final labelStyle =
-        theme.textTheme.labelMedium?.copyWith(
-          color: textColor,
-          fontWeight: FontWeight.w700,
-        ) ??
-        TextStyle(color: textColor, fontWeight: FontWeight.w700);
-
-    return OpenHandFileHoverPopup(
-      resolvedPath: resolvedPath,
-      isUnresolved: isUnresolved,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: _br999,
-          onTap: isUnresolved ? null : () => _openPath(context),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isUnresolved
-                  ? chipColor.withValues(alpha: 0.3)
-                  : chipColor,
-              borderRadius: _br999,
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isUnresolved
-                      ? Icons.help_outline
-                      : isDirectory
-                      ? Icons.folder_outlined
-                      : Icons.insert_drive_file_outlined,
-                  size: 14,
-                  color: isUnresolved
-                      ? textColor.withValues(alpha: 0.5)
-                      : textColor.withValues(alpha: 0.9),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    child: Text(
-                      displayPath,
-                      overflow: TextOverflow.ellipsis,
-                      style: isUnresolved
-                          ? labelStyle.copyWith(
-                              color: textColor.withValues(alpha: 0.5),
-                            )
-                          : labelStyle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openPath(BuildContext context) {
-    _heOpenPathInFileBrowser(context, resolvedPath);
   }
 }

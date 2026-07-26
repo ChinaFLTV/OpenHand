@@ -3540,20 +3540,24 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     required bool isDirectory,
     bool isUnresolved = false,
   }) {
-    return _FilePathChip(
+    return OpenHandFilePathChip(
       displayPath: displayPath,
       resolvedPath: resolvedPath,
       isDirectory: isDirectory,
       isUnresolved: isUnresolved,
       textColor: textColor,
-      onOpenPath: () => onOpenPath(
-        context,
-        MessageResolvedPath(
-          displayPath: displayPath,
-          resolvedPath: resolvedPath,
-          isDirectory: isDirectory,
-        ),
-      ),
+      onOpen: () {
+        // 打开前先标记一次交互，避免 HTML 气泡把这次点击当成"点空白处收起"。
+        _markToolCardInteractiveTap(context);
+        onOpenPath(
+          context,
+          MessageResolvedPath(
+            displayPath: displayPath,
+            resolvedPath: resolvedPath,
+            isDirectory: isDirectory,
+          ),
+        );
+      },
     );
   }
 }
@@ -3696,95 +3700,6 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
       builder: (context, snapshot) {
         return _renderResolved(context, snapshot.data);
       },
-    );
-  }
-}
-
-class _FilePathChip extends StatelessWidget {
-  const _FilePathChip({
-    required this.displayPath,
-    required this.resolvedPath,
-    required this.isDirectory,
-    this.isUnresolved = false,
-    required this.textColor,
-    required this.onOpenPath,
-  });
-
-  final String displayPath;
-  final String resolvedPath;
-  final bool isDirectory;
-  final bool isUnresolved;
-  final Color textColor;
-  final VoidCallback onOpenPath;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final chipColor = theme.colorScheme.surface.withValues(alpha: 0.68);
-    final borderColor = textColor.withValues(alpha: 0.24);
-    final labelStyle =
-        theme.textTheme.labelMedium?.copyWith(
-          color: textColor,
-          fontWeight: FontWeight.w700,
-        ) ??
-        TextStyle(color: textColor, fontWeight: FontWeight.w700);
-
-    return OpenHandFileHoverPopup(
-      resolvedPath: resolvedPath,
-      isUnresolved: isUnresolved,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: _borderRadius999,
-          onTap: isUnresolved
-              ? null
-              : () {
-                  _markToolCardInteractiveTap(context);
-                  onOpenPath();
-                },
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isUnresolved
-                  ? chipColor.withValues(alpha: 0.3)
-                  : chipColor,
-              borderRadius: _borderRadius999,
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isUnresolved
-                      ? Icons.help_outline
-                      : isDirectory
-                      ? Icons.folder_outlined
-                      : Icons.insert_drive_file_outlined,
-                  size: 14,
-                  color: isUnresolved
-                      ? textColor.withValues(alpha: 0.5)
-                      : textColor.withValues(alpha: 0.9),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    child: Text(
-                      displayPath,
-                      overflow: TextOverflow.ellipsis,
-                      style: isUnresolved
-                          ? labelStyle.copyWith(
-                              color: textColor.withValues(alpha: 0.5),
-                            )
-                          : labelStyle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
