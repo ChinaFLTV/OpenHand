@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
@@ -213,6 +214,44 @@ String localizedKnowledgeSourceStatus(BuildContext context, String status) {
     _ => normalized.isEmpty ? '-' : status.trim(),
   };
 }
+
+/// 知识库文档预览的 Markdown 样式。
+///
+/// 导入弹窗与内容弹窗此前各写了一份完全相同的 styleSheet，改一处代码块底色
+/// 就会两边不一致。
+MarkdownStyleSheet knowledgeMarkdownStyleSheet(BuildContext context) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+    p: theme.textTheme.bodyMedium?.copyWith(
+      height: _kKnowledgeMarkdownLineHeight,
+    ),
+    code: theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: kOpenHandMonospaceFontFamily,
+      color: colorScheme.onSurface,
+    ),
+    codeblockDecoration: BoxDecoration(
+      color: colorScheme.surfaceContainerHigh,
+      borderRadius: _kKnowledgeMarkdownBlockRadius,
+    ),
+    blockquoteDecoration: BoxDecoration(
+      color: colorScheme.surfaceContainerHigh,
+      borderRadius: _kKnowledgeMarkdownBlockRadius,
+      border: Border(
+        left: BorderSide(
+          color: colorScheme.primary,
+          width: _kKnowledgeBlockquoteBarWidth,
+        ),
+      ),
+    ),
+  );
+}
+
+const double _kKnowledgeMarkdownLineHeight = 1.42;
+const double _kKnowledgeBlockquoteBarWidth = 3;
+const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
+  Radius.circular(10),
+);
 
 /// 知识库弹窗顶部的错误提示：出现与消失走全局动效的纵向展开。
 ///

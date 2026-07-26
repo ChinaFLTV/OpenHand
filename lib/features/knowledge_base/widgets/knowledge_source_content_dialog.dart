@@ -1414,8 +1414,6 @@ class _KnowledgeMarkdownViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Container(
       decoration: _knowledgeViewerPanelDecoration(context),
       child: Markdown(
@@ -1424,24 +1422,7 @@ class _KnowledgeMarkdownViewer extends StatelessWidget {
         softLineBreak: true,
         extensionSet: md.ExtensionSet.gitHubFlavored,
         padding: const EdgeInsets.all(14),
-        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-          p: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
-          code: theme.textTheme.bodyMedium?.copyWith(
-            fontFamily: kOpenHandMonospaceFontFamily,
-            color: colorScheme.onSurface,
-          ),
-          codeblockDecoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          blockquoteDecoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(10),
-            border: Border(
-              left: BorderSide(color: colorScheme.primary, width: 3),
-            ),
-          ),
-        ),
+        styleSheet: knowledgeMarkdownStyleSheet(context),
       ),
     );
   }
