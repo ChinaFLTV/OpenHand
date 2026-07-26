@@ -2089,7 +2089,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
               : (_isDone
                     ? Icons.restart_alt_rounded
                     : Icons.play_arrow_rounded),
-          primaryActionEnabled: !_isAwaitingManualPhaseInput || _canSubmitManualPhase,
+          primaryActionEnabled:
+              !_isAwaitingManualPhaseInput || _canSubmitManualPhase,
           onPrimaryAction: () {
             _handlePrimaryComposerAction();
           },

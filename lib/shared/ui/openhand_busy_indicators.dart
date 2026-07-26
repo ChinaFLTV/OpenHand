@@ -44,10 +44,7 @@ class OpenHandBusyProgressBar extends StatelessWidget {
       reverseDuration: kOpenHandBusyBarCollapseDuration,
       presentKey: const ValueKey<String>('busy'),
       child: busy
-          ? LinearProgressIndicator(
-              value: _clampedValue,
-              minHeight: minHeight,
-            )
+          ? LinearProgressIndicator(value: _clampedValue, minHeight: minHeight)
           : null,
     );
   }

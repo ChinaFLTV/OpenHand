@@ -6752,7 +6752,9 @@ fi
             AiPromptTemplatePolicies.androidReverseExpertTemplateId,
           },
         );
-    final ok = identical(server, existing) || await controller.saveServer(server, previousName: existing?.name);
+    final ok =
+        identical(server, existing) ||
+        await controller.saveServer(server, previousName: existing?.name);
     if (!mounted) return;
     _showSnack(
       ok

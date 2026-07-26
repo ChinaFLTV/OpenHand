@@ -141,10 +141,7 @@ extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
       }),
       cancelSignal: cancelSignal,
     );
-    return decodeSuccessfulWebEngineJsonResponse(
-      response,
-      engineLabel: 'Grok',
-    );
+    return decodeSuccessfulWebEngineJsonResponse(response, engineLabel: 'Grok');
   }
 }
 

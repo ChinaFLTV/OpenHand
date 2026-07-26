@@ -24,11 +24,7 @@ class OpenHandTapRegion extends StatelessWidget {
       cursor: onTap == null
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: behavior,
-        child: child,
-      ),
+      child: GestureDetector(onTap: onTap, behavior: behavior, child: child),
     );
   }
 }

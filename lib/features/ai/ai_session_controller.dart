@@ -4319,7 +4319,8 @@ class AiSessionController extends ChangeNotifier {
               ? sourceSession.todoItems
               : const <AiSessionTodoItem>[],
           mode: sourceSession.mode,
-          awaitingPlanApproval: isForkingAtTail && sourceSession.awaitingPlanApproval,
+          awaitingPlanApproval:
+              isForkingAtTail && sourceSession.awaitingPlanApproval,
           pendingPlan: isForkingAtTail ? sourceSession.pendingPlan : null,
           pendingPlanAllowedPrompts: isForkingAtTail
               ? sourceSession.pendingPlanAllowedPrompts
@@ -9165,7 +9166,8 @@ class AiSessionController extends ChangeNotifier {
           currentTodoItems: session.todoItems,
           toolResultMetadata: metadata,
         ),
-        awaitingPlanApproval: awaitingPlanApproval || session.awaitingPlanApproval,
+        awaitingPlanApproval:
+            awaitingPlanApproval || session.awaitingPlanApproval,
         pendingPlan: awaitingPlanApproval
             ? '${metadata['pending_plan'] ?? ''}'.trim()
             : session.pendingPlan,
@@ -9309,7 +9311,8 @@ class AiSessionController extends ChangeNotifier {
           'current_todos': currentSession!.todoItems
               .map((item) => item.toJson())
               .toList(growable: false),
-        'plan_mode_execution_approved_for_send': !planModeActive || planModeExecutionApprovedForSend,
+        'plan_mode_execution_approved_for_send':
+            !planModeActive || planModeExecutionApprovedForSend,
       });
       final bypassWriteConfirmation =
           isFullAccess &&
@@ -9322,7 +9325,8 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         previouslyReadFiles: readFilePaths,
         denyCommandRules: denyCommandRules,
-        requireWriteCommandConfirmation: !bypassWriteConfirmation && requireWriteCommandConfirmation,
+        requireWriteCommandConfirmation:
+            !bypassWriteConfirmation && requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
         cancelSignal: cancelSignal ?? _stopSignalForSession(sessionId),
         onBashUpdate: onUpdate,

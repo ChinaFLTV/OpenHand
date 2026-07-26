@@ -947,11 +947,13 @@ class McpController extends ChangeNotifier {
       );
     }
     _opsAuditEntries.removeWhere(
-      (entry) => clearsAll || isDateTimeInUtcRange(
-              entry.timestamp,
-              startUtc: startUtc,
-              endUtc: endUtc,
-            ),
+      (entry) =>
+          clearsAll ||
+          isDateTimeInUtcRange(
+            entry.timestamp,
+            startUtc: startUtc,
+            endUtc: endUtc,
+          ),
     );
     _opsAuditEntriesView = List<McpOpsAuditEntry>.unmodifiable(
       _opsAuditEntries,

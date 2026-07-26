@@ -187,10 +187,7 @@ class OpenHandCollapsibleFade extends StatelessWidget {
       return collapsed ? const SizedBox.shrink() : child;
     }
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(
-        begin: collapsed ? 1 : 0,
-        end: collapsed ? 0 : 1,
-      ),
+      tween: Tween<double>(begin: collapsed ? 1 : 0, end: collapsed ? 0 : 1),
       duration: effectiveDuration,
       curve: Curves.easeInOutCubicEmphasized,
       child: child,

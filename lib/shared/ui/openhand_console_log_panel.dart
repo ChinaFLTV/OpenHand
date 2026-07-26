@@ -125,9 +125,7 @@ class OpenHandConsoleLogPanel extends StatelessWidget {
                   final line = lineAt(index);
                   final text = Text(
                     line,
-                    style: _consoleLogTextStyle(
-                      _consoleLogLineColor(line),
-                    ),
+                    style: _consoleLogTextStyle(_consoleLogLineColor(line)),
                   );
                   if (lineSpacing <= 0) return text;
                   return Padding(

@@ -168,7 +168,9 @@ class AiToolSearchTool extends AiTool {
     }
 
     // 4) Keyword ranking with `+required` term support.
-    final terms = lower.split(kInlineWhitespacePattern).where((t) => t.isNotEmpty);
+    final terms = lower
+        .split(kInlineWhitespacePattern)
+        .where((t) => t.isNotEmpty);
     final required = <String>[];
     final optional = <String>[];
     for (final t in terms) {

@@ -2517,7 +2517,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       protocolType: _protocolType,
       apiDialect: _apiDialect,
       providerKind: _providerKind,
-      explicitPromptCacheEnabled: _showsExplicitPromptCacheControl && _explicitPromptCacheEnabled,
+      explicitPromptCacheEnabled:
+          _showsExplicitPromptCacheControl && _explicitPromptCacheEnabled,
       maxContextTokens: optionalPositiveIntFromText(
         _maxContextTokensController.text,
       ),

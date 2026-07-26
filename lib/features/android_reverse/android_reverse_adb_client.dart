@@ -340,7 +340,11 @@ class AndroidReverseAdbClient {
       if (trimmed.startsWith('versionName=')) {
         versionName = trimmed.substring(12).trim();
       } else if (trimmed.startsWith('versionCode=')) {
-        versionCode = trimmed.substring(12).split(kInlineWhitespacePattern).first.trim();
+        versionCode = trimmed
+            .substring(12)
+            .split(kInlineWhitespacePattern)
+            .first
+            .trim();
       }
     }
     if (versionName != null && versionName.isNotEmpty) {

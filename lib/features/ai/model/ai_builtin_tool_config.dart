@@ -45,19 +45,18 @@ class AiAgentBuiltinToolMetadata {
 /// Task 子代理与数字员工 worker 此前各写了一份同样的十项名单；新增只读工具
 /// 时漏改一处，就会出现「同一个工具在 Task 子代理里可用、在员工里不可用」
 /// 这种说不通的差异。
-const Set<AiBuiltinToolKind> kAiReadOnlyBuiltinToolKinds =
-    <AiBuiltinToolKind>{
-      AiBuiltinToolKind.glob,
-      AiBuiltinToolKind.grep,
-      AiBuiltinToolKind.ls,
-      AiBuiltinToolKind.read,
-      AiBuiltinToolKind.webFetch,
-      AiBuiltinToolKind.webSearch,
-      AiBuiltinToolKind.lsp,
-      AiBuiltinToolKind.codebaseSearch,
-      AiBuiltinToolKind.git,
-      AiBuiltinToolKind.readLints,
-    };
+const Set<AiBuiltinToolKind> kAiReadOnlyBuiltinToolKinds = <AiBuiltinToolKind>{
+  AiBuiltinToolKind.glob,
+  AiBuiltinToolKind.grep,
+  AiBuiltinToolKind.ls,
+  AiBuiltinToolKind.read,
+  AiBuiltinToolKind.webFetch,
+  AiBuiltinToolKind.webSearch,
+  AiBuiltinToolKind.lsp,
+  AiBuiltinToolKind.codebaseSearch,
+  AiBuiltinToolKind.git,
+  AiBuiltinToolKind.readLints,
+};
 
 const List<AiBuiltinToolKind> aiAgentBuiltinToolKinds = <AiBuiltinToolKind>[
   AiBuiltinToolKind.agentList,
