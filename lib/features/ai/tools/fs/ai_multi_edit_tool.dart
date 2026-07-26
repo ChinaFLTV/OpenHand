@@ -148,17 +148,13 @@ class AiMultiEditTool extends AiTool {
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
-      metadata: <String, Object?>{
-        'tool_source': 'builtin',
-        'file_mutation_kind': 'multi_edit',
-        'file_mutation_path': filePath,
-        'file_mutation_edit_count': edits.length,
-        'file_mutation_verified': true,
-        if (preparation.historyVersionId != null)
-          'file_mutation_history_version_id': preparation.historyVersionId,
-        if (ledgerRecordId != null)
-          'file_mutation_ledger_record_id': ledgerRecordId,
-      },
+      metadata: AiToolUtils.fileMutationResultMetadata(
+        kind: 'multi_edit',
+        filePath: filePath,
+        preparation: preparation,
+        ledgerRecordId: ledgerRecordId,
+        extra: <String, Object?>{'file_mutation_edit_count': edits.length},
+      ),
     );
   }
 

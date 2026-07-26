@@ -235,12 +235,10 @@ class AiWebSearchTool extends AiTool {
         success: true,
         summaryChars: cached.summary.length,
       );
-      return AiToolExecutionResult(
-        status: BashToolExecutionStatus.success,
+      return AiToolUtils.progressSuccessResult(
         command: command,
         workingDirectory: workingDirectory,
-        stdout: progress.toString().trimRight(),
-        stderr: '',
+        progress: progress,
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: cached.summary,
         metadata: <String, Object?>{
@@ -320,12 +318,10 @@ class AiWebSearchTool extends AiTool {
         summaryChars: 0,
         orchestration: orchestrationResult,
       );
-      return AiToolExecutionResult(
-        status: BashToolExecutionStatus.success,
+      return AiToolUtils.progressSuccessResult(
         command: command,
         workingDirectory: workingDirectory,
-        stdout: progress.toString().trimRight(),
-        stderr: '',
+        progress: progress,
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: detail,
         metadata: meta(
@@ -472,12 +468,10 @@ class AiWebSearchTool extends AiTool {
       orchestration: orchestrationResult,
       summaryModel: summaryModel,
     );
-    return AiToolExecutionResult(
-      status: BashToolExecutionStatus.success,
+    return AiToolUtils.progressSuccessResult(
       command: command,
       workingDirectory: workingDirectory,
-      stdout: progress.toString().trimRight(),
-      stderr: '',
+      progress: progress,
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: body,
       metadata:

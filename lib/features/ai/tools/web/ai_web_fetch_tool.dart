@@ -212,12 +212,10 @@ class AiWebFetchTool extends AiTool {
         success: true,
         contentChars: cached.content.length,
       );
-      return AiToolExecutionResult(
-        status: BashToolExecutionStatus.success,
+      return AiToolUtils.progressSuccessResult(
         command: command,
         workingDirectory: workingDirectory,
-        stdout: progress.toString().trimRight(),
-        stderr: '',
+        progress: progress,
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: cached.content,
         metadata: <String, Object?>{
@@ -472,12 +470,10 @@ class AiWebFetchTool extends AiTool {
       orchestration: orchestrationResult,
     );
 
-    return AiToolExecutionResult(
-      status: BashToolExecutionStatus.success,
+    return AiToolUtils.progressSuccessResult(
       command: command,
       workingDirectory: workingDirectory,
-      stdout: progress.toString().trimRight(),
-      stderr: '',
+      progress: progress,
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: output,
       metadata:

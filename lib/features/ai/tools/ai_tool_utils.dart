@@ -834,6 +834,55 @@ class AiToolUtils {
     );
   }
 
+  /// 文件变更类工具结果里公共的那几项元数据。
+  ///
+  /// Write / Edit / MultiEdit 各写一遍同样的键与同样的两处条件插入；键名敲错
+  /// 不会报错，只会让上层的历史回溯与账本联查静默丢掉这一条。
+  static Map<String, Object?> fileMutationResultMetadata({
+    required String kind,
+    required String filePath,
+    required AiFileMutationPreparation preparation,
+    required String? ledgerRecordId,
+    Map<String, Object?> extra = const <String, Object?>{},
+  }) {
+    return <String, Object?>{
+      'tool_source': 'builtin',
+      'file_mutation_kind': kind,
+      'file_mutation_path': filePath,
+      ...extra,
+      'file_mutation_verified': true,
+      if (preparation.historyVersionId != null)
+        'file_mutation_history_version_id': preparation.historyVersionId,
+      if (ledgerRecordId != null)
+        'file_mutation_ledger_record_id': ledgerRecordId,
+    };
+  }
+
+  /// 进度日志与结果正文分离的成功结果。
+  ///
+  /// WebSearch / WebFetch 的五个返回点各写一遍同一套外壳。这里不能改用
+  /// [simpleSuccessResult]：那套把 stdout 直接当作 resultText，用在这里等于
+  /// 把面向用户的进度日志喂给模型，而真正的正文反而丢了。
+  static AiToolExecutionResult progressSuccessResult({
+    required String command,
+    required String workingDirectory,
+    required StringBuffer progress,
+    required int durationMs,
+    required String resultText,
+    required Map<String, Object?> metadata,
+  }) {
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.success,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: progress.toString().trimRight(),
+      stderr: '',
+      durationMs: durationMs,
+      resultText: resultText,
+      metadata: metadata,
+    );
+  }
+
   static AiToolExecutionResult withMergedMetadata(
     AiToolExecutionResult result,
     Map<String, Object?> metadata,

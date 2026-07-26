@@ -66,17 +66,15 @@ class AiWriteTool extends AiTool {
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
-      metadata: <String, Object?>{
-        'tool_source': 'builtin',
-        'file_mutation_kind': 'write',
-        'file_mutation_path': filePath,
-        'file_mutation_content_char_count': content.length,
-        'file_mutation_verified': true,
-        if (preparation.historyVersionId != null)
-          'file_mutation_history_version_id': preparation.historyVersionId,
-        if (ledgerRecordId != null)
-          'file_mutation_ledger_record_id': ledgerRecordId,
-      },
+      metadata: AiToolUtils.fileMutationResultMetadata(
+        kind: 'write',
+        filePath: filePath,
+        preparation: preparation,
+        ledgerRecordId: ledgerRecordId,
+        extra: <String, Object?>{
+          'file_mutation_content_char_count': content.length,
+        },
+      ),
     );
   }
 }
