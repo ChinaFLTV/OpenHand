@@ -10767,7 +10767,7 @@ class AiSessionController extends ChangeNotifier {
             checkpoint: checkpoint,
           );
         } catch (error, stackTrace) {
-          silentLog('AiSessionController', '保存压缩记忆旁路文件', error, stackTrace);
+          silentLog('ai_session_controller', '保存压缩记忆旁路文件', error, stackTrace);
         }
         _markDidCompressInLastSend(session.id);
         await _emitCompactHooks(

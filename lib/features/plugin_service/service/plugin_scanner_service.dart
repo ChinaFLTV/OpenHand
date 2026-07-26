@@ -751,7 +751,7 @@ class PluginScannerService {
         );
       }
     } catch (e) {
-      silentLog('PluginScanner', '扫描 Node.js', e);
+      silentLog('plugin_scanner', '扫描 Node.js', e);
     }
     return _nodeNotInstalled;
   }
@@ -847,7 +847,7 @@ class PluginScannerService {
         },
       );
     } catch (e) {
-      silentLog('PluginScanner', '扫描 Playwright', e);
+      silentLog('plugin_scanner', '扫描 Playwright', e);
     }
     return _playwrightNotInstalled;
   }
@@ -1108,7 +1108,7 @@ class PluginScannerService {
         errorMessage: 'docker CLI 可用，但 Docker daemon 未运行或不可访问。',
       );
     } catch (e, stack) {
-      silentLog('PluginScanner', '扫描 Docker', e, stack);
+      silentLog('plugin_scanner', '扫描 Docker', e, stack);
     }
     return _dockerNotInstalled;
   }
@@ -1210,7 +1210,7 @@ class PluginScannerService {
         metadata: metadata,
       );
     } catch (e, stack) {
-      silentLog('PluginScanner', '扫描 Qdrant', e, stack);
+      silentLog('plugin_scanner', '扫描 Qdrant', e, stack);
     }
     return _qdrantNotInstalled;
   }

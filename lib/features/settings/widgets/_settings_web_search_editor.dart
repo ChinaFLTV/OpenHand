@@ -76,7 +76,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = bytes);
     } catch (e, st) {
-      silentLog('Web 搜索设置', '刷新磁盘缓存大小', e, st);
+      silentLog('settings_web_search_editor', '刷新磁盘缓存大小', e, st);
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
@@ -99,7 +99,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         _telemetryLoading = false;
       });
     } catch (e, st) {
-      silentLog('Web 搜索设置', '刷新遥测数据', e, st);
+      silentLog('settings_web_search_editor', '刷新遥测数据', e, st);
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
@@ -116,7 +116,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchTelemetryStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('Web 搜索设置', '清空遥测数据', e, st);
+      silentLog('settings_web_search_editor', '清空遥测数据', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
@@ -189,7 +189,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchTelemetryStore.instance.clearEngineCooldown(kind);
     } catch (e, st) {
-      silentLog('Web 搜索设置', '重置引擎冷却状态', e, st);
+      silentLog('settings_web_search_editor', '重置引擎冷却状态', e, st);
     }
     await _refreshTelemetry();
   }
@@ -257,7 +257,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchCacheStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('Web 搜索设置', '清空本地缓存', e, st);
+      silentLog('settings_web_search_editor', '清空本地缓存', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingCache = false);

@@ -149,7 +149,7 @@ class AiToolUtils {
       }
       return best?.path;
     } catch (error, stack) {
-      silentLog('AI工具', '查找缺失文件的同级候选路径', error, stack);
+      silentLog('ai_tool_utils', '查找缺失文件的同级候选路径', error, stack);
       return null;
     } finally {
       deadline.stop();
@@ -262,7 +262,7 @@ class AiToolUtils {
         );
       }
     } catch (error, stack) {
-      silentLog('AI工具', '解析工具参数 JSON', error, stack);
+      silentLog('ai_tool_utils', '解析工具参数 JSON', error, stack);
     }
     return const <String, Object?>{};
   }
@@ -1016,7 +1016,7 @@ class AiToolUtils {
       if (!await f.exists()) return null;
       return await readBoundedFileString(f, maxBytes: maxLedgerCaptureBytes);
     } catch (error, stack) {
-      silentLog('AI工具', '读取文件变更账本快照', error, stack);
+      silentLog('ai_tool_utils', '读取文件变更账本快照', error, stack);
       return null;
     }
   }
@@ -1210,7 +1210,7 @@ class AiToolUtils {
         await file.delete();
       }
     } catch (error, stack) {
-      silentLog('AI工具', where, error, stack);
+      silentLog('ai_tool_utils', where, error, stack);
     }
   }
 
@@ -1239,7 +1239,7 @@ class AiToolUtils {
         try {
           await backupFile.rename(targetFile.path);
         } on FileSystemException catch (error, stack) {
-          silentLog('AI工具', '回滚安全写入备份', error, stack);
+          silentLog('ai_tool_utils', '回滚安全写入备份', error, stack);
         }
       }
       rethrow;
@@ -1453,7 +1453,7 @@ class AiToolUtils {
         if (machine == 'x86_64' || machine == 'i386') return false;
       }
     } catch (error, stack) {
-      silentLog('AI工具', '通过 uname 检测 Apple Silicon', error, stack);
+      silentLog('ai_tool_utils', '通过 uname 检测 Apple Silicon', error, stack);
     }
 
     // 回退:Homebrew 在 Apple Silicon 上默认安装到 /opt/homebrew
@@ -1551,7 +1551,7 @@ class AiToolUtils {
               );
               if (chmodResult.exitCode != 0) {
                 silentLog(
-                  'AI工具',
+                  'ai_tool_utils',
                   '设置内置 rg 的执行权限',
                   'exit ${chmodResult.exitCode}: ${chmodResult.stderr}',
                 );
@@ -1559,7 +1559,7 @@ class AiToolUtils {
               }
             }
           } catch (error, stack) {
-            silentLog('AI工具', '检查内置 rg 的执行权限', error, stack);
+            silentLog('ai_tool_utils', '检查内置 rg 的执行权限', error, stack);
             continue;
           }
         }
@@ -1632,7 +1632,7 @@ class AiToolUtils {
         }
       }
     } catch (error, stack) {
-      silentLog('AI工具', '通过 PATH 查找 rg', error, stack);
+      silentLog('ai_tool_utils', '通过 PATH 查找 rg', error, stack);
     }
 
     // 3. 直接检查常见系统安装路径（非 Windows）
@@ -1665,7 +1665,7 @@ class AiToolUtils {
           }
         }
       } catch (error, stack) {
-        silentLog('AI工具', '通过登录 Shell 查找 rg', error, stack);
+        silentLog('ai_tool_utils', '通过登录 Shell 查找 rg', error, stack);
       }
     }
 

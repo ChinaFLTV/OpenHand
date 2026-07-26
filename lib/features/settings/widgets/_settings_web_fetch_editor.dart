@@ -81,7 +81,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = bytes);
     } catch (e, st) {
-      silentLog('Web 抓取设置', '刷新磁盘缓存大小', e, st);
+      silentLog('settings_web_fetch_editor', '刷新磁盘缓存大小', e, st);
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
@@ -104,7 +104,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         _telemetryLoading = false;
       });
     } catch (e, st) {
-      silentLog('Web 抓取设置', '刷新遥测数据', e, st);
+      silentLog('settings_web_fetch_editor', '刷新遥测数据', e, st);
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
@@ -127,7 +127,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         _scraplingProbeLoading = false;
       });
     } catch (e, st) {
-      silentLog('Web 抓取设置', '刷新 Scrapling 探测状态', e, st);
+      silentLog('settings_web_fetch_editor', '刷新 Scrapling 探测状态', e, st);
       if (!mounted) return;
       setState(() {
         _scraplingProbe = WebFetchScraplingProbeStatus(
@@ -148,7 +148,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           .toolRuntimeService
           .resetWebFetchScrapling();
     } catch (e, st) {
-      silentLog('Web 抓取设置', '重置 Scrapling 运行时', e, st);
+      silentLog('settings_web_fetch_editor', '重置 Scrapling 运行时', e, st);
     }
     await _refreshScraplingProbe();
   }
@@ -177,7 +177,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         );
       }
     } catch (e, st) {
-      silentLog('Web 抓取设置', '安装 Scrapling 运行时', e, st);
+      silentLog('settings_web_fetch_editor', '安装 Scrapling 运行时', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -230,7 +230,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         );
       }
     } catch (e, st) {
-      silentLog('Web 抓取设置', '卸载 Scrapling 运行时', e, st);
+      silentLog('settings_web_fetch_editor', '卸载 Scrapling 运行时', e, st);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
@@ -257,7 +257,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchTelemetryStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('Web 抓取设置', '清空遥测数据', e, st);
+      silentLog('settings_web_fetch_editor', '清空遥测数据', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
@@ -327,7 +327,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchTelemetryStore.instance.clearEngineCooldown(kind);
     } catch (e, st) {
-      silentLog('Web 抓取设置', '重置引擎冷却状态', e, st);
+      silentLog('settings_web_fetch_editor', '重置引擎冷却状态', e, st);
     }
     await _refreshTelemetry();
   }
@@ -383,7 +383,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchCacheStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('Web 抓取设置', '清空本地缓存', e, st);
+      silentLog('settings_web_fetch_editor', '清空本地缓存', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingCache = false);

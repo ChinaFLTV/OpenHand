@@ -992,7 +992,7 @@ class _AiTranslationProviderCardState
       );
     } catch (error, stack) {
       silentLog(
-        'translation-settings',
+        'settings_translation',
         '测试 ${widget.provider.storageKey}',
         error,
         stack,
@@ -2201,7 +2201,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ),
       );
     } catch (error, stack) {
-      silentLog('tts-settings', '同步 MiniMax 音色', error, stack);
+      silentLog('settings_tts', '同步 MiniMax 音色', error, stack);
       if (!mounted) return;
       _showSettingsTestErrorDialog(
         context: context,
@@ -2542,7 +2542,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     } catch (error, stack) {
       if (!isAiTtsConfigurationError(error)) {
         silentLog(
-          'tts-settings',
+          'settings_tts',
           '测试 ${widget.provider.storageKey}',
           error,
           stack,

@@ -4557,7 +4557,7 @@ class WebMessagePlatformService {
         messageTotalCount: messages.length,
       );
     } catch (error, stack) {
-      silentLog('WebGateway', '加载导出会话快照', error, stack);
+      silentLog('web_message_platform_service', '加载导出会话快照', error, stack);
       return session;
     }
   }
@@ -4632,7 +4632,7 @@ class WebMessagePlatformService {
     try {
       manifestContent = await _skillsController.readSkillManifest(selected);
     } catch (error, stack) {
-      silentLog('WebGateway', '读取所选技能清单', error, stack);
+      silentLog('web_message_platform_service', '读取所选技能清单', error, stack);
     }
     final manifest = (manifestContent ?? '').trim();
     final fallbackDescription = selected.description.trim();
@@ -4931,7 +4931,7 @@ class WebMessagePlatformService {
             revealUserMessageBeforePreflight: true,
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog('WebGateway', '异步发送消息', error, stack);
+            silentLog('web_message_platform_service', '异步发送消息', error, stack);
             return false;
           }),
     );
@@ -5100,7 +5100,7 @@ class WebMessagePlatformService {
         'provider': error.provider?.storageKey,
       });
     } catch (error, stack) {
-      silentLog('WebGateway', '翻译消息', error, stack);
+      silentLog('web_message_platform_service', '翻译消息', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'ok': false,
         'error': 'message_translation_failed',
@@ -5201,7 +5201,7 @@ class WebMessagePlatformService {
           fallbackModel: fallbackModel,
         );
       } catch (error, stack) {
-        silentLog('WebGateway', '切换消息朗读', error, stack);
+        silentLog('web_message_platform_service', '切换消息朗读', error, stack);
       }
     }());
     await Future<void>.delayed(const Duration(milliseconds: 16));
@@ -5322,7 +5322,7 @@ class WebMessagePlatformService {
                 _confirmWebWriteCommand(session.id, request),
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog('WebGateway', '异步重新生成消息', error, stack);
+            silentLog('web_message_platform_service', '异步重新生成消息', error, stack);
             return false;
           }),
     );
@@ -5518,7 +5518,7 @@ class WebMessagePlatformService {
                 _confirmWebWriteCommand(session.id, request),
           )
           .catchError((Object error, StackTrace stack) {
-            silentLog('WebGateway', '异步恢复目标', error, stack);
+            silentLog('web_message_platform_service', '异步恢复目标', error, stack);
             return false;
           }),
     );
@@ -6039,7 +6039,7 @@ class WebMessagePlatformService {
         controller.add(bytes);
         _recordStreamingOutboundBytes(bytes.length);
       } catch (error, stack) {
-        silentLog('WebGateway', '发送 SSE 事件', error, stack);
+        silentLog('web_message_platform_service', '发送 SSE 事件', error, stack);
       }
     }
 
@@ -6118,7 +6118,7 @@ class WebMessagePlatformService {
             lastSnapshotHash = hash;
             emit('snapshot', snapshot);
           } catch (error, stack) {
-            silentLog('WebGateway', '生成 SSE 快照', error, stack);
+            silentLog('web_message_platform_service', '生成 SSE 快照', error, stack);
           } finally {
             snapshotInFlight = false;
             if (!disposed && snapshotQueued) {
@@ -6128,7 +6128,7 @@ class WebMessagePlatformService {
           }
         },
         onError: (error, stack) {
-          silentLog('WebGateway', '调度 SSE 快照', error, stack);
+          silentLog('web_message_platform_service', '调度 SSE 快照', error, stack);
         },
       );
     }
@@ -6182,11 +6182,11 @@ class WebMessagePlatformService {
           controller.add(bytes);
           _recordStreamingOutboundBytes(bytes.length);
         } catch (error, stack) {
-          silentLog('WebGateway', '发送 SSE 保活消息', error, stack);
+          silentLog('web_message_platform_service', '发送 SSE 保活消息', error, stack);
         }
       },
       onError: (error, stack) {
-        silentLog('WebGateway', '调度 SSE 保活消息', error, stack);
+        silentLog('web_message_platform_service', '调度 SSE 保活消息', error, stack);
       },
     );
 
@@ -7099,7 +7099,7 @@ class WebMessagePlatformService {
         normalizedMessageId,
       );
     } catch (error, stack) {
-      silentLog('WebGateway', '加载 Web 操作消息', error, stack);
+      silentLog('web_message_platform_service', '加载 Web 操作消息', error, stack);
       return null;
     }
   }
@@ -7724,7 +7724,7 @@ class WebMessagePlatformService {
       }
       return window;
     } catch (error, stack) {
-      silentLog('WebGateway', '加载已存消息窗口', error, stack);
+      silentLog('web_message_platform_service', '加载已存消息窗口', error, stack);
       final cheapDisplayMessages = _displayMessagesIfCheap(session);
       if (cheapDisplayMessages.isNotEmpty) {
         return _messageWindowFromDisplayMessages(
@@ -7993,7 +7993,7 @@ class WebMessagePlatformService {
         await _sessionController.store.countMessages(session.id),
       );
     } catch (error, stack) {
-      silentLog('WebGateway', '统计已存消息', error, stack);
+      silentLog('web_message_platform_service', '统计已存消息', error, stack);
     }
     final liveDisplayMessages = _displayMessagesIfCheap(session);
     return _sessionSummary(

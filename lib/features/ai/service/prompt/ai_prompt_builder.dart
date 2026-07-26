@@ -3642,7 +3642,7 @@ $tail''';
             FileSystemEntityType.file;
       } catch (error, stackTrace) {
         availability[path] = false;
-        silentLog('AiPromptBuilder', '探测附件文件', error, stackTrace);
+        silentLog('ai_prompt_builder', '探测附件文件', error, stackTrace);
       }
     }
     deadline.stop();
@@ -4719,7 +4719,7 @@ $content
         _postCompactRestoreMaxCharsPerFile,
       );
     } catch (error, stackTrace) {
-      silentLog('AiPromptBuilder', '读取压缩后恢复的文件', error, stackTrace);
+      silentLog('ai_prompt_builder', '读取压缩后恢复的文件', error, stackTrace);
       return null;
     }
   }
@@ -4849,7 +4849,7 @@ $content
         _postCompactRestoreMaxSkillChars,
       );
     } catch (error, stackTrace) {
-      silentLog('AiPromptBuilder', '读取压缩后恢复的技能', error, stackTrace);
+      silentLog('ai_prompt_builder', '读取压缩后恢复的技能', error, stackTrace);
       return null;
     }
   }

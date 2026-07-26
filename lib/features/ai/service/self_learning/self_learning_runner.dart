@@ -339,7 +339,7 @@ class SelfLearningRunner {
             pendingFlush = null;
           },
           onError: (error, stack) {
-            silentLog('SelfLearningRunner', '流刷新定时器', error, stack);
+            silentLog('self_learning_runner', '流刷新定时器', error, stack);
           },
         );
       }

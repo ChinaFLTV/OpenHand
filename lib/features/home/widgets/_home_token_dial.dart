@@ -675,7 +675,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       final feedback = _manualCompactionFeedback(context, result);
       showOpenHandInfoSnack(context, feedback.message, maxLines: 2);
     } catch (error, stack) {
-      silentLog('Token统计', '主动压缩', error, stack);
+      silentLog('home_token_dial', '主动压缩', error, stack);
       if (!mounted) return;
       showOpenHandInfoSnack(
         context,
