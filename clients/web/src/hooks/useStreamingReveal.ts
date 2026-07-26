@@ -107,15 +107,22 @@ function stepForBacklog(backlog: number): number {
   return MAX_CHARS_PER_FRAME;
 }
 
-function useTranscriptScrollActiveState(): boolean {
-  const [scrollActive, setScrollActive] = useState(() => isTranscriptScrollActive());
+/// 仅流式消息需要感知滚动状态。历史消息一律返回 false 且不订阅：
+/// 否则窗口内每张卡片都持有订阅，一次滚动起止就是 2N 次 setState，
+/// 连带 N 张卡片整棵 Markdown 重渲染——这是长会话「一滚就卡」的主因。
+function useTranscriptScrollActiveState(enabled: boolean): boolean {
+  const [scrollActive, setScrollActive] = useState(false);
 
   useEffect(() => {
+    if (!enabled) {
+      setScrollActive(false);
+      return undefined;
+    }
     setScrollActive(isTranscriptScrollActive());
     return subscribeTranscriptScrollActivity(setScrollActive);
-  }, []);
+  }, [enabled]);
 
-  return scrollActive;
+  return enabled && scrollActive;
 }
 
 export function useStreamingStagedText(
@@ -126,7 +133,7 @@ export function useStreamingStagedText(
   visibleContent: string;
   staging: boolean;
 } {
-  const transcriptScrollActive = useTranscriptScrollActiveState();
+  const transcriptScrollActive = useTranscriptScrollActiveState(streaming);
   const freezeLiveUpdates = streaming && transcriptScrollActive;
   const [displayContent, setDisplayContent] = useState(content);
   const displayContentRef = useRef(content);
@@ -139,7 +146,9 @@ export function useStreamingStagedText(
   }, [content, freezeLiveUpdates]);
 
   const stagedContent = freezeLiveUpdates ? displayContent : content;
-  const revealAllowed = stagedContent.length <= STAGED_REVEAL_MAX_CHARS;
+  // 逐码点偏移数组仅服务于流式逐字展开；历史消息不构建，避免虚拟列表
+  // 反复挂载时为每张卡片分配最多 32K 元素的数组。
+  const revealAllowed = streaming && stagedContent.length <= STAGED_REVEAL_MAX_CHARS;
   const ends = useMemo(() => (
     revealAllowed ? codePointEnds(stagedContent) : []
   ), [stagedContent, revealAllowed]);
@@ -244,7 +253,7 @@ export function useStreamingReveal(
   const stableLengthRef = useRef(contentLength);
   const segmentsRef = useRef<FadeSegment[]>([]);
   const onRestRef = useRef(onRest);
-  const transcriptScrollActive = useTranscriptScrollActiveState();
+  const transcriptScrollActive = useTranscriptScrollActiveState(streaming);
 
   useEffect(() => {
     onRestRef.current = onRest;

@@ -246,6 +246,10 @@ const TRANSCRIPT_INITIAL_SETTLE_MAX_MS = 1400;
 const TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES = 14;
 const TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES = 4;
 const TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX = 0.75;
+// 首屏稳定判定中「仍有测量待提交」只在前若干帧参与阻断。超过宽限期后，
+// 只要滚动高度与位置本身已稳定就放行——否则富文本卡片持续微调高度时，
+// stableFrames 会被无限清零，用户要盯着占位符等满 1.4s 上限。
+const TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES = 24;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 const COMPOSER_INSTRUCTION_HOVER_PREVIEW_DELAY_MS = 480;
@@ -2667,6 +2671,20 @@ interface VirtualMessageListProps {
   renderMessage: (message: SessionMessage) => ComponentChildren;
 }
 
+/// 卡片高度动画（WAAPI）期间每帧都会改变 offsetHeight。若照单全收地提交，
+/// 一次 300ms 的展开动画就等于 18 帧「测量 → 前缀和重建 → 锚点写 scrollTop」，
+/// 主线程被自激循环占满。这里让位给动画，收敛后只提交一次终值；超过上限
+/// 仍强制提交，避免无限动画把行高永久钉住。
+const MESSAGE_ROW_ANIMATION_DEFER_MAX_FRAMES = 48;
+
+function isMessageRowAnimating(element: HTMLElement): boolean {
+  const getAnimations = (element as Element & {
+    getAnimations?: (options?: { subtree?: boolean }) => unknown[];
+  }).getAnimations;
+  if (typeof getAnimations !== 'function') return false;
+  return getAnimations.call(element, { subtree: true }).length > 0;
+}
+
 function MeasuredMessageRow({
   message,
   onHeightChange,
@@ -2684,8 +2702,18 @@ function MeasuredMessageRow({
     const element = rowRef.current;
     if (!element) return undefined;
     let frame: number | null = null;
+    let deferredFrames = 0;
     const measure = () => {
       frame = null;
+      if (
+        deferredFrames < MESSAGE_ROW_ANIMATION_DEFER_MAX_FRAMES &&
+        isMessageRowAnimating(element)
+      ) {
+        deferredFrames += 1;
+        frame = window.requestAnimationFrame(measure);
+        return;
+      }
+      deferredFrames = 0;
       onHeightChange(message.id, element.offsetHeight);
     };
     frame = window.requestAnimationFrame(measure);
@@ -2748,17 +2776,24 @@ function VirtualMessageList({
   const revealIndex = revealTarget == null
     ? -1
     : messageIds.indexOf(revealTarget.messageId);
-  const estimatedHeights = useMemo(
-    () => messageIds.map((messageId) =>
+  // 高度几何同时写入 ref：范围计算与滚动监听只读 ref，让 updateRange 保持
+  // 稳定标识。否则每次测量提交都会重建 heights/prefix → 新函数标识 →
+  // scroll/resize 监听与 ResizeObserver 整体拆装，而 RO 挂载时规范要求立刻
+  // 回调一次，等于把一次测量放大成两次强制回流。
+  const geometryRef = useRef<{ heights: number[]; prefix: number[] }>({
+    heights: [],
+    prefix: [0],
+  });
+  const geometry = useMemo(() => {
+    const heights = messageIds.map((messageId) =>
       measuredHeightsRef.current.get(messageId) ??
       MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
-    ),
-    [heightRevision, messageIds],
-  );
-  const heightPrefix = useMemo(
-    () => buildHeightPrefix(estimatedHeights),
-    [estimatedHeights],
-  );
+    );
+    const next = { heights, prefix: buildHeightPrefix(heights) };
+    geometryRef.current = next;
+    return next;
+  }, [heightRevision, messageIds]);
+  const heightPrefix = geometry.prefix;
   const totalHeight = virtualMessageTotalHeight(heightPrefix, messages.length);
   const pendingTotalHeightRef = useRef(totalHeight);
   const [stableTotalHeight, setStableTotalHeight] = useState(totalHeight);
@@ -2772,7 +2807,10 @@ function VirtualMessageList({
     }
   }, [totalHeight]);
 
+  const previousVirtualizedRef = useRef(virtualized);
   useEffect(() => {
+    const enteredVirtualization = virtualized && !previousVirtualizedRef.current;
+    previousVirtualizedRef.current = virtualized;
     setRange((current) => {
       const next = initialVirtualMessageRange(messages.length);
       if (!virtualized) {
@@ -2780,7 +2818,13 @@ function VirtualMessageList({
           ? current
           : { start: 0, end: messages.length };
       }
-      // 仅高度变化时保留已测量范围；列表越过虚拟化阈值或成员变化时从尾部重新定位。
+      // 首屏分页只有 10 条，低于虚拟化阈值；服务端窗口补齐后列表才切到虚拟化。
+      // 此刻必须重新贴回尾部，否则 range 会停在最旧的几条上，紧接着被自动跟随
+      // 拉到底 —— 同一批消息在一次「打开」里被完整渲染两遍。
+      if (enteredVirtualization) {
+        return next;
+      }
+      // 仅高度变化时保留已测量范围；成员越界时从尾部重新定位。
       if (current.end > messages.length || current.start >= messages.length) {
         return next;
       }
@@ -2856,40 +2900,45 @@ function VirtualMessageList({
     }
   }, [heightRevision, scrollContainerRef]);
 
+  // 范围计算的输入同样走 ref 镜像，保证 updateRange / scheduleRangeUpdate
+  // 的标识在整个组件生命周期内恒定。
+  const rangeInputsRef = useRef({
+    virtualized,
+    messageCount: messages.length,
+    revealIndex,
+  });
+  rangeInputsRef.current = {
+    virtualized,
+    messageCount: messages.length,
+    revealIndex,
+  };
+
   const updateRange = useCallback(() => {
     rangeFrameRef.current = null;
-    if (!virtualized) {
+    const {
+      virtualized: rangeVirtualized,
+      messageCount,
+      revealIndex: rangeRevealIndex,
+    } = rangeInputsRef.current;
+    const applyRange = (next: VirtualMessageRange) => {
       setRange((current) =>
-        current.start === 0 && current.end === messages.length
-          ? current
-          : { start: 0, end: messages.length },
+        current.start === next.start && current.end === next.end ? current : next,
       );
+    };
+    if (!rangeVirtualized) {
+      applyRange({ start: 0, end: messageCount });
       return;
     }
-    if (revealIndex >= 0) {
-      const seed = initialVirtualMessageRange(messages.length);
+    if (rangeRevealIndex >= 0) {
+      const seed = initialVirtualMessageRange(messageCount);
       const span = Math.max(1, seed.end - seed.start);
-      const next = virtualMessageRangeAroundIndex(
-        messages.length,
-        revealIndex,
-        span,
-      );
-      setRange((current) =>
-        current.start === next.start && current.end === next.end
-          ? current
-          : next,
-      );
+      applyRange(virtualMessageRangeAroundIndex(messageCount, rangeRevealIndex, span));
       return;
     }
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
-    if (!scroller || !list || messages.length === 0) {
-      const fallback = initialVirtualMessageRange(messages.length);
-      setRange((current) =>
-        current.start === fallback.start && current.end === fallback.end
-          ? current
-          : fallback,
-      );
+    if (!scroller || !list || messageCount === 0) {
+      applyRange(initialVirtualMessageRange(messageCount));
       return;
     }
     const scrollerRect = scroller.getBoundingClientRect();
@@ -2898,21 +2947,17 @@ function VirtualMessageList({
     const viewportTop = Math.max(0, scroller.scrollTop - listTopInScroller);
     const viewportBottom =
       scroller.scrollTop - listTopInScroller + scroller.clientHeight;
-    const next = resolveVirtualMessageRange({
-      messageCount: messages.length,
-      prefix: heightPrefix,
-      heights: estimatedHeights,
+    const { heights, prefix } = geometryRef.current;
+    applyRange(resolveVirtualMessageRange({
+      messageCount,
+      prefix,
+      heights,
       viewportTop,
       viewportBottom,
       overscanPx: MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
       virtualized: true,
-    });
-    setRange((current) =>
-      current.start === next.start && current.end === next.end
-        ? current
-        : next,
-    );
-  }, [estimatedHeights, heightPrefix, messages.length, revealIndex, revealTarget?.generation, scrollContainerRef, virtualized]);
+    }));
+  }, [scrollContainerRef]);
 
   const scheduleRangeUpdate = useCallback(() => {
     if (rangeFrameRef.current != null) return;
@@ -2921,7 +2966,7 @@ function VirtualMessageList({
 
   useLayoutEffect(() => {
     scheduleRangeUpdate();
-  }, [scheduleRangeUpdate, totalHeight, messages.length]);
+  }, [scheduleRangeUpdate, totalHeight, messages.length, revealIndex, virtualized]);
 
   useEffect(() => {
     const scroller = scrollContainerRef.current;
@@ -2982,7 +3027,8 @@ function VirtualMessageList({
         scroller.scrollTop = target;
       }
       const measurementsPending =
-        heightCommitPendingRef.current || heightCommitFrameRef.current != null;
+        elapsedFrames <= TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES &&
+        (heightCommitPendingRef.current || heightCommitFrameRef.current != null);
       stableFrames = heightChanged || distance > TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX || measurementsPending
         ? 0
         : stableFrames + 1;
@@ -4194,7 +4240,10 @@ export function SessionDetailPage() {
     });
   }
 
-  const handleToggleMessageTranslation = useCallback(async (m: SessionMessage) => {
+  // 传给 MessageCard 的回调必须保持恒定标识：这些 handler 的依赖（翻译表、
+  // 反馈中集合、sendPhase）在一个回合内高频变化，进依赖数组会让窗口内每张
+  // 卡片的 memo 浅比较全部失效，等于整屏重渲染 + 重解析。
+  const handleToggleMessageTranslation = useEventCallback(async (m: SessionMessage) => {
     if (!sessionId) return;
     const source = m.content ?? '';
     const settingsFingerprint =
@@ -4277,14 +4326,7 @@ export function SessionDetailPage() {
       }));
       showSnackbar(`${t('message.translate.failed', '翻译失败')}：${message}`, { tone: 'error' });
     }
-  }, [
-    auth.meta?.active_model_key,
-    auth.meta?.message_content_settings?.translation_model_settings_fingerprint,
-    auth.meta?.message_content_settings?.translation_settings_fingerprint,
-    detail?.session.last_model_key,
-    messageTranslations,
-    sessionId,
-  ]);
+  });
 
   const handleToggleMessageTts = useCallback(async (m: SessionMessage) => {
     if (!sessionId) return;
@@ -4303,7 +4345,7 @@ export function SessionDetailPage() {
     }
   }, [applyTtsPlayback, sessionId]);
 
-  const handleSetMessageFeedback = useCallback(async (
+  const handleSetMessageFeedback = useEventCallback(async (
     m: SessionMessage,
     feedback: SessionMessageFeedback | null,
   ) => {
@@ -4331,9 +4373,9 @@ export function SessionDetailPage() {
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setMessageFeedbackBusy(m.id, false);
     }
-  }, [feedbackBusyMessageIds, sessionId]);
+  });
 
-  const handleRegenerateMessage = useCallback(async (m: SessionMessage) => {
+  const handleRegenerateMessage = useEventCallback(async (m: SessionMessage) => {
     if (!sessionId || regeneratingMessageIds.has(m.id)) return;
     if (sendPhase !== 'idle') {
       showSnackbar(t('message.regenerate.busy', '当前会话正在运行，稍后再试'), { tone: 'error' });
@@ -4360,7 +4402,7 @@ export function SessionDetailPage() {
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setMessageRegenerating(m.id, false);
     }
-  }, [composerModelKey, reduceMotion, regeneratingMessageIds, sendPhase, sessionId]);
+  });
 
   const handleCopyMessage = useCallback(async (m: SessionMessage) => {
     const text = m.content ?? '';
@@ -4623,15 +4665,18 @@ export function SessionDetailPage() {
         }
         return;
       }
-      if (!autoFollow) {
+      // 一律读 ref：autoFollow / autoFollowPaused / unreadCount 在流式期间高频
+      // 变化，若进依赖数组，这整套 wheel/touch/pointer/scroll/resize/keydown
+      // 监听器每来一条消息就拆装一次，并在拆装时同步跑一次 recalc 强制回流。
+      if (!autoFollowRef.current) {
         cancelFollowSettle();
-        if (autoFollowPaused) setAutoFollowPausedValue(false);
+        if (autoFollowPausedRef.current) setAutoFollowPausedValue(false);
         return;
       }
       if (isNearBottomRef.current) {
-        if (unreadCount !== 0) clearUnreadCount();
-        if (autoFollowPaused) setAutoFollowPausedValue(false);
-      } else if (!autoFollowPaused && scrolledUp && hasRecentUserScrollIntent()) {
+        clearUnreadCount();
+        if (autoFollowPausedRef.current) setAutoFollowPausedValue(false);
+      } else if (!autoFollowPausedRef.current && scrolledUp && hasRecentUserScrollIntent()) {
         // 仅在用户近期有明确滚动意图且 scrollTop 确实向上时暂停跟随。
         // 浏览器滚动锚点、代码高亮、Markdown/工具卡片测高等流式布局变化也可能
         // 让 scrollTop 回退；这些内容增长场景不能自动取消用户开启的贴底跟随。
@@ -4661,9 +4706,13 @@ export function SessionDetailPage() {
       el?.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', recalc);
       window.removeEventListener('keydown', handleKeyDown);
-      clearTranscriptScrollActivity();
     };
-  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent, markUserScrollIntent, unreadCount]);
+  }, [hasRecentUserScrollIntent, markUserScrollIntent]);
+
+  // 滚动活动标记只在真正离开会话页时清除。放在上面那个 effect 的 cleanup 里
+  // 会在监听器重挂时把「正在滚动」提前清掉，逼着被推迟的测量提交在滚动途中
+  // 集中涌出。
+  useEffect(() => clearTranscriptScrollActivity, []);
 
   useEffect(() => {
     const target = messagesContentRef.current;
@@ -5038,9 +5087,10 @@ export function SessionDetailPage() {
   function renderedMessageRow(messageId: string): HTMLElement | null {
     const container = messagesContentRef.current;
     if (!container || !messageId) return null;
-    return Array.from(
-      container.querySelectorAll<HTMLElement>('[data-message-id]'),
-    ).find((element) => element.dataset['messageId'] === messageId) ?? null;
+    const escaped = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(messageId)
+      : messageId.replace(/["\\]/g, '\\$&');
+    return container.querySelector<HTMLElement>(`[data-message-id="${escaped}"]`);
   }
 
   function updateSendPhaseValue(value: string): void {

@@ -110,7 +110,20 @@ function metadataHasAnyRenderableValue(
   return keys.some((key) => metadataHasRenderableValue(metadata[key]));
 }
 
+// 这两个判定要递归遍历整个 metadata 对象，且每次窗口派生都对全窗口消息重跑。
+// 流式合并会为未变更的消息保留对象引用，WeakMap 缓存把重复遍历降为每条一次。
+const renderableTranscriptOutputCache = new WeakMap<SessionMessage, boolean>();
+const standaloneMachineTerminalCache = new WeakMap<SessionMessage, boolean>();
+
 export function messageHasRenderableTranscriptOutput(message: SessionMessage): boolean {
+  const cached = renderableTranscriptOutputCache.get(message);
+  if (cached !== undefined) return cached;
+  const result = computeMessageHasRenderableTranscriptOutput(message);
+  renderableTranscriptOutputCache.set(message, result);
+  return result;
+}
+
+function computeMessageHasRenderableTranscriptOutput(message: SessionMessage): boolean {
   const content = (message.content ?? '').trim();
   if (content.length > 0) return true;
   const metadata = recordOrNullFromUnknown(message.metadata);
@@ -178,6 +191,14 @@ function metadataLooksLikeMachineTerminal(metadata: Record<string, unknown> | nu
 }
 
 function isStandaloneMachineTerminalToolResult(message: SessionMessage): boolean {
+  const cached = standaloneMachineTerminalCache.get(message);
+  if (cached !== undefined) return cached;
+  const result = computeStandaloneMachineTerminalToolResult(message);
+  standaloneMachineTerminalCache.set(message, result);
+  return result;
+}
+
+function computeStandaloneMachineTerminalToolResult(message: SessionMessage): boolean {
   if (message.kind !== 'tool') return false;
   const metadata = recordOrNullFromUnknown(message.metadata);
   if (STANDALONE_TOOL_RESULT_SUPPRESSED_TOOL_NAMES.has(normalizedToolName(metadata))) {

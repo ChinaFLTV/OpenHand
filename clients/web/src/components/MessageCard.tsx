@@ -852,6 +852,27 @@ function knowledgeBaseCitationLabel(hit: Record<string, unknown>): string {
   return strictStringFromUnknown(hit['chunk_id']);
 }
 
+/// 消息派生 view model 的按对象缓存。它们在卡片主体与 context chips 两条路径
+/// 上各算一次，元数据未命中时还要对整条消息逐行跑正则。流式合并会为未变更的
+/// 消息保留对象引用，因此 WeakMap 同时消除「同一次渲染算两遍」与「每次重渲染
+/// 都重算」两类浪费；内容变更会产生新对象，缓存自然失效。
+function memoizeByMessage<T>(
+  compute: (message: SessionMessage) => T,
+): (message: SessionMessage) => T {
+  const cache = new WeakMap<SessionMessage, { value: T }>();
+  return (message) => {
+    const cached = cache.get(message);
+    if (cached) return cached.value;
+    const value = compute(message);
+    cache.set(message, { value });
+    return value;
+  };
+}
+
+const webReverseRequestViewModel = memoizeByMessage(computeWebReverseRequestViewModel);
+const androidReverseRequestViewModel = memoizeByMessage(computeAndroidReverseRequestViewModel);
+const goalMessageViewModel = memoizeByMessage(computeGoalMessageViewModel);
+
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
   const meta = recordOrNullFromUnknown(message.metadata);
   const expertRequestChips = message.role === 'user'
@@ -869,13 +890,15 @@ function messageContextChips(message: SessionMessage): MessageContextChip[] {
   ];
 }
 
-function machineExpertRequestViewModel(message: SessionMessage): MachineExpertRequestViewModel | null {
-  if (message.role !== 'user') return null;
-  const meta = recordOrNullFromUnknown(message.metadata);
-  const fromMeta = machineExpertRequestFromMetadata(meta?.[MACHINE_EXPERT_REQUEST_CARD_METADATA_KEY]);
-  if (fromMeta) return fromMeta;
-  return machineExpertRequestFromPrompt(message.content ?? '');
-}
+const machineExpertRequestViewModel = memoizeByMessage(
+  (message: SessionMessage): MachineExpertRequestViewModel | null => {
+    if (message.role !== 'user') return null;
+    const meta = recordOrNullFromUnknown(message.metadata);
+    const fromMeta = machineExpertRequestFromMetadata(meta?.[MACHINE_EXPERT_REQUEST_CARD_METADATA_KEY]);
+    if (fromMeta) return fromMeta;
+    return machineExpertRequestFromPrompt(message.content ?? '');
+  },
+);
 
 function machineExpertRequestChips(message: SessionMessage): MessageContextChip[] {
   const view = machineExpertRequestViewModel(message);
@@ -938,7 +961,7 @@ function machineExpertRequestIsEmpty(view: MachineExpertRequestViewModel): boole
     !view.taskRequirement;
 }
 
-function webReverseRequestViewModel(message: SessionMessage): WebReverseRequestViewModel | null {
+function computeWebReverseRequestViewModel(message: SessionMessage): WebReverseRequestViewModel | null {
   if (message.role !== 'user') return null;
   const meta = recordOrNullFromUnknown(message.metadata);
   const fromMeta = webReverseRequestFromMetadata(meta?.[WEB_REVERSE_REQUEST_CARD_METADATA_KEY]);
@@ -1037,7 +1060,7 @@ function webReverseRequestIsEmpty(view: WebReverseRequestViewModel): boolean {
     !view.acceptanceCriteria;
 }
 
-function androidReverseRequestViewModel(message: SessionMessage): AndroidReverseRequestViewModel | null {
+function computeAndroidReverseRequestViewModel(message: SessionMessage): AndroidReverseRequestViewModel | null {
   if (message.role !== 'user') return null;
   const meta = recordOrNullFromUnknown(message.metadata);
   const fromMeta = androidReverseRequestFromMetadata(meta?.[ANDROID_REVERSE_REQUEST_CARD_METADATA_KEY]);
@@ -1147,6 +1170,9 @@ function androidReverseRequestIsEmpty(view: AndroidReverseRequestViewModel): boo
 }
 
 function readPromptField(content: string, label: string, knownLabels: readonly string[]): string {
+  // 绝大多数普通用户消息不含任何字段标签，先用一次子串扫描短路，
+  // 省掉整条消息的 split + 逐行正则。
+  if (!content.includes(label)) return '';
   const lines = content.split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
     const normalized = stripPromptBullet(lines[i]);
@@ -1172,10 +1198,19 @@ function looksLikePromptField(line: string, knownLabels: readonly string[]): boo
   return knownLabels.some((label) => isPromptFieldLabel(line, label));
 }
 
+// 标签集合是固定的常量列表，按标签缓存已编译正则；否则逐行匹配会为每一行
+// 每一个候选标签重新编译一次正则。
+const promptFieldLabelPatterns = new Map<string, RegExp>();
+
 function isPromptFieldLabel(line: string, label: string): boolean {
   if (line === label) return true;
-  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^${escaped}(?:\\s*[:：]|\\s*[（(])`).test(line);
+  let pattern = promptFieldLabelPatterns.get(label);
+  if (!pattern) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    pattern = new RegExp(`^${escaped}(?:\\s*[:：]|\\s*[（(])`);
+    promptFieldLabelPatterns.set(label, pattern);
+  }
+  return pattern.test(line);
 }
 
 function hasPromptHeading(content: string, heading: string): boolean {
@@ -1283,7 +1318,7 @@ interface GoalMessageViewModel {
   metrics: MessageContextChip[];
 }
 
-function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | null {
+function computeGoalMessageViewModel(message: SessionMessage): GoalMessageViewModel | null {
   const meta = recordOrNullFromUnknown(message.metadata);
   if (!meta) return null;
   if (meta['goal_auto_follow_up'] === true) {

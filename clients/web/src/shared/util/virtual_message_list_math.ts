@@ -4,10 +4,12 @@ export const MESSAGE_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
 export const MESSAGE_LIST_MAX_LOADED_MESSAGES = 200;
 export const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 24;
-export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 560;
+export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 1000;
 export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
 const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
-const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 1400;
+/// 仅用于拦截异常值，不截断真实行高：工具卡片带长输出时几千像素是常态，
+/// 一旦截断，锚点补偿每次都会算出非零 delta 并写 scrollTop，列表永远抖动。
+const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 40_000;
 export const MESSAGE_LIST_GAP_PX = 12;
 /** 首次打开或滚动的范围约为视口行数加预渲染行数，并始终从尾部开始。 */
 const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 8;
@@ -71,12 +73,20 @@ export function buildHeightPrefix(heights: number[]): number[] {
   return prefix;
 }
 
+/// 前缀和长度与消息数可能在同一帧内短暂不一致（成员变化与高度提交分属两条
+/// 更新路径）。这里统一夹取索引，避免读到 undefined 后把 NaN 写进 style。
+function boundedPrefixIndex(prefix: number[], index: number): number {
+  if (!Number.isFinite(index)) return 0;
+  return Math.max(0, Math.min(Math.floor(index), prefix.length - 1));
+}
+
 export function virtualMessageTop(
   prefix: number[],
   index: number,
   gapPx = MESSAGE_LIST_GAP_PX,
 ): number {
-  return prefix[index]! + index * gapPx;
+  const safeIndex = boundedPrefixIndex(prefix, index);
+  return prefix[safeIndex]! + safeIndex * gapPx;
 }
 
 function virtualMessageBottom(
@@ -93,7 +103,8 @@ export function virtualMessageTotalHeight(
   count: number,
   gapPx = MESSAGE_LIST_GAP_PX,
 ): number {
-  return prefix[count]! + Math.max(0, count - 1) * gapPx;
+  const safeCount = boundedPrefixIndex(prefix, count);
+  return prefix[safeCount]! + Math.max(0, safeCount - 1) * gapPx;
 }
 
 function firstVirtualMessageIntersecting(

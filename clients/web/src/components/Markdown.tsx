@@ -150,6 +150,7 @@ const HTML_COMPLEX_TAG_COUNT = 96;
 const HTML_COMPLEX_RENDER_COST = 18;
 const HTML_COMPLEX_PREVIEW_MAX_CHARS = 1400;
 const HTML_COMPLEX_PREVIEW_SCAN_CHARS = 12 * 1024;
+const HTML_LIKE_DETECT_CACHE_LIMIT = 512;
 
 function contentCacheKey(prefix: string, content: string): string {
   return `${prefix}:${content.length}:${fnv1aHashBase36(content)}`;
@@ -173,6 +174,7 @@ const markdownParseReadyCache = new Map<string, true>();
 const htmlSanitizeCache = new Map<string, string>();
 const htmlRenderReadyCache = new Map<string, true>();
 const htmlRenderProfileCache = new Map<string, HtmlRenderProfile>();
+const htmlLikeDetectCache = new Map<string, boolean>();
 
 class MarkdownFrameScheduler {
   private pending: Array<{ task: () => void; cancelled: boolean }> = [];
@@ -390,12 +392,6 @@ const HTML_LIKELY_TAG_RE = /<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li
 /// 配合 `looksLikeHtml` 使用，避免 AI 输出的非常见标签被误判为纯文本。
 const HTML_ANY_TAG_RE = /<\s*\/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/;
 
-function hasHtmlTagStructure(value: string): boolean {
-  if (!value) return false;
-  if (!value.includes('<')) return false;
-  return HTML_ANY_TAG_RE.test(stripFencedCodeBlocks(value));
-}
-
 /// 剥掉内容中的围栏代码块（```...```），避免代码块内的 <br/>、<div>
 /// 等标签被误判为 HTML 导致整条 Markdown 消息进入 HtmlBody 渲染路径。
 function stripFencedCodeBlocks(value: string): string {
@@ -404,15 +400,19 @@ function stripFencedCodeBlocks(value: string): string {
   return value.replace(/(^|\n)```[^\n]*\n[\s\S]*?\n```/g, '');
 }
 
-function looksLikeHtml(value: string): boolean {
-  if (!value) return false;
-  if (!value.includes('<')) return false;
-  return HTML_LIKELY_TAG_RE.test(stripFencedCodeBlocks(value));
-}
-
+/// 单次剥离围栏代码块后同时跑白名单与宽松结构检测，并按内容缓存判定结果。
+/// 该判定在 Markdown / MessageCard 的多个渲染路径上被重复调用，未缓存时
+/// 每次渲染都要为整条消息做一次全串复制 + 两轮正则扫描——长会话滚动时
+/// 这是纯浪费。缓存后重复渲染只剩一次 FNV 哈希。
 function looksLikeRenderableHtml(value: string): boolean {
-  const hasHtmlLikeTags = looksLikeHtml(value);
-  return hasHtmlLikeTags || (!hasHtmlLikeTags && hasHtmlTagStructure(value));
+  if (!value || !value.includes('<')) return false;
+  const key = contentCacheKey('htmlish', value);
+  const cached = htmlLikeDetectCache.get(key);
+  if (cached != null) return cached;
+  const stripped = stripFencedCodeBlocks(value);
+  const result = HTML_LIKELY_TAG_RE.test(stripped) || HTML_ANY_TAG_RE.test(stripped);
+  rememberLru(htmlLikeDetectCache, key, result, HTML_LIKE_DETECT_CACHE_LIMIT);
+  return result;
 }
 
 export { looksLikeRenderableHtml };
@@ -1198,7 +1198,10 @@ function MarkdownRenderPlaceholder({ source }: { source: string }) {
   );
 }
 
-export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
+/// memo 是长会话的关键护栏：react-markdown 内部不缓存 AST，组件体每执行
+/// 一次就是一整条 remark → rehype → highlight/katex 管线。父级（会话页）
+/// 任意 state 变更都会波及窗口内全部卡片，未 memo 时等于每次都全量重解析。
+export const Markdown = memo(function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
   const content = source ?? '';
   const tooBig = content.length > CONTENT_TOO_BIG_CHARS;
   const markdownContent = useMemo(
@@ -1588,4 +1591,4 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
       </ReactMarkdown>
     </div>
   );
-}
+});

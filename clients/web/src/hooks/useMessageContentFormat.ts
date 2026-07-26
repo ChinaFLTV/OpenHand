@@ -35,33 +35,62 @@ function readFallback(): HtmlRenderFallback {
   return 'markdown';
 }
 
+export interface MessageContentFormatSnapshot {
+  format: MessageContentFormat;
+  htmlFallback: HtmlRenderFallback;
+}
+
+// 进程级快照 + 单一 window 监听。虚拟列表窗口里每张消息卡片都会调用这个
+// hook：逐卡片注册两个 window 监听、各同步读两次 localStorage，在长会话里
+// 是纯浪费。改为共享快照后，挂载只剩一次 Set 插入，设置项变更时也只重读一次。
+let formatSnapshot: MessageContentFormatSnapshot | null = null;
+const formatListeners = new Set<(value: MessageContentFormatSnapshot) => void>();
+let formatWindowBound = false;
+
+function currentFormatSnapshot(): MessageContentFormatSnapshot {
+  formatSnapshot ??= { format: readFormat(), htmlFallback: readFallback() };
+  return formatSnapshot;
+}
+
+function refreshFormatSnapshot(): void {
+  const current = currentFormatSnapshot();
+  const next: MessageContentFormatSnapshot = {
+    format: readFormat(),
+    htmlFallback: readFallback(),
+  };
+  if (current.format === next.format && current.htmlFallback === next.htmlFallback) return;
+  formatSnapshot = next;
+  for (const listener of formatListeners) listener(next);
+}
+
+function bindFormatWindowListeners(): void {
+  if (formatWindowBound || typeof window === 'undefined') return;
+  formatWindowBound = true;
+  window.addEventListener(EVENT_NAME, refreshFormatSnapshot);
+  window.addEventListener('storage', refreshFormatSnapshot);
+}
+
 export function setMessageContentFormat(value: MessageContentFormat): void {
   writeBrowserStorage(FORMAT_KEY, value);
+  refreshFormatSnapshot();
   window.dispatchEvent(new CustomEvent(EVENT_NAME));
 }
 
 export function setHtmlRenderFallback(value: HtmlRenderFallback): void {
   writeBrowserStorage(FALLBACK_KEY, value);
+  refreshFormatSnapshot();
   window.dispatchEvent(new CustomEvent(EVENT_NAME));
 }
 
-export function useMessageContentFormat(): {
-  format: MessageContentFormat;
-  htmlFallback: HtmlRenderFallback;
-} {
-  const [format, setFormat] = useState<MessageContentFormat>(readFormat);
-  const [htmlFallback, setFallback] = useState<HtmlRenderFallback>(readFallback);
+export function useMessageContentFormat(): MessageContentFormatSnapshot {
+  const [snapshot, setSnapshot] = useState<MessageContentFormatSnapshot>(currentFormatSnapshot);
   useEffect(() => {
-    const refresh = () => {
-      setFormat(readFormat());
-      setFallback(readFallback());
-    };
-    window.addEventListener(EVENT_NAME, refresh);
-    window.addEventListener('storage', refresh);
+    bindFormatWindowListeners();
+    setSnapshot(currentFormatSnapshot());
+    formatListeners.add(setSnapshot);
     return () => {
-      window.removeEventListener(EVENT_NAME, refresh);
-      window.removeEventListener('storage', refresh);
+      formatListeners.delete(setSnapshot);
     };
   }, []);
-  return { format, htmlFallback };
+  return snapshot;
 }
