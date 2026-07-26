@@ -3053,21 +3053,17 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
             const Divider(height: 1),
             Expanded(
               child: _filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '无匹配脚本',
-                          zhHant: '無匹配腳本',
-                          en: 'No matches',
-                          fr: 'Aucun résultat',
-                          de: 'Keine Treffer',
-                          ja: '一致なし',
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+                  ? OpenHandInlineEmptyState(
+                      message: openHandLocalizedText(
+                        context,
+                        zh: '无匹配脚本',
+                        zhHant: '無匹配腳本',
+                        en: 'No matches',
+                        fr: 'Aucun résultat',
+                        de: 'Keine Treffer',
+                        ja: '一致なし',
                       ),
+                      dense: true,
                     )
                   : ListView.builder(
                       controller: _listScroll,

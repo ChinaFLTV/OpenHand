@@ -1348,14 +1348,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                 SizedBox(
                   height: bodyHeight,
                   child: widget.items.isEmpty
-                      ? Center(
-                          child: Text(
-                            widget.emptyMessage,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        )
+                      ? OpenHandInlineEmptyState(message: widget.emptyMessage)
                       : OpenHandSafeScrollbar(
                           controller: _scrollController,
                           thumbVisibility: scrollable,
@@ -1563,16 +1556,11 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
     if (buckets.isEmpty) {
       return SizedBox(
         height: 180,
-        child: Center(
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '当前范围暂无趋势数据',
-              en: 'No trend data in this range',
-            ),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '当前范围暂无趋势数据',
+            en: 'No trend data in this range',
           ),
         ),
       );
@@ -2293,13 +2281,11 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
                       '$_dimension-empty-${widget.snapshot.generatedAt.microsecondsSinceEpoch}',
                     ),
                     height: 110,
-                    child: Center(
-                      child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '该维度暂无数据',
-                          en: 'No data for this dimension',
-                        ),
+                    child: OpenHandInlineEmptyState(
+                      message: openHandLocalizedText(
+                        context,
+                        zh: '该维度暂无数据',
+                        en: 'No data for this dimension',
                       ),
                     ),
                   )
@@ -2586,13 +2572,11 @@ class _AiUsageRecentPanel extends StatelessWidget {
       child: records.isEmpty
           ? SizedBox(
               height: 110,
-              child: Center(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '当前范围暂无请求记录',
-                    en: 'No request records in this range',
-                  ),
+              child: OpenHandInlineEmptyState(
+                message: openHandLocalizedText(
+                  context,
+                  zh: '当前范围暂无请求记录',
+                  en: 'No request records in this range',
                 ),
               ),
             )

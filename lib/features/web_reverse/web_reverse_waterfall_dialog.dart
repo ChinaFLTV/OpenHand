@@ -16,6 +16,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -207,13 +208,10 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               decoration: webReverseSurfaceCardDecoration(cs),
               child: entries.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseWaterfallNoRequests ?? 'No requests',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
+                  ? OpenHandInlineEmptyState(
+                      message:
+                          loc?.webReverseWaterfallNoRequests ?? 'No requests',
+                      dense: true,
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {

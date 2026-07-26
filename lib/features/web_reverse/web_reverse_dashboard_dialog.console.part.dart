@@ -437,16 +437,9 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       children: [
         Expanded(
           child: !hasContent && visible.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Text(
+              ? OpenHandInlineEmptyState(
+                  message:
                       loc?.webReverseConsoleEmpty ?? 'No console output yet.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: _consoleScrollGuard.handleNotification,

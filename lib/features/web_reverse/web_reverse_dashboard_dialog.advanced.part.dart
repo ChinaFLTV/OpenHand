@@ -2889,21 +2889,17 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       return Padding(
         key: const ValueKey('empty-ice'),
         padding: const EdgeInsets.all(36),
-        child: Center(
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无 ICE 事件',
-              zhHant: '暫無 ICE 事件',
-              en: 'No ICE events',
-              fr: 'Aucun événement ICE',
-              de: 'Keine ICE-Events',
-              ja: 'ICE イベントはありません',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '暂无 ICE 事件',
+            zhHant: '暫無 ICE 事件',
+            en: 'No ICE events',
+            fr: 'Aucun événement ICE',
+            de: 'Keine ICE-Events',
+            ja: 'ICE イベントはありません',
           ),
+          dense: true,
         ),
       );
     }
@@ -3160,26 +3156,21 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   }
 
   Widget _buildEventsTab(ThemeData theme) {
-    final cs = theme.colorScheme;
     if (_events.isEmpty) {
       return Padding(
         key: const ValueKey('empty-events'),
         padding: const EdgeInsets.all(36),
-        child: Center(
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无事件',
-              zhHant: '暫無事件',
-              en: 'No events',
-              fr: 'Aucun événement',
-              de: 'Keine Events',
-              ja: 'イベントはありません',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '暂无事件',
+            zhHant: '暫無事件',
+            en: 'No events',
+            fr: 'Aucun événement',
+            de: 'Keine Events',
+            ja: 'イベントはありません',
           ),
+          dense: true,
         ),
       );
     }

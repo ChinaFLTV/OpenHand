@@ -4204,21 +4204,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           ),
         ),
         child: _reasoningEffortOptionDrafts.isEmpty
-            ? Center(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '暂无档位，点击新增开始配置。',
-                    zhHant: '暫無檔位，點擊新增開始設定。',
-                    en: 'No options yet. Add one to start.',
-                    fr: 'Aucune option. Ajoutez-en une pour commencer.',
-                    de: 'Noch keine Optionen. Füge eine hinzu.',
-                    ja: 'オプションはまだありません。追加して設定を始めます。',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+            ? OpenHandInlineEmptyState(
+                message: openHandLocalizedText(
+                  context,
+                  zh: '暂无档位，点击新增开始配置。',
+                  zhHant: '暫無檔位，點擊新增開始設定。',
+                  en: 'No options yet. Add one to start.',
+                  fr: 'Aucune option. Ajoutez-en une pour commencer.',
+                  de: 'Noch keine Optionen. Füge eine hinzu.',
+                  ja: 'オプションはまだありません。追加して設定を始めます。',
                 ),
+                dense: true,
               )
             : ClipRRect(
                 borderRadius: BorderRadius.circular(8),

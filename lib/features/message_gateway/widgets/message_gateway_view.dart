@@ -25,6 +25,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -9531,20 +9532,15 @@ class _MultiSelectDropdownMenuState<T>
             Divider(height: 1, color: colorScheme.outlineVariant),
             Expanded(
               child: filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '没有匹配项',
-                          zhHant: '沒有符合項目',
-                          en: 'No matches',
-                          fr: 'Aucune correspondance',
-                          de: 'Keine Treffer',
-                          ja: '一致する項目はありません',
-                        ),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                  ? OpenHandInlineEmptyState(
+                      message: openHandLocalizedText(
+                        context,
+                        zh: '没有匹配项',
+                        zhHant: '沒有符合項目',
+                        en: 'No matches',
+                        fr: 'Aucune correspondance',
+                        de: 'Keine Treffer',
+                        ja: '一致する項目はありません',
                       ),
                     )
                   : ListView.separated(
@@ -10128,20 +10124,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
           Divider(height: 1, color: colorScheme.outlineVariant),
           Expanded(
             child: filtered.isEmpty
-                ? Center(
-                    child: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '没有匹配的模型',
-                        zhHant: '沒有符合的模型',
-                        en: 'No matching models',
-                        fr: 'Aucun modèle correspondant',
-                        de: 'Keine passenden Modelle',
-                        ja: '一致するモデルはありません',
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                ? OpenHandInlineEmptyState(
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '没有匹配的模型',
+                      zhHant: '沒有符合的模型',
+                      en: 'No matching models',
+                      fr: 'Aucun modèle correspondant',
+                      de: 'Keine passenden Modelle',
+                      ja: '一致するモデルはありません',
                     ),
                   )
                 : ListView.builder(

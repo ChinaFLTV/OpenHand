@@ -2079,21 +2079,17 @@ class _HarChangedColumn extends StatelessWidget {
           const SizedBox(height: 8),
           Expanded(
             child: changes.isEmpty
-                ? Center(
-                    child: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '同 URL 全部一致',
-                        zhHant: '同 URL 全部一致',
-                        en: 'All shared URLs are identical',
-                        fr: 'Toutes les URL communes sont identiques',
-                        de: 'Alle gemeinsamen URLs sind identisch',
-                        ja: '共通 URL はすべて一致しています',
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                ? OpenHandInlineEmptyState(
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '同 URL 全部一致',
+                      zhHant: '同 URL 全部一致',
+                      en: 'All shared URLs are identical',
+                      fr: 'Toutes les URL communes sont identiques',
+                      de: 'Alle gemeinsamen URLs sind identisch',
+                      ja: '共通 URL はすべて一致しています',
                     ),
+                    dense: true,
                   )
                 : ListView.builder(
                     itemCount: changes.length,

@@ -18,6 +18,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_form_fields.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
@@ -472,13 +473,10 @@ class _WatchDialogState extends State<_WatchDialog> {
                 VerticalDivider(width: 1, color: cs.outlineVariant),
                 Expanded(
                   child: cur == null
-                      ? Center(
-                          child: Text(
-                            loc?.webReverseWatchPickWatch ?? 'Pick a watch',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
+                      ? OpenHandInlineEmptyState(
+                          message:
+                              loc?.webReverseWatchPickWatch ?? 'Pick a watch',
+                          dense: true,
                         )
                       : _HistoryPane(expr: cur),
                 ),

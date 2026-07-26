@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../util/text_normalization.dart';
 import 'animated_dialog.dart';
 import 'oh_pill.dart';
+import 'openhand_inline_empty_state.dart';
 import 'openhand_safe_scrollbar.dart';
 
 const double _kModelSearchDialogRadius = 16;
@@ -273,28 +274,12 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
           // ─── Model list ───
           Flexible(
             child: !hasAnyModels
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        l10n.modelSearchNoAvailableModels,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message: l10n.modelSearchNoAvailableModels,
                   )
                 : _filtered.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        l10n.modelSearchNoMatchingModels,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message: l10n.modelSearchNoMatchingModels,
                   )
                 : OpenHandSafeScrollbar(
                     controller: _scrollController,

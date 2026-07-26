@@ -35,6 +35,7 @@ import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_scroll_behaviors.dart';
@@ -552,15 +553,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
               decoration: paneDecoration,
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child:
-                  editor ??
-                  Center(
-                    child: Text(
-                      emptyEditorLabel,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
+                  editor ?? OpenHandInlineEmptyState(message: emptyEditorLabel),
             ),
           ),
         ],

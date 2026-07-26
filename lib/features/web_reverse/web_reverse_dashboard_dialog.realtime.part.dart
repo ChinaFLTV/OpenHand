@@ -339,13 +339,11 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
         // 帧列表
         Expanded(
           child: frames.isEmpty
-              ? Center(
-                  child: Text(
-                    loc?.webReverseRealtimeNoMatching ?? 'No matching frames.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
+              ? OpenHandInlineEmptyState(
+                  message:
+                      loc?.webReverseRealtimeNoMatching ??
+                      'No matching frames.',
+                  dense: true,
                 )
               : NotificationListener<ScrollNotification>(
                   onNotification: _scrollGuard.handleNotification,

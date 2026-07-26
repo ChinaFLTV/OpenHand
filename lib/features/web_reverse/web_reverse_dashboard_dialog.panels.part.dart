@@ -551,20 +551,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 Expanded(
                   flex: 3,
                   child: _metrics.isEmpty
-                      ? Center(
-                          child: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '尚无指标数据。',
-                              zhHant: '尚無指標資料。',
-                              en: 'No metrics yet.',
-                              fr: 'Aucune métrique pour le moment.',
-                              de: 'Noch keine Metriken.',
-                              ja: '指標データはまだありません。',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
+                      ? OpenHandInlineEmptyState(
+                          message: openHandLocalizedText(
+                            context,
+                            zh: '尚无指标数据。',
+                            zhHant: '尚無指標資料。',
+                            en: 'No metrics yet.',
+                            fr: 'Aucune métrique pour le moment.',
+                            de: 'Noch keine Metriken.',
+                            ja: '指標データはまだありません。',
                           ),
                         )
                       : GridView.count(
@@ -2343,21 +2338,17 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
               child: SizedBox(
                 height: 44,
                 child: deltas.isEmpty
-                    ? Center(
-                        child: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '开启后每 1.5s 记录一次分配增量',
-                            zhHant: '啟用後每 1.5s 記錄一次分配增量',
-                            en: 'Records allocation deltas every 1.5s',
-                            fr: 'Enregistre les deltas d’allocation toutes les 1,5 s',
-                            de: 'Erfasst Allokationsdeltas alle 1,5 s',
-                            ja: '有効化後、1.5 秒ごとに割り当て増分を記録します',
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                    ? OpenHandInlineEmptyState(
+                        message: openHandLocalizedText(
+                          context,
+                          zh: '开启后每 1.5s 记录一次分配增量',
+                          zhHant: '啟用後每 1.5s 記錄一次分配增量',
+                          en: 'Records allocation deltas every 1.5s',
+                          fr: 'Enregistre les deltas d’allocation toutes les 1,5 s',
+                          de: 'Erfasst Allokationsdeltas alle 1,5 s',
+                          ja: '有効化後、1.5 秒ごとに割り当て増分を記録します',
                         ),
+                        dense: true,
                       )
                     : CustomPaint(
                         painter: _HeapSamplingBarsPainter(
@@ -3089,13 +3080,9 @@ class _CookiesTableState extends State<_CookiesTable> {
         ),
         Expanded(
           child: cookies.isEmpty
-              ? Center(
-                  child: Text(
-                    _webReverseDashEmptyLabel(context),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
+              ? OpenHandInlineEmptyState(
+                  message: _webReverseDashEmptyLabel(context),
+                  dense: true,
                 )
               : OpenHandSafeScrollbar(
                   controller: _hCtrl,
@@ -3471,13 +3458,9 @@ class _StorageTableState extends State<_StorageTable> {
         ),
         Expanded(
           child: rows.isEmpty
-              ? Center(
-                  child: Text(
-                    _webReverseDashEmptyLabel(context),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
+              ? OpenHandInlineEmptyState(
+                  message: _webReverseDashEmptyLabel(context),
+                  dense: true,
                 )
               : ListView.separated(
                   itemCount: rows.length,
@@ -3980,13 +3963,9 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     if (widget.names.isEmpty) {
-      return Center(
-        child: Text(
-          _webReverseDashEmptyLabel(context),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-        ),
+      return OpenHandInlineEmptyState(
+        message: _webReverseDashEmptyLabel(context),
+        dense: true,
       );
     }
     final selected = _selected;
@@ -4114,21 +4093,17 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         // 右：store entries 表
         Expanded(
           child: selected == null
-              ? Center(
-                  child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '点击左侧 store 查看记录',
-                      zhHant: '點選左側 store 查看記錄',
-                      en: 'Select a store on the left to view records',
-                      fr: 'Sélectionnez un store à gauche pour voir les enregistrements',
-                      de: 'Wählen Sie links einen Store aus, um Datensätze anzuzeigen',
-                      ja: '左側の store を選択してレコードを表示',
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+              ? OpenHandInlineEmptyState(
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '点击左侧 store 查看记录',
+                    zhHant: '點選左側 store 查看記錄',
+                    en: 'Select a store on the left to view records',
+                    fr: 'Sélectionnez un store à gauche pour voir les enregistrements',
+                    de: 'Wählen Sie links einen Store aus, um Datensätze anzuzeigen',
+                    ja: '左側の store を選択してレコードを表示',
                   ),
+                  dense: true,
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4196,13 +4171,9 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                     ),
                     Expanded(
                       child: _entries.isEmpty && !_loading
-                          ? Center(
-                              child: Text(
-                                _webReverseDashEmptyLabel(context),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
+                          ? OpenHandInlineEmptyState(
+                              message: _webReverseDashEmptyLabel(context),
+                              dense: true,
                             )
                           : ListView.separated(
                               padding: const EdgeInsets.symmetric(
@@ -4364,13 +4335,9 @@ class _NameListPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     if (names.isEmpty) {
-      return Center(
-        child: Text(
-          _webReverseDashEmptyLabel(context),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-        ),
+      return OpenHandInlineEmptyState(
+        message: _webReverseDashEmptyLabel(context),
+        dense: true,
       );
     }
     return ListView.builder(
@@ -4463,13 +4430,9 @@ class _ServiceWorkersTable extends StatelessWidget {
         ),
         Expanded(
           child: versions.isEmpty
-              ? Center(
-                  child: Text(
-                    _webReverseDashEmptyLabel(context),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
+              ? OpenHandInlineEmptyState(
+                  message: _webReverseDashEmptyLabel(context),
+                  dense: true,
                 )
               : ListView.separated(
                   itemCount: versions.length,

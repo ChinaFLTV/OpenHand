@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -250,13 +251,9 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
             child: _loading && _regs.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _regs.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseSwDebugEmptyList ?? 'No service workers',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseSwDebugEmptyList ?? 'No service workers',
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(

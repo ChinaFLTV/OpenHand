@@ -11,6 +11,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -940,13 +941,8 @@ class _QdrantTrendChart extends StatelessWidget {
     if (samples.length < 2) {
       return SizedBox(
         height: _qdrantOpsChartHeight,
-        child: Center(
-          child: Text(
-            l10n.qdrantStatusCollectingSamples,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
+        child: OpenHandInlineEmptyState(
+          message: l10n.qdrantStatusCollectingSamples,
         ),
       );
     }

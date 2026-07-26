@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -325,13 +326,9 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
           ),
           Expanded(
             child: hits.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseReqBpNoHits ?? 'No hits yet',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message: loc?.webReverseReqBpNoHits ?? 'No hits yet',
+                    dense: true,
                   )
                 : ListView.builder(
                     reverse: true,

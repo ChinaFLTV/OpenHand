@@ -1658,17 +1658,13 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                             ),
                           )
                         : _results.isEmpty
-                        ? Center(
-                            child: Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: '没有匹配的记录。',
-                                en: 'No matching records.',
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
+                        ? OpenHandInlineEmptyState(
+                            message: openHandLocalizedText(
+                              context,
+                              zh: '没有匹配的记录。',
+                              en: 'No matching records.',
                             ),
+                            dense: true,
                           )
                         : ListView.separated(
                             itemCount: _results.length,

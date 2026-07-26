@@ -10,6 +10,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -1050,20 +1051,15 @@ class _MarkdownPreview extends StatelessWidget {
         builder: (context, value, _) {
           final data = value.text.trim();
           if (data.isEmpty) {
-            return Center(
-              child: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '暂无内容可预览。',
-                  zhHant: '暫無內容可預覽。',
-                  en: 'Nothing to preview yet.',
-                  fr: 'Aucun contenu à prévisualiser.',
-                  de: 'Noch kein Inhalt für die Vorschau.',
-                  ja: 'プレビューできる内容はまだありません。',
-                ),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+            return OpenHandInlineEmptyState(
+              message: openHandLocalizedText(
+                context,
+                zh: '暂无内容可预览。',
+                zhHant: '暫無內容可預覽。',
+                en: 'Nothing to preview yet.',
+                fr: 'Aucun contenu à prévisualiser.',
+                de: 'Noch kein Inhalt für die Vorschau.',
+                ja: 'プレビューできる内容はまだありません。',
               ),
             );
           }

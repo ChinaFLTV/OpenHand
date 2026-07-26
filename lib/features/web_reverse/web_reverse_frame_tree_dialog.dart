@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -232,13 +233,9 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
               child: _busy
                   ? const Center(child: CircularProgressIndicator())
                   : _rows.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseFrameTreeEmpty ?? 'No frames',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
+                  ? OpenHandInlineEmptyState(
+                      message: loc?.webReverseFrameTreeEmpty ?? 'No frames',
+                      dense: true,
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),

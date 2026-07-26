@@ -16,6 +16,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -710,17 +711,7 @@ class _ThreadSessionManagementDialogState
           else
             Expanded(
               child: tail.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text(
-                          l10n.tsmNoMessages,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    )
+                  ? OpenHandInlineEmptyState(message: l10n.tsmNoMessages)
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: tail.length,

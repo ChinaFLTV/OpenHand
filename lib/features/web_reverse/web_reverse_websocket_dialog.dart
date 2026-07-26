@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -866,21 +867,17 @@ class _WsDialogState extends State<_WsDialog> {
           Divider(height: 1, color: cs.outlineVariant),
           Expanded(
             child: conns.isEmpty
-                ? Center(
-                    child: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '当前会话没有 WebSocket / EventSource 连接',
-                        zhHant: '目前會話沒有 WebSocket / EventSource 連線',
-                        en: 'No WebSocket / EventSource connections',
-                        fr: 'Aucune connexion WebSocket / EventSource',
-                        de: 'Keine WebSocket-/EventSource-Verbindungen',
-                        ja: 'WebSocket / EventSource 接続がありません',
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                ? OpenHandInlineEmptyState(
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '当前会话没有 WebSocket / EventSource 连接',
+                      zhHant: '目前會話沒有 WebSocket / EventSource 連線',
+                      en: 'No WebSocket / EventSource connections',
+                      fr: 'Aucune connexion WebSocket / EventSource',
+                      de: 'Keine WebSocket-/EventSource-Verbindungen',
+                      ja: 'WebSocket / EventSource 接続がありません',
                     ),
+                    dense: true,
                   )
                 : Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
