@@ -1712,16 +1712,10 @@ void _warmMarkdownAst({
   }
   void warmup() {
     try {
-      final document = md.Document(
-        extensionSet: md.ExtensionSet.gitHubFlavored,
-        blockSyntaxes: openHandMarkdownMathBlockSyntaxes,
+      final astNodes = parseOpenHandMarkdown(
+        normalizedSource,
         inlineSyntaxes: effectiveInlineSyntaxes,
-        encodeHtml: false,
       );
-      final astNodes = document.parseLines(
-        const LineSplitter().convert(normalizedSource),
-      );
-      sanitizeOpenHandMarkdownAst(astNodes);
       _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
       onReady?.call(astNodes);
     } finally {
@@ -2237,18 +2231,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       if (cachedAst != null) {
         astNodes = cachedAst;
       } else {
-        final document = md.Document(
-          extensionSet: md.ExtensionSet.gitHubFlavored,
-          blockSyntaxes: openHandMarkdownMathBlockSyntaxes,
+        astNodes = parseOpenHandMarkdown(
+          normalizedSource,
           inlineSyntaxes: withOpenHandMarkdownMathInlineSyntaxes(
             widget.inlineSyntaxes,
           ),
-          encodeHtml: false,
         );
-        astNodes = document.parseLines(
-          const LineSplitter().convert(normalizedSource),
-        );
-        sanitizeOpenHandMarkdownAst(astNodes);
         if (shouldCacheAst) {
           _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
         }

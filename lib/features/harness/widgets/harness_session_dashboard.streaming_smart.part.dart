@@ -124,15 +124,12 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     };
 
     try {
-      final document = md.Document(
-        extensionSet: md.ExtensionSet.gitHubFlavored,
+      // 流式快渲通道不解析数学：清单留空以保持与非流式渲染的差异显式。
+      final astNodes = parseOpenHandMarkdown(
+        source,
         inlineSyntaxes: inlineSyntaxes,
-        encodeHtml: false,
+        blockSyntaxes: const <md.BlockSyntax>[],
       );
-      final astNodes = document.parseLines(
-        const LineSplitter().convert(source),
-      );
-      sanitizeOpenHandMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: false,

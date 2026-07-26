@@ -264,16 +264,10 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
     );
 
     try {
-      final document = md.Document(
-        extensionSet: md.ExtensionSet.gitHubFlavored,
-        blockSyntaxes: openHandMarkdownMathBlockSyntaxes,
+      final astNodes = parseOpenHandMarkdown(
+        source,
         inlineSyntaxes: effectiveInlineSyntaxes,
-        encodeHtml: false,
       );
-      final astNodes = document.parseLines(
-        const LineSplitter().convert(source),
-      );
-      sanitizeOpenHandMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: true,
