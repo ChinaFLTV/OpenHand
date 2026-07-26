@@ -2275,29 +2275,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(
-                begin: widget.isCollapsed ? 1 : 0,
-                end: widget.isCollapsed ? 0 : 1,
-              ),
-              duration: kOpenHandMotion260,
-              curve: Curves.easeInOutCubicEmphasized,
+            OpenHandCollapsibleFade(
+              collapsed: widget.isCollapsed,
               child: expandedContent,
-              builder: (context, value, child) {
-                return ClipRect(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    heightFactor: value,
-                    child: IgnorePointer(
-                      ignoring: value < 0.98,
-                      child: Opacity(
-                        opacity: value.clamp(0, 1).toDouble(),
-                        child: child,
-                      ),
-                    ),
-                  ),
-                );
-              },
             ),
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion260),

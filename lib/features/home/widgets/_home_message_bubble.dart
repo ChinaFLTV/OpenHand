@@ -3141,7 +3141,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     if (natural == null || natural.width <= 0 || natural.height <= 0) {
       return null;
     }
-    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     final targetSide =
         math.max(displaySize.width, displaySize.height) * dpr * zoomHeadroom;
     if (!targetSide.isFinite || targetSide <= 0) return null;

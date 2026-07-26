@@ -125,6 +125,8 @@ class _OpenHandAppState extends State<OpenHandApp> {
           context,
           listen: false,
         )?.updateTheme(Theme.of(context));
+        // 这里要整份 MediaQuery：下面需要 copyWith 出一份覆盖了
+        // disableAnimations 的数据向下传递。
         final media = MediaQuery.of(context);
         final disable = reduceMotion || media.disableAnimations;
         final builtChild = _OverlayPortalStabilityBoundary(

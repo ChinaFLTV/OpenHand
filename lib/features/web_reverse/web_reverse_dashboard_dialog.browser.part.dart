@@ -1612,7 +1612,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final ctrl = widget.controller;
-    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     return Column(
       children: [
         _TabStrip(
@@ -2634,6 +2634,9 @@ class _TabStripState extends State<_TabStrip> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     if (_displayed.isEmpty) return const SizedBox.shrink();
+    // 退场动效跟随全局设置；关闭动效时标签立即消失，_closeAnim 定时器仍按原
+    // 时长把它从 _displayed 里摘掉，不影响清理时序。
+    final closeMotionDuration = openHandMotionDuration(context, _closeAnim);
     // 把 onReorder 限定在「非 closing」前缀范围内 —— ReorderableListView 自带
     // 索引是覆盖整个列表的，但 closing 项不能参与排序，所以把传出的索引按需
     // 截断到 widget.targets 的范围内。
@@ -2694,15 +2697,15 @@ class _TabStripState extends State<_TabStrip> {
                     // 退场动画外壳：closing=true 时把高度 / 宽度 / 透明度 / 缩放
                     // 一起收缩到 0，240ms 后由定时器从 _displayed 里移除。
                     child: AnimatedSize(
-                      duration: _closeAnim,
+                      duration: closeMotionDuration,
                       curve: Curves.easeInCubic,
                       alignment: Alignment.centerLeft,
                       child: AnimatedOpacity(
-                        duration: _closeAnim,
+                        duration: closeMotionDuration,
                         opacity: closing ? 0 : 1,
                         curve: Curves.easeInCubic,
                         child: AnimatedScale(
-                          duration: _closeAnim,
+                          duration: closeMotionDuration,
                           scale: closing ? 0.6 : 1,
                           curve: Curves.easeInCubic,
                           alignment: Alignment.centerLeft,
@@ -2710,7 +2713,10 @@ class _TabStripState extends State<_TabStrip> {
                               ? const SizedBox(width: 0, height: 0)
                               : TweenAnimationBuilder<double>(
                                   tween: Tween<double>(begin: 0.85, end: 1),
-                                  duration: kOpenHandMotion260,
+                                  duration: openHandMotionDuration(
+                                    context,
+                                    kOpenHandMotion260,
+                                  ),
                                   curve: Curves.easeOutBack,
                                   builder: (_, v, child) => Opacity(
                                     opacity: v.clamp(0, 1),

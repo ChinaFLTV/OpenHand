@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../util/input_value_parsing.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_reveal_switcher.dart';
 
@@ -153,6 +155,60 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
               : null,
         ),
       ],
+    );
+  }
+}
+
+/// 折叠区在完全展开前屏蔽命中测试的阈值：动画尾段才放开交互，
+/// 避免用户在内容还在滑动时误触。
+const double _kCollapsibleInteractiveThreshold = 0.98;
+
+/// 顶部锚定的「高度 + 淡出」折叠动效。
+///
+/// 主会话输入区与 Harness 输入区的展开内容此前各写了一份完全相同的
+/// TweenAnimationBuilder：两处都直接用了原始时长常量，绕过全局动效设置，
+/// 于是关闭动效后相邻的 AnimatedContainer 立刻收起、内容却仍在淡出 260ms。
+class OpenHandCollapsibleFade extends StatelessWidget {
+  const OpenHandCollapsibleFade({
+    super.key,
+    required this.collapsed,
+    required this.child,
+    this.duration = kOpenHandMotion260,
+  });
+
+  final bool collapsed;
+  final Widget child;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveDuration = openHandMotionDuration(context, duration);
+    if (effectiveDuration == Duration.zero) {
+      return collapsed ? const SizedBox.shrink() : child;
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(
+        begin: collapsed ? 1 : 0,
+        end: collapsed ? 0 : 1,
+      ),
+      duration: effectiveDuration,
+      curve: Curves.easeInOutCubicEmphasized,
+      child: child,
+      builder: (context, value, animatedChild) {
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: value,
+            child: IgnorePointer(
+              ignoring: value < _kCollapsibleInteractiveThreshold,
+              child: Opacity(
+                opacity: clampUnitInterval(value),
+                child: animatedChild,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

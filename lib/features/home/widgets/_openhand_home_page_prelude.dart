@@ -53,19 +53,22 @@ const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 
+/// 只订阅 size / padding / viewInsets 三项：整份 MediaQuery 里还有文字缩放、
+/// 无障碍开关等无关属性，任一变化都会白白重建整棵首页内容树。
 Size _homeContentViewportSize(BuildContext context) {
-  final mediaQuery = MediaQuery.of(context);
-  final padding = mediaQuery.padding;
+  final viewport = MediaQuery.sizeOf(context);
+  final padding = MediaQuery.paddingOf(context);
+  final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
   final horizontalInsets =
       math.max(_homeContentSafeAreaMinimum.left, padding.left) +
       math.max(_homeContentSafeAreaMinimum.right, padding.right);
   final verticalInsets =
       math.max(_homeContentSafeAreaMinimum.top, padding.top) +
       math.max(_homeContentSafeAreaMinimum.bottom, padding.bottom) +
-      mediaQuery.viewInsets.bottom;
+      keyboardInset;
   return Size(
-    math.max(0, mediaQuery.size.width - horizontalInsets),
-    math.max(0, mediaQuery.size.height - verticalInsets),
+    math.max(0, viewport.width - horizontalInsets),
+    math.max(0, viewport.height - verticalInsets),
   );
 }
 

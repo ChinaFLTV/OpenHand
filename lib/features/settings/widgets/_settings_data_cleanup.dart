@@ -1542,9 +1542,9 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final media = MediaQuery.of(context);
-    final maxWidth = (media.size.width * 0.72).clamp(420, 920).toDouble();
-    final maxHeight = (media.size.height * 0.72).clamp(420, 720).toDouble();
+    final viewport = MediaQuery.sizeOf(context);
+    final maxWidth = (viewport.width * 0.72).clamp(420, 920).toDouble();
+    final maxHeight = (viewport.height * 0.72).clamp(420, 720).toDouble();
     return buildOpenHandDialog(
       maxWidth: maxWidth,
       maxHeight: maxHeight,

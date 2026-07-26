@@ -101,6 +101,9 @@ bool _isCollapsedPreviewAtBottom(
   return position.pixels >= maxExtent - epsilon;
 }
 
+/// 图片首帧解码完成后的淡入上移时长。
+const Duration _kImageFirstFrameRevealDuration = Duration(milliseconds: 400);
+
 class _CollapsedPreviewScrollCoordinator {
   _CollapsedPreviewScrollCoordinator({
     required this.controller,
@@ -2599,9 +2602,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       return const _ImageShimmerPlaceholder();
     }
     // First frame decoded — fade in with a one-shot animation.
+    final revealDuration = openHandMotionDuration(
+      context,
+      _kImageFirstFrameRevealDuration,
+    );
+    if (revealDuration == Duration.zero) return child;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 400),
+      duration: revealDuration,
       curve: Curves.easeOutBack,
       builder: (context, value, child) {
         final t = value.clamp(0.0, 1.0);

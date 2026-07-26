@@ -1,5 +1,8 @@
 part of 'harness_session_dashboard.dart';
 
+/// 最新流式区块的淡入上移时长。
+const Duration _kStreamingBlockRevealDuration = Duration(milliseconds: 380);
+
 class _HeStreamingSmartView extends StatefulWidget {
   const _HeStreamingSmartView({
     required this.lines,
@@ -197,7 +200,10 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
               Widget animatedLast(Widget w) => TweenAnimationBuilder<double>(
                 key: ValueKey<int>(_contentRevision),
                 tween: Tween<double>(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 380),
+                duration: _harnessMotionDuration(
+                  context,
+                  _kStreamingBlockRevealDuration,
+                ),
                 curve: Curves.easeOutCubic,
                 builder: (_, v, child) => Opacity(
                   opacity: clampUnitInterval(v),

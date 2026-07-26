@@ -552,29 +552,9 @@ class _HeComposer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(
-                begin: isCollapsed ? 1 : 0,
-                end: isCollapsed ? 0 : 1,
-              ),
-              duration: kOpenHandMotion260,
-              curve: Curves.easeInOutCubicEmphasized,
+            OpenHandCollapsibleFade(
+              collapsed: isCollapsed,
               child: expandedContent,
-              builder: (context, value, child) {
-                return ClipRect(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    heightFactor: value,
-                    child: IgnorePointer(
-                      ignoring: value < 0.98,
-                      child: Opacity(
-                        opacity: clampUnitInterval(value),
-                        child: child,
-                      ),
-                    ),
-                  ),
-                );
-              },
             ),
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion260),
