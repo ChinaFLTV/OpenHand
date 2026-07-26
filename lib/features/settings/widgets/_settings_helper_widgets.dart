@@ -5921,6 +5921,44 @@ Widget _buildEngineNumberField({
   );
 }
 
+/// 引擎列表区：小标题 + 说明 + 可拖拽排序的引擎卡片列表。
+///
+/// WebSearch 与 WebFetch 的引擎列表此前各写了一份同样的标题排版与
+/// ReorderableListView 配置（收缩包裹、禁用内部滚动、自绘拖拽副本）。
+List<Widget> buildWebEngineListSection({
+  required BuildContext context,
+  required ThemeData theme,
+  required ColorScheme colorScheme,
+  required String title,
+  required String description,
+  required int itemCount,
+  required void Function(int oldIndex, int newIndex) onReorder,
+  required IndexedWidgetBuilder itemBuilder,
+}) {
+  return [
+    Text(title, style: theme.textTheme.titleSmall),
+    const SizedBox(height: 4),
+    Text(
+      description,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
+    const SizedBox(height: 8),
+    ReorderableListView.builder(
+      shrinkWrap: true,
+      buildDefaultDragHandles: false,
+      // 列表嵌在外层滚动区里，自身不再滚动。
+      physics: const NeverScrollableScrollPhysics(),
+      proxyDecorator: (child, index, animation) =>
+          buildOpenHandReorderProxy(context, child, animation),
+      itemCount: itemCount,
+      onReorder: onReorder,
+      itemBuilder: itemBuilder,
+    ),
+  ];
+}
+
 /// 引擎卡片的外框与头部：拖拽柄 + 标题副标题 + 可选尾标 + 展开开关 + 启用开关。
 ///
 /// WebSearch / WebFetch 的通用引擎卡片与 WebFetch 独有的 Scrapling 运行时卡片

@@ -620,14 +620,16 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         const SizedBox(height: 16),
 
-        // 引擎列表。
-        Text(
-          openHandLocalizedText(context, zh: '搜索引擎', en: 'Search Engines'),
-          style: theme.textTheme.titleSmall,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          openHandLocalizedText(
+        ...buildWebEngineListSection(
+          context: context,
+          theme: theme,
+          colorScheme: colorScheme,
+          title: openHandLocalizedText(
+            context,
+            zh: '搜索引擎',
+            en: 'Search Engines',
+          ),
+          description: openHandLocalizedText(
             context,
             zh:
                 '拖拽卡片调整顺序;启用至少一个引擎,'
@@ -636,17 +638,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 'Drag cards to reorder; enable at least one. '
                 'If all are disabled, Bing/DuckDuckGo fallback kicks in.',
           ),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          buildDefaultDragHandles: false,
-          physics: const NeverScrollableScrollPhysics(),
-          proxyDecorator: (child, index, animation) =>
-              buildOpenHandReorderProxy(context, child, animation),
           itemCount: v.engines.length,
           onReorder: _reorderEngines,
           itemBuilder: (ctx, idx) {
