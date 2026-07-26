@@ -3340,7 +3340,6 @@ fi
               ],
             ),
           ),
-          // Status chip
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
@@ -10117,31 +10116,11 @@ fi
           (server) =>
               isVisible(server) &&
               TemplateRuntimeDependencyRegistry.containsAnyKeyword(
-                _mcpServerSearchText(controller, server),
+                controller.serverSearchText(server),
                 capability.keywords,
               ),
         )
         .toList(growable: false);
-  }
-
-  String _mcpServerSearchText(McpController controller, McpServer server) {
-    final catalog = controller.toolCatalogFor(server.name);
-    final buffer = StringBuffer()
-      ..write(server.name)
-      ..write(' ')
-      ..write(server.summary)
-      ..write(' ')
-      ..write(server.type.transportValue);
-    for (final tool in catalog.tools) {
-      buffer
-        ..write(' ')
-        ..write(tool.id)
-        ..write(' ')
-        ..write(tool.name)
-        ..write(' ')
-        ..write(tool.description);
-    }
-    return buffer.toString();
   }
 
   bool _isAndroidRelevantMcpTool(McpTool tool) {

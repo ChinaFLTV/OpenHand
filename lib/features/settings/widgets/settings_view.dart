@@ -60,6 +60,7 @@ import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';

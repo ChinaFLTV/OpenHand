@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_approval_chip.dart';
 import '../../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -238,19 +238,19 @@ class _McpOpsWriteApprovalDialogState
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _ApprovalChip(
+                  OpenHandApprovalChip(
                     icon: Icons.extension_rounded,
                     label: widget.request.toolName,
                   ),
-                  _ApprovalChip(
+                  OpenHandApprovalChip(
                     icon: Icons.devices_other_rounded,
                     label: widget.request.clientName,
                   ),
-                  _ApprovalChip(
+                  OpenHandApprovalChip(
                     icon: Icons.public_rounded,
                     label: widget.request.ipAddress,
                   ),
-                  _ApprovalChip(
+                  OpenHandApprovalChip(
                     icon: Icons.hourglass_top_rounded,
                     label: formatOpenHandAutoRejectCountdown(
                       context,
@@ -362,49 +362,6 @@ class _McpOpsWriteApprovalDialogState
       ),
     );
     return PopScope<bool>(canPop: false, child: dialog);
-  }
-}
-
-class _ApprovalChip extends StatelessWidget {
-  const _ApprovalChip({required this.icon, required this.label, this.color});
-
-  final IconData icon;
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final accent = color ?? cs.primary;
-    final maxWidth = math.min(420.0, MediaQuery.sizeOf(context).width * 0.58);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: accent),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Text(
-              nonBlankStringOr(label, '-'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

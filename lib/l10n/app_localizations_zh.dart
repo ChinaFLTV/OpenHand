@@ -214,9 +214,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get modelLabel => 'OpenHand Skeleton';
-
-  @override
   String get permissionLabel => '完全访问权限';
 
   @override
@@ -1766,12 +1763,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cronNotifySeverityCritical => '严重';
-
-  @override
-  String get cronScheduleInvalidExpression => '无效表达式';
-
-  @override
-  String get cronScheduleEveryMinute => '每分钟';
 
   @override
   String get cronParserFieldCountError => 'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）';
@@ -10892,9 +10883,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get modelLabel => 'OpenHand Skeleton';
-
-  @override
   String get permissionLabel => '完全訪問權限';
 
   @override
@@ -12446,12 +12434,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cronNotifySeverityCritical => '嚴重';
-
-  @override
-  String get cronScheduleInvalidExpression => '無效表示式';
-
-  @override
-  String get cronScheduleEveryMinute => '每分鐘';
 
   @override
   String get cronParserFieldCountError => 'Cron 表示式需要剛好 5 個欄位（分 時 日 月 週）';

@@ -84,7 +84,6 @@
       "type": {}
     }
   },
-  "modelLabel": "OpenHand Skeleton",
   "permissionLabel": "完全访问权限",
   "settingsCategoryGeneral": "常规",
   "settingsCategoryAi": "AI",
@@ -1176,8 +1175,6 @@
   "cronNotifySeverityWarning": "警告",
   "cronNotifySeverityError": "错误",
   "cronNotifySeverityCritical": "严重",
-  "cronScheduleInvalidExpression": "无效表达式",
-  "cronScheduleEveryMinute": "每分钟",
   "cronParserFieldCountError": "Cron 表达式需要恰好 5 个字段（分 时 日 月 周）",
   "cronParserFieldMinute": "分钟",
   "cronParserFieldHour": "小时",

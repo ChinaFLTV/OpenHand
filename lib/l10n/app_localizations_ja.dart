@@ -215,9 +215,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get modelLabel => 'OpenHand スケルトン';
-
-  @override
   String get permissionLabel => 'フルアクセス';
 
   @override
@@ -1785,12 +1782,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cronNotifySeverityCritical => '重大';
-
-  @override
-  String get cronScheduleInvalidExpression => '無効な式';
-
-  @override
-  String get cronScheduleEveryMinute => '毎分';
 
   @override
   String get cronParserFieldCountError =>

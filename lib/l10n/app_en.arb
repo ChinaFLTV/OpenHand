@@ -84,7 +84,6 @@
       "type": {}
     }
   },
-  "modelLabel": "OpenHand Skeleton",
   "permissionLabel": "Full Access",
   "settingsCategoryGeneral": "General",
   "settingsCategoryAi": "AI",
@@ -1176,8 +1175,6 @@
   "cronNotifySeverityWarning": "Warning",
   "cronNotifySeverityError": "Error",
   "cronNotifySeverityCritical": "Critical",
-  "cronScheduleInvalidExpression": "Invalid expression",
-  "cronScheduleEveryMinute": "Every minute",
   "cronParserFieldCountError": "Cron expression must have exactly 5 fields (min hour dom mon dow)",
   "cronParserFieldMinute": "Minute",
   "cronParserFieldHour": "Hour",

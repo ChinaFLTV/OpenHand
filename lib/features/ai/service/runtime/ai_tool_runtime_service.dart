@@ -514,17 +514,14 @@ class AiToolRuntimeService {
 
   /// 工具输出单轮最大字符数限制。
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
-  /// Group B: 由用户设置注入，可运行时调整。
+  /// 由用户设置注入，可在运行时调整。
   int maxToolOutputChars = 150000;
 
-  /// Template ID for which `skill_manager` is exposed as a builtin. All other
-  /// templates never see `skill_manager` in their tool catalog regardless of
-  /// user builtin-tool configs.
+  /// 仅此模板可使用内建技能管理工具。
   static const String _skillManagerTemplateId =
       AiPromptTemplatePolicies.hermesTalkerTemplateId;
 
-  /// Returns true iff the resolved [tool] should appear in the catalog of a
-  /// session whose thread template is [templateId].
+  /// 判断工具是否应出现在指定线程模板中。
   bool _isBuiltinAllowedForTemplate(AiResolvedTool tool, String templateId) {
     if (templateId == kMachineExpertTemplateId &&
         (tool.builtinKind == AiBuiltinToolKind.bash ||
@@ -622,15 +619,13 @@ class AiToolRuntimeService {
     return sorted;
   }
 
-  /// Apply user builtin-tool configs: filter disabled, apply overrides,
-  /// respect sort order and priority.
+  /// 应用内建工具的启用状态、覆盖配置、顺序和优先级。
   List<AiResolvedTool> _resolveConfiguredBuiltinTools(
     List<AiBuiltinToolConfig> configs,
   ) {
     final effectiveConfigs = configs.isEmpty
         ? AiBuiltinToolConfig.defaults()
         : configs;
-    // Build list respecting configs' sort order.
     final sortedConfigs = List<AiBuiltinToolConfig>.from(effectiveConfigs)
       ..sort((a, b) {
         final cmp = a.sortOrder.compareTo(b.sortOrder);
@@ -651,7 +646,6 @@ class AiToolRuntimeService {
       if (!cfg.enabled) continue;
       final baseTool = toolByKind[cfg.kind];
       if (baseTool == null) continue;
-      // Apply overrides.
       final overrideName = nullIfBlank(cfg.displayName);
       final overrideDesc = nullIfBlank(cfg.promptOverride);
       final overrideSummary = nullIfBlank(cfg.summary);
@@ -917,8 +911,7 @@ class AiToolRuntimeService {
       if (availableNames.isEmpty) {
         guidance.write(AiPlanModeGuidance.unsupportedEmptyCatalog);
       } else {
-        // Cap the suggestion list so an MCP-heavy session does not blow the
-        // tool-result envelope.
+        // 限制建议数量，避免 MCP 工具过多撑大结果。
         const maxSuggestions = 24;
         final preview = availableNames.length <= maxSuggestions
             ? availableNames.join(', ')
@@ -1080,11 +1073,7 @@ class AiToolRuntimeService {
     //   • retry: 仅对无副作用工具的瞬时失败启用。Task、写文件、Bash、
     //     后台进程、技能管理、Memory 写入等可能产生副作用的调用不自动重放。
     final builtinCfg = resolvedTool.builtinConfig;
-    // MCP servers can become unresponsive (network hang, server crash, slow
-    // remote tool). Without a guard, `_executeMcpTool` would await the
-    // server response indefinitely and freeze the entire turn. Apply a
-    // generous default cap so MCP tools, like builtins, surface a
-    // `timed_out` status instead of hanging.
+    // 为 MCP 调用设置统一上限，避免远端异常导致整轮无限等待。
     const defaultMcpTimeout = Duration(seconds: 120);
     final timeoutDuration = _runtimeTimeoutDuration(
       tool: resolvedTool,
@@ -1462,7 +1451,7 @@ class AiToolRuntimeService {
   // 对 resultText 进行字符数上限保护，超限时先尝试持久化完整结果，
   // 再向模型返回 head/tail 预算内预览和恢复提示。
   // 这防止了单次工具调用将大量输出（如 WebFetch 、Bash cat 大文件）直接塑进 API 上下文。
-  // FIX: stdout/stderr 截断边界与 resultText 保持一致，避免上下文看到不同片段。
+  // stdout/stderr 截断边界与 resultText 保持一致。
   Future<AiToolExecutionResult> _applyOutputBudget(
     AiToolExecutionResult result, {
     required String sessionId,
@@ -1935,7 +1924,7 @@ class AiToolRuntimeService {
       if (dispatchMetadata.isEmpty) return registryResult;
       return AiToolUtils.withMergedMetadata(registryResult, dispatchMetadata);
     }
-    // Registry may be disposed or an optional handler may be unavailable.
+    // 注册表可能已释放，或可选处理器尚未注册。
     return _invalidToolResult(
       toolCall.name,
       'No registered handler found for builtin tool: ${kind.name}',
@@ -2300,7 +2289,7 @@ class AiToolRuntimeService {
     return nullIfBlank(value) ?? fallback;
   }
 
-  // Hook payloads use one snake_case schema across all tool sources.
+  // 所有工具来源共用同一套蛇形命名 Hook 载荷。
   Map<String, Object?> _toolHookPayload({
     required String eventName,
     required String toolName,
@@ -2527,9 +2516,7 @@ class AiToolRuntimeService {
     );
   }
 
-  /// Skill catalog cap: the catalog only ships skill metadata; the full
-  /// SKILL.md body is loaded on demand through the per-skill `skill__<name>`
-  /// tool.
+  /// 技能目录只携带元数据，完整内容由对应工具按需读取。
   static const int _skillCatalogDescriptionCap = 512;
 
   AiResolvedTool _buildSkillTool(LocalSkill skill, Set<String> takenNames) {
@@ -2916,9 +2903,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.taskStop,
       name: 'TaskStop',
       description:
-          'Claude-style compatibility tool for stopping an OpenHand background shell task. '
-          'Use task_id with the BashBackground handle returned by Bash(run_in_background=true) or BashBackground start. '
-          'shell_id is accepted for deprecated KillShell compatibility. This is routed internally to BashBackground stop.',
+          'Stop an OpenHand background shell task. Use task_id with the handle returned by Bash(run_in_background=true) or BashBackground start.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -5066,9 +5051,7 @@ class AiToolRuntimeService {
     );
   }
 
-  /// Inject an optional `purpose` string property into a JSON-schema-style
-  /// parameters object. Returns a new map; the original is not mutated.
-  /// If [parameters] is not an `object` schema, it is returned unchanged.
+  /// 向对象参数副本注入可选的 `purpose` 字段。
   static Map<String, Object?> _injectPurposeProperty(
     Map<String, Object?> parameters,
   ) {
@@ -5096,8 +5079,7 @@ class AiToolRuntimeService {
     return next;
   }
 
-  /// Returns the default (unmodified) [AiResolvedTool] for the given
-  /// [AiBuiltinToolKind], or `null` if no such built-in tool exists.
+  /// 返回指定类型的默认内建工具。
   static AiResolvedTool? builtinToolDefault(AiBuiltinToolKind kind) {
     for (final tool in _builtinTools) {
       if (tool.builtinKind == kind) return tool;

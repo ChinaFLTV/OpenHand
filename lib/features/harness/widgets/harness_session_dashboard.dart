@@ -81,31 +81,25 @@ final RegExp _logLevelPattern = RegExp(
 // 匹配由横线、等号或下划线组成的终端分隔行。
 final RegExp _heSeparatorLinePattern = RegExp(r'^[-=_]{3,}$');
 
-// Matches <tool_calls>…</tool_calls> XML blocks that some models embed
-// alongside native tool_calls.  Stripped to avoid raw XML in the UI.
+// 匹配模型重复嵌入到文本中的工具调用 XML。
 final RegExp _heInlineToolCallsXmlPattern = RegExp(
   r'<tool_calls>\s*[\s\S]*?</tool_calls>',
   multiLine: true,
 );
 
-// Matches the setext-style == / ^^ underline that the md parser turns into
-// an H1/H2.  Both styles are escaped so they render as plain text.
+// 匹配会被 Markdown 误判为标题的 Setext 下划线。
 final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
 
-/// Pre-processes raw log lines into content ready for Markdown rendering.
-/// Returns a `(command, body)` record:
-///   • command — the first `> …` shell command (with prefix stripped)
-///   • body    — sanitised Markdown string for the rest of the content
+/// 提取首条命令并将其余日志整理为可渲染的 Markdown。
 ({String? command, String body}) _heSplitLogForMarkdown(List<String> lines) {
   String? command;
   final out = <String>[];
-  String? prev; // last non-empty output line
+  String? prev;
 
   for (final raw in lines) {
     final trimmed = raw.trim();
 
-    // ── Strip our own status decoration lines ──────────────────────────────
-    // ▶  ✓  ✗  ⚠  at the start of a line AND followed by a space = UI chrome
+    // 状态装饰已由界面表达，无需重复渲染。
     if (trimmed.isNotEmpty &&
         (trimmed.startsWith('▶ ') ||
             trimmed.startsWith('✓ ') ||
@@ -114,15 +108,12 @@ final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
       continue;
     }
 
-    // ── Extract command line (first `> …`) ─────────────────────────────────
     if (command == null && raw.startsWith('> ')) {
       command = raw.substring(2);
       continue;
     }
 
-    // ── Convert terminal separator lines ───────────────────────────────────
-    // `--------` immediately after a non-blank line would become a setext H2.
-    // Insert a blank line before it, then output it as a proper Markdown HR.
+    // 将终端分隔线转换为 Markdown 水平线。
     if (_heSeparatorLinePattern.hasMatch(trimmed)) {
       if (prev != null && out.isNotEmpty && out.last.isNotEmpty) out.add('');
       out.add('---');
@@ -131,10 +122,7 @@ final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
       continue;
     }
 
-    // ── Role markers emitted by CLI tools ──────────────────────────────────
-    // Single-word protocol tokens like `user`, `codex`, `exec`, `assistant`
-    // act as conversation-turn dividers in the terminal.  Replace them with
-    // a styled horizontal rule so sections are visually separated.
+    // 将 CLI 角色标记转换为段落分隔线。
     if (trimmed.length <= 12 &&
         const {
           'user',
@@ -155,7 +143,7 @@ final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
     if (trimmed.isNotEmpty) prev = trimmed;
   }
 
-  // Escape setext == / ^^ sequences that would create phantom headings.
+  // 转义可能生成虚假标题的 Setext 标记。
   final joined = out
       .join('\n')
       .trim()
@@ -290,38 +278,19 @@ String? _hePreferredAiModelConfigId({
   return settingsModels.isEmpty ? null : settingsModels.first.id;
 }
 
-// Sub-conversation segment model & parser
-// Splits raw CLI output lines into typed segments so each segment can be
-// rendered as an independent mini-card within the phase card, providing a
-// structured sub-conversation experience.
-/// The kind of content a segment represents.
+/// Harness 输出片段类型。
 enum _HeSegmentKind {
-  /// The CLI command that was executed.
   command,
-
-  /// AI assistant response / main output.
   assistant,
-
-  /// AI reasoning / thinking content.
   thinking,
-
-  /// Tool invocation (exec, function call).
   toolCall,
-
-  /// Tool/function result content.
   toolResult,
-
-  /// General output that doesn't match any role marker.
   output,
-
-  /// User-authored manual input (metaCollection / planning / reviewing).
   userInput,
-
-  /// Handoff document generation / context relay activity.
   handoff,
 }
 
-/// A parsed segment of CLI output, tagged with its kind.
+/// 已分类的 CLI 输出片段。
 class _HeOutputSegment {
   _HeOutputSegment({required this.kind, this.roleLabel, List<String>? lines})
     : lines = lines ?? [];
@@ -330,13 +299,12 @@ class _HeOutputSegment {
   final String? roleLabel;
   final List<String> lines;
 
-  /// Returns the trimmed, non-empty content lines joined for Markdown rendering.
+  /// 返回适合 Markdown 渲染的片段正文。
   String get markdownBody {
     final out = <String>[];
     String? prev;
     for (final raw in lines) {
       final trimmed = raw.trim();
-      // Convert separator lines to proper Markdown HR.
       if (_heSeparatorLinePattern.hasMatch(trimmed)) {
         if (prev != null && out.isNotEmpty && out.last.isNotEmpty) out.add('');
         out.add('---');
@@ -373,7 +341,7 @@ String _heSegmentWidgetKey(_HeOutputSegment segment, int index) {
   ].join('|');
 }
 
-/// Role markers emitted by various CLI tools that signal a new conversation turn.
+/// 表示新会话轮次的 CLI 角色标记。
 const Set<String> _heRoleMarkers = {
   'user',
   'codex',
@@ -384,7 +352,7 @@ const Set<String> _heRoleMarkers = {
   'tool',
 };
 
-/// Maps role marker strings to segment kinds.
+/// 将 CLI 角色标记映射为输出类型。
 _HeSegmentKind _kindFromRoleMarker(String marker) => switch (marker) {
   'assistant' => _HeSegmentKind.assistant,
   'codex' => _HeSegmentKind.thinking,
@@ -396,15 +364,13 @@ _HeSegmentKind _kindFromRoleMarker(String marker) => switch (marker) {
   _ => _HeSegmentKind.output,
 };
 
-/// Parses CLI output lines into a list of typed segments.
-/// Each role marker (assistant, codex, exec, tool, etc.) starts a new segment.
-/// The first `> …` line is extracted as a [_HeSegmentKind.command] segment.
+/// 将 CLI 输出解析为带类型的片段，并单独提取首条命令。
 List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   final segments = <_HeOutputSegment>[];
   _HeOutputSegment? current;
   String? commandLine;
 
-  /// Pattern matching manual-input headers like 【用户人工验收结果】.
+  // 匹配“【用户人工验收结果】”一类人工输入标题。
   final manualInputHeaderPattern = RegExp(r'^【用户人工.+】$');
   bool inUserInputSection = false;
 
@@ -418,7 +384,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   for (final raw in rawLines) {
     final trimmed = raw.trim();
 
-    // Strip UI decoration lines (but NOT ⚙ which marks tool calls).
+    // 工具调用标记“⚙”保留给后续分支处理。
     if (trimmed.isNotEmpty &&
         (trimmed.startsWith('▶ ') ||
             trimmed.startsWith('✓ ') ||
@@ -427,8 +393,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
-    // Detect tool call markers: ⚙ 工具调用：{ToolName}
-    // These are emitted by HarnessApiPhaseRunner.
+    // 解析 HarnessApiPhaseRunner 输出的工具调用标记。
     if (trimmed.startsWith('⚙ 工具调用：') || trimmed.startsWith('⚙ Tool call: ')) {
       flushCurrent();
       inUserInputSection = false;
@@ -442,10 +407,8 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
-    // Detect manual-input header — start a userInput segment.
     if (manualInputHeaderPattern.hasMatch(trimmed)) {
       flushCurrent();
-      // The header itself (e.g. 【用户人工验收结果】) becomes the roleLabel.
       current = _HeOutputSegment(
         kind: _HeSegmentKind.userInput,
         roleLabel: trimmed.substring(1, trimmed.length - 1),
@@ -454,17 +417,15 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
-    // End of user input section: ℹ acknowledgment line.
+    // 确认行结束人工输入片段。
     if (inUserInputSection && trimmed.startsWith('ℹ ')) {
       flushCurrent();
       inUserInputSection = false;
       continue;
     }
 
-    // Extract the CLI command (first `> …` line).
     if (commandLine == null && raw.startsWith('> ')) {
       commandLine = raw.substring(2);
-      // A command line also ends the user-input section.
       if (inUserInputSection) {
         flushCurrent();
         inUserInputSection = false;
@@ -472,8 +433,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
-    // Detect handoff markers (📋) — group consecutive handoff lines into a
-    // single handoff segment for structured UI treatment.
+    // 合并连续的交接文档行。
     if (trimmed.startsWith('📋 ')) {
       if (current?.kind != _HeSegmentKind.handoff) {
         flushCurrent();
@@ -485,15 +445,12 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       current!.lines.add(raw);
       continue;
     }
-    // If we were in a handoff segment and hit a non-handoff, non-empty line,
-    // close the handoff segment.
     if (current?.kind == _HeSegmentKind.handoff &&
         trimmed.isNotEmpty &&
         !trimmed.startsWith('📋 ')) {
       flushCurrent();
     }
 
-    // Detect role markers — start a new segment.
     if (trimmed.length <= 12 &&
         _heRoleMarkers.contains(trimmed.toLowerCase())) {
       flushCurrent();
@@ -505,14 +462,12 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
-    // If no current segment exists, create a generic output segment.
     current ??= _HeOutputSegment(kind: _HeSegmentKind.output);
     current!.lines.add(raw);
   }
 
   flushCurrent();
 
-  // Prepend the command segment if present.
   if (commandLine != null) {
     segments.insert(
       0,
@@ -520,9 +475,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
     );
   }
 
-  // Post-processing: detect thinking patterns in output/assistant segments.
-  // Claude Code prefixes thinking with <thinking>...</thinking> or uses
-  // extended thinking markers.
+  // 识别文本形式的推理标记。
   for (var i = 0; i < segments.length; i++) {
     final seg = segments[i];
     if (seg.kind == _HeSegmentKind.output ||
@@ -545,9 +498,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
     }
   }
 
-  // Post-processing: strip <tool_calls>…</tool_calls> XML that some models
-  // embed in the text reply alongside native tool_calls.  These are
-  // duplicate representations and would otherwise render as raw XML.
+  // 删除与原生工具调用重复的文本 XML。
   for (var i = 0; i < segments.length; i++) {
     final seg = segments[i];
     if (seg.kind == _HeSegmentKind.output ||
@@ -560,7 +511,6 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
             .replaceAll(RegExp(r'\n{3,}'), '\n\n')
             .trim();
         if (stripped.isEmpty) {
-          // The entire segment was just XML tool calls — remove it.
           segments.removeAt(i);
           i--;
         } else {
@@ -574,10 +524,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
     }
   }
 
-  // Post-processing: promote lone "output" segments with substantial content
-  // to "assistant" for better visual treatment (AI response card styling).
-  // Exclude command and userInput segments from the count so a phase with
-  // one AI output + one user input still promotes the AI output correctly.
+  // 将唯一且内容充足的普通输出按助手回复展示。
   final nonCommandSegments = segments.where(
     (s) =>
         s.kind != _HeSegmentKind.command && s.kind != _HeSegmentKind.userInput,
@@ -596,8 +543,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   return segments;
 }
 
-/// Builds a `MarkdownStyleSheet` tuned for the HE log-section surface
-/// (nearly-white or nearly-black depending on brightness).
+/// 构建适配 Harness 日志表面的 Markdown 样式。
 MarkdownStyleSheet _heBuildMarkdownStyleSheet(
   ThemeData theme,
   ColorScheme colorScheme,
@@ -683,21 +629,14 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
   );
 }
 
-// Shared border-radius constants matching the home-page conversation UI.
+// 与首页会话界面共用的圆角规格。
 const _br26 = BorderRadius.all(Radius.circular(26));
 const _br18 = BorderRadius.all(Radius.circular(18));
 const _br16 = BorderRadius.all(Radius.circular(16));
 const _br12 = BorderRadius.all(Radius.circular(12));
 const _br999 = BorderRadius.all(Radius.circular(999));
 
-/// Builds a markdown stylesheet whose colours are derived from the actual
-/// [cardBg] colour rather than from the app theme.  This is critical for
-/// always-dark cards (e.g. reasoning/thinking) that sit inside a light-theme
-/// app — without it, code blocks, inline code, links, blockquotes, etc. use
-/// light-mode colours on a dark background and become unreadable.
-///
-/// The logic mirrors [_MessageMarkdownThemeData.fromMessageBubble] used by the
-/// default thread template.
+/// 根据卡片实际背景构建 Markdown 配色，保证跨明暗主题的可读性。
 MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
   ThemeData theme,
   ColorScheme colorScheme,
@@ -863,11 +802,7 @@ const Color _heFailedTone = Color(0xFFC84B4B);
   );
 }
 
-// HarnessSessionPane — public entry-point (API surface unchanged)
-// Adopts the same visual language as an AI thread session:
-//   • _SessionToolbar-style header with scrollable info pills
-//   • scrollable card feed where every HE phase renders as a tool-call card
-//     (secondaryContainer bg when running, status-tinted for other states)
+/// Harness 会话面板控制器。
 class HarnessSessionPaneController {
   _HarnessSessionPaneState? _state;
 
@@ -940,7 +875,7 @@ class HarnessSessionPane extends StatefulWidget {
   final HarnessOrchestrator orchestrator;
   final bool isZh;
 
-  /// AI-generated or task-derived title shown in the session header.
+  /// 会话标题。
   final String? sessionTitle;
 
   /// 元数据弹窗使用的预格式化更新时间。
@@ -955,21 +890,21 @@ class HarnessSessionPane extends StatefulWidget {
   final DateTime? sessionCreatedAt;
   final DateTime? sessionUpdatedAt;
 
-  /// Called when the user restarts a failed / cancelled / idle session.
+  /// 重启已停止的会话。
   final VoidCallback onRestart;
 
-  /// Whether full-access (auto-advance) is enabled.
+  /// 是否允许自动推进。
   final bool fullAccessPermission;
 
-  /// Toggles full-access permission on/off.
+  /// 切换自动推进权限。
   final ValueChanged<bool> onToggleFullAccessPermission;
 
-  /// Called when user changes CLI/model config for a pending phase.
+  /// 更新待执行阶段的 CLI 或模型配置。
   final ValueChanged<HarnessSessionConfig> onConfigChanged;
 
   final HarnessSessionPaneController? controller;
 
-  /// Root directories for file path resolution in message content.
+  /// 消息文件路径的候选根目录。
   final List<String> filePathRoots;
 
   /// 可选的 ToolSearch 重放反悔窗口 deadline。传入后，会在会话
@@ -990,7 +925,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   final TextEditingController _manualPhaseController = TextEditingController();
   final FocusNode _manualPhaseFocusNode = FocusNode();
 
-  /// Per-phase expansion override: `null` = auto, non-null = user preference.
+  /// 阶段展开偏好；未记录时自动决定。
   final Map<HarnessPhaseLog, bool> _expandedOverrides = {};
   bool _composerCollapsed = false;
   bool _autoFollowEnabled = true;
@@ -998,11 +933,10 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   bool _manualPhaseSubmitting = false;
   bool _lastAwaitingManualPhaseInput = false;
 
-  /// The phase log currently selected (for showing action buttons below card).
+  /// 当前选中的阶段日志。
   HarnessPhaseLog? _selectedPhaseLog;
 
-  // ── Auto-scroll state ───────────────────────────────────────────────────
-  /// Guards against multiple addPostFrameCallback registrations per frame.
+  /// 避免同一帧重复注册滚动回调。
   bool _scrollCallbackQueued = false;
 
   bool _queuedForcedFeedScrollToBottom = false;
@@ -1020,9 +954,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     milliseconds: 220,
   );
 
-  /// Number of extra settle passes to run after the current scroll.
-  /// Settle passes re-invoke the scroll logic every frame until content
-  /// stabilises (important when AnimatedSize is transitioning height).
+  /// 动态高度稳定前需要继续执行的滚动帧数。
   int _scrollSettlePasses = 0;
 
   static const double _feedAutoFollowDistanceThreshold = 36;
@@ -1591,15 +1523,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     FocusNode node,
     KeyEvent event,
   ) {
-    // Composer shortcut consumption (no action).
-    // _handleGlobalShortcutKeyEvent (HardwareKeyboard) in the home page
-    // is the sole executor of send-message / toggle-composer.  Previously
-    // this FocusNode handler ALSO performed the action, so the composer
-    // toggle ran twice and visually cancelled out (the recurring
-    // "Ctrl+P border flash, nothing happens" bug also manifested here).
-    // We now only consume the matching keystroke in the focus tree so
-    // that DefaultTextEditingShortcuts cannot fire, without invoking the
-    // action a second time.
+    // 全局键盘处理器负责执行动作，此处只消费快捷键以避免重复触发。
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -1730,7 +1654,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     }
   }
 
-  /// Submits manual review input with an explicit PASS or FAIL verdict.
+  /// 提交带明确通过或失败结论的人工验收内容。
   Future<void> _submitManualReviewVerdict({required bool pass}) async {
     final awaitingPhase = _awaitingManualPhase;
     if (awaitingPhase != HarnessPhase.reviewing) {
@@ -2237,7 +2161,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         ? null
         : _phaseApprovalIssue(awaitingApprovalPhase);
 
-    // No phases yet — differentiate "idle/waiting" from "starting up".
+    // 无阶段时区分等待启动与正在启动。
     if (logs.isEmpty) {
       if (orchestrator.status == HarnessOrchestratorStatus.idle) {
         return _HeReadyPlaceholder(
@@ -2265,11 +2189,9 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           child: ListView.builder(
             controller: _feedController,
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-            // Phase cards carry expensive tool-trace and Markdown subtrees.
-            // This cache absorbs desktop scroll bursts without prebuilding an
-            // excessive number of off-screen cards.
+            // 缓存少量阶段卡片，平衡桌面滚动流畅度与离屏构建成本。
             cacheExtent: 1800,
-            // +1 if awaiting approval (for the approval banner).
+            // 等待审批时追加一张审批卡片。
             itemCount:
                 logs.length +
                 (widget.orchestrator.awaitingApprovalPhase != null ? 1 : 0),
@@ -2336,7 +2258,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                   ),
                 );
               }
-              // Approval banner (last item when awaiting approval).
               if (awaitingApprovalPhase != null) {
                 final approvalPhaseCopy = _manualPhaseCopy(
                   context,

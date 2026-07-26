@@ -84,7 +84,6 @@
       "type": {}
     }
   },
-  "modelLabel": "Squelette OpenHand",
   "permissionLabel": "Accès complet",
   "settingsCategoryGeneral": "Général",
   "settingsCategoryAi": "IA",
@@ -1176,8 +1175,6 @@
   "cronNotifySeverityWarning": "Avertissement",
   "cronNotifySeverityError": "Erreur",
   "cronNotifySeverityCritical": "Critique",
-  "cronScheduleInvalidExpression": "Expression invalide",
-  "cronScheduleEveryMinute": "Chaque minute",
   "cronParserFieldCountError": "L expression Cron doit contenir exactement 5 champs (min heure jour mois semaine)",
   "cronParserFieldMinute": "Minute",
   "cronParserFieldHour": "Heure",

@@ -50,7 +50,6 @@ class CronsView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -101,8 +100,7 @@ class CronsView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 24),
-        // Content — three states fade across smoothly so the list does not
-        // pop when entries arrive or are removed.
+        // 三种状态平滑切换，避免列表增删时跳变。
         Expanded(
           child: AnimatedSwitcher(
             duration: openHandMotionDuration(
@@ -200,7 +198,6 @@ class CronsView extends StatelessWidget {
   }
 }
 
-// Empty state
 class _CronEmptyState extends StatelessWidget {
   const _CronEmptyState();
 
@@ -240,7 +237,6 @@ class _CronEmptyState extends StatelessWidget {
   }
 }
 
-// Cron entry card
 class _CronEntryCard extends StatelessWidget {
   const _CronEntryCard({
     required this.entry,
@@ -276,10 +272,8 @@ class _CronEntryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                // Status dot
                 _CronStatusDot(status: entry.status, enabled: entry.enabled),
                 const SizedBox(width: 12),
-                // Name & description
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +304,6 @@ class _CronEntryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Cron expression badge
                 Tooltip(
                   message: l10n.cronsCronExpressionTooltip,
                   child: Container(
@@ -333,7 +326,6 @@ class _CronEntryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Timeout badge
                 Tooltip(
                   message: l10n.cronsTimeoutTooltip,
                   child: Container(
@@ -354,7 +346,6 @@ class _CronEntryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Retry badge
                 if (entry.retryCount > 0) ...[
                   Tooltip(
                     message: l10n.cronsRetryCountTooltip,
@@ -388,7 +379,6 @@ class _CronEntryCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
-                // Toggle switch
                 Builder(
                   builder: (context) {
                     final locked = entry.tags.contains(
@@ -406,11 +396,7 @@ class _CronEntryCard extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 8),
-                // system entries (e.g. Hermes Talker self-
-                // learning) no longer show a lock icon. Toggle stays
-                // enabled, but edit/delete remain disabled below to keep
-                // the cron parameters immutable.
-                // Actions
+                // 系统任务允许启停，但禁止编辑和删除以保持参数不可变。
                 IconButton(
                   icon: const Icon(Icons.bolt_rounded, size: 20),
                   tooltip: l10n.cronsRunOnceNow,
@@ -448,12 +434,10 @@ class _CronEntryCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Tags & status row
             if (entry.tags.isNotEmpty || entry.lastRunAt != null) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
-                  // Tags
                   if (entry.tags.isNotEmpty)
                     Expanded(
                       child: Wrap(
@@ -499,7 +483,6 @@ class _CronEntryCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                  // Status chip
                   _CronStatusChip(entry: entry),
                   if (entry.lastRunAt != null) ...[
                     const SizedBox(width: 8),
@@ -523,7 +506,6 @@ class _CronEntryCard extends StatelessWidget {
   }
 }
 
-// Status dot (like MCP health dot)
 class _CronStatusDot extends StatelessWidget {
   const _CronStatusDot({required this.status, required this.enabled});
 
@@ -551,7 +533,6 @@ class _CronStatusDot extends StatelessWidget {
   }
 }
 
-// Status chip
 class _CronStatusChip extends StatelessWidget {
   const _CronStatusChip({required this.entry});
 
@@ -596,7 +577,6 @@ class _CronStatusChip extends StatelessWidget {
   }
 }
 
-// Cron editor dialog
 class _CronEditorDialog extends StatefulWidget {
   const _CronEditorDialog({this.existing});
 
@@ -635,7 +615,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   late final TextEditingController _onFailureMsgController;
   late final TextEditingController _onTimeoutMsgController;
 
-  // Cron expression fields (5 fields: min hour dom mon dow)
+  // Cron 五段表达式：分、时、日、月、周。
   late final TextEditingController _cronMinController;
   late final TextEditingController _cronHourController;
   late final TextEditingController _cronDomController;
@@ -800,7 +780,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 message: _formError,
               ),
               if (_formError != null) const SizedBox(height: 12),
-              // Name
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -809,7 +788,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               const SizedBox(height: 14),
-              // Description
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
@@ -818,7 +796,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Script type toggle
               Text(l10n.cronsFieldType, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               SegmentedButton<CronScriptType>(
@@ -840,7 +817,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 },
               ),
               const SizedBox(height: 14),
-              // Script source
               if (_scriptType == CronScriptType.script) ...[
                 Row(
                   children: [
@@ -887,7 +863,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ],
               const SizedBox(height: 18),
-              // Cron expression
               Text(l10n.cronsCronSchedule, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               Row(
@@ -951,7 +926,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Timeout & Retry row
               Row(
                 children: [
                   Text(
@@ -1013,7 +987,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ],
               ),
               const SizedBox(height: 18),
-              // Run as user
               Text(l10n.cronsRunAsUser, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               AnimatedDropdownButtonFormField<String>(
@@ -1034,7 +1007,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 onChanged: (v) => setState(() => _runAsUser = v),
               ),
               const SizedBox(height: 18),
-              // Tags
               TextField(
                 controller: _tagsController,
                 decoration: InputDecoration(
@@ -1043,7 +1015,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Working directory
               TextField(
                 controller: _workingDirController,
                 decoration: InputDecoration(
@@ -1052,7 +1023,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Environment variables
               TextField(
                 controller: _envController,
                 maxLines: 3,
@@ -1120,7 +1090,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Notification settings
               Row(
                 children: [
                   Expanded(
@@ -1247,7 +1216,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     setState(() => _onTimeoutVibration = v),
               ),
               const SizedBox(height: 14),
-              // Enabled switch
               Row(
                 children: [
                   Text(l10n.cronsEnabled, style: theme.textTheme.titleSmall),
@@ -1340,7 +1308,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Event label
             Text(
               label,
               style: theme.textTheme.titleSmall?.copyWith(
@@ -1348,7 +1315,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            // Channel + severity dropdowns + sound/vibration toggles
             Row(
               children: [
                 Flexible(
@@ -1423,7 +1389,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ],
             ),
             const SizedBox(height: 10),
-            // Custom message
             TextField(
               controller: msgController,
               decoration: InputDecoration(
@@ -1487,7 +1452,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       return;
     }
 
-    // Validate cron expression.
+    // 校验 Cron 表达式。
     final cronExpr = _cronExpression;
     final cronErr = CronParser.validate(cronExpr, l10n: l10n);
     if (cronErr != null) {
@@ -1995,7 +1960,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 }
 
-// Execution history dialog
 class _CronHistoryDialog extends StatelessWidget {
   const _CronHistoryDialog({required this.entry});
 
@@ -2249,7 +2213,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               children: [
                 Row(
                   children: [
-                    // Status dot
                     Container(
                       width: 10,
                       height: 10,
@@ -2259,7 +2222,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // Status label
                     Text(
                       statusLabel,
                       style: theme.textTheme.labelMedium?.copyWith(
@@ -2268,7 +2230,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Time
                     Text(
                       formatYearMonthDayHms(record.startedAt),
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -2276,7 +2237,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       ),
                     ),
                     const Spacer(),
-                    // Duration
                     Text(
                       '${record.elapsedMs}ms',
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -2294,7 +2254,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         ),
                       ),
                     const SizedBox(width: 8),
-                    // Trigger type badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
@@ -2405,7 +2364,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Retry attempt
           if (record.retryAttempt > 0)
             _detailRow(
               l10n.cronsRetryAttempt,
@@ -2413,13 +2371,10 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               theme,
               colorScheme,
             ),
-          // PID
           if (record.pid != null)
             _detailRow('PID', '${record.pid}', theme, colorScheme),
-          // Run-as user
           if (record.runAsUser != null)
             _detailRow(l10n.cronsRunAs, record.runAsUser!, theme, colorScheme),
-          // Working directory
           if (record.workingDirectory != null)
             _detailRow(
               l10n.cronsWorkingDir,
@@ -2427,7 +2382,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               theme,
               colorScheme,
             ),
-          // Script environment overrides
           if (record.environment.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
@@ -2453,9 +2407,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.appContext.isNotEmpty) ...[
-            // Prefer the Hermes Talker rich panel for structured
-            // reports and hide the consumed JSON keys from the raw context
-            // list, avoiding duplicate noisy payloads in the UI.
+            // 结构化报告使用专用面板，并从原始上下文隐藏已消费字段。
             if (record.appContext.containsKey(
                   CronsController.hermesTalkerReportsKey,
                 ) ||
@@ -2482,7 +2434,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               color: colorScheme.onSurfaceVariant,
             ),
           ],
-          // Error message
           if (record.errorMessage != null &&
               record.errorMessage!.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -2503,7 +2454,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               ),
             ),
           ],
-          // Stdout
           if (record.stdout.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -2538,7 +2488,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               ),
             ),
           ],
-          // Stderr
           if (record.stderr.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -3452,9 +3401,7 @@ class _CollapsibleLongText extends StatefulWidget {
 
   static const int _previewChars = 320;
 
-  /// Bodies larger than this fall back to a plain selectable text view to
-  /// keep the timeline list snappy — markdown parsing is O(n) and would
-  /// otherwise stutter the UI when many history items are expanded.
+  /// 超出此长度时回退纯文本，避免批量展开历史项时卡顿。
   static const int _markdownByteLimit = 120 * 1024;
 
   final String title;
@@ -3489,7 +3436,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
       fontStyle: widget.subdued ? FontStyle.italic : FontStyle.normal,
     );
 
-    // Performance guard: oversized bodies skip markdown parsing entirely.
+    // 超长正文跳过 Markdown 解析。
     final useMarkdown = shown.length <= _CollapsibleLongText._markdownByteLimit;
 
     final Widget bodyWidget = useMarkdown
@@ -3562,9 +3509,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
   }
 }
 
-/// Lightweight markdown stylesheet for cron history collapsible bodies.
-/// Tuned for compact, in-card rendering: smaller fonts, dim accents, no
-/// heavy block decorations that would fight the surrounding card.
+/// Cron 历史卡片使用的紧凑 Markdown 样式。
 MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
   required ThemeData theme,
   required ColorScheme colorScheme,
@@ -3649,9 +3594,7 @@ MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
   );
 }
 
-/// Inline markdown helper used for short Hermes Talker fields (summary,
-/// change row heading, change detail lines). Falls back to a plain selectable
-/// text on oversized payloads to keep the history list snappy.
+/// Hermes Talker 短字段使用的内联 Markdown 组件。
 Widget _hermesInlineMarkdown({
   required String data,
   required ThemeData theme,
@@ -3661,8 +3604,7 @@ Widget _hermesInlineMarkdown({
   FontStyle? fontStyle,
   double height = 1.35,
 }) {
-  // Inline payloads are expected to be short (one line ~ a paragraph). Skip
-  // markdown parsing entirely once they cross a few KB.
+  // 超长内联内容使用纯文本。
   const inlineByteLimit = 4 * 1024;
   final base = theme.textTheme.bodySmall?.copyWith(
     color: color,

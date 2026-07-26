@@ -221,9 +221,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get modelLabel => 'Squelette OpenHand';
-
-  @override
   String get permissionLabel => 'Accès complet';
 
   @override
@@ -1828,12 +1825,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get cronNotifySeverityCritical => 'Critique';
-
-  @override
-  String get cronScheduleInvalidExpression => 'Expression invalide';
-
-  @override
-  String get cronScheduleEveryMinute => 'Chaque minute';
 
   @override
   String get cronParserFieldCountError =>

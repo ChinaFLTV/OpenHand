@@ -5,16 +5,13 @@ import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
+import '../web_engine/kimi_web_search_utils.dart';
 import 'web_search_engine.dart';
 
 export '../web_engine/web_engine_http_exception.dart'
     show WebEngineHttpException;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Pure JSON-API engines: tavily, exa, linkup, bocha, baidu(qianfan), kimi
-// 每个引擎只重写 fetch()；运行/重试/超时/截断由基类 [WebSearchEngine.run] 统一处理。
-// 解析逻辑遵循各家 2025 年 1 月版公开文档；字段缺失时用空串安全降级。
-// ─────────────────────────────────────────────────────────────────────────────
+// 纯 JSON API 引擎，重试、超时和截断由基类统一处理。
 
 /// Tavily — https://docs.tavily.com/api-reference/endpoint/search
 class WebSearchTavilyEngine extends WebSearchEngine {
@@ -243,11 +240,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
   }
 }
 
-/// Kimi (Moonshot) — 借助 chat/completions 的 web_search tool 工具
-/// 注意：返回结果在 message.tool_calls 之后的工具响应里以 `references` 字段出现。
-/// 此实现走 Moonshot 提供的轻量级 builtin function `$web_search`：
-/// 我们直接调用 `/v1/tools/web_search`（如果该 endpoint 存在）；
-/// 若 endpoint 不存在则回退使用 chat completions + tool 模式。
+/// Kimi 通过 Chat Completions 的内置网页搜索工具返回引用列表。
 class WebSearchKimiEngine extends WebSearchProviderKeyEngine {
   WebSearchKimiEngine({
     required super.config,
@@ -257,27 +250,14 @@ class WebSearchKimiEngine extends WebSearchProviderKeyEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    // 通过 Moonshot chat completions + 内置 web_search tool 拉取结果
-    // （Moonshot 的工具响应会塞在 message.references 数组里）
     final response = await sendWebEngineHttpRequest(
       'POST',
-      Uri.parse('https://api.moonshot.cn/v1/chat/completions'),
+      Uri.parse(kimiWebSearchEndpoint),
       headers: {
         'authorization': 'Bearer $effectiveApiKey',
         'content-type': 'application/json',
       },
-      body: jsonEncode({
-        'model': 'kimi-latest',
-        'messages': [
-          {'role': 'user', 'content': req.query},
-        ],
-        'tools': [
-          {
-            'type': 'builtin_function',
-            'function': {'name': '\$web_search'},
-          },
-        ],
-      }),
+      body: buildKimiWebSearchRequestBody(req.query),
       cancelSignal: req.cancelSignal,
     );
     final body = decodeSuccessfulWebEngineJsonResponse(

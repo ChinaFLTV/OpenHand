@@ -1378,40 +1378,11 @@ List<McpServer> _matchingServersForCapability(
         (server) =>
             server.isVisibleToTemplate(templateId) &&
             TemplateRuntimeDependencyRegistry.containsAnyKeyword(
-              _mcpServerSearchText(controller, server),
+              controller.serverSearchText(server),
               capability.keywords,
             ),
       )
       .toList(growable: false);
-}
-
-String _mcpServerSearchText(McpController controller, McpServer server) {
-  return _mcpServerSearchTextForCatalog(
-    server,
-    controller.toolCatalogFor(server.name),
-  );
-}
-
-String _mcpServerSearchTextForCatalog(
-  McpServer server,
-  McpToolCatalog catalog,
-) {
-  final buffer = StringBuffer()
-    ..write(server.name)
-    ..write(' ')
-    ..write(server.summary)
-    ..write(' ')
-    ..write(server.type.transportValue);
-  for (final tool in catalog.tools) {
-    buffer
-      ..write(' ')
-      ..write(tool.id)
-      ..write(' ')
-      ..write(tool.name)
-      ..write(' ')
-      ..write(tool.description);
-  }
-  return buffer.toString();
 }
 
 class _McpServerEditorDialog extends StatefulWidget {

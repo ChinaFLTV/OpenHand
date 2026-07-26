@@ -473,6 +473,25 @@ class McpController extends ChangeNotifier {
         const McpToolCatalog();
   }
 
+  String serverSearchText(McpServer server) {
+    final buffer = StringBuffer()
+      ..write(server.name)
+      ..write(' ')
+      ..write(server.summary)
+      ..write(' ')
+      ..write(server.type.transportValue);
+    for (final tool in toolCatalogFor(server.name).tools) {
+      buffer
+        ..write(' ')
+        ..write(tool.id)
+        ..write(' ')
+        ..write(tool.name)
+        ..write(' ')
+        ..write(tool.description);
+    }
+    return buffer.toString();
+  }
+
   McpServerHealth healthStatusFor(String serverName) {
     return _healthByServerName[_normalizeServerName(serverName)] ??
         const McpServerHealth();

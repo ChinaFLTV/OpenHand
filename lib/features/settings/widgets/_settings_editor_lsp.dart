@@ -2230,10 +2230,8 @@ class _EditorLspInstallRunnerDialogState
   static const Duration _installTimeout = Duration(minutes: 10);
   static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
-  static const int _maxLogLines = 2000;
-
-  final List<String> _logLines = <String>[];
-  final List<String> _pendingLogLines = <String>[];
+  final BoundedLogBuffer _logLines = BoundedLogBuffer();
+  final BoundedLogBuffer _pendingLogLines = BoundedLogBuffer();
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   Process? _process;
@@ -2266,10 +2264,6 @@ class _EditorLspInstallRunnerDialogState
   void _appendLine(String value) {
     if (!mounted || _disposed) return;
     _pendingLogLines.add(value);
-    final pendingOverflow = _pendingLogLines.length - _maxLogLines;
-    if (pendingOverflow > 0) {
-      _pendingLogLines.removeRange(0, pendingOverflow);
-    }
     _logFlushTimer ??= startSafeTimer(
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingLogLines,
@@ -2284,12 +2278,10 @@ class _EditorLspInstallRunnerDialogState
       _pendingLogLines.clear();
       return;
     }
-    final pending = List<String>.of(_pendingLogLines, growable: false);
+    final pending = _pendingLogLines.snapshot();
     _pendingLogLines.clear();
     setState(() {
       _logLines.addAll(pending);
-      final overflow = _logLines.length - _maxLogLines;
-      if (overflow > 0) _logLines.removeRange(0, overflow);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

@@ -74,6 +74,7 @@ import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/openhand_animated_title_text.dart';
+import '../../shared/ui/openhand_approval_chip.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -2283,7 +2284,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _activeComposerSessionId = nextSessionId;
 
-    // BUG FIX: 当目标会话正在发送消息时，不要恢复草稿内容。
+    // 目标会话正在发送消息时不恢复草稿。
     // 草稿是在 _submitTextToSession 中保存的，用于发送失败后恢复用户输入。
     // 但在正常发送过程中，AiSessionController 状态变化会触发本方法被调用，
     // 如果此时恢复草稿，就会出现消息已发送但输入框仍显示消息内容的问题。
@@ -4247,23 +4248,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final matchedServers = <Map<String, Object?>>[];
         for (final server in mcpController.runtimeServers) {
           final catalog = mcpController.toolCatalogFor(server.name);
-          final text = StringBuffer()
-            ..write(server.name)
-            ..write(' ')
-            ..write(server.summary)
-            ..write(' ')
-            ..write(server.type.transportValue);
-          for (final tool in catalog.tools) {
-            text
-              ..write(' ')
-              ..write(tool.id)
-              ..write(' ')
-              ..write(tool.name)
-              ..write(' ')
-              ..write(tool.description);
-          }
           if (!TemplateRuntimeDependencyRegistry.containsAnyKeyword(
-            text.toString(),
+            mcpController.serverSearchText(server),
             capability.keywords,
           )) {
             continue;

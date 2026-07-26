@@ -267,7 +267,7 @@ class _WriteCommandConfirmationDialogState
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _WriteCommandApprovalChip(
+                    OpenHandApprovalChip(
                       icon: Icons.hourglass_top_rounded,
                       label: formatOpenHandAutoRejectCountdown(
                         context,
@@ -275,7 +275,7 @@ class _WriteCommandConfirmationDialogState
                       ),
                       color: accent,
                     ),
-                    _WriteCommandApprovalChip(
+                    OpenHandApprovalChip(
                       icon: Icons.folder_open_rounded,
                       label: widget.request.workingDirectory,
                     ),
@@ -428,53 +428,6 @@ class _WriteCommandConfirmationDialogState
       ),
     );
     return PopScope<BashCommandApprovalDecision>(canPop: false, child: dialog);
-  }
-}
-
-class _WriteCommandApprovalChip extends StatelessWidget {
-  const _WriteCommandApprovalChip({
-    required this.icon,
-    required this.label,
-    this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final accent = color ?? cs.primary;
-    final maxWidth = math.min(420.0, MediaQuery.sizeOf(context).width * 0.58);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: accent),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Text(
-              nonBlankStringOr(label, '-'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

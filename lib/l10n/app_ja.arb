@@ -84,7 +84,6 @@
       "type": {}
     }
   },
-  "modelLabel": "OpenHand スケルトン",
   "permissionLabel": "フルアクセス",
   "settingsCategoryGeneral": "一般",
   "settingsCategoryAi": "AI",
@@ -1176,8 +1175,6 @@
   "cronNotifySeverityWarning": "警告",
   "cronNotifySeverityError": "エラー",
   "cronNotifySeverityCritical": "重大",
-  "cronScheduleInvalidExpression": "無効な式",
-  "cronScheduleEveryMinute": "毎分",
   "cronParserFieldCountError": "Cron 式は 5 フィールド（分 時 日 月 曜日）である必要があります",
   "cronParserFieldMinute": "分",
   "cronParserFieldHour": "時",

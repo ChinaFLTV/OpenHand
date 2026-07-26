@@ -2864,23 +2864,7 @@ class WebMessagePlatformService {
         },
       ];
     }
-    final catalog = _mcpController.toolCatalogFor(server.name);
-    final text = StringBuffer()
-      ..write(server.name)
-      ..write(' ')
-      ..write(server.summary)
-      ..write(' ')
-      ..write(server.type.transportValue);
-    for (final tool in catalog.tools) {
-      text
-        ..write(' ')
-        ..write(tool.id)
-        ..write(' ')
-        ..write(tool.name)
-        ..write(' ')
-        ..write(tool.description);
-    }
-    final raw = text.toString();
+    final raw = _mcpController.serverSearchText(server);
     final templatesById = <String, AiPromptTemplateInfo>{
       for (final template in AiPromptTemplatePolicies.templateInfos)
         template.id: template,

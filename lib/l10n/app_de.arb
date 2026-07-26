@@ -84,7 +84,6 @@
       "type": {}
     }
   },
-  "modelLabel": "OpenHand-Skelett",
   "permissionLabel": "Voller Zugriff",
   "settingsCategoryGeneral": "Allgemein",
   "settingsCategoryAi": "KI",
@@ -1176,8 +1175,6 @@
   "cronNotifySeverityWarning": "Warnung",
   "cronNotifySeverityError": "Fehler",
   "cronNotifySeverityCritical": "Kritisch",
-  "cronScheduleInvalidExpression": "Ungueltiger Ausdruck",
-  "cronScheduleEveryMinute": "Jede Minute",
   "cronParserFieldCountError": "Der Cron-Ausdruck muss genau 5 Felder haben (Min Stunde Tag Monat Wochentag)",
   "cronParserFieldMinute": "Minute",
   "cronParserFieldHour": "Stunde",

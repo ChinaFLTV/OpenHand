@@ -12,6 +12,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_dialog_utils.dart';
@@ -30,10 +31,8 @@ class HarnessCliInstallDialog extends StatefulWidget {
 class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   static const Duration _installTimeout = Duration(minutes: 5);
   static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
-  static const int _maxLogLines = 2000;
-
-  final List<String> _logLines = <String>[];
-  final List<String> _pendingLogLines = <String>[];
+  final BoundedLogBuffer _logLines = BoundedLogBuffer();
+  final BoundedLogBuffer _pendingLogLines = BoundedLogBuffer();
   bool _running = true;
   bool _success = false;
   bool _cancelled = false;
@@ -98,10 +97,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
       }
     }
     _pendingLogLines.add(line);
-    final pendingOverflow = _pendingLogLines.length - _maxLogLines;
-    if (pendingOverflow > 0) {
-      _pendingLogLines.removeRange(0, pendingOverflow);
-    }
     _logFlushTimer ??= startSafeTimer(
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingLogLines,
@@ -116,12 +111,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
       _pendingLogLines.clear();
       return;
     }
-    final pending = List<String>.of(_pendingLogLines, growable: false);
+    final pending = _pendingLogLines.snapshot();
     _pendingLogLines.clear();
     setState(() {
       _logLines.addAll(pending);
-      final overflow = _logLines.length - _maxLogLines;
-      if (overflow > 0) _logLines.removeRange(0, overflow);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

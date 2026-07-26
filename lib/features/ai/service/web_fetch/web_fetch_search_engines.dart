@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
+import '../web_engine/kimi_web_search_utils.dart';
 import 'web_fetch_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,26 +24,14 @@ class WebFetchKimiEngine extends WebFetchProviderKeyEngine {
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final response = await sendWebEngineHttpRequest(
       'POST',
-      Uri.parse('https://api.moonshot.cn/v1/chat/completions'),
+      Uri.parse(kimiWebSearchEndpoint),
       headers: {
         'authorization': 'Bearer $effectiveApiKey',
         'content-type': 'application/json',
       },
-      body: jsonEncode({
-        'model': 'kimi-latest',
-        'messages': [
-          {
-            'role': 'user',
-            'content': '请抓取 ${req.url} 的核心内容并原样返回（保留章节、列表、代码块）。',
-          },
-        ],
-        'tools': [
-          {
-            'type': 'builtin_function',
-            'function': {'name': '\$web_search'},
-          },
-        ],
-      }),
+      body: buildKimiWebSearchRequestBody(
+        '请抓取 ${req.url} 的核心内容并原样返回（保留章节、列表、代码块）。',
+      ),
       cancelSignal: req.cancelSignal,
     );
     final body = decodeSuccessfulWebEngineJsonResponse(

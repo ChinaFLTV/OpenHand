@@ -507,12 +507,6 @@ abstract class AppLocalizations {
   /// **'没有可读取 {type} 的 reader 模型。'**
   String knowledgeReaderNoModelForType(Object type);
 
-  /// No description provided for @modelLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'OpenHand Skeleton'**
-  String get modelLabel;
-
   /// No description provided for @permissionLabel.
   ///
   /// In zh, this message translates to:
@@ -3162,18 +3156,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'严重'**
   String get cronNotifySeverityCritical;
-
-  /// No description provided for @cronScheduleInvalidExpression.
-  ///
-  /// In zh, this message translates to:
-  /// **'无效表达式'**
-  String get cronScheduleInvalidExpression;
-
-  /// No description provided for @cronScheduleEveryMinute.
-  ///
-  /// In zh, this message translates to:
-  /// **'每分钟'**
-  String get cronScheduleEveryMinute;
 
   /// No description provided for @cronParserFieldCountError.
   ///

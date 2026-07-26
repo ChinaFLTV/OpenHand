@@ -45,6 +45,12 @@ class BoundedLogBuffer {
     _revision += 1;
   }
 
+  void addAll(Iterable<String> lines) {
+    for (final line in lines) {
+      add(line);
+    }
+  }
+
   void clear() {
     if (_lines.isEmpty) return;
     _lines.clear();

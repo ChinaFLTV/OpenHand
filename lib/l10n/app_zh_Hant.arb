@@ -84,7 +84,6 @@
       "type": {}
     }
   },
-  "modelLabel": "OpenHand Skeleton",
   "permissionLabel": "完全訪問權限",
   "settingsCategoryGeneral": "常規",
   "settingsCategoryAi": "AI",
@@ -1176,8 +1175,6 @@
   "cronNotifySeverityWarning": "警告",
   "cronNotifySeverityError": "錯誤",
   "cronNotifySeverityCritical": "嚴重",
-  "cronScheduleInvalidExpression": "無效表示式",
-  "cronScheduleEveryMinute": "每分鐘",
   "cronParserFieldCountError": "Cron 表示式需要剛好 5 個欄位（分 時 日 月 週）",
   "cronParserFieldMinute": "分鐘",
   "cronParserFieldHour": "小時",

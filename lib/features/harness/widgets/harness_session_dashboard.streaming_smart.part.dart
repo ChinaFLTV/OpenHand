@@ -75,6 +75,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     _lastThemeHash = themeHash;
 
     if (sanitised.isEmpty) {
+      _disposeRecognizers();
       _markdownChildren = null;
       _lastChildCount = 0;
       return;
@@ -138,6 +139,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       );
       _markdownChildren = builder.build(astNodes);
     } catch (_) {
+      _disposeRecognizers();
       _markdownChildren = <Widget>[
         Text(
           source,
@@ -152,68 +154,28 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   }
 
   void _disposeRecognizers() {
-    if (_recognizers.isEmpty) return;
-    final local = List<GestureRecognizer>.from(_recognizers);
-    _recognizers.clear();
-    for (final r in local) {
-      r.dispose();
-    }
+    _disposeMarkdownRecognizers(_recognizers);
   }
 
   @override
   GestureRecognizer createLink(String text, String? href, String title) {
-    final recognizer = TapGestureRecognizer();
-    _recognizers.add(recognizer);
-    final resolvedPath = resolveMarkdownMessageLinkPath(
-      href,
-      widget.filePathRoots,
+    return _createMarkdownPathLink(
+      context: context,
+      href: href,
+      filePathRoots: widget.filePathRoots,
+      recognizers: _recognizers,
     );
-    if (resolvedPath != null) {
-      recognizer.onTap = () {
-        unawaited(
-          copyHarnessTextToClipboard(
-            context: context,
-            text: resolvedPath.resolvedPath,
-            successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
-            logAction: '复制流式 Markdown 链接路径',
-          ),
-        );
-      };
-    }
-    return recognizer;
   }
 
   @override
   TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
-    final normalizedCode = code.replaceAll(RegExp(r'\n$'), '');
-    final resolvedPath = resolveExistingMessagePath(
-      normalizedCode,
-      widget.filePathRoots,
-    );
-    if (resolvedPath == null) {
-      return TextSpan(text: normalizedCode, style: styleSheet.code);
-    }
-    final recognizer = TapGestureRecognizer()
-      ..onTap = () {
-        unawaited(
-          copyHarnessTextToClipboard(
-            context: context,
-            text: resolvedPath.resolvedPath,
-            successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
-            logAction: '复制流式 Markdown 代码路径',
-          ),
-        );
-      };
-    _recognizers.add(recognizer);
-    final linkColor = widget.colorScheme.primary;
-    return TextSpan(
-      text: normalizedCode,
-      recognizer: recognizer,
-      style: styleSheet.code?.copyWith(
-        color: linkColor,
-        decoration: TextDecoration.underline,
-        decorationColor: linkColor,
-      ),
+    return _formatMarkdownPathCode(
+      context: context,
+      styleSheet: styleSheet,
+      code: code,
+      filePathRoots: widget.filePathRoots,
+      recognizers: _recognizers,
+      linkColor: widget.colorScheme.primary,
     );
   }
 
