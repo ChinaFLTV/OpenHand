@@ -581,10 +581,9 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     final maxBodyHeight = _showFull
         ? math.min(viewportHeight * 0.58, 640.0)
         : 320.0;
-    const rowExtent = 25.0;
-    final bodyHeight = math.min(
-      maxBodyHeight,
-      math.max(rowExtent, visibleLines.length * rowExtent),
+    final bodyHeight = codeBodyHeight(
+      maxBodyHeight: maxBodyHeight,
+      lineCount: visibleLines.length,
     );
     final codeTheme = context.watch<SettingsController>().editorCodeTheme;
     final brightness = theme.brightness;
@@ -635,14 +634,13 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
                   final viewportWidth = constraints.maxWidth.isFinite
                       ? constraints.maxWidth
                       : 640.0;
-                  final contentWidth = math.max(
-                    viewportWidth,
-                    math.min(3600.0, 96.0 + maxTextLength * 7.6),
+                  final contentWidth = codeBodyContentWidth(
+                    viewportWidth: viewportWidth,
+                    maxTextLength: maxTextLength,
                   );
                   return _CodeLineViewport(
                     height: bodyHeight,
                     contentWidth: contentWidth,
-                    rowExtent: rowExtent,
                     itemCount: visibleLines.length,
                     verticalController: _verticalController,
                     horizontalController: _horizontalController,

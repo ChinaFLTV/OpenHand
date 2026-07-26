@@ -1737,10 +1737,9 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     final maxBodyHeight = _showFull
         ? math.min(viewportHeight * 0.64, 720.0)
         : 320.0;
-    const rowExtent = 25.0;
-    final bodyHeight = math.min(
-      maxBodyHeight,
-      math.max(rowExtent, visibleLines.length * rowExtent),
+    final bodyHeight = codeBodyHeight(
+      maxBodyHeight: maxBodyHeight,
+      lineCount: visibleLines.length,
     );
     final codeTheme = context.watch<SettingsController>().editorCodeTheme;
     final brightness = theme.brightness;
@@ -1781,9 +1780,9 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
             final viewportWidth = constraints.maxWidth.isFinite
                 ? constraints.maxWidth
                 : 640.0;
-            final contentWidth = math.max(
-              viewportWidth,
-              math.min(3600.0, 96.0 + maxTextLength * 7.6),
+            final contentWidth = codeBodyContentWidth(
+              viewportWidth: viewportWidth,
+              maxTextLength: maxTextLength,
             );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1795,7 +1794,6 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
                   child: _CodeLineViewport(
                     height: bodyHeight,
                     contentWidth: contentWidth,
-                    rowExtent: rowExtent,
                     itemCount: visibleLines.length,
                     verticalController: _verticalController,
                     horizontalController: _horizontalController,
@@ -1840,6 +1838,38 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
   }
 }
 
+/// 代码 / 差异正文的排版尺寸。
+///
+/// 内联差异卡与文件改动卡此前各写一遍同一套算式与魔数——行高 25、单字符估宽
+/// 7.6、内容宽上限 3600……调一个数就得同步两处，漏一处两张卡的换行位置就会
+/// 分叉，同一份 diff 在两处看起来不一样。
+const double kCodeBodyRowExtent = 25;
+const double _kCodeBodyContentWidthMax = 3600;
+const double _kCodeBodyContentWidthPadding = 96;
+const double _kCodeBodyApproxCharWidth = 7.6;
+
+/// 正文高度：不超过 [maxBodyHeight]，也不小于一行。
+double codeBodyHeight({required double maxBodyHeight, required int lineCount}) {
+  return math.min(
+    maxBodyHeight,
+    math.max(kCodeBodyRowExtent, lineCount * kCodeBodyRowExtent),
+  );
+}
+
+/// 横向内容宽度：按最长行估宽，不窄于视口、不超过上限。
+double codeBodyContentWidth({
+  required double viewportWidth,
+  required int maxTextLength,
+}) {
+  return math.max(
+    viewportWidth,
+    math.min(
+      _kCodeBodyContentWidthMax,
+      _kCodeBodyContentWidthPadding + maxTextLength * _kCodeBodyApproxCharWidth,
+    ),
+  );
+}
+
 /// 代码 / diff 行视图的双向滚动外壳。
 ///
 /// 纵向由 [verticalController] 驱动列表本体，横向由 [horizontalController]
@@ -1850,7 +1880,6 @@ class _CodeLineViewport extends StatelessWidget {
   const _CodeLineViewport({
     required this.height,
     required this.contentWidth,
-    required this.rowExtent,
     required this.itemCount,
     required this.itemBuilder,
     required this.verticalController,
@@ -1859,7 +1888,6 @@ class _CodeLineViewport extends StatelessWidget {
 
   final double height;
   final double contentWidth;
-  final double rowExtent;
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
   final ScrollController verticalController;
@@ -1883,7 +1911,7 @@ class _CodeLineViewport extends StatelessWidget {
                   controller: verticalController,
                   primary: false,
                   padding: EdgeInsets.zero,
-                  itemExtent: rowExtent,
+                  itemExtent: kCodeBodyRowExtent,
                   itemCount: itemCount,
                   itemBuilder: itemBuilder,
                 ),
