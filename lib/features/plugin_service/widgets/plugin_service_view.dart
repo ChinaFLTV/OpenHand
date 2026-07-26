@@ -14,6 +14,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -490,13 +491,11 @@ class _PluginCard extends StatelessWidget {
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceCheckUpdates,
             onPressed: isBusy ? null : () => _checkUpdate(context),
-            icon: isCheckingUpdate
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.2),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 18),
+            icon: OpenHandBusyStatusIcon(
+              busy: isCheckingUpdate,
+              icon: Icons.refresh_rounded,
+              strokeWidth: 2.2,
+            ),
           ),
         // MCP 服务（仅 Playwright）
         if (hasMcp && plugin.isInstalled)
@@ -550,14 +549,15 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.delete_outline_rounded, size: 18),
           ),
         // 操作中
-        if (plugin.isBusy &&
-            !plugin.isInstalled &&
-            plugin.status != PluginStatus.notInstalled)
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
+        OpenHandBusyStatusIcon(
+          busy:
+              plugin.isBusy &&
+              !plugin.isInstalled &&
+              plugin.status != PluginStatus.notInstalled,
+          icon: null,
+          size: 24,
+          strokeWidth: 2.5,
+        ),
       ],
     );
   }

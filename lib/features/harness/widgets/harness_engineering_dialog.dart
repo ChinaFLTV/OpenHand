@@ -10,6 +10,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
@@ -846,36 +847,29 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               ),
                             ),
                             const Spacer(),
-                            if (_isScanning || _isCheckingAuth)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
-                                child: SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              )
-                            else
-                              IconButton(
-                                onPressed: _scanClis,
-                                icon: const Icon(
-                                  Icons.refresh_rounded,
-                                  size: 18,
-                                ),
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '重新扫描 CLI',
-                                  zhHant: '重新掃描 CLI',
-                                  en: 'Re-scan CLIs',
-                                  fr: 'Relancer le scan des CLI',
-                                  de: 'CLIs erneut scannen',
-                                  ja: 'CLI を再スキャン',
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
+                            // 忙碌时保留按钮本体、只把图标换成转圈：此前是把
+                            // 整个 IconButton 换成一个 14px 转圈，忙碌一开始
+                            // 这一行就塌陷一次。
+                            IconButton(
+                              onPressed: _isScanning || _isCheckingAuth
+                                  ? null
+                                  : _scanClis,
+                              icon: OpenHandBusyStatusIcon(
+                                busy: _isScanning || _isCheckingAuth,
+                                icon: Icons.refresh_rounded,
                               ),
+                              tooltip: openHandLocalizedText(
+                                context,
+                                zh: '重新扫描 CLI',
+                                zhHant: '重新掃描 CLI',
+                                en: 'Re-scan CLIs',
+                                fr: 'Relancer le scan des CLI',
+                                de: 'CLIs erneut scannen',
+                                ja: 'CLI を再スキャン',
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -2203,15 +2197,14 @@ class _CliScanSummary extends StatelessWidget {
           ),
         ),
         ...chips,
-        if (isCheckingAuth)
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
+        // 固定占位的切换：转圈直接插进这一行会把已有徽标整体推开。
+        OpenHandBusyStatusIcon(
+          busy: isCheckingAuth,
+          icon: null,
+          size: 12,
+          strokeWidth: 1.5,
+          color: colorScheme.onSurfaceVariant,
+        ),
       ],
     );
   }

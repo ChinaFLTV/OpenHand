@@ -30,6 +30,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -10060,19 +10061,13 @@ class _McpServerCardState extends State<_McpServerCard> {
                                       onPressed: healthStatus.isChecking
                                           ? null
                                           : onCheckHealth,
-                                      icon: healthStatus.isChecking
-                                          ? const SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.2,
-                                              ),
-                                            )
-                                          : Icon(
-                                              _healthStatusActionIcon(
-                                                healthStatus,
-                                              ),
-                                            ),
+                                      icon: OpenHandBusyStatusIcon(
+                                        busy: healthStatus.isChecking,
+                                        icon: _healthStatusActionIcon(
+                                          healthStatus,
+                                        ),
+                                        strokeWidth: 2.2,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -10093,15 +10088,11 @@ class _McpServerCardState extends State<_McpServerCard> {
                                       onPressed: toolCatalog.isLoading
                                           ? null
                                           : onRefreshTools,
-                                      icon: toolCatalog.isLoading
-                                          ? const SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.2,
-                                              ),
-                                            )
-                                          : const Icon(Icons.refresh_rounded),
+                                      icon: OpenHandBusyStatusIcon(
+                                        busy: toolCatalog.isLoading,
+                                        icon: Icons.refresh_rounded,
+                                        strokeWidth: 2.2,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -10553,17 +10544,13 @@ class _StdioProcessButtons extends StatelessWidget {
                           foregroundColor: OpenHandStatusColors.success,
                         )
                       : null,
-                  icon: info.isTransitioning
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2.2),
-                        )
-                      : Icon(
-                          info.isRunning
-                              ? Icons.stop_rounded
-                              : Icons.play_arrow_rounded,
-                        ),
+                  icon: OpenHandBusyStatusIcon(
+                    busy: info.isTransitioning,
+                    icon: info.isRunning
+                        ? Icons.stop_rounded
+                        : Icons.play_arrow_rounded,
+                    strokeWidth: 2.2,
+                  ),
                 ),
               ),
             ),
