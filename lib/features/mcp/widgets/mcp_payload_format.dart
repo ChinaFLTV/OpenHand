@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
@@ -181,5 +182,119 @@ Widget buildMcpPayloadEntryColumn<T>({
         ),
       if (hiddenCount > 0) overflowBuilder(hiddenCount),
     ],
+  );
+}
+
+/// 载荷文本卡片的固定尺寸与配色权重。
+const BorderRadius _kPayloadCardRadius = BorderRadius.all(Radius.circular(12));
+const EdgeInsets _kPayloadHeaderPadding = EdgeInsets.symmetric(
+  horizontal: 11,
+  vertical: 7,
+);
+const EdgeInsets _kPayloadBodyPadding = EdgeInsets.symmetric(
+  horizontal: 12,
+  vertical: 10,
+);
+const double _kPayloadCardSurfaceAlpha = 0.70;
+const double _kPayloadCardBorderAlpha = 0.14;
+const double _kPayloadHeaderSurfaceAlpha = 0.43;
+const double _kPayloadHeaderDividerAlpha = 0.41;
+const double _kPayloadHeaderIconSize = 14;
+const double _kPayloadMonoLineHeight = 1.50;
+const double _kPayloadProseLineHeight = 1.42;
+
+/// 无内容时的占位符号。
+const String kMcpPayloadEmptyPlaceholder = '—';
+
+/// 结构化载荷的文本卡片：头部标注内容类型与体积，正文按等宽 / 正文两档排版。
+///
+/// MCP 运维面板与写调用审批弹窗各写了一份，圆角（12 与 11）、底色透明度、
+/// 分隔线透明度、空值占位（半角连字符与破折号）、数字是否等宽全都对不上——
+/// 都是复制后各自微调留下的漂移，而非有意区分。这里取更完善的一档收敛为一份。
+Widget buildMcpPayloadTextCard(
+  BuildContext context, {
+  required String semanticKey,
+  required String text,
+  required String rawText,
+  required Color accent,
+  required bool mono,
+  required bool muted,
+}) {
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  return Container(
+    width: double.infinity,
+    decoration: BoxDecoration(
+      color: cs.surfaceContainerLow.withValues(
+        alpha: _kPayloadCardSurfaceAlpha,
+      ),
+      borderRadius: _kPayloadCardRadius,
+      border: Border.all(
+        color: accent.withValues(alpha: _kPayloadCardBorderAlpha),
+      ),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: _kPayloadHeaderPadding,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(
+              alpha: _kPayloadHeaderSurfaceAlpha,
+            ),
+            border: Border(
+              bottom: BorderSide(
+                color: cs.outlineVariant.withValues(
+                  alpha: _kPayloadHeaderDividerAlpha,
+                ),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                mono ? Icons.terminal_rounded : Icons.subject_rounded,
+                size: _kPayloadHeaderIconSize,
+                color: accent,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  mcpPayloadContentLabel(context, semanticKey, mono),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                mcpPayloadSizeLabel(context, rawText),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: _kPayloadBodyPadding,
+          child: SelectableText(
+            muted ? kMcpPayloadEmptyPlaceholder : text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: mono ? kOpenHandMonospaceFontFamily : null,
+              height: mono ? _kPayloadMonoLineHeight : _kPayloadProseLineHeight,
+              color: muted ? cs.onSurfaceVariant : null,
+              fontFeatures: mono ? const [FontFeature.tabularFigures()] : null,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }

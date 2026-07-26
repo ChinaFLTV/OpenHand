@@ -9428,74 +9428,14 @@ class _McpOpsScalarPayload extends StatelessWidget {
         ),
       );
     }
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.66),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: accent.withValues(alpha: 0.14)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-              border: Border(
-                bottom: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.40),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  mono ? Icons.terminal_rounded : Icons.subject_rounded,
-                  size: 14,
-                  color: accent,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    mcpPayloadContentLabel(context, semanticKey, mono),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                Text(
-                  mcpPayloadSizeLabel(context, fullText),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: SelectableText(
-              muted ? '—' : text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: mono ? kOpenHandMonospaceFontFamily : null,
-                height: mono ? 1.50 : 1.42,
-                color: muted ? cs.onSurfaceVariant : null,
-                fontFeatures: mono
-                    ? const [FontFeature.tabularFigures()]
-                    : null,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return buildMcpPayloadTextCard(
+      context,
+      semanticKey: semanticKey,
+      text: text,
+      rawText: fullText,
+      accent: accent,
+      mono: mono,
+      muted: muted,
     );
   }
 }

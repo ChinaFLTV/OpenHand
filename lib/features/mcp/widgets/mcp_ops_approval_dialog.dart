@@ -9,7 +9,6 @@ import '../../../shared/ui/openhand_approval_chip.dart';
 import '../../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
-import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -843,69 +842,14 @@ class _ApprovalPayloadScalar extends StatelessWidget {
         ),
       );
     }
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.13)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.44),
-              border: Border(
-                bottom: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.42),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  mono ? Icons.terminal_rounded : Icons.subject_rounded,
-                  size: 14,
-                  color: accent,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    mcpPayloadContentLabel(context, semanticKey, mono),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                Text(
-                  mcpPayloadSizeLabel(context, rawText),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: SelectableText(
-              muted ? '-' : text,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: mono ? kOpenHandMonospaceFontFamily : null,
-                height: mono ? 1.50 : 1.42,
-                color: muted ? cs.onSurfaceVariant : null,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return buildMcpPayloadTextCard(
+      context,
+      semanticKey: semanticKey,
+      text: text,
+      rawText: rawText,
+      accent: accent,
+      mono: mono,
+      muted: muted,
     );
   }
 }
