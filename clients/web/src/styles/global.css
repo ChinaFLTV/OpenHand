@@ -2273,18 +2273,18 @@ button.oh-message-context-capsule {
   border-radius: 13px;
   background: color-mix(in srgb, var(--m3-surface-container-lowest) 72%, transparent);
 }
-.oh-settings-status {
+.oh-status-banner {
   padding: 10px 12px;
   border-radius: 14px;
   font-size: 13px;
   font-weight: 700;
 }
-.oh-settings-status.is-success {
+.oh-status-banner.is-success {
   border: 1px solid color-mix(in srgb, #16a34a 32%, transparent);
   background: color-mix(in srgb, #16a34a 11%, transparent);
   color: #15803d;
 }
-.oh-settings-status.is-error {
+.oh-status-banner.is-error {
   border: 1px solid color-mix(in srgb, var(--m3-error) 34%, transparent);
   background: color-mix(in srgb, var(--m3-error-container) 42%, transparent);
   color: var(--m3-error);

@@ -28,9 +28,3 @@ export const STATUS_NEUTRAL_BG = 'rgba(120,120,120,0.10)';
 
 /** 中性状态的更淡背景（次级条目 / 兜底分支）。 */
 export const STATUS_NEUTRAL_BG_FAINT = 'rgba(120,120,120,0.06)';
-
-/** 错误提示横幅背景。 */
-export const ERROR_BANNER_BG = 'rgba(239,68,68,0.08)';
-
-/** 错误提示横幅边框色。 */
-export const ERROR_BANNER_BORDER = 'rgba(239,68,68,0.30)';

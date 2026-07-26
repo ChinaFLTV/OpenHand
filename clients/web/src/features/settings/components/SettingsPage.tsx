@@ -6,6 +6,7 @@
 // 其余设置必须在 App 端改，避免 Web 误改影响本机正在跑的会话。
 
 import type { ComponentChildren } from 'preact';
+import { StatusBanner } from '../../../components/StatusBanner';
 import { useEffect, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
@@ -815,14 +816,6 @@ export function SettingsPage() {
         </div>
       </div>
     </main>
-  );
-}
-
-function StatusBanner(props: { tone: 'success' | 'error'; children: ComponentChildren }) {
-  return (
-    <div class={`oh-settings-status is-${props.tone}${props.tone === 'success' ? ' oh-pulse-soft' : ''}`}>
-      {props.children}
-    </div>
   );
 }
 

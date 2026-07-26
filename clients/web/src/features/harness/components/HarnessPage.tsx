@@ -11,7 +11,7 @@
 import { useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
-import { ErrorBanner } from '../../../components/ErrorBanner';
+import { ErrorBanner } from '../../../components/StatusBanner';
 import {
   type HarnessPhaseLogSnapshot,
   type HarnessPhaseStatus,
