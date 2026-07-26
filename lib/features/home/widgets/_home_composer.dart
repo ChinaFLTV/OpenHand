@@ -143,11 +143,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.onPauseGoal,
     required this.onResumeGoal,
     required this.onTerminateGoal,
-    required this.pendingAttachments,
-    required this.attachmentsEnabled,
-    required this.onPickAttachments,
-    required this.onRemoveAttachment,
-    required this.onReorderAttachments,
+    required this.attachments,
     required this.onSend,
     required this.onStop,
     required this.creationMode,
@@ -159,12 +155,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.onToggleFullAccessPermission,
     required this.editingMessageId,
     required this.onCancelEditing,
-    required this.queuedMessages,
-    required this.queuedGuidanceInProgress,
-    required this.onRemoveQueuedMessage,
-    required this.onMoveQueuedMessage,
-    required this.onEditQueuedMessage,
-    required this.onGuideQueuedMessage,
+    required this.queuedPanel,
     this.projectRoot,
     this.onStateCreated,
     this.onStateDisposed,
@@ -197,11 +188,7 @@ class _ComposerPanel extends StatefulWidget {
   final Future<void> Function() onPauseGoal;
   final Future<void> Function() onResumeGoal;
   final Future<void> Function() onTerminateGoal;
-  final List<_ComposerAttachmentDraft> pendingAttachments;
-  final bool attachmentsEnabled;
-  final Future<void> Function() onPickAttachments;
-  final ValueChanged<String> onRemoveAttachment;
-  final void Function(int oldIndex, int newIndex) onReorderAttachments;
+  final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final _CreationMode creationMode;
@@ -213,12 +200,7 @@ class _ComposerPanel extends StatefulWidget {
   final ValueChanged<bool> onToggleFullAccessPermission;
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
-  final List<_QueuedMessage> queuedMessages;
-  final bool queuedGuidanceInProgress;
-  final ValueChanged<int> onRemoveQueuedMessage;
-  final void Function(int from, int to) onMoveQueuedMessage;
-  final void Function(int index, String newText) onEditQueuedMessage;
-  final ValueChanged<int> onGuideQueuedMessage;
+  final _QueuedMessagesPanel queuedPanel;
   final String? projectRoot;
   final ValueChanged<_ComposerPanelState>? onStateCreated;
   final ValueChanged<_ComposerPanelState>? onStateDisposed;
@@ -508,7 +490,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _atMentionOverlayMode = _AtMentionOverlayMode.localFiles;
       _atMentionCurrentDirectory = '';
       _atMentionBreadcrumbs = const [];
-      _atMentionResults = widget.attachmentsEnabled
+      _atMentionResults = widget.attachments.enabled
           ? const <_AtMentionItem>[_AtMentionItem.localFileAction()]
           : const <_AtMentionItem>[];
       _atMentionSelectedIndex = 0;
@@ -702,7 +684,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           loading: _atMentionLoading,
           breadcrumbs: _atMentionBreadcrumbs,
           mode: _atMentionOverlayMode,
-          attachmentsEnabled: widget.attachmentsEnabled,
+          attachmentsEnabled: widget.attachments.enabled,
           onSelect: _handleAtMentionSelect,
           onDrillDown: _handleAtMentionDrillDown,
           onBreadcrumbTap: _handleAtMentionBreadcrumbTap,
@@ -778,8 +760,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _removeAtMentionTriggerText();
     _atMentionDismissal = null;
     _dismissAtMentionOverlay();
-    if (widget.attachmentsEnabled) {
-      await widget.onPickAttachments();
+    if (widget.attachments.enabled) {
+      await widget.attachments.onPick();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -1532,16 +1514,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           const SizedBox(height: 10),
         ],
-        if (widget.queuedMessages.isNotEmpty) ...[
+        if (widget.queuedPanel.messages.isNotEmpty) ...[
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.queuedMessages.length,
+            itemCount: widget.queuedPanel.messages.length,
             itemBuilder: (context, index) {
-              final msg = widget.queuedMessages[index];
+              final msg = widget.queuedPanel.messages[index];
               final isFirst = index == 0;
-              final isLast = index == widget.queuedMessages.length - 1;
-              final queueActionsLocked = widget.queuedGuidanceInProgress;
+              final isLast = index == widget.queuedPanel.messages.length - 1;
+              final queueActionsLocked = widget.queuedPanel.guidanceInProgress;
               final actionBaseColor = Theme.of(
                 context,
               ).colorScheme.onSurfaceVariant;
@@ -1552,7 +1534,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 key: ValueKey<String>('queued:${msg.id}'),
                 settings: chipAnim,
                 collapseAxis: Axis.vertical,
-                onRemove: () => widget.onRemoveQueuedMessage(index),
+                onRemove: () => widget.queuedPanel.onRemove(index),
                 builder: (ctx, requestRemove) => Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Container(
@@ -1624,7 +1606,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           child: IconButton(
                             onPressed: isFirst || queueActionsLocked
                                 ? null
-                                : () => widget.onMoveQueuedMessage(
+                                : () => widget.queuedPanel.onMove(
                                     index,
                                     index - 1,
                                   ),
@@ -1651,7 +1633,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           child: IconButton(
                             onPressed: isLast || queueActionsLocked
                                 ? null
-                                : () => widget.onMoveQueuedMessage(
+                                : () => widget.queuedPanel.onMove(
                                     index,
                                     index + 1,
                                   ),
@@ -1686,7 +1668,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                         );
                                     if (edited != null &&
                                         edited.trim().isNotEmpty) {
-                                      widget.onEditQueuedMessage(index, edited);
+                                      widget.queuedPanel.onEdit(index, edited);
                                     }
                                   },
                             icon: Icon(
@@ -1710,7 +1692,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           child: IconButton(
                             onPressed: queueActionsLocked
                                 ? null
-                                : () => widget.onGuideQueuedMessage(index),
+                                : () => widget.queuedPanel.onGuide(index),
                             icon: Icon(
                               Icons.lightbulb_outline_rounded,
                               size: 14,
@@ -1781,11 +1763,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           const SizedBox(height: 8),
         ],
-        if (widget.pendingAttachments.isNotEmpty) ...[
+        if (widget.attachments.drafts.isNotEmpty) ...[
           _ReorderableAttachmentWrap(
-            attachments: widget.pendingAttachments,
-            onReorder: widget.onReorderAttachments,
-            onRemove: (filePath) => widget.onRemoveAttachment(filePath),
+            attachments: widget.attachments.drafts,
+            onReorder: widget.attachments.onReorder,
+            onRemove: (filePath) => widget.attachments.onRemove(filePath),
             onTap: (draft) => _openComposerAttachment(context, draft),
           ),
           const SizedBox(height: 12),
@@ -2011,7 +1993,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         // expand/collapse toggle so the affordance mirrors the right-side
         // creation-mode button (which carries the mode-semantic icon below).
         Tooltip(
-          message: widget.attachmentsEnabled
+          message: widget.attachments.enabled
               ? openHandLocalizedText(
                   context,
                   zh: '添加附件（最多 $aiMessageAttachmentLimit 个，单文件 ≤10MB；支持图片、文本、代码、表格和 PDF）',
@@ -2030,8 +2012,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             width: _composerActionControlHeight,
             height: _composerActionControlHeight,
             child: FilledButton(
-              onPressed: widget.attachmentsEnabled
-                  ? () => unawaited(widget.onPickAttachments())
+              onPressed: widget.attachments.enabled
+                  ? () => unawaited(widget.attachments.onPick())
                   : null,
               style: FilledButton.styleFrom(
                 padding: EdgeInsets.zero,
@@ -2039,10 +2021,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   _composerActionControlHeight,
                   _composerActionControlHeight,
                 ),
-                backgroundColor: widget.attachmentsEnabled
+                backgroundColor: widget.attachments.enabled
                     ? colorScheme.surfaceContainerHighest
                     : colorScheme.surfaceContainerHigh,
-                foregroundColor: widget.attachmentsEnabled
+                foregroundColor: widget.attachments.enabled
                     ? colorScheme.onSurface
                     : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 side: BorderSide(color: colorScheme.outlineVariant),
@@ -2212,7 +2194,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             builder: (context, textValue, _) {
               final hasUserTextOrAttachments =
                   textValue.text.trim().isNotEmpty ||
-                  widget.pendingAttachments.isNotEmpty ||
+                  widget.attachments.drafts.isNotEmpty ||
                   _projectFileReferences.isNotEmpty;
               final isQueueingAction = isBusy && hasUserTextOrAttachments;
 

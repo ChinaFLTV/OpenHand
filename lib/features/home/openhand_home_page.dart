@@ -9529,84 +9529,90 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSession?.fullAccessPermission ??
             _detachedFullAccessPermission,
         onToggleFullAccessPermission: _handleFullAccessPermissionToggle,
-        queuedMessages: currentSession != null
-            ? (_queuedMessagesBySessionId[currentSession.id] ?? const [])
-            : const [],
-        queuedGuidanceInProgress:
-            currentSession != null &&
-            _queuedGuidanceSessionIds.contains(currentSession.id),
-        onRemoveQueuedMessage: (index) {
-          if (currentSession != null) {
-            setState(() {
-              final q = _queuedMessagesBySessionId[currentSession.id];
-              if (q != null && index >= 0 && index < q.length) {
-                final removed = q[index];
-                q.removeAt(index);
-                if (_failedQueuedMessageIdsBySessionId[currentSession.id] ==
-                    removed.id) {
+        queuedPanel: _QueuedMessagesPanel(
+          messages: currentSession != null
+              ? (_queuedMessagesBySessionId[currentSession.id] ?? const [])
+              : const [],
+          guidanceInProgress:
+              currentSession != null &&
+              _queuedGuidanceSessionIds.contains(currentSession.id),
+          onRemove: (index) {
+            if (currentSession != null) {
+              setState(() {
+                final q = _queuedMessagesBySessionId[currentSession.id];
+                if (q != null && index >= 0 && index < q.length) {
+                  final removed = q[index];
+                  q.removeAt(index);
+                  if (_failedQueuedMessageIdsBySessionId[currentSession.id] ==
+                      removed.id) {
+                    _failedQueuedMessageIdsBySessionId.remove(
+                      currentSession.id,
+                    );
+                  }
+                  if (q.isEmpty) {
+                    _queuedMessagesBySessionId.remove(currentSession.id);
+                  }
+                }
+              });
+            }
+          },
+          onMove: (from, to) {
+            if (currentSession != null) {
+              setState(() {
+                final q = _queuedMessagesBySessionId[currentSession.id];
+                if (q != null &&
+                    from >= 0 &&
+                    from < q.length &&
+                    to >= 0 &&
+                    to < q.length &&
+                    from != to) {
+                  final item = q.removeAt(from);
+                  q.insert(to, item);
                   _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
                 }
-                if (q.isEmpty) {
-                  _queuedMessagesBySessionId.remove(currentSession.id);
+              });
+            }
+          },
+          onEdit: (index, newText) {
+            if (currentSession != null) {
+              final trimmed = newText.trim();
+              if (trimmed.isEmpty) return;
+              setState(() {
+                final q = _queuedMessagesBySessionId[currentSession.id];
+                if (q != null && index >= 0 && index < q.length) {
+                  q[index] = _QueuedMessage(
+                    id: q[index].id,
+                    text: trimmed,
+                    attachments: q[index].attachments,
+                    creationRequest: q[index].creationRequest,
+                    systemReminders: q[index].systemReminders,
+                    skillMetadata: q[index].skillMetadata,
+                  );
+                  _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
                 }
-              }
-            });
-          }
-        },
-        onMoveQueuedMessage: (from, to) {
-          if (currentSession != null) {
-            setState(() {
-              final q = _queuedMessagesBySessionId[currentSession.id];
-              if (q != null &&
-                  from >= 0 &&
-                  from < q.length &&
-                  to >= 0 &&
-                  to < q.length &&
-                  from != to) {
-                final item = q.removeAt(from);
-                q.insert(to, item);
-                _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
-              }
-            });
-          }
-        },
-        onEditQueuedMessage: (index, newText) {
-          if (currentSession != null) {
-            final trimmed = newText.trim();
-            if (trimmed.isEmpty) return;
-            setState(() {
-              final q = _queuedMessagesBySessionId[currentSession.id];
-              if (q != null && index >= 0 && index < q.length) {
-                q[index] = _QueuedMessage(
-                  id: q[index].id,
-                  text: trimmed,
-                  attachments: q[index].attachments,
-                  creationRequest: q[index].creationRequest,
-                  systemReminders: q[index].systemReminders,
-                  skillMetadata: q[index].skillMetadata,
-                );
-                _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
-              }
-            });
-          }
-        },
-        onGuideQueuedMessage: (index) {
-          if (currentSession == null) return;
-          _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
-          unawaited(
-            _dispatchQueuedMessageForSession(
-              sessionController,
-              sessionId: currentSession.id,
-              index: index,
-              guidance: true,
-            ),
-          );
-        },
-        pendingAttachments: _pendingAttachments,
-        attachmentsEnabled: _selectedModelSupportsAttachments(selectedModel),
-        onPickAttachments: _pickComposerAttachments,
-        onRemoveAttachment: _removePendingAttachment,
-        onReorderAttachments: _reorderPendingAttachments,
+              });
+            }
+          },
+          onGuide: (index) {
+            if (currentSession == null) return;
+            _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
+            unawaited(
+              _dispatchQueuedMessageForSession(
+                sessionController,
+                sessionId: currentSession.id,
+                index: index,
+                guidance: true,
+              ),
+            );
+          },
+        ),
+        attachments: _ComposerAttachments(
+          drafts: _pendingAttachments,
+          enabled: _selectedModelSupportsAttachments(selectedModel),
+          onPick: _pickComposerAttachments,
+          onRemove: _removePendingAttachment,
+          onReorder: _reorderPendingAttachments,
+        ),
         onSend: _sendMessage,
         onStop: _stopResponding,
         onCreateThreadRequested: _createSessionFromDialog,

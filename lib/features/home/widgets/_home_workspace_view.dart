@@ -1,5 +1,52 @@
 part of '../openhand_home_page.dart';
 
+/// 输入区待发送附件的状态与操作。
+///
+/// 这五项此前在会话区与输入区两层各声明一遍再逐个转发。
+class _ComposerAttachments {
+  const _ComposerAttachments({
+    required this.drafts,
+    required this.enabled,
+    required this.onPick,
+    required this.onRemove,
+    required this.onReorder,
+  });
+
+  final List<_ComposerAttachmentDraft> drafts;
+
+  /// 当前模型是否支持附件；为 false 时入口置灰而不是隐藏，避免布局跳动。
+  final bool enabled;
+
+  final Future<void> Function() onPick;
+  final ValueChanged<String> onRemove;
+  final void Function(int oldIndex, int newIndex) onReorder;
+}
+
+/// 待发送队列的状态与操作。
+///
+/// 这六项此前在会话区与输入区两层各声明一遍再逐个转发；队列本身是一个整体，
+/// 拆成六个平行参数只会让两处签名各自漂移。
+class _QueuedMessagesPanel {
+  const _QueuedMessagesPanel({
+    required this.messages,
+    required this.guidanceInProgress,
+    required this.onRemove,
+    required this.onMove,
+    required this.onEdit,
+    required this.onGuide,
+  });
+
+  final List<_QueuedMessage> messages;
+
+  /// 正在派发某条排队消息；此时队列上的操作全部锁定，避免并发改动队列。
+  final bool guidanceInProgress;
+
+  final ValueChanged<int> onRemove;
+  final void Function(int from, int to) onMove;
+  final void Function(int index, String newText) onEdit;
+  final ValueChanged<int> onGuide;
+}
+
 /// 单条消息上的操作回调集合。
 ///
 /// 这八个回调此前在会话区与转录列表两层各声明一遍再逐个转发：新增一个操作要
@@ -72,11 +119,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onPauseGoal,
     required this.onResumeGoal,
     required this.onTerminateGoal,
-    required this.pendingAttachments,
-    required this.attachmentsEnabled,
-    required this.onPickAttachments,
-    required this.onRemoveAttachment,
-    required this.onReorderAttachments,
+    required this.attachments,
     required this.onSend,
     required this.onStop,
     required this.onCreateThreadRequested,
@@ -93,12 +136,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onDismissError,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
-    required this.queuedMessages,
-    required this.queuedGuidanceInProgress,
-    required this.onRemoveQueuedMessage,
-    required this.onMoveQueuedMessage,
-    required this.onEditQueuedMessage,
-    required this.onGuideQueuedMessage,
+    required this.queuedPanel,
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
@@ -148,11 +186,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function() onPauseGoal;
   final Future<void> Function() onResumeGoal;
   final Future<void> Function() onTerminateGoal;
-  final List<_ComposerAttachmentDraft> pendingAttachments;
-  final bool attachmentsEnabled;
-  final Future<void> Function() onPickAttachments;
-  final ValueChanged<String> onRemoveAttachment;
-  final void Function(int oldIndex, int newIndex) onReorderAttachments;
+  final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final Future<void> Function() onCreateThreadRequested;
@@ -169,12 +203,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
-  final List<_QueuedMessage> queuedMessages;
-  final bool queuedGuidanceInProgress;
-  final ValueChanged<int> onRemoveQueuedMessage;
-  final void Function(int from, int to) onMoveQueuedMessage;
-  final void Function(int index, String newText) onEditQueuedMessage;
-  final ValueChanged<int> onGuideQueuedMessage;
+  final _QueuedMessagesPanel queuedPanel;
   // When true, the message list widget will immediately jump to the bottom
   // on its first frame instead of relying on the parent's scroll scheduler.
   final bool jumpToBottomOnInit;
@@ -348,11 +377,7 @@ class _WorkspaceView extends StatelessWidget {
                       onPauseGoal: onPauseGoal,
                       onResumeGoal: onResumeGoal,
                       onTerminateGoal: onTerminateGoal,
-                      pendingAttachments: pendingAttachments,
-                      attachmentsEnabled: attachmentsEnabled,
-                      onPickAttachments: onPickAttachments,
-                      onRemoveAttachment: onRemoveAttachment,
-                      onReorderAttachments: onReorderAttachments,
+                      attachments: attachments,
                       onSend: onSend,
                       onStop: onStop,
                       creationMode: creationMode,
@@ -365,12 +390,7 @@ class _WorkspaceView extends StatelessWidget {
                       fullAccessPermission: fullAccessPermission,
                       onToggleFullAccessPermission:
                           onToggleFullAccessPermission,
-                      queuedMessages: queuedMessages,
-                      queuedGuidanceInProgress: queuedGuidanceInProgress,
-                      onRemoveQueuedMessage: onRemoveQueuedMessage,
-                      onMoveQueuedMessage: onMoveQueuedMessage,
-                      onEditQueuedMessage: onEditQueuedMessage,
-                      onGuideQueuedMessage: onGuideQueuedMessage,
+                      queuedPanel: queuedPanel,
                       projectRoot: projectRoot,
                     ),
                   ),
