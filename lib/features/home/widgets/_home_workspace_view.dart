@@ -1,5 +1,29 @@
 part of '../openhand_home_page.dart';
 
+/// 目标模式的可用性与运行控制。
+///
+/// 这五项此前在会话区与输入区两层各声明一遍再逐个转发；三个控制回调签名完全
+/// 相同，转发时传错顺序编译期发现不了。
+class _GoalControls {
+  const _GoalControls({
+    required this.available,
+    required this.suppressedForQueue,
+    required this.onPause,
+    required this.onResume,
+    required this.onTerminate,
+  });
+
+  /// 当前线程模板是否允许目标模式。
+  final bool available;
+
+  /// 队列里还有待发送消息时暂时收起控制条，避免与排队派发互相打断。
+  final bool suppressedForQueue;
+
+  final Future<void> Function() onPause;
+  final Future<void> Function() onResume;
+  final Future<void> Function() onTerminate;
+}
+
 /// 输入区待发送附件的状态与操作。
 ///
 /// 这五项此前在会话区与输入区两层各声明一遍再逐个转发。
@@ -114,11 +138,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onPlanTimelineCollapsedChanged,
     required this.sessionMode,
     required this.onSessionModeChanged,
-    required this.goalModeAvailable,
-    required this.suppressGoalControlsForQueue,
-    required this.onPauseGoal,
-    required this.onResumeGoal,
-    required this.onTerminateGoal,
+    required this.goalControls,
     required this.attachments,
     required this.onSend,
     required this.onStop,
@@ -181,11 +201,7 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
-  final bool goalModeAvailable;
-  final bool suppressGoalControlsForQueue;
-  final Future<void> Function() onPauseGoal;
-  final Future<void> Function() onResumeGoal;
-  final Future<void> Function() onTerminateGoal;
+  final _GoalControls goalControls;
   final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
@@ -371,12 +387,7 @@ class _WorkspaceView extends StatelessWidget {
                       canStopSending: canStopSending,
                       sessionMode: sessionMode,
                       onSessionModeChanged: onSessionModeChanged,
-                      goalModeAvailable: goalModeAvailable,
-                      suppressGoalControlsForQueue:
-                          suppressGoalControlsForQueue,
-                      onPauseGoal: onPauseGoal,
-                      onResumeGoal: onResumeGoal,
-                      onTerminateGoal: onTerminateGoal,
+                      goalControls: goalControls,
                       attachments: attachments,
                       onSend: onSend,
                       onStop: onStop,

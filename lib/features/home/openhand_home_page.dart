@@ -9516,15 +9516,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
         sessionMode: _effectiveComposerMode(sessionController),
         onSessionModeChanged: _setComposerMode,
-        goalModeAvailable:
-            currentSession != null &&
-            aiSessionGoalModeAllowedForTemplate(currentSession.templateId),
-        suppressGoalControlsForQueue: _goalPausedForQueuedMessages(
-          currentSession,
+        goalControls: _GoalControls(
+          available:
+              currentSession != null &&
+              aiSessionGoalModeAllowedForTemplate(currentSession.templateId),
+          suppressedForQueue: _goalPausedForQueuedMessages(currentSession),
+          onPause: _pauseCurrentGoal,
+          onResume: _resumeCurrentGoal,
+          onTerminate: _terminateCurrentGoal,
         ),
-        onPauseGoal: _pauseCurrentGoal,
-        onResumeGoal: _resumeCurrentGoal,
-        onTerminateGoal: _terminateCurrentGoal,
         fullAccessPermission:
             currentSession?.fullAccessPermission ??
             _detachedFullAccessPermission,

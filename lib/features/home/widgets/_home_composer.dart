@@ -138,11 +138,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.canStopSending,
     required this.sessionMode,
     required this.onSessionModeChanged,
-    required this.goalModeAvailable,
-    required this.suppressGoalControlsForQueue,
-    required this.onPauseGoal,
-    required this.onResumeGoal,
-    required this.onTerminateGoal,
+    required this.goalControls,
     required this.attachments,
     required this.onSend,
     required this.onStop,
@@ -183,11 +179,7 @@ class _ComposerPanel extends StatefulWidget {
   final bool canStopSending;
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
-  final bool goalModeAvailable;
-  final bool suppressGoalControlsForQueue;
-  final Future<void> Function() onPauseGoal;
-  final Future<void> Function() onResumeGoal;
-  final Future<void> Function() onTerminateGoal;
+  final _GoalControls goalControls;
   final _ComposerAttachments attachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
@@ -1418,7 +1410,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final activeGoal = widget.currentSession?.activeGoal;
     final hasActiveGoal = activeGoal?.isActive == true;
     final showGoalControls =
-        hasActiveGoal && !widget.suppressGoalControlsForQueue;
+        hasActiveGoal && !widget.goalControls.suppressedForQueue;
     final manualSendLockedByGoal = hasActiveGoal && !canStopSending;
     final modeToggleEnabled =
         widget.sendPhase == AiSendPhase.idle && !hasActiveGoal;
@@ -1979,7 +1971,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     availableModes: <AiSessionMode>[
                       AiSessionMode.chat,
                       AiSessionMode.plan,
-                      if (widget.goalModeAvailable) AiSessionMode.goal,
+                      if (widget.goalControls.available) AiSessionMode.goal,
                     ],
                     onChanged: widget.onSessionModeChanged,
                   ),
@@ -2148,8 +2140,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               children: [
                 FilledButton.icon(
                   onPressed: activeGoal?.isPaused == true
-                      ? () => unawaited(widget.onResumeGoal())
-                      : () => unawaited(widget.onPauseGoal()),
+                      ? () => unawaited(widget.goalControls.onResume())
+                      : () => unawaited(widget.goalControls.onPause()),
                   icon: Icon(
                     activeGoal?.isPaused == true
                         ? Icons.play_arrow_rounded
@@ -2171,7 +2163,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
-                  onPressed: () => unawaited(widget.onTerminateGoal()),
+                  onPressed: () => unawaited(widget.goalControls.onTerminate()),
                   style: FilledButton.styleFrom(
                     backgroundColor: colorScheme.error,
                     foregroundColor: colorScheme.onError,
