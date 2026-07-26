@@ -4060,8 +4060,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => 'Gesamt';
 
-  @override
-  String get tokenPopupCacheHit => 'Zwischenspeicher-Trefferquote';
 
   @override
   String get tokenPopupContextOverview => 'Kontextübersicht';
@@ -4160,8 +4158,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get toolbarSessionMetadata => 'Sitzungsmetadaten';
 
-  @override
-  String get toolbarSessionAudit => 'Sitzungsprüfung';
 
   @override
   String get toolbarShowPlan => 'Plan einblenden';
@@ -4945,14 +4941,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallExpandToInspectToolOutput =>
       'Erweitern, um die Werkzeugausgabe zu prüfen';
 
-  @override
-  String get tlCallType => 'Typ';
 
-  @override
-  String get tlCallSize => 'Größe';
 
-  @override
-  String get tlCallModified => 'Geändert';
 
   @override
   String get tlCallSelfLearning => 'Selbstlernen';

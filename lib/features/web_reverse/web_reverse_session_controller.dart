@@ -7510,7 +7510,10 @@ class WebReverseSessionController extends ChangeNotifier {
                 maxDecodedBytes: _maxMitmDecodedBodyBytes,
               ),
             );
-          } catch (_) {}
+          } catch (_) {
+            // 非法 base64 / 超限 / 非 UTF-8 请求体：按“无请求体”降级，
+            // 不能让单条 mitm 记录中断整个抓包流。
+          }
         }
         _networkRequests.add(entry);
         _networkByRequestId[entry.requestId] = entry;
@@ -7542,7 +7545,9 @@ class WebReverseSessionController extends ChangeNotifier {
             );
             match.cachedBody = bodyB64;
             match.cachedBodyBase64 = true;
-          } catch (_) {}
+          } catch (_) {
+            // 非法 base64 或超出解码上限：跳过缓存响应体，保留其余元数据。
+          }
         }
         if (!_networkByRequestId.containsKey(match.requestId)) {
           _networkRequests.add(match);

@@ -7134,11 +7134,6 @@ abstract class AppLocalizations {
   /// **'总计'**
   String get tokenPopupGrandTotal;
 
-  /// No description provided for @tokenPopupCacheHit.
-  ///
-  /// In zh, this message translates to:
-  /// **'缓存命中率'**
-  String get tokenPopupCacheHit;
 
   /// No description provided for @tokenPopupContextOverview.
   ///
@@ -7320,11 +7315,6 @@ abstract class AppLocalizations {
   /// **'会话元数据'**
   String get toolbarSessionMetadata;
 
-  /// No description provided for @toolbarSessionAudit.
-  ///
-  /// In zh, this message translates to:
-  /// **'会话审计'**
-  String get toolbarSessionAudit;
 
   /// No description provided for @toolbarShowPlan.
   ///
@@ -8664,23 +8654,8 @@ abstract class AppLocalizations {
   /// **'点击展开查看工具输出'**
   String get tlCallExpandToInspectToolOutput;
 
-  /// No description provided for @tlCallType.
-  ///
-  /// In zh, this message translates to:
-  /// **'类型'**
-  String get tlCallType;
 
-  /// No description provided for @tlCallSize.
-  ///
-  /// In zh, this message translates to:
-  /// **'大小'**
-  String get tlCallSize;
 
-  /// No description provided for @tlCallModified.
-  ///
-  /// In zh, this message translates to:
-  /// **'修改于'**
-  String get tlCallModified;
 
   /// No description provided for @tlCallSelfLearning.
   ///

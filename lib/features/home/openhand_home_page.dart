@@ -1737,9 +1737,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   /// 把一组 MCP 工具名打包成 `select:N1, select:N2, …`，写进 composer
-  /// 并在 [kToolSearchReplayCancelWindow] 之后才提交，期间用户可以
-  /// 通过 SnackBarAction 撤销。等价于用户手动复制粘贴后回车，但多了
-  /// 一个 3s 反悔窗口。由 [_showToolSearchLoadedDialog] 历史条目点击触发。
+  /// 并等待 [SettingsController.toolSearchReplayCancelWindowSeconds]
+  /// 秒后才提交，期间用户可以通过 SnackBarAction 撤销。等价于用户手动
+  /// 复制粘贴后回车，但多了一个可配置（1..30s）的反悔窗口。
+  /// 由 [_showToolSearchLoadedDialog] 历史条目点击触发。
   Future<void> _replayToolSearchSelectQuery(List<String> names) async {
     if (!mounted || names.isEmpty) return;
     final query = names.map((n) => 'select:$n').join(', ');
@@ -1756,7 +1757,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     void onCancel() {
       // 仅在 composer 仍然展示我们刚塞进去的内容时清空，避免误删
-      // 用户在 3 秒窗口内手动续写的文字。
+      // 用户在反悔窗口内手动续写的文字。
       if (_composerController.text == query) {
         _composerController.clear();
       }

@@ -3935,8 +3935,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => '合計';
 
-  @override
-  String get tokenPopupCacheHit => 'キャッシュ命中率';
 
   @override
   String get tokenPopupContextOverview => 'コンテキストデータ概要';
@@ -4031,8 +4029,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get toolbarSessionMetadata => 'セッションメタデータ';
 
-  @override
-  String get toolbarSessionAudit => 'セッション監査';
 
   @override
   String get toolbarShowPlan => 'プラン展開';
@@ -4766,14 +4762,8 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get tlCallExpandToInspectToolOutput => '展開してツール出力を確認';
 
-  @override
-  String get tlCallType => '種別';
 
-  @override
-  String get tlCallSize => 'サイズ';
 
-  @override
-  String get tlCallModified => '更新日時';
 
   @override
   String get tlCallSelfLearning => '自己学習';

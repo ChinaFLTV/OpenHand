@@ -3888,8 +3888,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => '总计';
 
-  @override
-  String get tokenPopupCacheHit => '缓存命中率';
 
   @override
   String get tokenPopupContextOverview => '上下文数据概览';
@@ -3983,8 +3981,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get toolbarSessionMetadata => '会话元数据';
 
-  @override
-  String get toolbarSessionAudit => '会话审计';
 
   @override
   String get toolbarShowPlan => '展开计划';
@@ -4707,14 +4703,8 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
 
-  @override
-  String get tlCallType => '类型';
 
-  @override
-  String get tlCallSize => '大小';
 
-  @override
-  String get tlCallModified => '修改于';
 
   @override
   String get tlCallSelfLearning => '自我学习';
@@ -14559,8 +14549,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get tokenPopupGrandTotal => '總計';
 
-  @override
-  String get tokenPopupCacheHit => '快取命中率';
 
   @override
   String get tokenPopupContextOverview => '上下文資料概覽';
@@ -14654,8 +14642,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get toolbarSessionMetadata => '會話元數據';
 
-  @override
-  String get toolbarSessionAudit => '會話審計';
 
   @override
   String get toolbarShowPlan => '展開計劃';
@@ -15378,14 +15364,8 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
 
-  @override
-  String get tlCallType => '类型';
 
-  @override
-  String get tlCallSize => '大小';
 
-  @override
-  String get tlCallModified => '修改于';
 
   @override
   String get tlCallSelfLearning => '自我学习';

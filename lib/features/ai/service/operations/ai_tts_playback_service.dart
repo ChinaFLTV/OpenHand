@@ -2703,24 +2703,19 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     required VoidCallback onTimeout,
   }) {
     final guarded = () async {
-      final WebSocket socket;
-      try {
-        socket = await acquisition.timeout(
-          timeout,
-          onTimeout: () {
-            onTimeout();
-            unawaited(
-              acquisition.then<void>(
-                AiTtsPlaybackService._closeWebSocketBounded,
-                onError: (Object _, StackTrace _) {},
-              ),
-            );
-            throw TimeoutException('TTS WebSocket 握手超时。', timeout);
-          },
-        );
-      } catch (_) {
-        rethrow;
-      }
+      final socket = await acquisition.timeout(
+        timeout,
+        onTimeout: () {
+          onTimeout();
+          unawaited(
+            acquisition.then<void>(
+              AiTtsPlaybackService._closeWebSocketBounded,
+              onError: (Object _, StackTrace _) {},
+            ),
+          );
+          throw TimeoutException('TTS WebSocket 握手超时。', timeout);
+        },
+      );
       if (_cancelled) {
         await AiTtsPlaybackService._closeWebSocketBounded(socket);
         throw const _AiTtsPlaybackCancelled();
@@ -2746,23 +2741,18 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     required Duration timeout,
   }) {
     final guarded = () async {
-      final RandomAccessFile file;
-      try {
-        file = await acquisition.timeout(
-          timeout,
-          onTimeout: () {
-            unawaited(
-              acquisition.then<void>(
-                _closeFileSilently,
-                onError: (Object _, StackTrace _) {},
-              ),
-            );
-            throw TimeoutException('TTS 文件打开超时。', timeout);
-          },
-        );
-      } catch (_) {
-        rethrow;
-      }
+      final file = await acquisition.timeout(
+        timeout,
+        onTimeout: () {
+          unawaited(
+            acquisition.then<void>(
+              _closeFileSilently,
+              onError: (Object _, StackTrace _) {},
+            ),
+          );
+          throw TimeoutException('TTS 文件打开超时。', timeout);
+        },
+      );
       if (_cancelled) {
         await _closeFileSilently(file);
         throw const _AiTtsPlaybackCancelled();
@@ -2801,23 +2791,18 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     required Duration timeout,
   }) {
     final guarded = () async {
-      final Process process;
-      try {
-        process = await acquisition.timeout(
-          timeout,
-          onTimeout: () {
-            unawaited(
-              acquisition.then<void>(
-                _terminateProcessOnce,
-                onError: (Object _, StackTrace _) {},
-              ),
-            );
-            throw TimeoutException('TTS 进程启动超时。', timeout);
-          },
-        );
-      } catch (_) {
-        rethrow;
-      }
+      final process = await acquisition.timeout(
+        timeout,
+        onTimeout: () {
+          unawaited(
+            acquisition.then<void>(
+              _terminateProcessOnce,
+              onError: (Object _, StackTrace _) {},
+            ),
+          );
+          throw TimeoutException('TTS 进程启动超时。', timeout);
+        },
+      );
       if (_cancelled) {
         await _terminateProcessOnce(process);
         throw const _AiTtsPlaybackCancelled();

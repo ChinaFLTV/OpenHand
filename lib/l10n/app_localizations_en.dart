@@ -4020,8 +4020,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => 'Total';
 
-  @override
-  String get tokenPopupCacheHit => 'Cache Hit';
 
   @override
   String get tokenPopupContextOverview => 'Context overview';
@@ -4120,8 +4118,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get toolbarSessionMetadata => 'Session Metadata';
 
-  @override
-  String get toolbarSessionAudit => 'Session Audit';
 
   @override
   String get toolbarShowPlan => 'Show Plan';
@@ -4894,14 +4890,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tlCallExpandToInspectToolOutput => 'Expand to inspect tool output';
 
-  @override
-  String get tlCallType => 'Type';
 
-  @override
-  String get tlCallSize => 'Size';
 
-  @override
-  String get tlCallModified => 'Modified';
 
   @override
   String get tlCallSelfLearning => 'Self-Learning';
