@@ -12,6 +12,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -111,7 +112,7 @@ class _ReplDialogState extends State<_ReplDialog> {
     _scrollGuard.scheduleFollowToBottom(
       _scroll,
       animated: true,
-      animationDuration: const Duration(milliseconds: 240),
+      animationDuration: kOpenHandMotion240,
     );
   }
 

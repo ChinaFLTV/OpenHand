@@ -47,11 +47,11 @@ abstract final class OpenHandConsolePalette {
 const double kOpenHandConsoleLogFontSize = 11;
 const double kOpenHandConsoleLogLineHeight = 1.5;
 
-/// 安装 / 运维控制台的单行着色规则。
+/// 安装 / 运维控制台的单行着色规则；仅本文件的面板使用。
 ///
 /// 判定顺序为失败 → 成功 → 方括号提示 → 正文；失败优先，避免
 /// `[npm] ✗ failed` 这类同时命中多条时被标成提示色。
-Color openHandConsoleLogLineColor(String line) {
+Color _consoleLogLineColor(String line) {
   if (line.contains('✗') || line.toLowerCase().contains('error')) {
     return OpenHandConsolePalette.error;
   }
@@ -62,8 +62,8 @@ Color openHandConsoleLogLineColor(String line) {
   return OpenHandConsolePalette.text;
 }
 
-/// 控制台日志正文的文本样式。
-TextStyle openHandConsoleLogTextStyle(Color color) {
+/// 控制台日志正文的文本样式；仅本文件的面板使用。
+TextStyle _consoleLogTextStyle(Color color) {
   return TextStyle(
     fontFamily: kOpenHandMonospaceFontFamily,
     fontSize: kOpenHandConsoleLogFontSize,
@@ -125,8 +125,8 @@ class OpenHandConsoleLogPanel extends StatelessWidget {
                   final line = lineAt(index);
                   final text = Text(
                     line,
-                    style: openHandConsoleLogTextStyle(
-                      openHandConsoleLogLineColor(line),
+                    style: _consoleLogTextStyle(
+                      _consoleLogLineColor(line),
                     ),
                   );
                   if (lineSpacing <= 0) return text;

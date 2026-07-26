@@ -315,7 +315,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                               style: TextStyle(
                                 fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: style.fontSize,
-                                height: 1.5,
+                                height: kOpenHandConsoleLogLineHeight,
                                 color: style.color,
                                 fontWeight: style.bold
                                     ? FontWeight.w600
@@ -478,7 +478,7 @@ final RegExp _kStdioTimestampPrefix = RegExp(r'^\[\d{2}:\d{2}:\d{2}\]');
 class _LogLineStyle {
   const _LogLineStyle({
     required this.color,
-    this.fontSize = 11,
+    this.fontSize = kOpenHandConsoleLogFontSize,
     this.bold = false,
     this.topPadding = 0,
   });
