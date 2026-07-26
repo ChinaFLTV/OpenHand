@@ -37,6 +37,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
+import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/bounded_delete.dart';
@@ -79,6 +80,9 @@ import 'mcp_stdio_dialogs.dart';
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
 
 const int _mcpToolPreviewCollapsedLimit = 8;
+
+/// 运维头部由并排切换为上下两行的宽度阈值。
+const double _mcpOpsHeaderCompactBreakpoint = 1020;
 const double _mcpToolDebugMenuGap = 8;
 const double _mcpToolDebugMenuMinWidth = 240;
 const double _mcpToolDebugMenuMaxWidth = 520;
@@ -4675,35 +4679,13 @@ class _McpOpsConsoleHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 1020;
-            final identity = _McpOpsHeaderIdentity(
-              statusColor: statusColor,
-              endpointUri: endpointUri,
-            );
-            final actions = _McpOpsHeaderTopActions(onClose: onClose);
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  identity,
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: actions,
-                  ),
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: identity),
-                const SizedBox(width: 12),
-                actions,
-              ],
-            );
-          },
+        OpenHandResponsiveHeaderLayout(
+          compactBreakpoint: _mcpOpsHeaderCompactBreakpoint,
+          identity: _McpOpsHeaderIdentity(
+            statusColor: statusColor,
+            endpointUri: endpointUri,
+          ),
+          actions: _McpOpsHeaderTopActions(onClose: onClose),
         ),
         const SizedBox(height: 12),
         Wrap(

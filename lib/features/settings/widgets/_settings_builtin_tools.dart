@@ -339,46 +339,6 @@ class _AgentToolGroupChip extends StatelessWidget {
 
   final _AgentToolGroupSummary summary;
 
-  IconData _icon(AiAgentBuiltinToolGroup group) {
-    return switch (group) {
-      AiAgentBuiltinToolGroup.discovery => Icons.travel_explore_rounded,
-      AiAgentBuiltinToolGroup.taskLifecycle => Icons.playlist_add_check_rounded,
-      AiAgentBuiltinToolGroup.governance => Icons.verified_user_outlined,
-      AiAgentBuiltinToolGroup.operations => Icons.monitor_heart_outlined,
-      AiAgentBuiltinToolGroup.cluster => Icons.account_tree_rounded,
-    };
-  }
-
-  String _label(BuildContext context, AiAgentBuiltinToolGroup group) {
-    return switch (group) {
-      AiAgentBuiltinToolGroup.discovery => openHandLocalizedText(
-        context,
-        zh: '发现路由',
-        en: 'Discovery',
-      ),
-      AiAgentBuiltinToolGroup.taskLifecycle => openHandLocalizedText(
-        context,
-        zh: '任务生命周期',
-        en: 'Task lifecycle',
-      ),
-      AiAgentBuiltinToolGroup.governance => openHandLocalizedText(
-        context,
-        zh: '治理审计',
-        en: 'Governance',
-      ),
-      AiAgentBuiltinToolGroup.operations => openHandLocalizedText(
-        context,
-        zh: '运营资源',
-        en: 'Operations',
-      ),
-      AiAgentBuiltinToolGroup.cluster => openHandLocalizedText(
-        context,
-        zh: '集群调度',
-        en: 'Cluster',
-      ),
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -397,7 +357,11 @@ class _AgentToolGroupChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           child: Row(
             children: [
-              Icon(_icon(summary.group), size: 18, color: statusColor),
+              Icon(
+                agentBuiltinToolGroupIcon(summary.group),
+                size: 18,
+                color: statusColor,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -405,7 +369,7 @@ class _AgentToolGroupChip extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _label(context, summary.group),
+                      agentBuiltinToolGroupLabel(context, summary.group),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelLarge?.copyWith(

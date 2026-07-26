@@ -1,12 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -228,8 +225,9 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                     return Column(
                       children: [
                         for (final item in collections)
-                          _CollectionTile(
+                          KnowledgeCollectionTile(
                             item: item,
+                            margin: const EdgeInsets.only(bottom: 8),
                             busy: _busy,
                             onInfo: () => _loadInfo('${item['name'] ?? ''}'),
                             onDelete: () =>
@@ -368,90 +366,5 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
       ],
     );
     return PopScope(canPop: !_busy, child: dialog);
-  }
-}
-
-class _CollectionTile extends StatelessWidget {
-  const _CollectionTile({
-    required this.item,
-    required this.busy,
-    required this.onInfo,
-    required this.onDelete,
-  });
-
-  final Map<String, Object?> item;
-  final bool busy;
-  final VoidCallback onInfo;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final name = '${item['name'] ?? ''}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.dataset_outlined, size: 20, color: colorScheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  name.isEmpty ? '-' : name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  jsonEncode(item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '查看配置',
-              zhHant: '查看設定',
-              en: 'View config',
-              fr: 'Voir la configuration',
-              de: 'Konfiguration anzeigen',
-              ja: '設定を表示',
-            ),
-            onPressed: busy ? null : onInfo,
-            icon: const Icon(Icons.info_outline_rounded),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '删除',
-              zhHant: '刪除',
-              en: 'Delete',
-              fr: 'Supprimer',
-              de: 'Löschen',
-              ja: '削除',
-            ),
-            onPressed: busy ? null : onDelete,
-            icon: const Icon(Icons.delete_outline_rounded),
-          ),
-        ],
-      ),
-    );
   }
 }

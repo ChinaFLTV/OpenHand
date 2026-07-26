@@ -491,73 +491,19 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _cacheTtlController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '缓存 TTL (秒)',
-                    en: 'Cache TTL (seconds)',
-                  ),
-                  helperText: openHandLocalizedText(
-                    context,
-                    zh: '默认 300 秒 = 5 分钟; 设为 0 关闭缓存',
-                    en: 'Default 300s (5 min); 0 disables caching',
-                  ),
-                ),
-                onChanged: (s) {
-                  _emit(
-                    v.copyWith(
-                      cacheTtlSeconds: clampedIntFromText(
-                        s,
-                        fallback: 0,
-                        min: AiWebFetchSettings.minCacheTtlSeconds,
-                        max: AiWebFetchSettings.maxCacheTtlSeconds,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _cacheMaxBytesController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '缓存上限 (MB)',
-                    en: 'Cache Cap (MB)',
-                  ),
-                  helperText: openHandLocalizedText(
-                    context,
-                    zh: '默认 50 MB；范围 1 MB–2 GB',
-                    en: 'Default 50 MB; range 1 MB–2 GB',
-                  ),
-                ),
-                onChanged: (s) {
-                  _emit(
-                    v.copyWith(
-                      cacheMaxBytes: megabytesTextToBytes(
-                        s,
-                        fallbackBytes: v.cacheMaxBytes,
-                        minBytes: AiWebFetchSettings.minCacheMaxBytes,
-                        maxBytes: AiWebFetchSettings.maxCacheMaxBytes,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+        _buildWebEngineCacheFields(
+          context: context,
+          ttlController: _cacheTtlController,
+          maxBytesController: _cacheMaxBytesController,
+          defaultTtlSeconds: AiWebFetchSettings.defaultCacheTtlSeconds,
+          minTtlSeconds: AiWebFetchSettings.minCacheTtlSeconds,
+          maxTtlSeconds: AiWebFetchSettings.maxCacheTtlSeconds,
+          defaultMaxBytes: AiWebFetchSettings.defaultCacheMaxBytes,
+          minMaxBytes: AiWebFetchSettings.minCacheMaxBytes,
+          maxMaxBytes: AiWebFetchSettings.maxCacheMaxBytes,
+          currentMaxBytes: v.cacheMaxBytes,
+          onTtlChanged: (value) => _emit(v.copyWith(cacheTtlSeconds: value)),
+          onMaxBytesChanged: (value) => _emit(v.copyWith(cacheMaxBytes: value)),
         ),
         const SizedBox(height: 10),
         _buildToolCacheActions(

@@ -20,7 +20,7 @@ class _HeStreamingSmartView extends StatefulWidget {
 }
 
 class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
-    implements MarkdownBuilderDelegate {
+    with _HeMarkdownPathDelegate<_HeStreamingSmartView> {
   static const int _tailSize = 80;
 
   List<Widget>? _markdownChildren;
@@ -28,7 +28,12 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   String? _lastCommand;
   int _lastHiddenAbove = 0;
   int? _lastThemeHash;
-  final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
+
+  @override
+  List<String> get markdownFilePathRoots => widget.filePathRoots;
+
+  @override
+  Color get markdownLinkColor => widget.colorScheme.primary;
 
   // 仅递增新内容修订号，避免已有区块重复播放动画。
   int _contentRevision = 0;
@@ -151,32 +156,6 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
         ),
       ];
     }
-  }
-
-  void _disposeRecognizers() {
-    _disposeMarkdownRecognizers(_recognizers);
-  }
-
-  @override
-  GestureRecognizer createLink(String text, String? href, String title) {
-    return _createMarkdownPathLink(
-      context: context,
-      href: href,
-      filePathRoots: widget.filePathRoots,
-      recognizers: _recognizers,
-    );
-  }
-
-  @override
-  TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
-    return _formatMarkdownPathCode(
-      context: context,
-      styleSheet: styleSheet,
-      code: code,
-      filePathRoots: widget.filePathRoots,
-      recognizers: _recognizers,
-      linkColor: widget.colorScheme.primary,
-    );
   }
 
   @override

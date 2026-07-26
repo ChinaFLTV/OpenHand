@@ -23,6 +23,7 @@ import 'dialog_motion_css.dart';
 import 'interactive_image_preview.dart';
 import 'motion_preference.dart';
 import 'native_audio_preview.dart';
+import 'natural_image_size_resolver.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_snack_bar.dart';
 import 'openhand_video_player_web_styles.dart';
@@ -218,64 +219,35 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   static const String _kClipboardTempFilePrefix = 'media-';
   static int _clipboardTempSerial = 0;
 
-  ImageStream? _imageStream;
-  ImageStreamListener? _imageStreamListener;
-  Size? _naturalSize;
+  late final NaturalImageSizeResolver _imageSize = NaturalImageSizeResolver(
+    onResolved: () {
+      if (mounted) setState(() {});
+    },
+  );
   bool _copying = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.kind == MediaPreviewKind.image) {
-      _resolveImageDimensions();
+      _imageSize.resolve(_imageProvider());
     }
   }
 
   @override
   void dispose() {
-    final stream = _imageStream;
-    final listener = _imageStreamListener;
-    if (stream != null && listener != null) {
-      stream.removeListener(listener);
-    }
+    _imageSize.dispose();
     super.dispose();
   }
 
-  /// 提前订阅 ImageProvider 流, 拿到图片自身的宽高用于尺寸计算。
-  void _resolveImageDimensions() {
-    ImageProvider? provider;
-    if (widget.bytes != null) {
-      provider = MemoryImage(widget.bytes!);
-    } else if (widget.filePath != null) {
-      provider = FileImage(File(widget.filePath!));
-    } else if (widget.networkUrl != null) {
-      provider = NetworkImage(widget.networkUrl!);
-    }
-    if (provider == null) return;
-    final stream = provider.resolve(const ImageConfiguration());
-    final listener = ImageStreamListener(
-      (ImageInfo info, bool synchronousCall) {
-        final w = info.image.width.toDouble();
-        final h = info.image.height.toDouble();
-        if (w <= 0 || h <= 0) return;
-        if (synchronousCall) {
-          _naturalSize = Size(w, h);
-          return;
-        }
-        if (!mounted) return;
-        final prev = _naturalSize;
-        if (prev != null && prev.width == w && prev.height == h) return;
-        setState(() {
-          _naturalSize = Size(w, h);
-        });
-      },
-      onError: (Object _, StackTrace? _) {
-        // 错误状态下保持 _naturalSize 为 null, 走占位尺寸分支。
-      },
-    );
-    stream.addListener(listener);
-    _imageStream = stream;
-    _imageStreamListener = listener;
+  ImageProvider? _imageProvider() {
+    final bytes = widget.bytes;
+    if (bytes != null) return MemoryImage(bytes);
+    final filePath = widget.filePath;
+    if (filePath != null) return FileImage(File(filePath));
+    final networkUrl = widget.networkUrl;
+    if (networkUrl != null) return NetworkImage(networkUrl);
+    return null;
   }
 
   @override
@@ -311,7 +283,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     double bodyW;
     double bodyH;
     if (isImage) {
-      final natural = _naturalSize;
+      final natural = _imageSize.size;
       if (natural != null && natural.width > 0 && natural.height > 0) {
         // 等比缩放至 maxBody 内接矩形, 与 BoxFit.contain 等价；尺寸直接落到外
         // 层 SizedBox 上, 因此四周不会再出现 letterbox 白边。

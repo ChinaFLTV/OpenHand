@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,7 +10,6 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -650,10 +648,9 @@ class _CollectionsTab extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = collections[index];
         final name = '${item['name'] ?? ''}';
-        return _CollectionTile(
+        return KnowledgeCollectionTile(
           item: item,
           busy: busy || name.isEmpty,
-          l10n: l10n,
           onInfo: () => onInfo(name),
           onDelete: () => onDelete(name),
         );
@@ -1301,77 +1298,6 @@ Object? _localizedMetricValue(AppLocalizations l10n, Object? value) {
     'payload_schema_missing' => l10n.qdrantValuePayloadSchemaMissing,
     _ => value,
   };
-}
-
-class _CollectionTile extends StatelessWidget {
-  const _CollectionTile({
-    required this.item,
-    required this.busy,
-    required this.l10n,
-    required this.onInfo,
-    required this.onDelete,
-  });
-
-  final Map<String, Object?> item;
-  final bool busy;
-  final AppLocalizations l10n;
-  final VoidCallback onInfo;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final name = '${item['name'] ?? ''}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.dataset_outlined, size: 20, color: colorScheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  name.isEmpty ? '-' : name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  jsonEncode(item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: l10n.qdrantStatusViewConfig,
-            onPressed: busy ? null : onInfo,
-            icon: const Icon(Icons.info_outline_rounded),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: l10n.commonDelete,
-            onPressed: busy ? null : onDelete,
-            icon: const Icon(Icons.delete_outline_rounded),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _OpsTextField extends StatelessWidget {

@@ -605,73 +605,6 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         ),
       };
 
-  String _phaseStatusLabel(BuildContext context, HarnessPhaseStatus s) =>
-      switch (s) {
-        HarnessPhaseStatus.pending => openHandLocalizedText(
-          context,
-          zh: '等待中',
-          zhHant: '等待中',
-          en: 'Pending',
-          fr: 'En attente',
-          de: 'Ausstehend',
-          ja: '待機中',
-        ),
-        HarnessPhaseStatus.paused => openHandLocalizedText(
-          context,
-          zh: '暂停中',
-          zhHant: '暫停中',
-          en: 'Paused',
-          fr: 'En pause',
-          de: 'Pausiert',
-          ja: '一時停止中',
-        ),
-        HarnessPhaseStatus.running => openHandLocalizedText(
-          context,
-          zh: '运行中',
-          zhHant: '執行中',
-          en: 'Running',
-          fr: 'En cours',
-          de: 'Wird ausgeführt',
-          ja: '実行中',
-        ),
-        HarnessPhaseStatus.completed => openHandLocalizedText(
-          context,
-          zh: '已完成',
-          zhHant: '已完成',
-          en: 'Completed',
-          fr: 'Terminé',
-          de: 'Abgeschlossen',
-          ja: '完了',
-        ),
-        HarnessPhaseStatus.failed => openHandLocalizedText(
-          context,
-          zh: '失败',
-          zhHant: '失敗',
-          en: 'Failed',
-          fr: 'Échec',
-          de: 'Fehlgeschlagen',
-          ja: '失敗',
-        ),
-        HarnessPhaseStatus.cancelled => openHandLocalizedText(
-          context,
-          zh: '已中止',
-          zhHant: '已中止',
-          en: 'Cancelled',
-          fr: 'Annulé',
-          de: 'Abgebrochen',
-          ja: '中止済み',
-        ),
-        HarnessPhaseStatus.skipped => openHandLocalizedText(
-          context,
-          zh: '已跳过',
-          zhHant: '已跳過',
-          en: 'Skipped',
-          fr: 'Ignoré',
-          de: 'Übersprungen',
-          ja: 'スキップ済み',
-        ),
-      };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1080,7 +1013,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                             label: _heHarnessPhaseLabel(context, log.phase),
                             value: () {
                               final parts = <String>[
-                                _phaseStatusLabel(context, log.status),
+                                harnessPhaseStatusLabel(context, log.status),
                               ];
                               if (log.exitCode != null) {
                                 parts.add(
@@ -1227,3 +1160,72 @@ class _HeMetadataEntryRow extends StatelessWidget {
     );
   }
 }
+
+/// 阶段状态的唯一文案来源：头部摘要与阶段卡片共用，避免同一状态在两处
+/// 出现「已完成 / 执行完成」这类只有中文不同的分叉。
+String harnessPhaseStatusLabel(BuildContext context, HarnessPhaseStatus s) =>
+    switch (s) {
+      HarnessPhaseStatus.pending => openHandLocalizedText(
+        context,
+        zh: '等待中',
+        zhHant: '等待中',
+        en: 'Pending',
+        fr: 'En attente',
+        de: 'Ausstehend',
+        ja: '待機中',
+      ),
+      HarnessPhaseStatus.paused => openHandLocalizedText(
+        context,
+        zh: '暂停中',
+        zhHant: '暫停中',
+        en: 'Paused',
+        fr: 'En pause',
+        de: 'Pausiert',
+        ja: '一時停止中',
+      ),
+      HarnessPhaseStatus.running => openHandLocalizedText(
+        context,
+        zh: '运行中',
+        zhHant: '執行中',
+        en: 'Running',
+        fr: 'En cours',
+        de: 'Wird ausgeführt',
+        ja: '実行中',
+      ),
+      HarnessPhaseStatus.completed => openHandLocalizedText(
+        context,
+        zh: '已完成',
+        zhHant: '已完成',
+        en: 'Completed',
+        fr: 'Terminé',
+        de: 'Abgeschlossen',
+        ja: '完了',
+      ),
+      HarnessPhaseStatus.failed => openHandLocalizedText(
+        context,
+        zh: '失败',
+        zhHant: '失敗',
+        en: 'Failed',
+        fr: 'Échec',
+        de: 'Fehlgeschlagen',
+        ja: '失敗',
+      ),
+      HarnessPhaseStatus.cancelled => openHandLocalizedText(
+        context,
+        zh: '已中止',
+        zhHant: '已中止',
+        en: 'Cancelled',
+        fr: 'Annulé',
+        de: 'Abgebrochen',
+        ja: '中止済み',
+      ),
+      HarnessPhaseStatus.skipped => openHandLocalizedText(
+        context,
+        zh: '已跳过',
+        zhHant: '已跳過',
+        en: 'Skipped',
+        fr: 'Ignoré',
+        de: 'Übersprungen',
+        ja: 'スキップ済み',
+      ),
+    };

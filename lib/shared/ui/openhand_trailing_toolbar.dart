@@ -41,3 +41,49 @@ class OpenHandTrailingToolbar extends StatelessWidget {
     );
   }
 }
+
+/// 运维面板头部布局：宽度足够时「标识 + 操作」并排，压缩后改为上下两行且
+/// 操作靠右对齐。
+///
+/// [compactBreakpoint] 是切换到窄屏排布的宽度阈值。
+class OpenHandResponsiveHeaderLayout extends StatelessWidget {
+  const OpenHandResponsiveHeaderLayout({
+    super.key,
+    required this.identity,
+    required this.actions,
+    required this.compactBreakpoint,
+    this.spacing = 12,
+    this.compactSpacing = 10,
+  });
+
+  final Widget identity;
+  final Widget actions;
+  final double compactBreakpoint;
+  final double spacing;
+  final double compactSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < compactBreakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              identity,
+              SizedBox(height: compactSpacing),
+              Align(alignment: AlignmentDirectional.centerEnd, child: actions),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: identity),
+            SizedBox(width: spacing),
+            actions,
+          ],
+        );
+      },
+    );
+  }
+}

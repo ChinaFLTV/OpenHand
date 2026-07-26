@@ -45,6 +45,8 @@ import '../../ai/index.dart'
         AiBuiltinToolKindAgentMetadata,
         AiResourceUsageKind,
         agentBuiltinToolCanonicalName,
+        agentBuiltinToolGroupIcon,
+        agentBuiltinToolGroupLabel,
         agentBuiltinToolLabel,
         agentBuiltinToolSummary,
         resourceUsageStatisticsButton,
@@ -11533,14 +11535,14 @@ class _AgentToolGroupSection extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  _agentToolGroupIcon(group),
+                  agentBuiltinToolGroupIcon(group),
                   size: 17,
                   color: colors.primary,
                 ),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
-                    _agentToolGroupLabel(context, group),
+                    agentBuiltinToolGroupLabel(context, group),
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -12429,51 +12431,6 @@ String _agentInstructionOptionSubtitle(
           en: 'Injected into the agent runtime prompt when bound',
         )
       : parts.take(2).join(' · ');
-}
-
-IconData _agentToolGroupIcon(AiAgentBuiltinToolGroup? group) {
-  return switch (group) {
-    AiAgentBuiltinToolGroup.discovery => Icons.travel_explore_rounded,
-    AiAgentBuiltinToolGroup.taskLifecycle => Icons.playlist_add_check_rounded,
-    AiAgentBuiltinToolGroup.governance => Icons.verified_user_outlined,
-    AiAgentBuiltinToolGroup.operations => Icons.monitor_heart_outlined,
-    AiAgentBuiltinToolGroup.cluster => Icons.account_tree_rounded,
-    null => Icons.extension_rounded,
-  };
-}
-
-String _agentToolGroupLabel(
-  BuildContext context,
-  AiAgentBuiltinToolGroup? group,
-) {
-  return switch (group) {
-    AiAgentBuiltinToolGroup.discovery => openHandLocalizedText(
-      context,
-      zh: '发现路由',
-      en: 'Discovery',
-    ),
-    AiAgentBuiltinToolGroup.taskLifecycle => openHandLocalizedText(
-      context,
-      zh: '任务生命周期',
-      en: 'Task lifecycle',
-    ),
-    AiAgentBuiltinToolGroup.governance => openHandLocalizedText(
-      context,
-      zh: '治理审计',
-      en: 'Governance',
-    ),
-    AiAgentBuiltinToolGroup.operations => openHandLocalizedText(
-      context,
-      zh: '运营资源',
-      en: 'Operations',
-    ),
-    AiAgentBuiltinToolGroup.cluster => openHandLocalizedText(
-      context,
-      zh: '集群调度',
-      en: 'Cluster',
-    ),
-    null => openHandLocalizedText(context, zh: '其他工具', en: 'Other tools'),
-  };
 }
 
 String _agentPolicyOptionLabel(BuildContext context, String value) {

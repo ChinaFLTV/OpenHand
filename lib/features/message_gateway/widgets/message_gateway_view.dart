@@ -24,6 +24,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -5820,6 +5821,9 @@ const double _webOpsOuterRadius = 24;
 const double _webOpsShellRadius = 18;
 const double _webOpsControlRadius = 12;
 const double _webOpsGridGap = 14;
+
+/// 运维头部由并排切换为上下两行的宽度阈值。
+const double _webOpsHeaderCompactBreakpoint = 980;
 const double _webOpsMetricWideBreakpoint = 860;
 const double _webOpsMetricMediumBreakpoint = 560;
 const Color _webOpsTerminalBackground = Color(0xFF10131A);
@@ -6095,40 +6099,18 @@ class _WebOpsConsoleHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 980;
-            final identity = _WebOpsHeaderIdentity(
-              statusColor: statusColor,
-              endpoint: endpoint,
-            );
-            final actions = _WebOpsHeaderActions(
-              cleaning: cleaning,
-              onClearLogs: onClearLogs,
-              onClearCache: onClearCache,
-              onClose: onClose,
-            );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  identity,
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: actions,
-                  ),
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: identity),
-                const SizedBox(width: 12),
-                actions,
-              ],
-            );
-          },
+        OpenHandResponsiveHeaderLayout(
+          compactBreakpoint: _webOpsHeaderCompactBreakpoint,
+          identity: _WebOpsHeaderIdentity(
+            statusColor: statusColor,
+            endpoint: endpoint,
+          ),
+          actions: _WebOpsHeaderActions(
+            cleaning: cleaning,
+            onClearLogs: onClearLogs,
+            onClearCache: onClearCache,
+            onClose: onClose,
+          ),
         ),
         const SizedBox(height: 12),
         Wrap(

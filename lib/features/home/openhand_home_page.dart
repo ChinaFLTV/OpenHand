@@ -74,6 +74,7 @@ import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/native_audio_preview.dart';
+import '../../shared/ui/natural_image_size_resolver.dart';
 import '../../shared/ui/openhand_animated_title_text.dart';
 import '../../shared/ui/openhand_approval_chip.dart';
 import '../../shared/ui/openhand_clipboard.dart';

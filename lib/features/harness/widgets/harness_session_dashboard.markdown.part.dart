@@ -9,6 +9,45 @@ void _disposeMarkdownRecognizers(List<GestureRecognizer> recognizers) {
   }
 }
 
+/// Markdown 路径链接的公共委托实现。
+///
+/// 完整视图与流式视图的链接识别、行内代码路径高亮与识别器生命周期完全一致；
+/// 集中在这里，避免两处的跳转规则随各自演进而分叉。
+mixin _HeMarkdownPathDelegate<T extends StatefulWidget> on State<T>
+    implements MarkdownBuilderDelegate {
+  final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
+
+  /// 解析相对路径时的候选根目录。
+  List<String> get markdownFilePathRoots;
+
+  /// 行内代码识别为路径后的着色。
+  Color get markdownLinkColor;
+
+  void _disposeRecognizers() => _disposeMarkdownRecognizers(_recognizers);
+
+  @override
+  GestureRecognizer createLink(String text, String? href, String title) {
+    return _createMarkdownPathLink(
+      context: context,
+      href: href,
+      filePathRoots: markdownFilePathRoots,
+      recognizers: _recognizers,
+    );
+  }
+
+  @override
+  TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
+    return _formatMarkdownPathCode(
+      context: context,
+      styleSheet: styleSheet,
+      code: code,
+      filePathRoots: markdownFilePathRoots,
+      recognizers: _recognizers,
+      linkColor: markdownLinkColor,
+    );
+  }
+}
+
 GestureRecognizer _createMarkdownPathLink({
   required BuildContext context,
   required String? href,
@@ -105,12 +144,17 @@ class _HeSafeMarkdownBody extends StatefulWidget {
 }
 
 class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
-    implements MarkdownBuilderDelegate {
+    with _HeMarkdownPathDelegate<_HeSafeMarkdownBody> {
   List<Widget>? _children;
   String? _lastSanitised;
   String? _lastRawContent;
   int? _lastThemeHash;
-  final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
+
+  @override
+  List<String> get markdownFilePathRoots => widget.filePathRoots;
+
+  @override
+  Color get markdownLinkColor => widget.colorScheme.primary;
 
   @override
   void didChangeDependencies() {
@@ -252,32 +296,6 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       );
       _children = <Widget>[SelectableText(source, style: fallbackStyle)];
     }
-  }
-
-  void _disposeRecognizers() {
-    _disposeMarkdownRecognizers(_recognizers);
-  }
-
-  @override
-  GestureRecognizer createLink(String text, String? href, String title) {
-    return _createMarkdownPathLink(
-      context: context,
-      href: href,
-      filePathRoots: widget.filePathRoots,
-      recognizers: _recognizers,
-    );
-  }
-
-  @override
-  TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
-    return _formatMarkdownPathCode(
-      context: context,
-      styleSheet: styleSheet,
-      code: code,
-      filePathRoots: widget.filePathRoots,
-      recognizers: _recognizers,
-      linkColor: widget.colorScheme.primary,
-    );
   }
 
   @override

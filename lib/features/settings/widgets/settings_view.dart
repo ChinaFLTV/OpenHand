@@ -425,6 +425,91 @@ List<Widget> _buildToolTelemetryBody({
   ];
 }
 
+/// WebSearch / WebFetch 共用的「缓存 TTL + 容量上限」输入行。
+///
+/// 两者取值范围一致，只有默认值不同；提示文案直接由传入的默认值渲染，避免
+/// 把一处的默认值抄到另一处（此前抓取缓存实际默认 15 分钟，提示却写 5 分钟）。
+Widget _buildWebEngineCacheFields({
+  required BuildContext context,
+  required TextEditingController ttlController,
+  required TextEditingController maxBytesController,
+  required int defaultTtlSeconds,
+  required int minTtlSeconds,
+  required int maxTtlSeconds,
+  required int defaultMaxBytes,
+  required int minMaxBytes,
+  required int maxMaxBytes,
+  required int currentMaxBytes,
+  required ValueChanged<int> onTtlChanged,
+  required ValueChanged<int> onMaxBytesChanged,
+}) {
+  final defaultTtlMinutes = defaultTtlSeconds ~/ 60;
+  return Row(
+    children: [
+      Expanded(
+        child: TextField(
+          controller: ttlController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(
+              context,
+              zh: '缓存 TTL (秒)',
+              en: 'Cache TTL (seconds)',
+            ),
+            helperText: openHandLocalizedText(
+              context,
+              zh: '默认 $defaultTtlSeconds 秒 = $defaultTtlMinutes 分钟; 设为 0 关闭缓存',
+              en:
+                  'Default ${defaultTtlSeconds}s '
+                  '($defaultTtlMinutes min); 0 disables caching',
+            ),
+          ),
+          onChanged: (text) => onTtlChanged(
+            clampedIntFromText(
+              text,
+              fallback: 0,
+              min: minTtlSeconds,
+              max: maxTtlSeconds,
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: TextField(
+          controller: maxBytesController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(
+              context,
+              zh: '缓存上限 (MB)',
+              en: 'Cache Cap (MB)',
+            ),
+            helperText: openHandLocalizedText(
+              context,
+              zh:
+                  '默认 ${formatByteSize(defaultMaxBytes)}；'
+                  '范围 ${formatByteSize(minMaxBytes)}–${formatByteSize(maxMaxBytes)}',
+              en:
+                  'Default ${formatByteSize(defaultMaxBytes)}; '
+                  'range ${formatByteSize(minMaxBytes)}–${formatByteSize(maxMaxBytes)}',
+            ),
+          ),
+          onChanged: (text) => onMaxBytesChanged(
+            megabytesTextToBytes(
+              text,
+              fallbackBytes: currentMaxBytes,
+              minBytes: minMaxBytes,
+              maxBytes: maxMaxBytes,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 Widget _buildToolCacheActions({
   required BuildContext context,
   required int? bytesOnDisk,

@@ -2844,9 +2844,11 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   /// 加载中 / 解析失败 / 来源缺失时的方形占位边长。
   static const double _kFallbackSide = 320.0;
 
-  ImageStream? _imageStream;
-  ImageStreamListener? _imageStreamListener;
-  Size? _naturalSize;
+  late final NaturalImageSizeResolver _imageSize = NaturalImageSizeResolver(
+    onResolved: () {
+      if (mounted) setState(() {});
+    },
+  );
   // 三个互不相干的忙位：与媒体预览弹窗保持同一套并发口径，避免连点在同一
   // 目标路径上并发写入（后一次的清理会删掉前一次已写好的文件）。
   bool _isCopying = false;
@@ -2856,60 +2858,20 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   @override
   void initState() {
     super.initState();
-    _resolveImageDimensions();
-  }
-
-  /// 提前订阅 ImageProvider 流, 拿到图片自身的宽高用于尺寸计算。
-  /// `Image.file` / `Image.network` 内部仍走自己的解码/缓存通道,
-  /// 这里只是借用 Flutter ImageCache 命中 (二次解析不会重复下载)。
-  void _resolveImageDimensions() {
-    ImageProvider? provider;
     final filePath = widget.filePath;
     final imageUri = widget.imageUri;
-    if (filePath != null) {
-      provider = FileImage(File(filePath));
-    } else if (imageUri != null) {
-      provider = NetworkImage(imageUri.toString());
-    }
-    if (provider == null) {
-      return;
-    }
-    final stream = provider.resolve(const ImageConfiguration());
-    final listener = ImageStreamListener(
-      (ImageInfo info, bool synchronousCall) {
-        final w = info.image.width.toDouble();
-        final h = info.image.height.toDouble();
-        if (w <= 0 || h <= 0) return;
-        // 同步回调 (来自缓存) 发生在 initState 中, 此时还未首次 build,
-        // 直接给字段赋值即可, 不需要 setState; 否则按常规通过 setState 触发重建。
-        if (synchronousCall) {
-          _naturalSize = Size(w, h);
-          return;
-        }
-        if (!mounted) return;
-        final prev = _naturalSize;
-        if (prev != null && prev.width == w && prev.height == h) return;
-        setState(() {
-          _naturalSize = Size(w, h);
-        });
-      },
-      onError: (Object _, StackTrace? _) {
-        // 错误状态下保持 _naturalSize 为 null, 走占位尺寸分支;
-        // _buildPreviewImage 内部 Image 控件自己会渲染 errorBuilder。
-      },
+    _imageSize.resolve(
+      filePath != null
+          ? FileImage(File(filePath))
+          : imageUri != null
+          ? NetworkImage(imageUri.toString())
+          : null,
     );
-    stream.addListener(listener);
-    _imageStream = stream;
-    _imageStreamListener = listener;
   }
 
   @override
   void dispose() {
-    final stream = _imageStream;
-    final listener = _imageStreamListener;
-    if (stream != null && listener != null) {
-      stream.removeListener(listener);
-    }
+    _imageSize.dispose();
     super.dispose();
   }
 
@@ -2924,7 +2886,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     final viewport = _adaptivePreviewDialogViewport(context);
     scheduleHeaderHeightSync();
 
-    final natural = _naturalSize;
+    final natural = _imageSize.size;
     final metrics = _AdaptivePreviewDialogMetrics.fromAspectRatio(
       viewport: viewport,
       insetPadding: _kInsetPadding,
@@ -3175,7 +3137,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
   int? _previewDecodeWidth(BuildContext context, Size displaySize) {
     const zoomHeadroom = 2.0;
     const bucketPx = 256;
-    final natural = _naturalSize;
+    final natural = _imageSize.size;
     if (natural == null || natural.width <= 0 || natural.height <= 0) {
       return null;
     }

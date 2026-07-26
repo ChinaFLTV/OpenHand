@@ -592,73 +592,19 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _cacheTtlController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '缓存 TTL (秒)',
-                    en: 'Cache TTL (seconds)',
-                  ),
-                  helperText: openHandLocalizedText(
-                    context,
-                    zh: '默认 300 秒 = 5 分钟; 设为 0 关闭缓存',
-                    en: 'Default 300s (5 min); 0 disables caching',
-                  ),
-                ),
-                onChanged: (s) {
-                  _emit(
-                    v.copyWith(
-                      cacheTtlSeconds: clampedIntFromText(
-                        s,
-                        fallback: 0,
-                        min: AiWebSearchSettings.minCacheTtlSeconds,
-                        max: AiWebSearchSettings.maxCacheTtlSeconds,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _cacheMaxBytesController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '缓存上限 (MB)',
-                    en: 'Cache Cap (MB)',
-                  ),
-                  helperText: openHandLocalizedText(
-                    context,
-                    zh: '默认 50 MB；范围 1 MB–2 GB',
-                    en: 'Default 50 MB; range 1 MB–2 GB',
-                  ),
-                ),
-                onChanged: (s) {
-                  _emit(
-                    v.copyWith(
-                      cacheMaxBytes: megabytesTextToBytes(
-                        s,
-                        fallbackBytes: v.cacheMaxBytes,
-                        minBytes: AiWebSearchSettings.minCacheMaxBytes,
-                        maxBytes: AiWebSearchSettings.maxCacheMaxBytes,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+        _buildWebEngineCacheFields(
+          context: context,
+          ttlController: _cacheTtlController,
+          maxBytesController: _cacheMaxBytesController,
+          defaultTtlSeconds: AiWebSearchSettings.defaultCacheTtlSeconds,
+          minTtlSeconds: AiWebSearchSettings.minCacheTtlSeconds,
+          maxTtlSeconds: AiWebSearchSettings.maxCacheTtlSeconds,
+          defaultMaxBytes: AiWebSearchSettings.defaultCacheMaxBytes,
+          minMaxBytes: AiWebSearchSettings.minCacheMaxBytes,
+          maxMaxBytes: AiWebSearchSettings.maxCacheMaxBytes,
+          currentMaxBytes: v.cacheMaxBytes,
+          onTtlChanged: (value) => _emit(v.copyWith(cacheTtlSeconds: value)),
+          onMaxBytesChanged: (value) => _emit(v.copyWith(cacheMaxBytes: value)),
         ),
         const SizedBox(height: 10),
         _buildToolCacheActions(

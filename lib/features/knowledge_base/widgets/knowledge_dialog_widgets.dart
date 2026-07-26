@@ -669,9 +669,108 @@ InputDecoration knowledgeDialogInputDecoration(
   );
 }
 
+/// 明细弹窗键值列表的标签列宽。
+///
+/// 中文标签更短，其余语言需要更宽的列才不会折行；集中一处，避免各弹窗抄写
+/// 同一组魔法数字 后逐渐对不齐。
+double knowledgeDetailLabelWidth(bool isChinese) => isChinese ? 112 : 132;
+
 String knowledgeDialogValue(Object? value) {
   if (value == null) return '-';
   if (value is Map || value is List) return jsonEncode(value);
   final text = '$value'.trim();
   return text.isEmpty ? '-' : text;
+}
+
+/// Qdrant collection 行卡：管理弹窗与状态弹窗共用。
+///
+/// 两处此前各维护一份同名 `_CollectionTile`，一份用内联多语言文本、一份用
+/// 生成的 l10n，样式也悄悄分叉；此处统一为唯一实现。
+class KnowledgeCollectionTile extends StatelessWidget {
+  const KnowledgeCollectionTile({
+    super.key,
+    required this.item,
+    required this.busy,
+    required this.onInfo,
+    required this.onDelete,
+    this.margin,
+  });
+
+  final Map<String, Object?> item;
+  final bool busy;
+  final VoidCallback onInfo;
+  final VoidCallback onDelete;
+  final EdgeInsetsGeometry? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final name = '${item['name'] ?? ''}';
+    return Container(
+      margin: margin,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.dataset_outlined, size: 20, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  name.isEmpty ? '-' : name,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  jsonEncode(item),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '查看配置',
+              zhHant: '查看設定',
+              en: 'View config',
+              fr: 'Voir la configuration',
+              de: 'Konfiguration anzeigen',
+              ja: '設定を表示',
+            ),
+            onPressed: busy ? null : onInfo,
+            icon: const Icon(Icons.info_outline_rounded),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '删除',
+              zhHant: '刪除',
+              en: 'Delete',
+              fr: 'Supprimer',
+              de: 'Löschen',
+              ja: '削除',
+            ),
+            onPressed: busy ? null : onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+          ),
+        ],
+      ),
+    );
+  }
 }

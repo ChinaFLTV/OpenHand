@@ -1111,7 +1111,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 ),
                 icon: Icons.article_outlined,
                 child: KnowledgeDialogKeyValueList(
-                  labelWidth: isZh ? 112 : 132,
+                  labelWidth: knowledgeDetailLabelWidth(isZh),
                   rows: {
                     openHandLocalizedText(
                       context,
@@ -1164,7 +1164,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 ),
                 icon: Icons.manage_search_rounded,
                 child: KnowledgeDialogKeyValueList(
-                  labelWidth: isZh ? 112 : 132,
+                  labelWidth: knowledgeDetailLabelWidth(isZh),
                   rows: {
                     if (_hasValue(hit['score']))
                       openHandLocalizedText(
