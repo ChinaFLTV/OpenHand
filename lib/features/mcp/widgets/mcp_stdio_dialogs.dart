@@ -12,6 +12,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1082,105 +1083,112 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           // 状态 + 操作按钮
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-            child: _checking
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
+            child: OpenHandContentStateSwitcher(
+              stateKey: _checking
+                  ? 'checking'
+                  : (!_isPackageManagerService || cleanPkg.isEmpty)
+                  ? 'unmanaged'
+                  : 'ready',
+              child: _checking
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        ),
                       ),
-                    ),
-                  )
-                : !_isPackageManagerService || cleanPkg.isEmpty
-                ? Text(
-                    l10n.mcpStdioDialogNoDepsToManage,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _packageInstalled
-                                ? Icons.check_circle
-                                : Icons.cancel,
-                            size: 18,
-                            color: _packageInstalled
-                                ? OpenHandStatusColors.success
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
+                    )
+                  : !_isPackageManagerService || cleanPkg.isEmpty
+                  ? Text(
+                      l10n.mcpStdioDialogNoDepsToManage,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
                               _packageInstalled
-                                  ? l10n.mcpStdioDialogInstalledVersion(
-                                      _installedVersion ??
-                                          l10n.mcpStdioDialogUnknownVersion,
-                                    )
-                                  : l10n.mcpStdioDialogNotGloballyInstalled,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              size: 18,
+                              color: _packageInstalled
+                                  ? OpenHandStatusColors.success
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
-                          ),
-                          // 操作按钮
-                          if (!_packageInstalled)
-                            FilledButton.tonalIcon(
-                              onPressed: _operating ? null : _installDeps,
-                              icon: const Icon(
-                                Icons.download_rounded,
-                                size: 18,
-                              ),
-                              label: Text(l10n.mcpStdioDialogInstall),
-                            )
-                          else ...[
-                            if (hasUpdate)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: FilledButton.tonalIcon(
-                                  onPressed: _operating ? null : _updateDeps,
-                                  icon: const Icon(
-                                    Icons.system_update_alt_rounded,
-                                    size: 18,
-                                  ),
-                                  label: Text(l10n.mcpStdioDialogUpdate),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _packageInstalled
+                                    ? l10n.mcpStdioDialogInstalledVersion(
+                                        _installedVersion ??
+                                            l10n.mcpStdioDialogUnknownVersion,
+                                      )
+                                    : l10n.mcpStdioDialogNotGloballyInstalled,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            IconButton.filledTonal(
-                              tooltip: l10n.mcpStdioDialogUninstall,
-                              onPressed: _operating ? null : _uninstallDeps,
-                              style: IconButton.styleFrom(
-                                foregroundColor: theme.colorScheme.error,
-                              ),
-                              icon: const Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                              ),
                             ),
+                            // 操作按钮
+                            if (!_packageInstalled)
+                              FilledButton.tonalIcon(
+                                onPressed: _operating ? null : _installDeps,
+                                icon: const Icon(
+                                  Icons.download_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(l10n.mcpStdioDialogInstall),
+                              )
+                            else ...[
+                              if (hasUpdate)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: FilledButton.tonalIcon(
+                                    onPressed: _operating ? null : _updateDeps,
+                                    icon: const Icon(
+                                      Icons.system_update_alt_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(l10n.mcpStdioDialogUpdate),
+                                  ),
+                                ),
+                              IconButton.filledTonal(
+                                tooltip: l10n.mcpStdioDialogUninstall,
+                                onPressed: _operating ? null : _uninstallDeps,
+                                style: IconButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.error,
+                                ),
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 18,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      if (_latestVersion != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          l10n.mcpStdioDialogLatestVersion(_latestVersion!) +
-                              (hasUpdate
-                                  ? l10n.mcpStdioDialogUpdateAvailableSuffix
-                                  : ''),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: hasUpdate
-                                ? OpenHandStatusColors.warning
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
                         ),
+                        if (_latestVersion != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.mcpStdioDialogLatestVersion(_latestVersion!) +
+                                (hasUpdate
+                                    ? l10n.mcpStdioDialogUpdateAvailableSuffix
+                                    : ''),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: hasUpdate
+                                  ? OpenHandStatusColors.warning
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+            ),
           ),
           OpenHandInlineErrorText(message: _error),
           // 进度指示

@@ -158,3 +158,57 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
     );
   }
 }
+
+/// 内容态切换的默认时长。
+const Duration kOpenHandContentStateDuration = Duration(milliseconds: 220);
+
+/// 「加载中 / 空态 / 正文」这类内容态之间的淡入淡出切换。
+///
+/// 与 [OpenHandCrossFadeSwitcher] 的分工：那个用于同尺寸内容互换；这里三态
+/// 高度往往差很多（转圈一行、空态一行、列表整屏），所以默认连高度一起过渡。
+/// 放在 Expanded / 固定高度容器里时把 [animateSize] 关掉——那种场景外层已经
+/// 定好尺寸，再套 AnimatedSize 只会得到一个无界约束。
+class OpenHandContentStateSwitcher extends StatelessWidget {
+  const OpenHandContentStateSwitcher({
+    super.key,
+    required this.stateKey,
+    required this.child,
+    this.duration = kOpenHandContentStateDuration,
+    this.alignment = Alignment.topCenter,
+    this.animateSize = true,
+  });
+
+  /// 区分内容态的标识；变化时触发切换。
+  final String stateKey;
+
+  final Widget child;
+  final Duration duration;
+  final AlignmentGeometry alignment;
+  final bool animateSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveDuration = openHandMotionDuration(context, duration);
+    if (effectiveDuration == Duration.zero) return child;
+    final switcher = AnimatedSwitcher(
+      duration: effectiveDuration,
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: alignment,
+        children: <Widget>[
+          ...previousChildren,
+          if (currentChild != null) currentChild,
+        ],
+      ),
+      child: KeyedSubtree(key: ValueKey<String>(stateKey), child: child),
+    );
+    if (!animateSize) return switcher;
+    return AnimatedSize(
+      duration: effectiveDuration,
+      curve: Curves.easeOutCubic,
+      alignment: alignment,
+      child: switcher,
+    );
+  }
+}

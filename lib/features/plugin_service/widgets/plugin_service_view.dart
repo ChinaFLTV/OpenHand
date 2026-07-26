@@ -16,6 +16,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
@@ -1843,61 +1844,64 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           // 状态 + 操作按钮
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-            child: _checking
-                ? const Center(child: CircularProgressIndicator())
-                : Row(
-                    children: [
-                      Icon(
-                        _mcpInstalled ? Icons.check_circle : Icons.cancel,
-                        size: 18,
-                        color: _mcpInstalled
-                            ? OpenHandStatusColors.success
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _mcpInstalled
-                            ? _mcpVersion != null
-                                  ? l10n.pluginServiceMcpInstalledVersion(
-                                      _mcpVersion!,
-                                    )
-                                  : l10n.pluginServiceStatusInstalled
-                            : l10n.pluginServiceStatusNotInstalled,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+            child: OpenHandContentStateSwitcher(
+              stateKey: _checking ? 'checking' : 'ready',
+              child: _checking
+                  ? const Center(child: CircularProgressIndicator())
+                  : Row(
+                      children: [
+                        Icon(
+                          _mcpInstalled ? Icons.check_circle : Icons.cancel,
+                          size: 18,
+                          color: _mcpInstalled
+                              ? OpenHandStatusColors.success
+                              : theme.colorScheme.onSurfaceVariant,
                         ),
-                      ),
-                      const Spacer(),
-                      if (!_mcpInstalled)
-                        IconButton.filled(
-                          tooltip: l10n.pluginServiceActionInstall,
-                          onPressed: _operating ? null : _installMcp,
-                          icon: const Icon(Icons.download_rounded, size: 18),
-                        )
-                      else ...[
-                        IconButton.filledTonal(
-                          tooltip: l10n.pluginServiceActionUpdate,
-                          onPressed: _operating ? null : _updateMcp,
-                          icon: const Icon(
-                            Icons.system_update_alt_rounded,
-                            size: 18,
+                        const SizedBox(width: 8),
+                        Text(
+                          _mcpInstalled
+                              ? _mcpVersion != null
+                                    ? l10n.pluginServiceMcpInstalledVersion(
+                                        _mcpVersion!,
+                                      )
+                                    : l10n.pluginServiceStatusInstalled
+                              : l10n.pluginServiceStatusNotInstalled,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        IconButton.filledTonal(
-                          tooltip: l10n.pluginServiceActionUninstall,
-                          onPressed: _operating ? null : _uninstallMcp,
-                          style: IconButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
+                        const Spacer(),
+                        if (!_mcpInstalled)
+                          IconButton.filled(
+                            tooltip: l10n.pluginServiceActionInstall,
+                            onPressed: _operating ? null : _installMcp,
+                            icon: const Icon(Icons.download_rounded, size: 18),
+                          )
+                        else ...[
+                          IconButton.filledTonal(
+                            tooltip: l10n.pluginServiceActionUpdate,
+                            onPressed: _operating ? null : _updateMcp,
+                            icon: const Icon(
+                              Icons.system_update_alt_rounded,
+                              size: 18,
+                            ),
                           ),
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            size: 18,
+                          const SizedBox(width: 6),
+                          IconButton.filledTonal(
+                            tooltip: l10n.pluginServiceActionUninstall,
+                            onPressed: _operating ? null : _uninstallMcp,
+                            style: IconButton.styleFrom(
+                              foregroundColor: theme.colorScheme.error,
+                            ),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+            ),
           ),
           OpenHandInlineErrorText(message: _error),
           // 终端输出区域

@@ -262,30 +262,41 @@ class _ElementsBodyState extends State<_ElementsBody> {
         _buildToolbar(theme, cs, loc),
         const Divider(height: 1),
         Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : _loadError != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      _loadError!,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.error,
+          child: OpenHandContentStateSwitcher(
+            // 外层 Expanded 已定高，这里只做淡入淡出。
+            animateSize: false,
+            stateKey: _loading
+                ? 'loading'
+                : _loadError != null
+                ? 'error'
+                : _root == null
+                ? 'empty'
+                : 'tree',
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : _loadError != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        _loadError!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.error,
+                        ),
                       ),
                     ),
+                  )
+                : _root == null
+                ? const SizedBox()
+                : Row(
+                    children: [
+                      SizedBox(width: 380, child: _buildTree(theme, cs)),
+                      const VerticalDivider(width: 1),
+                      Expanded(child: _buildDetails(theme, cs, loc)),
+                    ],
                   ),
-                )
-              : _root == null
-              ? const SizedBox()
-              : Row(
-                  children: [
-                    SizedBox(width: 380, child: _buildTree(theme, cs)),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: _buildDetails(theme, cs, loc)),
-                  ],
-                ),
+          ),
         ),
       ],
     );

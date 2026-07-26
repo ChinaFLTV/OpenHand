@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -220,23 +221,32 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
                   ),
           ),
           Expanded(
-            child: _busy
-                ? const Center(child: CircularProgressIndicator())
-                : _rows.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseFrameTreeEmpty ?? 'No frames',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+            child: OpenHandContentStateSwitcher(
+              // 外层 Expanded 已经定死高度，这里只做淡入淡出。
+              animateSize: false,
+              stateKey: _busy
+                  ? 'busy'
+                  : _rows.isEmpty
+                  ? 'empty'
+                  : 'rows',
+              child: _busy
+                  ? const Center(child: CircularProgressIndicator())
+                  : _rows.isEmpty
+                  ? Center(
+                      child: Text(
+                        loc?.webReverseFrameTreeEmpty ?? 'No frames',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      itemCount: _rows.length,
+                      itemBuilder: (_, i) =>
+                          _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    itemCount: _rows.length,
-                    itemBuilder: (_, i) =>
-                        _FrameTile(row: _rows[i], onCopy: _copy, cs: cs),
-                  ),
+            ),
           ),
           buildOpenHandDialogFooter(
             primaryLabel: loc?.commonClose ?? 'Close',

@@ -1653,110 +1653,123 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                 ),
                 const Divider(height: 18),
                 Expanded(
-                  child: _busy
-                      ? Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.8,
-                              color: cs.primary,
-                            ),
-                          ),
-                        )
-                      : _results.isEmpty
-                      ? Center(
-                          child: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '没有匹配的记录。',
-                              en: 'No matching records.',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: _results.length,
-                          separatorBuilder: (_, _) =>
-                              Divider(height: 1, color: cs.outlineVariant),
-                          itemBuilder: (ctx, i) {
-                            final v = _results[i];
-                            final r = v.record;
-                            final greyed = v.isEffectivelyUndone;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 6,
+                  child: OpenHandContentStateSwitcher(
+                    // 外层 Expanded 已定高，这里只做淡入淡出。
+                    animateSize: false,
+                    stateKey: _busy
+                        ? 'busy'
+                        : _results.isEmpty
+                        ? 'empty'
+                        : 'results',
+                    child: _busy
+                        ? Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
+                                color: cs.primary,
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 5,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary.withValues(alpha: 0.10),
-                                      borderRadius: const BorderRadius.all(
-                                        Radius.circular(4),
+                            ),
+                          )
+                        : _results.isEmpty
+                        ? Center(
+                            child: Text(
+                              openHandLocalizedText(
+                                context,
+                                zh: '没有匹配的记录。',
+                                en: 'No matching records.',
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: _results.length,
+                            separatorBuilder: (_, _) =>
+                                Divider(height: 1, color: cs.outlineVariant),
+                            itemBuilder: (ctx, i) {
+                              final v = _results[i];
+                              final r = v.record;
+                              final greyed = v.isEffectivelyUndone;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: cs.primary.withValues(
+                                          alpha: 0.10,
+                                        ),
+                                        borderRadius: const BorderRadius.all(
+                                          Radius.circular(4),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        r.kind.name,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: cs.primary,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                       ),
                                     ),
-                                    child: Text(
-                                      r.kind.name,
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      r.toolName,
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                            color: cs.primary,
-                                            fontWeight: FontWeight.w700,
+                                            color: cs.onSurfaceVariant,
                                           ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    r.toolName,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _PathHighlightText(
-                                      path: r.filePath,
-                                      query: _pathCtrl.text.trim(),
-                                      baseColor: greyed
-                                          ? cs.onSurfaceVariant.withValues(
-                                              alpha: 0.6,
-                                            )
-                                          : cs.onSurface,
-                                      decoration: greyed
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      highlightBg: cs.primary.withValues(
-                                        alpha: 0.18,
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _PathHighlightText(
+                                        path: r.filePath,
+                                        query: _pathCtrl.text.trim(),
+                                        baseColor: greyed
+                                            ? cs.onSurfaceVariant.withValues(
+                                                alpha: 0.6,
+                                              )
+                                            : cs.onSurface,
+                                        decoration: greyed
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        highlightBg: cs.primary.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                        highlightFg: cs.primary,
+                                        textStyle: theme.textTheme.bodySmall,
                                       ),
-                                      highlightFg: cs.primary,
-                                      textStyle: theme.textTheme.bodySmall,
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    r.createdAt
-                                        .toLocal()
-                                        .toIso8601String()
-                                        .substring(0, 19),
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
-                                      ],
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      r.createdAt
+                                          .toLocal()
+                                          .toIso8601String()
+                                          .substring(0, 19),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(

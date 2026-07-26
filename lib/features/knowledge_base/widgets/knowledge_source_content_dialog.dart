@@ -15,6 +15,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -472,43 +473,54 @@ class _KnowledgeSourceContentDialogState
       content: buildOpenHandDialogConstrainedContent(
         width: 980,
         height: dialogHeight,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _loadError != null
-            ? KnowledgeDialogNotice(
-                icon: Icons.error_outline_rounded,
-                message: openHandLocalizedText(
-                  context,
-                  zh: '文档内容加载失败：$_loadError',
-                  zhHant: '文件內容載入失敗：$_loadError',
-                  en: 'Failed to load document content: $_loadError',
-                  fr: 'Échec du chargement du contenu : $_loadError',
-                  de: 'Dokumentinhalt konnte nicht geladen werden: $_loadError',
-                  ja: 'ドキュメント内容の読み込みに失敗しました: $_loadError',
+        child: OpenHandContentStateSwitcher(
+          // 外层 SizedBox 已定高，这里只做淡入淡出。
+          animateSize: false,
+          stateKey: _loading
+              ? 'loading'
+              : _loadError != null
+              ? 'error'
+              : snapshot?.source == null
+              ? 'missing'
+              : 'content',
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _loadError != null
+              ? KnowledgeDialogNotice(
+                  icon: Icons.error_outline_rounded,
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '文档内容加载失败：$_loadError',
+                    zhHant: '文件內容載入失敗：$_loadError',
+                    en: 'Failed to load document content: $_loadError',
+                    fr: 'Échec du chargement du contenu : $_loadError',
+                    de: 'Dokumentinhalt konnte nicht geladen werden: $_loadError',
+                    ja: 'ドキュメント内容の読み込みに失敗しました: $_loadError',
+                  ),
+                  error: true,
+                )
+              : snapshot?.source == null
+              ? KnowledgeDialogNotice(
+                  icon: Icons.info_outline_rounded,
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '来源不存在。',
+                    zhHant: '來源不存在。',
+                    en: 'Source not found.',
+                    fr: 'Source introuvable.',
+                    de: 'Quelle nicht gefunden.',
+                    ja: 'ソースが見つかりません。',
+                  ),
+                )
+              : _KnowledgeSourceContentBody(
+                  snapshot: snapshot!,
+                  contentController: _sourceController,
+                  preview: _preview,
+                  editable: _showEditActions,
+                  editorControls: _editorControls(),
+                  onPreviewChanged: (value) => setState(() => _preview = value),
                 ),
-                error: true,
-              )
-            : snapshot?.source == null
-            ? KnowledgeDialogNotice(
-                icon: Icons.info_outline_rounded,
-                message: openHandLocalizedText(
-                  context,
-                  zh: '来源不存在。',
-                  zhHant: '來源不存在。',
-                  en: 'Source not found.',
-                  fr: 'Source introuvable.',
-                  de: 'Quelle nicht gefunden.',
-                  ja: 'ソースが見つかりません。',
-                ),
-              )
-            : _KnowledgeSourceContentBody(
-                snapshot: snapshot!,
-                contentController: _sourceController,
-                preview: _preview,
-                editable: _showEditActions,
-                editorControls: _editorControls(),
-                onPreviewChanged: (value) => setState(() => _preview = value),
-              ),
+        ),
       ),
       actions: [
         if (_showEditActions)

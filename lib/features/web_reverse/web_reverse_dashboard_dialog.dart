@@ -34,6 +34,7 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
+import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_scroll_behaviors.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
