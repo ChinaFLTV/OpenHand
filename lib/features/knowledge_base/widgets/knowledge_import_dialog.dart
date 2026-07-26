@@ -563,17 +563,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   ButtonSegment<bool>(
                     value: true,
                     icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '预览',
-                        zhHant: '預覽',
-                        en: 'Preview',
-                        fr: 'Aperçu',
-                        de: 'Vorschau',
-                        ja: 'プレビュー',
-                      ),
-                    ),
+                    label: Text(knowledgePreviewLabel(context)),
                   ),
                 ],
                 selected: {preview},
@@ -598,15 +588,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
             controller: title,
             decoration: knowledgeDialogInputDecoration(
               context,
-              openHandLocalizedText(
-                context,
-                zh: '标题',
-                zhHant: '標題',
-                en: 'Title',
-                fr: 'Titre',
-                de: 'Titel',
-                ja: 'タイトル',
-              ),
+              knowledgeTitleLabel(context),
             ),
           ),
           const SizedBox(height: 10),
@@ -785,28 +767,12 @@ class _MarkdownToolbar extends StatelessWidget {
         runSpacing: 6,
         children: [
           _ToolbarButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '撤销',
-              zhHant: '復原',
-              en: 'Undo',
-              fr: 'Annuler',
-              de: 'Rückgängig',
-              ja: '元に戻す',
-            ),
+            tooltip: knowledgeUndoLabel(context),
             icon: Icons.undo_rounded,
             onPressed: onUndo,
           ),
           _ToolbarButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '重做',
-              zhHant: '重做',
-              en: 'Redo',
-              fr: 'Rétablir',
-              de: 'Wiederholen',
-              ja: 'やり直す',
-            ),
+            tooltip: knowledgeRedoLabel(context),
             icon: Icons.redo_rounded,
             onPressed: onRedo,
           ),
@@ -891,15 +857,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onStrike,
           ),
           _ToolbarButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '代码',
-              zhHant: '程式碼',
-              en: 'Code',
-              fr: 'Code',
-              de: 'Code',
-              ja: 'コード',
-            ),
+            tooltip: knowledgeCodeLabel(context),
             icon: Icons.code_rounded,
             onPressed: onCode,
           ),

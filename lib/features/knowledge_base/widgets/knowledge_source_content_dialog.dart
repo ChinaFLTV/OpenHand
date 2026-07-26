@@ -502,15 +502,7 @@ class _KnowledgeSourceContentDialogState
               : snapshot?.source == null
               ? KnowledgeDialogNotice(
                   icon: Icons.info_outline_rounded,
-                  message: openHandLocalizedText(
-                    context,
-                    zh: '来源不存在。',
-                    zhHant: '來源不存在。',
-                    en: 'Source not found.',
-                    fr: 'Source introuvable.',
-                    de: 'Quelle nicht gefunden.',
-                    ja: 'ソースが見つかりません。',
-                  ),
+                  message: knowledgeSourceMissingMessage(context),
                 )
               : _KnowledgeSourceContentBody(
                   snapshot: snapshot!,
@@ -560,28 +552,12 @@ class _KnowledgeSourceContentDialogState
                     logTag: 'knowledge_base',
                     context: context,
                     text: snapshot!.source!.originalPath,
-                    successMessage: openHandLocalizedText(
-                      context,
-                      zh: '路径已复制。',
-                      zhHant: '路徑已複製。',
-                      en: 'Path copied.',
-                      fr: 'Chemin copié.',
-                      de: 'Pfad kopiert.',
-                      ja: 'パスをコピーしました。',
-                    ),
+                    successMessage: knowledgePathCopiedMessage(context),
                     logAction: '复制知识源路径',
                   );
                 },
           icon: Icons.copy_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '复制路径',
-            zhHant: '複製路徑',
-            en: 'Copy Path',
-            fr: 'Copier le chemin',
-            de: 'Pfad kopieren',
-            ja: 'パスをコピー',
-          ),
+          label: knowledgeCopyPathLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
@@ -669,15 +645,7 @@ class _KnowledgeModeToggle extends StatelessWidget {
           _KnowledgeModeToggleButton(
             selected: preview,
             icon: Icons.visibility_outlined,
-            label: openHandLocalizedText(
-              context,
-              zh: '预览',
-              zhHant: '預覽',
-              en: 'Preview',
-              fr: 'Aperçu',
-              de: 'Vorschau',
-              ja: 'プレビュー',
-            ),
+            label: knowledgePreviewLabel(context),
             onPressed: () => onChanged(true),
           ),
           Container(width: 1, color: colorScheme.outlineVariant),
@@ -763,28 +731,12 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _KnowledgeEditorToolButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '撤销',
-            zhHant: '復原',
-            en: 'Undo',
-            fr: 'Annuler',
-            de: 'Rückgängig',
-            ja: '元に戻す',
-          ),
+          tooltip: knowledgeUndoLabel(context),
           icon: Icons.undo_rounded,
           onPressed: controls.canUndo ? controls.onUndo : null,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '重做',
-            zhHant: '重做',
-            en: 'Redo',
-            fr: 'Rétablir',
-            de: 'Wiederholen',
-            ja: 'やり直す',
-          ),
+          tooltip: knowledgeRedoLabel(context),
           icon: Icons.redo_rounded,
           onPressed: controls.canRedo ? controls.onRedo : null,
         ),
@@ -1283,17 +1235,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                                 );
                               },
                         icon: const Icon(Icons.copy_all_rounded),
-                        label: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '复制内容',
-                            zhHant: '複製內容',
-                            en: 'Copy Content',
-                            fr: 'Copier le contenu',
-                            de: 'Inhalt kopieren',
-                            ja: '内容をコピー',
-                          ),
-                        ),
+                        label: Text(knowledgeCopyContentLabel(context)),
                         style: FilledButton.styleFrom(
                           visualDensity: const VisualDensity(
                             horizontal: -1,

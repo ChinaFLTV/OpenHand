@@ -159,17 +159,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
     final controller = context.watch<KnowledgeBaseController>();
     final isChineseLayout = openHandIsChineseLocale(context);
     final dialog = buildOpenHandAlertDialog(
-      title: Text(
-        openHandLocalizedText(
-          context,
-          zh: 'Qdrant 管理',
-          zhHant: 'Qdrant 管理',
-          en: 'Qdrant Admin',
-          fr: 'Admin Qdrant',
-          de: 'Qdrant-Admin',
-          ja: 'Qdrant 管理',
-        ),
-      ),
+      title: Text(knowledgeQdrantAdminLabel(context)),
       content: buildOpenHandDialogConstrainedContent(
         width: 880,
         maxHeight: MediaQuery.sizeOf(context).height * 0.80,
@@ -341,15 +331,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         OpenHandDialogActionButton.secondary(
           onPressed: _refresh,
           icon: Icons.refresh_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '刷新',
-            zhHant: '重新整理',
-            en: 'Refresh',
-            fr: 'Actualiser',
-            de: 'Aktualisieren',
-            ja: '更新',
-          ),
+          label: knowledgeRefreshLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),

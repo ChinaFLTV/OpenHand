@@ -62,15 +62,7 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                 : source == null
                 ? KnowledgeDialogNotice(
                     icon: Icons.info_outline_rounded,
-                    message: openHandLocalizedText(
-                      context,
-                      zh: '来源不存在。',
-                      zhHant: '來源不存在。',
-                      en: 'Source not found.',
-                      fr: 'Source introuvable.',
-                      de: 'Quelle nicht gefunden.',
-                      ja: 'ソースが見つかりません。',
-                    ),
+                    message: knowledgeSourceMissingMessage(context),
                   )
                 : _SourceDetailBody(source: source, chunks: chunks),
           ),
@@ -82,28 +74,12 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                     logTag: 'knowledge_base',
                     context: context,
                     text: source.originalPath,
-                    successMessage: openHandLocalizedText(
-                      context,
-                      zh: '路径已复制。',
-                      zhHant: '路徑已複製。',
-                      en: 'Path copied.',
-                      fr: 'Chemin copié.',
-                      de: 'Pfad kopiert.',
-                      ja: 'パスをコピーしました。',
-                    ),
+                    successMessage: knowledgePathCopiedMessage(context),
                     logAction: '复制知识源详情路径',
                   );
                 },
                 icon: Icons.copy_rounded,
-                label: openHandLocalizedText(
-                  context,
-                  zh: '复制路径',
-                  zhHant: '複製路徑',
-                  en: 'Copy Path',
-                  fr: 'Copier le chemin',
-                  de: 'Pfad kopieren',
-                  ja: 'パスをコピー',
-                ),
+                label: knowledgeCopyPathLabel(context),
               ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(),
@@ -142,15 +118,7 @@ class _SourceDetailBody extends StatelessWidget {
             child: KnowledgeDialogKeyValueList(
               labelWidth: openHandIsChineseLocale(context) ? 120 : 128,
               rows: {
-                openHandLocalizedText(
-                  context,
-                  zh: '标题',
-                  zhHant: '標題',
-                  en: 'Title',
-                  fr: 'Titre',
-                  de: 'Titel',
-                  ja: 'タイトル',
-                ): source.title,
+                knowledgeTitleLabel(context): source.title,
                 openHandLocalizedText(
                   context,
                   zh: '类型',
@@ -163,15 +131,7 @@ class _SourceDetailBody extends StatelessWidget {
                   context,
                   source.kind,
                 ),
-                openHandLocalizedText(
-                  context,
-                  zh: '状态',
-                  zhHant: '狀態',
-                  en: 'Status',
-                  fr: 'État',
-                  de: 'Status',
-                  ja: '状態',
-                ): localizedKnowledgeSourceStatus(
+                knowledgeStatusLabel(context): localizedKnowledgeSourceStatus(
                   context,
                   source.status,
                 ),
@@ -193,17 +153,7 @@ class _SourceDetailBody extends StatelessWidget {
                   de: 'Gespeicherter Pfad',
                   ja: '保存パス',
                 ): source.storedPath,
-                openHandLocalizedText(
-                  context,
-                  zh: '文档时间',
-                  zhHant: '文件時間',
-                  en: 'Document time',
-                  fr: 'Date du document',
-                  de: 'Dokumentzeit',
-                  ja: 'ドキュメント日時',
-                ): _date(
-                  source.documentTime,
-                ),
+                knowledgeDocumentTimeLabel(context): _date(source.documentTime),
                 openHandLocalizedText(
                   context,
                   zh: '导入时间',
@@ -227,15 +177,7 @@ class _SourceDetailBody extends StatelessWidget {
                   source.indexedAt,
                 ),
                 if (source.errorMessage.trim().isNotEmpty)
-                  openHandLocalizedText(
-                    context,
-                    zh: '错误',
-                    zhHant: '錯誤',
-                    en: 'Error',
-                    fr: 'Erreur',
-                    de: 'Fehler',
-                    ja: 'エラー',
-                  ): source.errorMessage,
+                  knowledgeErrorLabel(context): source.errorMessage,
               },
             ),
           ),

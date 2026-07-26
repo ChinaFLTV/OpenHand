@@ -8,6 +8,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../service/knowledge_indexing_control.dart';
+import 'knowledge_dialog_widgets.dart';
 
 class KnowledgeIndexingProgressController extends ChangeNotifier {
   KnowledgeIndexingProgressController({
@@ -472,15 +473,7 @@ String _phaseLabel(BuildContext context, KnowledgeIndexingPhase phase) {
       de: 'Wird gestoppt',
       ja: '停止中',
     ),
-    KnowledgeIndexingPhase.cancelled => openHandLocalizedText(
-      context,
-      zh: '已停止',
-      zhHant: '已停止',
-      en: 'Stopped',
-      fr: 'Arrêté',
-      de: 'Gestoppt',
-      ja: '停止済み',
-    ),
+    KnowledgeIndexingPhase.cancelled => knowledgeStoppedLabel(context),
   };
 }
 

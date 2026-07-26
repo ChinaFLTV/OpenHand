@@ -86,15 +86,7 @@ String localizedKnowledgeSourceKind(BuildContext context, String kind) {
       de: 'Text',
       ja: 'テキスト',
     ),
-    'code' => openHandLocalizedText(
-      context,
-      zh: '代码',
-      zhHant: '程式碼',
-      en: 'Code',
-      fr: 'Code',
-      de: 'Code',
-      ja: 'コード',
-    ),
+    'code' => knowledgeCodeLabel(context),
     'pdf' => 'PDF',
     'html' => openHandLocalizedText(
       context,
@@ -175,15 +167,7 @@ String localizedKnowledgeSourceStatus(BuildContext context, String status) {
       de: 'Indexiert',
       ja: 'インデックス済み',
     ),
-    'failed' => openHandLocalizedText(
-      context,
-      zh: '失败',
-      zhHant: '失敗',
-      en: 'Failed',
-      fr: 'Échec',
-      de: 'Fehlgeschlagen',
-      ja: '失敗',
-    ),
+    'failed' => knowledgeFailedLabel(context),
     'indexing' => openHandLocalizedText(
       context,
       zh: '索引中',
@@ -193,24 +177,8 @@ String localizedKnowledgeSourceStatus(BuildContext context, String status) {
       de: 'Indexierung',
       ja: 'インデックス中',
     ),
-    'pending' => openHandLocalizedText(
-      context,
-      zh: '待处理',
-      zhHant: '待處理',
-      en: 'Pending',
-      fr: 'En attente',
-      de: 'Ausstehend',
-      ja: '保留中',
-    ),
-    'cancelled' => openHandLocalizedText(
-      context,
-      zh: '已停止',
-      zhHant: '已停止',
-      en: 'Stopped',
-      fr: 'Arrêté',
-      de: 'Gestoppt',
-      ja: '停止済み',
-    ),
+    'pending' => knowledgePendingLabel(context),
+    'cancelled' => knowledgeStoppedLabel(context),
     _ => normalized.isEmpty ? '-' : status.trim(),
   };
 }
@@ -882,4 +850,383 @@ class KnowledgeCollectionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 知识库弹窗共用文案
+//
+// 下列标签在多个弹窗里各写了一份六语言字面量，改一处措辞就得同步改两到四处。
+// 收敛为具名函数后只剩一个改动点。
+// ─────────────────────────────────────────────────────────────────────────────
+
+String knowledgeQdrantAdminLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Qdrant 管理',
+    zhHant: 'Qdrant 管理',
+    en: 'Qdrant Admin',
+    fr: 'Admin Qdrant',
+    de: 'Qdrant-Admin',
+    ja: 'Qdrant 管理',
+  );
+}
+
+String knowledgeCodeLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '代码',
+    zhHant: '程式碼',
+    en: 'Code',
+    fr: 'Code',
+    de: 'Code',
+    ja: 'コード',
+  );
+}
+
+String knowledgeContentHashLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '内容哈希',
+    zhHant: '內容雜湊',
+    en: 'Content hash',
+    fr: 'Hash du contenu',
+    de: 'Inhalts-Hash',
+    ja: 'コンテンツハッシュ',
+  );
+}
+
+String knowledgeChunkIdLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '分块 ID',
+    zhHant: '分塊 ID',
+    en: 'Chunk ID',
+    fr: 'ID du fragment',
+    de: 'Abschnitts-ID',
+    ja: 'チャンク ID',
+  );
+}
+
+String knowledgeRefreshLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '刷新',
+    zhHant: '重新整理',
+    en: 'Refresh',
+    fr: 'Actualiser',
+    de: 'Aktualisieren',
+    ja: '更新',
+  );
+}
+
+String knowledgeRecallScoreLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '召回分数',
+    zhHant: '召回分數',
+    en: 'Score',
+    fr: 'Score',
+    de: 'Score',
+    ja: 'スコア',
+  );
+}
+
+String knowledgeOverviewLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '基础信息',
+    zhHant: '基本資訊',
+    en: 'Overview',
+    fr: 'Vue d’ensemble',
+    de: 'Übersicht',
+    ja: '概要',
+  );
+}
+
+String knowledgeCopyIdLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制 ID',
+    zhHant: '複製 ID',
+    en: 'Copy ID',
+    fr: 'Copier l’ID',
+    de: 'ID kopieren',
+    ja: 'ID をコピー',
+  );
+}
+
+String knowledgeCopyContentLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制内容',
+    zhHant: '複製內容',
+    en: 'Copy Content',
+    fr: 'Copier le contenu',
+    de: 'Inhalt kopieren',
+    ja: '内容をコピー',
+  );
+}
+
+String knowledgeCopyPathLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制路径',
+    zhHant: '複製路徑',
+    en: 'Copy Path',
+    fr: 'Copier le chemin',
+    de: 'Pfad kopieren',
+    ja: 'パスをコピー',
+  );
+}
+
+String knowledgeFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '失败',
+    zhHant: '失敗',
+    en: 'Failed',
+    fr: 'Échec',
+    de: 'Fehlgeschlagen',
+    ja: '失敗',
+  );
+}
+
+String knowledgeStoppedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已停止',
+    zhHant: '已停止',
+    en: 'Stopped',
+    fr: 'Arrêté',
+    de: 'Gestoppt',
+    ja: '停止済み',
+  );
+}
+
+String knowledgeChunkIdCopiedMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已复制分块 ID。',
+    zhHant: '已複製分塊 ID。',
+    en: 'Chunk ID copied.',
+    fr: 'ID du fragment copié.',
+    de: 'Abschnitts-ID kopiert.',
+    ja: 'チャンク ID をコピーしました。',
+  );
+}
+
+String knowledgePendingLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '待处理',
+    zhHant: '待處理',
+    en: 'Pending',
+    fr: 'En attente',
+    de: 'Ausstehend',
+    ja: '保留中',
+  );
+}
+
+String knowledgeUndoLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '撤销',
+    zhHant: '復原',
+    en: 'Undo',
+    fr: 'Annuler',
+    de: 'Rückgängig',
+    ja: '元に戻す',
+  );
+}
+
+String knowledgeDocumentTimeLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '文档时间',
+    zhHant: '文件時間',
+    en: 'Document time',
+    fr: 'Date du document',
+    de: 'Dokumentzeit',
+    ja: 'ドキュメント日時',
+  );
+}
+
+String knowledgeTimeFieldLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '时间字段',
+    zhHant: '時間欄位',
+    en: 'Time field',
+    fr: 'Champ temporel',
+    de: 'Zeitfeld',
+    ja: '時間フィールド',
+  );
+}
+
+String knowledgeUpdatedAtLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '更新时间',
+    zhHant: '更新時間',
+    en: 'Updated at',
+    fr: 'Mis à jour le',
+    de: 'Aktualisiert am',
+    ja: '更新日時',
+  );
+}
+
+String knowledgeFinalScoreLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '最终分数',
+    zhHant: '最終分數',
+    en: 'Final score',
+    fr: 'Score final',
+    de: 'Endscore',
+    ja: '最終スコア',
+  );
+}
+
+String knowledgeSourceIdLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '来源 ID',
+    zhHant: '來源 ID',
+    en: 'Source ID',
+    fr: 'ID de la source',
+    de: 'Quellen-ID',
+    ja: 'ソース ID',
+  );
+}
+
+String knowledgeSourceMissingMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '来源不存在。',
+    zhHant: '來源不存在。',
+    en: 'Source not found.',
+    fr: 'Source introuvable.',
+    de: 'Quelle nicht gefunden.',
+    ja: 'ソースが見つかりません。',
+  );
+}
+
+String knowledgeQueryLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '查询',
+    zhHant: '查詢',
+    en: 'Query',
+    fr: 'Requête',
+    de: 'Abfrage',
+    ja: 'クエリ',
+  );
+}
+
+String knowledgeTagsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '标签',
+    zhHant: '標籤',
+    en: 'Tags',
+    fr: 'Étiquettes',
+    de: 'Tags',
+    ja: 'タグ',
+  );
+}
+
+String knowledgeTitleLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '标题',
+    zhHant: '標題',
+    en: 'Title',
+    fr: 'Titre',
+    de: 'Titel',
+    ja: 'タイトル',
+  );
+}
+
+String knowledgeStatusLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '状态',
+    zhHant: '狀態',
+    en: 'Status',
+    fr: 'État',
+    de: 'Status',
+    ja: '状態',
+  );
+}
+
+String knowledgePathCopiedMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '路径已复制。',
+    zhHant: '路徑已複製。',
+    en: 'Path copied.',
+    fr: 'Chemin copié.',
+    de: 'Pfad kopiert.',
+    ja: 'パスをコピーしました。',
+  );
+}
+
+String knowledgeRedoLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重做',
+    zhHant: '重做',
+    en: 'Redo',
+    fr: 'Rétablir',
+    de: 'Wiederholen',
+    ja: 'やり直す',
+  );
+}
+
+String knowledgeRerankScoreLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重排分数',
+    zhHant: '重排分數',
+    en: 'Rerank score',
+    fr: 'Score de reclassement',
+    de: 'Rerank-Score',
+    ja: '再ランクスコア',
+  );
+}
+
+String knowledgeErrorLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '错误',
+    zhHant: '錯誤',
+    en: 'Error',
+    fr: 'Erreur',
+    de: 'Fehler',
+    ja: 'エラー',
+  );
+}
+
+String knowledgeEstimatedTokensLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '预估 token',
+    zhHant: '預估 token',
+    en: 'Estimated tokens',
+    fr: 'Tokens estimés',
+    de: 'Geschätzte Tokens',
+    ja: '推定トークン',
+  );
+}
+
+String knowledgePreviewLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '预览',
+    zhHant: '預覽',
+    en: 'Preview',
+    fr: 'Aperçu',
+    de: 'Vorschau',
+    ja: 'プレビュー',
+  );
 }

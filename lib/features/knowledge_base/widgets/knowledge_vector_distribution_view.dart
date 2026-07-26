@@ -8,6 +8,7 @@ import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_vector_distribution.dart';
+import 'knowledge_dialog_widgets.dart';
 
 const double _kVectorSceneMinHeight = 320;
 const double _kVectorPointHitRadius = 18;
@@ -426,15 +427,7 @@ class _VectorLegend extends StatelessWidget {
       (
         kind: KnowledgeVectorPointKind.query,
         color: _KnowledgeVectorSceneColors.query,
-        label: openHandLocalizedText(
-          context,
-          zh: '查询',
-          zhHant: '查詢',
-          en: 'Query',
-          fr: 'Requête',
-          de: 'Abfrage',
-          ja: 'クエリ',
-        ),
+        label: knowledgeQueryLabel(context),
       ),
     ].where((item) => visibleKinds.contains(item.kind)).toList(growable: false);
     return Wrap(

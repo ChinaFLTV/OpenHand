@@ -78,37 +78,13 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                   ),
                 ),
               KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '基础信息',
-                  zhHant: '基本資訊',
-                  en: 'Overview',
-                  fr: 'Vue d’ensemble',
-                  de: 'Übersicht',
-                  ja: '概要',
-                ),
+                title: knowledgeOverviewLabel(context),
                 icon: Icons.article_outlined,
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: knowledgeDetailLabelWidth(isZh),
                   rows: {
-                    openHandLocalizedText(
-                      context,
-                      zh: '分块 ID',
-                      zhHant: '分塊 ID',
-                      en: 'Chunk ID',
-                      fr: 'ID du fragment',
-                      de: 'Abschnitts-ID',
-                      ja: 'チャンク ID',
-                    ): chunk.id,
-                    openHandLocalizedText(
-                      context,
-                      zh: '来源 ID',
-                      zhHant: '來源 ID',
-                      en: 'Source ID',
-                      fr: 'ID de la source',
-                      de: 'Quellen-ID',
-                      ja: 'ソース ID',
-                    ): source.id,
+                    knowledgeChunkIdLabel(context): chunk.id,
+                    knowledgeSourceIdLabel(context): source.id,
                     openHandLocalizedText(
                       context,
                       zh: '来源标题',
@@ -137,15 +113,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                         de: 'Übergeordnete Abschnitts-ID',
                         ja: '親チャンク ID',
                       ): chunk.parentChunkId,
-                    openHandLocalizedText(
-                      context,
-                      zh: '标题',
-                      zhHant: '標題',
-                      en: 'Title',
-                      fr: 'Titre',
-                      de: 'Titel',
-                      ja: 'タイトル',
-                    ): chunk.title,
+                    knowledgeTitleLabel(context): chunk.title,
                     openHandLocalizedText(
                       context,
                       zh: '层级路径',
@@ -155,15 +123,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Überschriftenpfad',
                       ja: '見出しパス',
                     ): chunk.headingPath,
-                    openHandLocalizedText(
-                      context,
-                      zh: '内容哈希',
-                      zhHant: '內容雜湊',
-                      en: 'Content hash',
-                      fr: 'Hash du contenu',
-                      de: 'Inhalts-Hash',
-                      ja: 'コンテンツハッシュ',
-                    ): chunk.contentHash,
+                    knowledgeContentHashLabel(context): chunk.contentHash,
                   },
                 ),
               ),
@@ -190,15 +150,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Zeichen',
                       ja: '文字数',
                     ): chunk.charCount,
-                    openHandLocalizedText(
-                      context,
-                      zh: '预估 token',
-                      zhHant: '預估 token',
-                      en: 'Estimated tokens',
-                      fr: 'Tokens estimés',
-                      de: 'Geschätzte Tokens',
-                      ja: '推定トークン',
-                    ): chunk.tokenEstimate,
+                    knowledgeEstimatedTokensLabel(context): chunk.tokenEstimate,
                     if (chunk.startOffset != null)
                       openHandLocalizedText(
                         context,
@@ -229,15 +181,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                         de: 'Seite',
                         ja: 'ページ',
                       ): chunk.pageNumber,
-                    openHandLocalizedText(
-                      context,
-                      zh: '文档时间',
-                      zhHant: '文件時間',
-                      en: 'Document time',
-                      fr: 'Date du document',
-                      de: 'Dokumentzeit',
-                      ja: 'ドキュメント日時',
-                    ): _date(
+                    knowledgeDocumentTimeLabel(context): _date(
                       chunk.documentTime,
                     ),
                     openHandLocalizedText(
@@ -251,30 +195,12 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                     ): _date(
                       chunk.createdAt,
                     ),
-                    openHandLocalizedText(
-                      context,
-                      zh: '更新时间',
-                      zhHant: '更新時間',
-                      en: 'Updated at',
-                      fr: 'Mis à jour le',
-                      de: 'Aktualisiert am',
-                      ja: '更新日時',
-                    ): _date(
-                      chunk.updatedAt,
-                    ),
+                    knowledgeUpdatedAtLabel(context): _date(chunk.updatedAt),
                   },
                 ),
               ),
               KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '标签',
-                  zhHant: '標籤',
-                  en: 'Tags',
-                  fr: 'Étiquettes',
-                  de: 'Tags',
-                  ja: 'タグ',
-                ),
+                title: knowledgeTagsLabel(context),
                 icon: Icons.sell_outlined,
                 child: chunk.tags.isEmpty
                     ? KnowledgeDialogNotice(
@@ -362,26 +288,10 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           onPressed: () => _copyText(
             context,
             chunk.id,
-            openHandLocalizedText(
-              context,
-              zh: '已复制分块 ID。',
-              zhHant: '已複製分塊 ID。',
-              en: 'Chunk ID copied.',
-              fr: 'ID du fragment copié.',
-              de: 'Abschnitts-ID kopiert.',
-              ja: 'チャンク ID をコピーしました。',
-            ),
+            knowledgeChunkIdCopiedMessage(context),
           ),
           icon: Icons.fingerprint_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '复制 ID',
-            zhHant: '複製 ID',
-            en: 'Copy ID',
-            fr: 'Copier l’ID',
-            de: 'ID kopieren',
-            ja: 'ID をコピー',
-          ),
+          label: knowledgeCopyIdLabel(context),
         ),
         OpenHandDialogActionButton.secondary(
           onPressed: () => _copyText(
@@ -398,15 +308,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
             ),
           ),
           icon: Icons.copy_all_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '复制内容',
-            zhHant: '複製內容',
-            en: 'Copy Content',
-            fr: 'Copier le contenu',
-            de: 'Inhalt kopieren',
-            ja: '内容をコピー',
-          ),
+          label: knowledgeCopyContentLabel(context),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
@@ -422,45 +324,13 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
   ) {
     return {
       if (_hasValue(hit['score']))
-        openHandLocalizedText(
-          context,
-          zh: '召回分数',
-          zhHant: '召回分數',
-          en: 'Score',
-          fr: 'Score',
-          de: 'Score',
-          ja: 'スコア',
-        ): hit['score'],
+        knowledgeRecallScoreLabel(context): hit['score'],
       if (_hasValue(hit['rerank_score']))
-        openHandLocalizedText(
-          context,
-          zh: '重排分数',
-          zhHant: '重排分數',
-          en: 'Rerank score',
-          fr: 'Score de reclassement',
-          de: 'Rerank-Score',
-          ja: '再ランクスコア',
-        ): hit['rerank_score'],
+        knowledgeRerankScoreLabel(context): hit['rerank_score'],
       if (_hasValue(hit['final_score']))
-        openHandLocalizedText(
-          context,
-          zh: '最终分数',
-          zhHant: '最終分數',
-          en: 'Final score',
-          fr: 'Score final',
-          de: 'Endscore',
-          ja: '最終スコア',
-        ): hit['final_score'],
+        knowledgeFinalScoreLabel(context): hit['final_score'],
       if (_hasValue(hit['time_field']))
-        openHandLocalizedText(
-          context,
-          zh: '时间字段',
-          zhHant: '時間欄位',
-          en: 'Time field',
-          fr: 'Champ temporel',
-          de: 'Zeitfeld',
-          ja: '時間フィールド',
-        ): hit['time_field'],
+        knowledgeTimeFieldLabel(context): hit['time_field'],
       if (_hasValue(hit['path']))
         openHandLocalizedText(
           context,
@@ -472,25 +342,9 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: 'パス',
         ): hit['path'],
       if (_hasValue(hit['document_time']))
-        openHandLocalizedText(
-          context,
-          zh: '文档时间',
-          zhHant: '文件時間',
-          en: 'Document time',
-          fr: 'Date du document',
-          de: 'Dokumentzeit',
-          ja: 'ドキュメント日時',
-        ): hit['document_time'],
+        knowledgeDocumentTimeLabel(context): hit['document_time'],
       if (_hasValue(hit['updated_at']))
-        openHandLocalizedText(
-          context,
-          zh: '更新时间',
-          zhHant: '更新時間',
-          en: 'Updated at',
-          fr: 'Mis à jour le',
-          de: 'Aktualisiert am',
-          ja: '更新日時',
-        ): hit['updated_at'],
+        knowledgeUpdatedAtLabel(context): hit['updated_at'],
     };
   }
 

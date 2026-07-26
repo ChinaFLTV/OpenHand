@@ -83,33 +83,9 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 icon: Icons.fact_check_outlined,
                 child: KnowledgeDialogKeyValueList(
                   rows: {
-                    openHandLocalizedText(
-                      context,
-                      zh: '状态',
-                      zhHant: '狀態',
-                      en: 'Status',
-                      fr: 'État',
-                      de: 'Status',
-                      ja: '状態',
-                    ): kb['status'],
-                    openHandLocalizedText(
-                      context,
-                      zh: '查询',
-                      zhHant: '查詢',
-                      en: 'Query',
-                      fr: 'Requête',
-                      de: 'Abfrage',
-                      ja: 'クエリ',
-                    ): kb['query'],
-                    openHandLocalizedText(
-                      context,
-                      zh: '错误',
-                      zhHant: '錯誤',
-                      en: 'Error',
-                      fr: 'Erreur',
-                      de: 'Fehler',
-                      ja: 'エラー',
-                    ): kb['error'],
+                    knowledgeStatusLabel(context): kb['status'],
+                    knowledgeQueryLabel(context): kb['query'],
+                    knowledgeErrorLabel(context): kb['error'],
                   },
                 ),
               ),
@@ -387,24 +363,8 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Angehängte Abschnitte',
         ja: '追加チャンク数',
       ),
-      'token_estimate' => openHandLocalizedText(
-        context,
-        zh: '预估 token',
-        zhHant: '預估 token',
-        en: 'Estimated tokens',
-        fr: 'Tokens estimés',
-        de: 'Geschätzte Tokens',
-        ja: '推定トークン',
-      ),
-      'content_hash' => openHandLocalizedText(
-        context,
-        zh: '内容哈希',
-        zhHant: '內容雜湊',
-        en: 'Content hash',
-        fr: 'Hash du contenu',
-        de: 'Inhalts-Hash',
-        ja: 'コンテンツハッシュ',
-      ),
+      'token_estimate' => knowledgeEstimatedTokensLabel(context),
+      'content_hash' => knowledgeContentHashLabel(context),
       'mode' => openHandLocalizedText(
         context,
         zh: '模式',
@@ -1100,46 +1060,14 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '基础信息',
-                  zhHant: '基本資訊',
-                  en: 'Overview',
-                  fr: 'Vue d’ensemble',
-                  de: 'Übersicht',
-                  ja: '概要',
-                ),
+                title: knowledgeOverviewLabel(context),
                 icon: Icons.article_outlined,
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: knowledgeDetailLabelWidth(isZh),
                   rows: {
-                    openHandLocalizedText(
-                      context,
-                      zh: '分块 ID',
-                      zhHant: '分塊 ID',
-                      en: 'Chunk ID',
-                      fr: 'ID du fragment',
-                      de: 'Abschnitts-ID',
-                      ja: 'チャンク ID',
-                    ): chunkId,
-                    openHandLocalizedText(
-                      context,
-                      zh: '来源 ID',
-                      zhHant: '來源 ID',
-                      en: 'Source ID',
-                      fr: 'ID de la source',
-                      de: 'Quellen-ID',
-                      ja: 'ソース ID',
-                    ): hit['source_id'],
-                    openHandLocalizedText(
-                      context,
-                      zh: '标题',
-                      zhHant: '標題',
-                      en: 'Title',
-                      fr: 'Titre',
-                      de: 'Titel',
-                      ja: 'タイトル',
-                    ): title,
+                    knowledgeChunkIdLabel(context): chunkId,
+                    knowledgeSourceIdLabel(context): hit['source_id'],
+                    knowledgeTitleLabel(context): title,
                     openHandLocalizedText(
                       context,
                       zh: '路径',
@@ -1167,92 +1095,27 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                   labelWidth: knowledgeDetailLabelWidth(isZh),
                   rows: {
                     if (_hasValue(hit['score']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '召回分数',
-                        zhHant: '召回分數',
-                        en: 'Score',
-                        fr: 'Score',
-                        de: 'Score',
-                        ja: 'スコア',
-                      ): hit['score'],
+                      knowledgeRecallScoreLabel(context): hit['score'],
                     if (_hasValue(hit['rerank_score']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '重排分数',
-                        zhHant: '重排分數',
-                        en: 'Rerank score',
-                        fr: 'Score de reclassement',
-                        de: 'Rerank-Score',
-                        ja: '再ランクスコア',
-                      ): hit['rerank_score'],
+                      knowledgeRerankScoreLabel(context): hit['rerank_score'],
                     if (_hasValue(hit['final_score']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '最终分数',
-                        zhHant: '最終分數',
-                        en: 'Final score',
-                        fr: 'Score final',
-                        de: 'Endscore',
-                        ja: '最終スコア',
-                      ): hit['final_score'],
+                      knowledgeFinalScoreLabel(context): hit['final_score'],
                     if (_hasValue(hit['token_estimate']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '预估 token',
-                        zhHant: '預估 token',
-                        en: 'Estimated tokens',
-                        fr: 'Tokens estimés',
-                        de: 'Geschätzte Tokens',
-                        ja: '推定トークン',
-                      ): hit['token_estimate'],
+                      knowledgeEstimatedTokensLabel(context):
+                          hit['token_estimate'],
                     if (_hasValue(hit['time_field']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '时间字段',
-                        zhHant: '時間欄位',
-                        en: 'Time field',
-                        fr: 'Champ temporel',
-                        de: 'Zeitfeld',
-                        ja: '時間フィールド',
-                      ): hit['time_field'],
+                      knowledgeTimeFieldLabel(context): hit['time_field'],
                     if (_hasValue(hit['document_time']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '文档时间',
-                        zhHant: '文件時間',
-                        en: 'Document time',
-                        fr: 'Date du document',
-                        de: 'Dokumentzeit',
-                        ja: 'ドキュメント日時',
-                      ): _formatKnowledgeDateTime(
-                        hit['document_time'],
-                      ),
+                      knowledgeDocumentTimeLabel(context):
+                          _formatKnowledgeDateTime(hit['document_time']),
                     if (_hasValue(hit['updated_at']))
-                      openHandLocalizedText(
-                        context,
-                        zh: '更新时间',
-                        zhHant: '更新時間',
-                        en: 'Updated at',
-                        fr: 'Mis à jour le',
-                        de: 'Aktualisiert am',
-                        ja: '更新日時',
-                      ): _formatKnowledgeDateTime(
-                        hit['updated_at'],
-                      ),
+                      knowledgeUpdatedAtLabel(context):
+                          _formatKnowledgeDateTime(hit['updated_at']),
                   },
                 ),
               ),
               KnowledgeDialogSection(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '标签',
-                  zhHant: '標籤',
-                  en: 'Tags',
-                  fr: 'Étiquettes',
-                  de: 'Tags',
-                  ja: 'タグ',
-                ),
+                title: knowledgeTagsLabel(context),
                 icon: Icons.sell_outlined,
                 child: tags.isEmpty
                     ? KnowledgeDialogNotice(
@@ -1327,26 +1190,10 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
             onPressed: () => _copyText(
               context,
               chunkId,
-              openHandLocalizedText(
-                context,
-                zh: '已复制分块 ID。',
-                zhHant: '已複製分塊 ID。',
-                en: 'Chunk ID copied.',
-                fr: 'ID du fragment copié.',
-                de: 'Abschnitts-ID kopiert.',
-                ja: 'チャンク ID をコピーしました。',
-              ),
+              knowledgeChunkIdCopiedMessage(context),
             ),
             icon: Icons.fingerprint_rounded,
-            label: openHandLocalizedText(
-              context,
-              zh: '复制 ID',
-              zhHant: '複製 ID',
-              en: 'Copy ID',
-              fr: 'Copier l’ID',
-              de: 'ID kopieren',
-              ja: 'ID をコピー',
-            ),
+            label: knowledgeCopyIdLabel(context),
           ),
         OpenHandDialogActionButton.secondary(
           onPressed: preview.isEmpty

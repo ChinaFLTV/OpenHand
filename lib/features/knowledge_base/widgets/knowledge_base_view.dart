@@ -177,10 +177,7 @@ class KnowledgeBaseView extends StatelessWidget {
     );
     if (!context.mounted) return;
     if (cancelToken.isCancelled) {
-      showOpenHandInfoSnack(
-        context,
-        knowledgeIndexingStoppedMessage(context),
-      );
+      showOpenHandInfoSnack(context, knowledgeIndexingStoppedMessage(context));
       return;
     }
     if (source != null) {
@@ -262,17 +259,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           ? null
           : () => controller.initialize(),
       icon: const Icon(Icons.refresh_rounded),
-      label: Text(
-        openHandLocalizedText(
-          context,
-          zh: '刷新',
-          zhHant: '重新整理',
-          en: 'Refresh',
-          fr: 'Actualiser',
-          de: 'Aktualisieren',
-          ja: '更新',
-        ),
-      ),
+      label: Text(knowledgeRefreshLabel(context)),
     );
     final importButton = FilledButton.icon(
       onPressed: controller.busy
@@ -389,15 +376,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
             onPressed: () => showQdrantStatusDialog(context),
           ),
           FeaturePageToolbarIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: 'Qdrant 管理',
-              zhHant: 'Qdrant 管理',
-              en: 'Qdrant Admin',
-              fr: 'Admin Qdrant',
-              de: 'Qdrant-Admin',
-              ja: 'Qdrant 管理',
-            ),
+            tooltip: knowledgeQdrantAdminLabel(context),
             icon: Icons.storage_outlined,
             onPressed: () => showQdrantAdminDialog(context),
           ),
@@ -426,17 +405,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => showQdrantAdminDialog(context),
           icon: const Icon(Icons.storage_outlined),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: 'Qdrant 管理',
-              zhHant: 'Qdrant 管理',
-              en: 'Qdrant Admin',
-              fr: 'Admin Qdrant',
-              de: 'Qdrant-Admin',
-              ja: 'Qdrant 管理',
-            ),
-          ),
+          label: Text(knowledgeQdrantAdminLabel(context)),
         ),
         OutlinedButton.icon(
           onPressed: controller.loading || controller.busy
@@ -650,27 +619,11 @@ class _KbStatStrip extends StatelessWidget {
               value: chunkCount,
             ),
             _KbStatChip(
-              label: openHandLocalizedText(
-                context,
-                zh: '待处理',
-                zhHant: '待處理',
-                en: 'Pending',
-                fr: 'En attente',
-                de: 'Ausstehend',
-                ja: '保留中',
-              ),
+              label: knowledgePendingLabel(context),
               value: pendingJobs,
             ),
             _KbStatChip(
-              label: openHandLocalizedText(
-                context,
-                zh: '失败',
-                zhHant: '失敗',
-                en: 'Failed',
-                fr: 'Échec',
-                de: 'Fehlgeschlagen',
-                ja: '失敗',
-              ),
+              label: knowledgeFailedLabel(context),
               value: failedJobs,
             ),
           ],
