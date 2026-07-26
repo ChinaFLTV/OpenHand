@@ -2861,27 +2861,51 @@ class _ComposerCreationModeButtonState
   }
 }
 
-/// A wrap layout that allows drag-to-reorder of attachment chips.
-class _ReorderableAttachmentWrap extends StatefulWidget {
-  const _ReorderableAttachmentWrap({
-    required this.attachments,
+/// 拖拽重排胶囊构建器。[interactive] 为假时用于拖拽影像与占位，不接交互。
+typedef _ReorderableChipBuilder<T> =
+    Widget Function(
+      T item, {
+      required VoidCallback onRemove,
+      required bool interactive,
+    });
+
+/// 可拖拽重排的胶囊流式布局。
+///
+/// 附件胶囊与项目引用胶囊共用同一套拖拽接受、悬停高亮与移除动效；此前两处各写
+/// 一份，差异只在圆角与光晕半径，收敛为下面几个尺寸参数。
+class _ReorderableChipWrap<T> extends StatefulWidget {
+  const _ReorderableChipWrap({
+    required this.items,
+    required this.spacing,
+    required this.itemKey,
+    required this.chipBuilder,
+    required this.onRemoveItem,
     required this.onReorder,
-    required this.onRemove,
-    required this.onTap,
+    required this.feedbackRadius,
+    required this.hoverRadius,
+    required this.hoverGlowBlur,
   });
 
-  final List<_ComposerAttachmentDraft> attachments;
+  final List<T> items;
+  final double spacing;
+
+  /// 胶囊的稳定标识，用于移除动效的 key。
+  final String Function(T item) itemKey;
+  final _ReorderableChipBuilder<T> chipBuilder;
+
+  /// 移除动效播完后真正删除条目。
+  final void Function(T item) onRemoveItem;
   final void Function(int oldIndex, int newIndex) onReorder;
-  final ValueChanged<String> onRemove;
-  final void Function(_ComposerAttachmentDraft draft) onTap;
+  final double feedbackRadius;
+  final double hoverRadius;
+  final double hoverGlowBlur;
 
   @override
-  State<_ReorderableAttachmentWrap> createState() =>
-      _ReorderableAttachmentWrapState();
+  State<_ReorderableChipWrap<T>> createState() =>
+      _ReorderableChipWrapState<T>();
 }
 
-class _ReorderableAttachmentWrapState
-    extends State<_ReorderableAttachmentWrap> {
+class _ReorderableChipWrapState<T> extends State<_ReorderableChipWrap<T>> {
   int? _dragIndex;
   int? _hoverIndex;
 
@@ -2892,12 +2916,14 @@ class _ReorderableAttachmentWrapState
           (c) => c.chipAnimationSettings,
         );
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(widget.attachments.length, (index) {
-        final attachment = widget.attachments[index];
+      spacing: widget.spacing,
+      runSpacing: widget.spacing,
+      children: List.generate(widget.items.length, (index) {
+        final item = widget.items[index];
         final isDragging = _dragIndex == index;
         final isHovering = _hoverIndex == index;
+        Widget staticChip() =>
+            widget.chipBuilder(item, onRemove: () {}, interactive: false);
         return DragTarget<int>(
           onWillAcceptWithDetails: (details) {
             if (details.data != index) {
@@ -2924,37 +2950,23 @@ class _ReorderableAttachmentWrapState
               }),
               feedback: Material(
                 elevation: 6,
-                borderRadius: BorderRadius.circular(16),
-                child: Opacity(
-                  opacity: 0.85,
-                  child: _ComposerAttachmentChip(
-                    attachment: attachment,
-                    onRemove: () {},
-                  ),
-                ),
+                borderRadius: BorderRadius.circular(widget.feedbackRadius),
+                child: Opacity(opacity: 0.85, child: staticChip()),
               ),
-              childWhenDragging: Opacity(
-                opacity: 0.3,
-                child: _ComposerAttachmentChip(
-                  attachment: attachment,
-                  onRemove: () {},
-                ),
-              ),
+              childWhenDragging: Opacity(opacity: 0.3, child: staticChip()),
               child: AnimatedRemovableChip(
-                key: ValueKey('attachment:${attachment.filePath}'),
+                key: ValueKey(widget.itemKey(item)),
                 settings: chipAnim,
-                onRemove: () => widget.onRemove(attachment.filePath),
+                onRemove: () => widget.onRemoveItem(item),
                 builder: (context, requestRemove) {
-                  // 2026-05 — hover 反馈从 1.05 scale 调软到 1.02，补上
-                  // primary 色调的柔和光晕 + 边框，点明“此处会被
-                  // 插入”。所有过渡走 240ms easeOutCubic，由
-                  // shared motion preference 控制 reduceMotion 时归零。
-                  final theme = Theme.of(context);
-                  final cs = theme.colorScheme;
+                  // hover 反馈保持 1.02 scale + primary 柔和光晕与描边，点明
+                  // “此处会被插入”；过渡统一 240ms easeOutCubic，reduceMotion
+                  // 时由 shared motion preference 归零。
+                  final cs = Theme.of(context).colorScheme;
                   return AnimatedContainer(
                     duration: openHandMotionDuration(
                       context,
-                      const Duration(milliseconds: 240),
+                      kOpenHandMotion240,
                     ),
                     curve: Curves.easeOutCubic,
                     transform: isHovering
@@ -2963,7 +2975,7 @@ class _ReorderableAttachmentWrapState
                         : Matrix4.identity(),
                     transformAlignment: Alignment.center,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(widget.hoverRadius),
                       border: Border.all(
                         width: isHovering ? 1.4 : 0,
                         color: isHovering
@@ -2974,7 +2986,7 @@ class _ReorderableAttachmentWrapState
                           ? [
                               BoxShadow(
                                 color: cs.primary.withValues(alpha: 0.18),
-                                blurRadius: 12,
+                                blurRadius: widget.hoverGlowBlur,
                                 spreadRadius: 1,
                               ),
                             ]
@@ -2982,10 +2994,10 @@ class _ReorderableAttachmentWrapState
                     ),
                     child: Opacity(
                       opacity: isDragging ? 0.3 : 1.0,
-                      child: _ComposerAttachmentChip(
-                        attachment: attachment,
+                      child: widget.chipBuilder(
+                        item,
                         onRemove: requestRemove,
-                        onTap: () => widget.onTap(attachment),
+                        interactive: true,
                       ),
                     ),
                   );
@@ -2995,6 +3007,41 @@ class _ReorderableAttachmentWrapState
           },
         );
       }),
+    );
+  }
+}
+
+/// A wrap layout that allows drag-to-reorder of attachment chips.
+class _ReorderableAttachmentWrap extends StatelessWidget {
+  const _ReorderableAttachmentWrap({
+    required this.attachments,
+    required this.onReorder,
+    required this.onRemove,
+    required this.onTap,
+  });
+
+  final List<_ComposerAttachmentDraft> attachments;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final ValueChanged<String> onRemove;
+  final void Function(_ComposerAttachmentDraft draft) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ReorderableChipWrap<_ComposerAttachmentDraft>(
+      items: attachments,
+      spacing: 8,
+      feedbackRadius: 16,
+      hoverRadius: 18,
+      hoverGlowBlur: 12,
+      itemKey: (item) => 'attachment:${item.filePath}',
+      onRemoveItem: (item) => onRemove(item.filePath),
+      onReorder: onReorder,
+      chipBuilder: (item, {required onRemove, required interactive}) =>
+          _ComposerAttachmentChip(
+            attachment: item,
+            onRemove: onRemove,
+            onTap: interactive ? () => onTap(item) : null,
+          ),
     );
   }
 }
@@ -3168,7 +3215,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
 // Project file/directory reference capsules (reorderable, removable chips)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ReorderableProjectReferenceWrap extends StatefulWidget {
+class _ReorderableProjectReferenceWrap extends StatelessWidget {
   const _ReorderableProjectReferenceWrap({
     required this.references,
     required this.onReorder,
@@ -3180,114 +3227,18 @@ class _ReorderableProjectReferenceWrap extends StatefulWidget {
   final ValueChanged<String> onRemove;
 
   @override
-  State<_ReorderableProjectReferenceWrap> createState() =>
-      _ReorderableProjectReferenceWrapState();
-}
-
-class _ReorderableProjectReferenceWrapState
-    extends State<_ReorderableProjectReferenceWrap> {
-  int? _dragIndex;
-  int? _hoverIndex;
-
-  @override
   Widget build(BuildContext context) {
-    final chipAnim = context
-        .select<SettingsController, DialogAnimationSettings>(
-          (c) => c.chipAnimationSettings,
-        );
-    return Wrap(
+    return _ReorderableChipWrap<_AtMentionItem>(
+      items: references,
       spacing: 6,
-      runSpacing: 6,
-      children: List.generate(widget.references.length, (index) {
-        final ref = widget.references[index];
-        final isDragging = _dragIndex == index;
-        final isHovering = _hoverIndex == index;
-        return DragTarget<int>(
-          onWillAcceptWithDetails: (details) {
-            if (details.data != index) {
-              setState(() => _hoverIndex = index);
-            }
-            return details.data != index;
-          },
-          onLeave: (_) {
-            if (_hoverIndex == index) {
-              setState(() => _hoverIndex = null);
-            }
-          },
-          onAcceptWithDetails: (details) {
-            setState(() => _hoverIndex = null);
-            widget.onReorder(details.data, index);
-          },
-          builder: (context, candidateData, rejectedData) {
-            return Draggable<int>(
-              data: index,
-              onDragStarted: () => setState(() => _dragIndex = index),
-              onDragEnd: (_) => setState(() {
-                _dragIndex = null;
-                _hoverIndex = null;
-              }),
-              feedback: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(14),
-                child: Opacity(
-                  opacity: 0.85,
-                  child: _ProjectReferenceChip(item: ref, onRemove: () {}),
-                ),
-              ),
-              childWhenDragging: Opacity(
-                opacity: 0.3,
-                child: _ProjectReferenceChip(item: ref, onRemove: () {}),
-              ),
-              child: AnimatedRemovableChip(
-                key: ValueKey('projref:${ref.path}'),
-                settings: chipAnim,
-                onRemove: () => widget.onRemove(ref.path),
-                builder: (context, requestRemove) {
-                  final theme = Theme.of(context);
-                  final cs = theme.colorScheme;
-                  return AnimatedContainer(
-                    duration: openHandMotionDuration(
-                      context,
-                      const Duration(milliseconds: 240),
-                    ),
-                    curve: Curves.easeOutCubic,
-                    transform: isHovering
-                        ? (Matrix4.identity()
-                            ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
-                        : Matrix4.identity(),
-                    transformAlignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        width: isHovering ? 1.4 : 0,
-                        color: isHovering
-                            ? cs.primary.withValues(alpha: 0.55)
-                            : Colors.transparent,
-                      ),
-                      boxShadow: isHovering
-                          ? [
-                              BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.18),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : const [],
-                    ),
-                    child: Opacity(
-                      opacity: isDragging ? 0.3 : 1.0,
-                      child: _ProjectReferenceChip(
-                        item: ref,
-                        onRemove: requestRemove,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        );
-      }),
+      feedbackRadius: 14,
+      hoverRadius: 16,
+      hoverGlowBlur: 10,
+      itemKey: (item) => 'projref:${item.path}',
+      onRemoveItem: (item) => onRemove(item.path),
+      onReorder: onReorder,
+      chipBuilder: (item, {required onRemove, required interactive}) =>
+          _ProjectReferenceChip(item: item, onRemove: onRemove),
     );
   }
 }
