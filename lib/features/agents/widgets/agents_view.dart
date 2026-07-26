@@ -77,6 +77,22 @@ enum _AgentCardAction {
 }
 
 const double _agentCardRadius = 22;
+const double _agentListCardSurfaceAlpha = 0.42;
+
+/// 数字员工列表项 / 卡片的统一底色与描边；圆角由调用方按层级给定。
+BoxDecoration _agentListCardDecoration(
+  ColorScheme cs, {
+  required BorderRadiusGeometry borderRadius,
+}) {
+  return BoxDecoration(
+    color: cs.surfaceContainerHighest.withValues(
+      alpha: _agentListCardSurfaceAlpha,
+    ),
+    borderRadius: borderRadius,
+    border: Border.all(color: cs.outlineVariant),
+  );
+}
+
 const double _agentDialogMaxWidth = 1040;
 const double _agentDialogMaxHeight = 780;
 const EdgeInsets _agentDialogPadding = EdgeInsets.all(22);
@@ -933,10 +949,9 @@ class _AgentDraftKpiTile extends StatelessWidget {
     final statusColor = _agentKpiStatusColor(cs, item.status);
     final progress = clampUnitInterval(item.progress);
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+      decoration: _agentListCardDecoration(
+        cs,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -1179,10 +1194,9 @@ class _AgentActivityBubble extends StatelessWidget {
           child: ClipRRect(
             borderRadius: cardRadius,
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+              decoration: _agentListCardDecoration(
+                cs,
                 borderRadius: cardRadius,
-                border: Border.all(color: cs.outlineVariant),
               ),
               child: Padding(
                 padding: _agentActivityCardPadding,
@@ -1414,11 +1428,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
           onTap: () =>
               _showAgentCapabilityLogDetailDialog(context, agent, event),
           child: Ink(
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-              borderRadius: radius,
-              border: Border.all(color: cs.outlineVariant),
-            ),
+            decoration: _agentListCardDecoration(cs, borderRadius: radius),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -2430,10 +2440,9 @@ class _AgentApprovalRequestCard extends StatelessWidget {
     final metadata = _agentApprovalMetadataChips(context, approval);
     final timeText = _agentApprovalTimeLabel(context, approval);
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+      decoration: _agentListCardDecoration(
+        cs,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -3338,10 +3347,9 @@ class _AgentTaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => _showAgentTaskDetailDialog(context, agent, task),
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+          decoration: _agentListCardDecoration(
+            cs,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: cs.outlineVariant),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -4359,10 +4367,9 @@ class _AgentKpiCard extends StatelessWidget {
     final progress = clampUnitInterval(item.progress);
 
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+      decoration: _agentListCardDecoration(
+        cs,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),

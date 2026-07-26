@@ -71,6 +71,7 @@ part 'web_message_platform_service_telemetry.part.dart';
 
 /// 会话不存在或已被删除的错误码，与 Web 端 `api/session_events.ts` 的判定一致。
 const String _kWebGatewayErrorSessionMissing = 'session_deleted_or_not_found';
+const String _modelSelectionLockedMessage = '已锁定服务商与模型以保证缓存命中。';
 
 class _WebWriteApprovalRequest {
   _WebWriteApprovalRequest({
@@ -4046,6 +4047,26 @@ class WebMessagePlatformService {
 
   /// 机器终端接口的公共前置：校验会话可见性、记忆会话元数据并读取请求体，
   /// 保证四个终端入口的鉴权与历史返回口径完全一致。
+  /// 缓存锁定校验：会话已锁定服务商与模型时拒绝切换模型。
+  ///
+  /// 返回非 null 表示应把该响应直接回给调用方；未锁定或模型一致时返回 null。
+  Future<shelf.Response?> _rejectIfModelSelectionLocked(
+    AiSession session,
+    AiModelConfig model,
+  ) async {
+    final lockedModelKey = _lastModelKeyForSession(session);
+    if (lockedModelKey == null ||
+        _modelKey(model.id, model.modelId) == lockedModelKey ||
+        !await _resolveSessionInputCacheModelSelectionLocked(session)) {
+      return null;
+    }
+    return _json(HttpStatus.conflict, <String, Object?>{
+      'error': 'input_cache_model_selection_locked',
+      'message': _modelSelectionLockedMessage,
+      'model_key': lockedModelKey,
+    });
+  }
+
   Future<shelf.Response> _withMachineTerminalSession(
     shelf.Request request,
     _WebGatewayAuthSession auth,
@@ -4713,7 +4734,7 @@ class WebMessagePlatformService {
         await _deleteMaterializedAttachments(attachments);
         return _json(HttpStatus.conflict, <String, Object?>{
           'error': 'input_cache_model_selection_locked',
-          'message': '已锁定服务商与模型以保证缓存命中。',
+          'message': _modelSelectionLockedMessage,
           'model_key': lockedModelKey,
         });
       }
@@ -5175,16 +5196,11 @@ class WebMessagePlatformService {
     if (model == null) {
       return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
-    final lockedModelKey = _lastModelKeyForSession(session);
-    if (await _resolveSessionInputCacheModelSelectionLocked(session) &&
-        lockedModelKey != null &&
-        _modelKey(model.id, model.modelId) != lockedModelKey) {
-      return _json(HttpStatus.conflict, <String, Object?>{
-        'error': 'input_cache_model_selection_locked',
-        'message': '已锁定服务商与模型以保证缓存命中。',
-        'model_key': lockedModelKey,
-      });
-    }
+    final modelLockRejection = await _rejectIfModelSelectionLocked(
+      session,
+      model,
+    );
+    if (modelLockRejection != null) return modelLockRejection;
     final runtimeContext = await _buildRuntimeContext(
       templateId: session.templateId,
     );
@@ -5343,16 +5359,11 @@ class WebMessagePlatformService {
     if (model == null) {
       return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
-    final lockedModelKey = _lastModelKeyForSession(session);
-    if (await _resolveSessionInputCacheModelSelectionLocked(session) &&
-        lockedModelKey != null &&
-        _modelKey(model.id, model.modelId) != lockedModelKey) {
-      return _json(HttpStatus.conflict, <String, Object?>{
-        'error': 'input_cache_model_selection_locked',
-        'message': '已锁定服务商与模型以保证缓存命中。',
-        'model_key': lockedModelKey,
-      });
-    }
+    final modelLockRejection = await _rejectIfModelSelectionLocked(
+      session,
+      model,
+    );
+    if (modelLockRejection != null) return modelLockRejection;
     final currentPhase = _sessionController.sendPhaseForSession(session.id);
     if (currentPhase != AiSendPhase.idle) {
       return _json(HttpStatus.conflict, <String, Object?>{

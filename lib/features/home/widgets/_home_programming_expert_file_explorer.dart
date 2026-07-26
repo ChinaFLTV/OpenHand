@@ -6,6 +6,64 @@ part of '../openhand_home_page.dart';
 
 enum _UnsavedCloseAction { save, discard, cancel }
 
+/// 编辑器工具条容器的分隔边：贴在编辑区上方用 [top]，下方用 [bottom]。
+enum _EditorToolbarEdge { top, bottom }
+
+/// 编辑器工具条（查找 / 替换 / 跳转 / 符号 / 诊断）的统一底色与分隔线。
+BoxDecoration _editorToolbarSurface(
+  ColorScheme colorScheme, {
+  _EditorToolbarEdge edge = _EditorToolbarEdge.bottom,
+}) {
+  final divider = BorderSide(
+    color: colorScheme.outlineVariant.withValues(
+      alpha: _editorToolbarDividerAlpha,
+    ),
+    width: _editorToolbarDividerWidth,
+  );
+  return BoxDecoration(
+    color: colorScheme.surfaceContainerHigh.withValues(
+      alpha: _editorToolbarSurfaceAlpha,
+    ),
+    border: edge == _EditorToolbarEdge.top
+        ? Border(top: divider)
+        : Border(bottom: divider),
+  );
+}
+
+const double _editorToolbarSurfaceAlpha = 0.95;
+const double _editorToolbarDividerAlpha = 0.25;
+const double _editorToolbarDividerWidth = 0.5;
+const double _editorToolbarFieldRadius = 6;
+const double _editorToolbarFieldFontSize = 13;
+
+/// 编辑器工具条内联输入框（查找 / 替换 / 跳转行 / 跳转符号）的统一装饰。
+InputDecoration _editorToolbarInputDecoration(
+  ColorScheme colorScheme, {
+  String? hintText,
+}) {
+  final outlineBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(_editorToolbarFieldRadius),
+    borderSide: BorderSide(color: colorScheme.outline.withValues(alpha: 0.3)),
+  );
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: TextStyle(
+      fontSize: _editorToolbarFieldFontSize,
+      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+    isDense: true,
+    border: outlineBorder,
+    enabledBorder: outlineBorder,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(_editorToolbarFieldRadius),
+      borderSide: BorderSide(color: colorScheme.primary),
+    ),
+    filled: true,
+    fillColor: colorScheme.surface,
+  );
+}
+
 const double _kFileTreeIndentBase = 16;
 const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
@@ -6397,14 +6455,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       constraints: const BoxConstraints(maxHeight: 320),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-              width: 0.5,
-            ),
-          ),
+        decoration: _editorToolbarSurface(
+          colorScheme,
+          edge: _EditorToolbarEdge.top,
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -7592,15 +7645,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            width: 0.5,
-          ),
-        ),
-      ),
+      decoration: _editorToolbarSurface(colorScheme),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -7617,7 +7662,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       fontSize: 13,
                       color: colorScheme.onSurface,
                     ),
-                    decoration: InputDecoration(
+                    decoration: _editorToolbarInputDecoration(
+                      colorScheme,
                       hintText: _editorText(
                         zh: '查找',
                         zhHant: '尋找',
@@ -7626,32 +7672,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         de: 'Suchen',
                         ja: '検索',
                       ),
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                          color: colorScheme.outline.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                          color: colorScheme.outline.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: colorScheme.primary),
-                      ),
-                      filled: true,
-                      fillColor: colorScheme.surface,
                     ),
                     onChanged: _updateFindMatches,
                     onSubmitted: (_) => _findNext(),
@@ -7720,7 +7740,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         fontSize: 13,
                         color: colorScheme.onSurface,
                       ),
-                      decoration: InputDecoration(
+                      decoration: _editorToolbarInputDecoration(
+                        colorScheme,
                         hintText: _editorText(
                           zh: '替换',
                           zhHant: '取代',
@@ -7729,34 +7750,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           de: 'Ersetzen',
                           ja: '置換',
                         ),
-                        hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                        ),
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(
-                            color: colorScheme.outline.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(
-                            color: colorScheme.outline.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: colorScheme.primary),
-                        ),
-                        filled: true,
-                        fillColor: colorScheme.surface,
                       ),
                       onSubmitted: (_) => _replaceCurrent(),
                     ),
@@ -7791,15 +7784,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_goToLineVisible) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            width: 0.5,
-          ),
-        ),
-      ),
+      decoration: _editorToolbarSurface(colorScheme),
       child: Row(
         children: [
           Text(
@@ -7822,28 +7807,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               focusNode: _goToLineFocusNode,
               keyboardType: TextInputType.number,
               style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.3),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.3),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: colorScheme.primary),
-                ),
-                filled: true,
-                fillColor: colorScheme.surface,
-              ),
+              decoration: _editorToolbarInputDecoration(colorScheme),
               onSubmitted: (val) => _goToLine(val),
             ),
           ),
@@ -7868,15 +7832,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         : '${_visibleSymbols.length}/${_allSymbols.length}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            width: 0.5,
-          ),
-        ),
-      ),
+      decoration: _editorToolbarSurface(colorScheme),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -7892,7 +7848,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       fontSize: 13,
                       color: colorScheme.onSurface,
                     ),
-                    decoration: InputDecoration(
+                    decoration: _editorToolbarInputDecoration(
+                      colorScheme,
                       hintText: _workspaceSymbolMode
                           ? _editorText(
                               zh: '搜索工作区符号',
@@ -7910,32 +7867,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                               de: 'Gehe zu Symbol',
                               ja: 'シンボルへ移動',
                             ),
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                          color: colorScheme.outline.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(
-                          color: colorScheme.outline.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: colorScheme.primary),
-                      ),
-                      filled: true,
-                      fillColor: colorScheme.surface,
                     ),
                   ),
                 ),
@@ -8248,14 +8179,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       constraints: const BoxConstraints(maxHeight: 220),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
-        border: Border(
-          top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            width: 0.5,
-          ),
-        ),
+      decoration: _editorToolbarSurface(
+        colorScheme,
+        edge: _EditorToolbarEdge.top,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -8510,14 +8436,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       constraints: const BoxConstraints(maxHeight: 260),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
-        border: Border(
-          top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            width: 0.5,
-          ),
-        ),
+      decoration: _editorToolbarSurface(
+        colorScheme,
+        edge: _EditorToolbarEdge.top,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
