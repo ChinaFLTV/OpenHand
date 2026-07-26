@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_tap_region.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -391,14 +392,14 @@ class _ToolButton extends StatelessWidget {
     return Material(
       color: active ? cs.primaryContainer : cs.surface.withValues(alpha: 0.6),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         side: BorderSide(
           color: active ? cs.primary.withValues(alpha: 0.4) : cs.outline,
         ),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Icon(

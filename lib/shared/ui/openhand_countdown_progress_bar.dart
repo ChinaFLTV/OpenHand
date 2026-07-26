@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../util/localized_text.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 
 String formatOpenHandAutoRejectCountdown(
   BuildContext context,
@@ -89,13 +90,13 @@ class _OpenHandCountdownProgressBarState
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHighest.withValues(alpha: 0.78),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                   border: Border.all(
                     color: cs.outlineVariant.withValues(alpha: 0.42),
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final maxWidth = constraints.maxWidth.isFinite

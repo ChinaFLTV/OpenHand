@@ -16,6 +16,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -532,7 +533,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                 ),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   '${_cpuThrottle.toStringAsFixed(_cpuThrottle == _cpuThrottle.truncateToDouble() ? 0 : 1)}x',

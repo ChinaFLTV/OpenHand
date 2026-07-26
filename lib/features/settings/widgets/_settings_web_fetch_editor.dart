@@ -759,7 +759,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: chipBg,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
         ),
         child: Text(
           chipLabel,

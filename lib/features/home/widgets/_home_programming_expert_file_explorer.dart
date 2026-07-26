@@ -882,9 +882,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             children: [
               Material(
                 color: Colors.transparent,
-                borderRadius: _borderRadius999,
+                borderRadius: kOpenHandPillBorderRadius,
                 child: InkWell(
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   onTap: _toggleSearch,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
@@ -908,9 +908,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 )!.progExpFESelectOpenedFile,
                 child: Material(
                   color: Colors.transparent,
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: InkWell(
-                    borderRadius: _borderRadius999,
+                    borderRadius: kOpenHandPillBorderRadius,
                     onTap: _selectOpenedFile,
                     child: Padding(
                       padding: const EdgeInsets.all(4),
@@ -929,9 +929,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 message: AppLocalizations.of(context)!.progExpFEExpandSelected,
                 child: Material(
                   color: Colors.transparent,
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: InkWell(
-                    borderRadius: _borderRadius999,
+                    borderRadius: kOpenHandPillBorderRadius,
                     onTap: _expandSelected,
                     child: Padding(
                       padding: const EdgeInsets.all(4),
@@ -950,9 +950,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 message: AppLocalizations.of(context)!.progExpFECollapseAll,
                 child: Material(
                   color: Colors.transparent,
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: InkWell(
-                    borderRadius: _borderRadius999,
+                    borderRadius: kOpenHandPillBorderRadius,
                     onTap: _collapseAll,
                     child: Padding(
                       padding: const EdgeInsets.all(4),
@@ -968,9 +968,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               const SizedBox(width: 2),
               Material(
                 color: Colors.transparent,
-                borderRadius: _borderRadius999,
+                borderRadius: kOpenHandPillBorderRadius,
                 child: InkWell(
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   onTap: _refreshRoot,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
@@ -988,9 +988,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   message: l10n.toolbarFilesHide,
                   child: Material(
                     color: Colors.transparent,
-                    borderRadius: _borderRadius999,
+                    borderRadius: kOpenHandPillBorderRadius,
                     child: InkWell(
-                      borderRadius: _borderRadius999,
+                      borderRadius: kOpenHandPillBorderRadius,
                       onTap: widget.onCloseRequested,
                       child: Padding(
                         padding: const EdgeInsets.all(4),
@@ -6211,7 +6211,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                             ),
                             decoration: BoxDecoration(
                               color: accentColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: kOpenHandPillBorderRadius,
                             ),
                             child: Text(
                               node.badge!,
@@ -7822,7 +7822,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                   ? colorScheme.primaryContainer
                                   : colorScheme.surfaceContainerLowest)
                               .withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                     ),
                     child: Text(
                       _workspaceSymbolMode
@@ -11076,7 +11076,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         elevation: 6,
                         color: Colors.transparent,
                         shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
-                        borderRadius: _borderRadius999,
+                        borderRadius: kOpenHandPillBorderRadius,
                         child: child,
                       );
                     },
@@ -11803,7 +11803,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                         ),
                       ),
                     InkWell(
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                       onTap: onDismissed,
                       child: Padding(
                         padding: const EdgeInsets.all(2),
@@ -11970,7 +11970,7 @@ class _SignatureParameterChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(
           color: active
               ? colorScheme.primary.withValues(alpha: 0.2)
@@ -12274,9 +12274,9 @@ class _EditorActionButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: Colors.transparent,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: InkWell(
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           onTap: onPressed,
           child: Padding(
             padding: const EdgeInsets.all(7),
@@ -12723,7 +12723,7 @@ class _WorkspaceEditStatChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Text(
         label,
@@ -15123,7 +15123,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                       controller: widget.scrollController,
                       thumbVisibility: true,
                       thickness: 9,
-                      radius: const Radius.circular(999),
+                      radius: kOpenHandPillRadius,
                       notificationPredicate: (notification) =>
                           notification.metrics.axis == Axis.vertical,
                       child: ScrollConfiguration(
@@ -15403,7 +15403,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                         controller: widget.scrollController,
                         thumbVisibility: true,
                         thickness: 9,
-                        radius: const Radius.circular(999),
+                        radius: kOpenHandPillRadius,
                         notificationPredicate: (notification) =>
                             notification.metrics.axis == Axis.vertical,
                         child: ScrollConfiguration(
@@ -15508,12 +15508,12 @@ class _EditorTab extends StatelessWidget {
             color: isActive
                 ? colorScheme.primaryContainer
                 : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
             elevation: isActive ? 1 : 0,
             shadowColor: colorScheme.shadow.withValues(alpha: 0.15),
             child: InkWell(
               onTap: onTap,
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               overlayColor: WidgetStatePropertyAll<Color>(
                 colorScheme.primary.withValues(alpha: 0.08),
               ),

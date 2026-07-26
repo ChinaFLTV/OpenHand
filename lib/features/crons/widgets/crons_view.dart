@@ -17,6 +17,7 @@ import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -689,7 +690,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       text: e?.onTimeoutMessage ?? '',
     );
 
-    final cronParts = (e?.cronExpression ?? '* * * * *').split(kInlineWhitespacePattern);
+    final cronParts = (e?.cronExpression ?? '* * * * *').split(
+      kInlineWhitespacePattern,
+    );
     _cronMinController = TextEditingController(
       text: cronParts.isNotEmpty ? cronParts[0] : '*',
     );
@@ -1912,7 +1915,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                               ),
                               decoration: BoxDecoration(
                                 color: colorScheme.tertiaryContainer,
-                                borderRadius: BorderRadius.circular(999),
+                                borderRadius: kOpenHandPillBorderRadius,
                               ),
                               child: Text(
                                 l10n.cronsSensitive,
@@ -3105,7 +3108,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3298,7 +3301,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

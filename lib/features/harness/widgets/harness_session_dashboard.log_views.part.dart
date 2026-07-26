@@ -231,7 +231,7 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
                 ),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest,
-                  borderRadius: _br999,
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -296,7 +297,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                 ),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   '${_issueBuffer.length}',

@@ -10,6 +10,7 @@ import '../util/localized_text.dart';
 import 'animated_menu.dart';
 import 'collision_safe_animated_switcher.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 const double _kReasoningPopupWidth = 356;
@@ -27,6 +28,7 @@ const double _kMaximumProgressThreshold = 0.96;
 const Duration _kProgressAnimDuration = Duration(milliseconds: 360);
 const Duration _kCapsuleAnimDuration = Duration(milliseconds: 420);
 const Duration _kLabelSwitchDuration = Duration(milliseconds: 280);
+
 /// Progress at which the capsule starts blending into the max-tier palette.
 const double _kCapsuleMaxBlendStart = 0.72;
 
@@ -77,7 +79,8 @@ enum _ParticleKind { dust, spark, flare }
 bool _isMaximumProgress(double progress) =>
     progress >= _kMaximumProgressThreshold;
 
-bool _isEnergyProgress(double progress) => progress >= _kEnergyParticleThreshold;
+bool _isEnergyProgress(double progress) =>
+    progress >= _kEnergyParticleThreshold;
 
 /// Opens the reasoning-effort selector popup above [anchorContext].
 ///
@@ -156,7 +159,8 @@ class _ReasoningEffortPopupEntry extends PopupMenuEntry<String> {
       _ReasoningEffortPopupEntryState();
 }
 
-class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry> {
+class _ReasoningEffortPopupEntryState
+    extends State<_ReasoningEffortPopupEntry> {
   late int _selectedIndex;
   late String _persistedValue;
   String? _pendingValue;
@@ -355,11 +359,7 @@ List<Color> _capsuleGradientStops(double progress, ColorScheme colors) {
       colors.tertiaryContainer,
       progress * 0.74,
     )!,
-    Color.lerp(
-      colors.primaryContainer,
-      colors.tertiaryContainer,
-      progress,
-    )!,
+    Color.lerp(colors.primaryContainer, colors.tertiaryContainer, progress)!,
   ];
   const maxStops = _MaximumEffortPalette.gradientStops;
   return <Color>[
@@ -424,7 +424,7 @@ class _ReasoningEffortCapsule extends StatelessWidget {
               end: AlignmentDirectional.centerEnd,
               colors: stops,
             ),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(color: borderColor),
             // Fixed shadow slots so intensity can fade without layer pop-in.
             boxShadow: <BoxShadow>[
@@ -434,9 +434,7 @@ class _ReasoningEffortCapsule extends StatelessWidget {
                 offset: const Offset(0, 6),
               ),
               BoxShadow(
-                color: _MaximumEffortPalette.ice.withValues(
-                  alpha: blend * 0.2,
-                ),
+                color: _MaximumEffortPalette.ice.withValues(alpha: blend * 0.2),
                 blurRadius: 12 + blend * 4,
                 offset: const Offset(0, 2),
               ),
@@ -451,15 +449,16 @@ class _ReasoningEffortCapsule extends StatelessWidget {
               return FadeTransition(
                 opacity: animation,
                 child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.12),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    ),
-                  ),
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.12),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
                   child: child,
                 ),
               );
@@ -561,7 +560,7 @@ class _MaximumPulseAuraState extends State<_MaximumPulseAura>
                 .clamp(0.0, 1.0);
         return DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: _MaximumEffortPalette.royalBlue.withValues(
@@ -725,8 +724,7 @@ class _ReasoningParticleField extends ChangeNotifier {
     if (maximum) {
       _emberAcc += deltaSeconds;
       while (_emberAcc >= _kThumbEmberInterval) {
-        _emberAcc -=
-            _kThumbEmberInterval + _random.nextDouble() * 0.04;
+        _emberAcc -= _kThumbEmberInterval + _random.nextDouble() * 0.04;
         _emitThumbBurst(
           count: 1 + _random.nextInt(3),
           speedScale: 0.45 + _random.nextDouble() * 0.35,
@@ -802,8 +800,7 @@ class _ReasoningParticleField extends ChangeNotifier {
     final emit = math.min(count, room);
     for (var i = 0; i < emit; i++) {
       final angle = _random.nextDouble() * math.pi * 2;
-      final speed =
-          (95 + _random.nextDouble() * 150) * speedScale; // px/s
+      final speed = (95 + _random.nextDouble() * 150) * speedScale; // px/s
       final life = 0.35 + _random.nextDouble() * 0.55;
       thumbSparks.add(
         _ThumbSpark(
@@ -834,8 +831,7 @@ class _ReasoningParticleField extends ChangeNotifier {
       spark.dist += spark.speed * deltaSeconds;
       spark.speed *= drag;
       // Slight angular drift for organic scatter.
-      spark.angle +=
-          (_random.nextDouble() - 0.5) * deltaSeconds * 1.4;
+      spark.angle += (_random.nextDouble() - 0.5) * deltaSeconds * 1.4;
     }
   }
 
@@ -906,6 +902,7 @@ class _ReasoningParticle {
   double life;
   final _ParticleKind kind;
   final int colorIndex;
+
   /// When true, may render slightly outside the track clip (spark overflow).
   final bool spill;
 }
@@ -966,7 +963,7 @@ class _ReasoningTrackPainter extends CustomPainter {
         right,
         centerY + _kReasoningTrackHalfHeight,
       ),
-      const Radius.circular(999),
+      kOpenHandPillRadius,
     );
     canvas.drawRRect(trackRect, Paint()..color = surfaceColor);
     canvas.drawRRect(
@@ -997,7 +994,7 @@ class _ReasoningTrackPainter extends CustomPainter {
           activeRight,
           centerY + _kReasoningTrackHalfHeight,
         ),
-        const Radius.circular(999),
+        kOpenHandPillRadius,
       );
       final fillColors = isMaximum
           ? maxStops
@@ -1015,7 +1012,7 @@ class _ReasoningTrackPainter extends CustomPainter {
             activeRight + 2,
             centerY + _kReasoningTrackHalfHeight + 3 + glow * 2.5,
           ),
-          const Radius.circular(999),
+          kOpenHandPillRadius,
         );
         canvas.drawRRect(
           bloomRect,
@@ -1030,10 +1027,7 @@ class _ReasoningTrackPainter extends CustomPainter {
                 ),
               ],
             ).createShader(bloomRect.outerRect)
-            ..maskFilter = MaskFilter.blur(
-              BlurStyle.normal,
-              10 + glow * 6,
-            ),
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 + glow * 6),
         );
         canvas.drawRRect(
           activeRect,
@@ -1072,9 +1066,7 @@ class _ReasoningTrackPainter extends CustomPainter {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: <Color>[
-                _MaximumEffortPalette.ice.withValues(
-                  alpha: 0.12 + glow * 0.06,
-                ),
+                _MaximumEffortPalette.ice.withValues(alpha: 0.12 + glow * 0.06),
                 _MaximumEffortPalette.electric.withValues(alpha: 0),
               ],
             ).createShader(specular),
@@ -1245,8 +1237,8 @@ class _ReasoningTrackPainter extends CustomPainter {
       final lifeT = (spark.life / spark.maxLife).clamp(0.0, 1.0);
       // Ease-out fade so sparks die softly, not pop off.
       final fade = Curves.easeOutCubic.transform(lifeT);
-      final color = _MaximumEffortPalette
-          .particleColors[spark.colorIndex %
+      final color =
+          _MaximumEffortPalette.particleColors[spark.colorIndex %
               _MaximumEffortPalette.particleColors.length];
       final dx = math.cos(spark.angle) * spark.dist;
       final dy = math.sin(spark.angle) * spark.dist;
@@ -1322,14 +1314,15 @@ class _ReasoningTrackPainter extends CustomPainter {
       final ringPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.2
-        ..shader = SweepGradient(
-          startAngle: particles.ringAngle,
-          endAngle: particles.ringAngle + math.pi * 2,
-          colors: _MaximumEffortPalette.sweepRing,
-          stops: const <double>[0, 0.28, 0.52, 0.78, 1],
-        ).createShader(
-          Rect.fromCircle(center: center, radius: _kReasoningThumbRadius),
-        );
+        ..shader =
+            SweepGradient(
+              startAngle: particles.ringAngle,
+              endAngle: particles.ringAngle + math.pi * 2,
+              colors: _MaximumEffortPalette.sweepRing,
+              stops: const <double>[0, 0.28, 0.52, 0.78, 1],
+            ).createShader(
+              Rect.fromCircle(center: center, radius: _kReasoningThumbRadius),
+            );
       canvas.drawCircle(center, _kReasoningThumbRadius, ringPaint);
 
       // Quiet inner ice rim — stable alpha, slightly breathing with glow.

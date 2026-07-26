@@ -6808,7 +6808,7 @@ class _GoalMessageMetricChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: color.withValues(alpha: 0.18)),
             ),
             child: Row(
@@ -7005,9 +7005,9 @@ class _KnowledgeCitationChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 220),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           onTap: () {
             _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
             onPressed();
@@ -7016,7 +7016,7 @@ class _KnowledgeCitationChip extends StatelessWidget {
             height: 28,
             padding: const EdgeInsetsDirectional.only(start: 6, end: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
               color: colorScheme.primaryContainer.withValues(alpha: 0.58),
               border: Border.all(
                 color: colorScheme.primary.withValues(alpha: 0.24),

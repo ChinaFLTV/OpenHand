@@ -415,7 +415,7 @@ class _AgentToolMetricChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(

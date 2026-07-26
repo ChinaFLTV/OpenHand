@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
@@ -360,7 +361,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   rating,
@@ -379,7 +380,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           ),
           const SizedBox(height: 6),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(
               value: pct,
               minHeight: 5,

@@ -133,14 +133,14 @@ class _HarnessSessionTile extends StatelessWidget {
         curve: _kHomeSidebarTileMotionCurve,
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           child: InkWell(
             onTap: onTap,
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
             hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
             splashColor: colorScheme.primary.withValues(alpha: 0.08),
             child: Padding(
@@ -298,7 +298,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: border),
       ),
       child: labelWidget,
@@ -365,13 +365,13 @@ class _ThreadTile extends StatelessWidget {
         curve: _kHomeSidebarTileMotionCurve,
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           child: InkWell(
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
             onTap: onTap,
             hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
             splashColor: colorScheme.primary.withValues(alpha: 0.08),

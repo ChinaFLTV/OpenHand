@@ -1466,7 +1466,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: colorScheme.secondaryContainer,
-                borderRadius: _borderRadius999,
+                borderRadius: kOpenHandPillBorderRadius,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -4124,7 +4124,7 @@ class _SelectedSkillChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: colorScheme.primaryContainer.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(
             color: colorScheme.primary.withValues(alpha: 0.35),
           ),
@@ -4166,7 +4166,7 @@ class _SelectedSkillChip extends StatelessWidget {
               ),
               child: InkWell(
                 onTap: onRemoved,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: kOpenHandPillBorderRadius,
                 child: Padding(
                   padding: const EdgeInsets.all(2),
                   child: Icon(

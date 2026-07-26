@@ -16,6 +16,7 @@ import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
@@ -3289,7 +3290,7 @@ fi
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: statusColor.withValues(alpha: 0.4)),
             ),
             child: Row(
@@ -3356,7 +3357,7 @@ fi
                     color: selected
                         ? cs.primaryContainer.withValues(alpha: 0.6)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: kOpenHandPillBorderRadius,
                   ),
                   child: TextButton.icon(
                     onPressed: () {
@@ -10816,7 +10817,7 @@ class _StatusPill extends StatelessWidget {
         color: subtle
             ? cs.surfaceContainerHighest.withValues(alpha: 0.56)
             : color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(
           color: color.withValues(alpha: subtle ? 0.24 : 0.36),
         ),

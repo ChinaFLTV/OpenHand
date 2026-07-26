@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -1174,7 +1175,7 @@ print(resp.text[:2000])''';
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   '${r.status} ${r.reason}',

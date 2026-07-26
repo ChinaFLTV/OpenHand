@@ -13,6 +13,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -1028,7 +1029,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(999),
+                            borderRadius: kOpenHandPillBorderRadius,
                           ),
                           child: Text(
                             '+${entry.addedCount} / ${entry.totalDeferred}',
@@ -1218,7 +1219,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: actionColor,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   '${group.names.length}',
@@ -1378,7 +1379,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
       ),
       child: Text(

@@ -1359,7 +1359,7 @@ class _ToolbarTabPill extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: kOpenHandPillBorderRadius,
                         ),
                         child: Text(
                           '$count',
@@ -1460,7 +1460,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                     ),
                     child: Text(
                       '${countFor(t)}',
@@ -1507,7 +1507,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.surface.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   '$count',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -692,7 +693,7 @@ class KnowledgeDialogChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.14)),
       ),
       child: Row(

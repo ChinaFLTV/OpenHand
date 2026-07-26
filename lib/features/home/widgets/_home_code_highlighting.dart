@@ -879,7 +879,7 @@ class _InlineDiffPill extends StatelessWidget {
     );
     final decoration = BoxDecoration(
       color: backgroundColor,
-      borderRadius: _borderRadius999,
+      borderRadius: kOpenHandPillBorderRadius,
     );
     if (onTap == null) {
       return DecoratedBox(decoration: decoration, child: child);
@@ -888,7 +888,7 @@ class _InlineDiffPill extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: Ink(decoration: decoration, child: child),
       ),
     );
@@ -1436,13 +1436,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: Ink(
           width: 30,
           height: 30,
           decoration: BoxDecoration(
             color: active ? palette.badgeColor : palette.actionColor,
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
           ),
           child: Center(
             child: AnimatedSwitcher(
@@ -3088,7 +3088,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     );
     final decoration = BoxDecoration(
       color: backgroundColor,
-      borderRadius: _borderRadius999,
+      borderRadius: kOpenHandPillBorderRadius,
     );
     if (onTap == null) {
       return DecoratedBox(decoration: decoration, child: child);
@@ -3097,7 +3097,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: Ink(decoration: decoration, child: child),
       ),
     );

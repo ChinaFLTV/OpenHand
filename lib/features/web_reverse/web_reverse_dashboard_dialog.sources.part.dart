@@ -1594,7 +1594,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                               controller: _sourceScroll,
                               thumbVisibility: true,
                               thickness: 9,
-                              radius: const Radius.circular(999),
+                              radius: kOpenHandPillRadius,
                               notificationPredicate: (notification) =>
                                   notification.metrics.axis == Axis.vertical,
                               child: ScrollConfiguration(

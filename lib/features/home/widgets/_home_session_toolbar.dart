@@ -309,7 +309,7 @@ class _ToolbarPill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -338,10 +338,10 @@ class _ToolbarPill extends StatelessWidget {
     return MicroPressFeedback(
       child: Material(
         color: Colors.transparent,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           overlayColor: WidgetStatePropertyAll<Color>(
             theme.colorScheme.primary.withValues(alpha: 0.08),
           ),
@@ -413,7 +413,7 @@ class _SessionToolbarStatusPill extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: dotColor.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -464,9 +464,9 @@ class _SessionToolbarStatusPill extends StatelessWidget {
           enabled: onTap != null,
           child: Material(
             color: Colors.transparent,
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
             child: InkWell(
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               onTap: onTap,
               overlayColor: WidgetStatePropertyAll<Color>(
                 cs.primary.withValues(alpha: 0.08),
@@ -554,7 +554,7 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: colorScheme.errorContainer.withValues(alpha: 0.55),
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -879,10 +879,10 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
     return MicroPressFeedback(
       child: Material(
         color: Colors.transparent,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           overlayColor: WidgetStatePropertyAll<Color>(
             color.withValues(alpha: 0.08),
           ),
@@ -890,7 +890,7 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: color.withValues(alpha: 0.20)),
             ),
             child: Row(
@@ -980,7 +980,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
           height: 20,
           decoration: BoxDecoration(
             color: accentColor.withValues(alpha: 0.12),
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
           ),
           alignment: Alignment.center,
           child: marker,
@@ -1049,7 +1049,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
               height: 2,
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.28),
-                borderRadius: _borderRadius999,
+                borderRadius: kOpenHandPillBorderRadius,
               ),
             ),
           ),
@@ -1842,7 +1842,7 @@ class _GoalMiniChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
@@ -1981,7 +1981,7 @@ class _GoalInlineList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.10),
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   border: Border.all(color: color.withValues(alpha: 0.18)),
                 ),
                 child: Text(
@@ -2966,9 +2966,9 @@ class _StreamThrottlePill extends StatelessWidget {
         return MicroPressFeedback(
           child: Material(
             color: Colors.transparent,
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
             child: InkWell(
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               onTap: () =>
                   _showStreamThrottleDialog(context, sessionId: sessionId),
               child: Container(
@@ -2978,7 +2978,7 @@ class _StreamThrottlePill extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: pillColor,
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   border: Border.all(
                     color: showAsGray
                         ? scheme.outlineVariant
@@ -3013,7 +3013,7 @@ class _StreamThrottlePill extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: scheme.tertiary.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: kOpenHandPillBorderRadius,
                         ),
                         child: Text(
                           '+$backlog',

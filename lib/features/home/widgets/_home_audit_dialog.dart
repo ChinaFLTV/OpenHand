@@ -1815,7 +1815,7 @@ class _AuditMessageRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
             ),
             child: Text(
               message.kind.storageValue,

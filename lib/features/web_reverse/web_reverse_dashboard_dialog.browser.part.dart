@@ -2592,7 +2592,7 @@ class _TabStripState extends State<_TabStrip> {
                   return Material(
                     elevation: 4 * anim.value,
                     color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: kOpenHandPillBorderRadius,
                     child: child,
                   );
                 },
@@ -2652,7 +2652,7 @@ class _TabStripState extends State<_TabStrip> {
                                       color: active
                                           ? cs.primaryContainer
                                           : cs.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(999),
+                                      borderRadius: kOpenHandPillBorderRadius,
                                       border: Border.all(
                                         color: active
                                             ? cs.primary.withValues(alpha: 0.4)
@@ -2661,7 +2661,7 @@ class _TabStripState extends State<_TabStrip> {
                                     ),
                                     child: Material(
                                       color: Colors.transparent,
-                                      borderRadius: BorderRadius.circular(999),
+                                      borderRadius: kOpenHandPillBorderRadius,
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [

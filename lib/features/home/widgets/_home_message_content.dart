@@ -1037,7 +1037,7 @@ class _MessageCollapseToggleCapsuleState
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: widget.color.withValues(alpha: 0.06),
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(color: widget.color.withValues(alpha: 0.12)),
         ),
         child: row,
@@ -1050,7 +1050,7 @@ class _MessageCollapseToggleCapsuleState
         child: InkWell(
           onTap: widget.onTap,
           onHighlightChanged: _setPressed,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           overlayColor: WidgetStatePropertyAll<Color>(
             widget.color.withValues(alpha: 0.03),
           ),
@@ -1903,7 +1903,7 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
                         height: barHeight,
                         decoration: BoxDecoration(
                           color: fillColor,
-                          borderRadius: _borderRadius999,
+                          borderRadius: kOpenHandPillBorderRadius,
                         ),
                       ),
                     );

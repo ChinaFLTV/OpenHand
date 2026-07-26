@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../util/timer_safety.dart';
+import 'oh_pill.dart';
 
 const Duration _kStableScrollbarSettleDelay = Duration(milliseconds: 140);
 const Duration _kStableScrollbarSettleDuration = Duration(milliseconds: 180);
@@ -233,7 +234,7 @@ class _OpenHandStableRawScrollbarState
           theme.thumbColor?.resolve(states) ??
           Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.38)
       ..thickness = widget.thickness ?? theme.thickness?.resolve(states) ?? 6
-      ..radius = widget.radius ?? theme.radius ?? const Radius.circular(999);
+      ..radius = widget.radius ?? theme.radius ?? kOpenHandPillRadius;
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {

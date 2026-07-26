@@ -993,7 +993,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: usageValue ?? 0,
                     minHeight: 8,
-                    borderRadius: _borderRadius999,
+                    borderRadius: kOpenHandPillBorderRadius,
                     color: statusColor,
                     backgroundColor: colorScheme.surfaceContainerHighest,
                   ),
@@ -1763,7 +1763,7 @@ class _MetadataChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Text(
         label,
@@ -1896,7 +1896,7 @@ class _MetadataCapabilityChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: enabled ? 0.12 : 0.08),
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Row(
@@ -2034,7 +2034,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.13),
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   _machineTerminalStatusLabel(context, status),
@@ -2153,7 +2153,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.14),
-                  borderRadius: _borderRadius999,
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   _sessionPlanStatusLabel(context, planRecord.status),
@@ -2977,7 +2977,7 @@ class _CacheHitDiagnosisChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(

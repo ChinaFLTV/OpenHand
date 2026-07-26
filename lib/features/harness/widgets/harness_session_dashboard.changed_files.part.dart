@@ -69,7 +69,7 @@ class _HeChangedFilesList extends StatelessWidget {
               return Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: _br999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   onTap: () => _showDiffDialog(context, file),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -398,7 +398,7 @@ class _DiffStatChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: _br999,
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Text(

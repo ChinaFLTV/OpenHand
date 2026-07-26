@@ -93,7 +93,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                                   ),
                                   decoration: BoxDecoration(
                                     color: colorScheme.tertiaryContainer,
-                                    borderRadius: BorderRadius.circular(999),
+                                    borderRadius: kOpenHandPillBorderRadius,
                                   ),
                                   child: Text(
                                     openHandLocalizedText(

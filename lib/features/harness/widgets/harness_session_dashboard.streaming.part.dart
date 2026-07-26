@@ -557,7 +557,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () => setState(() => _expanded = !_expanded),
-                  borderRadius: _br999,
+                  borderRadius: kOpenHandPillBorderRadius,
                   overlayColor: WidgetStatePropertyAll<Color>(
                     Colors.white.withValues(alpha: 0.03),
                   ),
@@ -568,7 +568,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: _br999,
+                      borderRadius: kOpenHandPillBorderRadius,
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.12),
                       ),
@@ -612,7 +612,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                 onTap: needsCollapse
                     ? () => setState(() => _expanded = !_expanded)
                     : null,
-                borderRadius: _br999,
+                borderRadius: kOpenHandPillBorderRadius,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,

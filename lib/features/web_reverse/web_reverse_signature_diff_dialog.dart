@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -405,7 +406,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Text(
         '$label · $n',

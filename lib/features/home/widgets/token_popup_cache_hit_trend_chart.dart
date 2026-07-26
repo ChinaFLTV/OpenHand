@@ -7,6 +7,7 @@ import '../../../app/model/dialog_animation_settings.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_token_usage_capsule.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/session_cache_hit_trend.dart';
@@ -1371,7 +1372,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           child: ColoredBox(
             color: missColor,
             child: TweenAnimationBuilder<double>(
@@ -1425,15 +1426,18 @@ class _CacheHitCompositionSummary extends StatelessWidget {
           children: [
             _CacheHitCompositionLegend(
               color: readColor,
-              label: '${l10n.tokenPopupCacheRead} ${_compactTokenCount(cacheRead)}',
+              label:
+                  '${l10n.tokenPopupCacheRead} ${_compactTokenCount(cacheRead)}',
             ),
             _CacheHitCompositionLegend(
               color: writeColor,
-              label: '${l10n.tokenPopupCacheWrite} ${_compactTokenCount(cacheWrite)}',
+              label:
+                  '${l10n.tokenPopupCacheWrite} ${_compactTokenCount(cacheWrite)}',
             ),
             _CacheHitCompositionLegend(
               color: missColor,
-              label: '${l10n.tokenPopupUncached} ${_compactTokenCount(uncachedPrompt)}',
+              label:
+                  '${l10n.tokenPopupUncached} ${_compactTokenCount(uncachedPrompt)}',
             ),
           ],
         ),
@@ -1526,7 +1530,7 @@ class _CacheHitModeChip extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: kOpenHandPillBorderRadius,
       child: AnimatedContainer(
         duration: openHandMotionDuration(
           context,
@@ -1538,7 +1542,7 @@ class _CacheHitModeChip extends StatelessWidget {
           color: selected
               ? colorScheme.primary.withValues(alpha: 0.12)
               : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(
             color: selected
                 ? colorScheme.primary.withValues(alpha: 0.5)

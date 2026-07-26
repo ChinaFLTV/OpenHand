@@ -31,6 +31,7 @@ import '../../shared/ui/interaction_timings.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
@@ -2100,7 +2101,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
         padding: const EdgeInsets.only(left: 10, right: 4),
         decoration: BoxDecoration(
           color: color.withValues(alpha: enabled ? 0.12 : 0.08),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(color: color.withValues(alpha: 0.32)),
         ),
         child: Row(
@@ -2199,7 +2200,7 @@ class _CdpMcpBridgeStatusPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(color: color.withValues(alpha: 0.34)),
         ),
         child: Row(
@@ -2966,7 +2967,7 @@ class _CauseEntry extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   openHandLocalizedText(

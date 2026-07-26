@@ -2686,7 +2686,7 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
                   child: Container(
                     height: 18,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                       color: colorScheme.surfaceContainerHighest.withValues(
                         alpha: 0.86 - row * 0.12,
                       ),
@@ -2731,7 +2731,7 @@ class _AiProviderInsertionGuide extends StatelessWidget {
                 child: Container(
                   height: 4,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: kOpenHandPillBorderRadius,
                     color: color,
                     boxShadow: [
                       BoxShadow(
@@ -2802,7 +2802,7 @@ class _AiTtsPriorityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.78),
       ),
       child: Text(
@@ -2830,7 +2830,7 @@ class _AiTtsStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         color: color.withValues(alpha: 0.12),
         border: Border.all(color: color.withValues(alpha: 0.24)),
       ),

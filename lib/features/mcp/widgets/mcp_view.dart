@@ -30,6 +30,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
@@ -1332,7 +1333,7 @@ class _TemplateMcpTinyChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.44)),
       ),
       child: Row(
@@ -1366,7 +1367,7 @@ class _TemplateMcpStateChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Text(
@@ -5237,7 +5238,7 @@ class _McpOpsHeaderMessage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(color: accent.withValues(alpha: 0.22)),
         ),
         child: Row(
@@ -6307,7 +6308,7 @@ class _McpOpsCountBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: active ? 0.14 : 0.08),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
       child: _McpOpsCopyText(
@@ -6424,7 +6425,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: ratio.clamp(0, 1).toDouble()),
               duration: _mcpMotionDuration(
@@ -6581,7 +6582,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(
               value: ratio.clamp(0, 1).toDouble(),
               minHeight: 8,
@@ -6778,7 +6779,7 @@ class _McpOpsTogglePill extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         hoverColor: tone.withValues(alpha: 0.08),
         splashColor: tone.withValues(alpha: 0.08),
         highlightColor: tone.withValues(alpha: 0.05),
@@ -6794,7 +6795,7 @@ class _McpOpsTogglePill extends StatelessWidget {
             color: selected
                 ? tone.withValues(alpha: 0.14)
                 : cs.surfaceContainerHighest.withValues(alpha: 0.58),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(
               color: selected
                   ? tone.withValues(alpha: 0.32)
@@ -6988,7 +6989,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         hoverColor: cs.primary.withValues(alpha: 0.08),
         splashColor: cs.primary.withValues(alpha: 0.08),
         highlightColor: cs.primary.withValues(alpha: 0.05),
@@ -7002,7 +7003,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
             color: cs.primary.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(color: cs.primary.withValues(alpha: 0.28)),
           ),
           child: Row(
@@ -9238,7 +9239,7 @@ class _McpOpsPayloadPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: accent.withValues(alpha: 0.18)),
       ),
       child: Row(
@@ -9462,7 +9463,7 @@ class _McpOpsStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
@@ -12227,7 +12228,7 @@ class _McpAnimatedProgressBar extends StatelessWidget {
       curve: Curves.easeOutBack,
       builder: (context, animatedProgress, _) {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           child: LinearProgressIndicator(
             minHeight: 6,
             value: clampUnitInterval(animatedProgress),
@@ -17834,7 +17835,7 @@ class _McpOpsLogRow extends StatelessWidget {
           margin: const EdgeInsets.only(top: 2, right: 10),
           decoration: BoxDecoration(
             color: statusColor,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
           ),
         ),
         Expanded(
@@ -17921,7 +17922,7 @@ class _McpOpsMiniTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Row(
@@ -18911,7 +18912,7 @@ Widget _mcpOpsServerRow(BuildContext context, McpServer server) {
         margin: const EdgeInsets.only(top: 2, right: 10),
         decoration: BoxDecoration(
           color: tone,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
         ),
       ),
       Expanded(

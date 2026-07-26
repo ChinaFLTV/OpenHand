@@ -21,6 +21,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -2518,7 +2519,7 @@ class _AgentExposureChip extends StatelessWidget {
           color: selected
               ? colorScheme.primaryContainer.withValues(alpha: .82)
               : colorScheme.surfaceContainerHighest.withValues(alpha: .72),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(
             color: selected
                 ? colorScheme.primary.withValues(alpha: .42)
@@ -2529,7 +2530,7 @@ class _AgentExposureChip extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 12, 7),
               child: Row(
@@ -6166,7 +6167,7 @@ class _WebOpsStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: .24)),
       ),
       child: Row(
@@ -6469,7 +6470,7 @@ class _WebOpsMetricTile extends StatelessWidget {
           if (progress != null) ...[
             const SizedBox(height: 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
               child: LinearProgressIndicator(
                 value: clampUnitInterval(progress!),
                 minHeight: 5,
@@ -6854,7 +6855,7 @@ class _WebOpsDistributionRow extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 7,
@@ -7760,7 +7761,7 @@ class _AccessibleUrlPill extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 360),
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(
           color: cs.primary.withValues(alpha: 0.32),
           width: 0.6,
@@ -8757,7 +8758,7 @@ class _OpsDistributionRow extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(value: ratio, minHeight: 5),
           ),
         ],

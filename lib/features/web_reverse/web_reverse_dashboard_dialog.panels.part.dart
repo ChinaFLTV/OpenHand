@@ -1228,7 +1228,7 @@ class _LongTasksPane extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainer,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: kOpenHandPillBorderRadius,
                   ),
                   child: Text(
                     '${tasks.length}',
@@ -4501,7 +4501,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                                           status == 'activated'
                                       ? cs.primaryContainer
                                       : cs.surfaceContainerHigh,
-                                  borderRadius: BorderRadius.circular(999),
+                                  borderRadius: kOpenHandPillBorderRadius,
                                 ),
                                 child: Text(
                                   status.isEmpty ? '?' : status,

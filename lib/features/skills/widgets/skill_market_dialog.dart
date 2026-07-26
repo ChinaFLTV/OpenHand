@@ -14,6 +14,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -1695,7 +1696,7 @@ class _TinyTextChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Text(

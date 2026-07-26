@@ -634,7 +634,6 @@ const _br26 = BorderRadius.all(Radius.circular(26));
 const _br18 = BorderRadius.all(Radius.circular(18));
 const _br16 = BorderRadius.all(Radius.circular(16));
 const _br12 = BorderRadius.all(Radius.circular(12));
-const _br999 = BorderRadius.all(Radius.circular(999));
 
 /// 根据卡片实际背景构建 Markdown 配色，保证跨明暗主题的可读性。
 MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(

@@ -803,7 +803,10 @@ class _StatPill extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: _borderRadius999),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: kOpenHandPillBorderRadius,
+      ),
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
@@ -896,7 +899,7 @@ class _IconActionButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         onTap: () {
           _markToolCardInteractiveTap(context);
           onTap();
@@ -929,7 +932,7 @@ class _FileMutationRevealPathButton extends StatelessWidget {
           },
           radius: 18,
           containedInkWell: true,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           child: SizedBox.square(
             dimension: 28,
             child: Icon(
@@ -4410,7 +4413,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
               child: MicroPressFeedback(
                 child: InkWell(
                   onTap: onToggleDiff,
-                  borderRadius: const BorderRadius.all(Radius.circular(999)),
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 4,
@@ -4478,7 +4481,7 @@ class _RoundSummarySourceJumpButton extends StatelessWidget {
           onTap: onTap,
           radius: 18,
           containedInkWell: true,
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           child: SizedBox.square(
             dimension: 28,
             child: Icon(Icons.my_location_rounded, size: 15, color: cs.primary),
@@ -4537,7 +4540,7 @@ class _GroupHeader extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
                   color: cs.primary.withValues(alpha: 0.10),
-                  borderRadius: const BorderRadius.all(Radius.circular(999)),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
                 child: Text(
                   '$count',

@@ -1015,7 +1015,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 height: 5,
                 decoration: BoxDecoration(
                   color: cs.outlineVariant.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                 ),
               ),
             ),

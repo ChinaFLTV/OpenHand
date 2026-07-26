@@ -7,7 +7,7 @@ const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
 // during open and fling on large threads.
 const double _kTranscriptListCacheExtent = 560;
 const double _kTranscriptScrollbarThickness = 6;
-const Radius _kTranscriptScrollbarRadius = Radius.circular(999);
+const Radius _kTranscriptScrollbarRadius = kOpenHandPillRadius;
 const double _kTranscriptEstimatedMessageSpacing = 14;
 const int _kScrollToMessageMaterializeFrameLimit = 8;
 const Duration _kTranscriptTargetScrollDuration = Duration(milliseconds: 520);

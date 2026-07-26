@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -219,7 +220,7 @@ class _ResourceUsageStatisticsDialogState
                         ),
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: kOpenHandPillBorderRadius,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1096,7 +1097,7 @@ class _ResourceRanking extends StatelessWidget {
                 Expanded(
                   flex: 5,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: kOpenHandPillBorderRadius,
                     child: LinearProgressIndicator(
                       value: unitRatio(visible[index].value, maxValue),
                       minHeight: 9,
@@ -1383,7 +1384,7 @@ class _MetricPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: error ? colors.errorContainer : colors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

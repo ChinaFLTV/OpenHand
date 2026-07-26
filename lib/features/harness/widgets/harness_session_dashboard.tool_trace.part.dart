@@ -438,7 +438,7 @@ class _HeStructuredToolTraceCardState
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: subtleSurface,
-                borderRadius: _br999,
+                borderRadius: kOpenHandPillBorderRadius,
                 border: Border.all(color: borderColor.withValues(alpha: 0.7)),
               ),
               child: Row(

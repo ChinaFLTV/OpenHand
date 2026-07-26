@@ -53,6 +53,7 @@ import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
@@ -7488,7 +7489,7 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.32)),
       ),
       child: Row(

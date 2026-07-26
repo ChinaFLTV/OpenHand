@@ -9,6 +9,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 import 'openhand_safe_scrollbar.dart';
 
 DialogAnimationSettings _resolveAnimatedMenuSettings(
@@ -401,7 +402,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
   static const double _kMenuMaxWidth = 280.0;
   static const double _kMenuWidthStep = 56.0;
   static const double _kScrollbarThickness = 6.0;
-  static const Radius _kScrollbarRadius = Radius.circular(999);
+  static const Radius _kScrollbarRadius = kOpenHandPillRadius;
 
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();

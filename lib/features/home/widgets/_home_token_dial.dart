@@ -1356,7 +1356,7 @@ class _ContextUsageOverview extends StatelessWidget {
           if (hasData) ...[
             const SizedBox(height: 10),
             ClipRRect(
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               child: SizedBox(
                 height: 7,
                 child: Row(
@@ -1500,7 +1500,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
             width: double.infinity,
             height: 7,
             child: ClipRRect(
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               child: ColoredBox(
                 color: colorScheme.surfaceContainerHighest,
                 child: TweenAnimationBuilder<double>(
@@ -1904,7 +1904,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             child: ColoredBox(
               color: missColor,
               child: TweenAnimationBuilder<double>(

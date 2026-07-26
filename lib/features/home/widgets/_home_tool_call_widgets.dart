@@ -1649,7 +1649,7 @@ class _ToolContentDialogChip extends StatelessWidget {
           tint.withValues(alpha: emphasized ? 0.10 : 0.06),
           colorScheme.surfaceContainerLow,
         ),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: tint.withValues(alpha: 0.16)),
       ),
       child: Padding(
@@ -1899,7 +1899,7 @@ class _ToolCacheChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: tint.withValues(alpha: 0.12),
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(color: tint.withValues(alpha: 0.35)),
         ),
         child: Row(
@@ -1930,7 +1930,7 @@ class _ToolExecutionChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2045,12 +2045,12 @@ class _ToolCancelButtonState extends State<_ToolCancelButton> {
       message: AppLocalizations.of(context)!.tlCallStopRequest,
       child: InkWell(
         onTap: _busy ? null : _onTap,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
             color: cs.errorContainer.withValues(alpha: 0.55),
-            borderRadius: _borderRadius999,
+            borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(color: cs.error.withValues(alpha: 0.45)),
           ),
           child: Row(
@@ -2132,7 +2132,7 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: baseFill.withValues(alpha: 0.55 + 0.35 * t),
-          borderRadius: _borderRadius999,
+          borderRadius: kOpenHandPillBorderRadius,
           border: Border.all(
             color: baseBorder.withValues(alpha: 0.3 + 0.25 * t),
           ),
@@ -2228,7 +2228,7 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
-                borderRadius: _borderRadius999,
+                borderRadius: kOpenHandPillBorderRadius,
                 border: Border.all(color: cs.outline.withValues(alpha: 0.25)),
               ),
               child: RichText(
@@ -4012,7 +4012,7 @@ class _SelfLearningHeaderRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -860,7 +860,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                                     color: colorScheme.primary.withValues(
                                       alpha: 0.12,
                                     ),
-                                    borderRadius: BorderRadius.circular(999),
+                                    borderRadius: kOpenHandPillBorderRadius,
                                   ),
                                   child: Text(
                                     openHandLocalizedText(

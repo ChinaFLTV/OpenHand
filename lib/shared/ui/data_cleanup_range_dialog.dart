@@ -5,6 +5,7 @@ import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
 
 enum OpenHandCleanupRangePreset { all, today, last24Hours, last7Days, custom }
@@ -309,7 +310,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         hoverColor: cs.primary.withValues(alpha: 0.08),
         splashColor: cs.primary.withValues(alpha: 0.10),
         highlightColor: cs.primary.withValues(alpha: 0.05),
@@ -321,7 +322,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(color: borderColor),
           ),
           child: Row(

@@ -406,7 +406,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                           color: colorScheme.surfaceContainerHighest.withValues(
                             alpha: 0.72,
                           ),
-                          borderRadius: _borderRadius999,
+                          borderRadius: kOpenHandPillBorderRadius,
                         ),
                         child: Text(
                           '$threadCount',
@@ -632,13 +632,13 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
             curve: curve,
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                borderRadius: _borderRadius999,
+                borderRadius: kOpenHandPillBorderRadius,
                 onTap: () {
                   if (!isSelected) {
                     onSelected(destination.section);

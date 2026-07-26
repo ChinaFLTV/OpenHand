@@ -20,6 +20,7 @@ import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
+import 'oh_pill.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_snack_bar.dart';
@@ -950,7 +951,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.scrim.withValues(alpha: 0.58),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: kOpenHandPillBorderRadius,
                       ),
                       child: Text(
                         l10n.imageEditorCompareOriginal,

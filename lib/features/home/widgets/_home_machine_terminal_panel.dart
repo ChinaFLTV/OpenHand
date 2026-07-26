@@ -1865,7 +1865,7 @@ class _MachineTerminalTinyBadge extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.primary.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1894,7 +1894,7 @@ class _MachineTerminalStatusPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Padding(

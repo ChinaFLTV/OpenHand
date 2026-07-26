@@ -168,7 +168,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: pillContent,
@@ -177,7 +177,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         overlayColor: WidgetStatePropertyAll<Color>(
           Colors.white.withValues(alpha: 0.03),
         ),
@@ -288,7 +288,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: palette.backgroundColor,
-              borderRadius: _borderRadius999,
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: palette.borderColor),
               boxShadow: [
                 BoxShadow(
@@ -304,7 +304,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
         overlayColor: WidgetStatePropertyAll<Color>(palette.overlayColor),
         child: capsule,
       ),
@@ -414,7 +414,7 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.08),
-        borderRadius: _borderRadius999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: row,
     );
@@ -476,7 +476,7 @@ class _SweepBadge extends StatelessWidget {
 
   Widget _buildBadge(BuildContext context) {
     final theme = Theme.of(context);
-    const borderRadius = BorderRadius.all(Radius.circular(999));
+    const borderRadius = kOpenHandPillBorderRadius;
     final backgroundColor =
         this.backgroundColor ?? theme.colorScheme.surfaceContainerHigh;
     final borderColor =

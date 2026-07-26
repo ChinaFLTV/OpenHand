@@ -454,7 +454,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     controller: _consoleScroll,
                     thumbVisibility: true,
                     thickness: 8,
-                    radius: const Radius.circular(999),
+                    radius: kOpenHandPillRadius,
                     child: ListView.builder(
                       controller: _consoleScroll,
                       padding: const EdgeInsets.all(12),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/oh_pill.dart';
 
 class WebReverseSelectOption<T> {
   const WebReverseSelectOption({required this.value, required this.label});
@@ -87,7 +88,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
           color: outlined && !enabled
               ? cs.surfaceContainerHighest
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           border: outlined
               ? Border.all(
                   color: enabled

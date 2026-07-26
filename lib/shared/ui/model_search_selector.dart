@@ -5,13 +5,14 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/text_normalization.dart';
 import 'animated_dialog.dart';
+import 'oh_pill.dart';
 import 'openhand_safe_scrollbar.dart';
 
 const double _kModelSearchDialogMaxWidth = 420;
 const double _kModelSearchDialogMaxHeight = 520;
 const double _kModelSearchDialogRadius = 16;
 const double _kModelSearchScrollbarThickness = 6;
-const Radius _kModelSearchScrollbarRadius = Radius.circular(999);
+const Radius _kModelSearchScrollbarRadius = kOpenHandPillRadius;
 
 /// Entry representing a single selectable model inside a provider group.
 class ModelEntry {

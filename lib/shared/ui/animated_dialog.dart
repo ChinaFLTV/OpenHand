@@ -11,6 +11,7 @@ import '../util/argument_guards.dart';
 import '../util/localized_text.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_reveal_switcher.dart';
 import 'openhand_safe_scrollbar.dart';
@@ -1906,7 +1907,7 @@ class _ModalSheetDragHandle extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.36),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
         ),
         child: const SizedBox(
           width: kOpenHandModalSheetDragHandleWidth,

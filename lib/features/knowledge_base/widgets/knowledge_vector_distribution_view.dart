@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app/model/dialog_animation_settings.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_vector_distribution.dart';
 import 'knowledge_dialog_widgets.dart';
@@ -368,7 +369,7 @@ class _VectorSceneStats extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.58),
         ),
@@ -454,7 +455,7 @@ class _VectorLegendPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.42)),
       ),
       child: Padding(
@@ -505,7 +506,7 @@ class _VectorViewportControls extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.58),
         ),
@@ -1073,7 +1074,7 @@ class _VectorPopoverPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Padding(

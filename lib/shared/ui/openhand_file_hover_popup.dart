@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../util/localized_text.dart';
 import 'animated_overlay.dart';
 import 'motion_preference.dart';
+import 'oh_pill.dart';
 
 const double _popupWidth = 320;
 const double _popupHorizontalMargin = 8;
@@ -448,7 +449,6 @@ class _MetadataRow extends StatelessWidget {
 }
 
 /// 路径胶囊的固定尺寸：圆角、内边距、图标边长与文本上限宽度。
-const BorderRadius _kFilePathChipRadius = BorderRadius.all(Radius.circular(999));
 const EdgeInsets _kFilePathChipPadding = EdgeInsets.symmetric(
   horizontal: 10,
   vertical: 5,
@@ -500,7 +500,7 @@ class OpenHandFilePathChip extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: _kFilePathChipRadius,
+          borderRadius: kOpenHandPillBorderRadius,
           onTap: isUnresolved ? null : onOpen,
           child: Ink(
             padding: _kFilePathChipPadding,
@@ -508,7 +508,7 @@ class OpenHandFilePathChip extends StatelessWidget {
               color: isUnresolved
                   ? chipColor.withValues(alpha: 0.3)
                   : chipColor,
-              borderRadius: _kFilePathChipRadius,
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: borderColor),
             ),
             child: Row(

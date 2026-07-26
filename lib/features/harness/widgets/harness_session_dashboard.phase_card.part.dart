@@ -486,9 +486,7 @@ class _HePhaseActionBar extends StatelessWidget {
           onPressed: onCopyLog,
           style: buttonStyle,
           icon: const Icon(Icons.content_copy_outlined, size: 16),
-          label: Text(
-            openHandCopyLabel(context),
-          ),
+          label: Text(openHandCopyLabel(context)),
         ),
         OutlinedButton.icon(
           onPressed: onReExecute,
@@ -510,9 +508,7 @@ class _HePhaseActionBar extends StatelessWidget {
           onPressed: onDelete,
           style: buttonStyle,
           icon: const Icon(Icons.delete_outline_rounded, size: 16),
-          label: Text(
-            openHandDeleteLabel(context),
-          ),
+          label: Text(openHandDeleteLabel(context)),
         ),
       ],
     );
@@ -532,7 +528,7 @@ class _HeSweepPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const br = BorderRadius.all(Radius.circular(999));
+    const br = kOpenHandPillBorderRadius;
     return ClipRRect(
       borderRadius: br,
       child: DecoratedBox(
@@ -654,7 +650,7 @@ class _HePhaseMetaRow extends StatelessWidget {
         : DecoratedBox(
             decoration: BoxDecoration(
               color: pillBackground,
-              borderRadius: _br999,
+              borderRadius: kOpenHandPillBorderRadius,
             ),
             child: pillInnerContent,
           );
@@ -663,7 +659,7 @@ class _HePhaseMetaRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onToggle,
-        borderRadius: _br999,
+        borderRadius: kOpenHandPillBorderRadius,
         overlayColor: WidgetStatePropertyAll<Color>(
           textColor.withValues(alpha: 0.06),
         ),

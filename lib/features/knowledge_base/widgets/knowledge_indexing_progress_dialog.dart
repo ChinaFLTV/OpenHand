@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -175,7 +176,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 18),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                       child: _KnowledgeIndexingProgressBar(
                         value: progress.fraction,
                         indeterminate: cancelling,

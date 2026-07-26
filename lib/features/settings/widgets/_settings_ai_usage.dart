@@ -829,7 +829,7 @@ class _AiUsageMetricCard extends StatelessWidget {
           if (data.progress case final progress?) ...[
             const SizedBox(height: 11),
             ClipRRect(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
               child: LinearProgressIndicator(
                 value: progress.clamp(0, 1),
                 minHeight: 5,
@@ -1320,7 +1320,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                         ),
                         decoration: BoxDecoration(
                           color: widget.color.withValues(alpha: 0.09),
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: kOpenHandPillBorderRadius,
                           border: Border.all(
                             color: widget.color.withValues(alpha: 0.18),
                           ),
@@ -1447,7 +1447,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                 ),
                 curve: Curves.easeOutCubic,
                 builder: (context, progress, _) => ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: SizedBox(
                     height: 6,
                     child: Stack(
@@ -2922,7 +2922,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                           ),
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(999),
+                            borderRadius: kOpenHandPillBorderRadius,
                             border: Border.all(
                               color: statusColor.withValues(alpha: 0.28),
                             ),

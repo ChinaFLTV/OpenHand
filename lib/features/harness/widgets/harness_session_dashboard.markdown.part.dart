@@ -469,10 +469,10 @@ class _HeSmallPill extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return Material(
       color: colorScheme.surfaceContainerHighest,
-      borderRadius: _br999,
+      borderRadius: kOpenHandPillBorderRadius,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _br999,
+        borderRadius: kOpenHandPillBorderRadius,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           child: Row(
@@ -913,7 +913,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.1)
                             : cs.primary.withValues(alpha: 0.08),
-                        borderRadius: _br999,
+                        borderRadius: kOpenHandPillBorderRadius,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -946,7 +946,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: _copyCode,
-                      borderRadius: _br999,
+                      borderRadius: kOpenHandPillBorderRadius,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -956,7 +956,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                           color: isDark
                               ? Colors.white.withValues(alpha: 0.08)
                               : cs.surfaceContainerHighest,
-                          borderRadius: _br999,
+                          borderRadius: kOpenHandPillBorderRadius,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1185,7 +1185,7 @@ class _HeChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: _br999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

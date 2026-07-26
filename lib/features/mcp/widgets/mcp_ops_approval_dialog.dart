@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_approval_chip.dart';
 import '../../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -861,7 +862,7 @@ class _ApprovalPayloadPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
@@ -907,10 +908,10 @@ class _ApprovalPayloadToggle extends StatelessWidget {
       alignment: AlignmentDirectional.centerStart,
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           hoverColor: color.withValues(alpha: 0.08),
           splashColor: color.withValues(alpha: 0.10),
           highlightColor: color.withValues(alpha: 0.06),
@@ -923,7 +924,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
               border: Border.all(color: color.withValues(alpha: 0.22)),
             ),
             child: Row(
