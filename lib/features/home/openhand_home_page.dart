@@ -2664,17 +2664,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       programmaticScroll: programmaticScroll,
     );
     final userScrollEnded = isUserScrollEndNotification(notification);
-    // 只有 Listener 真实捕获到 PointerScrollEvent 后，才把
-    // 无 dragDetails 的 start/update/overscroll 归类为鼠标滚轮 / 触控板
-    // 滚动。流式内容增高、Sliver 几何修正同样会产生无 dragDetails 的
-    // scroll notification；若继续一概当作用户输入，会把贴底跟随误判成
-    // "用户正在滚动"，导致 AI 增量输出不再及时追到最新消息。
     final implicitPointerSignalScroll =
-        !programmaticScroll &&
-        recentPointerSignalScroll &&
-        (notification is ScrollStartNotification ||
-            notification is ScrollUpdateNotification ||
-            notification is OverscrollNotification);
+        isImplicitPointerSignalScrollNotification(
+          notification,
+          programmaticScroll: programmaticScroll,
+          recentPointerSignalScroll: recentPointerSignalScroll,
+        );
     // WebView / 桌面平台视图有时吞掉 PointerSignal，导致
     // recentPointerSignalScroll 与 dragDetails 都缺失；但外层 ScrollPosition
     // 仍处于 scrolling，且 ScrollUpdateNotification 携带了非零 delta。

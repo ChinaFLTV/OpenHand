@@ -74,6 +74,30 @@ function updateVolume(){const muted=media.muted||media.volume<=0;mute.innerHTML=
 function updatePlayMode(){media.loop=looping;playMode.innerHTML=looping?icon.loop:icon.stopAfter;playMode.classList.toggle('is-active',looping);playMode.setAttribute('aria-label',looping?'Loop playback':'Stop after playback');playMode.setAttribute('title',looping?'Loop playback':'Stop after playback');}
 ''';
 
+/// 控制栏的显示 / 自动隐藏与相对跳转，三个内嵌播放器共用。
+///
+/// 依赖调用方先声明 `AUTO_HIDE_MS` 常量与 `hideTimer` / `dragging` /
+/// `volumeActive` 三个可变状态，并已注入
+/// [openHandVideoPlayerElementBindingsJavaScript] 的 DOM 绑定。
+const String openHandVideoPlayerVisibilityJavaScript = r'''
+function clearHideTimer(){if(hideTimer)window.clearTimeout(hideTimer);hideTimer=0;}
+function scheduleHide(){clearHideTimer();if(media.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!media.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
+function showControls(sticky){shell.classList.add('controls-visible');if(sticky){clearHideTimer();return;}scheduleHide();}
+function seekBy(delta){const dur=Number.isFinite(media.duration)?media.duration:0;media.currentTime=Math.max(0,Math.min(dur||Number.MAX_SAFE_INTEGER,media.currentTime+delta));updateTime();showControls(false);}
+''';
+
+/// 指针移出播放器外壳后的延迟隐藏，以及随之变化的音量 / 进度拖拽交互。
+///
+/// 只有消息气泡内的两个播放器需要：媒体预览弹窗是模态的，指针不会移出外壳。
+/// 依赖调用方先声明 `POINTER_LEAVE_HIDE_MS` 常量与 `pointerInsideShell` 状态，
+/// 并已注入 [openHandVideoPlayerVisibilityJavaScript]。
+const String openHandVideoPlayerPointerLeaveHideJavaScript = r'''
+function hideControlsAfterPointerLeave(){clearHideTimer();if(dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},POINTER_LEAVE_HIDE_MS);}
+function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else if(pointerInsideShell)scheduleHide();else hideControlsAfterPointerLeave();}
+function beginProgressDrag(event){dragging=true;progress.setPointerCapture?.(event.pointerId);showControls(true);}
+function endProgressDrag(event){if(!dragging)return;dragging=false;progress.releasePointerCapture?.(event.pointerId);if(pointerInsideShell)showControls(false);else hideControlsAfterPointerLeave();}
+''';
+
 /// 停止播放并释放 WebView 媒体解码资源。
 const String openHandVideoPlayerReleaseJavaScript =
     r'''try{var media=document.getElementById('media');if(media){try{media.pause();}catch(_){};try{media.muted=true;}catch(_){};try{media.removeAttribute('src');}catch(_){};try{while(media.firstChild)media.removeChild(media.firstChild);}catch(_){};try{media.load();}catch(_){};}}catch(_){}''';

@@ -616,17 +616,7 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
     if (candidate.usage != null) {
       return candidate;
     }
-    final metadata = candidate.metadata;
-    final hasTelemetry =
-        candidate.modelId != null ||
-        candidate.usage != null ||
-        metadata.containsKey('started_at') ||
-        metadata.containsKey('request_url') ||
-        metadata.containsKey('request_payload') ||
-        metadata.containsKey('response_raw') ||
-        metadata.containsKey('error') ||
-        metadata.containsKey('telemetry');
-    fallbackTelemetry ??= hasTelemetry ? candidate : null;
+    fallbackTelemetry ??= candidate.carriesRequestTelemetry ? candidate : null;
   }
   return fallbackTelemetry ?? firstAiReply;
 }

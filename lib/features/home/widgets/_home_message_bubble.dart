@@ -4907,38 +4907,8 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
   forward.innerHTML = icon.forward;
   fullscreen.innerHTML = icon.fullscreen;
   $openHandVideoPlayerScriptUtilities
-  function clearHideTimer() {
-    if (hideTimer) window.clearTimeout(hideTimer);
-    hideTimer = 0;
-  }
-  function scheduleHide() {
-    clearHideTimer();
-    if (media.paused || dragging || volumeActive) return;
-    hideTimer = window.setTimeout(() => {
-      if (!media.paused && !dragging && !volumeActive) {
-        shell.classList.remove('controls-visible');
-        shell.classList.remove('volume-open');
-      }
-    }, AUTO_HIDE_MS);
-  }
-  function hideControlsAfterPointerLeave() {
-    clearHideTimer();
-    if (dragging || volumeActive) return;
-    hideTimer = window.setTimeout(() => {
-      if (!dragging && !volumeActive) {
-        shell.classList.remove('controls-visible');
-        shell.classList.remove('volume-open');
-      }
-    }, POINTER_LEAVE_HIDE_MS);
-  }
-  function showControls(sticky) {
-    shell.classList.add('controls-visible');
-    if (sticky) {
-      clearHideTimer();
-      return;
-    }
-    scheduleHide();
-  }
+  $openHandVideoPlayerVisibilityJavaScript
+  $openHandVideoPlayerPointerLeaveHideJavaScript
   $openHandVideoPlayerStateSyncJavaScript
   function sendTime() {
     const t = media.currentTime || 0;
@@ -4951,29 +4921,6 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
     const w = media.videoWidth || 0;
     const h = media.videoHeight || 0;
     if (w > 0 && h > 0) post('size:' + w + ':' + h);
-  }
-  function seekBy(delta) {
-    const dur = Number.isFinite(media.duration) ? media.duration : 0;
-    const next = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
-    media.currentTime = next;
-    updateTime();
-    showControls();
-  }
-  function setVolumeActive(active) {
-    volumeActive = active;
-    shell.classList.toggle('volume-open', active);
-    if (active) showControls(true); else if (pointerInsideShell) scheduleHide(); else hideControlsAfterPointerLeave();
-  }
-  function beginProgressDrag(event) {
-    dragging = true;
-    progress.setPointerCapture?.(event.pointerId);
-    showControls(true);
-  }
-  function endProgressDrag(event) {
-    if (!dragging) return;
-    dragging = false;
-    progress.releasePointerCapture?.(event.pointerId);
-    if (pointerInsideShell) showControls(false); else hideControlsAfterPointerLeave();
   }
   ['loadedmetadata', 'canplay', 'playing'].forEach((eventName) => {
     media.addEventListener(eventName, () => {
@@ -8700,15 +8647,9 @@ rewind.innerHTML=icon.rewind;
 forward.innerHTML=icon.forward;
 exit.innerHTML=icon.exit;
 $openHandVideoPlayerScriptUtilities
-function clearHideTimer(){if(hideTimer)window.clearTimeout(hideTimer);hideTimer=0;}
-function scheduleHide(){clearHideTimer();if(media.paused||dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!media.paused&&!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},AUTO_HIDE_MS);}
-function hideControlsAfterPointerLeave(){clearHideTimer();if(dragging||volumeActive)return;hideTimer=window.setTimeout(()=>{if(!dragging&&!volumeActive){shell.classList.remove('controls-visible');shell.classList.remove('volume-open');}},POINTER_LEAVE_HIDE_MS);}
-function showControls(sticky){shell.classList.add('controls-visible');if(sticky){clearHideTimer();return;}scheduleHide();}
+$openHandVideoPlayerVisibilityJavaScript
+$openHandVideoPlayerPointerLeaveHideJavaScript
 $openHandVideoPlayerStateSyncJavaScript
-function setVolumeActive(active){volumeActive=active;shell.classList.toggle('volume-open',active);if(active)showControls(true);else if(pointerInsideShell)scheduleHide();else hideControlsAfterPointerLeave();}
-function seekBy(delta){const dur=Number.isFinite(media.duration)?media.duration:0;media.currentTime=Math.max(0,Math.min(dur||Number.MAX_SAFE_INTEGER,media.currentTime+delta));updateTime();showControls(false);}
-function beginDrag(event){dragging=true;progress.setPointerCapture?.(event.pointerId);showControls(true);}
-function endDrag(event){if(!dragging)return;dragging=false;progress.releasePointerCapture?.(event.pointerId);if(pointerInsideShell)showControls(false);else hideControlsAfterPointerLeave();}
 let resumed=false;
 function resume(){if(resumed)return;resumed=true;try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(media.duration||Infinity)){media.currentTime=t;}}catch(_){}updateTime();var p=media.play();if(p&&p.catch)p.catch(function(){updatePlayState();});}
 media.addEventListener('loadedmetadata',resume);
@@ -8719,9 +8660,9 @@ function sendTime(){var t=media.currentTime||0;if(Math.abs(t-lastSent)>=0.2){las
 play.addEventListener('click',()=>{if(media.paused){media.play().catch(()=>showControls(true));}else{media.pause();}showControls(true);});
 rewind.addEventListener('click',()=>seekBy(-15));
 forward.addEventListener('click',()=>seekBy(15));
-progress.addEventListener('pointerdown',beginDrag);
-progress.addEventListener('pointerup',endDrag);
-progress.addEventListener('pointercancel',endDrag);
+progress.addEventListener('pointerdown',beginProgressDrag);
+progress.addEventListener('pointerup',endProgressDrag);
+progress.addEventListener('pointercancel',endProgressDrag);
 progress.addEventListener('input',()=>{const dur=Number.isFinite(media.duration)?media.duration:0;if(dur>0)media.currentTime=(Number(progress.value)/1000)*dur;updateTime();showControls(true);});
 volumeGroup.addEventListener('pointerenter',()=>setVolumeActive(true));
 volumeGroup.addEventListener('pointerleave',()=>setVolumeActive(false));

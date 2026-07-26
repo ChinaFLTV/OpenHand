@@ -23,6 +23,24 @@ bool isExplicitUserScrollNotification(
           !programmaticScroll;
 }
 
+/// 无 dragDetails 的 start / update / overscroll 是否应归类为滚轮或触控板输入。
+///
+/// 只有 Listener 真实捕获到 PointerScrollEvent（[recentPointerSignalScroll]）
+/// 之后才成立：流式内容增高、Sliver 几何修正同样会产生无 dragDetails 的
+/// notification，一概当作用户输入会把贴底跟随误判为「用户正在滚动」，
+/// 导致增量输出不再追到最新内容。
+bool isImplicitPointerSignalScrollNotification(
+  ScrollNotification notification, {
+  required bool programmaticScroll,
+  required bool recentPointerSignalScroll,
+}) {
+  return !programmaticScroll &&
+      recentPointerSignalScroll &&
+      (notification is ScrollStartNotification ||
+          notification is ScrollUpdateNotification ||
+          notification is OverscrollNotification);
+}
+
 bool isUserScrollEndNotification(ScrollNotification notification) {
   return notification is ScrollEndNotification ||
       notification is UserScrollNotification &&

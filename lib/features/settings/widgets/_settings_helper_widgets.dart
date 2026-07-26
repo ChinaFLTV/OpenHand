@@ -58,32 +58,6 @@ const List<AiTtsCatalogOption> _miniMaxSoundEffectOptions =
       AiTtsCatalogOption('robotic', '电音', 'Robotic'),
     ];
 
-class _PaneHeader extends StatelessWidget {
-  const _PaneHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.displaySmall),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SettingsGroupCard extends StatelessWidget {
   const _SettingsGroupCard({
     required this.title,

@@ -910,28 +910,8 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
   if (fullscreen) fullscreen.innerHTML = icon.fullscreen;
   function requestClose() { try { window.OpenHandMediaPreview?.postMessage('close'); } catch (_) {} }
   $openHandVideoPlayerScriptUtilities
-  function clearHideTimer() { if (hideTimer) window.clearTimeout(hideTimer); hideTimer = 0; }
-  function scheduleHide() {
-    clearHideTimer();
-    if (media.paused || dragging || volumeActive) return;
-    hideTimer = window.setTimeout(() => {
-      if (!media.paused && !dragging && !volumeActive) {
-        shell.classList.remove('controls-visible');
-        shell.classList.remove('volume-open');
-      }
-    }, AUTO_HIDE_MS);
-  }
-  function showControls(sticky = false) {
-    shell.classList.add('controls-visible');
-    if (sticky) clearHideTimer(); else scheduleHide();
-  }
+  $openHandVideoPlayerVisibilityJavaScript
   $openHandVideoPlayerStateSyncJavaScript
-  function seekBy(delta) {
-    const dur = Number.isFinite(media.duration) ? media.duration : 0;
-    media.currentTime = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
-    updateTime();
-    showControls();
-  }
   function setVolumeActive(active) {
     volumeActive = active;
     shell.classList.toggle('volume-open', active);

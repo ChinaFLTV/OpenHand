@@ -22,6 +22,46 @@ IconData knowledgeSourceKindIcon(String kind) {
   };
 }
 
+/// 导入入口共用的三条文案。
+///
+/// 知识库视图与导入弹窗此前各自内联了同一份六语言字面量，改一处措辞就得
+/// 同步改另一处。
+String knowledgeEmbeddingModelMissingMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '请先配置可用的嵌入模型。',
+    zhHant: '請先設定可用的嵌入模型。',
+    en: 'Configure an embedding model first.',
+    fr: 'Configurez d’abord un modèle d’embedding.',
+    de: 'Konfigurieren Sie zuerst ein Embedding-Modell.',
+    ja: '先に利用可能な埋め込みモデルを設定してください。',
+  );
+}
+
+String knowledgeIndexingProgressTitle(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '构建知识库向量',
+    zhHant: '建立知識庫向量',
+    en: 'Building Knowledge Vectors',
+    fr: 'Construction des vecteurs',
+    de: 'Wissensvektoren werden erstellt',
+    ja: 'ナレッジベースベクトルを構築',
+  );
+}
+
+String knowledgeIndexingStoppedMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已停止构建向量。',
+    zhHant: '已停止建立向量。',
+    en: 'Vector indexing stopped.',
+    fr: 'Indexation vectorielle arrêtée.',
+    de: 'Vektorindexierung gestoppt.',
+    ja: 'ベクトルのインデックス作成を停止しました。',
+  );
+}
+
 String localizedKnowledgeSourceKind(BuildContext context, String kind) {
   final normalized = kind.trim().toLowerCase();
   return switch (normalized) {

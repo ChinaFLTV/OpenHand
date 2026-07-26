@@ -42,6 +42,7 @@ import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
+import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/first_frame_pulse_box.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
@@ -1841,7 +1842,7 @@ class _SettingsViewState extends State<SettingsView> {
   ) {
     final l10n = AppLocalizations.of(context)!;
     return switch (section) {
-      _SettingsSection.header => _PaneHeader(
+      _SettingsSection.header => FeaturePageHeader(
         title: l10n.settingsTitle,
         subtitle: l10n.settingsSubtitle,
       ),

@@ -1824,16 +1824,12 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       programmaticScroll: programmaticScroll,
     );
     final userScrollEnded = isUserScrollEndNotification(notification);
-    // 见字段处的 trackpad / 滚轮 tick 注释：只有 Listener 捕获到
-    // PointerScrollEvent 后，才把无 dragDetails 的 start/update/overscroll
-    // 当作滚轮 / 触控板输入；流式卡片增高产生的 layout scroll notification
-    // 不应暂停自动跟随。
     final implicitPointerSignalScroll =
-        !programmaticScroll &&
-        recentPointerSignalScroll &&
-        (notification is ScrollStartNotification ||
-            notification is ScrollUpdateNotification ||
-            notification is OverscrollNotification);
+        isImplicitPointerSignalScrollNotification(
+          notification,
+          programmaticScroll: programmaticScroll,
+          recentPointerSignalScroll: recentPointerSignalScroll,
+        );
     final userScrollActivity =
         explicitUserScroll || implicitPointerSignalScroll;
 

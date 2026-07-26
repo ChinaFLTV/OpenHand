@@ -240,6 +240,16 @@ enum AiSessionMessageFeedback {
   }
 }
 
+/// 判定 [AiSessionMessage.carriesRequestTelemetry] 时检查的 metadata key。
+const List<String> _requestTelemetryMetadataKeys = <String>[
+  'started_at',
+  'request_url',
+  'request_payload',
+  'response_raw',
+  'error',
+  'telemetry',
+];
+
 class AiSessionMessage {
   factory AiSessionMessage.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
@@ -550,6 +560,17 @@ class AiSessionMessage {
     return kind == AiSessionMessageKind.assistant ||
         kind == AiSessionMessageKind.reasoning ||
         kind == AiSessionMessageKind.toolCall;
+  }
+
+  /// 该消息是否带有可供审计 / 缓存分析读取的调用遥测。
+  ///
+  /// 审计弹窗与缓存命中趋势此前各自内联了同一份判定；一旦某侧漏加
+  /// metadata key，同一条消息会在两个界面里一个有详情一个没有。
+  bool get carriesRequestTelemetry {
+    if (modelId != null || usage != null) {
+      return true;
+    }
+    return _requestTelemetryMetadataKeys.any(metadata.containsKey);
   }
 
   String get senderOrigin {
