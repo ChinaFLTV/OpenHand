@@ -2894,10 +2894,13 @@ class AiModelCatalog {
   }
 
   /// 从 `step-2-16k` 等 StepFun 模型 ID 提取上下文大小。
+  ///
+  /// 位数过多导致溢出时按未知处理，避免异常冒泡到模型目录装配。
   static int? _parseStepContext(String id) {
     final match = _stepContextPattern.firstMatch(id);
     if (match == null) return null;
-    return int.parse(match.group(1)!) * 1024;
+    final value = int.tryParse(match.group(1)!);
+    return value == null || value <= 0 ? null : value * 1024;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

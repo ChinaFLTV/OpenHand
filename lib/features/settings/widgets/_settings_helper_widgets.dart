@@ -18,6 +18,9 @@ const double _aiTtsDragFeedbackMaxHeight = 240;
 const double _settingsStandardFieldWidth = 360;
 const String _translationSettingsTestText = 'Hello, OpenHand.';
 const bool _settingsProviderCardDefaultExpanded = false;
+const int _miniMaxDefaultSampleRate = 32000;
+const int _miniMaxDefaultBitrate = 128000;
+const int _miniMaxDefaultChannel = 1;
 const List<AiTtsCatalogOption> _miniMaxSampleRateOptions = <AiTtsCatalogOption>[
   AiTtsCatalogOption('8000', '8 kHz'),
   AiTtsCatalogOption('16000', '16 kHz'),
@@ -1997,10 +2000,13 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                     zh: '采样率',
                     en: 'Sample Rate',
                   ),
-                  value: '${providerSettings.extra['sample_rate'] ?? 32000}',
+                  value:
+                      '${providerSettings.extra['sample_rate'] ?? _miniMaxDefaultSampleRate}',
                   options: _miniMaxSampleRateOptions,
-                  onChanged: (value) =>
-                      _updateExtra('sample_rate', int.parse(value)),
+                  onChanged: (value) => _updateExtra(
+                    'sample_rate',
+                    intFromValue(value, fallback: _miniMaxDefaultSampleRate),
+                  ),
                 ),
                 _AiTtsDropdown(
                   label: openHandLocalizedText(
@@ -2008,10 +2014,13 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                     zh: '比特率',
                     en: 'Bitrate',
                   ),
-                  value: '${providerSettings.extra['bit_rate'] ?? 128000}',
+                  value:
+                      '${providerSettings.extra['bit_rate'] ?? _miniMaxDefaultBitrate}',
                   options: _miniMaxBitrateOptions,
-                  onChanged: (value) =>
-                      _updateExtra('bit_rate', int.parse(value)),
+                  onChanged: (value) => _updateExtra(
+                    'bit_rate',
+                    intFromValue(value, fallback: _miniMaxDefaultBitrate),
+                  ),
                 ),
                 _AiTtsDropdown(
                   label: openHandLocalizedText(
@@ -2019,10 +2028,13 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                     zh: '声道',
                     en: 'Channels',
                   ),
-                  value: '${providerSettings.extra['channel'] ?? 1}',
+                  value:
+                      '${providerSettings.extra['channel'] ?? _miniMaxDefaultChannel}',
                   options: _miniMaxChannelOptions,
-                  onChanged: (value) =>
-                      _updateExtra('channel', int.parse(value)),
+                  onChanged: (value) => _updateExtra(
+                    'channel',
+                    intFromValue(value, fallback: _miniMaxDefaultChannel),
+                  ),
                 ),
                 _AiTtsToggleField(
                   label: openHandLocalizedText(
