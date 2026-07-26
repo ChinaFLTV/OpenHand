@@ -1,5 +1,8 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+/// 资源类型筛选条的固定高度。
+const double _kResourceFilterBarHeight = 38;
+
 const double _kReplayResultDialogWidth = 640;
 const double _kReplayResultDialogHeight = 360;
 const double _kNetworkMethodColumnWidth = 78;
@@ -288,69 +291,23 @@ class _ResourceFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     return SizedBox(
-      height: 38,
+      height: _kResourceFilterBarHeight,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
             for (final f in _ResourceFilter.values) ...[
-              _FilterChipPill(
+              _TextTabPill(
                 label: f.label(context),
                 active: f == value,
                 onTap: () => onChanged(f),
-                theme: theme,
-                cs: cs,
+                dense: true,
               ),
               const SizedBox(width: 6),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterChipPill extends StatelessWidget {
-  const _FilterChipPill({
-    required this.label,
-    required this.active,
-    required this.onTap,
-    required this.theme,
-    required this.cs,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final ThemeData theme;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: active ? cs.primaryContainer : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_kToolbarRadius),
-        side: BorderSide(
-          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(_kToolbarRadius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          child: Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: active ? cs.onPrimaryContainer : cs.onSurface,
-            ),
-          ),
         ),
       ),
     );

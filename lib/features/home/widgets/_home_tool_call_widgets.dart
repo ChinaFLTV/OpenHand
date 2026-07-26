@@ -8,6 +8,9 @@ const Duration _kToolPhaseSwitchDuration = Duration(milliseconds: 280);
 const Duration _kToolCompactMotionDuration = Duration(milliseconds: 220);
 const Duration _kToolConstructingPulseDuration = Duration(milliseconds: 1100);
 const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
+
+/// 工具卡片阶段切换时新内容自下方滑入的相对幅度。
+const double _kToolStructureSlideOffsetY = 0.06;
 const int _kToolFullContentMaxBytes = 32 * 1024 * 1024;
 
 class _ToolCallBody extends StatefulWidget {
@@ -419,33 +422,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               // does. Slide+fade gives the swap a soft, slick feel; the outer
               // AnimatedSize already handles overall height.
               const SizedBox(height: 10),
-              AnimatedSwitcher(
-                duration: openHandMotionDuration(
-                  context,
-                  _kToolStructureSwitchDuration,
-                ),
-                switchInCurve: _kToolCardMotionCurve,
-                switchOutCurve: Curves.easeInCubic,
-                layoutBuilder: (current, previous) => Stack(
-                  alignment: Alignment.topLeft,
-                  children: [...previous, if (current != null) current],
-                ),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position:
-                        Tween<Offset>(
-                          begin: const Offset(0, 0.06),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutCubic,
-                          ),
-                        ),
-                    child: child,
-                  ),
-                ),
+              OpenHandCrossFadeSwitcher(
+                duration: _kToolStructureSwitchDuration,
+                slideBeginOffsetY: _kToolStructureSlideOffsetY,
                 child: isPreExecution
                     ? KeyedSubtree(
                         key: const ValueKey<String>('phase-pre'),

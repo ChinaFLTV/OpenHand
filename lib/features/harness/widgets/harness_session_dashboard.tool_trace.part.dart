@@ -1,5 +1,9 @@
 part of 'harness_session_dashboard.dart';
 
+/// 工具轨迹展开 / 预览互换的时长与上滑幅度。
+const Duration _kToolTraceSwitchDuration = Duration(milliseconds: 240);
+const double _kToolTraceSlideOffsetY = 0.04;
+
 class _HeApiToolCallMeta {
   const _HeApiToolCallMeta({
     required this.argumentsJson,
@@ -661,33 +665,9 @@ class _HeStructuredToolSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                AnimatedSwitcher(
-                  duration: _harnessMotionDuration(
-                    context,
-                    const Duration(milliseconds: 240),
-                  ),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.topLeft,
-                    children: [...previous, if (current != null) current],
-                  ),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.04),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                      child: child,
-                    ),
-                  ),
+                OpenHandCrossFadeSwitcher(
+                  duration: _kToolTraceSwitchDuration,
+                  slideBeginOffsetY: _kToolTraceSlideOffsetY,
                   child: expanded
                       ? Padding(
                           key: const ValueKey<String>('expanded'),

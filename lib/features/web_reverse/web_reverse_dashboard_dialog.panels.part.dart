@@ -2899,7 +2899,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
             runSpacing: 6,
             children: [
               for (final t in _AppTab.values)
-                _AppTabPill(
+                _TextTabPill(
                   label: _appTabLabel(t, isZh),
                   active: _tab == t,
                   onTap: () {
@@ -2979,47 +2979,6 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     _AppTab.cacheStorage => 'Cache Storage',
     _AppTab.serviceWorkers => 'Service Workers',
   };
-}
-
-class _AppTabPill extends StatelessWidget {
-  const _AppTabPill({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Material(
-      color: active ? cs.primaryContainer : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_kToolbarRadius),
-        side: BorderSide(
-          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(_kToolbarRadius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: active ? cs.onPrimaryContainer : cs.onSurface,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CookiesTable extends StatefulWidget {

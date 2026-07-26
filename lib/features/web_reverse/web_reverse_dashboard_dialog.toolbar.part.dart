@@ -1302,6 +1302,61 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
 
 /// 工具栏的 tab 胶囊：高度 36，圆角 999，激活态填 primary container。
 /// 计数角标自动 cross-fade。
+/// 纯文本分段药丸：网络面板的资源筛选与应用面板的页签共用。
+///
+/// 两处此前各写了一份完全相同的 Material + InkWell + 描边配色，只有内边距
+/// 与字号档位不同；其中一处还把 theme / colorScheme 当构造参数传进来，父级
+/// 主题一变就得手动同步。
+class _TextTabPill extends StatelessWidget {
+  const _TextTabPill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.dense = false,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  /// 紧凑档：用于横向滚动的筛选条。
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final labelStyle = dense
+        ? theme.textTheme.labelSmall
+        : theme.textTheme.bodySmall;
+    return Material(
+      color: active ? cs.primaryContainer : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_kToolbarRadius),
+        side: BorderSide(
+          color: active ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(_kToolbarRadius),
+        child: Padding(
+          padding: dense
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5)
+              : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: labelStyle?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: active ? cs.onPrimaryContainer : cs.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ToolbarTabPill extends StatelessWidget {
   const _ToolbarTabPill({
     required this.label,
