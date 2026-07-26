@@ -115,6 +115,14 @@ const int _scrollToBottomSettleFrameLimit = 36;
 const int _scrollToBottomSettleStableFrameLimit = 4;
 const int _transcriptInitialRevealMaxFrameCount = 72;
 const int _transcriptInitialRevealMinimumFrameCount = 14;
+/// 首屏稳定循环的墙钟上限。纯帧预算在掉帧时会被拉到数秒，用户全程只能看到
+/// 占位符；超时后直接揭示内容，剩余的高度收敛交给常规自动跟随。
+const Duration _transcriptInitialRevealMaxDuration = Duration(
+  milliseconds: 900,
+);
+/// 富文本卡片逐帧挂载会持续改变 maxScrollExtent。超过该宽限帧数后，只有
+/// 「距离底部仍有偏差」才继续判定为不稳定，避免自激循环永远跑满帧预算。
+const int _transcriptInitialRevealExtentGraceFrameCount = 24;
 const double _scrollToBottomSettleTolerance = 0.75;
 const double _messageScrollActivityDeltaThreshold = 0.05;
 const double _messageDistanceToBottomDeltaThreshold = 0.15;

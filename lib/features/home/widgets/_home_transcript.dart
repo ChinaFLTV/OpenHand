@@ -475,7 +475,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void _scheduleInitialLayoutSettle({required bool pinToBottom}) {
     final generation = ++_initialLayoutSettleGeneration;
     final sessionId = widget.session.id;
-    final deadline = DateTime.now().add(_transcriptInitialRevealMaxDuration);
+    // 单调时钟：DateTime.now() 会被 NTP 校时/时区变更跳变，向前跳会提前揭示
+    // 未收敛的内容，向后跳会让上限彻底失效。
+    final elapsed = Stopwatch()..start();
     var framesRemaining = _transcriptInitialRevealMaxFrameCount;
     var elapsedFrames = 0;
     var stableFrames = 0;
@@ -510,7 +512,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           widget.session.id != sessionId) {
         return;
       }
-      if (framesRemaining <= 0 || DateTime.now().isAfter(deadline)) {
+      if (framesRemaining <= 0 ||
+          elapsed.elapsed >= _transcriptInitialRevealMaxDuration) {
         reveal();
         return;
       }
@@ -919,12 +922,32 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     final session = widget.session;
+    // 只有预热上下文（会话 / 主题 / HTML 降级策略）真的变了才作废已排队任务。
+    // 渐进首屏会先排尾部、两帧后再排整窗；此前无条件 clear 会把尚未跑完的
+    // 尾部预热直接丢掉，而签名去重又保证它们不会被重新排队——用户正在看的
+    // 那几条反而永远失去预热，落到滚动时同步解析。
+    // 判定必须在去重之前：否则「签名全部命中 → warmMessages 为空 → 早退」
+    // 会让主题切换后的上下文签名永远更新不了，队列继续用旧主题预热。
+    // 作废队列时必须一并清空签名集合，否则被丢弃的那批消息因签名仍在，
+    // 永远不会被重新排队。
+    final warmContext = Object.hash(
+      session.id,
+      theme.hashCode,
+      settings.aiHtmlRenderFallback,
+    );
+    if (warmContext != _warmupContextSignature) {
+      _warmupContextSignature = warmContext;
+      _warmupGeneration += 1;
+      _warmupScheduler.clear();
+      _clearWarmupSignatures();
+    }
+    final generation = _warmupGeneration;
     final staged = visibleMessages;
     final warmCount = math.min(
       staged.length,
       TranscriptListWindowing.warmupMessageBudget(),
     );
-    final warmMessages = <AiSessionMessage>[];
+    final warmMessages = <(AiSessionMessage, int)>[];
     var warmCharacters = 0;
     var htmlWarmups = 0;
     for (
@@ -948,7 +971,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!_rememberWarmupSignature(signature)) {
         continue;
       }
-      warmMessages.add(message);
+      warmMessages.add((message, signature));
       warmCharacters += math.min(
         math.max(1, message.content.length),
         _transcriptWarmupCharacterBudget,
@@ -961,26 +984,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     final orderedWarmMessages = warmMessages.reversed.toList(growable: false);
-    // 只有预热上下文（会话 / 主题 / HTML 降级策略）真的变了才作废已排队任务。
-    // 渐进首屏会先排尾部、两帧后再排整窗；此前无条件 clear 会把尚未跑完的
-    // 尾部预热直接丢掉，而签名去重又保证它们不会被重新排队——用户正在看的
-    // 那几条反而永远失去预热，落到滚动时同步解析。
-    final warmContext = Object.hash(
-      session.id,
-      identityHashCode(theme),
-      settings.aiHtmlRenderFallback,
-    );
-    if (warmContext != _warmupContextSignature) {
-      _warmupContextSignature = warmContext;
-      _warmupGeneration += 1;
-      _warmupScheduler.clear();
-    }
-    final generation = _warmupGeneration;
-    for (final message in orderedWarmMessages) {
+    for (final (message, signature) in orderedWarmMessages) {
       _warmupScheduler.schedule(() {
         if (!mounted ||
             generation != _warmupGeneration ||
             widget.session.id != session.id) {
+          return;
+        }
+        // 队列不再被无条件裁剪，改为在执行时校验消息仍在当前物化窗口内，
+        // 避免翻页/快速滚动后陈旧任务挤占帧预算、把刚进入视口的消息排到后面。
+        // 丢弃时必须撤销签名，否则消息滚回视口后会被去重挡住，永远失去预热。
+        if (!_renderEntryIndexById.containsKey(message.id)) {
+          _forgetWarmupSignature(signature);
           return;
         }
         _warmRichRenderForMessage(
@@ -989,7 +1004,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           theme: theme,
           settings: settings,
         );
-      });
+      }, onDropped: () => _forgetWarmupSignature(signature));
     }
   }
 
@@ -1019,6 +1034,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _warmupSignatures.remove(oldest);
     }
     return true;
+  }
+
+  void _forgetWarmupSignature(int signature) {
+    if (!_warmupSignatures.remove(signature)) return;
+    _warmupSignatureOrder.remove(signature);
   }
 
   void _clearWarmupSignatures() {

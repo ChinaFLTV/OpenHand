@@ -1602,7 +1602,51 @@ final RegExp _markdownToolScaffoldingLinePattern = RegExp(
   multiLine: true,
 );
 
+/// sanitize 结果缓存。同一次解析周期内 `_parseMarkdownMaybeDeferred`（为算
+/// AST cache key）与 `_parseMarkdownInner` 会各跑一次 sanitize，而 sanitize
+/// 本身是数次全串扫描 + 两次 split，对长消息是实打实的毫秒级开销。缓存后
+/// 每条消息只付一次，AST 缓存的收益也不再被「为查缓存先算一遍」抵消。
+class _MarkdownSanitizeCache {
+  static const int _maxEntries = 256;
+  // 单条准入阈值必须远小于总预算，否则一条超大消息插入后会把整个缓存
+  // （连同它自己）全部淘汰，命中率恒为 0，比不加缓存更差。
+  static const int _maxEntryChars = 256 * 1024;
+  static const int _maxTotalChars = 2 * 1024 * 1024;
+
+  final LinkedHashMap<String, String> _entries =
+      LinkedHashMap<String, String>();
+  int _chars = 0;
+
+  String resolve(String source, String Function(String) compute) {
+    final cached = _entries.remove(source);
+    if (cached != null) {
+      _entries[source] = cached;
+      return cached;
+    }
+    final value = compute(source);
+    if (source.length > _maxEntryChars) return value;
+    _entries[source] = value;
+    _chars += source.length + value.length;
+    while (_entries.length > _maxEntries || _chars > _maxTotalChars) {
+      final key = _entries.keys.first;
+      final removed = _entries.remove(key);
+      if (removed == null) break;
+      _chars -= key.length + removed.length;
+    }
+    return value;
+  }
+}
+
+final _MarkdownSanitizeCache _markdownSanitizeCache = _MarkdownSanitizeCache();
+
 String _sanitizeMarkdownSource(String source) {
+  return _markdownSanitizeCache.resolve(
+    source,
+    _computeSanitizedMarkdownSource,
+  );
+}
+
+String _computeSanitizedMarkdownSource(String source) {
   final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final normalizedFences = _normalizeInlineFencedCodeBlocks(normalized);
   final stripped = _stripToolScaffoldingFromMarkdown(normalizedFences);
@@ -2790,14 +2834,22 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
   // 跨节点拖选时锁定 start/end 节点,让中间 `Selectable` 同步全选。
   Selectable? _anchorStart;
   Selectable? _anchorEnd;
+  bool _orderDirty = false;
+  bool _updateScheduled = false;
+  bool _pendingNotify = false;
 
+  // `MarkdownBuilder` 会为每个段落/列表项/表格 cell/代码块各建一个
+  // `SelectableText.rich`，一条长消息挂载时是几十到几百次 `add`。若每次
+  // add 都同步排序 + 重算 geometry，总代价是 O(N² log N) 次渲染树遍历
+  // (比较器里的 `getTransformTo(null)` 要沿祖先链累乘矩阵)，长会话直接卡死。
+  // 这里与 Flutter 自身的 `MultiSelectableSelectionContainerDelegate` 一致：
+  // 只置脏并把排序与 geometry 合并到帧末/微任务里跑一次。
   @override
   void add(Selectable selectable) {
     if (_disposed) return;
     _selectables.add(selectable);
-    _sortSelectables();
     selectable.addListener(_onSelectableChanged);
-    _refreshGeometry();
+    _scheduleSelectableUpdate();
   }
 
   @override
@@ -2807,43 +2859,97 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     _selectables.remove(selectable);
     if (_anchorStart == selectable) _anchorStart = null;
     if (_anchorEnd == selectable) _anchorEnd = null;
-    _refreshGeometry(notify: false);
+    // 拆除阶段不通知：markdown 树重建时的成批 remove 不应把用户当前选区
+    // 的可视状态冲掉。
+    _scheduleSelectableUpdate(notify: false);
   }
 
+  // 选择事件必须同步刷新 geometry：外层 SelectableRegion 在派发完事件后会
+  // 立刻读 value 来决定是否显示选择手柄与工具条，推迟就会「长按选词没反应」。
+  // 需要合并的只是挂载期成批的 add/remove。
   void _onSelectableChanged() {
     if (_disposed) return;
     _refreshGeometry();
   }
 
-  void _sortSelectables() {
-    Rect? firstGlobalRectOf(Selectable selectable) {
-      try {
-        if (selectable.boundingBoxes.isEmpty) return null;
-        return MatrixUtils.transformRect(
-          selectable.getTransformTo(null),
-          selectable.boundingBoxes.first,
-        );
-      } catch (_) {
-        return null;
-      }
+  void _scheduleSelectableUpdate({bool notify = true}) {
+    if (_disposed) return;
+    _orderDirty = true;
+    _pendingNotify = _pendingNotify || notify;
+    if (_updateScheduled) return;
+    _updateScheduled = true;
+    void flush([Duration? _]) {
+      _updateScheduled = false;
+      final shouldNotify = _pendingNotify;
+      _pendingNotify = false;
+      if (_disposed) return;
+      _refreshGeometry(notify: shouldNotify);
     }
 
+    // build/layout/paint 阶段内不能立刻 notifyListeners，推到本帧帧末；
+    // 其余阶段用微任务，保证同一手势内的多次变更仍在本帧生效。
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback(flush);
+    } else {
+      scheduleMicrotask(flush);
+    }
+  }
+
+  /// 惰性排序：所有依赖文档顺序的读取路径先调用它。
+  ///
+  /// 注意 `_refreshGeometry` 只在没有 flush 在途时才排序——挂载期 selectable
+  /// 每次布局通知都会走到那里，若无条件排序就会退化回「每 add 一次排一次」。
+  /// 顺序真正被消费的路径（事件派发 / 取选中内容 / 手柄定位）一律无条件调用。
+  void _ensureSorted() {
+    if (!_orderDirty) return;
+    if (_selectables.length < 2) {
+      _orderDirty = false;
+      return;
+    }
+    // 排序键一次算好。放在比较器里会让每次比较都重新走一遍祖先链变换，
+    // N log N 次树遍历是这个类此前最大的单点开销。
+    final origins = Map<Selectable, Offset?>.identity();
+    var resolved = 0;
+    for (final selectable in _selectables) {
+      final origin = _firstGlobalOriginOf(selectable);
+      if (origin != null) resolved += 1;
+      origins[selectable] = origin;
+    }
+    _orderDirty = false;
+    // 可定位节点不足两个时无从排序：比较器会退化成「全部相等」，而 List.sort
+    // 不稳定，反而会把本来正确的顺序打乱。此时直接沿用注册顺序——
+    // MarkdownBuilder 本就按文档顺序构建，这是比乱序更好的兜底。
+    if (resolved < 2) return;
     _selectables.sort((a, b) {
-      final rectA = firstGlobalRectOf(a);
-      final rectB = firstGlobalRectOf(b);
-      if (rectA == null || rectB == null) return 0;
-      final dy = rectA.top - rectB.top;
+      final originA = origins[a];
+      final originB = origins[b];
+      if (originA == null || originB == null) return 0;
+      final dy = originA.dy - originB.dy;
       if (dy.abs() > 0.5) return dy < 0 ? -1 : 1;
-      return rectA.left.compareTo(rectB.left);
+      return originA.dx.compareTo(originB.dx);
     });
   }
 
+  Offset? _firstGlobalOriginOf(Selectable selectable) {
+    try {
+      if (selectable.boundingBoxes.isEmpty) return null;
+      return MatrixUtils.transformRect(
+        selectable.getTransformTo(null),
+        selectable.boundingBoxes.first,
+      ).topLeft;
+    } catch (_) {
+      return null;
+    }
+  }
+
   int _indexOf(Selectable selectable) {
-    final i = _selectables.indexOf(selectable);
-    return i;
+    _ensureSorted();
+    return _selectables.indexOf(selectable);
   }
 
   Selectable? _selectableAt(Offset globalPosition) {
+    _ensureSorted();
     for (final selectable in _selectables) {
       try {
         if (selectable.boundingBoxes.isEmpty) continue;
@@ -2890,6 +2996,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   void _refreshGeometry({bool notify = true}) {
     if (_disposed) return;
+    if (!_updateScheduled) _ensureSorted();
     if (_selectables.isEmpty) {
       if (_geometry.hasContent || _geometry.status != SelectionStatus.none) {
         _geometry = const SelectionGeometry(
@@ -2975,6 +3082,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
   }
 
   (Selectable?, Selectable?) _resolveHandleTargets() {
+    _ensureSorted();
     Selectable? startSelectable;
     Selectable? endSelectable;
     for (final selectable in _selectables) {
@@ -2991,6 +3099,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   SelectedContent? getSelectedContent() {
+    _ensureSorted();
     final buffer = StringBuffer();
     for (final selectable in _selectables) {
       final content = selectable.getSelectedContent();
@@ -3006,6 +3115,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   SelectedContentRange? getSelection() {
+    _ensureSorted();
     if (_selectables.isEmpty) return null;
     int? startOffset;
     int? endOffset;
@@ -3025,6 +3135,7 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   SelectionResult dispatchSelectionEvent(SelectionEvent event) {
+    _ensureSorted();
     if (_selectables.isEmpty) return SelectionResult.none;
     switch (event.type) {
       case SelectionEventType.startEdgeUpdate:
