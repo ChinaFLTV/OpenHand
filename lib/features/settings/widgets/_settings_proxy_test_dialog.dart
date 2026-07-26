@@ -845,14 +845,17 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       const Color(0xFFFCD34D), // amber
       t,
     )!;
+    // 纯色块的透明度直接折进颜色：Opacity 会为每个色块开一层 saveLayer，
+    // 而这里是列表项，行数一多就是每帧几十次离屏合成。
     final opacity = 0.35 + 0.65 * t;
     return Padding(
       padding: const EdgeInsets.only(top: 4, left: 2),
       child: Row(
         children: <Widget>[
-          Opacity(
-            opacity: opacity,
-            child: Container(width: 9, height: 16, color: color),
+          Container(
+            width: 9,
+            height: 16,
+            color: color.withValues(alpha: color.a * opacity),
           ),
         ],
       ),

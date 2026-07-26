@@ -175,18 +175,36 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       (grouped[key] ??= []).add(entry);
     }
     final isSearching = _searchController.text.trim().isNotEmpty;
+    // 「最近使用」按 _filtered 过滤：先建集合再查，避免每条 recent 都线性扫一遍
+    // _filtered——模型目录动辄数百条时那是 O(n·m)。
+    final filteredKeys = <String>{
+      for (final item in _filtered) '${item.configId}\u0000${item.modelId}',
+    };
     final recentFiltered = isSearching
         ? const <ModelEntry>[]
         : widget.recentEntries
               .where(
-                (entry) => _filtered.any(
-                  (item) =>
-                      item.configId == entry.configId &&
-                      item.modelId == entry.modelId,
+                (entry) => filteredKeys.contains(
+                  '${entry.configId}\u0000${entry.modelId}',
                 ),
               )
               .toList(growable: false);
     final hasAnyModels = widget.entries.isNotEmpty;
+    // 分组结构拍平成一维行清单，交给 ListView.builder 按需构建：此前是
+    // ListView(children: [...])，一次性把全部候选建成 widget，多 provider
+    // 场景下每敲一个字符就要重建几百个条目。
+    final rows = <_ModelPickerRow>[
+      if (recentFiltered.isNotEmpty) ...[
+        _ModelPickerRow.header(l10n.modelSearchRecent),
+        for (final entry in recentFiltered)
+          _ModelPickerRow.entry(entry, showProviderSubtitle: true),
+        const _ModelPickerRow.gap(),
+      ],
+      for (final group in grouped.entries) ...[
+        _ModelPickerRow.header(group.key),
+        for (final entry in group.value) _ModelPickerRow.entry(entry),
+      ],
+    ];
 
     return buildOpenHandDialog(
       shape: RoundedRectangleBorder(
@@ -292,44 +310,32 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                       behavior: ScrollConfiguration.of(
                         context,
                       ).copyWith(scrollbars: false),
-                      child: ListView(
+                      child: ListView.builder(
                         controller: _scrollController,
                         primary: false,
                         padding: const EdgeInsets.only(bottom: 8),
-                        children: [
-                          if (recentFiltered.isNotEmpty) ...[
-                            _ModelSectionHeader(label: l10n.modelSearchRecent),
-                            for (final entry in recentFiltered)
-                              _ModelTile(
-                                entry: entry,
-                                isActive:
-                                    entry.configId == widget.selectedConfigId &&
-                                    entry.modelId == widget.selectedModelId,
-                                showProviderSubtitle: true,
-                                onTap: () {
-                                  Navigator.of(
-                                    context,
-                                  ).pop((entry.configId, entry.modelId));
-                                },
-                              ),
-                            const SizedBox(height: 4),
-                          ],
-                          for (final group in grouped.entries) ...[
-                            _ModelSectionHeader(label: group.key),
-                            for (final entry in group.value)
-                              _ModelTile(
-                                entry: entry,
-                                isActive:
-                                    entry.configId == widget.selectedConfigId &&
-                                    entry.modelId == widget.selectedModelId,
-                                onTap: () {
-                                  Navigator.of(
-                                    context,
-                                  ).pop((entry.configId, entry.modelId));
-                                },
-                              ),
-                          ],
-                        ],
+                        itemCount: rows.length,
+                        itemBuilder: (context, index) {
+                          final row = rows[index];
+                          final entry = row.entry;
+                          if (entry == null) {
+                            final label = row.headerLabel;
+                            if (label == null) {
+                              return const SizedBox(height: 4);
+                            }
+                            return _ModelSectionHeader(label: label);
+                          }
+                          return _ModelTile(
+                            entry: entry,
+                            isActive:
+                                entry.configId == widget.selectedConfigId &&
+                                entry.modelId == widget.selectedModelId,
+                            showProviderSubtitle: row.showProviderSubtitle,
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pop((entry.configId, entry.modelId)),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -338,6 +344,25 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       ),
     );
   }
+}
+
+/// 模型选择列表拍平后的一行：分组标题、模型条目或分隔空白。
+class _ModelPickerRow {
+  const _ModelPickerRow.header(this.headerLabel)
+    : entry = null,
+      showProviderSubtitle = false;
+
+  const _ModelPickerRow.entry(this.entry, {this.showProviderSubtitle = false})
+    : headerLabel = null;
+
+  const _ModelPickerRow.gap()
+    : headerLabel = null,
+      entry = null,
+      showProviderSubtitle = false;
+
+  final String? headerLabel;
+  final ModelEntry? entry;
+  final bool showProviderSubtitle;
 }
 
 class _ModelSectionHeader extends StatelessWidget {
