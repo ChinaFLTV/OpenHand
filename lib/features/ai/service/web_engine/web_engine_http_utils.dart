@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/net/abortable_http_request.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -93,6 +94,55 @@ mixin BoundedWebEngineHttpClient {
       responseTimeout: fetchTimeout,
       cancelSignal: cancelSignal,
       maxBytes: maxBytes,
+    );
+  }
+}
+
+/// Gemini grounding 调用使用的模型名。
+const String kGeminiGroundingModel = 'gemini-2.0-flash';
+
+/// Gemini grounding（内置 `googleSearch` 工具）调用。
+///
+/// WebSearch 与 WebFetch 各有一个 Gemini 引擎，端点、模型与 `contents` /
+/// `tools` 载荷完全相同，只有提示词与取结果的 JSON 路径不同；此前连模型名
+/// 都在两处各写了一遍，升级模型必然漏改一处。
+extension GeminiGroundedContentRequest on BoundedWebEngineHttpClient {
+  Future<Map<String, Object?>> requestGeminiGroundedContent({
+    required String? apiKey,
+    required String prompt,
+    Future<void>? cancelSignal,
+  }) async {
+    final key = apiKey?.trim() ?? '';
+    // 引擎的 isReady 已挡住空 Key，这里再兜一次：直接插值会拼出
+    // `key=null` 并把一次必然失败的请求发出去。
+    if (key.isEmpty) {
+      throw WebEngineHttpException('Gemini API key is missing');
+    }
+    final uri = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/'
+      'models/$kGeminiGroundingModel:generateContent?key=$key',
+    );
+    final response = await sendWebEngineHttpRequest(
+      'POST',
+      uri,
+      headers: const {kContentTypeHeaderName: 'application/json'},
+      body: jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt},
+            ],
+          },
+        ],
+        'tools': [
+          {'googleSearch': <String, Object?>{}},
+        ],
+      }),
+      cancelSignal: cancelSignal,
+    );
+    return decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Gemini',
     );
   }
 }

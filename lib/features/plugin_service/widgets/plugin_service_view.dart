@@ -14,6 +14,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -32,6 +33,9 @@ const Duration _kToolchainVersionProbeTimeout = Duration(seconds: 5);
 
 /// 工具链包列举，需要读本地安装树。
 const Duration _kToolchainListTimeout = Duration(seconds: 10);
+
+/// 日志追加后贴底动画的时长。
+const Duration _kLogFollowDuration = Duration(milliseconds: 200);
 
 const String _playwrightMcpPackage = '@playwright/mcp';
 const String _playwrightMcpServerName = 'Playwright MCP';
@@ -882,46 +886,21 @@ class _PluginOperationProgressDialogState
             Container(height: 3, color: OpenHandStatusColors.success),
           // 终端输出区域
           Flexible(
-            child: Container(
-              color: const Color(0xFF1E1E1E),
-              child: logs.isEmpty
-                  ? Center(
-                      child: Text(
-                        l10n.pluginServiceWaitingForOutput,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF808080),
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                        ),
-                      ),
-                    )
-                  : NotificationListener<ScrollNotification>(
-                      onNotification: _scrollGuard.handleNotification,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: logs.length,
-                        itemBuilder: (context, index) {
-                          final line = logs[index];
-                          final isError =
-                              line.startsWith('✗') ||
-                              line.toLowerCase().startsWith('error');
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: kOpenHandMonospaceFontFamily,
-                                fontSize: 11,
-                                height: 1.5,
-                                color: isError
-                                    ? const Color(0xFFFF6B6B)
-                                    : const Color(0xFFD4D4D4),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+            child: OpenHandConsoleLogPanel(
+              lineCount: logs.length,
+              lineAt: (index) => logs[index],
+              controller: _scrollController,
+              onNotification: _scrollGuard.handleNotification,
+              padding: const EdgeInsets.all(12),
+              borderRadius: BorderRadius.zero,
+              lineSpacing: 2,
+              emptyPlaceholder: Text(
+                l10n.pluginServiceWaitingForOutput,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: OpenHandConsolePalette.muted,
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                ),
+              ),
             ),
           ),
           // 底部状态栏
@@ -1620,7 +1599,6 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
   final BoundedLogBuffer _logs = BoundedLogBuffer();
   final ScrollController _logScroll = ScrollController();
   final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
-  bool _logUpdateScheduled = false;
 
   @override
   void initState() {
@@ -1636,21 +1614,13 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
 
   void _addLog(String line) {
     _logs.add(line);
-    if (!mounted || _logUpdateScheduled) return;
-    _logUpdateScheduled = true;
+    if (!mounted) return;
     setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _logUpdateScheduled = false;
-      if (!mounted) return;
-      _logGuard.followToBottom(
-        _logScroll,
-        animated: true,
-        animationDuration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 200),
-        ),
-      );
-    });
+    _logGuard.scheduleFollowToBottom(
+      _logScroll,
+      animated: true,
+      animationDuration: openHandMotionDuration(context, _kLogFollowDuration),
+    );
   }
 
   Future<bool> _checkMcpStatus() async {
@@ -1942,48 +1912,16 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           // 终端输出区域
           if (_logs.isNotEmpty || _operating)
             Flexible(
-              child: Container(
+              child: OpenHandConsoleLogPanel(
+                lineCount: _logs.length,
+                lineAt: (index) => _logs[index],
+                controller: _logScroll,
+                onNotification: _logGuard.handleNotification,
                 margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
-                  borderRadius: BorderRadius.circular(8),
+                emptyPlaceholder: const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                child: _logs.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: _logGuard.handleNotification,
-                        child: ListView.builder(
-                          controller: _logScroll,
-                          padding: const EdgeInsets.all(10),
-                          itemCount: _logs.length,
-                          itemBuilder: (context, index) {
-                            final line = _logs[index];
-                            final isErr =
-                                line.startsWith('✗') ||
-                                line.toLowerCase().startsWith('error');
-                            final isSuccess = line.startsWith('✓');
-                            final isFail = line.startsWith('✗');
-                            return Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: kOpenHandMonospaceFontFamily,
-                                fontSize: 11,
-                                height: 1.5,
-                                color: isErr || isFail
-                                    ? const Color(0xFFFF6B6B)
-                                    : isSuccess
-                                    ? const Color(0xFF4ADE80)
-                                    : const Color(0xFFD4D4D4),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
               ),
             ),
         ],

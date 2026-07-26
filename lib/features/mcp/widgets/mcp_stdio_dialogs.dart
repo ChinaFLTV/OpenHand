@@ -10,6 +10,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -280,7 +281,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
           // 终端输出区域
           Flexible(
             child: Container(
-              color: const Color(0xFF1A1A2E),
+              color: _kStdioLogSurface,
               child: logs.isEmpty
                   ? Center(
                       child: Text(
@@ -288,7 +289,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                         style: const TextStyle(
                           fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 12,
-                          color: Color(0xFF808080),
+                          color: OpenHandConsolePalette.muted,
                         ),
                       ),
                     )
@@ -372,71 +373,104 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   _LogLineStyle _resolveLogLineStyle(String line) {
     // 空行
     if (line.trim().isEmpty) {
-      return const _LogLineStyle(color: Color(0xFF808080));
+      return const _LogLineStyle(color: OpenHandConsolePalette.muted);
     }
     // 成功标记
     if (line.contains('✓')) {
-      return const _LogLineStyle(color: Color(0xFF4ADE80), bold: true);
+      return const _LogLineStyle(
+        color: OpenHandConsolePalette.success,
+        bold: true,
+      );
     }
     // 警告标记
     if (line.contains('⚠')) {
-      return const _LogLineStyle(color: Color(0xFFFBBF24), bold: true);
+      return const _LogLineStyle(
+        color: OpenHandConsolePalette.warning,
+        bold: true,
+      );
     }
     // 错误标记
     if (line.contains('✗') ||
         line.contains('[stderr error]') ||
         line.contains('[stdout error]')) {
-      return const _LogLineStyle(color: Color(0xFFF87171), bold: true);
+      return const _LogLineStyle(color: _kStdioErrorColor, bold: true);
     }
     // 系统时间戳行（如 [19:38:23] 进程已启动）
-    if (line.startsWith('[') &&
-        RegExp(r'^\[\d{2}:\d{2}:\d{2}\]').hasMatch(line)) {
+    if (line.startsWith('[') && _kStdioTimestampPrefix.hasMatch(line)) {
       return const _LogLineStyle(
-        color: Color(0xFF93C5FD),
+        color: OpenHandConsolePalette.timestamp,
         bold: true,
-        topPadding: 4,
+        topPadding: _kStdioGroupTopPadding,
       );
     }
     // JSON-RPC 摘要行
     if (line.startsWith('[jsonrpc')) {
       return const _LogLineStyle(
-        color: Color(0xFFA78BFA),
+        color: OpenHandConsolePalette.jsonRpc,
         bold: true,
-        topPadding: 4,
+        topPadding: _kStdioGroupTopPadding,
       );
     }
     // JSON-RPC 摘要的缩进详情行
     if (line.startsWith('  ·') || line.startsWith('  …')) {
-      return const _LogLineStyle(color: Color(0xFFC4B5FD), fontSize: 10.5);
+      return const _LogLineStyle(
+        color: _kStdioJsonRpcDetailColor,
+        fontSize: _kStdioSecondaryFontSize,
+      );
     }
     // JSON-RPC 摘要的缩进属性行
     if (line.startsWith('  ') && (line.contains(': ') || line.contains('：'))) {
-      return const _LogLineStyle(color: Color(0xFFD1D5DB), fontSize: 10.5);
+      return const _LogLineStyle(
+        color: _kStdioJsonRpcAttributeColor,
+        fontSize: _kStdioSecondaryFontSize,
+      );
     }
     // stderr 输出
     if (line.startsWith('[stderr]')) {
-      final content = line.substring(8).trim().toLowerCase();
+      final content = line
+          .substring(_kStdioStderrPrefix.length)
+          .trim()
+          .toLowerCase();
       // stderr 中的错误
       if (content.contains('error') ||
           content.contains('fatal') ||
           content.contains('failed')) {
-        return const _LogLineStyle(color: Color(0xFFF87171));
+        return const _LogLineStyle(color: _kStdioErrorColor);
       }
       // stderr 中的警告
       if (content.contains('warn') || content.contains('deprecat')) {
-        return const _LogLineStyle(color: Color(0xFFFBBF24));
+        return const _LogLineStyle(color: OpenHandConsolePalette.warning);
       }
       // stderr 中的普通信息输出（很多 MCP 服务把正常信息写到 stderr）
-      return const _LogLineStyle(color: Color(0xFFD4A574));
+      return const _LogLineStyle(color: _kStdioStderrInfoColor);
     }
     // stdout closed / stderr closed 等系统事件
     if (line.startsWith('[stdout') || line.startsWith('[stderr')) {
-      return const _LogLineStyle(color: Color(0xFF6B7280), fontSize: 10.5);
+      return const _LogLineStyle(
+        color: _kStdioSystemEventColor,
+        fontSize: _kStdioSecondaryFontSize,
+      );
     }
     // 普通 stdout 输出
-    return const _LogLineStyle(color: Color(0xFFE5E7EB));
+    return const _LogLineStyle(color: _kStdioStdoutColor);
   }
 }
+
+// ── STDIO 运行日志专属色阶 ──
+// 比安装控制台多分了 jsonrpc / stderr / 系统事件几档，故不并入
+// OpenHandConsolePalette 的通用令牌。
+const Color _kStdioErrorColor = Color(0xFFF87171);
+const Color _kStdioJsonRpcDetailColor = Color(0xFFC4B5FD);
+const Color _kStdioJsonRpcAttributeColor = Color(0xFFD1D5DB);
+const Color _kStdioStderrInfoColor = Color(0xFFD4A574);
+const Color _kStdioSystemEventColor = Color(0xFF6B7280);
+const Color _kStdioStdoutColor = Color(0xFFE5E7EB);
+const Color _kStdioLogSurface = Color(0xFF1A1A2E);
+const Duration _kLogFollowDuration = Duration(milliseconds: 150);
+const double _kStdioSecondaryFontSize = 10.5;
+const double _kStdioGroupTopPadding = 4;
+const String _kStdioStderrPrefix = '[stderr]';
+final RegExp _kStdioTimestampPrefix = RegExp(r'^\[\d{2}:\d{2}:\d{2}\]');
 
 class _LogLineStyle {
   const _LogLineStyle({
@@ -749,7 +783,6 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   final ScrollController _logScroll = ScrollController();
   final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
   final BoundedLogBuffer _logs = BoundedLogBuffer();
-  bool _logUpdateScheduled = false;
   bool _operating = false;
   bool _checking = true;
   bool _packageInstalled = false;
@@ -810,21 +843,13 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
 
   void _addLog(String line) {
     _logs.add(line);
-    if (!mounted || _logUpdateScheduled) return;
-    _logUpdateScheduled = true;
+    if (!mounted) return;
     setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _logUpdateScheduled = false;
-      if (!mounted) return;
-      _logGuard.followToBottom(
-        _logScroll,
-        animated: true,
-        animationDuration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 150),
-        ),
-      );
-    });
+    _logGuard.scheduleFollowToBottom(
+      _logScroll,
+      animated: true,
+      animationDuration: openHandMotionDuration(context, _kLogFollowDuration),
+    );
   }
 
   Future<void> _checkDepsStatus() async {
@@ -1177,54 +1202,20 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           // 终端输出区域
           if (_logs.isNotEmpty || _operating)
             Flexible(
-              child: Container(
+              child: OpenHandConsoleLogPanel(
+                lineCount: _logs.length,
+                lineAt: (index) => _logs[index],
+                controller: _logScroll,
+                onNotification: _logGuard.handleNotification,
                 margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
-                  borderRadius: BorderRadius.circular(8),
+                emptyPlaceholder: const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                child: _logs.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: _logGuard.handleNotification,
-                        child: ListView.builder(
-                          controller: _logScroll,
-                          padding: const EdgeInsets.all(10),
-                          itemCount: _logs.length,
-                          itemBuilder: (context, index) {
-                            final line = _logs[index];
-                            return Text(
-                              line,
-                              style: TextStyle(
-                                fontFamily: kOpenHandMonospaceFontFamily,
-                                fontSize: 11,
-                                height: 1.5,
-                                color: _depsLogColor(line),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
               ),
             ),
         ],
       ),
     );
-  }
-
-  Color _depsLogColor(String line) {
-    if (line.contains('✗') || line.toLowerCase().contains('error')) {
-      return const Color(0xFFFF6B6B);
-    }
-    if (line.contains('✓')) return const Color(0xFF4ADE80);
-    if (line.startsWith('[') && line.contains(']')) {
-      return const Color(0xFF7DD3FC);
-    }
-    return const Color(0xFFD4D4D4);
   }
 }

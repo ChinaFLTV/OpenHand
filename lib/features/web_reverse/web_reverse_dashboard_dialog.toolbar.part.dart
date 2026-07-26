@@ -673,15 +673,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已保存到 ${location.path}',
-          zhHant: '已儲存到 ${location.path}',
-          en: 'Saved to ${location.path}',
-          fr: 'Enregistré dans ${location.path}',
-          de: 'Gespeichert unter ${location.path}',
-          ja: '${location.path} に保存しました',
-        ),
+        webReverseSavedToFileMessage(context, location.path),
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {

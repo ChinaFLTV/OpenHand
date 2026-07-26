@@ -98,14 +98,8 @@ class AiWebSearchTool extends AiTool {
     final settings =
         resolved?.builtinConfig?.webSearchSettings ??
         AiWebSearchSettings.defaults();
-    final cooldownConfig = WebEngineCooldownConfig(
-      tier1Failures: settings.resilience.cooldownTier1Failures,
-      tier1Seconds: settings.resilience.cooldownTier1Seconds,
-      tier2Failures: settings.resilience.cooldownTier2Failures,
-      tier2Seconds: settings.resilience.cooldownTier2Seconds,
-      tier3Failures: settings.resilience.cooldownTier3Failures,
-      tier3Seconds: settings.resilience.cooldownTier3Seconds,
-      quotaSeconds: settings.resilience.cooldownQuotaSeconds,
+    final cooldownConfig = WebEngineCooldownConfig.fromResilience(
+      settings.resilience,
     );
 
     final progress = StringBuffer()

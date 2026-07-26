@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../model/ai_web_search_settings.dart';
+import '../web_engine/web_engine_http_utils.dart';
 import 'web_search_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,31 +90,10 @@ class WebSearchGeminiEngine extends WebSearchProviderKeyEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/'
-      'models/gemini-2.0-flash:generateContent?key=$effectiveApiKey',
-    );
-    final response = await sendWebEngineHttpRequest(
-      'POST',
-      uri,
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': req.query},
-            ],
-          },
-        ],
-        'tools': [
-          {'googleSearch': {}},
-        ],
-      }),
+    final body = await requestGeminiGroundedContent(
+      apiKey: effectiveApiKey,
+      prompt: req.query,
       cancelSignal: req.cancelSignal,
-    );
-    final body = decodeSuccessfulWebEngineJsonResponse(
-      response,
-      engineLabel: 'Gemini',
     );
     final chunks =
         readJsonPath<List>(body, [

@@ -1283,30 +1283,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已保存到 ${location.path}',
-          zhHant: '已儲存到 ${location.path}',
-          en: 'Saved to ${location.path}',
-          fr: 'Enregistré dans ${location.path}',
-          de: 'Gespeichert unter ${location.path}',
-          ja: '${location.path} に保存しました',
-        ),
+        webReverseSavedToFileMessage(context, location.path),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '保存当前帧', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1400,30 +1384,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已保存到 ${location.path}',
-          zhHant: '已儲存到 ${location.path}',
-          en: 'Saved to ${location.path}',
-          fr: 'Enregistré dans ${location.path}',
-          de: 'Gespeichert unter ${location.path}',
-          ja: '${location.path} に保存しました',
-        ),
+        webReverseSavedToFileMessage(context, location.path),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '保存裁剪截图', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }

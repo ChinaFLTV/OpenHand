@@ -226,30 +226,14 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已保存到 ${location.path}',
-          zhHant: '已儲存到 ${location.path}',
-          en: 'Saved to ${location.path}',
-          fr: 'Enregistré dans ${location.path}',
-          de: 'Gespeichert unter ${location.path}',
-          ja: '${location.path} に保存しました',
-        ),
+        webReverseSavedToFileMessage(context, location.path),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '导出性能 CSV', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1715,30 +1699,14 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已保存到 ${location.path}',
-          zhHant: '已儲存到 ${location.path}',
-          en: 'Saved to ${location.path}',
-          fr: 'Enregistré dans ${location.path}',
-          de: 'Gespeichert unter ${location.path}',
-          ja: '${location.path} に保存しました',
-        ),
+        webReverseSavedToFileMessage(context, location.path),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '写入堆数据', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }
@@ -5006,26 +4974,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     super.dispose();
   }
 
-  String _savedToFileMessage(String path) => openHandLocalizedText(
-    context,
-    zh: '已保存到 $path',
-    zhHant: '已儲存到 $path',
-    en: 'Saved to $path',
-    fr: 'Enregistré dans $path',
-    de: 'Gespeichert unter $path',
-    ja: '$path に保存しました',
-  );
-
-  String get _saveFailedMessage => openHandLocalizedText(
-    context,
-    zh: '保存失败',
-    zhHant: '儲存失敗',
-    en: 'Save failed',
-    fr: 'Échec de l’enregistrement',
-    de: 'Speichern fehlgeschlagen',
-    ja: '保存に失敗しました',
-  );
-
   String _scriptExportHeader(String generatedAt) => openHandLocalizedText(
     context,
     zh: '由 OpenHand Web 逆向 Recorder 自动导出（$generatedAt）',
@@ -5057,13 +5005,16 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       await writeFileAtomically(File(location.path), prettyPrintJson(steps));
       if (!mounted) return;
-      showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
+      showOpenHandSuccessSnack(
+        context,
+        webReverseSavedToFileMessage(context, location.path),
+      );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '写入录制数据', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        _saveFailedMessage,
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }
@@ -5181,13 +5132,16 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       await writeFileAtomically(File(location.path), code);
       if (!mounted) return;
-      showOpenHandSuccessSnack(context, _savedToFileMessage(location.path));
+      showOpenHandSuccessSnack(
+        context,
+        webReverseSavedToFileMessage(context, location.path),
+      );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '导出 $kind 代码', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        _saveFailedMessage,
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }

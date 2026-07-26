@@ -32,7 +32,6 @@ class HarnessCliInstallDialog extends StatefulWidget {
 
 class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   static const Duration _installTimeout = Duration(minutes: 5);
-  static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
   final BoundedLogBuffer _logLines = BoundedLogBuffer();
   final BoundedLogBuffer _pendingLogLines = BoundedLogBuffer();
   bool _running = true;
@@ -40,9 +39,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   bool _cancelled = false;
   bool _isPermissionError = false;
   bool _elevatedRetryAttempted = false;
-  Process? _process;
+  final TrackedProcessSlot _processSlot = TrackedProcessSlot(
+    logTag: 'harness_cli_install_dialog',
+  );
   Timer? _logFlushTimer;
-  int _runGeneration = 0;
   bool _disposed = false;
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
@@ -76,11 +76,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   @override
   void dispose() {
     _disposed = true;
-    _runGeneration += 1;
     _logFlushTimer?.cancel();
     _logFlushTimer = null;
     _pendingLogLines.clear();
-    _stopCurrentProcess('释放安装进程');
+    _processSlot.abort('释放安装进程');
     _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
@@ -133,37 +132,15 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   }
 
   bool _isRunActive(int generation) {
-    return mounted && !_disposed && !_cancelled && generation == _runGeneration;
-  }
-
-  void _claimProcess(Process process, int generation) {
-    if (!_isRunActive(generation)) {
-      unawaited(_terminateProcess(process, '终止迟到的安装进程'));
-      return;
-    }
-    _process = process;
-  }
-
-  void _stopCurrentProcess(String action) {
-    final process = _process;
-    _process = null;
-    if (process != null) unawaited(_terminateProcess(process, action));
-  }
-
-  Future<void> _terminateProcess(Process process, String action) async {
-    try {
-      await terminateTrackedProcessTree(
-        process,
-        gracefulTimeout: _processStopGracePeriod,
-      );
-    } catch (error, stack) {
-      silentLog('harness_cli_install_dialog', action, error, stack);
-    }
+    return mounted &&
+        !_disposed &&
+        !_cancelled &&
+        _processSlot.isCurrent(generation);
   }
 
   Future<void> _startInstall() async {
     final cmd = widget.cli.installCommand!;
-    final generation = ++_runGeneration;
+    final generation = _processSlot.beginRun();
     _appendLine('> ${cmd.join(' ')}');
     _appendLine('');
 
@@ -180,7 +157,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         onStderrLine: _appendLine,
         onProcessStarted: (process) {
           startedProcess = process;
-          _claimProcess(process, generation);
+          _processSlot.claim(process, generation, staleAction: '终止迟到的安装进程');
         },
       );
 
@@ -217,7 +194,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
       _appendLine('');
       _appendLine(_l10n.harnessCliInstallLogGenericError('$e'));
     } finally {
-      if (identical(_process, startedProcess)) _process = null;
+      _processSlot.release(startedProcess);
     }
   }
 
@@ -287,8 +264,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
   void _cancel() {
     if (!_running) return;
-    _runGeneration += 1;
-    _stopCurrentProcess('取消安装进程');
+    _processSlot.abort('取消安装进程');
     setState(() {
       _cancelled = true;
       _running = false;
@@ -300,7 +276,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   // 提权安装：macOS 使用 osascript，其它平台展示手工命令。
 
   Future<void> _retryWithAdminPrivileges() async {
-    final generation = ++_runGeneration;
+    final generation = _processSlot.beginRun();
     _logFlushTimer?.cancel();
     _logFlushTimer = null;
     _pendingLogLines.clear();
@@ -375,7 +351,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
           tag: 'harness_cli_install_dialog',
           onProcessStarted: (process) {
             startedProcess = process;
-            _claimProcess(process, generation);
+            _processSlot.claim(process, generation, staleAction: '终止迟到的安装进程');
           },
         );
 
@@ -485,7 +461,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         });
         _appendLine(_l10n.harnessCliInstallLogGenericError('$e'));
       } finally {
-        if (identical(_process, startedProcess)) _process = null;
+        _processSlot.release(startedProcess);
       }
     } else {
       // Linux 没有统一的图形化提权入口，改为展示可复制的手工命令。

@@ -46,6 +46,35 @@ const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
 const OpenHandProfiledDialogPresenter webReverseToolDialogs =
     OpenHandProfiledDialogPresenter(kWebReverseDialogMotionProfile);
 
+/// 「已保存到 <路径>」的统一文案。
+///
+/// 导出 HAR / Trace / 截图 / CSV 等入口散落在四个 part 文件里，此前各自内联
+/// 了一份六语言字面量，改一处文案就得同步改九处。
+String webReverseSavedToFileMessage(BuildContext context, String path) {
+  return openHandLocalizedText(
+    context,
+    zh: '已保存到 $path',
+    zhHant: '已儲存到 $path',
+    en: 'Saved to $path',
+    fr: 'Enregistré dans $path',
+    de: 'Gespeichert unter $path',
+    ja: '$path に保存しました',
+  );
+}
+
+/// 「保存失败」的统一文案。
+String webReverseSaveFailedMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '保存失败',
+    zhHant: '儲存失敗',
+    en: 'Save failed',
+    fr: 'Échec de l’enregistrement',
+    de: 'Speichern fehlgeschlagen',
+    ja: '保存に失敗しました',
+  );
+}
+
 Future<void> confirmWebReverseDiscardChanges({
   required BuildContext context,
   required FutureOr<void> Function() onConfirmed,

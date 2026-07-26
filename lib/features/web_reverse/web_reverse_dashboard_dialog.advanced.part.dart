@@ -1511,15 +1511,7 @@ Future<void> _showExtraHeadersDialog(
     } else {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }
@@ -2383,8 +2375,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     _pollTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _poll(),
-      onError: (error, stack) =>
-          silentLog('web_reverse_dashboard_dialog', '轮询 WebRTC 日志', error, stack),
+      onError: (error, stack) => silentLog(
+        'web_reverse_dashboard_dialog',
+        '轮询 WebRTC 日志',
+        error,
+        stack,
+      ),
     );
     _poll();
   }
@@ -2575,7 +2571,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', '选择 RTC CSV 保存位置', error, stack);
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        '选择 RTC CSV 保存位置',
+        error,
+        stack,
+      );
     }
     if (loc == null) return;
     try {
@@ -2598,15 +2599,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        webReverseSaveFailedMessage(context),
         duration: const Duration(seconds: 2),
       );
     }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/kimi_web_search_utils.dart';
+import '../web_engine/web_engine_http_utils.dart';
 import 'web_fetch_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,31 +253,10 @@ class WebFetchGeminiEngine extends WebFetchProviderKeyEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/'
-      'models/gemini-2.0-flash:generateContent?key=$effectiveApiKey',
-    );
-    final response = await sendWebEngineHttpRequest(
-      'POST',
-      uri,
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': '抓取并返回该网址的正文内容（保留结构）：${req.url}'},
-            ],
-          },
-        ],
-        'tools': [
-          {'googleSearch': {}},
-        ],
-      }),
+    final body = await requestGeminiGroundedContent(
+      apiKey: effectiveApiKey,
+      prompt: '抓取并返回该网址的正文内容（保留结构）：${req.url}',
       cancelSignal: req.cancelSignal,
-    );
-    final body = decodeSuccessfulWebEngineJsonResponse(
-      response,
-      engineLabel: 'Gemini',
     );
     final parts =
         readJsonPath<List>(body, ['candidates', 0, 'content', 'parts']) ??

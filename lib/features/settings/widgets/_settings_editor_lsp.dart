@@ -2229,14 +2229,14 @@ class _EditorLspInstallRunnerDialogState
     extends State<_EditorLspInstallRunnerDialog> {
   static const Duration _installTimeout = Duration(minutes: 10);
   static const Duration _processStartTimeout = Duration(seconds: 10);
-  static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
   final BoundedLogBuffer _logLines = BoundedLogBuffer();
   final BoundedLogBuffer _pendingLogLines = BoundedLogBuffer();
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
-  Process? _process;
+  final TrackedProcessSlot _processSlot = TrackedProcessSlot(
+    logTag: 'settings_editor_lsp',
+  );
   Timer? _logFlushTimer;
-  int _runGeneration = 0;
   bool _disposed = false;
   bool _running = true;
   bool _success = false;
@@ -2252,11 +2252,10 @@ class _EditorLspInstallRunnerDialogState
   @override
   void dispose() {
     _disposed = true;
-    _runGeneration += 1;
     _logFlushTimer?.cancel();
     _logFlushTimer = null;
     _pendingLogLines.clear();
-    _stopCurrentProcess('释放安装进程');
+    _processSlot.abort('释放安装进程');
     _scrollController.dispose();
     super.dispose();
   }
@@ -2297,36 +2296,11 @@ class _EditorLspInstallRunnerDialogState
   }
 
   bool _isRunActive(int generation) {
-    return mounted && !_disposed && generation == _runGeneration;
-  }
-
-  void _claimProcess(Process process, int generation) {
-    if (!_isRunActive(generation)) {
-      unawaited(_terminateProcess(process, '终止延迟到达的安装进程'));
-      return;
-    }
-    _process = process;
-  }
-
-  void _stopCurrentProcess(String action) {
-    final process = _process;
-    _process = null;
-    if (process != null) unawaited(_terminateProcess(process, action));
-  }
-
-  Future<void> _terminateProcess(Process process, String action) async {
-    try {
-      await terminateTrackedProcessTree(
-        process,
-        gracefulTimeout: _processStopGracePeriod,
-      );
-    } catch (error, stack) {
-      silentLog('settings_editor_lsp', action, error, stack);
-    }
+    return mounted && !_disposed && _processSlot.isCurrent(generation);
   }
 
   Future<void> _startInstall() async {
-    final generation = ++_runGeneration;
+    final generation = _processSlot.beginRun();
     Process? startedProcess;
     try {
       await Directory(widget.plan.installRootPath).create(recursive: true);
@@ -2350,7 +2324,7 @@ class _EditorLspInstallRunnerDialogState
         onStderrLine: _appendLine,
         onProcessStarted: (process) {
           startedProcess = process;
-          _claimProcess(process, generation);
+          _processSlot.claim(process, generation, staleAction: '终止延迟到达的安装进程');
         },
       );
       if (!mounted || !_isRunActive(generation)) return;
@@ -2393,7 +2367,7 @@ class _EditorLspInstallRunnerDialogState
       _appendLine('');
       _appendLine('✗ $error');
     } finally {
-      if (identical(_process, startedProcess)) _process = null;
+      _processSlot.release(startedProcess);
     }
   }
 
@@ -2414,8 +2388,7 @@ class _EditorLspInstallRunnerDialogState
   }
 
   void _cancelAndClose() {
-    _runGeneration += 1;
-    _stopCurrentProcess('取消安装进程');
+    _processSlot.abort('取消安装进程');
     Navigator.of(context).pop(false);
   }
 
@@ -2452,7 +2425,7 @@ class _EditorLspInstallRunnerDialogState
     final installRoot = OpenHandPaths.shortenHomePath(
       widget.plan.installRootPath,
     );
-    const terminalBackground = Color(0xFF0D1117);
+    const terminalBackground = OpenHandConsolePalette.deepSurface;
     const terminalChrome = Color(0xFF161B22);
     const terminalBorder = Color(0xFF30363D);
     const terminalMuted = Color(0xFF8B949E);

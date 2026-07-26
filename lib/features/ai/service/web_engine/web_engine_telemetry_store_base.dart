@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../model/ai_web_engine_resilience.dart';
 import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
@@ -13,14 +14,28 @@ import 'web_engine_value_parsing.dart';
 /// WebSearch / WebFetch 调用日志共用的冷却阈值配置。
 class WebEngineCooldownConfig {
   const WebEngineCooldownConfig({
-    this.tier1Failures = 3,
-    this.tier1Seconds = 60,
-    this.tier2Failures = 5,
-    this.tier2Seconds = 300,
-    this.tier3Failures = 7,
-    this.tier3Seconds = 900,
-    this.quotaSeconds = 300,
+    this.tier1Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier1Failures,
+    this.tier1Seconds = AiWebEngineResiliencePolicy.defaultCooldownTier1Seconds,
+    this.tier2Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier2Failures,
+    this.tier2Seconds = AiWebEngineResiliencePolicy.defaultCooldownTier2Seconds,
+    this.tier3Failures =
+        AiWebEngineResiliencePolicy.defaultCooldownTier3Failures,
+    this.tier3Seconds = AiWebEngineResiliencePolicy.defaultCooldownTier3Seconds,
+    this.quotaSeconds = AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds,
   });
+
+  /// 由弹性设置直接映射；WebSearch / WebFetch 工具此前各抄了一遍这七个字段。
+  WebEngineCooldownConfig.fromResilience(
+    AiWebEngineResilienceSettings resilience,
+  ) : tier1Failures = resilience.cooldownTier1Failures,
+      tier1Seconds = resilience.cooldownTier1Seconds,
+      tier2Failures = resilience.cooldownTier2Failures,
+      tier2Seconds = resilience.cooldownTier2Seconds,
+      tier3Failures = resilience.cooldownTier3Failures,
+      tier3Seconds = resilience.cooldownTier3Seconds,
+      quotaSeconds = resilience.cooldownQuotaSeconds;
 
   final int tier1Failures;
   final int tier1Seconds;

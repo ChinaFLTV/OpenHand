@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'openhand_console_log_panel.dart';
 import 'openhand_safe_scrollbar.dart';
 
 class OpenHandConsoleLogView extends StatelessWidget {
@@ -21,7 +22,7 @@ class OpenHandConsoleLogView extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1117),
+        color: OpenHandConsolePalette.deepSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.4),

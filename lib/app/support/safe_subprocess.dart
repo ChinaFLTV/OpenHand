@@ -354,6 +354,72 @@ Future<void> terminateTrackedProcessTree(
   await _terminateTrackedProcessTree(process, gracefulTimeout: gracefulTimeout);
 }
 
+/// [TrackedProcessSlot] 默认的优雅终止等待窗口。
+const Duration kTrackedProcessSlotGracePeriod = Duration(milliseconds: 500);
+
+/// 单进程槽位：同一时刻只跟踪一个子进程，并用代际号作废过期的那一轮。
+///
+/// 安装 / 校验类弹窗共享同一套生命周期：开新一轮前自增代际，旧代际迟到交回
+/// 的进程立刻终止而不占用槽位；取消与销毁时终止在跑的进程。此前 LSP 安装与
+/// Harness CLI 安装各写了一份，任何加固都得改两处且容易漏。
+///
+/// 只负责进程与代际，`mounted` / `disposed` 这类 Widget 状态仍由调用方判断。
+class TrackedProcessSlot {
+  TrackedProcessSlot({
+    required this.logTag,
+    this.gracefulTimeout = kTrackedProcessSlotGracePeriod,
+  });
+
+  /// 终止失败时 [silentLog] 使用的组件标签。
+  final String logTag;
+
+  /// 优雅终止的等待时长，超时后强杀整棵进程树。
+  final Duration gracefulTimeout;
+
+  Process? _process;
+  int _generation = 0;
+
+  /// 开启新一轮运行并返回本轮代际号。
+  int beginRun() => ++_generation;
+
+  /// [generation] 是否仍是当前这一轮。
+  bool isCurrent(int generation) => generation == _generation;
+
+  /// 认领本轮启动的进程；代际已过期则直接终止，不写入槽位。
+  void claim(Process process, int generation, {required String staleAction}) {
+    if (!isCurrent(generation)) {
+      unawaited(terminate(process, staleAction));
+      return;
+    }
+    _process = process;
+  }
+
+  /// 进程已自行退出后释放槽位；仅当槽位里仍是该进程时生效。
+  void release(Process? process) {
+    if (process != null && identical(_process, process)) _process = null;
+  }
+
+  /// 作废当前代际并终止槽位内的进程，用于取消与销毁。
+  void abort(String action) {
+    _generation += 1;
+    final process = _process;
+    _process = null;
+    if (process != null) unawaited(terminate(process, action));
+  }
+
+  /// 终止指定进程；失败只记日志，不向上抛出。
+  Future<void> terminate(Process process, String action) async {
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: gracefulTimeout,
+      );
+    } catch (error, stack) {
+      silentLog(logTag, action, error, stack);
+    }
+  }
+}
+
 Future<void> _terminateTrackedProcessTree(
   Process process, {
   Duration? gracefulTimeout,

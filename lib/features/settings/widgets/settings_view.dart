@@ -51,6 +51,7 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_deferred_slider.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
