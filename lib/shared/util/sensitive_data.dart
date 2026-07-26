@@ -5,12 +5,41 @@ const String _redactedUriUserInfo = 'redacted';
 
 final RegExp _sensitiveKeySeparator = RegExp(r'[^a-z0-9]+');
 final RegExp _sensitiveCamelCaseBoundary = RegExp(r'([a-z0-9])([A-Z])');
-const Set<String> _sensitiveExactKeys = <String>{
+const Set<String> _sensitiveExactKeys = <String>{'cookie', 'set-cookie'};
+
+/// 整体或以 `-` 结尾即视为凭据的键名。
+///
+/// 用「整体相等或以 `-<后缀>` 结尾」而不是子串包含：`authorization-scope`
+/// 这类描述性字段不该被抹掉，抹掉了排查请求头问题就没了线索。
+///
+/// 后半段的连写形式（`apikey` / `accesstoken` …）是必要的：模型与 MCP 都允许
+/// 用户自填请求头，而这些写法按 `-` 切词后是一个整词，走不到下面的分词匹配，
+/// 此前会原样落进会话遥测并随导出文件一起带走。
+const List<String> _sensitiveKeySuffixes = <String>[
   'authorization',
-  'cookie',
-  'proxy-authorization',
-  'set-cookie',
-};
+  'authentication',
+  'api-key',
+  'access-key',
+  'private-key',
+  'secret-key',
+  'apikey',
+  'apisecret',
+  'apitoken',
+  'accesskey',
+  'accesstoken',
+  'secretkey',
+  'privatekey',
+  'authtoken',
+  'refreshtoken',
+  'idtoken',
+  'sessiontoken',
+  'bearertoken',
+];
+
+/// 按 `-` 切词后命中任一即视为凭据。
+///
+/// 刻意不收 `tokens`：`total_tokens`、`cache_read_tokens` 这类计数不是凭据，
+/// 抹掉会让用量统计失真。
 const Set<String> _sensitiveKeySegments = <String>{
   'credential',
   'credentials',
@@ -31,16 +60,9 @@ bool isSensitiveDataKey(String key) {
       .toLowerCase()
       .replaceAll(_sensitiveKeySeparator, '-');
   if (normalized.isEmpty) return false;
-  if (_sensitiveExactKeys.contains(normalized) ||
-      normalized == 'api-key' ||
-      normalized.endsWith('-api-key') ||
-      normalized == 'access-key' ||
-      normalized.endsWith('-access-key') ||
-      normalized == 'private-key' ||
-      normalized.endsWith('-private-key') ||
-      normalized == 'secret-key' ||
-      normalized.endsWith('-secret-key')) {
-    return true;
+  if (_sensitiveExactKeys.contains(normalized)) return true;
+  for (final suffix in _sensitiveKeySuffixes) {
+    if (normalized == suffix || normalized.endsWith('-$suffix')) return true;
   }
   return normalized.split('-').any(_sensitiveKeySegments.contains);
 }
