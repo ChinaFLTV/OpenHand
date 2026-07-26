@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../model/harness_agent_role.dart';
@@ -2393,7 +2394,7 @@ class _SearchableModelSelectorState extends State<_SearchableModelSelector> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return OpenHandTapRegion(
       onTap: (widget.enabled && widget.settingsModels.isNotEmpty)
           ? _showMenu
           : null,

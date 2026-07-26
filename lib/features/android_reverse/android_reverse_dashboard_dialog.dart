@@ -19,6 +19,7 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -5923,7 +5924,7 @@ fi
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: GestureDetector(
+                    child: OpenHandTapRegion(
                       onTap: () => _copyText(value),
                       child: Text(
                         value,

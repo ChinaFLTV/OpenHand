@@ -3521,7 +3521,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.only(left: 28),
-              child: GestureDetector(
+              child: OpenHandTapRegion(
                 onTap: () => showFriendlyErrorDetailsDialog(
                   context,
                   fullText: rawMessage,

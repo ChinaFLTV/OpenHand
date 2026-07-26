@@ -8,6 +8,7 @@ import '../../app/theme/openhand_status_colors.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
+import 'openhand_tap_region.dart';
 import 'safe_edge_insets.dart';
 
 const EdgeInsets _kDefaultSnackBarFloatingMargin = EdgeInsets.symmetric(
@@ -969,7 +970,7 @@ class _OpenHandGlobalSnackBarCloseButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: tooltip,
-      child: GestureDetector(
+      child: OpenHandTapRegion(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Padding(

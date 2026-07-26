@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_tap_region.dart';
 import 'web_reverse_dialog_utils.dart';
 
 /// 截图导出前的注释面板。支持五种笔刷：
@@ -220,7 +221,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
               Colors.cyanAccent,
               Colors.white,
             ]) ...[
-              GestureDetector(
+              OpenHandTapRegion(
                 onTap: () => setState(() => _color = c),
                 child: AnimatedContainer(
                   duration: openHandMotionDuration(

@@ -37,6 +37,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -10656,7 +10657,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                                 prefixIcon: const Icon(Icons.search_rounded),
                                 suffixIcon:
                                     _toolSearchController.text.isNotEmpty
-                                    ? GestureDetector(
+                                    ? OpenHandTapRegion(
                                         onTap: () {
                                           _toolSearchController.clear();
                                           setState(() {

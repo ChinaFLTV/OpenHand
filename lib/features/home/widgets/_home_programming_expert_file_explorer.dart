@@ -1068,7 +1068,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     maxHeight: 36,
                   ),
                   suffixIcon: _searchController.text.isNotEmpty
-                      ? GestureDetector(
+                      ? OpenHandTapRegion(
                           onTap: () {
                             _searchController.clear();
                             _onSearchChanged('');
@@ -15609,7 +15609,7 @@ class _EditorTab extends StatelessWidget {
                           color: colorScheme.primary,
                         ),
                       ),
-                    GestureDetector(
+                    OpenHandTapRegion(
                       onTap: onClose,
                       child: Icon(
                         Icons.close_rounded,

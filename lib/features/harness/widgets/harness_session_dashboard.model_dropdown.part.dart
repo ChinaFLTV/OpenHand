@@ -141,7 +141,7 @@ class _HeUrlModelField extends StatelessWidget {
       listen: false,
     );
     final label = _displayLabel;
-    return GestureDetector(
+    return OpenHandTapRegion(
       onTap: settingsModels.isEmpty
           ? null
           : () async {
