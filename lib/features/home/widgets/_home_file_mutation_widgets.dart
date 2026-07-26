@@ -596,7 +596,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                   message: AppLocalizations.of(
                     context,
                   )!.fileMutationRevealLedger,
-                  waitDuration: const Duration(milliseconds: 600),
+                  waitDuration: kOpenHandTooltipWait,
                   child: InkWell(
                     onTap: () {
                       _markToolCardInteractiveTap(context);
@@ -907,7 +907,7 @@ class _FileMutationRevealPathButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Tooltip(
       message: _fileMutationRevealPathLabel(context),
-      waitDuration: const Duration(milliseconds: 500),
+      waitDuration: kOpenHandTooltipWait,
       child: MicroPressFeedback(
         child: InkResponse(
           onTap: () {
@@ -1180,7 +1180,7 @@ class _FileMutationCardRow extends StatelessWidget {
                           // hover 显示完整路径，右键 / Ctrl-长按复制路径。
                           child: Tooltip(
                             message: view.record.filePath,
-                            waitDuration: const Duration(milliseconds: 500),
+                            waitDuration: kOpenHandTooltipWait,
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
                               onSecondaryTap: () {
@@ -2051,7 +2051,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
                   ? 'Collapse unchanged content'
                   : 'Expand unchanged content',
             ),
-            waitDuration: const Duration(milliseconds: 500),
+            waitDuration: kOpenHandTooltipWait,
             child: row,
           ),
         ),
@@ -2803,7 +2803,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
                     Expanded(
                       child: Tooltip(
                         message: filePath,
-                        waitDuration: const Duration(milliseconds: 500),
+                        waitDuration: kOpenHandTooltipWait,
                         child: Text(
                           filePath,
                           maxLines: 1,
@@ -4273,7 +4273,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
           Expanded(
             child: Tooltip(
               message: row.view.record.filePath,
-              waitDuration: const Duration(milliseconds: 600),
+              waitDuration: kOpenHandTooltipWait,
               child: Text(
                 _FileMutationCard._shortenFilePath(row.view.record.filePath),
                 maxLines: 1,

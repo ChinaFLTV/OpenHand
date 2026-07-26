@@ -15,6 +15,15 @@ const Duration _kAdbTransferTimeout = Duration(minutes: 5);
 const Duration _kAdbPidLookupTimeout = Duration(seconds: 3);
 const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
 const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
+
+/// 拉起应用：am start / monkey 要等界面真正启动。
+const Duration _kAdbAppLaunchTimeout = Duration(seconds: 12);
+
+/// 截屏并回读文件列表，耗时随屏幕分辨率变化。
+const Duration _kAdbScreencapTimeout = Duration(seconds: 12);
+
+/// logcat 批量导出，行数上限内一次读完。
+const Duration _kAdbLogcatTimeout = Duration(seconds: 15);
 const int _kMaxAdbStdoutBytes = 4 * kBytesPerMiB;
 const int _kMaxAdbStderrBytes = 512 * kBytesPerKiB;
 const int _kMaxLogcatLines = 2000;
@@ -472,7 +481,7 @@ class AndroidReverseAdbClient {
       final result = _normalizeLaunchResult(
         await shellDetailed(
           'am start -W -n $launcher',
-          timeout: const Duration(seconds: 12),
+          timeout: _kAdbAppLaunchTimeout,
         ),
       );
       final output = result.combinedOutput.toLowerCase();
@@ -484,7 +493,7 @@ class AndroidReverseAdbClient {
     return _normalizeLaunchResult(
       await shellDetailed(
         'monkey -p $packageName -c android.intent.category.LAUNCHER 1',
-        timeout: const Duration(seconds: 12),
+        timeout: _kAdbAppLaunchTimeout,
       ),
     );
   }
@@ -656,7 +665,7 @@ class AndroidReverseAdbClient {
         normalizedPid,
       ],
       if (filter.isNotEmpty) ...filter,
-    ], timeout: const Duration(seconds: 15));
+    ], timeout: _kAdbLogcatTimeout);
   }
 
   Future<AdbCommandResult> clearLogcatDetailed() {
@@ -813,7 +822,7 @@ class AndroidReverseAdbClient {
       'mkdir -p ${_quoteShell(_remoteParent(path))}; '
       'screencap -p $quoted; '
       'ls -l $quoted',
-      timeout: const Duration(seconds: 12),
+      timeout: _kAdbScreencapTimeout,
     );
   }
 

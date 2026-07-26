@@ -24,6 +24,7 @@ import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
+import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_math.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';

@@ -483,7 +483,7 @@ class _SessionToolbarStatusPill extends StatelessWidget {
       padding: const EdgeInsets.only(left: 8),
       child: Tooltip(
         message: tooltip,
-        waitDuration: const Duration(milliseconds: 350),
+        waitDuration: kOpenHandTooltipWait,
         child: MicroPressFeedback(
           enabled: onTap != null,
           child: Material(
@@ -572,7 +572,7 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
       padding: const EdgeInsets.only(left: 8),
       child: Tooltip(
         message: tooltip,
-        waitDuration: const Duration(milliseconds: 200),
+        waitDuration: kOpenHandTooltipWait,
         child: Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 10),

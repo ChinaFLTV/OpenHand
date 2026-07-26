@@ -1625,7 +1625,7 @@ class _ToolContentDialogIconButton extends StatelessWidget {
         : colorScheme.surfaceContainerHigh;
     return Tooltip(
       message: tooltip,
-      waitDuration: const Duration(milliseconds: 350),
+      waitDuration: kOpenHandTooltipWait,
       child: IconButton(
         onPressed: onPressed,
         icon: Icon(icon, size: 20),

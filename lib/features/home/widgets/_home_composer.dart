@@ -3103,7 +3103,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
     const double size = 64;
     return Tooltip(
       message: '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
-      waitDuration: const Duration(milliseconds: 400),
+      waitDuration: kOpenHandTooltipWait,
       child: SizedBox(
         width: size,
         height: size,

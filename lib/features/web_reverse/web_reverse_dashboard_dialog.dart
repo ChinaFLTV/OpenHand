@@ -25,6 +25,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/hover_lift.dart';
+import '../../shared/ui/interaction_timings.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
@@ -126,6 +127,9 @@ part 'web_reverse_dashboard_dialog.realtime.part.dart';
 // 工具栏所有元素统一高度 36，沿用 Material outlined 风格的胶囊形。
 // 数据来源：Chrome DevTools 工具栏元素自身约 26-30px；这里做了桌面侧
 // 略大一点的视觉，保证 macOS 上点击命中区充足。
+/// 把 URL 交给系统默认处理器（open / start / xdg-open）。
+const Duration _kOpenExternalUrlTimeout = Duration(seconds: 5);
+
 const double _kToolbarHeight = 36;
 const double _kToolbarRadius = 999;
 const double _kToolbarDisabledOutlineAlpha = 0.4;
@@ -1892,21 +1896,21 @@ Future<void> _openOfficialDevToolsForController(
       await runTrackedProcessOrFailed(
         '/usr/bin/open',
         [url],
-        timeout: const Duration(seconds: 5),
+        timeout: _kOpenExternalUrlTimeout,
         tag: 'web_reverse.open_devtools',
       );
     } else if (Platform.isWindows) {
       await runTrackedProcessOrFailed(
         'cmd',
         ['/c', 'start', '', url],
-        timeout: const Duration(seconds: 5),
+        timeout: _kOpenExternalUrlTimeout,
         tag: 'web_reverse.open_devtools',
       );
     } else if (Platform.isLinux) {
       await runTrackedProcessOrFailed(
         'xdg-open',
         [url],
-        timeout: const Duration(seconds: 5),
+        timeout: _kOpenExternalUrlTimeout,
         tag: 'web_reverse.open_devtools',
       );
     }
@@ -2092,7 +2096,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
         de: 'Manuell aktivieren, um chrome-devtools-mcp per npx für diese Sitzung vorzubereiten; Deaktivieren stoppt das temporäre MCP.',
         ja: '手動で有効化すると、このセッション用に npx 経由で chrome-devtools-mcp を準備します。無効化すると一時 MCP を停止します。',
       ),
-      waitDuration: const Duration(milliseconds: 350),
+      waitDuration: kOpenHandTooltipWait,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : _kSwitchDuration,
         curve: _kSwitchInCurve,
@@ -2190,7 +2194,7 @@ class _CdpMcpBridgeStatusPill extends StatelessWidget {
     };
     return Tooltip(
       message: status.tooltip,
-      waitDuration: const Duration(milliseconds: 350),
+      waitDuration: kOpenHandTooltipWait,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : _kSwitchDuration,
         curve: _kSwitchInCurve,

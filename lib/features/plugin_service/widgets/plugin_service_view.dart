@@ -27,6 +27,12 @@ import '../service/plugin_toolchain_shell.dart';
 
 enum _PluginServiceAction { install, update, uninstall }
 
+/// 工具链版本探测（`--version`），命令应当秒回。
+const Duration _kToolchainVersionProbeTimeout = Duration(seconds: 5);
+
+/// 工具链包列举，需要读本地安装树。
+const Duration _kToolchainListTimeout = Duration(seconds: 10);
+
 const String _playwrightMcpPackage = '@playwright/mcp';
 const String _playwrightMcpServerName = 'Playwright MCP';
 
@@ -1219,7 +1225,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           final npmResult = await runPluginToolchainCommandOrFailed(
             'npm',
             const <String>['--version'],
-            timeout: const Duration(seconds: 5),
+            timeout: _kToolchainVersionProbeTimeout,
           );
           if (npmResult.exitCode == 0) {
             info['npm'] = npmResult.stdout.toString().trim();
@@ -1227,7 +1233,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           final npxResult = await runPluginToolchainCommandOrFailed(
             'npx',
             const <String>['--version'],
-            timeout: const Duration(seconds: 5),
+            timeout: _kToolchainVersionProbeTimeout,
           );
           if (npxResult.exitCode == 0) {
             info['npx'] = npxResult.stdout.toString().trim();
@@ -1243,7 +1249,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           final pythonResult = await runTrackedProcessOrFailed(
             pythonExecutable,
             ['--version'],
-            timeout: const Duration(seconds: 5),
+            timeout: _kToolchainVersionProbeTimeout,
           );
           if (pythonResult.exitCode == 0) {
             info['python'] = '${pythonResult.stdout}${pythonResult.stderr}'
@@ -1661,7 +1667,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           final listResult = await runPluginToolchainCommandOrFailed(
             'npm',
             const <String>['list', '-g', _playwrightMcpPackage, '--depth=0'],
-            timeout: const Duration(seconds: 10),
+            timeout: _kToolchainListTimeout,
           );
           npmInstalled =
               listResult.exitCode == 0 &&

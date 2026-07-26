@@ -7,6 +7,12 @@ import 'web_reverse_browser_kind.dart';
 
 const Duration _browserExecutableProbeTimeout = Duration(milliseconds: 500);
 
+/// which / 版本探测等短命子进程。
+const Duration _browserLookupTimeout = Duration(seconds: 2);
+
+/// Spotlight (mdfind) 全盘检索，比逐个 which 慢。
+const Duration _browserSpotlightTimeout = Duration(seconds: 3);
+
 /// 探测结果：[browser] 命中即可启动；为 null 表示用户未安装任何同核浏览器。
 class WebReverseBrowserProbeResult {
   const WebReverseBrowserProbeResult({
@@ -78,7 +84,7 @@ class WebReverseBrowserDetector {
     final mdfind = await runProcessWithTimeout(
       'mdfind',
       ['kMDItemCFBundleIdentifier == "${kind.macBundleId}"'],
-      timeout: const Duration(seconds: 3),
+      timeout: _browserSpotlightTimeout,
       tag: 'web_reverse_browser_detector',
     );
     final firstAppPath = mdfind?.stdout
@@ -104,7 +110,7 @@ class WebReverseBrowserDetector {
       final which = await runProcessWithTimeout(
         '/usr/bin/which',
         [cliCandidate],
-        timeout: const Duration(seconds: 2),
+        timeout: _browserLookupTimeout,
         tag: 'web_reverse_browser_detector',
       );
       final raw = which?.stdout.toString().trim();
@@ -145,7 +151,7 @@ class WebReverseBrowserDetector {
         'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\$exeName',
         '/ve',
       ],
-      timeout: const Duration(seconds: 2),
+      timeout: _browserLookupTimeout,
       tag: 'web_reverse_browser_detector',
     );
     final raw = reg?.stdout.toString() ?? '';
@@ -168,7 +174,7 @@ class WebReverseBrowserDetector {
       final which = await runProcessWithTimeout(
         '/usr/bin/which',
         [cli],
-        timeout: const Duration(seconds: 2),
+        timeout: _browserLookupTimeout,
         tag: 'web_reverse_browser_detector',
       );
       final raw = which?.stdout.toString().trim();
@@ -184,7 +190,7 @@ class WebReverseBrowserDetector {
       final result = await runProcessWithTimeout(
         executable,
         const ['--version'],
-        timeout: const Duration(seconds: 2),
+        timeout: _browserLookupTimeout,
         tag: 'web_reverse_browser_detector',
       );
       final line = result?.stdout.toString().trim();

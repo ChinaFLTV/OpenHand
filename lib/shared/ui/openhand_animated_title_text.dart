@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
+import 'interaction_timings.dart';
 import 'motion_preference.dart';
 
 /// 为会话标题提供统一的淡入、纵向切换与轻微弹性缩放动效。
@@ -119,7 +120,7 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
     if (trimmed.isEmpty || !widget.tooltip) return animatedBody;
     return Tooltip(
       message: trimmed,
-      waitDuration: const Duration(milliseconds: 380),
+      waitDuration: kOpenHandTooltipWait,
       child: Semantics(
         label: trimmed,
         child: ExcludeSemantics(child: animatedBody),

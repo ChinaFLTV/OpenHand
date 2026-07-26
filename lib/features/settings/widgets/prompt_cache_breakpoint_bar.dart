@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
@@ -362,7 +363,7 @@ class _StructureSegmentTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Tooltip(
       richMessage: _promptSegmentTooltip(segment),
-      waitDuration: const Duration(milliseconds: 250),
+      waitDuration: kOpenHandDenseTooltipWait,
       preferBelow: false,
       child: MouseRegion(
         cursor: SystemMouseCursors.help,
@@ -521,7 +522,7 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
     final icon = Icon(Icons.bolt_rounded, size: 12, color: widget.accent);
     return Tooltip(
       message: widget.tooltip,
-      waitDuration: const Duration(milliseconds: 250),
+      waitDuration: kOpenHandDenseTooltipWait,
       child: SizedBox(
         width: 22,
         height: widget.totalHeight,
@@ -615,7 +616,7 @@ class _SegmentLegendChip extends StatelessWidget {
     final theme = Theme.of(context);
     return Tooltip(
       richMessage: _promptSegmentTooltip(segment),
-      waitDuration: const Duration(milliseconds: 250),
+      waitDuration: kOpenHandDenseTooltipWait,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(

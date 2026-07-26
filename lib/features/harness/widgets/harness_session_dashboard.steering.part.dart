@@ -1420,7 +1420,7 @@ class _MdToolbarBtn extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return Tooltip(
       message: tooltip,
-      waitDuration: const Duration(milliseconds: 400),
+      waitDuration: kOpenHandTooltipWait,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

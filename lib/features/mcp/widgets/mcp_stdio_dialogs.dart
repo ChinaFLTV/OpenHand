@@ -18,6 +18,9 @@ import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 
+/// 包管理器的列举 / 查版本命令，可能要读本地安装树或访问 registry。
+const Duration _kPackageQueryTimeout = Duration(seconds: 10);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STDIO 弹窗公共标题栏
 // ─────────────────────────────────────────────────────────────────────────────
@@ -838,7 +841,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         final listResult = await runTrackedProcessOrFailed(
           'npm',
           ['list', '-g', cleanPkg, '--depth=0'],
-          timeout: const Duration(seconds: 10),
+          timeout: _kPackageQueryTimeout,
           environment: SystemProxyResolver.instance
               .resolveSubprocessEnvironment(),
         );
@@ -858,7 +861,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           final viewResult = await runTrackedProcessOrFailed(
             'npm',
             ['view', cleanPkg, 'version'],
-            timeout: const Duration(seconds: 10),
+            timeout: _kPackageQueryTimeout,
             environment: SystemProxyResolver.instance
                 .resolveSubprocessEnvironment(),
           );
@@ -878,7 +881,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         final listResult = await runTrackedProcessOrFailed(
           'uv',
           ['tool', 'list'],
-          timeout: const Duration(seconds: 10),
+          timeout: _kPackageQueryTimeout,
           environment: SystemProxyResolver.instance
               .resolveSubprocessEnvironment(),
         );

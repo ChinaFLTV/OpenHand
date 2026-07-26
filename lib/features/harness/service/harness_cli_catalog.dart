@@ -15,6 +15,12 @@ enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
 const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
+
+/// 直接执行 CLI 做能力探测，可能触发首次初始化。
+const Duration _kHarnessCliProbeTimeout = Duration(seconds: 10);
+
+/// 登录 shell 内的 which / 环境诊断，只读不初始化。
+const Duration _kHarnessCliLookupTimeout = Duration(seconds: 5);
 const int _harnessCliProbeConcurrency = 4;
 
 /// Harness Engineering 支持的 AI CLI 定义。
@@ -679,7 +685,7 @@ Future<({bool success, String message})> _performCommandLogout(
       final result = await runProcessWithTimeout(
         executable,
         args,
-        timeout: const Duration(seconds: 10),
+        timeout: _kHarnessCliProbeTimeout,
         runInShell: true,
         tag: 'harness_cli_catalog',
       );
@@ -691,7 +697,7 @@ Future<({bool success, String message})> _performCommandLogout(
       final cmd = [executable, ...args].map(_q).join(' ');
       r = await runHarnessCliShellCommand(
         cmd,
-        timeout: const Duration(seconds: 10),
+        timeout: _kHarnessCliProbeTimeout,
       );
     }
 
@@ -773,7 +779,7 @@ else
   printf 'node_version=\\n'
 fi
 printf '%s\\n' '__OPENHAND_DIAG_END__'
-''', timeout: const Duration(seconds: 5));
+''', timeout: _kHarnessCliLookupTimeout);
 
     final diagnostics = _extractHarnessCliDiagnostics('${result.stdout}');
     final lines = <String>[];
@@ -856,7 +862,7 @@ Future<String?> _tryLoginShellWhich(String executable) async {
     final r = await runProcessWithTimeout(
       'where',
       <String>[executable],
-      timeout: const Duration(seconds: 5),
+      timeout: _kHarnessCliLookupTimeout,
       tag: 'harness_cli_catalog',
     );
     if (r != null && r.exitCode == 0) {
@@ -883,7 +889,7 @@ Future<String?> _tryLoginShellExec(String executable) async {
     final r = await runProcessWithTimeout(
       executable,
       const <String>['--version'],
-      timeout: const Duration(seconds: 5),
+      timeout: _kHarnessCliLookupTimeout,
       runInShell: true,
       tag: 'harness_cli_catalog',
     );

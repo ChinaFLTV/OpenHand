@@ -8937,7 +8937,7 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
         : Colors.white.withValues(alpha: 0.12);
     return Tooltip(
       message: widget.tooltip,
-      waitDuration: const Duration(milliseconds: 400),
+      waitDuration: kOpenHandTooltipWait,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) {

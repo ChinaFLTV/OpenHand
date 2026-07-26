@@ -10,6 +10,12 @@ import '../../shared/util/path_safety.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_cdp_client.dart';
 
+/// 目标创建、附着与导航等 I/O 类 CDP 命令。
+const Duration _kHeadlessCdpIoTimeout = Duration(seconds: 10);
+
+/// 会话内的常规配置与求值类 CDP 命令。
+const Duration _kHeadlessCdpCommandTimeout = Duration(seconds: 5);
+
 const int kWebReverseHeadlessBatchMaxUrls = 50;
 const int kWebReverseHeadlessBatchMaxNetworkEventsPerUrl = 1500;
 const int kWebReverseHeadlessBatchMaxConsoleEventsPerUrl = 1000;
@@ -157,7 +163,7 @@ class WebReverseHeadlessBatch {
       final created = await cdp.send(
         'Target.createTarget',
         params: <String, Object?>{'url': 'about:blank', 'background': true},
-        timeout: const Duration(seconds: 10),
+        timeout: _kHeadlessCdpIoTimeout,
       );
       targetId = created['targetId'] as String?;
       if (targetId == null) {
@@ -170,7 +176,7 @@ class WebReverseHeadlessBatch {
       final attached = await cdp.send(
         'Target.attachToTarget',
         params: <String, Object?>{'targetId': targetId, 'flatten': true},
-        timeout: const Duration(seconds: 10),
+        timeout: _kHeadlessCdpIoTimeout,
       );
       sessionId = attached['sessionId'] as String?;
       if (sessionId == null) {
@@ -270,25 +276,25 @@ class WebReverseHeadlessBatch {
       await cdp.send(
         'Page.enable',
         sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _kHeadlessCdpCommandTimeout,
       );
       if (captureNetwork) {
         await cdp.send(
           'Network.enable',
           sessionId: sessionId,
-          timeout: const Duration(seconds: 5),
+          timeout: _kHeadlessCdpCommandTimeout,
         );
       }
       if (captureConsole) {
         await cdp.send(
           'Runtime.enable',
           sessionId: sessionId,
-          timeout: const Duration(seconds: 5),
+          timeout: _kHeadlessCdpCommandTimeout,
         );
         await cdp.send(
           'Log.enable',
           sessionId: sessionId,
-          timeout: const Duration(seconds: 5),
+          timeout: _kHeadlessCdpCommandTimeout,
         );
       }
 
@@ -297,7 +303,7 @@ class WebReverseHeadlessBatch {
         'Page.navigate',
         params: <String, Object?>{'url': url},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _kHeadlessCdpIoTimeout,
       );
 
       _emit(index, url, HeadlessBatchPhase.waitingLoad, total);
@@ -361,7 +367,7 @@ class WebReverseHeadlessBatch {
             'Page.captureScreenshot',
             params: <String, Object?>{'format': 'png'},
             sessionId: sessionId,
-            timeout: const Duration(seconds: 10),
+            timeout: _kHeadlessCdpIoTimeout,
           );
           final data = shot['data'];
           if (data is String &&
@@ -400,7 +406,7 @@ class WebReverseHeadlessBatch {
           await cdp.send(
             'Target.closeTarget',
             params: <String, Object?>{'targetId': targetId},
-            timeout: const Duration(seconds: 5),
+            timeout: _kHeadlessCdpCommandTimeout,
           );
         } catch (e, st) {
           silentLog('web_reverse_headless_batch', '关闭无头页面目标', e, st);

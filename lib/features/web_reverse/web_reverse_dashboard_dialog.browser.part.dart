@@ -1607,21 +1607,21 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             await runTrackedProcessOrFailed(
               '/usr/bin/open',
               [url],
-              timeout: const Duration(seconds: 5),
+              timeout: _kOpenExternalUrlTimeout,
               tag: 'web_reverse.open_external',
             );
           } else if (Platform.isWindows) {
             await runTrackedProcessOrFailed(
               'cmd',
               ['/c', 'start', '', url],
-              timeout: const Duration(seconds: 5),
+              timeout: _kOpenExternalUrlTimeout,
               tag: 'web_reverse.open_external',
             );
           } else if (Platform.isLinux) {
             await runTrackedProcessOrFailed(
               'xdg-open',
               [url],
-              timeout: const Duration(seconds: 5),
+              timeout: _kOpenExternalUrlTimeout,
               tag: 'web_reverse.open_external',
             );
           }

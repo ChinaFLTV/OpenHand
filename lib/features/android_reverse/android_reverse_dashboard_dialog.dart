@@ -69,6 +69,18 @@ const Duration _kArtifactFileProbeTimeout = Duration(seconds: 3);
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
+
+/// frida-doctor 环境体检脚本：逐项探测工具链，比单条命令久。
+const Duration _kFridaDoctorTimeout = Duration(seconds: 15);
+
+/// frida spawn / attach：要等目标进程起来并完成注入。
+const Duration _kFridaCaptureTimeout = Duration(seconds: 28);
+
+/// 本机 shell 形式的 frida 辅助命令（列举脚本、查状态）。
+const Duration _kFridaLocalShellTimeout = Duration(seconds: 8);
+
+/// 网络代理探测脚本：需要真机往返一次请求。
+const Duration _kNetworkProxyProbeTimeout = Duration(seconds: 18);
 const Duration _kLogcatAutoRefreshInterval = Duration(seconds: 1);
 const Duration _kLogcatFollowScrollDuration = Duration(milliseconds: 360);
 const int _kDeviceSnapshotMaxLines = 80;
@@ -2268,7 +2280,7 @@ class _AndroidReverseDashboardDialogState
           if (pkg != null && pkg.isNotEmpty) ...['--package', pkg],
           if (serial != null && serial.isNotEmpty) ...['-s', serial],
         ],
-        timeout: const Duration(seconds: 15),
+        timeout: _kFridaDoctorTimeout,
         displayCommand:
             'bash ${_shellQuote(_ctrl.fridaDoctorScriptPath)} --timeout 6${pkg == null ? "" : " --package ${_shellQuote(pkg)}"}${serial == null || serial.isEmpty ? "" : " -s ${_shellQuote(serial)}"}',
         tag: 'android_reverse.frida_doctor',
@@ -2385,7 +2397,7 @@ class _AndroidReverseDashboardDialogState
           spawn ? '--spawn' : '--attach',
           if (serial != null && serial.isNotEmpty) ...['-s', serial],
         ],
-        timeout: const Duration(seconds: 28),
+        timeout: _kFridaCaptureTimeout,
         displayCommand:
             'bash ${_shellQuote(_ctrl.fridaCaptureScriptPath)} --package ${_shellQuote(pkg)} --script ${_shellQuote(scriptPath)} ${spawn ? "--spawn" : "--attach"}${serial == null || serial.isEmpty ? "" : " -s ${_shellQuote(serial)}"}',
         tag: spawn
@@ -2440,7 +2452,7 @@ fi
           'FRIDA_SCRIPTS_DIR': _ctrl.fridaScriptsDir,
           'FRIDA_OUTPUT_DIR': _ctrl.fridaOutputDir,
         },
-        timeout: const Duration(seconds: 8),
+        timeout: _kFridaLocalShellTimeout,
         displayCommand: 'read Frida artifacts',
         tag: 'android_reverse.frida_read_artifacts',
       );
@@ -2506,7 +2518,7 @@ fi
       final start = await _ctrl.shellDetailed(
         'if [ -x /data/local/tmp/frida-server ]; then pidof frida-server >/dev/null 2>&1 || nohup /data/local/tmp/frida-server >/dev/null 2>&1 & echo started; else echo missing:/data/local/tmp/frida-server; exit 2; fi',
         serial: target.serial,
-        timeout: const Duration(seconds: 8),
+        timeout: _kInteractiveShellTimeout,
       );
       if (!_isCurrentAndroidTargetContext(target, includePackage: false)) {
         return;
@@ -2565,7 +2577,7 @@ fi
           if (packageName != null && packageName.isNotEmpty)
             'ANDROID_PACKAGE_NAME': packageName,
         },
-        timeout: const Duration(seconds: 18),
+        timeout: _kNetworkProxyProbeTimeout,
         displayCommand:
             'bash ${_shellQuote(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
         tag: 'android_reverse.network_proxy_probe',
@@ -2678,7 +2690,7 @@ fi
       () => _ctrl.shellDetailed(
         'settings put global http_proxy ${_shellQuote('$host:$port')}; settings get global http_proxy',
         serial: target.serial,
-        timeout: const Duration(seconds: 8),
+        timeout: _kInteractiveShellTimeout,
       ),
       target: target,
     );
@@ -2690,7 +2702,7 @@ fi
       () => _ctrl.shellDetailed(
         'settings get global http_proxy; settings get global global_http_proxy_host 2>/dev/null; settings get global global_http_proxy_port 2>/dev/null',
         serial: target.serial,
-        timeout: const Duration(seconds: 8),
+        timeout: _kInteractiveShellTimeout,
       ),
       target: target,
     );
@@ -2702,7 +2714,7 @@ fi
       () => _ctrl.shellDetailed(
         'settings delete global http_proxy; settings delete global global_http_proxy_host 2>/dev/null; settings delete global global_http_proxy_port 2>/dev/null; settings get global http_proxy',
         serial: target.serial,
-        timeout: const Duration(seconds: 8),
+        timeout: _kInteractiveShellTimeout,
       ),
       target: target,
     );
