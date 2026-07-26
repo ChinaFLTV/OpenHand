@@ -230,7 +230,7 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
         if (hidden > 0)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: GestureDetector(
+            child: OpenHandTapRegion(
               onTap: () => setState(() => _expanded = true),
               child: Container(
                 padding: const EdgeInsets.symmetric(

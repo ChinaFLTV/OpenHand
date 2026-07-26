@@ -40,6 +40,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_sweep_shimmer.dart';
+import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/spring_entrance.dart';

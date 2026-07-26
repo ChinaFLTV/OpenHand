@@ -92,6 +92,7 @@ import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_scroll_behaviors.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_sweep_shimmer.dart';
+import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_token_usage_capsule.dart';
 import '../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../shared/ui/openhand_trailing_toolbar.dart';

@@ -3503,7 +3503,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                 ),
               ),
               const SizedBox(width: 4),
-              GestureDetector(
+              OpenHandTapRegion(
                 onTap: _handleDismiss,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(

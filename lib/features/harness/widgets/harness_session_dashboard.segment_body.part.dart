@@ -225,7 +225,7 @@ class _HeSegmentBody extends StatelessWidget {
           ),
         if (!expanded) ...[
           const SizedBox(height: 4),
-          GestureDetector(
+          OpenHandTapRegion(
             onTap: onExpand,
             child: Builder(
               builder: (context) {
@@ -639,7 +639,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
+    return OpenHandTapRegion(
       onTap: _toggle,
       child: AnimatedContainer(
         duration: _harnessMotionDuration(

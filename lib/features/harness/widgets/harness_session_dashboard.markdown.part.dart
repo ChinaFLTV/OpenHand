@@ -414,7 +414,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
             ),
           ),
           const SizedBox(height: 4),
-          GestureDetector(
+          OpenHandTapRegion(
             onTap: _expand,
             child: Container(
               width: double.infinity,

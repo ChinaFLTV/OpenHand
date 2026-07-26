@@ -4,6 +4,7 @@ import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
 import 'model_search_selector.dart';
+import 'openhand_tap_region.dart';
 
 mixin OpenHandModelSelectionState<W extends StatefulWidget> on State<W> {
   String? _openHandSelectedModelConfigId;
@@ -235,7 +236,7 @@ class _OpenHandModelSelectorFieldState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
+        OpenHandTapRegion(
           onTap: _hasModels ? _showModelMenu : null,
           child: InputDecorator(
             decoration: InputDecoration(
