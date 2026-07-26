@@ -12,7 +12,9 @@ class _SnippetsBody extends StatefulWidget {
 }
 
 class _SnippetsBodyState extends State<_SnippetsBody>
-    with _DashboardScriptEditorLifecycle<_SnippetsBody> {
+    with
+        FrameCoalescedRebuild<_SnippetsBody>,
+        _DashboardScriptEditorLifecycle<_SnippetsBody> {
   bool _running = false;
   String? _lastResultPreview;
 

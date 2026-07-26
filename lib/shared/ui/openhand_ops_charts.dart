@@ -1,9 +1,9 @@
-/// 运维面板共用的平滑折线趋势图。
+/// 运维面板共用的两个图表画笔：平滑折线趋势图与占比环。
 ///
-/// MCP 运维与消息网关运维此前各画了一份同样的图：同样的网格密度、同样的
-/// 1.14 顶部余量、同样的贝塞尔平滑与端点圆点，连魔数都一模一样，却各自
-/// 漂移出了差异——其中一份没有对零尺寸画布做保护，布局塌缩时会算出 NaN。
-/// 这里收敛为一份，魔数改为具名常量。
+/// MCP 运维与消息网关运维此前各画了一份，连网格密度、顶部余量、贝塞尔平滑
+/// 这些魔数都一模一样，却又各自漂移出了差异：折线图有一份没有对零尺寸画布
+/// 做保护（布局塌缩时算出 NaN 坐标），占比环有一份没有对空调色板取模（抛
+/// 整数除零）。这里收敛为一份，两处保护都补齐，魔数改为具名常量。
 library;
 
 import 'dart:math' as math;
@@ -192,5 +192,77 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
         oldDelegate.emptyLabel != emptyLabel ||
         oldDelegate.valueSuffix != valueSuffix ||
         oldDelegate.textDirection != textDirection;
+  }
+}
+
+/// 占比环的线宽区间与相对尺寸。
+const double _kDonutMinStroke = 10;
+const double _kDonutMaxStroke = 18;
+const double _kDonutStrokeRatio = 0.16;
+
+/// 相邻扇区之间留出的角度缝隙，以及扇区的最小可见角度（弧度）。
+const double _kDonutSegmentGap = 0.018;
+const double _kDonutMinSweep = 0.03;
+
+/// 运维面板共用的占比环画笔。
+///
+/// MCP 运维与消息网关运维此前各写了一份；其中一份没有对空调色板取模，
+/// `index % colors.length` 会在 colors 为空时抛整数除零。
+class OpenHandDonutChartPainter extends CustomPainter {
+  const OpenHandDonutChartPainter({
+    required this.values,
+    required this.colors,
+    required this.trackColor,
+  });
+
+  final List<int> values;
+  final List<Color> colors;
+
+  /// 底环颜色；总量为零时只画这一圈。
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = values.fold<int>(0, (sum, value) => sum + value);
+    final stroke = math.max(
+      _kDonutMinStroke,
+      math.min(size.shortestSide * _kDonutStrokeRatio, _kDonutMaxStroke),
+    );
+    final rect =
+        Offset(stroke / 2, stroke / 2) &
+        Size(size.width - stroke, size.height - stroke);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      math.pi * 2,
+      false,
+      paint..color = trackColor,
+    );
+    if (total <= 0 || colors.isEmpty) return;
+
+    var start = -math.pi / 2;
+    for (var index = 0; index < values.length; index++) {
+      final sweep = math.pi * 2 * values[index] / total;
+      if (sweep <= 0) continue;
+      canvas.drawArc(
+        rect,
+        start,
+        math.max(_kDonutMinSweep, sweep - _kDonutSegmentGap),
+        false,
+        paint..color = colors[index % colors.length],
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant OpenHandDonutChartPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.colors != colors ||
+        oldDelegate.trackColor != trackColor;
   }
 }

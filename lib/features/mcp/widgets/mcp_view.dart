@@ -34,8 +34,8 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
-import '../../../shared/ui/openhand_smooth_line_chart.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -6621,7 +6621,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
                   height: 112,
                   child: RepaintBoundary(
                     child: CustomPaint(
-                      painter: _McpOpsDonutChartPainter(
+                      painter: OpenHandDonutChartPainter(
                         values: top.map((entry) => entry.value).toList(),
                         colors: palette,
                         trackColor: cs.surfaceContainerHighest,
@@ -6656,59 +6656,6 @@ class _McpOpsDistributionPanel extends StatelessWidget {
               ],
             ),
     );
-  }
-}
-
-class _McpOpsDonutChartPainter extends CustomPainter {
-  const _McpOpsDonutChartPainter({
-    required this.values,
-    required this.colors,
-    required this.trackColor,
-  });
-
-  final List<int> values;
-  final List<Color> colors;
-  final Color trackColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final total = values.fold<int>(0, (sum, value) => sum + value);
-    final stroke = math.max(10.0, math.min(size.shortestSide * 0.16, 18.0));
-    final rect =
-        Offset(stroke / 2, stroke / 2) &
-        Size(size.width - stroke, size.height - stroke);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      math.pi * 2,
-      false,
-      paint..color = trackColor,
-    );
-    if (total <= 0 || colors.isEmpty) return;
-    var start = -math.pi / 2;
-    for (var i = 0; i < values.length; i++) {
-      final sweep = math.pi * 2 * values[i] / total;
-      if (sweep <= 0) continue;
-      canvas.drawArc(
-        rect,
-        start,
-        math.max(0.03, sweep - 0.018),
-        false,
-        paint..color = colors[i % colors.length],
-      );
-      start += sweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _McpOpsDonutChartPainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.colors != colors ||
-        oldDelegate.trackColor != trackColor;
   }
 }
 

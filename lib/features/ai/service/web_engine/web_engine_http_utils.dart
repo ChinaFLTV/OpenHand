@@ -98,6 +98,56 @@ mixin BoundedWebEngineHttpClient {
   }
 }
 
+/// Grok Live Search 调用使用的模型名与端点。
+const String kGrokLiveSearchModel = 'grok-4-latest';
+const String kGrokChatCompletionsEndpoint =
+    'https://api.x.ai/v1/chat/completions';
+
+/// Grok Live Search（`search_parameters.mode = on`）调用。
+///
+/// WebSearch 与 WebFetch 各有一个 Grok 引擎，端点、模型与 `search_parameters`
+/// 完全相同，只有系统提示词、用户消息与结果条数不同。
+extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
+  Future<Map<String, Object?>> requestGrokLiveSearch({
+    required String? apiKey,
+    required String systemPrompt,
+    required String userPrompt,
+    required int maxSearchResults,
+    Future<void>? cancelSignal,
+  }) async {
+    final key = apiKey?.trim() ?? '';
+    // 引擎的 isReady 已挡住空 Key，这里再兜一次，避免发出必然 401 的请求。
+    if (key.isEmpty) {
+      throw WebEngineHttpException('Grok API key is missing');
+    }
+    final response = await sendWebEngineHttpRequest(
+      'POST',
+      Uri.parse(kGrokChatCompletionsEndpoint),
+      headers: {
+        'authorization': 'Bearer $key',
+        kContentTypeHeaderName: 'application/json',
+      },
+      body: jsonEncode({
+        'model': kGrokLiveSearchModel,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': userPrompt},
+        ],
+        'search_parameters': {
+          'mode': 'on',
+          'max_search_results': maxSearchResults,
+          'return_citations': true,
+        },
+      }),
+      cancelSignal: cancelSignal,
+    );
+    return decodeSuccessfulWebEngineJsonResponse(
+      response,
+      engineLabel: 'Grok',
+    );
+  }
+}
+
 /// Gemini grounding 调用使用的模型名。
 const String kGeminiGroundingModel = 'gemini-2.0-flash';
 

@@ -194,6 +194,9 @@ class WebFetchBochaEngine extends WebFetchEngine {
   }
 }
 
+/// 以 URL 为查询走 Grok 时保留的候选结果条数：只需要命中目标页，多取无益。
+const int _kGrokFetchSearchResults = 3;
+
 class WebFetchGrokEngine extends WebFetchProviderKeyEngine {
   WebFetchGrokEngine({
     required super.config,
@@ -203,37 +206,12 @@ class WebFetchGrokEngine extends WebFetchProviderKeyEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await sendWebEngineHttpRequest(
-      'POST',
-      Uri.parse('https://api.x.ai/v1/chat/completions'),
-      headers: {
-        'authorization': 'Bearer $effectiveApiKey',
-        'content-type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': 'grok-4-latest',
-        'messages': [
-          {
-            'role': 'system',
-            'content':
-                'You are a webpage extractor. Reply with the page content.',
-          },
-          {
-            'role': 'user',
-            'content': 'Fetch and return the main content of: ${req.url}',
-          },
-        ],
-        'search_parameters': {
-          'mode': 'on',
-          'max_search_results': 3,
-          'return_citations': true,
-        },
-      }),
+    final body = await requestGrokLiveSearch(
+      apiKey: effectiveApiKey,
+      systemPrompt: 'You are a webpage extractor. Reply with the page content.',
+      userPrompt: 'Fetch and return the main content of: ${req.url}',
+      maxSearchResults: _kGrokFetchSearchResults,
       cancelSignal: req.cancelSignal,
-    );
-    final body = decodeSuccessfulWebEngineJsonResponse(
-      response,
-      engineLabel: 'Grok',
     );
     final reply =
         readJsonPath<String>(body, ['choices', 0, 'message', 'content']) ?? '';

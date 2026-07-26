@@ -12,7 +12,9 @@ class _HooksBody extends StatefulWidget {
 }
 
 class _HooksBodyState extends State<_HooksBody>
-    with _DashboardScriptEditorLifecycle<_HooksBody> {
+    with
+        FrameCoalescedRebuild<_HooksBody>,
+        _DashboardScriptEditorLifecycle<_HooksBody> {
   @override
   Listenable get _dashboardScriptController => widget.controller;
 

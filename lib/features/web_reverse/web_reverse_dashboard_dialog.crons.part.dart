@@ -12,7 +12,9 @@ class _CronsBody extends StatefulWidget {
 }
 
 class _CronsBodyState extends State<_CronsBody>
-    with _DashboardScriptEditorLifecycle<_CronsBody> {
+    with
+        FrameCoalescedRebuild<_CronsBody>,
+        _DashboardScriptEditorLifecycle<_CronsBody> {
   final TextEditingController _intervalCtrl = TextEditingController(text: '60');
   bool _runningNow = false;
   String? _lastResultPreview;

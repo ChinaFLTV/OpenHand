@@ -13,6 +13,7 @@ import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
+import '../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
@@ -648,7 +649,8 @@ class _AndroidReverseDashboardDialog extends StatefulWidget {
 }
 
 class _AndroidReverseDashboardDialogState
-    extends State<_AndroidReverseDashboardDialog> {
+    extends State<_AndroidReverseDashboardDialog>
+    with FrameCoalescedRebuild<_AndroidReverseDashboardDialog> {
   _Tab _currentTab = _Tab.devices;
   late final AndroidReverseSessionController _ctrl;
   final _logcatLines = <String>[];
@@ -708,7 +710,6 @@ class _AndroidReverseDashboardDialogState
   bool _logcatAutoRefresh = false;
   bool _logcatStickToBottom = true;
   bool _didKickInitialRefresh = false;
-  bool _controllerUpdateScheduled = false;
   int _deviceContextGeneration = 0;
   int _fridaScriptRevision = 0;
   int _fridaSnippetLoadGeneration = 0;
@@ -804,14 +805,7 @@ class _AndroidReverseDashboardDialogState
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    if (!mounted || _controllerUpdateScheduled) return;
-    _controllerUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controllerUpdateScheduled = false;
-      if (mounted) setState(() {});
-    });
-  }
+  void _onControllerChanged() => scheduleCoalescedRebuild();
 
   void _onFridaScriptChanged() {
     if (!mounted) return;

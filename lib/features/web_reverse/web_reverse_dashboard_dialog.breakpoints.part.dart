@@ -22,7 +22,8 @@ class _BreakpointsBody extends StatefulWidget {
   State<_BreakpointsBody> createState() => _BreakpointsBodyState();
 }
 
-class _BreakpointsBodyState extends State<_BreakpointsBody> {
+class _BreakpointsBodyState extends State<_BreakpointsBody>
+    with FrameCoalescedRebuild<_BreakpointsBody> {
   final TextEditingController _xhrCtrl = TextEditingController();
   final TextEditingController _domSelectorCtrl = TextEditingController();
   String _domType = 'subtree-modified';
@@ -96,7 +97,6 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
 
   bool _gListLoading = false;
   List<Map<String, Object?>>? _globalListeners;
-  bool _controllerUpdateScheduled = false;
 
   @override
   void initState() {
@@ -112,14 +112,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    if (!mounted || _controllerUpdateScheduled) return;
-    _controllerUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controllerUpdateScheduled = false;
-      if (mounted) setState(() {});
-    });
-  }
+  void _onControllerChanged() => scheduleCoalescedRebuild();
 
   Future<void> _removeSourceBp(({String url, int line}) b) async {
     final ok = await widget.controller.removeBreakpointAt(

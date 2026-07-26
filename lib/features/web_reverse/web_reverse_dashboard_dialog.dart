@@ -24,6 +24,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../shared/ui/hover_lift.dart';
 import '../../shared/ui/interaction_timings.dart';
 import '../../shared/ui/media_preview_dialog.dart';
@@ -275,13 +276,13 @@ Map<ShortcutActivator, VoidCallback> _dashboardScriptEditorBindings({
   };
 }
 
-mixin _DashboardScriptEditorLifecycle<W extends StatefulWidget> on State<W> {
+mixin _DashboardScriptEditorLifecycle<W extends StatefulWidget>
+    on State<W>, FrameCoalescedRebuild<W> {
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   final FocusNode _codeFocus = FocusNode();
   String? _selectedId;
   bool _dirty = false;
-  bool _controllerUpdateScheduled = false;
   bool _syncingScriptFields = false;
 
   Listenable get _dashboardScriptController;
@@ -392,16 +393,8 @@ mixin _DashboardScriptEditorLifecycle<W extends StatefulWidget> on State<W> {
     super.dispose();
   }
 
-  void _onDashboardControllerChanged() {
-    if (!mounted || _controllerUpdateScheduled) return;
-    _controllerUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controllerUpdateScheduled = false;
-      if (!mounted) return;
-      _syncSelectionFromController();
-      setState(() {});
-    });
-  }
+  void _onDashboardControllerChanged() =>
+      scheduleCoalescedRebuild(_syncSelectionFromController);
 }
 
 class _DashboardScriptResultPreview extends StatelessWidget {

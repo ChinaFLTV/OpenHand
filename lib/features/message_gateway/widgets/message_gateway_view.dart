@@ -18,12 +18,13 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
-import '../../../shared/ui/openhand_smooth_line_chart.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -3357,7 +3358,8 @@ class _WebGatewayLogDialog extends StatefulWidget {
   State<_WebGatewayLogDialog> createState() => _WebGatewayLogDialogState();
 }
 
-class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
+class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog>
+    with FrameCoalescedRebuild<_WebGatewayLogDialog> {
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
@@ -3373,7 +3375,6 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   List<WebGatewayLogEntry> _pendingRenderedTarget =
       const <WebGatewayLogEntry>[];
   bool _syncScheduled = false;
-  bool _viewUpdateScheduled = false;
   bool _isExportingLog = false;
 
   @override
@@ -3391,15 +3392,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    if (!mounted || _viewUpdateScheduled) return;
-    _viewUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewUpdateScheduled = false;
-      if (!mounted) return;
-      setState(() {});
-    });
-  }
+  void _onControllerChanged() => scheduleCoalescedRebuild();
 
   @override
   Widget build(BuildContext context) {
@@ -7079,7 +7072,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
                   height: 104,
                   child: RepaintBoundary(
                     child: CustomPaint(
-                      painter: _WebOpsDonutChartPainter(
+                      painter: OpenHandDonutChartPainter(
                         values: top
                             .map((entry) => entry.value)
                             .toList(growable: false),
@@ -7135,58 +7128,6 @@ class _WebOpsDistributionPanel extends StatelessWidget {
             ),
     );
   }
-}
-
-class _WebOpsDonutChartPainter extends CustomPainter {
-  const _WebOpsDonutChartPainter({
-    required this.values,
-    required this.colors,
-    required this.trackColor,
-  });
-
-  final List<int> values;
-  final List<Color> colors;
-  final Color trackColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final total = values.fold<int>(0, (sum, value) => sum + value);
-    final stroke = math.max(10.0, math.min(size.shortestSide * .16, 18.0));
-    final rect =
-        Offset(stroke / 2, stroke / 2) &
-        Size(size.width - stroke, size.height - stroke);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      math.pi * 2,
-      false,
-      paint..color = trackColor,
-    );
-    if (total <= 0) return;
-    var start = -math.pi / 2;
-    for (var index = 0; index < values.length; index++) {
-      final sweep = math.pi * 2 * values[index] / total;
-      if (sweep <= 0) continue;
-      canvas.drawArc(
-        rect,
-        start,
-        math.max(.03, sweep - .018),
-        false,
-        paint..color = colors[index % colors.length],
-      );
-      start += sweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WebOpsDonutChartPainter oldDelegate) =>
-      oldDelegate.values != values ||
-      oldDelegate.colors != colors ||
-      oldDelegate.trackColor != trackColor;
 }
 
 class _WebOpsDistributionRow extends StatelessWidget {

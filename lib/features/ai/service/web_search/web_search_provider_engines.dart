@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
@@ -23,34 +22,14 @@ class WebSearchGrokEngine extends WebSearchProviderKeyEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await sendWebEngineHttpRequest(
-      'POST',
-      Uri.parse('https://api.x.ai/v1/chat/completions'),
-      headers: {
-        'authorization': 'Bearer $effectiveApiKey',
-        'content-type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': 'grok-4-latest',
-        'messages': [
-          {
-            'role': 'system',
-            'content':
-                'You are a search engine. Reply ONLY with raw search results citations.',
-          },
-          {'role': 'user', 'content': req.query},
-        ],
-        'search_parameters': {
-          'mode': 'on',
-          'max_search_results': req.maxResults,
-          'return_citations': true,
-        },
-      }),
+    final body = await requestGrokLiveSearch(
+      apiKey: effectiveApiKey,
+      systemPrompt:
+          'You are a search engine. Reply ONLY with raw search results '
+          'citations.',
+      userPrompt: req.query,
+      maxSearchResults: req.maxResults,
       cancelSignal: req.cancelSignal,
-    );
-    final body = decodeSuccessfulWebEngineJsonResponse(
-      response,
-      engineLabel: 'Grok',
     );
     final citations = readJsonPath<List>(body, ['citations']) ?? const [];
     final replyText =
