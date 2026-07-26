@@ -6,7 +6,6 @@ library;
 
 const String _positiveMessage = '必须大于零。';
 const String _nonNegativeMessage = '不能为负。';
-const String _notEmptyMessage = '不能为空。';
 
 /// 时长必须为正；零与负值都视为非法配置，直接抛出而不是静默回落。
 void requirePositiveDuration(Duration value, String name) {
@@ -33,12 +32,5 @@ void requirePositiveInt(int value, String name) {
 void requireNonNegativeInt(int value, String name) {
   if (value < 0) {
     throw ArgumentError.value(value, name, _nonNegativeMessage);
-  }
-}
-
-/// 文本去空白后不得为空。
-void requireNonEmptyText(String value, String name) {
-  if (value.trim().isEmpty) {
-    throw ArgumentError.value(value, name, _notEmptyMessage);
   }
 }
