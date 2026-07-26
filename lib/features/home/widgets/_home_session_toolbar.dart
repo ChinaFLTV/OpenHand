@@ -2675,10 +2675,15 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
       return;
     }
     // 应用重启 / 切回旧会话：尝试根据 metadata 重启 controller。
-    final session = context.read<AiSessionController>().sessions.firstWhere(
-      (s) => s.id == widget.sessionId,
-      orElse: () => throw StateError('session ${widget.sessionId} not found'),
-    );
+    // 这里不能用会抛异常的 orElse：本方法是挂在点击回调上的 Future<void>，
+    // 抛出的 StateError 没有任何 catch 接住，只会落到 zone。Web 网关删掉当前
+    // 会话后本帧胶囊尚未卸载，用户点一下就会产生未捕获异步异常。
+    final session = context
+        .read<AiSessionController>()
+        .sessions
+        .cast<AiSession?>()
+        .firstWhere((s) => s?.id == widget.sessionId, orElse: () => null);
+    if (session == null) return;
     setState(() => _restoring = true);
     try {
       final restored = await state.restoreWebReverseSession(session);

@@ -720,6 +720,9 @@ class HarnessOrchestrator extends ChangeNotifier {
       } else if (_phaseLogs.any((l) => l.status == HarnessPhaseStatus.failed)) {
         _status = HarnessOrchestratorStatus.failed;
         _errorMessage ??= '有阶段执行失败，请检查日志';
+      } else if (_reviewRetriesExhausted) {
+        _status = HarnessOrchestratorStatus.failed;
+        _errorMessage ??= '验收连续 $_maxReviewRetries 轮未通过，已停止迭代';
       } else {
         _status = HarnessOrchestratorStatus.completed;
       }
@@ -996,12 +999,28 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 验收连续判 FAIL 且重试次数已耗尽。
+  ///
+  /// 达到上限后不再插入重试阶段，而 reviewing 日志早已被降级成 completed
+  /// （为了让反馈迭代流程能继续走），于是收尾判断看不到任何 failed 阶段，
+  /// 整体状态会落到 completed——用户看到「全部完成」，实际是连续
+  /// [_maxReviewRetries] + 1 轮验收都没通过。
+  bool get _reviewRetriesExhausted {
+    return _reviewRetryCount > _maxReviewRetries &&
+        _phaseLogs.any(
+          (l) => l.phase == HarnessPhase.reviewing && l.reviewVerdictFail,
+        );
+  }
+
   HarnessOrchestratorStatus _computeOverallStatus() {
     if (_phaseLogs.isEmpty) return HarnessOrchestratorStatus.idle;
     if (_phaseLogs.any((l) => l.status == HarnessPhaseStatus.running)) {
       return HarnessOrchestratorStatus.running;
     }
     if (_phaseLogs.any((l) => l.status == HarnessPhaseStatus.failed)) {
+      return HarnessOrchestratorStatus.failed;
+    }
+    if (_reviewRetriesExhausted) {
       return HarnessOrchestratorStatus.failed;
     }
     if (_phaseLogs.every(

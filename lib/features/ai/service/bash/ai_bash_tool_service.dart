@@ -1845,19 +1845,29 @@ class AiBashToolService {
           '__OPENHAND_SCRIPT_${markerToken}_$tagSuffix'
           '__';
     }
-    final tmpScriptPath = '/tmp/.openhand_cmd_$markerToken.sh';
-    final quotedTmp = _quoteShellString(tmpScriptPath);
+    // 临时脚本必须落在 mktemp -d 现开的私有目录（0700、名字不可预测），
+    // 不能用 /tmp 下按时间戳拼出的固定名。/tmp 是 1777 世界可写，而
+    // markerToken 由 microsecondsSinceEpoch + 自增计数器构成、可预测；
+    // `cat >` 会跟随符号链接，本地攻击者预置一个同名软链指向 ~/.zshrc
+    // 之类的文件，就能让命令正文覆盖目标并被加上执行位。
+    final dirVar = '__OPENHAND_WRAP_DIR_$markerToken';
+    final scriptPath = '"\$$dirVar/cmd.sh"';
     buffer
-      ..writeln('cat > $quotedTmp << ${_quoteShellString(heredocTag)}')
+      // macOS 的 BSD mktemp 需要模板参数，GNU mktemp 直接支持 -d；两种都覆盖。
+      ..writeln(
+        '$dirVar=\$(mktemp -d 2>/dev/null) || '
+        '$dirVar=\$(mktemp -d -t openhand_cmd)',
+      )
+      ..writeln('cat > $scriptPath << ${_quoteShellString(heredocTag)}')
       ..writeln(command)
       ..writeln(heredocTag)
-      ..writeln('chmod +x $quotedTmp')
-      // 当前 Shell 收到信号时尽力删除临时脚本。
-      ..writeln('trap "rm -f $quotedTmp" EXIT INT TERM HUP')
+      ..writeln('chmod +x $scriptPath')
+      // 当前 Shell 收到信号时尽力删除临时目录。
+      ..writeln('trap \'rm -rf "\$$dirVar"\' EXIT INT TERM HUP')
       // 清理前立即保存原始退出码。
-      ..writeln('${_resolveShellExecutable()} $quotedTmp')
+      ..writeln('${_resolveShellExecutable()} $scriptPath')
       ..writeln(r'__OPENHAND_WRAP_RC=$?')
-      ..writeln('rm -f $quotedTmp')
+      ..writeln('rm -rf "\$$dirVar"')
       ..writeln('trap - EXIT INT TERM HUP')
       // 透传原始退出码。
       ..writeln(r'(exit $__OPENHAND_WRAP_RC)');

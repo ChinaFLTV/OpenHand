@@ -4398,11 +4398,18 @@ class _SettingsIntField extends StatefulWidget {
 
 class _SettingsIntFieldState extends State<_SettingsIntField> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: '${widget.value}');
+    // 失焦即提交：只挂 onSubmitted / onEditingComplete 的话，用鼠标点到别的
+    // 输入框不会触发任何回调，用户改过的值会被静默丢弃，界面回退成旧值。
+    _focusNode = FocusNode()
+      ..addListener(() {
+        if (!_focusNode.hasFocus) _commit(_controller.text);
+      });
   }
 
   @override
@@ -4416,6 +4423,7 @@ class _SettingsIntFieldState extends State<_SettingsIntField> {
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -4445,6 +4453,7 @@ class _SettingsIntFieldState extends State<_SettingsIntField> {
   Widget build(BuildContext context) {
     return TextField(
       controller: _controller,
+      focusNode: _focusNode,
       keyboardType: TextInputType.number,
       textAlign: TextAlign.right,
       style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),

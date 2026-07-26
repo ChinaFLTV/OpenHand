@@ -135,7 +135,7 @@ class AiSandboxLaunchSpec {
 
 class AiSandboxService {
   AiSandboxService({AiSandboxSettings? settings})
-    : settings = settings ?? AiSandboxSettings.defaults();
+    : _settings = settings ?? AiSandboxSettings.defaults();
 
   static const String _linuxDomainFilterUnavailableReason =
       'Linux bubblewrap cannot strictly enforce sandbox domain allow/deny rules yet because direct network access cannot be restricted to the OpenHand local proxy without an additional network bridge.';
@@ -144,9 +144,20 @@ class AiSandboxService {
   static const String _unsafeWritableRootReason =
       'Sandbox refused to grant writable access to an unsafe working directory root.';
 
-  AiSandboxSettings settings;
+  AiSandboxSettings _settings;
   final AiSandboxProxyService _proxyService = AiSandboxProxyService();
   AiSandboxEnvironmentStatus? _cachedStatus;
+
+  AiSandboxSettings get settings => _settings;
+
+  /// 换设置必须让环境探测缓存失效：[detectEnvironment] 缓存的 warnings 依赖
+  /// filesystemRules 的匹配模式与域名规则，沿用旧缓存会让 UI 长期显示与当前
+  /// 设置不符的告警。此前只有设置面板记得手动 refresh，运行时下发那条路径没有。
+  set settings(AiSandboxSettings value) {
+    if (identical(_settings, value)) return;
+    _settings = value;
+    _cachedStatus = null;
+  }
 
   Future<AiSandboxEnvironmentStatus> detectEnvironment({
     bool refresh = false,

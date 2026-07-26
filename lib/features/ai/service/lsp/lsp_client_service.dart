@@ -399,7 +399,13 @@ class AiLspClientService {
   final Set<_AiLspSession> _trackedSessions = HashSet<_AiLspSession>.identity();
   final Set<_AiLspSession> _startingSessions =
       HashSet<_AiLspSession>.identity();
-  final Map<String, String?> _commandPathCache = <String, String?>{};
+  final Map<String, ({String? path, DateTime resolvedAt})> _commandPathCache =
+      <String, ({String? path, DateTime resolvedAt})>{};
+
+  /// 「未找到」的负缓存有效期。命中路径可以长期缓存（可执行文件不会自己消失），
+  /// 但未找到必须过期：用户很可能刚在内置终端里 `npm i -g pyright`，或刚走完
+  /// 托管安装流程，永久负缓存会让他必须重启应用才能用上。
+  static const Duration _negativeCommandPathTtl = Duration(minutes: 2);
   final AiLspProcessLauncher _processLauncher;
   final Duration _requestTimeout;
   final Duration _initializationSettleDelay;
@@ -1132,8 +1138,14 @@ class AiLspClientService {
   Future<String?> _resolveCommandPath(String executable) async {
     final normalizedExecutable = executable.trim();
     if (normalizedExecutable.isEmpty) return null;
-    if (_commandPathCache.containsKey(normalizedExecutable)) {
-      return _commandPathCache[normalizedExecutable];
+    final cached = _commandPathCache[normalizedExecutable];
+    if (cached != null) {
+      if (cached.path != null) return cached.path;
+      if (DateTime.now().difference(cached.resolvedAt) <
+          _negativeCommandPathTtl) {
+        return null;
+      }
+      _commandPathCache.remove(normalizedExecutable);
     }
     // PATH 查询受时限约束；超时不缓存以便重试，未找到则缓存空值避免重复拉起进程。
     var timedOut = false;
@@ -1173,7 +1185,7 @@ class AiLspClientService {
     if (_commandPathCache.length >= _commandPathCacheLimit) {
       _commandPathCache.remove(_commandPathCache.keys.first);
     }
-    _commandPathCache[executable] = path;
+    _commandPathCache[executable] = (path: path, resolvedAt: DateTime.now());
   }
 
   static String? _languageFromPath(String filePath) {
