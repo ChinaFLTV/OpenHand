@@ -41,12 +41,65 @@ final class PluginNpmPackageInstallation {
   final String executablePath;
 }
 
+/// 版本号在任意文本里的出现（不锚定行首行尾）。
+final RegExp _pluginSemverPattern = RegExp(r'(\d+\.\d+\.\d+)');
+
+/// 独占一行的稳定版本号；`pyenv install --list` 里带后缀的预览版因此被排除。
+///
+/// **必须开 multiLine**：不开时 `^`/`$` 只锚定整段输入的首尾，对多行输出永远
+/// 匹配不到——两个插件服务里的旧副本都漏了这个标记，导致「查最新 Python 版本」
+/// 的兜底分支实际上从来没生效过。
+final RegExp _pluginStableVersionLinePattern = RegExp(
+  r'^\s*(\d+\.\d+\.\d+)\s*$',
+  multiLine: true,
+);
+
+/// 取输出里第一个（可按 [prefix] 过滤的）版本号。
+String? extractPluginFirstSemver(String output, {String? prefix}) {
+  for (final match in _pluginSemverPattern.allMatches(output)) {
+    final value = match.group(1);
+    if (value == null) continue;
+    if (prefix == null || value.startsWith(prefix)) return value;
+  }
+  return null;
+}
+
+/// 取输出里所有独占一行的稳定版本号，按 [prefix] 过滤后去重。
+List<String> extractPluginStableVersionLines(String output, {String? prefix}) {
+  final versions = <String>{};
+  for (final match in _pluginStableVersionLinePattern.allMatches(output)) {
+    final value = match.group(1);
+    if (value == null) continue;
+    if (prefix != null && !value.startsWith(prefix)) continue;
+    versions.add(value);
+  }
+  return versions.toList(growable: false);
+}
+
 String? extractPluginAbsolutePath(String output) {
   for (final line in output.split('\n').reversed) {
     final path = line.trim();
     if (p.isAbsolute(path)) return p.normalize(path);
   }
   return null;
+}
+
+/// 由 `npm root -g` 的执行结果定位全局包安装位置。
+///
+/// 两个插件服务跑这条命令的方式不同（一个走托管进程、一个走 shell），但拿到
+/// 输出之后的解析完全一样，此前各写一遍。
+Future<PluginNpmPackageInstallation?> resolvePluginGlobalNpmPackage({
+  required int exitCode,
+  required String stdout,
+  required String packageName,
+}) async {
+  if (exitCode != 0) return null;
+  final globalRoot = extractPluginAbsolutePath(stdout);
+  if (globalRoot == null) return null;
+  return resolvePluginNpmPackageInstallation(
+    globalRoot: globalRoot,
+    packageName: packageName,
+  );
 }
 
 Future<PluginNpmPackageInstallation?> resolvePluginNpmPackageInstallation({

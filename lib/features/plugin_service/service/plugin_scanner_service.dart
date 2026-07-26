@@ -90,9 +90,6 @@ class PluginScannerService {
     r'^Version\s+',
     caseSensitive: false,
   );
-  static final RegExp _stablePyenvVersionLinePattern = RegExp(
-    r'^\s*(\d+\.\d+\.\d+)\s*$',
-  );
   static final RegExp _looseVersionPattern = RegExp(
     r'(\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?)',
   );
@@ -224,11 +221,9 @@ class PluginScannerService {
     String packageName,
   ) async {
     final rootResult = await _shellRun('npm root -g');
-    if (rootResult.exitCode != 0) return null;
-    final globalRoot = extractPluginAbsolutePath(rootResult.stdout.toString());
-    if (globalRoot == null) return null;
-    return resolvePluginNpmPackageInstallation(
-      globalRoot: globalRoot,
+    return resolvePluginGlobalNpmPackage(
+      exitCode: rootResult.exitCode,
+      stdout: rootResult.stdout.toString(),
       packageName: packageName,
     );
   }
@@ -343,7 +338,7 @@ class PluginScannerService {
     final quickResult = await _shellRun(
       'pyenv latest -k $majorMinor 2>/dev/null || true',
     );
-    final quickVersion = _extractFirstSemver(
+    final quickVersion = extractPluginFirstSemver(
       '${quickResult.stdout}\n${quickResult.stderr}',
       prefix: '$majorMinor.',
     );
@@ -351,7 +346,7 @@ class PluginScannerService {
 
     final listResult = await _shellRun('pyenv install --list');
     if (listResult.exitCode != 0) return null;
-    final versions = _extractStablePyenvVersions(
+    final versions = extractPluginStableVersionLines(
       listResult.stdout.toString(),
       prefix: '$majorMinor.',
     );
@@ -435,32 +430,8 @@ class PluginScannerService {
     if (normalized.isEmpty) return null;
     final result = await _shellRun('npm view $normalized version');
     if (result.exitCode != 0) return null;
-    final version = _extractFirstSemver(result.stdout.toString());
+    final version = extractPluginFirstSemver(result.stdout.toString());
     return version;
-  }
-
-  static String? _extractFirstSemver(String output, {String? prefix}) {
-    final matches = _semverSearchPattern.allMatches(output);
-    for (final match in matches) {
-      final value = match.group(1);
-      if (value == null) continue;
-      if (prefix == null || value.startsWith(prefix)) return value;
-    }
-    return null;
-  }
-
-  static List<String> _extractStablePyenvVersions(
-    String output, {
-    String? prefix,
-  }) {
-    final versions = <String>{};
-    for (final match in _stablePyenvVersionLinePattern.allMatches(output)) {
-      final value = match.group(1);
-      if (value == null) continue;
-      if (prefix != null && !value.startsWith(prefix)) continue;
-      versions.add(value);
-    }
-    return versions.toList(growable: false);
   }
 
   static String? _extractLooseVersion(String output) {

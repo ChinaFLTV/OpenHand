@@ -31,10 +31,6 @@ final RegExp _pluginLifecyclePlaywrightVersionPrefixPattern = RegExp(
   r'^Version\s+',
   caseSensitive: false,
 );
-final RegExp _pluginLifecycleSemverPattern = RegExp(r'(\d+\.\d+\.\d+)');
-final RegExp _pluginLifecycleStablePyenvVersionLinePattern = RegExp(
-  r'^\s*(\d+\.\d+\.\d+)\s*$',
-);
 final RegExp _pluginLifecyclePyenvVersionPathPattern = RegExp(
   r'/.pyenv/versions/([^/]+)/',
 );
@@ -707,11 +703,9 @@ class PluginLifecycleService {
       'root',
       '-g',
     ]);
-    if (rootResult.exitCode != 0) return null;
-    final globalRoot = extractPluginAbsolutePath(rootResult.stdout.toString());
-    if (globalRoot == null) return null;
-    return resolvePluginNpmPackageInstallation(
-      globalRoot: globalRoot,
+    return resolvePluginGlobalNpmPackage(
+      exitCode: rootResult.exitCode,
+      stdout: rootResult.stdout.toString(),
       packageName: packageName,
     );
   }
@@ -1020,7 +1014,7 @@ fi
       tag: 'plugin_lifecycle.pyenv_latest',
       environment: proxyEnv,
     );
-    final quickVersion = _extractFirstSemver(
+    final quickVersion = extractPluginFirstSemver(
       '${latestResult.stdout}\n${latestResult.stderr}',
       prefix: '$majorMinor.',
     );
@@ -1034,7 +1028,7 @@ fi
       environment: proxyEnv,
     );
     if (listResult.exitCode != 0) return null;
-    final versions = _extractStablePyenvVersions(
+    final versions = extractPluginStableVersionLines(
       listResult.stdout.toString(),
       prefix: '$majorMinor.',
     );
@@ -1362,7 +1356,7 @@ fi
     ], timeout: const Duration(seconds: 15));
     if (verify.exitCode == 0) {
       final version = _normalizePlaywrightVersion(verify.stdout);
-      if (!_pluginLifecycleSemverPattern.hasMatch(version)) {
+      if (extractPluginFirstSemver(version) == null) {
         return PluginOperationResult(
           success: false,
           message: 'Playwright $action后版本校验失败',
@@ -1747,7 +1741,7 @@ fi
       if (result.exitCode != 0) continue;
       return (
         command: command,
-        version: _extractFirstSemver('${result.stdout}\n${result.stderr}'),
+        version: extractPluginFirstSemver('${result.stdout}\n${result.stderr}'),
       );
     }
     return null;
@@ -3139,29 +3133,6 @@ String _normalizePlaywrightVersion(Object? output) {
     _pluginLifecyclePlaywrightVersionPrefixPattern,
     '',
   );
-}
-
-String? _extractFirstSemver(String output, {String? prefix}) {
-  final matches = _pluginLifecycleSemverPattern.allMatches(output);
-  for (final match in matches) {
-    final value = match.group(1);
-    if (value == null) continue;
-    if (prefix == null || value.startsWith(prefix)) return value;
-  }
-  return null;
-}
-
-List<String> _extractStablePyenvVersions(String output, {String? prefix}) {
-  final versions = <String>{};
-  for (final match in _pluginLifecycleStablePyenvVersionLinePattern.allMatches(
-    output,
-  )) {
-    final value = match.group(1);
-    if (value == null) continue;
-    if (prefix != null && !value.startsWith(prefix)) continue;
-    versions.add(value);
-  }
-  return versions.toList(growable: false);
 }
 
 String? _extractPyenvVersionFromPath(String path) {
