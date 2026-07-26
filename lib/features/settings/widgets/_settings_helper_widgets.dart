@@ -5874,6 +5874,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
 mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     on State<W> {
   int? _cacheBytesOnDisk;
+  bool _clearingCache = false;
   List<L> _recentCalls = const [];
   Map<K, S> _engineStats = const {};
   Map<K, List<H>> _engineHistory = const {};
@@ -5895,6 +5896,13 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
 
   Future<int> _loadCacheBytesOnDisk();
 
+  Future<void> _clearCacheStore();
+
+  /// 清缓存确认弹窗里「会删掉什么」的说明，两种语言各一份。
+  String get _cacheClearContentZh;
+
+  String get _cacheClearContentEn;
+
   Future<(List<L>, Map<K, S>, Map<K, List<H>>)> _loadTelemetry();
 
   Future<void> _clearTelemetryStore();
@@ -5915,6 +5923,38 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
+  }
+
+  Future<void> _confirmAndClearCache() async {
+    if (_clearingCache) return;
+    final confirmed = await _confirmClearLocalCache(
+      context: context,
+      toolLabel: _telemetryToolLabel,
+      titleZhVerb: '清理',
+      titleEnVerb: 'Clear',
+      contentZh: _cacheClearContentZh,
+      contentEn: _cacheClearContentEn,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _clearingCache = true);
+    try {
+      await _clearCacheStore();
+    } catch (e, st) {
+      silentLog(_telemetryLogTag, '清空本地缓存', e, st);
+    }
+    if (!mounted) return;
+    setState(() => _clearingCache = false);
+    await _refreshCacheBytesOnDisk();
+    if (!mounted) return;
+    showOpenHandInfoSnack(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '$_telemetryToolLabel 本地缓存已清空',
+        en: '$_telemetryToolLabel local cache cleared',
+      ),
+      duration: kOpenHandMotion1800,
+    );
   }
 
   Future<void> _refreshTelemetry() async {

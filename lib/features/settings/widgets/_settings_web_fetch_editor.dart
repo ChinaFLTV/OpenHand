@@ -39,7 +39,6 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
 
   // 当前磁盘上已经落盘的 WebFetch 缓存字节数，由 [_refreshCacheBytesOnDisk]
   // 异步加载；null 代表尚未读取或读取失败。
-  bool _clearingCache = false;
 
   // ── Telemetry (调用日志 + 引擎健康度) ──
   WebFetchScraplingProbeStatus _scraplingProbe =
@@ -341,38 +340,16 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     super.dispose();
   }
 
-  Future<void> _confirmAndClearCache() async {
-    if (_clearingCache) return;
-    final confirmed = await _confirmClearLocalCache(
-      context: context,
-      toolLabel: 'WebFetch',
-      titleZhVerb: '清理',
-      titleEnVerb: 'Clear',
-      contentZh: '将立即删除所有已落盘的正文文件与映射索引 (index.json)，后续相同关键词需要重新发起网络搜索。',
-      contentEn:
-          'All persisted body files and the mapping index (index.json) will be deleted immediately. Future hits with the same query will need a fresh online search.',
-    );
-    if (!confirmed || !mounted) return;
-    setState(() => _clearingCache = true);
-    try {
-      await WebFetchCacheStore.instance.clearAll();
-    } catch (e, st) {
-      silentLog('settings_web_fetch_editor', '清空本地缓存', e, st);
-    }
-    if (!mounted) return;
-    setState(() => _clearingCache = false);
-    await _refreshCacheBytesOnDisk();
-    if (!mounted) return;
-    showOpenHandInfoSnack(
-      context,
-      openHandLocalizedText(
-        context,
-        zh: 'WebFetch 本地缓存已清空',
-        en: 'WebFetch local cache cleared',
-      ),
-      duration: kOpenHandMotion1800,
-    );
-  }
+  @override
+  Future<void> _clearCacheStore() => WebFetchCacheStore.instance.clearAll();
+
+  @override
+  String get _cacheClearContentZh =>
+      '将立即删除所有已落盘的正文文件与映射索引 (index.json)，后续相同关键词需要重新发起网络搜索。';
+
+  @override
+  String get _cacheClearContentEn =>
+      'All persisted body files and the mapping index (index.json) will be deleted immediately. Future hits with the same query will need a fresh online search.';
 
   void _emit(AiWebFetchSettings next) => widget.onChanged(next);
 
