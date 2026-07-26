@@ -556,6 +556,25 @@ String? _localizedPluginLifecycleMessage(String? message) {
 class PluginLifecycleService {
   PluginLifecycleService();
 
+  // ── 插件操作时长预算 ───────────────────────────────────────────────────
+  // 按下载与构建体量分档，同档共用一个常量：调整某类组件的预算只需改一处，
+  // 不必在几十个调用点里逐个找同一个字面量。
+
+  /// 包管理器的安装 / 更新 / 卸载：brew、pip、Python 包与 Docker 容器操作。
+  static const Duration _packageOperationTimeout = Duration(minutes: 8);
+
+  /// Node.js 与 Playwright 工具链：下载量中等，短于常规包操作。
+  static const Duration _nodeToolchainTimeout = Duration(minutes: 5);
+
+  /// npm 全局包：需要落地 node_modules，略长于工具链本体。
+  static const Duration _npmGlobalPackageTimeout = Duration(minutes: 6);
+
+  /// 需要源码构建的 Python 组件：编译耗时明显高于安装预编译包。
+  static const Duration _pythonBuildTimeout = Duration(minutes: 12);
+
+  /// Docker Desktop：安装包体量最大，单独给最长预算。
+  static const Duration _dockerDesktopTimeout = Duration(minutes: 15);
+
   static const String _qdrantContainerName = 'openhand-qdrant';
   static const String _qdrantImage = 'qdrant/qdrant:latest';
   static const int _qdrantRestPort = 6333;
@@ -1079,7 +1098,7 @@ fi
         'fnm',
         ['install', '--lts'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
+        timeout: _nodeToolchainTimeout,
       );
       if (result.exitCode == 0) {
         await _promoteFnmLtsDefault();
@@ -1102,7 +1121,7 @@ fi
         'brew',
         ['install', 'node'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
+        timeout: _nodeToolchainTimeout,
       );
       if (result.exitCode == 0) {
         final verified = await _verifyInstalledNodeVersion(
@@ -1134,7 +1153,7 @@ fi
       final result = await _runPythonShellCommand(
         'pyenv install -s $latest && pyenv global $latest && python3 --version',
         onProgress: onProgress,
-        timeout: const Duration(minutes: 12),
+        timeout: _pythonBuildTimeout,
       );
       if (result.exitCode == 0) {
         final version =
@@ -1159,7 +1178,7 @@ fi
         'brew',
         ['install', 'python'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 8),
+        timeout: _packageOperationTimeout,
       );
       if (result.exitCode == 0) {
         final versionResult = await runTrackedProcessOrFailed(
@@ -1225,7 +1244,7 @@ fi
       context.executablePath,
       ['-m', 'ensurepip', '--upgrade'],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
     );
     if (ensureResult.exitCode != 0) {
       final ensureMessage = ensureResult.stderr.isNotEmpty
@@ -1249,7 +1268,7 @@ fi
         context.executablePath,
         ['-m', 'pip', 'install', '--upgrade', 'pip'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 8),
+        timeout: _packageOperationTimeout,
       );
       if (upgradeResult.exitCode != 0) {
         final upgradeMessage = upgradeResult.stderr.isNotEmpty
@@ -1306,7 +1325,7 @@ fi
       'npm',
       const ['install', '-g', 'playwright@latest'],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 5),
+      timeout: _nodeToolchainTimeout,
       environment: _npmGlobalPackageEnv(),
     );
     if (installResult.exitCode != 0) {
@@ -1391,7 +1410,7 @@ fi
       'brew',
       ['install', formula],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
     );
     if (result.exitCode != 0) {
       return PluginOperationResult(
@@ -1430,7 +1449,7 @@ fi
       'brew',
       ['upgrade', formula],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
     );
     if (result.exitCode == 0 ||
         _processErrorMessage(result).contains('already installed') ||
@@ -1460,7 +1479,7 @@ fi
       'brew',
       ['uninstall', formula],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
     );
     if (result.exitCode == 0) {
       onProgress?.call('$label 已卸载');
@@ -1497,7 +1516,7 @@ fi
       context.executablePath,
       ['-m', 'pip', 'install', '--upgrade', packageName],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
     );
     if (result.exitCode != 0) {
       final message = _processErrorMessage(result);
@@ -1586,7 +1605,7 @@ fi
       'npm',
       ['install', '-g', '$packageName@latest'],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 6),
+      timeout: _npmGlobalPackageTimeout,
       environment: environment,
     );
     String? tlsBundle;
@@ -1602,7 +1621,7 @@ fi
           'npm',
           ['install', '-g', '$packageName@latest'],
           onProgress: onProgress,
-          timeout: const Duration(minutes: 6),
+          timeout: _npmGlobalPackageTimeout,
           environment: _npmGlobalPackageEnv(tlsBundle: tlsBundle),
         );
       }
@@ -1871,7 +1890,7 @@ printf '%s\\n' ${_pluginShellQuote('$label shim: $shimPath')}
       pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 12),
+      timeout: _pythonBuildTimeout,
       environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
@@ -2002,7 +2021,7 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
       pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
       environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
@@ -2141,7 +2160,7 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
         'brew',
         ['install', '--cask', 'docker'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 15),
+        timeout: _dockerDesktopTimeout,
       );
       if (result.exitCode != 0) {
         return PluginOperationResult(
@@ -2208,7 +2227,7 @@ ${_qdrantHealthWaitScript()}
       pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
       environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
@@ -2272,7 +2291,7 @@ ${_qdrantHealthWaitScript()}
         'fnm',
         ['install', '--lts'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
+        timeout: _nodeToolchainTimeout,
       );
       if (result.exitCode == 0) {
         await _promoteFnmLtsDefault();
@@ -2295,7 +2314,7 @@ ${_qdrantHealthWaitScript()}
         'volta',
         ['install', 'node@latest'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
+        timeout: _nodeToolchainTimeout,
       );
       if (result.exitCode == 0) {
         final verified = await _verifyInstalledNodeVersion(
@@ -2317,7 +2336,7 @@ ${_qdrantHealthWaitScript()}
         'brew',
         ['upgrade', 'node'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
+        timeout: _nodeToolchainTimeout,
       );
       if (result.exitCode == 0) {
         final verified = await _verifyInstalledNodeVersion(
@@ -2339,7 +2358,7 @@ ${_qdrantHealthWaitScript()}
         'fnm',
         ['install', '--lts'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 5),
+        timeout: _nodeToolchainTimeout,
       );
       if (result.exitCode == 0) {
         await _promoteFnmLtsDefault();
@@ -2402,7 +2421,7 @@ ${_qdrantHealthWaitScript()}
         final result = await _runPythonShellCommand(
           'pyenv install -s $latest && pyenv global $latest && python3 --version',
           onProgress: onProgress,
-          timeout: const Duration(minutes: 12),
+          timeout: _pythonBuildTimeout,
         );
         if (result.exitCode == 0) {
           final version =
@@ -2427,7 +2446,7 @@ ${_qdrantHealthWaitScript()}
           'brew',
           ['upgrade', formula],
           onProgress: onProgress,
-          timeout: const Duration(minutes: 8),
+          timeout: _packageOperationTimeout,
         );
         if (result.exitCode == 0) {
           final version =
@@ -2479,7 +2498,7 @@ ${_qdrantHealthWaitScript()}
           context.executablePath,
           ['-m', 'pip', 'install', '--upgrade', 'pip'],
           onProgress: onProgress,
-          timeout: const Duration(minutes: 8),
+          timeout: _packageOperationTimeout,
         );
         if (result.exitCode != 0) {
           final updateMessage = result.stderr.isNotEmpty
@@ -2612,7 +2631,7 @@ ${_qdrantHealthWaitScript()}
         'brew',
         ['upgrade', '--cask', 'docker'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 15),
+        timeout: _dockerDesktopTimeout,
       );
       final message = _processErrorMessage(result);
       if (result.exitCode == 0 ||
@@ -2660,7 +2679,7 @@ ${_qdrantHealthWaitScript()}
       pluginShellExecutable(),
       ['-c', script],
       onProgress: onProgress,
-      timeout: const Duration(minutes: 8),
+      timeout: _packageOperationTimeout,
       environment: pluginProxyEnvironment(),
     );
     if (result.exitCode == 0) {
@@ -2742,7 +2761,7 @@ ${_qdrantHealthWaitScript()}
         final result = await _runPythonShellCommand(
           script.toString(),
           onProgress: onProgress,
-          timeout: const Duration(minutes: 8),
+          timeout: _packageOperationTimeout,
         );
         if (result.exitCode == 0) {
           onProgress?.call('Python $version 已卸载');
@@ -2762,7 +2781,7 @@ ${_qdrantHealthWaitScript()}
           'brew',
           ['uninstall', formula],
           onProgress: onProgress,
-          timeout: const Duration(minutes: 8),
+          timeout: _packageOperationTimeout,
         );
         if (result.exitCode == 0) {
           onProgress?.call('Python 已卸载');
@@ -2917,7 +2936,7 @@ ${_qdrantHealthWaitScript()}
         'brew',
         ['uninstall', '--cask', 'docker'],
         onProgress: onProgress,
-        timeout: const Duration(minutes: 8),
+        timeout: _packageOperationTimeout,
       );
       if (result.exitCode == 0) {
         return const PluginOperationResult(
