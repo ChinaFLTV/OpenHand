@@ -13,6 +13,21 @@ import 'web_engine_json_utils.dart';
 const int defaultWebEngineResponseMaxBytes = 8 * kBytesPerMiB;
 const int _webEngineErrorPreviewCharacters = 2000;
 
+/// 抓取 HTML 页面时对外声明的浏览器 UA。
+///
+/// WebSearch 的 HTML 引擎与 WebFetch 的直连引擎必须一致：同一站点从两侧看到
+/// 的应是同一个客户端，UA 漂移会让其中一侧莫名触发风控。此前两个文件各抄了
+/// 一份字面量，改版本号必然漏改。
+const String kWebEngineSafariUserAgent =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) '
+    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+    'Version/17.0 Safari/605.1.15';
+
+const String kWebEngineChromeUserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/121.0 Safari/537.36';
+
 class BoundedWebEngineHttpResponse {
   const BoundedWebEngineHttpResponse({
     required this.statusCode,

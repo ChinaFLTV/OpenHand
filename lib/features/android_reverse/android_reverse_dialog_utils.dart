@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/animated_dialog.dart';
 
 const OpenHandAnimationTransitionProfile kAndroidReverseDialogMotionProfile =
@@ -16,29 +15,6 @@ const OpenHandAnimationTransitionProfile kAndroidReverseDialogMotionProfile =
       slideRightOffset: Offset(0.20, 0),
     );
 
-Future<T?> showAndroidReverseToolDialog<T>({
-  required BuildContext context,
-  required WidgetBuilder builder,
-  DialogAnimationSettings? settings,
-  bool barrierDismissible = true,
-  bool dismissOnEscape = true,
-  String? barrierLabel,
-  Color? barrierColor,
-  bool useRootNavigator = true,
-  RouteSettings? routeSettings,
-  AlignmentGeometry alignment = Alignment.center,
-}) {
-  return showOpenHandProfiledDialog<T>(
-    context: context,
-    settings: settings,
-    transitionProfile: kAndroidReverseDialogMotionProfile,
-    barrierDismissible: barrierDismissible,
-    dismissOnEscape: dismissOnEscape,
-    barrierLabel: barrierLabel,
-    barrierColor: barrierColor,
-    useRootNavigator: useRootNavigator,
-    routeSettings: routeSettings,
-    alignment: alignment,
-    builder: builder,
-  );
-}
+/// 使用 Android 逆向模块统一动效参数的工具弹窗入口。
+const OpenHandProfiledDialogPresenter androidReverseToolDialogs =
+    OpenHandProfiledDialogPresenter(kAndroidReverseDialogMotionProfile);

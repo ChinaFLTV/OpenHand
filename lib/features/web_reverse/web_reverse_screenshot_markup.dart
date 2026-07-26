@@ -23,7 +23,7 @@ Future<Uint8List?> showScreenshotMarkupDialog(
   BuildContext context, {
   required Uint8List image,
 }) {
-  return showWebReverseToolDialog<Uint8List>(
+  return webReverseToolDialogs.show<Uint8List>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _ScreenshotMarkupDialog(image: image),

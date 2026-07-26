@@ -3,10 +3,11 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
-import '../../../shared/util/collection_equality.dart';
+
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {
@@ -182,7 +183,7 @@ class InstructionsStore {
       maxItemLength: maxItemLength,
       dedupeCaseInsensitive: dedupeCaseInsensitive,
     );
-    if (!orderedListsEqual(decoded.cast<String>(), normalized)) {
+    if (!listEquals(decoded.cast<String>(), normalized)) {
       throw const FormatException('Instruction list field is not canonical.');
     }
     return normalized;

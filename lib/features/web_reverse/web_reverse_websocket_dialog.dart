@@ -39,7 +39,7 @@ Future<void> showWebReverseWebSocketDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _WsDialog(controller: controller),
   );
@@ -547,7 +547,7 @@ class _WsDialogState extends State<_WsDialog> {
   Future<String?> _showEditFrameDialog(String initial) async {
     final ctrl = TextEditingController(text: initial);
     try {
-      return await showWebReverseToolDialog<String>(
+      return await webReverseToolDialogs.show<String>(
         context: context,
         builder: (ctx) {
           final cs = Theme.of(ctx).colorScheme;

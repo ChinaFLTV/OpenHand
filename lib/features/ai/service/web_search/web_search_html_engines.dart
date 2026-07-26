@@ -7,6 +7,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../../tools/ai_tool_utils.dart';
 import '../web_engine/web_engine_http_exception.dart';
+import '../web_engine/web_engine_http_utils.dart';
 import 'web_search_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,12 +33,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
     final response = await sendWebEngineHttpRequest(
       'GET',
       uri,
-      headers: const {
-        'user-agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) '
-            'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-            'Version/17.0 Safari/605.1.15',
-      },
+      headers: const {'user-agent': kWebEngineSafariUserAgent},
       cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
@@ -112,12 +108,7 @@ class WebSearchBingEngine extends WebSearchEngine {
     final response = await sendWebEngineHttpRequest(
       'GET',
       uri,
-      headers: const {
-        'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/121.0 Safari/537.36',
-      },
+      headers: const {'user-agent': kWebEngineChromeUserAgent},
       cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {

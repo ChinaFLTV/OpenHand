@@ -36,7 +36,7 @@ Future<void> showWebReverseResendRequestDialog(
   required WebReverseSessionController controller,
   required CdpNetworkEntry entry,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) =>
         _ResendRequestDialog(controller: controller, initial: entry),

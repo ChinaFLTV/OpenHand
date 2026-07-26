@@ -3,6 +3,7 @@ library;
 import 'dart:async';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/bounded_line_budget.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../../memory/index.dart';
@@ -636,38 +637,21 @@ $slice
   static String _renderBoundedAutoLearnedHistory(
     List<UserMemoryEntry> entries,
   ) {
-    final lines = <String>[];
-    var renderedCharacters = 0;
-    for (final entry in entries.take(_selfLearningHistoryMaxEntries)) {
-      final content = clipTextWithOmissionMarker(
-        entry.content,
-        maxCodeUnits: _selfLearningHistoryEntryMaxCharacters - 2,
-        marker: 'memory_content_truncated',
-      ).text;
-      final line = '- $content';
-      final separatorCharacters = lines.isEmpty ? 0 : 1;
-      if (renderedCharacters + separatorCharacters + line.length >
-          _selfLearningHistoryMaxCharacters) {
-        break;
-      }
-      lines.add(line);
-      renderedCharacters += separatorCharacters + line.length;
-    }
-    while (true) {
-      final omitted = entries.length - lines.length;
-      if (omitted <= 0) break;
-      final marker = '[auto_learned_memories_omitted: $omitted entries]';
-      final separatorCharacters = lines.isEmpty ? 0 : 1;
-      if (renderedCharacters + separatorCharacters + marker.length <=
-          _selfLearningHistoryMaxCharacters) {
-        lines.add(marker);
-        break;
-      }
-      if (lines.isEmpty) return marker;
-      final removed = lines.removeLast();
-      renderedCharacters -= removed.length + (lines.isEmpty ? 0 : 1);
-    }
-    final rendered = lines.join('\n');
+    final rendered = renderLinesWithinBudget<UserMemoryEntry>(
+      items: entries,
+      maxItems: _selfLearningHistoryMaxEntries,
+      maxCharacters: _selfLearningHistoryMaxCharacters,
+      lineBuilder: (entry) {
+        final content = clipTextWithOmissionMarker(
+          entry.content,
+          maxCodeUnits: _selfLearningHistoryEntryMaxCharacters - 2,
+          marker: 'memory_content_truncated',
+        ).text;
+        return '- $content';
+      },
+      omissionMarkerBuilder: (omitted) =>
+          '[auto_learned_memories_omitted: $omitted entries]',
+    ).text;
     assert(rendered.length <= _selfLearningHistoryMaxCharacters);
     return rendered;
   }

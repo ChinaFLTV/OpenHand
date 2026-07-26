@@ -892,10 +892,8 @@ class _NetworkRow extends StatelessWidget {
   }
 
   Future<void> _replayWithOverridesAndShow(BuildContext context) async {
-    final overrides =
-        await showWebReverseToolDialog<
-          ({String url, Map<String, String> headers})
-        >(
+    final overrides = await webReverseToolDialogs
+        .show<({String url, Map<String, String> headers})>(
           context: context,
           builder: (_) => _ReplayOverrideEditor(entry: entry),
         );
@@ -991,7 +989,7 @@ class _NetworkRow extends StatelessWidget {
             ja: '(レスポンス本文は空です)',
           )
         : body;
-    return showWebReverseToolDialog<void>(
+    return webReverseToolDialogs.show<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
@@ -1245,7 +1243,7 @@ class _PendingFetchBanner extends StatelessWidget {
   ) {
     Future.microtask(() async {
       if (!context.mounted) return;
-      final action = await showWebReverseToolDialog<String>(
+      final action = await webReverseToolDialogs.show<String>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(

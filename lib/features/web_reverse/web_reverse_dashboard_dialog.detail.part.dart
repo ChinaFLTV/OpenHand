@@ -2143,7 +2143,7 @@ class _ImageInlinePreview extends StatelessWidget {
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () {
-                    showWebReverseToolDialog<void>(
+                    webReverseToolDialogs.show<void>(
                       context: context,
                       builder: (_) => bytes != null
                           ? MediaPreviewDialog.bytes(
@@ -2235,7 +2235,7 @@ class _MediaInlinePreview extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               FilledButton.tonalIcon(
-                onPressed: () => showWebReverseToolDialog<void>(
+                onPressed: () => webReverseToolDialogs.show<void>(
                   context: context,
                   builder: (_) => MediaPreviewDialog.network(
                     url: entry.url,

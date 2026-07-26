@@ -2832,7 +2832,8 @@ class _TabStripState extends State<_TabStrip> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   AnimatedDefaultTextStyle(
-                                                    duration: kOpenHandMotion220,
+                                                    duration:
+                                                        kOpenHandMotion220,
                                                     style: theme
                                                         .textTheme
                                                         .labelSmall!

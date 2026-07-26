@@ -22,7 +22,7 @@ Future<void> showWebReverseHeadlessBatchDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) async {
-  await showWebReverseToolDialog<void>(
+  await webReverseToolDialogs.show<void>(
     context: context,
     builder: (ctx) => _HeadlessBatchDialog(controller: controller),
   );

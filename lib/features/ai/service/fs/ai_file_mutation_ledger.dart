@@ -1115,6 +1115,41 @@ class AiFileMutationLedger {
   Future<FileMutationOutcome> _undoRecordLocked({
     required String sessionId,
     required String recordId,
+  }) {
+    return _restoreRecordLocked(
+      sessionId: sessionId,
+      recordId: recordId,
+      // before 为 null 表示这是 create，撤销 = 删除磁盘文件。
+      targetSha: (record) => record.beforeSha,
+      missingBlobReason: 'before-blob-missing',
+      logAction: '撤销',
+      applyUndoneMutation: (all, target, undone) {
+        // 级联标记：同一文件上不早于本记录的变更全部视为已撤销。
+        for (final record in all) {
+          if (record.filePath != target.filePath) continue;
+          if (!record.createdAt.isBefore(target.createdAt)) {
+            undone.add(record.recordId);
+          }
+        }
+      },
+    );
+  }
+
+  /// 撤销与重做的共用骨架：定位记录 → 按目标侧 blob 恢复磁盘（blob 为 null
+  /// 即删除文件）→ 更新 undone 集合。两者只在「取哪一侧 blob」「缺失 blob 的
+  /// 原因串」「日志措辞」和「如何变更 undone 集合」四点上不同。
+  Future<FileMutationOutcome> _restoreRecordLocked({
+    required String sessionId,
+    required String recordId,
+    required String? Function(FileMutationRecord record) targetSha,
+    required String missingBlobReason,
+    required String logAction,
+    required void Function(
+      List<FileMutationRecord> all,
+      FileMutationRecord target,
+      Set<String> undone,
+    )
+    applyUndoneMutation,
   }) async {
     try {
       final all = await recordsForSession(sessionId);
@@ -1123,45 +1158,39 @@ class AiFileMutationLedger {
         return const FileMutationOutcome.fail('record-not-found');
       }
 
-      // 恢复磁盘：before 为 null 表示这是 create，撤销 = 删除磁盘文件。
       final outFile = File(target.filePath);
-      if (target.beforeSha == null) {
+      final sha = targetSha(target);
+      if (sha == null) {
         if (await outFile.exists()) {
           try {
             await outFile.delete();
           } catch (error, stack) {
             if (!_isMissingFileError(error)) {
-              silentLog('ai_file_mutation_ledger', '撤销删除', error, stack);
+              silentLog('ai_file_mutation_ledger', '$logAction删除', error, stack);
               return FileMutationOutcome.fail('delete-failed:$error');
             }
           }
         }
       } else {
-        final beforeContent = await _readBlob(target.beforeSha!);
-        if (beforeContent == null) {
-          return const FileMutationOutcome.fail('before-blob-missing');
+        final content = await _readBlob(sha);
+        if (content == null) {
+          return FileMutationOutcome.fail(missingBlobReason);
         }
         try {
           await outFile.parent.create(recursive: true);
-          await writeFileAtomically(outFile, beforeContent);
+          await writeFileAtomically(outFile, content);
         } catch (error, stack) {
-          silentLog('ai_file_mutation_ledger', '撤销写入', error, stack);
+          silentLog('ai_file_mutation_ledger', '$logAction写入', error, stack);
           return FileMutationOutcome.fail('restore-failed:$error');
         }
       }
 
-      // 级联标记
       final undone = await _loadUndoneSet(sessionId);
-      for (final r in all) {
-        if (r.filePath != target.filePath) continue;
-        if (!r.createdAt.isBefore(target.createdAt)) {
-          undone.add(r.recordId);
-        }
-      }
+      applyUndoneMutation(all, target, undone);
       await _saveUndoneSet(sessionId, undone);
       return const FileMutationOutcome.ok();
     } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '撤销变更记录', error, stack);
+      silentLog('ai_file_mutation_ledger', '$logAction变更记录', error, stack);
       return FileMutationOutcome.fail('$error');
     }
   }
@@ -1181,49 +1210,17 @@ class AiFileMutationLedger {
   Future<FileMutationOutcome> _redoRecordLocked({
     required String sessionId,
     required String recordId,
-  }) async {
-    try {
-      final all = await recordsForSession(sessionId);
-      final target = all.where((r) => r.recordId == recordId).firstOrNull;
-      if (target == null) {
-        return const FileMutationOutcome.fail('record-not-found');
-      }
-
-      final outFile = File(target.filePath);
-      if (target.afterSha == null) {
-        // delete 类型：重做 = 删除文件
-        if (await outFile.exists()) {
-          try {
-            await outFile.delete();
-          } catch (error, stack) {
-            if (!_isMissingFileError(error)) {
-              silentLog('ai_file_mutation_ledger', '重做删除', error, stack);
-              return FileMutationOutcome.fail('delete-failed:$error');
-            }
-          }
-        }
-      } else {
-        final afterContent = await _readBlob(target.afterSha!);
-        if (afterContent == null) {
-          return const FileMutationOutcome.fail('after-blob-missing');
-        }
-        try {
-          await outFile.parent.create(recursive: true);
-          await writeFileAtomically(outFile, afterContent);
-        } catch (error, stack) {
-          silentLog('ai_file_mutation_ledger', '重做写入', error, stack);
-          return FileMutationOutcome.fail('restore-failed:$error');
-        }
-      }
-
-      final undone = await _loadUndoneSet(sessionId);
-      undone.remove(recordId);
-      await _saveUndoneSet(sessionId, undone);
-      return const FileMutationOutcome.ok();
-    } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '重做变更记录', error, stack);
-      return FileMutationOutcome.fail('$error');
-    }
+  }) {
+    return _restoreRecordLocked(
+      sessionId: sessionId,
+      recordId: recordId,
+      // after 为 null 表示这是 delete，重做 = 删除文件。
+      targetSha: (record) => record.afterSha,
+      missingBlobReason: 'after-blob-missing',
+      logAction: '重做',
+      // 重做只清除自己的 undone 标志，不做级联。
+      applyUndoneMutation: (_, _, undone) => undone.remove(recordId),
+    );
   }
 
   /// 读取账本两侧快照：优先内容寻址 blob，其次旧版历史快照，最后仅在

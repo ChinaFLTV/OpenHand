@@ -25,7 +25,7 @@ Future<void> showWebReverseRenderingDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _RenderingDialog(controller: controller, isZh: isZh),
   );

@@ -722,7 +722,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool merge = false;
     if (ctrl.networkRequests.isNotEmpty) {
       if (!mounted) return;
-      final mode = await showWebReverseToolDialog<String>(
+      final mode = await webReverseToolDialogs.show<String>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(
@@ -1095,7 +1095,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool isZh,
   ) {
     final filtered = _filteredNetworkEntries(ctrl);
-    showWebReverseToolDialog<void>(
+    webReverseToolDialogs.show<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
@@ -1297,7 +1297,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     WebReverseSessionController ctrl,
     bool isZh,
   ) {
-    showWebReverseToolDialog<void>(
+    webReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => _AdvancedMenuDialog(
         controller: ctrl,

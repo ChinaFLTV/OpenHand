@@ -25,7 +25,7 @@ Future<void> showWebReverseHeapSnapshotDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _HeapDialog(controller: controller),
   );

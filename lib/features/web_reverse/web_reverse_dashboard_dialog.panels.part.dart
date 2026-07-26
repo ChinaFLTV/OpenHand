@@ -179,7 +179,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   void _showFlameGraph() {
     final raw = _lastTraceJson;
     if (raw == null) return;
-    showWebReverseToolDialog<void>(
+    webReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => _FlameGraphDialog(traceJson: raw),
     );
@@ -1684,7 +1684,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     final result = await fut;
     if (!mounted) return;
     setState(() => _capturing = false);
-    showWebReverseToolDialog<void>(
+    webReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => _SnapshotDiffDialog(
         whenA: a.ts,
@@ -2656,7 +2656,7 @@ class _SamplingTopList extends StatelessWidget {
     BuildContext context,
     ({String label, int size, List<String> stack}) row,
   ) {
-    showWebReverseToolDialog<void>(
+    webReverseToolDialogs.show<void>(
       context: context,
       builder: (dialogContext) {
         return buildOpenHandAlertDialog(

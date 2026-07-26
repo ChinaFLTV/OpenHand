@@ -282,6 +282,24 @@ class AiChatStreamingResponse {
     this.cancel,
   });
 
+  /// 用户在建流阶段取消：不产生任何事件，直接给出已取消的空结果。
+  ///
+  /// 两条流式链路（messages / responses）的每一级降级重试都要用它，此前
+  /// 在同一文件里逐字重复了 8 次。
+  factory AiChatStreamingResponse.cancelled() {
+    return AiChatStreamingResponse(
+      events: const Stream<AiChatStreamEvent>.empty(),
+      result: Future<AiChatStreamResult>.value(
+        const AiChatStreamResult(
+          reply: '',
+          reasoning: '',
+          toolCalls: <AiToolCall>[],
+          wasCancelled: true,
+        ),
+      ),
+    );
+  }
+
   final Stream<AiChatStreamEvent> events;
   final Future<AiChatStreamResult> result;
   final Future<void> Function()? cancel;
@@ -1478,17 +1496,7 @@ class AiChatService implements AiChatClient {
 
     var streamedResponse = await openStream(blueprint);
     if (streamedResponse == null) {
-      return AiChatStreamingResponse(
-        events: const Stream<AiChatStreamEvent>.empty(),
-        result: Future<AiChatStreamResult>.value(
-          const AiChatStreamResult(
-            reply: '',
-            reasoning: '',
-            toolCalls: <AiToolCall>[],
-            wasCancelled: true,
-          ),
-        ),
-      );
+      return AiChatStreamingResponse.cancelled();
     }
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
       final initialErrorBody = await _readChatHttpErrorBody(
@@ -1513,17 +1521,7 @@ class AiChatService implements AiChatClient {
           _withoutCacheRetentionMarker(blueprint),
         );
         if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
+          return AiChatStreamingResponse.cancelled();
         }
         if (isHttpFailureStatus(streamedResponse.statusCode)) {
           finalErrorBody = await _readChatHttpErrorBody(
@@ -1547,17 +1545,7 @@ class AiChatService implements AiChatClient {
           _withoutCacheAffinityMarkers(blueprint),
         );
         if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
+          return AiChatStreamingResponse.cancelled();
         }
         if (isHttpFailureStatus(streamedResponse.statusCode)) {
           finalErrorBody = await _readChatHttpErrorBody(
@@ -1578,17 +1566,7 @@ class AiChatService implements AiChatClient {
         );
         streamedResponse = await openStream(_withoutThinkingMarkers(blueprint));
         if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
+          return AiChatStreamingResponse.cancelled();
         }
         if (isHttpFailureStatus(streamedResponse.statusCode)) {
           finalErrorBody = await _readChatHttpErrorBody(
@@ -2036,17 +2014,7 @@ class AiChatService implements AiChatClient {
 
     var streamedResponse = await openResponsesStream(request);
     if (streamedResponse == null) {
-      return AiChatStreamingResponse(
-        events: const Stream<AiChatStreamEvent>.empty(),
-        result: Future<AiChatStreamResult>.value(
-          const AiChatStreamResult(
-            reply: '',
-            reasoning: '',
-            toolCalls: <AiToolCall>[],
-            wasCancelled: true,
-          ),
-        ),
-      );
+      return AiChatStreamingResponse.cancelled();
     }
     String? responsesErrorBody;
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
@@ -2075,17 +2043,7 @@ class AiChatService implements AiChatClient {
         );
         streamedResponse = await openResponsesStream(retryRequest);
         if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
+          return AiChatStreamingResponse.cancelled();
         }
         responsesErrorBody = isHttpSuccessStatus(streamedResponse.statusCode)
             ? null
@@ -2113,17 +2071,7 @@ class AiChatService implements AiChatClient {
         );
         streamedResponse = await openResponsesStream(retryRequest);
         if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
+          return AiChatStreamingResponse.cancelled();
         }
         if (isHttpSuccessStatus(streamedResponse.statusCode)) {
           responsesErrorBody = null;
@@ -2153,17 +2101,7 @@ class AiChatService implements AiChatClient {
         );
         streamedResponse = await openResponsesStream(retryRequest);
         if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
+          return AiChatStreamingResponse.cancelled();
         }
         if (isHttpSuccessStatus(streamedResponse.statusCode)) {
           // Retry succeeded; continue into the normal SSE reader below.

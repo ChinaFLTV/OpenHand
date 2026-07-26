@@ -21,7 +21,7 @@ Future<void> showWebReverseThrottleDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _ThrottleDialog(controller: controller),
   );

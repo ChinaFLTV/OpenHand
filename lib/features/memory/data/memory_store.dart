@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common/sqlite_api.dart';
 
@@ -9,7 +10,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/db/legacy_persistence.dart';
 import '../../../shared/util/bounded_file_io.dart';
-import '../../../shared/util/collection_equality.dart';
+
 import '../model/user_memory_entry.dart';
 
 class MemoryPersistenceIssue {
@@ -507,7 +508,7 @@ class MemoryStore {
       parsedTags.add(tag);
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(parsedTags);
-    if (!orderedListsEqual(parsedTags, normalizedTags) ||
+    if (!listEquals(parsedTags, normalizedTags) ||
         parsedTags.length > UserMemoryEntry.maxTags ||
         parsedTags.any(
           (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
@@ -589,7 +590,7 @@ class MemoryStore {
       );
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(entry.tags);
-    if (!orderedListsEqual(entry.tags, normalizedTags) ||
+    if (!listEquals(entry.tags, normalizedTags) ||
         entry.tags.length > UserMemoryEntry.maxTags ||
         entry.tags.any(
           (tag) => tag.length > UserMemoryEntry.maxTagCharacters,

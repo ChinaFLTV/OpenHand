@@ -254,7 +254,7 @@ Future<void> showAndroidReverseDashboardDialog(
   required AndroidReverseSessionController controller,
   required String sessionId,
 }) {
-  return showAndroidReverseToolDialog<void>(
+  return androidReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _AndroidReverseDashboardDialog(
       controller: controller,
@@ -7566,7 +7566,7 @@ fi
   }
 
   void _showRuntimePluginInfoDialog(PluginInfo plugin) {
-    showAndroidReverseToolDialog<void>(
+    androidReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => _RuntimePluginInfoDialog(plugin: plugin),
     );
@@ -10342,7 +10342,7 @@ fi
   void _showToolchainInfoDialog(AndroidReverseToolchainProbe probe) {
     final row = _toolchainResultForProbe(probe);
     final plugin = _toolchainPluginForProbe(probe);
-    showAndroidReverseToolDialog<void>(
+    androidReverseToolDialogs.show<void>(
       context: context,
       builder: (_) =>
           _ToolchainInfoDialog(probe: probe, result: row, plugin: plugin),

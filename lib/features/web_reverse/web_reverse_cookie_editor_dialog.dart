@@ -21,7 +21,7 @@ Future<void> showWebReverseCookieEditorDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _CookieEditorDialog(controller: controller),
   );
@@ -128,7 +128,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _edit(_CookieRow? row) async {
-    final result = await showWebReverseToolDialog<Map<String, Object?>>(
+    final result = await webReverseToolDialogs.show<Map<String, Object?>>(
       context: context,
       builder: (_) => _CookieEditPanel(row: row),
     );

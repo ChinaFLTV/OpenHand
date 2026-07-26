@@ -34,7 +34,7 @@ Future<void> showWebReverseWaterfallDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _WaterfallDialog(controller: controller, isZh: isZh),
   );
@@ -562,7 +562,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
 
   Future<void> _showInitiator(CdpNetworkEntry e) async {
     final ctrl = widget.controller;
-    await showWebReverseToolDialog<void>(
+    await webReverseToolDialogs.show<void>(
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
@@ -747,7 +747,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     bool merge = false;
     final existing = widget.controller.networkRequestCount;
     if (existing > 0 && mounted) {
-      final mode = await showWebReverseToolDialog<String>(
+      final mode = await webReverseToolDialogs.show<String>(
         context: context,
         builder: (dctx) {
           final dloc = AppLocalizations.of(dctx);

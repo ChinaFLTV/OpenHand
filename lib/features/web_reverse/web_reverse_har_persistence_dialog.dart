@@ -31,7 +31,7 @@ Future<void> showWebReverseHarPersistenceDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _HarPersistenceDialog(controller: controller, isZh: isZh),
   );

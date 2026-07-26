@@ -1542,7 +1542,7 @@ Future<void> _showCdpPaletteDialog(
   final result = ValueNotifier<String?>(null);
   final useSession = ValueNotifier<bool>(true);
   try {
-    await showWebReverseToolDialog<void>(
+    await webReverseToolDialogs.show<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
@@ -1884,7 +1884,7 @@ Future<void> _showDiffPicker(
               ? null
               : () {
                   Navigator.of(dialogContext).pop();
-                  showWebReverseToolDialog<void>(
+                  webReverseToolDialogs.show<void>(
                     context: context,
                     builder: (_) => _DiffViewerDialog(a: a!, b: b!),
                   );
@@ -1997,7 +1997,7 @@ Future<void> _showServiceWorkersDialog(
 ) async {
   final list = await ctrl.listServiceWorkers();
   if (!context.mounted) return;
-  await showWebReverseToolDialog<void>(
+  await webReverseToolDialogs.show<void>(
     context: context,
     builder: (dialogContext) => buildOpenHandAlertDialog(
       title: Text(
@@ -2339,7 +2339,7 @@ Future<void> _toggleWebRtcCapture(
     );
     return;
   }
-  await showWebReverseToolDialog<void>(
+  await webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _WebRtcLiveDialog(controller: ctrl),
   );
@@ -3478,7 +3478,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
   final output = ValueNotifier<String?>(null);
   final running = ValueNotifier<bool>(false);
   try {
-    await showWebReverseToolDialog<void>(
+    await webReverseToolDialogs.show<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
@@ -3784,7 +3784,7 @@ Future<void> _showInterceptRulesDialog(
   BuildContext context,
   WebReverseSessionController controller,
 ) async {
-  await showWebReverseToolDialog<void>(
+  await webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _InterceptRulesDialog(controller: controller),
   );
@@ -3823,7 +3823,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
     final initial = index == null
         ? const WebReverseInterceptRule(urlPattern: '')
         : _rules[index];
-    final updated = await showWebReverseToolDialog<WebReverseInterceptRule>(
+    final updated = await webReverseToolDialogs.show<WebReverseInterceptRule>(
       context: context,
       builder: (_) => _InterceptRuleEditor(initial: initial),
     );

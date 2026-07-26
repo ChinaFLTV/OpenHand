@@ -220,8 +220,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       );
       return;
     }
-    final picked =
-        await showWebReverseToolDialog<({String scriptId, int? line})>(
+    final picked = await webReverseToolDialogs
+        .show<({String scriptId, int? line})>(
           context: context,
           builder: (_) => _SourcesQuickOpenDialog(
             controller: widget.controller,
@@ -394,7 +394,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
     final preset = ValueNotifier<String?>(null);
     try {
-      final result = await showWebReverseToolDialog<bool>(
+      final result = await webReverseToolDialogs.show<bool>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(
@@ -1076,8 +1076,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _showGlobalCodeSearch() async {
-    final result =
-        await showWebReverseToolDialog<({String scriptId, int line})>(
+    final result = await webReverseToolDialogs
+        .show<({String scriptId, int line})>(
           context: context,
           builder: (_) =>
               _SourcesGlobalSearchDialog(controller: widget.controller),

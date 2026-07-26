@@ -672,7 +672,7 @@ Future<void> showWebReverseDashboardDialog(
   required String sessionId,
   Future<bool> Function(bool enabled)? onCdpMcpEnabledChanged,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _WebReverseDashboardDialog(
       controller: controller,
@@ -1584,7 +1584,7 @@ class _WebReverseDashboardDialogState
   /// Shift + ? 打开快捷键速查面板：分类列出 dashboard / 浏览器面板 /
   /// recorder / network 等所有键盘快捷键。
   void _showShortcutsHelp() {
-    showWebReverseToolDialog<void>(
+    webReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => const _ShortcutsHelpDialog(),
     );
@@ -2903,7 +2903,9 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
                 children: [
                   // 渐进式按钮：先清理 → 仍有锁则引导重置。重置成功后自动 60s 冷却。
                   FilledButton.tonalIcon(
-                    onPressed: (_busy || onProfileResetCooldown) ? null : _runProgressive,
+                    onPressed: (_busy || onProfileResetCooldown)
+                        ? null
+                        : _runProgressive,
                     icon: Icon(
                       _busy
                           ? Icons.hourglass_top_rounded

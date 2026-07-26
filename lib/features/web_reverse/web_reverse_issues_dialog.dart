@@ -56,7 +56,7 @@ Future<void> showWebReverseIssuesDialog(
   }
 
   if (!context.mounted) return;
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _IssuesDialog(controller: controller),
   );

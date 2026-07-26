@@ -23,7 +23,7 @@ Future<AndroidReverseSetupResult?> showAndroidReverseSetupDialog(
   String? initialSelectedModelConfigId,
   String? initialSelectedModelId,
 }) {
-  return showAndroidReverseToolDialog<AndroidReverseSetupResult>(
+  return androidReverseToolDialogs.show<AndroidReverseSetupResult>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _AndroidReverseSetupDialog(

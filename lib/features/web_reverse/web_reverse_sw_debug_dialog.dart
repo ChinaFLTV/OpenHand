@@ -24,7 +24,7 @@ Future<void> showWebReverseSwDebugDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _SwDebugDialog(controller: controller),
   );

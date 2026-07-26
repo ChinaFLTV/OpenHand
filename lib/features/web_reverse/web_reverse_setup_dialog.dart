@@ -81,7 +81,7 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
   final probes = await ensureBrowserInstalled();
   if (probes == null || probes.isEmpty || !context.mounted) return null;
 
-  return showWebReverseToolDialog<WebReverseSetupResult>(
+  return webReverseToolDialogs.show<WebReverseSetupResult>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _WebReverseSetupDialog(
@@ -566,7 +566,9 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton.tonalIcon(
-              onPressed: (_busy || onProfileResetCooldown) ? null : _runProgressive,
+              onPressed: (_busy || onProfileResetCooldown)
+                  ? null
+                  : _runProgressive,
               icon: Icon(
                 _busy
                     ? Icons.hourglass_top_rounded
@@ -579,7 +581,9 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
                 _busy
                     ? (loc?.webReverseSetupWorking ?? 'Working…')
                     : onProfileResetCooldown
-                    ? (loc?.webReverseSetupCooldown(profileResetCooldownLeftSec) ??
+                    ? (loc?.webReverseSetupCooldown(
+                            profileResetCooldownLeftSec,
+                          ) ??
                           'Cool-down ${profileResetCooldownLeftSec}s')
                     : (loc?.webReverseSetupResolveLock ??
                           'Resolve profile lock'),

@@ -9,6 +9,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_line_budget.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -4103,55 +4104,36 @@ $tail''';
     if (filtered.isEmpty) {
       return 'No saved user memory entries.';
     }
-    final lines = <String>[];
-    final includedIds = <String>[];
-    var renderedCharacters = 0;
-    final candidateCount = math.min(
-      filtered.length,
-      _userMemoryPromptMaxEntries,
+    final render = renderLinesWithinBudget<UserMemoryEntry>(
+      items: filtered,
+      maxItems: _userMemoryPromptMaxEntries,
+      maxCharacters: _userMemoryPromptMaxCharacters,
+      lineBuilder: (entry) {
+        final promptTags = _memoryTagsForPrompt(entry);
+        final tags = promptTags.isEmpty
+            ? ''
+            : ' (tags: ${clipTextWithOmissionMarker(promptTags.join(', '), maxCodeUnits: _userMemoryPromptTagsMaxCharacters, marker: 'memory_tags_truncated').text})';
+        final contentBudget =
+            _userMemoryPromptEntryMaxCharacters - 2 - tags.length;
+        final content = clipTextWithOmissionMarker(
+          entry.content,
+          maxCodeUnits: math.max(1, contentBudget),
+          marker: 'memory_content_truncated',
+        ).text;
+        return '- $content$tags';
+      },
+      omissionMarkerBuilder: (omitted) =>
+          '[memory_entries_omitted: $omitted entries]',
     );
-    for (var index = 0; index < candidateCount; index++) {
-      final entry = filtered[index];
-      final promptTags = _memoryTagsForPrompt(entry);
-      final tags = promptTags.isEmpty
-          ? ''
-          : ' (tags: ${clipTextWithOmissionMarker(promptTags.join(', '), maxCodeUnits: _userMemoryPromptTagsMaxCharacters, marker: 'memory_tags_truncated').text})';
-      final contentBudget =
-          _userMemoryPromptEntryMaxCharacters - 2 - tags.length;
-      final content = clipTextWithOmissionMarker(
-        entry.content,
-        maxCodeUnits: math.max(1, contentBudget),
-        marker: 'memory_content_truncated',
-      ).text;
-      final line = '- $content$tags';
-      final separatorCharacters = lines.isEmpty ? 0 : 1;
-      if (renderedCharacters + separatorCharacters + line.length >
-          _userMemoryPromptMaxCharacters) {
-        break;
-      }
-      lines.add(line);
-      includedIds.add(entry.id);
-      renderedCharacters += separatorCharacters + line.length;
-    }
-    while (true) {
-      final omitted = filtered.length - lines.length;
-      if (omitted <= 0) break;
-      final marker = '[memory_entries_omitted: $omitted entries]';
-      final separatorCharacters = lines.isEmpty ? 0 : 1;
-      if (renderedCharacters + separatorCharacters + marker.length <=
-          _userMemoryPromptMaxCharacters) {
-        lines.add(marker);
-        break;
-      }
-      if (lines.isEmpty) return marker;
-      final removed = lines.removeLast();
-      includedIds.removeLast();
-      renderedCharacters -= removed.length + (lines.isEmpty ? 0 : 1);
-    }
-    resourceIds.addAll(includedIds.where((id) => id.trim().isNotEmpty));
-    final rendered = lines.join('\n');
-    assert(rendered.length <= _userMemoryPromptMaxCharacters);
-    return rendered;
+    // 被采用的恒是 filtered 的前 includedItemCount 条，回填引用 id 即可。
+    resourceIds.addAll(
+      filtered
+          .take(render.includedItemCount)
+          .map((entry) => entry.id)
+          .where((id) => id.trim().isNotEmpty),
+    );
+    assert(render.text.length <= _userMemoryPromptMaxCharacters);
+    return render.text;
   }
 
   List<UserMemoryEntry> _memoryEntriesForPrompt(

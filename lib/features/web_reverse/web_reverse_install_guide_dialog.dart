@@ -16,7 +16,7 @@ import 'web_reverse_dialog_utils.dart';
 Future<WebReverseInstallGuideDecision?> showWebReverseInstallGuideDialog(
   BuildContext context,
 ) async {
-  return showWebReverseToolDialog<WebReverseInstallGuideDecision>(
+  return webReverseToolDialogs.show<WebReverseInstallGuideDecision>(
     context: context,
     builder: (ctx) => const _WebReverseInstallGuideDialog(),
   );

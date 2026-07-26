@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
@@ -27,7 +28,7 @@ import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
-import '../../../shared/util/collection_equality.dart';
+
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1824,7 +1825,7 @@ class WebMessagePlatformService {
         if (addrs.length >= _maxLocalAddresses) break;
       }
       final next = addrs.toList(growable: false)..sort();
-      final changed = !orderedListsEqual(_localAddressesCache, next);
+      final changed = !listEquals(_localAddressesCache, next);
       if (changed) _localAddressesCache = List<String>.unmodifiable(next);
       _localAddressesAt = DateTime.now().toUtc();
       return changed;

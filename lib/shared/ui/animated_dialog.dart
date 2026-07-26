@@ -1118,6 +1118,44 @@ Future<T?> showOpenHandProfiledDialog<T>({
   );
 }
 
+/// 绑定了固定过渡几何参数的弹窗入口。
+///
+/// 各功能模块只需声明自己的 [OpenHandAnimationTransitionProfile] 常量并建一个
+/// presenter，不必再各自抄一遍 11 个参数的转发壳。路由与全局弹窗动画设置仍由
+/// [showOpenHandProfiledDialog] 统一处理，模块只覆盖过渡几何。
+class OpenHandProfiledDialogPresenter {
+  const OpenHandProfiledDialogPresenter(this.transitionProfile);
+
+  final OpenHandAnimationTransitionProfile transitionProfile;
+
+  Future<T?> show<T>({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    DialogAnimationSettings? settings,
+    bool barrierDismissible = true,
+    bool dismissOnEscape = true,
+    String? barrierLabel,
+    Color? barrierColor,
+    bool useRootNavigator = true,
+    RouteSettings? routeSettings,
+    AlignmentGeometry alignment = Alignment.center,
+  }) {
+    return showOpenHandProfiledDialog<T>(
+      context: context,
+      settings: settings,
+      transitionProfile: transitionProfile,
+      barrierDismissible: barrierDismissible,
+      dismissOnEscape: dismissOnEscape,
+      barrierLabel: barrierLabel,
+      barrierColor: barrierColor,
+      useRootNavigator: useRootNavigator,
+      routeSettings: routeSettings,
+      alignment: alignment,
+      builder: builder,
+    );
+  }
+}
+
 Future<void> showOpenHandInfoDialog({
   required BuildContext context,
   required String title,

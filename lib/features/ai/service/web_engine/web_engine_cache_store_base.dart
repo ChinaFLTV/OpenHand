@@ -8,6 +8,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
@@ -237,7 +238,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
             root['entries'] = entries;
             try {
-              await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
+              await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
             } catch (error, stack) {
               silentLog(logTag, '预热缓存并写入索引', error, stack);
             }
@@ -300,7 +301,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       chain = chain.then((_) => _touchAccess(key)).catchError((_) {});
       return WebEngineCacheRawLookup(
         payload: payload,
-        metadata: _jsonSafeCacheMap(Map.from(entry)),
+        metadata: jsonSafeMap(Map.from(entry)),
         cachedAt: _dateTimeFromCacheMs(
           webEngineOptionalNonNegativeIntFromValue(entry['created_at']) ?? now,
           fallbackMs: now,
@@ -412,11 +413,11 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       'created_at': now,
       'expires_at': expiresAt,
       'last_accessed_at': now,
-      ..._jsonSafeCacheMap(extraEntryFields),
+      ...jsonSafeMap(extraEntryFields),
     };
 
     root['entries'] = entries;
-    await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
+    await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
 
     await _enforceCap(safeCap);
   }
@@ -436,7 +437,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       updated['last_accessed_at'] = DateTime.now().millisecondsSinceEpoch;
       entries[key] = updated;
       root['entries'] = entries;
-      await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
+      await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
     } catch (error, stack) {
       silentLog(logTag, '更新缓存访问时间', error, stack);
     }
@@ -466,7 +467,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         entry[payloadBytesField],
       );
     }
-    estimatedTotal += utf8.encode(jsonEncode(_jsonSafeCacheMap(root))).length;
+    estimatedTotal += utf8.encode(jsonEncode(jsonSafeMap(root))).length;
     if (estimatedTotal <= maxBytes) return;
 
     // 估算超阈值，再做真实磁盘读用于淘汰决策（孤儿文件 / index 字节字段缺失
@@ -530,7 +531,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
     root['entries'] = entries;
     try {
-      await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
+      await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
     } catch (error, stack) {
       silentLog(logTag, '执行容量限制并写入索引', error, stack);
     }
@@ -549,20 +550,4 @@ DateTime _dateTimeFromCacheMs(int value, {required int fallbackMs}) {
   } on RangeError {
     return DateTime.fromMillisecondsSinceEpoch(fallbackMs);
   }
-}
-
-Map<String, Object?> _jsonSafeCacheMap(Map<Object?, Object?> value) {
-  return <String, Object?>{
-    for (final entry in value.entries)
-      '${entry.key}': _jsonSafeCacheValue(entry.value),
-  };
-}
-
-Object? _jsonSafeCacheValue(Object? value) {
-  if (value is num && !value.isFinite) return 0;
-  if (value is Map) return _jsonSafeCacheMap(value);
-  if (value is List) {
-    return value.map(_jsonSafeCacheValue).toList(growable: false);
-  }
-  return value;
 }

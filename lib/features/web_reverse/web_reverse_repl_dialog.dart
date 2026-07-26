@@ -26,7 +26,7 @@ Future<void> showWebReverseReplDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showWebReverseToolDialog<void>(
+  return webReverseToolDialogs.show<void>(
     context: context,
     builder: (_) => _ReplDialog(controller: controller),
   );

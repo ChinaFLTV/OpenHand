@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -38,32 +37,8 @@ const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
 ///
 /// 路由仍通过 [showAnimatedDialog] 读取全局弹窗设置；这里只统一模块内的
 /// 过渡几何参数。
-Future<T?> showWebReverseToolDialog<T>({
-  required BuildContext context,
-  required WidgetBuilder builder,
-  DialogAnimationSettings? settings,
-  bool barrierDismissible = true,
-  bool dismissOnEscape = true,
-  String? barrierLabel,
-  Color? barrierColor,
-  bool useRootNavigator = true,
-  RouteSettings? routeSettings,
-  AlignmentGeometry alignment = Alignment.center,
-}) {
-  return showOpenHandProfiledDialog<T>(
-    context: context,
-    settings: settings,
-    transitionProfile: kWebReverseDialogMotionProfile,
-    barrierDismissible: barrierDismissible,
-    dismissOnEscape: dismissOnEscape,
-    barrierLabel: barrierLabel,
-    barrierColor: barrierColor,
-    useRootNavigator: useRootNavigator,
-    routeSettings: routeSettings,
-    alignment: alignment,
-    builder: builder,
-  );
-}
+const OpenHandProfiledDialogPresenter webReverseToolDialogs =
+    OpenHandProfiledDialogPresenter(kWebReverseDialogMotionProfile);
 
 Future<void> confirmWebReverseDiscardChanges({
   required BuildContext context,

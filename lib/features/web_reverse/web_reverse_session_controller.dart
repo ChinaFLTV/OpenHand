@@ -292,9 +292,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _refreshErrorCounts() {
     if (_errorCountRevision == _inspectorRevision) return;
-    _cachedNetworkErrorCount = _networkRequests
-        .where((e) => e.isError)
-        .length;
+    _cachedNetworkErrorCount = _networkRequests.where((e) => e.isError).length;
     _cachedConsoleErrorCount = _consoleMessages
         .where((e) => e.level == 'error')
         .length;

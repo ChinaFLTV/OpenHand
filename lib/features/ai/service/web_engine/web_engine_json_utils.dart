@@ -36,6 +36,25 @@ Map<String, Object?> decodeJsonObjectBytes(
   return stringKeyedMapFromValue(decoded);
 }
 
+/// 把 Map 递归收敛为可安全 jsonEncode 的形态：key 一律转 String，非有限的
+/// num（NaN / ±Infinity）替换为 0——这两类值会让 jsonEncode 直接抛异常，
+/// 而缓存索引与遥测都要求落盘不能失败。
+Map<String, Object?> jsonSafeMap(Map<Object?, Object?> value) {
+  return <String, Object?>{
+    for (final entry in value.entries)
+      '${entry.key}': jsonSafeValue(entry.value),
+  };
+}
+
+Object? jsonSafeValue(Object? value) {
+  if (value is num && !value.isFinite) return 0;
+  if (value is Map) return jsonSafeMap(value);
+  if (value is List) {
+    return value.map(jsonSafeValue).toList(growable: false);
+  }
+  return value;
+}
+
 /// 把任意 Map 解码成嵌套 Map / List 安全版本。
 T? readJsonPath<T>(Object? root, List<Object> path) {
   Object? cur = root;

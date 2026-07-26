@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
@@ -383,7 +384,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         /* corrupted: drop */
       }
     }
-    calls.add(_jsonSafeTelemetryMap(callJson));
+    calls.add(jsonSafeMap(callJson));
     _keepNewestEntries(calls, maxRecentCalls);
     await writeWebEngineJsonFile(callsFile, calls);
 
@@ -486,9 +487,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
               if (entry.value is List) {
                 hist['${entry.key}'] = (entry.value as List)
                     .whereType<Map>()
-                    .map(
-                      (m) => _jsonSafeTelemetryMap(stringKeyedMapFromValue(m)),
-                    )
+                    .map((m) => jsonSafeMap(stringKeyedMapFromValue(m)))
                     .toList();
               }
             }
@@ -501,7 +500,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         final key = per.kindName;
         final list = hist[key] ?? <Map<String, Object?>>[];
         list.add(
-          _jsonSafeTelemetryMap(<String, Object?>{
+          jsonSafeMap(<String, Object?>{
             'ts': timestampMs,
             'dur': webEngineNonNegativeIntFromValue(per.elapsedMs),
             'ok': per.success,
@@ -524,20 +523,4 @@ void _keepNewestEntries<T>(List<T> entries, int maxEntries) {
   if (entries.length > maxEntries) {
     entries.removeRange(0, entries.length - maxEntries);
   }
-}
-
-Map<String, Object?> _jsonSafeTelemetryMap(Map<Object?, Object?> value) {
-  return <String, Object?>{
-    for (final entry in value.entries)
-      '${entry.key}': _jsonSafeTelemetryValue(entry.value),
-  };
-}
-
-Object? _jsonSafeTelemetryValue(Object? value) {
-  if (value is num && !value.isFinite) return 0;
-  if (value is Map) return _jsonSafeTelemetryMap(value);
-  if (value is List) {
-    return value.map(_jsonSafeTelemetryValue).toList(growable: false);
-  }
-  return value;
 }
