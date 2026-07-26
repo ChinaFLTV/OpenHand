@@ -1633,7 +1633,7 @@ class _TimingWaterfall extends StatelessWidget {
             700.0,
           );
           Widget row(_TimingPhase p) {
-            final relStart = (p.startMs - firstStart);
+            final relStart = p.startMs - firstStart;
             final ratioStart = span <= 0 ? 0.0 : (relStart / span);
             final ratioEnd = span <= 0 ? 1.0 : ((p.endMs - firstStart) / span);
             final left = (ratioStart * barTrackW).clamp(0.0, barTrackW);

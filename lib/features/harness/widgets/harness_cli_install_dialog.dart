@@ -283,10 +283,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
     }
     if (!_isRunActive(generation)) return;
 
-    final shellCmdStr = ([
+    final shellCmdStr = [
       installerPath,
       ...cmd.sublist(1),
-    ]).map(_shellQuote).join(' ');
+    ].map(_shellQuote).join(' ');
     _appendLine(_l10n.harnessCliInstallAdminCommand(shellCmdStr));
     _appendLine('');
 

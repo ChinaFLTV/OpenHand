@@ -130,7 +130,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
 ''';
     try {
       final res = await widget.controller.evaluateJavaScript(installer);
-      if ((res?['error']) != null) {
+      if (res?['error'] != null) {
         if (mounted) {
           setState(() => _status = 'Runtime.evaluate · ${res!['error']}');
         }

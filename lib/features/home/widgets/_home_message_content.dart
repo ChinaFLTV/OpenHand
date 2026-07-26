@@ -990,10 +990,10 @@ class _MessageCollapseToggleCapsuleState
         : openHandLocalizedText(context, zh: '收起长内容', en: 'Collapse Content');
     final unitText = _homeMessageConCharsLabel(context);
     final textStyle =
-        (theme.textTheme.labelLarge?.copyWith(
+        theme.textTheme.labelLarge?.copyWith(
           color: effectiveColor,
           fontWeight: FontWeight.w700,
-        )) ??
+        ) ??
         TextStyle(color: effectiveColor, fontWeight: FontWeight.w700);
     final row = Row(
       mainAxisSize: MainAxisSize.min,

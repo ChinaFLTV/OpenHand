@@ -117,7 +117,7 @@ enum _ResourceFilter {
       _ResourceFilter.manifest => t == 'manifest',
       _ResourceFilter.ws => t == 'websocket' || t == 'eventsource',
       _ResourceFilter.wasm => t == 'wasm' || m.contains('wasm'),
-      _ResourceFilter.other => !(<String>[
+      _ResourceFilter.other => !<String>[
         'fetch',
         'xhr',
         'document',
@@ -130,7 +130,7 @@ enum _ResourceFilter {
         'websocket',
         'eventsource',
         'wasm',
-      ]).contains(t),
+      ].contains(t),
     };
   }
 }

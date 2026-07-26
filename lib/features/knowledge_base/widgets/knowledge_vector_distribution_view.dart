@@ -1658,7 +1658,7 @@ double _closestNiceAxisStep(double rawStep) {
   var best = steps.first;
   var bestScore = double.infinity;
   for (final step in steps) {
-    final score = (math.log(target / step)).abs();
+    final score = math.log(target / step).abs();
     if (score < bestScore) {
       best = step;
       bestScore = score;

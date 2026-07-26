@@ -5511,7 +5511,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
   }
 
   void _parse() {
-    var minT = (1 << 62);
+    var minT = 1 << 62;
     var maxT = -1;
     final all = <_FlameEvent>[];
     try {
@@ -5777,7 +5777,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
       tidIndex.putIfAbsent(e.tid, () => tidIndex.length);
     }
     final canvasH = size.height - _FlamePainter.kAxisH;
-    final rowH = canvasH / (tidIndex.length).clamp(1, 999);
+    final rowH = canvasH / tidIndex.length.clamp(1, 999);
     for (final e in _events) {
       final x = (e.ts - _minTs) / span * size.width;
       final w = (e.dur / span * size.width).clamp(1, size.width).toDouble();
@@ -5848,7 +5848,7 @@ class _FlamePainter extends CustomPainter {
       tidIndex.putIfAbsent(e.tid, () => tidIndex.length);
     }
     final canvasH = size.height - kAxisH;
-    final rowH = canvasH / (tidIndex.length).clamp(1, 999);
+    final rowH = canvasH / tidIndex.length.clamp(1, 999);
     for (var i = 0; i < events.length; i++) {
       final e = events[i];
       final x = (e.ts - minTs) / span * size.width;

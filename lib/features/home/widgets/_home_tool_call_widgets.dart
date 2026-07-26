@@ -842,9 +842,9 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     size: 14,
                   ),
                   label: Text(
-                    (_isWrapped
+                    _isWrapped
                         ? AppLocalizations.of(context)!.tlCallUnwrap
-                        : AppLocalizations.of(context)!.tlCallWrapLines),
+                        : AppLocalizations.of(context)!.tlCallWrapLines,
                   ),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -866,13 +866,11 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                       size: 14,
                     ),
                     label: Text(
-                      (_isExpanded
+                      _isExpanded
                           ? AppLocalizations.of(
                               context,
                             )!.tlCallViewCompressedContent
-                          : AppLocalizations.of(
-                              context,
-                            )!.tlCallViewFullContent),
+                          : AppLocalizations.of(context)!.tlCallViewFullContent,
                     ),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),

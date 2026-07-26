@@ -11,6 +11,11 @@ linter:
     prefer_const_constructors: true    # 优先使用 const 构造函数
     prefer_const_declarations: true    # const 字面量变量使用 const 声明
     unnecessary_this: true             # 移除不必要的 this.
+    unnecessary_parenthesis: true      # 移除不改变语义的多余括号
+    use_super_parameters: true         # 构造函数转发参数用 super.x
+    avoid_void_async: true             # async 函数不返回 void（异常无处可接）
+    prefer_interpolation_to_compose_strings: true  # 字符串拼接改用插值
+    no_leading_underscores_for_local_identifiers: true  # 局部标识符不加下划线
 
     # — 安全性 —
     avoid_print: true                  # 禁止生产代码使用 print()，改用日志框架

@@ -4396,7 +4396,7 @@ class _SettingsViewState extends State<SettingsView> {
         OpenHandDeferredSlider(
           min: minFlushMs.toDouble(),
           max: maxFlushMs.toDouble(),
-          divisions: ((maxFlushMs - minFlushMs) ~/ 100),
+          divisions: (maxFlushMs - minFlushMs) ~/ 100,
           value: flushMs.toDouble().clamp(
             minFlushMs.toDouble(),
             maxFlushMs.toDouble(),

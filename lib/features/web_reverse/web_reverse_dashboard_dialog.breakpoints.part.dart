@@ -715,7 +715,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     child: Chip(
                       avatar: const Icon(Icons.layers_rounded, size: 14),
                       label: Text(
-                        '${(paused.callFrames.first['functionName'] ?? '<anonymous>')} '
+                        '${paused.callFrames.first['functionName'] ?? '<anonymous>'} '
                         '· ${(paused.callFrames.first['location'] as Map?)?['lineNumber'] ?? '?'}',
                       ),
                     ),

@@ -135,7 +135,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
             final s = nonNegativeIntFromValue(rng['startOffset'], fallback: 0);
             final e = nonNegativeIntFromValue(rng['endOffset'], fallback: 0);
             final cnt = nonNegativeIntFromValue(rng['count'], fallback: 0);
-            if (cnt > 0 && e > s) row.covered += (e - s);
+            if (cnt > 0 && e > s) row.covered += e - s;
           }
         }
       }
@@ -416,7 +416,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     _CoverageRow row,
     AppLocalizations? loc,
   ) {
-    final pct = (row.ratio * 100);
+    final pct = row.ratio * 100;
     final pctText = '${pct.toStringAsFixed(1)}%';
     Color barColor;
     if (pct >= 70) {

@@ -2058,7 +2058,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   /// Continuous zoom (pinch / scroll-wheel): apply a visual transform to avoid
   /// expensive re-layout + re-highlight on every frame.
   void _zoomByScale(double scaleDelta) {
-    final effectiveNewSize = (_fontSize * _zoomVisualScale * scaleDelta);
+    final effectiveNewSize = _fontSize * _zoomVisualScale * scaleDelta;
     // Clamp the visual scale so the effective font size stays within bounds.
     final clampedSize = effectiveNewSize.clamp(
       _editorFontSizeMin,

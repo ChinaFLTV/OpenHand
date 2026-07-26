@@ -1198,9 +1198,9 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         .where((e) {
           if (filter.isNotEmpty &&
               !e.url.toLowerCase().contains(filter) &&
-              !(e.responseHeaders.values.any(
+              !e.responseHeaders.values.any(
                 (v) => v.toLowerCase().contains(filter),
-              ))) {
+              )) {
             return false;
           }
           if (!type.matches(e)) return false;

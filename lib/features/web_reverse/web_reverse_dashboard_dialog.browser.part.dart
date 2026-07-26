@@ -488,12 +488,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         // 横向更宽：上下留白。
         dispW = renderSize.width;
         dispH = renderSize.width / imgAspect;
-        py = (local.dy - (renderSize.height - dispH) / 2);
+        py = local.dy - (renderSize.height - dispH) / 2;
       } else {
         // 纵向更高：左右留白。
         dispH = renderSize.height;
         dispW = renderSize.height * imgAspect;
-        px = (local.dx - (renderSize.width - dispW) / 2);
+        px = local.dx - (renderSize.width - dispW) / 2;
       }
     }
     if (dispW <= 0 || dispH <= 0) return Offset.zero;
