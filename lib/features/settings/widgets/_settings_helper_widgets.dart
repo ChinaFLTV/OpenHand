@@ -5968,6 +5968,117 @@ Widget _buildEngineNumberField({
   );
 }
 
+/// 引擎卡片的外框与头部：拖拽柄 + 标题副标题 + 可选尾标 + 展开开关 + 启用开关。
+///
+/// WebSearch / WebFetch 的通用引擎卡片与 WebFetch 独有的 Scrapling 运行时卡片
+/// 共用这一层；后者头部多一个状态胶囊、展开区完全是另一套内容，所以只共用
+/// 外壳，正文各自传入。
+class _ToolEngineCardShell extends StatelessWidget {
+  const _ToolEngineCardShell({
+    super.key,
+    required this.index,
+    required this.name,
+    required this.subtitle,
+    required this.enabled,
+    required this.onEnabledChanged,
+    required this.expanded,
+    required this.onExpandedChanged,
+    required this.body,
+    this.headerTrailing,
+  });
+
+  final int index;
+  final String name;
+  final String subtitle;
+  final bool enabled;
+  final ValueChanged<bool> onEnabledChanged;
+  final bool expanded;
+  final ValueChanged<bool> onExpandedChanged;
+
+  /// 展开区内容。
+  final Widget body;
+
+  /// 排在展开开关之前的头部附加内容（如运行时状态胶囊）。
+  final Widget? headerTrailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: enabled
+              ? colorScheme.surfaceContainerLow
+              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: enabled
+                ? colorScheme.primary.withValues(alpha: 0.4)
+                : colorScheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(Icons.drag_indicator_rounded, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: theme.textTheme.titleSmall),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (headerTrailing != null) ...[
+                    headerTrailing!,
+                    const SizedBox(width: 10),
+                  ],
+                  IconButton(
+                    tooltip: expanded
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '收起',
+                            en: 'Collapse',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '展开',
+                            en: 'Expand',
+                          ),
+                    icon: _SettingsExpandIcon(expanded: expanded),
+                    onPressed: () => onExpandedChanged(!expanded),
+                  ),
+                  Switch(value: enabled, onChanged: onEnabledChanged),
+                ],
+              ),
+              _SettingsElasticExpansion(expanded: expanded, child: body),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// WebSearch / WebFetch 引擎卡片共用外壳。
 ///
 /// 两个工具的引擎卡片除「Jina 超时」「SearXNG Endpoint」这类各自独有的字段
@@ -6098,239 +6209,169 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final enabled = widget.enabled;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: enabled
-              ? colorScheme.surfaceContainerLow
-              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: enabled
-                ? colorScheme.primary.withValues(alpha: 0.4)
-                : colorScheme.outlineVariant.withValues(alpha: 0.45),
+    return _ToolEngineCardShell(
+      index: widget.index,
+      name: widget.name,
+      subtitle: widget.subtitle,
+      enabled: widget.enabled,
+      onEnabledChanged: widget.onEnabledChanged,
+      expanded: _expanded,
+      onExpandedChanged: (value) => setState(() => _expanded = value),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            openHandLocalizedText(
+              context,
+              zh: '权重 ${widget.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
+              en:
+                  'Weight ${widget.weight} (higher = more emphasis in '
+                  'summary)',
+            ),
+            style: theme.textTheme.bodySmall,
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Builder(
+            builder: (context) {
+              // 权重区间退化（min == max）时 Slider 的 divisions
+              // 为 0 会直接断言失败，这里降级为只读展示。
+              final span = widget.maxWeight - widget.minWeight;
+              if (span <= 0) return const SizedBox.shrink();
+              return Slider(
+                min: widget.minWeight.toDouble(),
+                max: widget.maxWeight.toDouble(),
+                divisions: span,
+                value: widget.weight.toDouble().clamp(
+                  widget.minWeight.toDouble(),
+                  widget.maxWeight.toDouble(),
+                ),
+                label: '${widget.weight}',
+                onChanged: (value) => widget.onWeightChanged(value.round()),
+              );
+            },
+          ),
+          Row(
             children: [
-              Row(
-                children: [
-                  ReorderableDragStartListener(
-                    index: widget.index,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.drag_indicator_rounded, size: 20),
-                    ),
+              Expanded(
+                child: _buildEngineNumberField(
+                  controller: _retryController,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '重试次数',
+                    en: 'Max Retries',
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.name, style: theme.textTheme.titleSmall),
-                        Text(
-                          widget.subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: _expanded
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '收起',
-                            en: 'Collapse',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '展开',
-                            en: 'Expand',
-                          ),
-                    icon: _SettingsExpandIcon(expanded: _expanded),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  ),
-                  Switch(value: enabled, onChanged: widget.onEnabledChanged),
-                ],
+                  fallback: 0,
+                  min: 0,
+                  max: widget.maxRetriesUpperBound,
+                  onChanged: widget.onMaxRetriesChanged,
+                ),
               ),
-              _SettingsElasticExpansion(
-                expanded: _expanded,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '权重 ${widget.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
-                        en:
-                            'Weight ${widget.weight} (higher = more emphasis in '
-                            'summary)',
-                      ),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    Builder(
-                      builder: (context) {
-                        // 权重区间退化（min == max）时 Slider 的 divisions
-                        // 为 0 会直接断言失败，这里降级为只读展示。
-                        final span = widget.maxWeight - widget.minWeight;
-                        if (span <= 0) return const SizedBox.shrink();
-                        return Slider(
-                          min: widget.minWeight.toDouble(),
-                          max: widget.maxWeight.toDouble(),
-                          divisions: span,
-                          value: widget.weight.toDouble().clamp(
-                            widget.minWeight.toDouble(),
-                            widget.maxWeight.toDouble(),
-                          ),
-                          label: '${widget.weight}',
-                          onChanged: (value) =>
-                              widget.onWeightChanged(value.round()),
-                        );
-                      },
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildEngineNumberField(
-                            controller: _retryController,
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '重试次数',
-                              en: 'Max Retries',
-                            ),
-                            fallback: 0,
-                            min: 0,
-                            max: widget.maxRetriesUpperBound,
-                            onChanged: widget.onMaxRetriesChanged,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildEngineNumberField(
-                            controller: _truncationController,
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '截断阈值 (字符)',
-                              en: 'Truncation (chars)',
-                            ),
-                            fallback: widget.defaultTruncationChars,
-                            min: widget.minTruncationChars,
-                            max: widget.maxTruncationChars,
-                            onChanged: widget.onTruncationCharsChanged,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ...widget.extrasBeforeApiKey,
-                    if (widget.requiresApiKey) ...[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _apiKeyController,
-                        decoration: InputDecoration(
-                          labelText: 'API Key',
-                          hintText: widget.apiKeyHint,
-                          suffixIconConstraints: const BoxConstraints(
-                            minWidth: 44,
-                            minHeight: 44,
-                          ),
-                          suffixIcon: Align(
-                            widthFactor: 1,
-                            heightFactor: 1,
-                            child: IconButton(
-                              tooltip: _apiKeyVisible
-                                  ? openHandLocalizedText(
-                                      context,
-                                      zh: '隐藏 API Key',
-                                      en: 'Hide API Key',
-                                    )
-                                  : openHandLocalizedText(
-                                      context,
-                                      zh: '显示 API Key',
-                                      en: 'Show API Key',
-                                    ),
-                              visualDensity: VisualDensity.compact,
-                              splashRadius: 18,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 36,
-                                height: 36,
-                              ),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                surfaceTintColor: Colors.transparent,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              icon: Icon(
-                                _apiKeyVisible
-                                    ? Icons.visibility_off_rounded
-                                    : Icons.visibility_rounded,
-                                size: 20,
-                              ),
-                              onPressed: () => setState(
-                                () => _apiKeyVisible = !_apiKeyVisible,
-                              ),
-                            ),
-                          ),
-                        ),
-                        obscureText: !_apiKeyVisible,
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        onChanged: (text) =>
-                            widget.onApiKeyChanged(nullIfBlank(text)),
-                      ),
-                      if (widget.onProviderConfigIdChanged != null) ...[
-                        const SizedBox(height: 8),
-                        AnimatedDropdownButtonFormField<String?>(
-                          initialValue: widget.providerConfigId,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: openHandLocalizedText(
-                              context,
-                              zh: '复用 Provider 的 API Key (可选)',
-                              en: 'Reuse Provider API Key (optional)',
-                            ),
-                          ),
-                          items: [
-                            DropdownMenuItem<String?>(
-                              child: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '不复用',
-                                  en: 'None',
-                                ),
-                              ),
-                            ),
-                            for (final model in widget.availableModels)
-                              DropdownMenuItem<String?>(
-                                value: model.id,
-                                child: Text(
-                                  '${model.providerLabel} '
-                                  '(${model.protocolType.storageValue})',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged: widget.onProviderConfigIdChanged,
-                        ),
-                      ],
-                    ],
-                    ...widget.extrasAfterApiKey,
-                  ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildEngineNumberField(
+                  controller: _truncationController,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '截断阈值 (字符)',
+                    en: 'Truncation (chars)',
+                  ),
+                  fallback: widget.defaultTruncationChars,
+                  min: widget.minTruncationChars,
+                  max: widget.maxTruncationChars,
+                  onChanged: widget.onTruncationCharsChanged,
                 ),
               ),
             ],
           ),
-        ),
+          ...widget.extrasBeforeApiKey,
+          if (widget.requiresApiKey) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _apiKeyController,
+              decoration: InputDecoration(
+                labelText: 'API Key',
+                hintText: widget.apiKeyHint,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 44,
+                  minHeight: 44,
+                ),
+                suffixIcon: Align(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: IconButton(
+                    tooltip: _apiKeyVisible
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '隐藏 API Key',
+                            en: 'Hide API Key',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '显示 API Key',
+                            en: 'Show API Key',
+                          ),
+                    visualDensity: VisualDensity.compact,
+                    splashRadius: 18,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 36,
+                      height: 36,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: Icon(
+                      _apiKeyVisible
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => _apiKeyVisible = !_apiKeyVisible),
+                  ),
+                ),
+              ),
+              obscureText: !_apiKeyVisible,
+              enableSuggestions: false,
+              autocorrect: false,
+              onChanged: (text) => widget.onApiKeyChanged(nullIfBlank(text)),
+            ),
+            if (widget.onProviderConfigIdChanged != null) ...[
+              const SizedBox(height: 8),
+              AnimatedDropdownButtonFormField<String?>(
+                initialValue: widget.providerConfigId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '复用 Provider 的 API Key (可选)',
+                    en: 'Reuse Provider API Key (optional)',
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    child: Text(
+                      openHandLocalizedText(context, zh: '不复用', en: 'None'),
+                    ),
+                  ),
+                  for (final model in widget.availableModels)
+                    DropdownMenuItem<String?>(
+                      value: model.id,
+                      child: Text(
+                        '${model.providerLabel} '
+                        '(${model.protocolType.storageValue})',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: widget.onProviderConfigIdChanged,
+              ),
+            ],
+          ],
+          ...widget.extrasAfterApiKey,
+        ],
       ),
     );
   }

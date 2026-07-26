@@ -808,341 +808,250 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
       context,
       probe,
     );
-    return Padding(
+    return _ToolEngineCardShell(
       key: ValueKey('engine-${widget.config.kind.name}-${widget.index}'),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: DecoratedBox(
+      index: widget.index,
+      name: 'Scrapling',
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '本地 Python 抓取桥接 · 复杂页面更稳',
+        en: 'Local Python bridge · better on complex pages',
+      ),
+      enabled: widget.config.enabled,
+      onEnabledChanged: (value) =>
+          widget.onEngineChanged(widget.config.copyWith(enabled: value)),
+      expanded: _expanded,
+      onExpandedChanged: (value) => setState(() => _expanded = value),
+      headerTrailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: widget.config.enabled
-              ? colorScheme.surfaceContainerLow
-              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: widget.config.enabled
-                ? colorScheme.primary.withValues(alpha: 0.4)
-                : colorScheme.outlineVariant.withValues(alpha: 0.45),
-          ),
+          color: chipBg,
+          borderRadius: BorderRadius.circular(999),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ReorderableDragStartListener(
-                    index: widget.index,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.drag_indicator_rounded, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Scrapling', style: theme.textTheme.titleSmall),
-                        Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '本地 Python 抓取桥接 · 复杂页面更稳',
-                            en: 'Local Python bridge · better on complex pages',
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: chipBg,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      chipLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(color: chipFg),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    tooltip: _expanded
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '收起',
-                            en: 'Collapse',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '展开',
-                            en: 'Expand',
-                          ),
-                    icon: _SettingsExpandIcon(expanded: _expanded),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  ),
-                  Switch(
-                    value: widget.config.enabled,
-                    onChanged: (v) => widget.onEngineChanged(
-                      widget.config.copyWith(enabled: v),
-                    ),
-                  ),
-                ],
+        child: Text(
+          chipLabel,
+          style: theme.textTheme.bodySmall?.copyWith(color: chipFg),
+        ),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(
+            probe.detail,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if ((probe.pythonExecutable ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: 'Python: ${probe.pythonExecutable}',
+                en: 'Python: ${probe.pythonExecutable}',
               ),
-              _SettingsElasticExpansion(
-                expanded: _expanded,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text(
-                      probe.detail,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if ((probe.pythonExecutable ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: 'Python: ${probe.pythonExecutable}',
-                          en: 'Python: ${probe.pythonExecutable}',
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        TextButton.icon(
-                          onPressed: widget.loading || widget.runtimeBusy
-                              ? null
-                              : widget.onRefresh,
-                          icon: widget.loading
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.refresh, size: 16),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '检测环境',
-                              en: 'Probe',
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: widget.runtimeBusy || widget.loading
-                              ? null
-                              : widget.onResetRuntime,
-                          icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '重置运行时',
-                              en: 'Reset Runtime',
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: widget.runtimeBusy || widget.loading
-                              ? null
-                              : widget.onInstallRuntime,
-                          icon:
-                              widget.runtimeBusy &&
-                                  !widget.probe.runtimeInstalled
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.download_rounded, size: 16),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '安装运行时',
-                              en: 'Install Runtime',
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: widget.runtimeBusy || widget.loading
-                              ? null
-                              : widget.onUninstallRuntime,
-                          icon:
-                              widget.runtimeBusy &&
-                                  widget.probe.runtimeInstalled
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 16,
-                                ),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '卸载运行时',
-                              en: 'Uninstall Runtime',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _pythonController,
-                      decoration: InputDecoration(
-                        labelText: openHandLocalizedText(
-                          context,
-                          zh: 'Python 可执行文件（留空自动发现）',
-                          en: 'Python executable (blank = auto detect)',
-                        ),
-                      ),
-                      onChanged: (value) {
-                        final trimmed = value.trim();
-                        widget.onSettingsChanged(
-                          widget.settings.copyWith(
-                            pythonExecutable: trimmed.isEmpty ? null : trimmed,
-                            clearPythonExecutable: trimmed.isEmpty,
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _startupController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                context,
-                                zh: '启动超时（秒）',
-                                en: 'Startup timeout (s)',
-                              ),
-                            ),
-                            onChanged: (value) {
-                              widget.onSettingsChanged(
-                                widget.settings.copyWith(
-                                  startupTimeoutSeconds: clampedIntFromText(
-                                    value,
-                                    fallback: AiWebFetchScraplingSettings
-                                        .defaultStartupTimeoutSeconds,
-                                    min: AiWebFetchScraplingSettings
-                                        .minStartupTimeoutSeconds,
-                                    max: AiWebFetchScraplingSettings
-                                        .maxStartupTimeoutSeconds,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _requestController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                context,
-                                zh: '请求超时（秒）',
-                                en: 'Request timeout (s)',
-                              ),
-                            ),
-                            onChanged: (value) {
-                              widget.onSettingsChanged(
-                                widget.settings.copyWith(
-                                  requestTimeoutSeconds: clampedIntFromText(
-                                    value,
-                                    fallback: AiWebFetchScraplingSettings
-                                        .defaultRequestTimeoutSeconds,
-                                    min: AiWebFetchScraplingSettings
-                                        .minRequestTimeoutSeconds,
-                                    max: AiWebFetchScraplingSettings
-                                        .maxRequestTimeoutSeconds,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _installController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        labelText: openHandLocalizedText(
-                          context,
-                          zh: '安装/卸载超时（秒）',
-                          en: 'Install/Uninstall timeout (s)',
-                        ),
-                      ),
-                      onChanged: (value) {
-                        widget.onSettingsChanged(
-                          widget.settings.copyWith(
-                            installTimeoutSeconds: clampedIntFromText(
-                              value,
-                              fallback: AiWebFetchScraplingSettings
-                                  .defaultInstallTimeoutSeconds,
-                              min: AiWebFetchScraplingSettings
-                                  .minInstallTimeoutSeconds,
-                              max: AiWebFetchScraplingSettings
-                                  .maxInstallTimeoutSeconds,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '默认使用当前 Python 执行 pip install / uninstall Scrapling 运行时；仍保持现有全局弹窗与设置页动效风格。',
-                        en: 'Uses the current Python to run pip install / uninstall for the Scrapling runtime while preserving the existing dialog and settings motion style.',
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontFamily: kOpenHandMonospaceFontFamily,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              TextButton.icon(
+                onPressed: widget.loading || widget.runtimeBusy
+                    ? null
+                    : widget.onRefresh,
+                icon: widget.loading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh, size: 16),
+                label: Text(
+                  openHandLocalizedText(context, zh: '检测环境', en: 'Probe'),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: widget.runtimeBusy || widget.loading
+                    ? null
+                    : widget.onResetRuntime,
+                icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                label: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '重置运行时',
+                    en: 'Reset Runtime',
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: widget.runtimeBusy || widget.loading
+                    ? null
+                    : widget.onInstallRuntime,
+                icon: widget.runtimeBusy && !widget.probe.runtimeInstalled
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.download_rounded, size: 16),
+                label: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '安装运行时',
+                    en: 'Install Runtime',
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: widget.runtimeBusy || widget.loading
+                    ? null
+                    : widget.onUninstallRuntime,
+                icon: widget.runtimeBusy && widget.probe.runtimeInstalled
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline_rounded, size: 16),
+                label: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '卸载运行时',
+                    en: 'Uninstall Runtime',
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _pythonController,
+            decoration: InputDecoration(
+              labelText: openHandLocalizedText(
+                context,
+                zh: 'Python 可执行文件（留空自动发现）',
+                en: 'Python executable (blank = auto detect)',
+              ),
+            ),
+            onChanged: (value) {
+              final trimmed = value.trim();
+              widget.onSettingsChanged(
+                widget.settings.copyWith(
+                  pythonExecutable: trimmed.isEmpty ? null : trimmed,
+                  clearPythonExecutable: trimmed.isEmpty,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _startupController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: openHandLocalizedText(
+                      context,
+                      zh: '启动超时（秒）',
+                      en: 'Startup timeout (s)',
+                    ),
+                  ),
+                  onChanged: (value) {
+                    widget.onSettingsChanged(
+                      widget.settings.copyWith(
+                        startupTimeoutSeconds: clampedIntFromText(
+                          value,
+                          fallback: AiWebFetchScraplingSettings
+                              .defaultStartupTimeoutSeconds,
+                          min: AiWebFetchScraplingSettings
+                              .minStartupTimeoutSeconds,
+                          max: AiWebFetchScraplingSettings
+                              .maxStartupTimeoutSeconds,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _requestController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: openHandLocalizedText(
+                      context,
+                      zh: '请求超时（秒）',
+                      en: 'Request timeout (s)',
+                    ),
+                  ),
+                  onChanged: (value) {
+                    widget.onSettingsChanged(
+                      widget.settings.copyWith(
+                        requestTimeoutSeconds: clampedIntFromText(
+                          value,
+                          fallback: AiWebFetchScraplingSettings
+                              .defaultRequestTimeoutSeconds,
+                          min: AiWebFetchScraplingSettings
+                              .minRequestTimeoutSeconds,
+                          max: AiWebFetchScraplingSettings
+                              .maxRequestTimeoutSeconds,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _installController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: openHandLocalizedText(
+                context,
+                zh: '安装/卸载超时（秒）',
+                en: 'Install/Uninstall timeout (s)',
+              ),
+            ),
+            onChanged: (value) {
+              widget.onSettingsChanged(
+                widget.settings.copyWith(
+                  installTimeoutSeconds: clampedIntFromText(
+                    value,
+                    fallback: AiWebFetchScraplingSettings
+                        .defaultInstallTimeoutSeconds,
+                    min: AiWebFetchScraplingSettings.minInstallTimeoutSeconds,
+                    max: AiWebFetchScraplingSettings.maxInstallTimeoutSeconds,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            openHandLocalizedText(
+              context,
+              zh: '默认使用当前 Python 执行 pip install / uninstall Scrapling 运行时；仍保持现有全局弹窗与设置页动效风格。',
+              en: 'Uses the current Python to run pip install / uninstall for the Scrapling runtime while preserving the existing dialog and settings motion style.',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
