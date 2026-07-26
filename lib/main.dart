@@ -372,18 +372,20 @@ Future<void> _bootstrap() async {
     ),
   );
   final messageGateway = await MessageGatewayModule.bootstrap(
-    sessionController: aiSessionController,
-    settingsController: settingsController,
-    agentsController: agents.controller,
-    skillsController: skills.controller,
-    mcpController: mcp.controller,
-    memoryController: memory.controller,
-    cronsController: cronsController,
-    hooksController: hooks.controller,
-    instructionsController: instructions.controller,
-    knowledgeBaseController: knowledgeBase.controller,
-    machineTerminalService: machineTerminalService,
-    appInfo: appInfo,
+    MessageGatewayDependencies(
+      sessionController: aiSessionController,
+      settingsController: settingsController,
+      agentsController: agents.controller,
+      skillsController: skills.controller,
+      mcpController: mcp.controller,
+      memoryController: memory.controller,
+      cronsController: cronsController,
+      hooksController: hooks.controller,
+      instructionsController: instructions.controller,
+      knowledgeBaseController: knowledgeBase.controller,
+      machineTerminalService: machineTerminalService,
+      appInfo: appInfo,
+    ),
   );
   _runMainBackgroundTask(messageGateway.controller.initialize(), '初始化消息网关');
 

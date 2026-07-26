@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
@@ -12,17 +11,14 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import '../agents/index.dart';
 import '../ai/index.dart';
-import '../crons/index.dart';
-import '../hooks/index.dart' show HooksController;
 import '../instructions/index.dart';
-import '../knowledge_base/index.dart' show KnowledgeBaseController;
-import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../plugin_service/index.dart';
 import '../skills/index.dart';
 import 'data/message_gateway_store.dart';
 import 'data/web_gateway_ops_store.dart';
+import 'message_gateway_dependencies.dart';
 import 'model/web_message_platform_config.dart';
 import 'service/web_message_platform_service.dart';
 
@@ -71,45 +67,19 @@ class WebGatewayAgentOption {
 }
 
 class MessageGatewayController extends ManagedChangeNotifier {
-  MessageGatewayController.uninitialized({
-    required AiSessionController sessionController,
-    required SettingsController settingsController,
-    required AgentsController agentsController,
-    required SkillsController skillsController,
-    required McpController mcpController,
-    required MemoryController memoryController,
-    required CronsController cronsController,
-    required HooksController hooksController,
-    required InstructionsController instructionsController,
-    KnowledgeBaseController? knowledgeBaseController,
-    required MachineTerminalService machineTerminalService,
-    required AppInfo appInfo,
+  MessageGatewayController.uninitialized(
+    MessageGatewayDependencies dependencies, {
     MessageGatewayStore? store,
     WebMessagePlatformService? service,
-  }) : _sessionController = sessionController,
-       _settingsController = settingsController,
-       _agentsController = agentsController,
-       _skillsController = skillsController,
-       _mcpController = mcpController,
-       _memoryController = memoryController,
-       _instructionsController = instructionsController,
+  }) : _sessionController = dependencies.sessionController,
+       _settingsController = dependencies.settingsController,
+       _agentsController = dependencies.agentsController,
+       _skillsController = dependencies.skillsController,
+       _mcpController = dependencies.mcpController,
+       _memoryController = dependencies.memoryController,
+       _instructionsController = dependencies.instructionsController,
        _store = store ?? MessageGatewayStore(),
-       _service =
-           service ??
-           WebMessagePlatformService(
-             sessionController: sessionController,
-             settingsController: settingsController,
-             agentsController: agentsController,
-             skillsController: skillsController,
-             mcpController: mcpController,
-             memoryController: memoryController,
-             cronsController: cronsController,
-             hooksController: hooksController,
-             instructionsController: instructionsController,
-             knowledgeBaseController: knowledgeBaseController,
-             machineTerminalService: machineTerminalService,
-             appInfo: appInfo,
-           ) {
+       _service = service ?? WebMessagePlatformService(dependencies) {
     _logSub = _service.logStream.listen((_) => _scheduleLogNotify());
   }
 

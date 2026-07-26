@@ -56,6 +56,7 @@ import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../data/web_gateway_ops_store.dart';
+import '../message_gateway_dependencies.dart';
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
@@ -190,35 +191,24 @@ typedef _WebSessionMessageWindow = ({
 });
 
 class WebMessagePlatformService {
-  WebMessagePlatformService({
-    required AiSessionController sessionController,
-    required SettingsController settingsController,
-    required AgentsController agentsController,
-    required SkillsController skillsController,
-    required McpController mcpController,
-    required MemoryController memoryController,
-    required CronsController cronsController,
-    required HooksController hooksController,
-    required InstructionsController instructionsController,
-    KnowledgeBaseController? knowledgeBaseController,
-    required MachineTerminalService machineTerminalService,
-    required AppInfo appInfo,
+  WebMessagePlatformService(
+    MessageGatewayDependencies dependencies, {
     String? cacheDirectoryPath,
     String? logsDirectoryPath,
     String? workspaceDirectoryPath,
     WebGatewayOpsStore? opsStore,
-  }) : _sessionController = sessionController,
-       _settingsController = settingsController,
-       _agentsController = agentsController,
-       _skillsController = skillsController,
-       _mcpController = mcpController,
-       _memoryController = memoryController,
-       _cronsController = cronsController,
-       _hooksController = hooksController,
-       _instructionsController = instructionsController,
-       _knowledgeBaseController = knowledgeBaseController,
-       _machineTerminalService = machineTerminalService,
-       _appInfo = appInfo,
+  }) : _sessionController = dependencies.sessionController,
+       _settingsController = dependencies.settingsController,
+       _agentsController = dependencies.agentsController,
+       _skillsController = dependencies.skillsController,
+       _mcpController = dependencies.mcpController,
+       _memoryController = dependencies.memoryController,
+       _cronsController = dependencies.cronsController,
+       _hooksController = dependencies.hooksController,
+       _instructionsController = dependencies.instructionsController,
+       _knowledgeBaseController = dependencies.knowledgeBaseController,
+       _machineTerminalService = dependencies.machineTerminalService,
+       _appInfo = dependencies.appInfo,
        _cacheDirectoryPath =
            cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
        _workspaceDirectoryPath =
@@ -9281,7 +9271,8 @@ class WebMessagePlatformService {
           .firstWhere((line) => line.startsWith('cpu '), orElse: () => '');
       if (cpuLine.isEmpty) return null;
       var totalTicks = 0;
-      for (final part in cpuLine.trim().split(kInlineWhitespacePattern).skip(1)) {
+      for (final part
+          in cpuLine.trim().split(kInlineWhitespacePattern).skip(1)) {
         totalTicks += optionalNonNegativeIntFromValue(part) ?? 0;
       }
       if (totalTicks <= 0) return null;
