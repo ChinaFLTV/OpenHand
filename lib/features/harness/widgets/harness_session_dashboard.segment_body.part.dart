@@ -615,7 +615,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: kOpenHandMotion220,
     );
     _turn = Tween<double>(
       begin: 0,
@@ -666,7 +666,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
             const SizedBox(width: 8),
             Expanded(
               child: AnimatedCrossFade(
-                duration: const Duration(milliseconds: 220),
+                duration: kOpenHandMotion220,
                 firstCurve: Curves.easeOutCubic,
                 secondCurve: Curves.easeOutCubic,
                 crossFadeState: _expanded

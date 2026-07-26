@@ -1222,7 +1222,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               globalInputCacheEnabled: globalInputCacheEnabled,
                             ),
                             AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 180),
+                              duration: kOpenHandMotion180,
                               switchInCurve: Curves.easeOutCubic,
                               switchOutCurve: Curves.easeInCubic,
                               transitionBuilder: (child, animation) {
@@ -3657,7 +3657,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         de: 'Modell kopiert: $copyModelId',
         ja: 'モデルをコピーしました：$copyModelId',
       ),
-      duration: const Duration(milliseconds: 1800),
+      duration: kOpenHandMotion1800,
     );
   }
 

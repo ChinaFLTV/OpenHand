@@ -932,7 +932,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     return TweenAnimationBuilder<double>(
       key: ValueKey<int>(identityHashCode(entry)),
       tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 200),
+      duration: kOpenHandMotion200,
       curve: Curves.easeOutCubic,
       builder: (_, t, child) {
         return Opacity(

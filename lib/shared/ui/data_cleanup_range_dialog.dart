@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
+import 'motion_durations.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -151,7 +152,7 @@ class _OpenHandCleanupRangeDialogState
               ],
             ),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: kOpenHandMotion180,
               child: _preset == OpenHandCleanupRangePreset.custom
                   ? Padding(
                       key: const ValueKey<String>('custom-range-fields'),
@@ -315,7 +316,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
         highlightColor: cs.primary.withValues(alpha: 0.05),
         onTap: onPressed,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: kOpenHandMotion180,
           curve: Curves.easeOutCubic,
           constraints: const BoxConstraints(minHeight: 42),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

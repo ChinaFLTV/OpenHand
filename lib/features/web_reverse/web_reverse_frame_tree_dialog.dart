@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -201,7 +202,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
           ),
           Divider(height: 1, color: cs.outlineVariant),
           AnimatedSize(
-            duration: const Duration(milliseconds: 260),
+            duration: kOpenHandMotion260,
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: _err.isEmpty

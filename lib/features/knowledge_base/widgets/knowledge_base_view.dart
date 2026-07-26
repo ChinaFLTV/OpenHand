@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -760,7 +761,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
     };
     return HoverLift(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 320),
+        duration: kOpenHandMotion320,
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: Card(

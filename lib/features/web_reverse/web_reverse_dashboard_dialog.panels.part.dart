@@ -1159,7 +1159,7 @@ class _AnimatedSparklineState extends State<_AnimatedSparkline>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ac = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 240),
+    duration: kOpenHandMotion240,
   );
   late List<double> _from = List<double>.from(widget.values);
   late List<double> _to = List<double>.from(widget.values);
@@ -2200,7 +2200,7 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ac = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 240),
+    duration: kOpenHandMotion240,
   );
   late List<double> _fromPri = List<double>.from(widget.primary);
   late List<double> _toPri = List<double>.from(widget.primary);

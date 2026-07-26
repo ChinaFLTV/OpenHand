@@ -23,9 +23,20 @@ const String _kTranscriptRetiringCreationKey = 'transcript-retiring-creation';
 const String _kTranscriptCreationFailureKey = 'transcript-creation-failure';
 const String _kTranscriptErrorBannerKey = 'transcript-error-banner';
 
-class _TranscriptHtmlKeepAlive extends StatefulWidget {
-  const _TranscriptHtmlKeepAlive({required this.child});
+/// 多媒体判定要解析附件、递归遍历 metadata 并对整条正文跑两轮正则，而它对
+/// 同一个消息对象恒定。会话消息不可变、流式更新会产生新实例，按对象缓存即可
+/// 让每条消息只算一次，并随对象回收自动释放。
+final Expando<bool> _transcriptMultimediaContentCache = Expando<bool>(
+  'transcriptMultimediaContent',
+);
 
+/// keepAlive 开关由参数驱动而非「换一个 widget 类型」。按类型切换会让
+/// Element 类型不匹配，选中/取消选中一条 HTML 消息就整棵子树卸载重建——
+/// 重新净化、重新解析、WebView 重挂，恰好把 keepAlive 想省的开销全付一遍。
+class _TranscriptHtmlKeepAlive extends StatefulWidget {
+  const _TranscriptHtmlKeepAlive({required this.enabled, required this.child});
+
+  final bool enabled;
   final Widget child;
 
   @override
@@ -36,7 +47,15 @@ class _TranscriptHtmlKeepAlive extends StatefulWidget {
 class _TranscriptHtmlKeepAliveState extends State<_TranscriptHtmlKeepAlive>
     with AutomaticKeepAliveClientMixin<_TranscriptHtmlKeepAlive> {
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive => widget.enabled;
+
+  @override
+  void didUpdateWidget(covariant _TranscriptHtmlKeepAlive oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled != widget.enabled) {
+      updateKeepAlive();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -435,6 +454,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     maxPerFrame: _transcriptWarmupMaxPerFrame,
   );
   int _warmupGeneration = 0;
+  int? _warmupContextSignature;
   final Set<int> _warmupSignatures = <int>{};
   final Queue<int> _warmupSignatureOrder = Queue<int>();
 
@@ -455,6 +475,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void _scheduleInitialLayoutSettle({required bool pinToBottom}) {
     final generation = ++_initialLayoutSettleGeneration;
     final sessionId = widget.session.id;
+    final deadline = DateTime.now().add(_transcriptInitialRevealMaxDuration);
     var framesRemaining = _transcriptInitialRevealMaxFrameCount;
     var elapsedFrames = 0;
     var stableFrames = 0;
@@ -489,7 +510,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           widget.session.id != sessionId) {
         return;
       }
-      if (framesRemaining <= 0) {
+      if (framesRemaining <= 0 || DateTime.now().isAfter(deadline)) {
         reveal();
         return;
       }
@@ -514,7 +535,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (pinToBottom && distance > _scrollToBottomSettleTolerance) {
         stableFrames = 0;
         widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
-      } else if (extentChanged) {
+      } else if (extentChanged &&
+          elapsedFrames <= _transcriptInitialRevealExtentGraceFrameCount) {
         stableFrames = 0;
       } else {
         stableFrames += 1;
@@ -554,6 +576,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
       _warmupGeneration += 1;
+      _warmupContextSignature = null;
       _warmupScheduler.clear();
       _clearWarmupSignatures();
       _resetSessionScopedState();
@@ -938,8 +961,21 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     final orderedWarmMessages = warmMessages.reversed.toList(growable: false);
-    final generation = ++_warmupGeneration;
-    _warmupScheduler.clear();
+    // 只有预热上下文（会话 / 主题 / HTML 降级策略）真的变了才作废已排队任务。
+    // 渐进首屏会先排尾部、两帧后再排整窗；此前无条件 clear 会把尚未跑完的
+    // 尾部预热直接丢掉，而签名去重又保证它们不会被重新排队——用户正在看的
+    // 那几条反而永远失去预热，落到滚动时同步解析。
+    final warmContext = Object.hash(
+      session.id,
+      identityHashCode(theme),
+      settings.aiHtmlRenderFallback,
+    );
+    if (warmContext != _warmupContextSignature) {
+      _warmupContextSignature = warmContext;
+      _warmupGeneration += 1;
+      _warmupScheduler.clear();
+    }
+    final generation = _warmupGeneration;
     for (final message in orderedWarmMessages) {
       _warmupScheduler.schedule(() {
         if (!mounted ||
@@ -1738,6 +1774,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   bool _messageHasMultimediaContent(AiSessionMessage message) {
+    final cached = _transcriptMultimediaContentCache[message];
+    if (cached != null) return cached;
+    final result = _computeMessageHasMultimediaContent(message);
+    _transcriptMultimediaContentCache[message] = result;
+    return result;
+  }
+
+  bool _computeMessageHasMultimediaContent(AiSessionMessage message) {
     final metadata = message.metadata;
     final attachments = AiMessageAttachment.listFromMetadata(
       metadata[aiSessionMessageAttachmentsMetadataKey],
@@ -2795,9 +2839,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         },
       ),
     );
-    final stableBubble = keepHtmlBubbleAlive
-        ? _TranscriptHtmlKeepAlive(child: bubble)
-        : bubble;
+    final stableBubble = _TranscriptHtmlKeepAlive(
+      enabled: keepHtmlBubbleAlive,
+      child: bubble,
+    );
     final content = shouldAnimateAppearance
         ? SettingsAwareAppearOnce(
             child: Builder(
@@ -3335,8 +3380,8 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
-      reverseDuration: const Duration(milliseconds: 220),
+      duration: kOpenHandMotion340,
+      reverseDuration: kOpenHandMotion220,
     );
     _fade = CurvedAnimation(
       parent: _controller,

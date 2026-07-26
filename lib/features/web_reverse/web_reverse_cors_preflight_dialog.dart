@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -392,7 +393,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                 if (res != null) ...[
                   const SizedBox(height: 16),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
+                    duration: kOpenHandMotion280,
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) {

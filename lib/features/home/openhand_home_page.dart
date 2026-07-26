@@ -71,6 +71,7 @@ import '../../shared/ui/markdown_math.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/micro_press_feedback.dart';
 import '../../shared/ui/model_search_selector.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/openhand_animated_title_text.dart';

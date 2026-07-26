@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -962,7 +963,7 @@ class _QdrantTrendChart extends StatelessWidget {
       children: [
         TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 420),
+          duration: kOpenHandMotion420,
           curve: Curves.easeOutCubic,
           builder: (context, value, _) => SizedBox(
             height: _qdrantOpsChartHeight,

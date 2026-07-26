@@ -396,7 +396,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         zh: 'WebFetch 本地缓存已清空',
         en: 'WebFetch local cache cleared',
       ),
-      duration: const Duration(milliseconds: 1800),
+      duration: kOpenHandMotion1800,
     );
   }
 

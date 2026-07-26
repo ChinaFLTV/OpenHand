@@ -10,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
@@ -3928,11 +3929,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
             ],
           ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 260),
+            duration: kOpenHandMotion260,
             curve: Curves.easeOutBack,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
+              duration: kOpenHandMotion220,
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {

@@ -341,7 +341,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
     super.initState();
     _fadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: kOpenHandMotion280,
     )..value = 1.0;
     // 入场使用 easeOutCubic：开始快、收尾舒缓，符合全局丝滑节奏；
     // 与 easeIn（开始慢）相比能更早把首帧像素呈现给用户。

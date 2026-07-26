@@ -649,7 +649,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
     _sourceScroll.animateTo(
       target,
-      duration: const Duration(milliseconds: 320),
+      duration: kOpenHandMotion320,
       curve: Curves.easeOutCubic,
     );
     _highlightTimer?.cancel();
@@ -1439,7 +1439,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         child: InkWell(
                           onTap: () => _toggleBreakpoint(idx),
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 240),
+                            duration: kOpenHandMotion240,
                             curve: Curves.easeOutCubic,
                             color: isHighlighted
                                 ? cs.tertiaryContainer.withValues(alpha: 0.32)
@@ -1511,7 +1511,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                 ? () => _onLineLongPress(idx, line)
                                 : null,
                             child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 240),
+                              duration: kOpenHandMotion240,
                               curve: Curves.easeOutCubic,
                               color: isHighlighted
                                   ? cs.tertiaryContainer.withValues(alpha: 0.5)
@@ -2982,7 +2982,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
       );
       _listScroll.animateTo(
         target,
-        duration: const Duration(milliseconds: 120),
+        duration: kOpenHandMotion120,
         curve: Curves.easeOutCubic,
       );
     }

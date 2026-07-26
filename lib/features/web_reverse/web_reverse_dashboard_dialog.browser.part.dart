@@ -2749,7 +2749,7 @@ class _TabStripState extends State<_TabStrip> {
                               ? const SizedBox(width: 0, height: 0)
                               : TweenAnimationBuilder<double>(
                                   tween: Tween<double>(begin: 0.85, end: 1),
-                                  duration: const Duration(milliseconds: 260),
+                                  duration: kOpenHandMotion260,
                                   curve: Curves.easeOutBack,
                                   builder: (_, v, child) => Opacity(
                                     opacity: v.clamp(0, 1),
@@ -2759,7 +2759,7 @@ class _TabStripState extends State<_TabStrip> {
                                     ),
                                   ),
                                   child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 220),
+                                    duration: kOpenHandMotion220,
                                     curve: Curves.easeOutCubic,
                                     decoration: BoxDecoration(
                                       color: active
@@ -2832,9 +2832,7 @@ class _TabStripState extends State<_TabStrip> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   AnimatedDefaultTextStyle(
-                                                    duration: const Duration(
-                                                      milliseconds: 220,
-                                                    ),
+                                                    duration: kOpenHandMotion220,
                                                     style: theme
                                                         .textTheme
                                                         .labelSmall!
@@ -2852,9 +2850,7 @@ class _TabStripState extends State<_TabStrip> {
                                                           ),
                                                       child: AnimatedSwitcher(
                                                         duration:
-                                                            const Duration(
-                                                              milliseconds: 280,
-                                                            ),
+                                                            kOpenHandMotion280,
                                                         switchInCurve:
                                                             Curves.easeOutBack,
                                                         switchOutCurve:

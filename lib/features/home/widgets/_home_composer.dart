@@ -2312,7 +2312,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 begin: widget.isCollapsed ? 1 : 0,
                 end: widget.isCollapsed ? 0 : 1,
               ),
-              duration: const Duration(milliseconds: 260),
+              duration: kOpenHandMotion260,
               curve: Curves.easeInOutCubicEmphasized,
               child: expandedContent,
               builder: (context, value, child) {
@@ -2332,7 +2332,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               },
             ),
             AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
+              duration: kOpenHandMotion260,
               curve: Curves.easeInOutCubicEmphasized,
               height: widget.isCollapsed ? 0 : 14,
             ),
@@ -2610,7 +2610,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+            duration: kOpenHandMotion220,
             curve: Curves.easeOutCubic,
             width: 28,
             height: 28,
@@ -2732,7 +2732,7 @@ class _ComposerCreationModeButtonState
         width: 52,
         height: 52,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 340),
+          duration: kOpenHandMotion340,
           curve: Curves.easeInOutCubicEmphasized,
           child: FilledButton(
             onPressed: () {
@@ -3598,7 +3598,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
     if (target < viewportStart) {
       _listController.animateTo(
         target,
-        duration: const Duration(milliseconds: 120),
+        duration: kOpenHandMotion120,
         curve: Curves.easeOutCubic,
       );
     } else if (target + _estimatedItemExtent > viewportEnd) {
@@ -3608,7 +3608,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
           _listController.position.viewportDimension;
       _listController.animateTo(
         next.clamp(0.0, _listController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 120),
+        duration: kOpenHandMotion120,
         curve: Curves.easeOutCubic,
       );
     }
@@ -4083,7 +4083,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
     if (target < viewportStart) {
       _listController.animateTo(
         target,
-        duration: const Duration(milliseconds: 120),
+        duration: kOpenHandMotion120,
         curve: Curves.easeOutCubic,
       );
     } else if (target + _estimatedItemExtent > viewportEnd) {
@@ -4093,7 +4093,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
           _listController.position.viewportDimension;
       _listController.animateTo(
         next.clamp(0.0, _listController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 120),
+        duration: kOpenHandMotion120,
         curve: Curves.easeOutCubic,
       );
     }
@@ -4511,7 +4511,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
         width: 52,
         height: 52,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 320),
+          duration: kOpenHandMotion320,
           curve: Curves.easeInOutCubicEmphasized,
           child: FilledButton(
             onPressed: () => unawaited(onTap()),

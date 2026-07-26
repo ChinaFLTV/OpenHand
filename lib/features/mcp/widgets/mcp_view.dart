@@ -29,6 +29,7 @@ import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -12108,7 +12109,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
             padding: const EdgeInsets.only(left: 8, top: 2),
             child: AnimatedRotation(
               turns: _expanded ? 0.5 : 0.0,
-              duration: const Duration(milliseconds: 180),
+              duration: kOpenHandMotion180,
               child: Icon(
                 Icons.expand_more_rounded,
                 size: 18,
@@ -12131,7 +12132,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
             children: [
               header,
               AnimatedSize(
-                duration: const Duration(milliseconds: 180),
+                duration: kOpenHandMotion180,
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topLeft,
                 child: _expanded
@@ -14236,7 +14237,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
               ],
             ),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
+              duration: kOpenHandMotion280,
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {

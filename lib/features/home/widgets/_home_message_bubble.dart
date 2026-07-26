@@ -770,7 +770,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
       return _AssistantMessageBodyDispatcher(
         data: data.isEmpty ? ' ' : data,
         format: format,
-        htmlFallback: context.watch<SettingsController>().aiHtmlRenderFallback,
+        // 只订阅真正用到的设置项：watch 整个 SettingsController 会让任意
+        // 无关设置变更（主题、TTS、模型…）把窗口内所有气泡全量重建。
+        htmlFallback: context.select<SettingsController, AiHtmlRenderFallback>(
+          (settings) => settings.aiHtmlRenderFallback,
+        ),
         textColor: textColor,
         backgroundColor: backgroundColor,
         markdownBuilders: markdownBuilders,
@@ -2570,7 +2574,7 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: kOpenHandMotion1200,
     );
   }
 
@@ -3117,13 +3121,36 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     }
   }
 
+  /// 解码宽度：让原图较长边等比映射到展示区较长边，绝不放大。
+  /// 返回 null 表示原图本就不大于展示尺寸，按原分辨率解码即可。
+  int? _previewDecodeWidth(BuildContext context, Size displaySize) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final maxDisplaySide =
+        math.max(displaySize.width, displaySize.height) * dpr;
+    if (!maxDisplaySide.isFinite || maxDisplaySide <= 0) return null;
+    final natural = _naturalSize;
+    if (natural == null || natural.width <= 0 || natural.height <= 0) {
+      final fallback = (displaySize.width * dpr).round();
+      return fallback > 0 ? fallback : null;
+    }
+    final scale = maxDisplaySide / math.max(natural.width, natural.height);
+    if (scale >= 1) return null;
+    final width = (natural.width * scale).round();
+    return width > 0 ? width : null;
+  }
+
   Widget _buildPreviewImage(BuildContext context, Size displaySize) {
+    // 按实际展示尺寸 × 设备像素比限制解码分辨率。不限制时，一张
+    // 8000×6000 的生成图会解出 ~192MB 位图，直接把 ImageCache 打爆甚至 OOM。
+    // 只给 cacheWidth：同时指定宽高会按精确尺寸缩放，破坏原图宽高比。
+    final decodeWidth = _previewDecodeWidth(context, displaySize);
     final sourceFilePath = widget.filePath;
     if (sourceFilePath != null) {
       return Image.file(
         File(sourceFilePath),
         width: displaySize.width,
         height: displaySize.height,
+        cacheWidth: decodeWidth,
         fit: BoxFit.contain,
         frameBuilder: _SafeMarkdownBodyState._fadeInImageFrameBuilder,
         errorBuilder: (context, error, stackTrace) =>
@@ -3141,6 +3168,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       urlString,
       width: displaySize.width,
       height: displaySize.height,
+      cacheWidth: decodeWidth,
       fit: BoxFit.contain,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         // 网络图片帧解码完成 → 触发后台缓存, 下次可直接走本地文件。
@@ -3514,7 +3542,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
 
   late final AnimationController _revealController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 420),
+    duration: kOpenHandMotion420,
   );
   late final Animation<double> _revealAnimation = CurvedAnimation(
     parent: _revealController,
@@ -4205,7 +4233,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _hoverController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 180),
+    duration: kOpenHandMotion180,
   );
 
   bool _hovered = false;

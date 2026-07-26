@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -522,7 +523,7 @@ class _KnowledgePromptAppendContextBoxState
           );
         }
         return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
+          duration: kOpenHandMotion180,
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           child: KnowledgeDialogTextBox(
@@ -910,7 +911,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
             ),
           ),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: kOpenHandMotion220,
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: _buildCorpusStatus(context, corpusCount),

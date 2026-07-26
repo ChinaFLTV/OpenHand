@@ -50,7 +50,7 @@ Future<void> _jumpToCacheHitTurn(
           zh: '该轮次暂时没有可定位的消息。',
           en: 'This round does not have a message to reveal yet.',
         ),
-        duration: const Duration(milliseconds: 2200),
+        duration: kOpenHandMotion2200,
       );
     }
     return;
@@ -68,7 +68,7 @@ Future<void> _jumpToCacheHitTurn(
         zh: '未能定位该轮次消息，消息可能已被删除或没有可展示内容。',
         en: 'Could not reveal this round; its message may be deleted or have no visible content.',
       ),
-      duration: const Duration(milliseconds: 2400),
+      duration: kOpenHandMotion2400,
     );
   }
 }

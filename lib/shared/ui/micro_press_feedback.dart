@@ -1,3 +1,4 @@
+import 'motion_durations.dart';
 import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
@@ -54,7 +55,7 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 80),
-      reverseDuration: const Duration(milliseconds: 140),
+      reverseDuration: kOpenHandMotion140,
     );
   }
 

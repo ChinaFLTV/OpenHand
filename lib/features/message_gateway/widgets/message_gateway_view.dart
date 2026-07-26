@@ -18,6 +18,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -3640,7 +3641,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         de: 'Terminalanzeige geleert; Protokolldateien bleiben unverändert',
         ja: '端末表示をクリアしました。ログファイルは変更されません',
       ),
-      duration: const Duration(milliseconds: 1600),
+      duration: kOpenHandMotion1600,
     );
   }
 
@@ -5420,7 +5421,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
           de: '$label abgeschlossen',
           ja: '$label が完了しました',
         ),
-        duration: const Duration(milliseconds: 1600),
+        duration: kOpenHandMotion1600,
       );
     } catch (error) {
       if (!mounted) return;
@@ -5453,7 +5454,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         '${result.summary} (${result.durationMs}ms)',
         kind: result.ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
-        duration: const Duration(milliseconds: 1800),
+        duration: kOpenHandMotion1800,
       );
     } catch (error) {
       if (!mounted) return;

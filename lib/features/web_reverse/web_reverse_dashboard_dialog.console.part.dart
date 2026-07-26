@@ -588,7 +588,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         // REPL 输入：单行。回车执行；上下方向键浏览历史；
         // 结果通过 controller.runReplExpression 写入 console，复用渲染。
         AnimatedSize(
-          duration: const Duration(milliseconds: 280),
+          duration: kOpenHandMotion280,
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: widget.controller.isPaused

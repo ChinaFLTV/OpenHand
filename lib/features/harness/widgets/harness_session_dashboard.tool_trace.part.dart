@@ -638,7 +638,7 @@ class _HeStructuredToolSection extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: AnimatedSize(
-            duration: const Duration(milliseconds: 240),
+            duration: kOpenHandMotion240,
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
             child: Column(

@@ -13,6 +13,7 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
 import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
+import 'motion_durations.dart';
 import 'animated_menu.dart';
 import 'motion_preference.dart';
 
@@ -1493,7 +1494,7 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
     with TickerProviderStateMixin {
   late final AnimationController _glowController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2200),
+    duration: kOpenHandMotion2200,
   );
 
   @override

@@ -270,7 +270,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         zh: 'WebSearch 本地缓存已清空',
         en: 'WebSearch local cache cleared',
       ),
-      duration: const Duration(milliseconds: 1800),
+      duration: kOpenHandMotion1800,
     );
   }
 

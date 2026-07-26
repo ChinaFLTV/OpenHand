@@ -48,6 +48,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/key_tweakable_slider.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
@@ -234,7 +235,7 @@ Future<void> _exportToolTelemetry<T>({
         zh: '已导出 ${calls.length} 条记录到 ${location.path}',
         en: 'Exported ${calls.length} entries to ${location.path}',
       ),
-      duration: const Duration(milliseconds: 1800),
+      duration: kOpenHandMotion1800,
     );
   } catch (error, stack) {
     silentLog(logTag, '导出遥测数据', error, stack);

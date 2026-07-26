@@ -26,6 +26,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/markdown_math.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_animated_title_text.dart';

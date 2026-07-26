@@ -1796,7 +1796,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AnimatedSize(
-                  duration: const Duration(milliseconds: 180),
+                  duration: kOpenHandMotion180,
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.topCenter,
                   child: SizedBox(
@@ -3526,7 +3526,7 @@ class _RoundFileMutationSummaryCardState
         zh: '未能定位来源消息（可能已被删除）。',
         en: 'Could not locate source message (may have been deleted).',
       ),
-      duration: const Duration(milliseconds: 2200),
+      duration: kOpenHandMotion2200,
     );
   }
 
@@ -3649,7 +3649,7 @@ class _RoundFileMutationSummaryCardState
           zh: '导出取消（无法打开文件选择器）：$error',
           en: 'Export aborted (file picker unavailable): $error',
         ),
-        duration: const Duration(milliseconds: 2400),
+        duration: kOpenHandMotion2400,
       );
       return;
     }
@@ -3658,7 +3658,7 @@ class _RoundFileMutationSummaryCardState
       showOpenHandInfoSnack(
         context,
         openHandLocalizedText(context, zh: '已取消导出。', en: 'Export cancelled.'),
-        duration: const Duration(milliseconds: 1600),
+        duration: kOpenHandMotion1600,
       );
       return;
     }
@@ -3687,7 +3687,7 @@ class _RoundFileMutationSummaryCardState
         zh: '已保存到 ${location.path}',
         en: 'Saved to ${location.path}',
       ),
-      duration: const Duration(milliseconds: 2400),
+      duration: kOpenHandMotion2400,
       maxLines: 2,
     );
   }
@@ -4348,7 +4348,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
                     ),
                     child: AnimatedRotation(
                       turns: isDiffExpanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
+                      duration: kOpenHandMotion200,
                       child: Icon(
                         Icons.expand_more_rounded,
                         size: 16,
@@ -4369,7 +4369,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
         children: [
           tile,
           AnimatedSize(
-            duration: const Duration(milliseconds: 220),
+            duration: kOpenHandMotion220,
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: isDiffExpanded
@@ -4444,7 +4444,7 @@ class _GroupHeader extends StatelessWidget {
             children: [
               AnimatedRotation(
                 turns: collapsed ? -0.25 : 0.0,
-                duration: const Duration(milliseconds: 200),
+                duration: kOpenHandMotion200,
                 child: Icon(
                   Icons.expand_more_rounded,
                   size: 16,
@@ -4511,7 +4511,7 @@ class _PathSubGroupHeader extends StatelessWidget {
             children: [
               AnimatedRotation(
                 turns: collapsed ? -0.25 : 0.0,
-                duration: const Duration(milliseconds: 200),
+                duration: kOpenHandMotion200,
                 child: Icon(
                   Icons.chevron_right_rounded,
                   size: 14,

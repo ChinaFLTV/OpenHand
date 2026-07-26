@@ -25,6 +25,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/hover_lift.dart';
 import '../../shared/ui/media_preview_dialog.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';

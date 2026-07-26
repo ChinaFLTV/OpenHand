@@ -320,7 +320,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     Scrollable.ensureVisible(
       targetContext,
       alignment: 0.18,
-      duration: const Duration(milliseconds: 180),
+      duration: kOpenHandMotion180,
       curve: Curves.easeOutCubic,
     );
   }
@@ -2180,7 +2180,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
     scrollController.animateTo(
       centered,
-      duration: const Duration(milliseconds: 180),
+      duration: kOpenHandMotion180,
       curve: Curves.easeOutCubic,
     );
   }
@@ -15234,9 +15234,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                   SizedBox(
                                     width: 18,
                                     child: AnimatedOpacity(
-                                      duration: const Duration(
-                                        milliseconds: 140,
-                                      ),
+                                      duration: kOpenHandMotion140,
                                       opacity: showQuickFix ? 1 : 0,
                                       child: IgnorePointer(
                                         ignoring: !showQuickFix,

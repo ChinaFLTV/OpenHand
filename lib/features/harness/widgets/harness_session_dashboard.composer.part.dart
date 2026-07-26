@@ -572,7 +572,7 @@ class _HeComposer extends StatelessWidget {
                 begin: isCollapsed ? 1 : 0,
                 end: isCollapsed ? 0 : 1,
               ),
-              duration: const Duration(milliseconds: 260),
+              duration: kOpenHandMotion260,
               curve: Curves.easeInOutCubicEmphasized,
               child: expandedContent,
               builder: (context, value, child) {
@@ -592,7 +592,7 @@ class _HeComposer extends StatelessWidget {
               },
             ),
             AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
+              duration: kOpenHandMotion260,
               curve: Curves.easeInOutCubicEmphasized,
               height: isCollapsed ? 0 : 14,
             ),

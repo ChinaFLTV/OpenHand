@@ -12,6 +12,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -749,7 +750,7 @@ class _PluginOperationProgressDialogState
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: kOpenHandMotion1200,
     );
     _lastLogRevision = widget.controller.operationLogRevision;
     widget.controller.addListener(_onControllerUpdate);

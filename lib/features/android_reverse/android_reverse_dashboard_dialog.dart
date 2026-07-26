@@ -13,6 +13,7 @@ import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -3342,7 +3343,7 @@ fi
             ),
           ),
           AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+            duration: kOpenHandMotion220,
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(

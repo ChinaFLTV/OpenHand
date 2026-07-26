@@ -108,7 +108,7 @@ class _MachineExpertTerminalPanelState
       if ((position.pixels - target).abs() < 2) return;
       _terminalScrollController.animateTo(
         target,
-        duration: const Duration(milliseconds: 140),
+        duration: kOpenHandMotion140,
         curve: Curves.easeOutCubic,
       );
     });
