@@ -2456,21 +2456,30 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
 
             // Diff content
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          _error!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.error,
+              child: OpenHandContentStateSwitcher(
+                // 外层 Expanded 已定高，这里只做淡入淡出。
+                animateSize: false,
+                stateKey: _loading
+                    ? 'loading'
+                    : _error != null
+                    ? 'error'
+                    : 'diff',
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _error!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.error,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  : _buildDiffView(theme, colorScheme),
+                      )
+                    : _buildDiffView(theme, colorScheme),
+              ),
             ),
           ],
         ),

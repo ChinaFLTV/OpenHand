@@ -2781,46 +2781,49 @@ class _ScopeSectionState extends State<_ScopeSection> {
           if (_expanded)
             Padding(
               padding: const EdgeInsets.only(left: 18),
-              child: _loading
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
-                      child: SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final p in (_props ?? const []).take(120))
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 1),
-                            child: RichText(
-                              text: TextSpan(
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontFamily: kOpenHandMonospaceFontFamily,
-                                  color: cs.onSurface,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: '${p['name']}',
-                                    style: TextStyle(color: cs.primary),
+              child: OpenHandContentStateSwitcher(
+                stateKey: _loading ? 'loading' : 'content',
+                child: _loading
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 6),
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final p in (_props ?? const []).take(120))
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 1),
+                              child: RichText(
+                                text: TextSpan(
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontFamily: kOpenHandMonospaceFontFamily,
+                                    color: cs.onSurface,
                                   ),
-                                  const TextSpan(text: ': '),
-                                  TextSpan(
-                                    text:
-                                        '${(p['value'] as Map?)?['description'] ?? (p['value'] as Map?)?['value'] ?? ''}',
-                                    style: TextStyle(
-                                      color: cs.onSurfaceVariant,
+                                  children: [
+                                    TextSpan(
+                                      text: '${p['name']}',
+                                      style: TextStyle(color: cs.primary),
                                     ),
-                                  ),
-                                ],
+                                    const TextSpan(text: ': '),
+                                    TextSpan(
+                                      text:
+                                          '${(p['value'] as Map?)?['description'] ?? (p['value'] as Map?)?['value'] ?? ''}',
+                                      style: TextStyle(
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
         ],
       ),
@@ -2855,35 +2858,38 @@ class _SourceHoverBubble extends StatelessWidget {
         color: cs.surfaceContainerHigh,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-          child: loading
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.6,
-                        color: cs.primary,
+          child: OpenHandContentStateSwitcher(
+            stateKey: loading ? 'loading' : 'content',
+            child: loading
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          color: cs.primary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'LSP…',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+                      const SizedBox(width: 8),
+                      Text(
+                        'LSP…',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
+                    ],
+                  )
+                : SelectableText(
+                    preview ?? '',
+                    style: const TextStyle(
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                      fontSize: 11,
+                      height: 1.45,
                     ),
-                  ],
-                )
-              : SelectableText(
-                  preview ?? '',
-                  style: const TextStyle(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontSize: 11,
-                    height: 1.45,
                   ),
-                ),
+          ),
         ),
       ),
     );
