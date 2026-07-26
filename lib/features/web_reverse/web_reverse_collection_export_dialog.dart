@@ -440,9 +440,9 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                   child: Text(
                     loc?.webReverseCollectionExportMatchCount(
                           entries.length,
-                          widget.controller.networkRequests.length,
+                          widget.controller.networkRequestCount,
                         ) ??
-                        '${entries.length} match · ${widget.controller.networkRequests.length} total',
+                        '${entries.length} match · ${widget.controller.networkRequestCount} total',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(

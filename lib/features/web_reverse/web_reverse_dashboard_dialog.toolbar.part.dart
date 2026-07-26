@@ -528,8 +528,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     return switch (t) {
       _Tab.browser => null,
       _Tab.overview => null,
-      _Tab.network => c.networkRequests.length,
-      _Tab.console => c.consoleMessages.length,
+      _Tab.network => c.networkRequestCount,
+      _Tab.console => c.consoleMessageCount,
       _Tab.sources => c.parsedScripts.isEmpty ? null : c.parsedScripts.length,
       _Tab.snippets => c.snippets.isEmpty ? null : c.snippets.length,
       _ => null,
@@ -739,12 +739,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           content: Text(
             openHandLocalizedText(
               context,
-              zh: '当前网络列表已有 ${ctrl.networkRequests.length} 条记录，选择加载方式：',
-              zhHant: '目前網路清單已有 ${ctrl.networkRequests.length} 筆記錄，請選擇載入方式：',
-              en: 'Network list has ${ctrl.networkRequests.length} entries. Choose load mode:',
-              fr: 'La liste réseau contient ${ctrl.networkRequests.length} entrées. Choisissez le mode de chargement :',
-              de: 'Die Netzwerkliste enthält ${ctrl.networkRequests.length} Einträge. Wähle den Lademodus:',
-              ja: 'ネットワークリストには ${ctrl.networkRequests.length} 件あります。読み込み方法を選択してください:',
+              zh: '当前网络列表已有 ${ctrl.networkRequestCount} 条记录，选择加载方式：',
+              zhHant: '目前網路清單已有 ${ctrl.networkRequestCount} 筆記錄，請選擇載入方式：',
+              en: 'Network list has ${ctrl.networkRequestCount} entries. Choose load mode:',
+              fr: 'La liste réseau contient ${ctrl.networkRequestCount} entrées. Choisissez le mode de chargement :',
+              de: 'Die Netzwerkliste enthält ${ctrl.networkRequestCount} Einträge. Wähle den Lademodus:',
+              ja: 'ネットワークリストには ${ctrl.networkRequestCount} 件あります。読み込み方法を選択してください:',
             ),
           ),
           actions: [

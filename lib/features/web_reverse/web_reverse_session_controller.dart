@@ -259,9 +259,54 @@ class WebReverseSessionController extends ChangeNotifier {
   List<CdpConsoleEntry> get consoleMessages =>
       List<CdpConsoleEntry>.unmodifiable(_consoleMessages);
 
-  int get errorCount =>
-      _networkRequests.where((e) => e.isError).length +
-      _consoleMessages.where((e) => e.level == 'error').length;
+  /// 只要条数，就不要走上面的拷贝型 getter。dashboard 的脏检查与 tab 徽标
+  /// 每次 notifyListeners / 每帧都要读一次，走 unmodifiable 会各复制一份
+  /// 最多 [_maxNetworkEntries] 个元素的列表。
+  int get networkRequestCount => _networkRequests.length;
+  int get consoleMessageCount => _consoleMessages.length;
+
+  /// 网络 / 控制台数据的修订号。条目新增、原地更新（状态码、大小、耗时）、
+  /// FIFO 淘汰、清空、导入都会推进它；screencast 帧不会——dashboard 依赖
+  /// 这一点在收到画面帧时早退，不做整表重建。
+  ///
+  /// 必须有这个信号：条数打满 [_maxNetworkEntries] 后 length 恒定不变，
+  /// 仅靠计数做脏检查会让网络面板彻底停止刷新。
+  int get inspectorRevision => _inspectorRevision;
+  int _inspectorRevision = 0;
+
+  int _errorCountRevision = -1;
+  int _cachedNetworkErrorCount = 0;
+  int _cachedConsoleErrorCount = 0;
+
+  /// 网络请求里的失败条数。按 [inspectorRevision] 记忆化：概览卡片与徽标
+  /// 每帧都要读，逐帧全表扫描会直接吃掉 CDP 事件密集时的帧预算。
+  int get networkErrorCount {
+    _refreshErrorCounts();
+    return _cachedNetworkErrorCount;
+  }
+
+  int get errorCount {
+    _refreshErrorCounts();
+    return _cachedNetworkErrorCount + _cachedConsoleErrorCount;
+  }
+
+  void _refreshErrorCounts() {
+    if (_errorCountRevision == _inspectorRevision) return;
+    _cachedNetworkErrorCount = _networkRequests
+        .where((e) => e.isError)
+        .length;
+    _cachedConsoleErrorCount = _consoleMessages
+        .where((e) => e.level == 'error')
+        .length;
+    _errorCountRevision = _inspectorRevision;
+  }
+
+  /// 推进修订号并广播。所有会改变网络 / 控制台数据的路径都必须走这里，
+  /// 而不是裸的 [_safeNotify]。
+  void _notifyInspectorChanged() {
+    _inspectorRevision++;
+    _safeNotify();
+  }
 
   // ── 内嵌浏览器 screencast 状态 ───────────────────────────────────────
   // dashboard 切到「浏览器」tab 时打开 startScreencast，把 page 的实时画面
@@ -567,6 +612,7 @@ class WebReverseSessionController extends ChangeNotifier {
   void _restoreBufferForTarget(String targetId) {
     final saved = _targetBuffers.remove(targetId);
     if (saved == null) return;
+    _inspectorRevision++;
     _networkRequests
       ..clear()
       ..addAll(saved.networkRequests);
@@ -703,6 +749,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 的 target 没有快照就只清空。Sources 端的 _userBreakpoints 仍按
     // (url,line) 维度持久化在 metadata 里，不在这里动。
     _captureBufferForCurrentTarget();
+    _inspectorRevision++;
     _networkRequests.clear();
     _networkByRequestId.clear();
     _consoleMessages.clear();
@@ -2571,7 +2618,7 @@ class WebReverseSessionController extends ChangeNotifier {
         postData: entry.requestPostData,
         startedAt: entry.timestamp,
       );
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   void _onResponseReceived(Map<String, Object?> p) {
@@ -2635,7 +2682,7 @@ class WebReverseSessionController extends ChangeNotifier {
         headers: Map<String, Object?>.from(headers),
         bodySize: entry.encodedDataLength,
       );
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   void _onLoadingFailed(Map<String, Object?> p) {
@@ -2658,7 +2705,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'ts': DateTime.now().toUtc().toIso8601String(),
       })
       ..recordHarFailed(requestId, err, DateTime.now());
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   void _onLoadingFinished(Map<String, Object?> p) {
@@ -2670,7 +2717,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final encoded = optionalNonNegativeIntFromValue(p['encodedDataLength']);
     if (encoded != null) entry.encodedDataLength = encoded;
     _artifacts.recordHarFinished(requestId, DateTime.now());
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   void _onWebSocketCreated(Map<String, Object?> p) {
@@ -2691,7 +2738,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _networkByRequestId[requestId] = entry;
     _networkRequests.add(entry);
     _trimNetworkEntries();
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   void _onWebSocketFrame(
@@ -2762,7 +2809,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (!_preserveLog) {
       _networkRequests.clear();
       _networkByRequestId.clear();
-      _safeNotify();
+      _notifyInspectorChanged();
     }
     // 顶层 frame 导航完成后，主动拉一次 document.title 更新对应 page target，
     // 因为 CDP `Target.targetInfoChanged` 在 SPA / pushState 场景往往不会带新
@@ -3144,7 +3191,7 @@ class WebReverseSessionController extends ChangeNotifier {
       'text': cappedText,
       'ts': ts.toUtc().toIso8601String(),
     });
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   /// REPL 命令历史，按时间顺序追加；UI 上下箭头浏览历史。
@@ -4306,7 +4353,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _networkRequests.clear();
     _networkByRequestId.clear();
     _consoleMessages.clear();
-    _safeNotify();
+    _notifyInspectorChanged();
   }
 
   /// 在浏览器主 page 上启用/关闭缓存。
@@ -7554,7 +7601,7 @@ class WebReverseSessionController extends ChangeNotifier {
         }
       }
       _trimNetworkEntries();
-      _safeNotify();
+      _notifyInspectorChanged();
     });
     _safeNotify();
     return (mitmPort: br.mitmPort, callbackPort: br.callbackPort);
@@ -7813,7 +7860,7 @@ class WebReverseSessionController extends ChangeNotifier {
           ..clear()
           ..addEntries(combined.map((e) => MapEntry(e.requestId, e)));
       }
-      _safeNotify();
+      _notifyInspectorChanged();
       return (loaded: loaded, skipped: skipped);
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '载入网络归档数据', error, stack);
@@ -8074,7 +8121,7 @@ class WebReverseSessionController extends ChangeNotifier {
           );
         }
       }
-      _safeNotify();
+      _notifyInspectorChanged();
       return _networkRequests.length;
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '导入会话快照', e, st);

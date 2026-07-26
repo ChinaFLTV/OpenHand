@@ -759,6 +759,7 @@ class _WebReverseDashboardDialogState
 
   // dashboard 上次记录的请求计数；用于 AnimatedList 增量插入。
   int _lastNetworkSize = 0;
+  int _lastInspectorRevision = -1;
   // 上次 rebuild 时记录的 dashboard 关键计数 / 状态；只有这些值变化才整体
   // rebuild 头部 / toolbar，避免 60fps screencast 帧把 dashboard 拖进
   // setState 旋涡。
@@ -788,8 +789,9 @@ class _WebReverseDashboardDialogState
     super.initState();
     widget.controller.addListener(_onChanged);
     widget.controller.sourceJumpRequest.addListener(_onSourceJumpRequested);
-    _lastNetworkSize = widget.controller.networkRequests.length;
-    _lastConsoleSize = widget.controller.consoleMessages.length;
+    _lastNetworkSize = widget.controller.networkRequestCount;
+    _lastInspectorRevision = widget.controller.inspectorRevision;
+    _lastConsoleSize = widget.controller.consoleMessageCount;
     _lastErrorCount = widget.controller.errorCount;
     _lastIsRunning = widget.controller.isRunning;
     _lastErrMsg = widget.controller.errorMessage ?? '';
@@ -990,8 +992,9 @@ class _WebReverseDashboardDialogState
   void _onChanged() {
     if (!mounted) return;
     final ctrl = widget.controller;
-    final newSize = ctrl.networkRequests.length;
-    final newConsole = ctrl.consoleMessages.length;
+    final newSize = ctrl.networkRequestCount;
+    final newConsole = ctrl.consoleMessageCount;
+    final newRevision = ctrl.inspectorRevision;
     final newErr = ctrl.errorCount;
     final newRunning = ctrl.isRunning;
     final newErrMsg = ctrl.errorMessage ?? '';
@@ -1002,6 +1005,7 @@ class _WebReverseDashboardDialogState
     // 关键：screencast 帧抵达不会改变这些计数，所以这里就早退。让浏览器
     // 面板内的 [_ScreencastImage] 自行 AnimatedBuilder 局部 repaint。
     final dashboardDirty =
+        newRevision != _lastInspectorRevision ||
         newSize != _lastNetworkSize ||
         newConsole != _lastConsoleSize ||
         newErr != _lastErrorCount ||
@@ -1024,6 +1028,7 @@ class _WebReverseDashboardDialogState
       }
     }
     _lastNetworkSize = newSize;
+    _lastInspectorRevision = newRevision;
     _lastConsoleSize = newConsole;
     _lastErrorCount = newErr;
     _lastIsRunning = newRunning;
@@ -2380,7 +2385,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           de: 'Anfragen',
           ja: 'リクエスト数',
         ),
-        '${ctrl.networkRequests.length}',
+        '${ctrl.networkRequestCount}',
       ),
       (
         openHandLocalizedText(
@@ -2392,7 +2397,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           de: 'Fehler',
           ja: 'エラー',
         ),
-        '${ctrl.networkRequests.where((e) => e.isError).length}',
+        '${ctrl.networkErrorCount}',
       ),
       (
         openHandLocalizedText(
@@ -2404,7 +2409,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           de: 'Konsole',
           ja: 'コンソール',
         ),
-        '${ctrl.consoleMessages.length}',
+        '${ctrl.consoleMessageCount}',
       ),
       (
         openHandLocalizedText(

@@ -745,7 +745,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     }
     if (file == null) return;
     bool merge = false;
-    final existing = widget.controller.networkRequests.length;
+    final existing = widget.controller.networkRequestCount;
     if (existing > 0 && mounted) {
       final mode = await showWebReverseToolDialog<String>(
         context: context,

@@ -128,10 +128,10 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
             title: loc?.webReverseConsoleClusterTitle ?? 'Console Clusters',
             subtitle:
                 loc?.webReverseConsoleClusterSubtitle(
-                  widget.controller.consoleMessages.length,
+                  widget.controller.consoleMessageCount,
                   clusters.length,
                 ) ??
-                'dedupe by level + normalized first line · ${widget.controller.consoleMessages.length} entries / ${clusters.length} clusters',
+                'dedupe by level + normalized first line · ${widget.controller.consoleMessageCount} entries / ${clusters.length} clusters',
             padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
             actions: [
               IconButton(

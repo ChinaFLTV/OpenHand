@@ -297,7 +297,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final entryCount = widget.controller.networkRequests.length;
+    final entryCount = widget.controller.networkRequestCount;
     final lastHar = widget.controller.lastHarPath;
     final running = _autoRotate.timer != null;
     String remaining = '';

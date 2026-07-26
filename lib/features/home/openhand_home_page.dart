@@ -5584,7 +5584,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       builtinToolConfigs.length,
       _identityHashAll(availableSkills),
       availableSkills.length,
-      identityHashCode(availableMcpServers),
+      // 必须按元素身份哈希：availableMcpServers 是每次调用现拼的新 List，
+      // 用 identityHashCode 取整个 List 的身份会导致缓存键每帧都变、
+      // previewRuntimeToolCatalog 在每次 build 同步重算整个工具目录。
+      _identityHashAll(availableMcpServers),
       availableMcpServers.length,
       todayLocalDate,
       now.timeZoneName,
