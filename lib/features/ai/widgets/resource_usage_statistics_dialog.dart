@@ -75,15 +75,7 @@ String resourceUsageKindLabel(BuildContext context, AiResourceUsageKind kind) {
       ja: 'スキル',
     ),
     AiResourceUsageKind.hook => 'Hook',
-    AiResourceUsageKind.knowledge => openHandLocalizedText(
-      context,
-      zh: '知识库',
-      zhHant: '知識庫',
-      en: 'Knowledge',
-      fr: 'Connaissance',
-      de: 'Wissen',
-      ja: 'ナレッジ',
-    ),
+    AiResourceUsageKind.knowledge => openHandKnowledgeLabel(context),
     AiResourceUsageKind.agent => openHandLocalizedText(
       context,
       zh: '智能体',

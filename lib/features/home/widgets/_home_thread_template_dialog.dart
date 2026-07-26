@@ -407,15 +407,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
     children: [
       if (task.isNotEmpty)
         OpenHandMetadataEntryRow(
-          label: openHandLocalizedText(
-            context,
-            zh: '任务描述',
-            zhHant: '任務描述',
-            en: 'Task',
-            fr: 'Tâche',
-            de: 'Aufgabe',
-            ja: 'タスク',
-          ),
+          label: openHandTaskLabel(context),
           value: task,
         ),
       OpenHandMetadataEntryRow(
@@ -495,15 +487,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
           value: () {
             final rc = entry.$2;
             if (rc == null || !rc.isConfigured) {
-              return openHandLocalizedText(
-                context,
-                zh: '未配置',
-                zhHant: '未設定',
-                en: 'Not configured',
-                fr: 'Non configuré',
-                de: 'Nicht konfiguriert',
-                ja: '未設定',
-              );
+              return openHandNotConfiguredLabel(context);
             }
             return '${rc.cliName} · ${describeHarnessCliModel(rc.modelId, locale: Localizations.localeOf(context))}';
           }(),
@@ -572,15 +556,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         value: config.targetUrl,
       ),
       OpenHandMetadataEntryRow(
-        label: openHandLocalizedText(
-          context,
-          zh: '逆向目标',
-          zhHant: '逆向目標',
-          en: 'Objective',
-          fr: 'Objectif',
-          de: 'Ziel',
-          ja: '目的',
-        ),
+        label: openHandObjectiveLabel(context),
         value: config.objective,
       ),
       OpenHandMetadataEntryRow(
@@ -599,24 +575,8 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           ja: 'AI側 CDP MCP',
         ),
         value: config.cdpMcpEnabled
-            ? openHandLocalizedText(
-                context,
-                zh: '已启用',
-                zhHant: '已啟用',
-                en: 'Enabled',
-                fr: 'Activé',
-                de: 'Aktiviert',
-                ja: '有効',
-              )
-            : openHandLocalizedText(
-                context,
-                zh: '未启用',
-                zhHant: '未啟用',
-                en: 'Disabled',
-                fr: 'Désactivé',
-                de: 'Deaktiviert',
-                ja: '無効',
-              ),
+            ? openHandEnabledLabel(context)
+            : openHandDisabledLabel(context),
       ),
       OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
@@ -645,15 +605,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
       if (config.keywords.isNotEmpty)
         OpenHandMetadataEntryRow(
-          label: openHandLocalizedText(
-            context,
-            zh: '关键字',
-            zhHant: '關鍵字',
-            en: 'Keywords',
-            fr: 'Mots-clés',
-            de: 'Schlüsselwörter',
-            ja: 'キーワード',
-          ),
+          label: openHandKeywordsLabel(context),
           value: config.keywords.join(', '),
         ),
       if (config.triggerActions != null && config.triggerActions!.isNotEmpty)

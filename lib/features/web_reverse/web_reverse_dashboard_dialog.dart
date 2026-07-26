@@ -2389,27 +2389,11 @@ class _OverviewBodyState extends State<_OverviewBody> {
     final antiBot = ctrl.detectAntiBot();
     final stats = <(String, String)>[
       (
-        openHandLocalizedText(
-          context,
-          zh: '请求数',
-          zhHant: '請求數',
-          en: 'Requests',
-          fr: 'Requêtes',
-          de: 'Anfragen',
-          ja: 'リクエスト数',
-        ),
+        openHandRequestsLabel(context),
         '${ctrl.networkRequestCount}',
       ),
       (
-        openHandLocalizedText(
-          context,
-          zh: '错误',
-          zhHant: '錯誤',
-          en: 'Errors',
-          fr: 'Erreurs',
-          de: 'Fehler',
-          ja: 'エラー',
-        ),
+        openHandErrorsLabel(context),
         '${ctrl.networkErrorCount}',
       ),
       (
@@ -3239,15 +3223,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: 'Enter',
-            desc: openHandLocalizedText(
-              context,
-              zh: '执行',
-              zhHant: '執行',
-              en: 'Run',
-              fr: 'Exécuter',
-              de: 'Ausführen',
-              ja: '実行',
-            ),
+            desc: openHandRunLabel(context),
           ),
         ],
       ),

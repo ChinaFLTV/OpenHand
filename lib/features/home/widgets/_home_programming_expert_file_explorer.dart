@@ -667,15 +667,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       context: context,
       text: textToCopy,
       logAction: '复制编程资源管理器路径',
-      successMessage: openHandLocalizedText(
-        context,
-        zh: '路径已复制。',
-        zhHant: '路徑已複製。',
-        en: 'Path copied.',
-        fr: 'Chemin copié.',
-        de: 'Pfad kopiert.',
-        ja: 'パスをコピーしました。',
-      ),
+      successMessage: openHandPathCopiedLabel(context),
     );
   }
 
@@ -702,15 +694,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ja: '新しい名前を入力',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '确定',
-        zhHant: '確定',
-        en: 'OK',
-        fr: 'OK',
-        de: 'OK',
-        ja: 'OK',
-      ),
+      confirmLabel: openHandOkLabel(context),
     );
     if (newName == null || newName.isEmpty || newName == node.name) return;
     try {
@@ -14783,15 +14767,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     final severityLabel = diagnostic.isError
         ? openHandErrorLabel(context)
         : diagnostic.isWarning
-        ? openHandLocalizedText(
-            context,
-            zh: '警告',
-            zhHant: '警告',
-            en: 'Warning',
-            fr: 'Avertissement',
-            de: 'Warnung',
-            ja: '警告',
-          )
+        ? openHandWarningLabel(context)
         : openHandLocalizedText(
             context,
             zh: '提示',

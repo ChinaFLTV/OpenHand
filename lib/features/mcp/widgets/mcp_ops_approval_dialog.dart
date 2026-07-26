@@ -245,7 +245,7 @@ class _McpOpsWriteApprovalDialogState
                           en: 'Call Context',
                         ),
                         rows: {
-                          openHandLocalizedText(context, zh: '工具', en: 'Tool'):
+                          openHandToolLabel(context):
                               widget.request.toolName,
                           openHandLocalizedText(
                             context,

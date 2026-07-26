@@ -474,24 +474,8 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.power_settings_new_rounded,
                   label: config.enabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '已启用',
-                          zhHant: '已啟用',
-                          en: 'Enabled',
-                          fr: 'Activé',
-                          de: 'Aktiviert',
-                          ja: '有効',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '未启用',
-                          zhHant: '未啟用',
-                          en: 'Disabled',
-                          fr: 'Désactivé',
-                          de: 'Deaktiviert',
-                          ja: '無効',
-                        ),
+                      ? openHandEnabledLabel(context)
+                      : openHandDisabledLabel(context),
                 ),
                 _InfoChip(
                   icon: Icons.rocket_launch_outlined,
@@ -771,15 +755,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       value: _runtimeStateLabel(context, runtime.state),
                     ),
                     _MetricTile(
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '请求数',
-                        zhHant: '請求數',
-                        en: 'Requests',
-                        fr: 'Requêtes',
-                        de: 'Anfragen',
-                        ja: 'リクエスト数',
-                      ),
+                      label: openHandRequestsLabel(context),
                       value: '${runtime.totalRequests}',
                     ),
                     _MetricTile(
@@ -7532,15 +7508,7 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
               ),
               _webOpsFlagChip(
                 context,
-                label: openHandLocalizedText(
-                  context,
-                  zh: '知识库',
-                  zhHant: '知識庫',
-                  en: 'Knowledge',
-                  fr: 'Connaissance',
-                  de: 'Wissen',
-                  ja: 'ナレッジ',
-                ),
+                label: openHandKnowledgeLabel(context),
                 enabled: config.knowledgeBaseEnabled,
               ),
               _webOpsFlagChip(
@@ -8887,15 +8855,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 ),
               ),
               _OpsPill(
-                openHandLocalizedText(
-                  context,
-                  zh: '错误',
-                  zhHant: '錯誤',
-                  en: 'Errors',
-                  fr: 'Erreurs',
-                  de: 'Fehler',
-                  ja: 'エラー',
-                ),
+                openHandErrorsLabel(context),
                 openHandLocalizedText(
                   context,
                   zh: '${_rate(snapshot.errorsPerMinute)} 错误/min',
@@ -9911,15 +9871,7 @@ class _MultiSelectDropdownMenuState<T>
                 decoration: _gatewaySelectionSearchDecoration(
                   context,
                   dense: true,
-                  hintText: openHandLocalizedText(
-                    context,
-                    zh: '搜索',
-                    zhHant: '搜尋',
-                    en: 'Search',
-                    fr: 'Rechercher',
-                    de: 'Suchen',
-                    ja: '検索',
-                  ),
+                  hintText: openHandSearchLabel(context),
                   showClear: _searchController.text.isNotEmpty,
                   onClear: _searchController.clear,
                 ),
@@ -10193,15 +10145,7 @@ InputDecoration _gatewaySelectionSearchDecoration(
     suffixIcon: !showClear
         ? null
         : IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '清空搜索',
-              zhHant: '清空搜尋',
-              en: 'Clear search',
-              fr: 'Effacer la recherche',
-              de: 'Suche leeren',
-              ja: '検索をクリア',
-            ),
+            tooltip: openHandClearSearchLabel(context),
             onPressed: onClear,
             icon: Icon(Icons.clear_rounded, size: iconSize),
           ),

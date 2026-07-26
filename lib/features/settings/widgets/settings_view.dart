@@ -3216,15 +3216,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onPressed: () => _exportAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.upload_rounded, size: 18),
                       label: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '导出 JSON',
-                          zhHant: '匯出 JSON',
-                          en: 'Export JSON',
-                          fr: 'Exporter JSON',
-                          de: 'JSON exportieren',
-                          ja: 'JSON をエクスポート',
-                        ),
+                        openHandExportJsonLabel(context),
                       ),
                     ),
                     FilledButton.tonalIcon(

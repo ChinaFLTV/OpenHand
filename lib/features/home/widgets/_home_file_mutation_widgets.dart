@@ -4154,7 +4154,7 @@ class _RoundFileMutationSummaryCardState
               ),
               icon: const Icon(Icons.unfold_less_rounded, size: 16),
               label: Text(
-                openHandLocalizedText(context, zh: '收起', en: 'Collapse'),
+                openHandCollapseLabel(context),
                 style: theme.textTheme.labelMedium,
               ),
               onPressed: () {

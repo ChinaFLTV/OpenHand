@@ -998,7 +998,7 @@ class _SessionMetadataDialog extends StatelessWidget {
       ),
       'warning' => openHandLocalizedText(context, zh: '偏高', en: 'High'),
       'ok' => openHandLocalizedText(context, zh: '正常', en: 'OK'),
-      _ => openHandLocalizedText(context, zh: '未知', en: 'Unknown'),
+      _ => openHandUnknownLabel(context),
     };
     final usageValue = maxTokens > 0
         ? (usagePercent / 100).clamp(0.0, 1.0)
@@ -1593,7 +1593,7 @@ String _machineTerminalStatusLabel(BuildContext context, String? status) {
     'stopped' => openHandLocalizedText(context, zh: '已停止', en: 'Stopped'),
     'failed' => openHandLocalizedText(context, zh: '异常', en: 'Failed'),
     'idle' => openHandLocalizedText(context, zh: '空闲', en: 'Idle'),
-    _ => openHandLocalizedText(context, zh: '未知', en: 'Unknown'),
+    _ => openHandUnknownLabel(context),
   };
 }
 

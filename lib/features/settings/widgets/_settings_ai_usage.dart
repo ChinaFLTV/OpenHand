@@ -238,7 +238,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
                   onPressed: _load,
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(
-                    openHandLocalizedText(context, zh: '重新加载', en: 'Retry'),
+                    openHandRetryLabel(context),
                   ),
                 ),
               ],
@@ -2237,7 +2237,7 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
   @override
   Widget build(BuildContext context) {
     final options = <(String, String)>[
-      ('source', openHandLocalizedText(context, zh: '来源', en: 'Source')),
+      ('source', openHandSourceLabel(context)),
       ('provider', openHandLocalizedText(context, zh: '供应商', en: 'Provider')),
       ('model', openHandModelLabel(context)),
       ('surface', openHandLocalizedText(context, zh: '端侧', en: 'Surface')),
@@ -2829,7 +2829,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                 flex: 20,
                 child: header
                     ? value(
-                        openHandLocalizedText(context, zh: '来源', en: 'Source'),
+                        openHandSourceLabel(context),
                       )
                     : details(
                         _usageSourceLabel(context, record!.source),
@@ -3007,7 +3007,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
         value: record.providerName,
       ),
       (
-        label: openHandLocalizedText(context, zh: '来源', en: 'Source'),
+        label: openHandSourceLabel(context),
         value:
             '${_usageSourceLabel(context, record.source)} · ${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
       ),
@@ -3562,11 +3562,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                   const SizedBox(height: 22),
                   _buildFacet(
                     context,
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '来源',
-                      en: 'Source',
-                    ),
+                    title: openHandSourceLabel(context),
                     facets: widget.sourceFacets,
                     selected: _filter.source,
                     sourceLabels: true,
@@ -3626,7 +3622,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
       const Duration(milliseconds: 180),
     );
     final options = <({String label, String? value})>[
-      (label: openHandLocalizedText(context, zh: '全部', en: 'All'), value: null),
+      (label: openHandAllLabel(context), value: null),
       for (final facet in facets)
         (
           label: sourceLabels
@@ -3845,7 +3841,7 @@ class _AiUsageLoadingState extends StatelessWidget {
 
 String _usageRangeLabel(BuildContext context, AiUsageRange range) {
   return switch (range) {
-    AiUsageRange.today => openHandLocalizedText(context, zh: '今天', en: 'Today'),
+    AiUsageRange.today => openHandTodayLabel(context),
     AiUsageRange.sevenDays => openHandLocalizedText(
       context,
       zh: '7 天',
@@ -3857,7 +3853,7 @@ String _usageRangeLabel(BuildContext context, AiUsageRange range) {
       en: '30 Days',
     ),
     AiUsageRange.year => openHandLocalizedText(context, zh: '一年', en: 'Year'),
-    AiUsageRange.all => openHandLocalizedText(context, zh: '全部', en: 'All'),
+    AiUsageRange.all => openHandAllLabel(context),
   };
 }
 
@@ -3885,11 +3881,7 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '自学习',
       en: 'Self Learning',
     ),
-    AiUsageSource.agent => openHandLocalizedText(
-      context,
-      zh: '智能体',
-      en: 'Agent',
-    ),
+    AiUsageSource.agent => openHandAgentLabel(context),
     AiUsageSource.webSearch => 'WebSearch',
     AiUsageSource.webFetch => 'WebFetch',
     AiUsageSource.modelTest => openHandLocalizedText(
@@ -4016,7 +4008,7 @@ String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
     'template' => openHandTemplateLabel(context),
     'surface' => openHandLocalizedText(context, zh: '端侧', en: 'Surface'),
     'operation' => openHandLocalizedText(context, zh: '操作', en: 'Operation'),
-    _ => openHandLocalizedText(context, zh: '来源', en: 'Source'),
+    _ => openHandSourceLabel(context),
   };
 }
 
@@ -4049,7 +4041,7 @@ String _usageRequestStatusLabel(BuildContext context, String status) {
     ),
     _ =>
       status.isEmpty
-          ? openHandLocalizedText(context, zh: '未知', en: 'Unknown')
+          ? openHandUnknownLabel(context)
           : status,
   };
 }

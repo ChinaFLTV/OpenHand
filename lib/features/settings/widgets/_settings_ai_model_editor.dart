@@ -4722,15 +4722,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _modelIdController,
                 decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '模型 ID',
-                    zhHant: '模型 ID',
-                    en: 'Model ID',
-                    fr: 'ID du modèle',
-                    de: 'Modell-ID',
-                    ja: 'モデル ID',
-                  ),
+                  labelText: openHandModelIdLabel(context),
                   hintText: 'gpt-4o-mini',
                   helperText: openHandLocalizedText(
                     context,

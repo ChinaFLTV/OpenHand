@@ -808,15 +808,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                   size: _actionButtonSize,
                                 ),
                                 _KnowledgeCardActionButton(
-                                  tooltip: openHandLocalizedText(
-                                    context,
-                                    zh: '详情',
-                                    zhHant: '詳情',
-                                    en: 'Details',
-                                    fr: 'Détails',
-                                    de: 'Details',
-                                    ja: '詳細',
-                                  ),
+                                  tooltip: openHandDetailsLabel(context),
                                   icon: Icons.edit_outlined,
                                   onPressed: () =>
                                       showKnowledgeSourceDetailDialog(
@@ -832,15 +824,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                       AnimatedPopupMenuButton<
                                         _KnowledgeCardAction
                                       >(
-                                        tooltip: openHandLocalizedText(
-                                          context,
-                                          zh: '更多操作',
-                                          zhHant: '更多操作',
-                                          en: 'More actions',
-                                          fr: 'Plus d’actions',
-                                          de: 'Weitere Aktionen',
-                                          ja: 'その他の操作',
-                                        ),
+                                        tooltip: openHandMoreActionsLabel(context),
                                         onSelected: (action) {
                                           switch (action) {
                                             case _KnowledgeCardAction.delete:

@@ -299,11 +299,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
             _buildGoalSwitchRow(
               value: _tokenBudgetEnabled,
               onChanged: (value) => setState(() => _tokenBudgetEnabled = value),
-              title: openHandLocalizedText(
-                context,
-                zh: 'Token 预算',
-                en: 'Token budget',
-              ),
+              title: openHandTokenBudgetLabel(context),
               subtitle: openHandLocalizedText(
                 context,
                 zh: '开启后限制目标执行阶段最多消耗的 token。',
@@ -1297,11 +1293,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<double>(
                         context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '语速',
-                          en: 'Speed',
-                        ),
+                        title: openHandSpeedLabel(context),
                         values: _audioSpeeds,
                         selected: _speed,
                         labelFor: (value) => '${value}x',
@@ -1337,11 +1329,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<double>(
                         context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '音量',
-                          en: 'Volume',
-                        ),
+                        title: openHandVolumeLabel(context),
                         values: _audioVolumes,
                         selected: _volume,
                         labelFor: (value) => '${value}x',
@@ -1488,7 +1476,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         children: [
           _sectionLabel(
             context,
-            openHandLocalizedText(context, zh: '音色/发音人', en: 'Voice'),
+            openHandVoiceLabel(context),
             sectionStyle,
           ),
           const SizedBox(height: 8),
@@ -1640,7 +1628,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
           constraints: const BoxConstraints(minWidth: 128),
           child: OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(_selectedOptions()),
-            label: openHandLocalizedText(context, zh: '确认', en: 'Confirm'),
+            label: openHandConfirmLabel(context),
           ),
         ),
       ],

@@ -1136,15 +1136,7 @@ String knowledgeStatusLabel(BuildContext context) {
 }
 
 String knowledgePathCopiedMessage(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '路径已复制。',
-    zhHant: '路徑已複製。',
-    en: 'Path copied.',
-    fr: 'Chemin copié.',
-    de: 'Pfad kopiert.',
-    ja: 'パスをコピーしました。',
-  );
+  return openHandPathCopiedLabel(context);
 }
 
 String knowledgeRedoLabel(BuildContext context) {

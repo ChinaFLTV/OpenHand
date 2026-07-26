@@ -1611,7 +1611,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentDialogMetricTile(
               icon: Icons.source_rounded,
-              label: openHandLocalizedText(context, zh: '来源', en: 'Source'),
+              label: openHandSourceLabel(context),
               value: capabilityName,
             ),
             _AgentDialogMetricTile(
@@ -1663,7 +1663,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
               ),
               _AgentTaskDetailBlock(
                 icon: Icons.build_circle_outlined,
-                title: openHandLocalizedText(context, zh: '工具', en: 'Tool'),
+                title: openHandToolLabel(context),
                 body: event.toolName.trim().isEmpty
                     ? capabilityName
                     : _agentAuditSourceLabel(context, event.toolName),
@@ -1693,7 +1693,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
         ),
         _AgentLogDetailSection(
           icon: Icons.developer_board_rounded,
-          title: openHandLocalizedText(context, zh: '环境信息', en: 'Environment'),
+          title: openHandEnvironmentLabel(context),
           child: _buildEnvironmentSection(context, l10n),
         ),
         _AgentLogDetailSection(
@@ -1817,7 +1817,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.schedule_rounded,
-              title: openHandLocalizedText(context, zh: '创建时间', en: 'Created'),
+              title: openHandCreatedLabel(context),
               body: _agentDateTimeLabel(task.createdAt),
               compact: true,
             ),
@@ -1979,7 +1979,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
           children: [
             _AgentTaskDetailBlock(
               icon: Icons.smart_toy_outlined,
-              title: openHandLocalizedText(context, zh: '智能体', en: 'Agent'),
+              title: openHandAgentLabel(context),
               body: agent.name,
               compact: true,
             ),
@@ -2050,7 +2050,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.folder_open_rounded,
-              title: openHandLocalizedText(context, zh: '工作区', en: 'Workspace'),
+              title: openHandWorkspaceLabel(context),
               body: agent.workspacePath,
               compact: true,
             ),
@@ -2088,7 +2088,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.psychology_rounded,
-              title: openHandLocalizedText(context, zh: '记忆', en: 'Memory'),
+              title: openHandMemoryLabel(context),
               body: _agentJoinedText(agent.memoryIds),
               compact: true,
             ),
@@ -3291,7 +3291,7 @@ class _AgentTasksBody extends StatelessWidget {
               value: '${tasks.length}',
             ),
             _MetricTile(
-              label: openHandLocalizedText(context, zh: '进行中', en: 'Active'),
+              label: openHandActiveLabel(context),
               value: '$active',
             ),
             _MetricTile(
@@ -3532,11 +3532,7 @@ Future<void> _showAgentTaskDetailDialog(
                 ),
                 _AgentTaskDetailFact(
                   icon: Icons.schedule_rounded,
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '创建时间',
-                    en: 'Created',
-                  ),
+                  title: openHandCreatedLabel(context),
                   value: _agentDateTimeLabel(task.createdAt),
                 ),
                 _AgentTaskDetailFact(
@@ -4096,7 +4092,7 @@ Future<void> _confirmAgentTaskStatus(
     context: context,
     title: openHandLocalizedText(context, zh: titleZh, en: titleEn),
     message: openHandLocalizedText(context, zh: messageZh, en: messageEn),
-    confirmLabel: openHandLocalizedText(context, zh: '确认', en: 'Confirm'),
+    confirmLabel: openHandConfirmLabel(context),
     destructive:
         status == AgentTaskStatus.failed || status == AgentTaskStatus.canceled,
   );
@@ -5698,11 +5694,7 @@ class _AgentResourceBody extends StatelessWidget {
         const SizedBox(height: 10),
         _AgentResourcePressureCard(
           icon: Icons.auto_awesome_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: 'Token 预算',
-            en: 'Token budget',
-          ),
+          label: openHandTokenBudgetLabel(context),
           valueLabel: resource.tokenBudget <= 0
               ? openHandLocalizedText(
                   context,

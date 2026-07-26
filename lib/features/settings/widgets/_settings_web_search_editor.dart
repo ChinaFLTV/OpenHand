@@ -825,11 +825,7 @@ String _summaryStyleLabel(BuildContext context, AiWebSearchSummaryStyle s) {
       zh: '通俗轻松',
       en: 'Casual',
     ),
-    AiWebSearchSummaryStyle.structured => openHandLocalizedText(
-      context,
-      zh: '结构化',
-      en: 'Structured',
-    ),
+    AiWebSearchSummaryStyle.structured => openHandStructuredLabel(context),
   };
 }
 

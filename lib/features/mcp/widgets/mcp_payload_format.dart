@@ -74,7 +74,7 @@ String mcpPayloadShapeLabel(
   if (value is List) {
     return openHandLocalizedText(context, zh: '列表结构', en: 'Array');
   }
-  return openHandLocalizedText(context, zh: '结构化', en: 'Structured');
+  return openHandStructuredLabel(context);
 }
 
 String mcpPayloadCountLabel(BuildContext context, Object? value) {

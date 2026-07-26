@@ -220,15 +220,7 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
 }
 
 String _heHarnessNotConfiguredText(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '未配置',
-    zhHant: '未設定',
-    en: 'Not configured',
-    fr: 'Non configuré',
-    de: 'Nicht konfiguriert',
-    ja: '未設定',
-  );
+  return openHandNotConfiguredLabel(context);
 }
 
 String _heDescribeAiModelConfig(

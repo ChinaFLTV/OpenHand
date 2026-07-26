@@ -851,15 +851,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         ja: '新しい名前',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '确定',
-        zhHant: '確定',
-        en: 'OK',
-        fr: 'OK',
-        de: 'OK',
-        ja: 'OK',
-      ),
+      confirmLabel: openHandOkLabel(context),
       decoration: const InputDecoration(border: OutlineInputBorder()),
     );
     if (!mounted || newName == null || newName.isEmpty) return;
@@ -2061,15 +2053,7 @@ class _SourcesGlobalSearchDialogState
                             de: 'Suche…',
                             ja: '検索中…',
                           )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '搜索',
-                            zhHant: '搜尋',
-                            en: 'Search',
-                            fr: 'Rechercher',
-                            de: 'Suchen',
-                            ja: '検索',
-                          ),
+                        : openHandSearchLabel(context),
                   ),
                 ),
               ],

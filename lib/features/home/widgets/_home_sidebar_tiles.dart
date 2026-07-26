@@ -492,11 +492,7 @@ class _ActiveThreadBadge extends StatelessWidget {
         zh: '发送中',
         en: 'Sending',
       ),
-      AiSendPhase.responding => openHandLocalizedText(
-        context,
-        zh: '进行中',
-        en: 'Active',
-      ),
+      AiSendPhase.responding => openHandActiveLabel(context),
       AiSendPhase.awaitingApproval => openHandLocalizedText(
         context,
         zh: '等待批准',

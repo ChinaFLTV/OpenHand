@@ -269,15 +269,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           trailing: [
             if (_searchInput.trim().isNotEmpty)
               Tooltip(
-                message: openHandLocalizedText(
-                  context,
-                  zh: '清空搜索',
-                  zhHant: '清空搜尋',
-                  en: 'Clear search',
-                  fr: 'Effacer la recherche',
-                  de: 'Suche leeren',
-                  ja: '検索をクリア',
-                ),
+                message: openHandClearSearchLabel(context),
                 child: IconButton(
                   onPressed: _isSearching ? null : _clearSearch,
                   icon: const Icon(Icons.close_rounded),
@@ -657,15 +649,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                   ja: 'インストール中',
                 )
               : selectedSkillInstalled
-              ? openHandLocalizedText(
-                  context,
-                  zh: '已安装',
-                  zhHant: '已安裝',
-                  en: 'Installed',
-                  fr: 'Installé',
-                  de: 'Installiert',
-                  ja: 'インストール済み',
-                )
+              ? openHandInstalledLabel(context)
               : openHandInstallLabel(context),
         ),
       ],
@@ -1158,15 +1142,7 @@ class _SkillMarketResultTile extends StatelessWidget {
                           ),
                           if (installed)
                             _TinyTextChip(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '已安装',
-                                zhHant: '已安裝',
-                                en: 'Installed',
-                                fr: 'Installé',
-                                de: 'Installiert',
-                                ja: 'インストール済み',
-                              ),
+                              label: openHandInstalledLabel(context),
                             ),
                           if (skill.category.isNotEmpty)
                             _TinyTextChip(label: skill.category),
@@ -1491,15 +1467,7 @@ class _SkillMarketDetailView extends StatelessWidget {
             ],
             const SizedBox(height: 20),
             _SectionTitle(
-              text: openHandLocalizedText(
-                context,
-                zh: '详情',
-                zhHant: '詳情',
-                en: 'Details',
-                fr: 'Détails',
-                de: 'Details',
-                ja: '詳細',
-              ),
+              text: openHandDetailsLabel(context),
             ),
             const SizedBox(height: 10),
             Container(

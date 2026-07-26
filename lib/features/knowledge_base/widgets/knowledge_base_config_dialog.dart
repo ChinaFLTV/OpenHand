@@ -2301,24 +2301,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
 
   String _nullableBoolLabel(BuildContext context, bool? value) {
     return switch (value) {
-      true => openHandLocalizedText(
-        context,
-        zh: '是',
-        zhHant: '是',
-        en: 'Yes',
-        fr: 'Oui',
-        de: 'Ja',
-        ja: 'はい',
-      ),
-      false => openHandLocalizedText(
-        context,
-        zh: '否',
-        zhHant: '否',
-        en: 'No',
-        fr: 'Non',
-        de: 'Nein',
-        ja: 'いいえ',
-      ),
+      true => openHandYesLabel(context),
+      false => openHandNoLabel(context),
       null => openHandLocalizedText(
         context,
         zh: '未知',

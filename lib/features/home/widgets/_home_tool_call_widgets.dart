@@ -329,7 +329,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                 zh: '沙盒拦截',
                                 en: 'Sandbox blocked',
                               )
-                            : '${openHandLocalizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
+                            : '${openHandSandboxLabel(context)}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
                       ),
                     ),
                   if (message.metadata['sandbox_proxy_enabled'] == true)

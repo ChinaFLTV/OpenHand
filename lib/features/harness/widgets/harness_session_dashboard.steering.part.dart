@@ -1098,41 +1098,17 @@ class _HeSteeringFileEditorDialogState
             // Headings
             _MdToolbarBtn(
               label: 'H₁',
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '一级标题',
-                zhHant: '一級標題',
-                en: 'Heading 1',
-                fr: 'Titre 1',
-                de: 'Überschrift 1',
-                ja: '見出し 1',
-              ),
+              tooltip: openHandHeading1Label(context),
               onTap: () => _applyHeading(1),
             ),
             _MdToolbarBtn(
               label: 'H₂',
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '二级标题',
-                zhHant: '二級標題',
-                en: 'Heading 2',
-                fr: 'Titre 2',
-                de: 'Überschrift 2',
-                ja: '見出し 2',
-              ),
+              tooltip: openHandHeading2Label(context),
               onTap: () => _applyHeading(2),
             ),
             _MdToolbarBtn(
               label: 'H₃',
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '三级标题',
-                zhHant: '三級標題',
-                en: 'Heading 3',
-                fr: 'Titre 3',
-                de: 'Überschrift 3',
-                ja: '見出し 3',
-              ),
+              tooltip: openHandHeading3Label(context),
               onTap: () => _applyHeading(3),
             ),
             sep,
@@ -1193,15 +1169,7 @@ class _HeSteeringFileEditorDialogState
             // Block
             _MdToolbarBtn(
               icon: Icons.data_object_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '代码块',
-                zhHant: '程式碼區塊',
-                en: 'Code block',
-                fr: 'Bloc de code',
-                de: 'Codeblock',
-                ja: 'コードブロック',
-              ),
+              tooltip: openHandCodeBlockLabel(context),
               onTap: _applyCodeBlock,
             ),
             _MdToolbarBtn(

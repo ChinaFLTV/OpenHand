@@ -356,16 +356,8 @@ IconData _presetIcon(OpenHandCleanupRangePreset preset) {
 
 String _presetLabel(BuildContext context, OpenHandCleanupRangePreset preset) {
   return switch (preset) {
-    OpenHandCleanupRangePreset.all => openHandLocalizedText(
-      context,
-      zh: '全部',
-      en: 'All',
-    ),
-    OpenHandCleanupRangePreset.today => openHandLocalizedText(
-      context,
-      zh: '今天',
-      en: 'Today',
-    ),
+    OpenHandCleanupRangePreset.all => openHandAllLabel(context),
+    OpenHandCleanupRangePreset.today => openHandTodayLabel(context),
     OpenHandCleanupRangePreset.last24Hours => openHandLocalizedText(
       context,
       zh: '近 24 小时',

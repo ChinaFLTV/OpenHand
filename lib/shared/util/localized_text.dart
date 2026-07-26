@@ -607,3 +607,467 @@ String openHandTemplateLabel(BuildContext context) {
 String openHandUpdatedLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '更新时间', en: 'Updated');
 }
+
+String openHandActiveLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '进行中', en: 'Active');
+}
+
+String openHandAgentLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '智能体', en: 'Agent');
+}
+
+String openHandAllLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '全部', en: 'All');
+}
+
+String openHandClearSearchLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '清空搜索',
+    zhHant: '清空搜尋',
+    en: 'Clear search',
+    fr: 'Effacer la recherche',
+    de: 'Suche leeren',
+    ja: '検索をクリア',
+  );
+}
+
+String openHandCodeBlockLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '代码块',
+    zhHant: '程式碼區塊',
+    en: 'Code block',
+    fr: 'Bloc de code',
+    de: 'Codeblock',
+    ja: 'コードブロック',
+  );
+}
+
+String openHandCollapseLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '收起', en: 'Collapse');
+}
+
+String openHandConfirmLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '确认', en: 'Confirm');
+}
+
+String openHandCreatedLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '创建时间', en: 'Created');
+}
+
+String openHandDetailsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '详情',
+    zhHant: '詳情',
+    en: 'Details',
+    fr: 'Détails',
+    de: 'Details',
+    ja: '詳細',
+  );
+}
+
+String openHandDisabledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '未启用',
+    zhHant: '未啟用',
+    en: 'Disabled',
+    fr: 'Désactivé',
+    de: 'Deaktiviert',
+    ja: '無効',
+  );
+}
+
+String openHandEnabledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已启用',
+    zhHant: '已啟用',
+    en: 'Enabled',
+    fr: 'Activé',
+    de: 'Aktiviert',
+    ja: '有効',
+  );
+}
+
+String openHandEnvironmentLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '环境信息', en: 'Environment');
+}
+
+String openHandErrorsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '错误',
+    zhHant: '錯誤',
+    en: 'Errors',
+    fr: 'Erreurs',
+    de: 'Fehler',
+    ja: 'エラー',
+  );
+}
+
+String openHandExportJsonLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '导出 JSON',
+    zhHant: '匯出 JSON',
+    en: 'Export JSON',
+    fr: 'Exporter JSON',
+    de: 'JSON exportieren',
+    ja: 'JSON をエクスポート',
+  );
+}
+
+String openHandHeading1Label(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '一级标题',
+    zhHant: '一級標題',
+    en: 'Heading 1',
+    fr: 'Titre 1',
+    de: 'Überschrift 1',
+    ja: '見出し 1',
+  );
+}
+
+String openHandHeading2Label(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '二级标题',
+    zhHant: '二級標題',
+    en: 'Heading 2',
+    fr: 'Titre 2',
+    de: 'Überschrift 2',
+    ja: '見出し 2',
+  );
+}
+
+String openHandHeading3Label(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '三级标题',
+    zhHant: '三級標題',
+    en: 'Heading 3',
+    fr: 'Titre 3',
+    de: 'Überschrift 3',
+    ja: '見出し 3',
+  );
+}
+
+String openHandInstalledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已安装',
+    zhHant: '已安裝',
+    en: 'Installed',
+    fr: 'Installé',
+    de: 'Installiert',
+    ja: 'インストール済み',
+  );
+}
+
+String openHandKeywordsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '关键字',
+    zhHant: '關鍵字',
+    en: 'Keywords',
+    fr: 'Mots-clés',
+    de: 'Schlüsselwörter',
+    ja: 'キーワード',
+  );
+}
+
+String openHandKnowledgeLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '知识库',
+    zhHant: '知識庫',
+    en: 'Knowledge',
+    fr: 'Connaissance',
+    de: 'Wissen',
+    ja: 'ナレッジ',
+  );
+}
+
+String openHandMemoryLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '记忆', en: 'Memory');
+}
+
+String openHandModeLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '模式',
+    zhHant: '模式',
+    en: 'Mode',
+    fr: 'Mode',
+    de: 'Modus',
+    ja: 'モード',
+  );
+}
+
+String openHandModelIdLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '模型 ID',
+    zhHant: '模型 ID',
+    en: 'Model ID',
+    fr: 'ID du modèle',
+    de: 'Modell-ID',
+    ja: 'モデル ID',
+  );
+}
+
+String openHandMoreActionsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '更多操作',
+    zhHant: '更多操作',
+    en: 'More actions',
+    fr: 'Plus d’actions',
+    de: 'Weitere Aktionen',
+    ja: 'その他の操作',
+  );
+}
+
+String openHandNetworkLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '网络',
+    zhHant: '網路',
+    en: 'Network',
+    fr: 'Réseau',
+    de: 'Netzwerk',
+    ja: 'ネットワーク',
+  );
+}
+
+String openHandNoLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '否',
+    zhHant: '否',
+    en: 'No',
+    fr: 'Non',
+    de: 'Nein',
+    ja: 'いいえ',
+  );
+}
+
+String openHandNotConfiguredLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '未配置',
+    zhHant: '未設定',
+    en: 'Not configured',
+    fr: 'Non configuré',
+    de: 'Nicht konfiguriert',
+    ja: '未設定',
+  );
+}
+
+String openHandObjectiveLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '逆向目标',
+    zhHant: '逆向目標',
+    en: 'Objective',
+    fr: 'Objectif',
+    de: 'Ziel',
+    ja: '目的',
+  );
+}
+
+String openHandOkLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '确定',
+    zhHant: '確定',
+    en: 'OK',
+    fr: 'OK',
+    de: 'OK',
+    ja: 'OK',
+  );
+}
+
+String openHandOverviewLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '概览',
+    zhHant: '概覽',
+    en: 'Overview',
+    fr: 'Vue d’ensemble',
+    de: 'Übersicht',
+    ja: '概要',
+  );
+}
+
+String openHandPathCopiedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '路径已复制。',
+    zhHant: '路徑已複製。',
+    en: 'Path copied.',
+    fr: 'Chemin copié.',
+    de: 'Pfad kopiert.',
+    ja: 'パスをコピーしました。',
+  );
+}
+
+String openHandPathLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '路径',
+    zhHant: '路徑',
+    en: 'Path',
+    fr: 'Chemin',
+    de: 'Pfad',
+    ja: 'パス',
+  );
+}
+
+String openHandRequestsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '请求数',
+    zhHant: '請求數',
+    en: 'Requests',
+    fr: 'Requêtes',
+    de: 'Anfragen',
+    ja: 'リクエスト数',
+  );
+}
+
+String openHandRetryLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '重新加载', en: 'Retry');
+}
+
+String openHandRunLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '执行',
+    zhHant: '執行',
+    en: 'Run',
+    fr: 'Exécuter',
+    de: 'Ausführen',
+    ja: '実行',
+  );
+}
+
+String openHandSandboxLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '沙盒', en: 'Sandbox');
+}
+
+String openHandSearchLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '搜索',
+    zhHant: '搜尋',
+    en: 'Search',
+    fr: 'Rechercher',
+    de: 'Suchen',
+    ja: '検索',
+  );
+}
+
+String openHandSourceLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '来源', en: 'Source');
+}
+
+String openHandSpeedLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '语速', en: 'Speed');
+}
+
+String openHandStructuredLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '结构化', en: 'Structured');
+}
+
+String openHandTaskLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '任务描述',
+    zhHant: '任務描述',
+    en: 'Task',
+    fr: 'Tâche',
+    de: 'Aufgabe',
+    ja: 'タスク',
+  );
+}
+
+String openHandTodayLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '今天', en: 'Today');
+}
+
+String openHandTokenBudgetLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: 'Token 预算', en: 'Token budget');
+}
+
+String openHandToolLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '工具', en: 'Tool');
+}
+
+String openHandTypeLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '类型',
+    zhHant: '類型',
+    en: 'Type',
+    fr: 'Type',
+    de: 'Typ',
+    ja: '種類',
+  );
+}
+
+String openHandUnknownLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '未知', en: 'Unknown');
+}
+
+String openHandUpdateLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '更新',
+    zhHant: '更新',
+    en: 'Update',
+    fr: 'Mettre à jour',
+    de: 'Aktualisieren',
+    ja: '更新',
+  );
+}
+
+String openHandVoiceLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '音色/发音人', en: 'Voice');
+}
+
+String openHandVolumeLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '音量', en: 'Volume');
+}
+
+String openHandWarningLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '警告',
+    zhHant: '警告',
+    en: 'Warning',
+    fr: 'Avertissement',
+    de: 'Warnung',
+    ja: '警告',
+  );
+}
+
+String openHandWorkspaceLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '工作区', en: 'Workspace');
+}
+
+String openHandYesLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '是',
+    zhHant: '是',
+    en: 'Yes',
+    fr: 'Oui',
+    de: 'Ja',
+    ja: 'はい',
+  );
+}

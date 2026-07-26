@@ -82,7 +82,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         Divider(color: colorScheme.outlineVariant),
         const SizedBox(height: 18),
         Text(
-          openHandLocalizedText(context, zh: '沙盒', en: 'Sandbox'),
+          openHandSandboxLabel(context),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),

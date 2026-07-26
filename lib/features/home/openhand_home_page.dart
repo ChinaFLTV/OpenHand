@@ -7883,21 +7883,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _activateSlashCommandSection(AppSection section) {
     _selectSection(section);
     final label = switch (section) {
-      AppSection.workspace => openHandLocalizedText(
-        context,
-        zh: '工作区',
-        en: 'Workspace',
-      ),
+      AppSection.workspace => openHandWorkspaceLabel(context),
       AppSection.skills => openHandLocalizedText(
         context,
         zh: '技能',
         en: 'Skills',
       ),
-      AppSection.memory => openHandLocalizedText(
-        context,
-        zh: '记忆',
-        en: 'Memory',
-      ),
+      AppSection.memory => openHandMemoryLabel(context),
       AppSection.mcp => openHandLocalizedText(context, zh: 'MCP', en: 'MCP'),
       AppSection.hooks => openHandLocalizedText(
         context,

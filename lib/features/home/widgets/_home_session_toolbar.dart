@@ -1836,7 +1836,7 @@ class _GoalRecordSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _GoalKeyValue(
-              openHandLocalizedText(context, zh: '创建时间', en: 'Created'),
+              openHandCreatedLabel(context),
               _formatGoalDateTime(context, goal.createdAt),
             ),
             _GoalKeyValue(
@@ -2057,7 +2057,7 @@ class _GoalEnvironmentSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final environment = session.environment;
     return _GoalRecordShell(
-      title: openHandLocalizedText(context, zh: '环境信息', en: 'Environment'),
+      title: openHandEnvironmentLabel(context),
       children: [
         _GoalKeyValue(
           openHandLocalizedText(context, zh: '线程', en: 'Session'),

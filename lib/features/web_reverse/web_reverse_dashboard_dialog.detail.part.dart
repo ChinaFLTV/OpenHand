@@ -894,15 +894,7 @@ class _InitiatorTab extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _MetaRow(
-          label: openHandLocalizedText(
-            context,
-            zh: '类型',
-            zhHant: '類型',
-            en: 'Type',
-            fr: 'Type',
-            de: 'Typ',
-            ja: '種類',
-          ),
+          label: openHandTypeLabel(context),
           value: type,
         ),
         if (initUrl.isNotEmpty)

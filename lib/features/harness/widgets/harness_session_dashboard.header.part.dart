@@ -900,15 +900,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       ),
                       children: [
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '任务描述',
-                            zhHant: '任務描述',
-                            en: 'Task',
-                            fr: 'Tâche',
-                            de: 'Aufgabe',
-                            ja: 'タスク',
-                          ),
+                          label: openHandTaskLabel(context),
                           value: config.task.isEmpty ? '-' : config.task,
                         ),
                         OpenHandMetadataEntryRow(

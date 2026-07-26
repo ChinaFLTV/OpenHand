@@ -531,15 +531,7 @@ extension _TabLabel on _Tab {
         de: 'Geräte',
         ja: 'デバイス',
       ),
-      _Tab.overview => openHandLocalizedText(
-        context,
-        zh: '概览',
-        zhHant: '概覽',
-        en: 'Overview',
-        fr: 'Vue d’ensemble',
-        de: 'Übersicht',
-        ja: '概要',
-      ),
+      _Tab.overview => openHandOverviewLabel(context),
       _Tab.toolchain => openHandLocalizedText(
         context,
         zh: '工具链',
@@ -579,15 +571,7 @@ extension _TabLabel on _Tab {
       ),
       _Tab.logcat => 'Logcat',
       _Tab.frida => 'Frida',
-      _Tab.network => openHandLocalizedText(
-        context,
-        zh: '网络',
-        zhHant: '網路',
-        en: 'Network',
-        fr: 'Réseau',
-        de: 'Netzwerk',
-        ja: 'ネットワーク',
-      ),
+      _Tab.network => openHandNetworkLabel(context),
       _Tab.staticAnalysis => openHandLocalizedText(
         context,
         zh: '静态分析',
@@ -1663,15 +1647,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Info',
         ja: '情報',
       ),
-      'W' => openHandLocalizedText(
-        context,
-        zh: '警告',
-        zhHant: '警告',
-        en: 'Warning',
-        fr: 'Avertissement',
-        de: 'Warnung',
-        ja: '警告',
-      ),
+      'W' => openHandWarningLabel(context),
       'E' => openHandErrorLabel(context),
       'F' => openHandLocalizedText(
         context,
@@ -3616,15 +3592,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '执行',
-                      zhHant: '執行',
-                      en: 'Run',
-                      fr: 'Exécuter',
-                      de: 'Ausführen',
-                      ja: '実行',
-                    ),
+                    label: openHandRunLabel(context),
                     filled: true,
                     height: _kAdbInlineControlHeight,
                   ),
@@ -5659,15 +5627,7 @@ fi
     final device = _ctrl.connectedDevice;
     final items = <(String, String)>[
       (
-        openHandLocalizedText(
-          context,
-          zh: '逆向目标',
-          zhHant: '逆向目標',
-          en: 'Objective',
-          fr: 'Objectif',
-          de: 'Ziel',
-          ja: '目的',
-        ),
+        openHandObjectiveLabel(context),
         config.objective,
       ),
       if (config.packageName != null)
@@ -5766,15 +5726,7 @@ fi
       ],
       if (config.keywords.isNotEmpty)
         (
-          openHandLocalizedText(
-            context,
-            zh: '关键字',
-            zhHant: '關鍵字',
-            en: 'Keywords',
-            fr: 'Mots-clés',
-            de: 'Schlüsselwörter',
-            ja: 'キーワード',
-          ),
+          openHandKeywordsLabel(context),
           config.keywords.join(', '),
         ),
       if (config.notes != null && config.notes!.isNotEmpty)
@@ -6881,15 +6833,7 @@ fi
                     ? null
                     : () => unawaited(_refreshAndroidMcpCapability(matches)),
                 icon: const Icon(Icons.system_update_alt_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '更新',
-                  zhHant: '更新',
-                  en: 'Update',
-                  fr: 'Mettre à jour',
-                  de: 'Aktualisieren',
-                  ja: '更新',
-                ),
+                label: openHandUpdateLabel(context),
               ),
               _DashboardActionButton(
                 onPressed: !installed || controller.isLoading
@@ -7418,15 +7362,7 @@ fi
         de: 'Updates prüfen',
         ja: '更新を確認',
       ),
-      _RuntimePluginAction.update => openHandLocalizedText(
-        context,
-        zh: '更新',
-        zhHant: '更新',
-        en: 'Update',
-        fr: 'Mettre à jour',
-        de: 'Aktualisieren',
-        ja: '更新',
-      ),
+      _RuntimePluginAction.update => openHandUpdateLabel(context),
       _RuntimePluginAction.enable => openHandLocalizedText(
         context,
         zh: '启用',
@@ -7994,15 +7930,7 @@ fi
                                   Icons.more_horiz_rounded,
                                   size: 16,
                                 ),
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '更多操作',
-                                  zhHant: '更多操作',
-                                  en: 'More actions',
-                                  fr: 'Plus d’actions',
-                                  de: 'Weitere Aktionen',
-                                  ja: 'その他の操作',
-                                ),
+                                tooltip: openHandMoreActionsLabel(context),
                                 onPressed: () => _showPackageMenu(pkg, null),
                                 visualDensity: VisualDensity.compact,
                               ),
@@ -8258,15 +8186,7 @@ fi
                                   size: 16,
                                 ),
                                 onPressed: () => _showProcessMenu(p, null),
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '更多操作',
-                                  zhHant: '更多操作',
-                                  en: 'More actions',
-                                  fr: 'Plus d’actions',
-                                  de: 'Weitere Aktionen',
-                                  ja: 'その他の操作',
-                                ),
+                                tooltip: openHandMoreActionsLabel(context),
                                 visualDensity: VisualDensity.compact,
                               ),
                             ],
@@ -10334,15 +10254,7 @@ fi
   String _toolchainCommandLabel(_ToolchainCommandAction action) {
     return switch (action) {
       _ToolchainCommandAction.install => openHandInstallLabel(context),
-      _ToolchainCommandAction.update => openHandLocalizedText(
-        context,
-        zh: '更新',
-        zhHant: '更新',
-        en: 'Update',
-        fr: 'Mettre à jour',
-        de: 'Aktualisieren',
-        ja: '更新',
-      ),
+      _ToolchainCommandAction.update => openHandUpdateLabel(context),
       _ToolchainCommandAction.uninstall => openHandLocalizedText(
         context,
         zh: '卸载',
@@ -11521,15 +11433,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       ),
                       _DashboardDetailRow(label: 'ID', value: probe.id),
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '类型',
-                          zhHant: '類型',
-                          en: 'Type',
-                          fr: 'Type',
-                          de: 'Typ',
-                          ja: '種類',
-                        ),
+                        label: openHandTypeLabel(context),
                         value: plugin == null
                             ? openHandLocalizedText(
                                 context,
@@ -11561,24 +11465,8 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           ja: '必須',
                         ),
                         value: probe.required
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '是',
-                                zhHant: '是',
-                                en: 'Yes',
-                                fr: 'Oui',
-                                de: 'Ja',
-                                ja: 'はい',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '否',
-                                zhHant: '否',
-                                en: 'No',
-                                fr: 'Non',
-                                de: 'Nein',
-                                ja: 'いいえ',
-                              ),
+                            ? openHandYesLabel(context)
+                            : openHandNoLabel(context),
                       ),
                       _DashboardDetailRow(
                         label: openHandLocalizedText(
@@ -11591,15 +11479,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           ja: '状態',
                         ),
                         value: installed == true
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '已安装',
-                                zhHant: '已安裝',
-                                en: 'Installed',
-                                fr: 'Installé',
-                                de: 'Installiert',
-                                ja: 'インストール済み',
-                              )
+                            ? openHandInstalledLabel(context)
                             : installed == false
                             ? openHandLocalizedText(
                                 context,
@@ -11710,15 +11590,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                             probe.installCommand?.trim().isNotEmpty ?? false,
                       ),
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '更新',
-                          zhHant: '更新',
-                          en: 'Update',
-                          fr: 'Mettre à jour',
-                          de: 'Aktualisieren',
-                          ja: '更新',
-                        ),
+                        label: openHandUpdateLabel(context),
                         value: _commandText(probe.updateCommand),
                         monospace: true,
                       ),
@@ -11821,15 +11693,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           value: plugin!.installedVersion,
                         ),
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '路径',
-                            zhHant: '路徑',
-                            en: 'Path',
-                            fr: 'Chemin',
-                            de: 'Pfad',
-                            ja: 'パス',
-                          ),
+                          label: openHandPathLabel(context),
                           value: plugin!.installPath,
                           monospace: true,
                         ),
@@ -11950,24 +11814,8 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: '有効',
                         ),
                         value: plugin.enabled
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '是',
-                                zhHant: '是',
-                                en: 'Yes',
-                                fr: 'Oui',
-                                de: 'Ja',
-                                ja: 'はい',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '否',
-                                zhHant: '否',
-                                en: 'No',
-                                fr: 'Non',
-                                de: 'Nein',
-                                ja: 'いいえ',
-                              ),
+                            ? openHandYesLabel(context)
+                            : openHandNoLabel(context),
                       ),
                     ],
                   ),
@@ -12032,24 +11880,8 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: 'アンインストール可能',
                         ),
                         value: plugin.supportsUninstall
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '是',
-                                zhHant: '是',
-                                en: 'Yes',
-                                fr: 'Oui',
-                                de: 'Ja',
-                                ja: 'はい',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '否',
-                                zhHant: '否',
-                                en: 'No',
-                                fr: 'Non',
-                                de: 'Nein',
-                                ja: 'いいえ',
-                              ),
+                            ? openHandYesLabel(context)
+                            : openHandNoLabel(context),
                       ),
                     ],
                   ),

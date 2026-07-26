@@ -436,7 +436,7 @@ class _TranscriptLoadFailure extends StatelessWidget {
                   onPressed: () => unawaited(onRetry()),
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(
-                    openHandLocalizedText(context, zh: '重新加载', en: 'Retry'),
+                    openHandRetryLabel(context),
                   ),
                 ),
               ],

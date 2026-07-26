@@ -1893,11 +1893,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           _AiTtsProviderFieldGrid(
             children: [
               _AiTtsDropdown(
-                label: openHandLocalizedText(
-                  context,
-                  zh: '音色/发音人',
-                  en: 'Voice',
-                ),
+                label: openHandVoiceLabel(context),
                 value: providerSettings.voice,
                 options: effectiveVoiceOptions,
                 onChanged: (value) => _updateCurrent((current) {
@@ -1911,7 +1907,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 onChanged: (value) => _updateExtra('format', value),
               ),
               _AiTtsProviderNumberField(
-                label: openHandLocalizedText(context, zh: '语速', en: 'Speed'),
+                label: openHandSpeedLabel(context),
                 value: providerSettings.speed,
                 range: _aiTtsNumberRangeForModel(
                   protocol: modelProtocol,
@@ -1923,7 +1919,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsProviderNumberField(
-                label: openHandLocalizedText(context, zh: '音量', en: 'Volume'),
+                label: openHandVolumeLabel(context),
                 value: providerSettings.volume,
                 range: _aiTtsNumberRangeForModel(
                   protocol: modelProtocol,
@@ -2225,11 +2221,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             children: [
               if (usesMimoPresetVoice)
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '音色/发音人',
-                    en: 'Voice',
-                  ),
+                  label: openHandVoiceLabel(context),
                   value: providerSettings.voice,
                   options: catalog.voiceOptions,
                   onChanged: (value) => _updateCurrent((current) {
@@ -2246,7 +2238,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
               ),
               if (provider != AiTtsProvider.mimo)
                 _AiTtsProviderNumberField(
-                  label: openHandLocalizedText(context, zh: '语速', en: 'Speed'),
+                  label: openHandSpeedLabel(context),
                   value: providerSettings.speed,
                   range: _ttsNumberRange(provider, _TtsNumberKind.speed),
                   onChanged: (value) => _updateCurrent((current) {
@@ -2254,7 +2246,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   }),
                 ),
               _AiTtsProviderNumberField(
-                label: openHandLocalizedText(context, zh: '音量', en: 'Volume'),
+                label: openHandVolumeLabel(context),
                 value: providerSettings.volume,
                 range: _ttsNumberRange(provider, _TtsNumberKind.volume),
                 onChanged: (value) => _updateCurrent((current) {
@@ -6016,11 +6008,7 @@ class _ToolEngineCardShell extends StatelessWidget {
                   ],
                   IconButton(
                     tooltip: expanded
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '收起',
-                            en: 'Collapse',
-                          )
+                        ? openHandCollapseLabel(context)
                         : openHandLocalizedText(
                             context,
                             zh: '展开',

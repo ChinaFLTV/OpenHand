@@ -1557,15 +1557,7 @@ class _RoleConfigRow extends StatelessWidget {
               SizedBox(
                 width: _kHarnessModeDropdownWidth,
                 child: _CompactDropdown<HarnessExecutionMode>(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '模式',
-                    zhHant: '模式',
-                    en: 'Mode',
-                    fr: 'Mode',
-                    de: 'Modus',
-                    ja: 'モード',
-                  ),
+                  label: openHandModeLabel(context),
                   value: executionMode,
                   items: const [
                     DropdownMenuItem(
@@ -2092,15 +2084,7 @@ class _QuickApplyBar extends StatelessWidget {
             SizedBox(
               width: _kHarnessModeDropdownWidth,
               child: _CompactDropdown<HarnessExecutionMode>(
-                label: openHandLocalizedText(
-                  context,
-                  zh: '模式',
-                  zhHant: '模式',
-                  en: 'Mode',
-                  fr: 'Mode',
-                  de: 'Modus',
-                  ja: 'モード',
-                ),
+                label: openHandModeLabel(context),
                 value: executionMode,
                 items: const [
                   DropdownMenuItem(
