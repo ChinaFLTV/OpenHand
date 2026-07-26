@@ -458,15 +458,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
                 label: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '导出 CSV',
-                    zhHant: '匯出 CSV',
-                    en: 'Export CSV',
-                    fr: 'Exporter CSV',
-                    de: 'CSV exportieren',
-                    ja: 'CSV をエクスポート',
-                  ),
+                  _wrExportCsvLabel(context),
                 ),
               ),
               const SizedBox(width: 10),
@@ -2689,15 +2681,7 @@ class _SamplingTopList extends StatelessWidget {
                 Navigator.of(dialogContext).pop();
                 showWebReverseClipboardSuccessSnack(
                   context: context,
-                  base: openHandLocalizedText(
-                    context,
-                    zh: '已复制',
-                    zhHant: '已複製',
-                    en: 'Copied',
-                    fr: 'Copie',
-                    de: 'Kopiert',
-                    ja: 'コピーしました',
-                  ),
+                  base: _wrCopiedLabel(context),
                   result: copied,
                   duration: const Duration(seconds: 1),
                 );
@@ -3193,15 +3177,7 @@ class _CookiesTableState extends State<_CookiesTable> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        tooltip: openHandLocalizedText(
-                                          context,
-                                          zh: '编辑',
-                                          zhHant: '編輯',
-                                          en: 'Edit',
-                                          fr: 'Modifier',
-                                          de: 'Bearbeiten',
-                                          ja: '編集',
-                                        ),
+                                        tooltip: _wrEditLabel(context),
                                         visualDensity: VisualDensity.compact,
                                         iconSize: 16,
                                         padding: const EdgeInsets.all(6),
@@ -3600,15 +3576,7 @@ class _StorageTableState extends State<_StorageTable> {
                             ),
                           ),
                           IconButton(
-                            tooltip: openHandLocalizedText(
-                              context,
-                              zh: '编辑',
-                              zhHant: '編輯',
-                              en: 'Edit',
-                              fr: 'Modifier',
-                              de: 'Bearbeiten',
-                              ja: '編集',
-                            ),
+                            tooltip: _wrEditLabel(context),
                             visualDensity: VisualDensity.compact,
                             iconSize: 16,
                             padding: const EdgeInsets.all(6),

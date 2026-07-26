@@ -2388,14 +2388,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
     final ctrl = controller;
     final antiBot = ctrl.detectAntiBot();
     final stats = <(String, String)>[
-      (
-        openHandRequestsLabel(context),
-        '${ctrl.networkRequestCount}',
-      ),
-      (
-        openHandErrorsLabel(context),
-        '${ctrl.networkErrorCount}',
-      ),
+      (openHandRequestsLabel(context), '${ctrl.networkRequestCount}'),
+      (openHandErrorsLabel(context), '${ctrl.networkErrorCount}'),
       (
         openHandLocalizedText(
           context,
@@ -2430,10 +2424,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
               )
             : openHandStoppedLabel(context),
       ),
-      (
-        openHandBrowserLabel(context),
-        ctrl.browserVersion ?? '-',
-      ),
+      (openHandBrowserLabel(context), ctrl.browserVersion ?? '-'),
       (
         openHandLocalizedText(
           context,
@@ -3076,18 +3067,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ja: 'ブラウザ面',
         ),
         rows: [
-          (
-            keys: '$cmd + T',
-            desc: openHandLocalizedText(
-              context,
-              zh: '新标签页',
-              zhHant: '新分頁',
-              en: 'New tab',
-              fr: 'Nouvel onglet',
-              de: 'Neuer Tab',
-              ja: '新しいタブ',
-            ),
-          ),
+          (keys: '$cmd + T', desc: _wrNewTabLabel(context)),
           (
             keys: '$cmd + W',
             desc: openHandLocalizedText(
@@ -3100,18 +3080,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
               ja: 'タブを閉じる',
             ),
           ),
-          (
-            keys: '$cmd + R',
-            desc: openHandLocalizedText(
-              context,
-              zh: '刷新',
-              zhHant: '重新整理',
-              en: 'Reload',
-              fr: 'Recharger',
-              de: 'Neu laden',
-              ja: '再読み込み',
-            ),
-          ),
+          (keys: '$cmd + R', desc: _wrReloadLabel(context)),
           (
             keys: '$cmd + Shift + R',
             desc: openHandLocalizedText(
@@ -3199,15 +3168,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         ],
       ),
       (
-        title: openHandLocalizedText(
-          context,
-          zh: '控制台',
-          zhHant: '主控台',
-          en: 'Console',
-          fr: 'Console',
-          de: 'Konsole',
-          ja: 'コンソール',
-        ),
+        title: _wrConsoleLabel(context),
         rows: [
           (
             keys: '↑ / ↓',
@@ -3221,10 +3182,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
               ja: '履歴を移動',
             ),
           ),
-          (
-            keys: 'Enter',
-            desc: openHandRunLabel(context),
-          ),
+          (keys: 'Enter', desc: openHandRunLabel(context)),
         ],
       ),
       (
@@ -3345,4 +3303,95 @@ class _ShortcutsHelpDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 本库内共用的文案
+//
+// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
+// 得同步改两到三处。
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _wrConsoleLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '控制台',
+    zhHant: '主控台',
+    en: 'Console',
+    fr: 'Console',
+    de: 'Konsole',
+    ja: 'コンソール',
+  );
+}
+
+String _wrCopiedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已复制',
+    zhHant: '已複製',
+    en: 'Copied',
+    fr: 'Copie',
+    de: 'Kopiert',
+    ja: 'コピーしました',
+  );
+}
+
+String _wrEditLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '编辑',
+    zhHant: '編輯',
+    en: 'Edit',
+    fr: 'Modifier',
+    de: 'Bearbeiten',
+    ja: '編集',
+  );
+}
+
+String _wrExportCsvLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '导出 CSV',
+    zhHant: '匯出 CSV',
+    en: 'Export CSV',
+    fr: 'Exporter CSV',
+    de: 'CSV exportieren',
+    ja: 'CSV をエクスポート',
+  );
+}
+
+String _wrNewTabLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '新标签页',
+    zhHant: '新分頁',
+    en: 'New tab',
+    fr: 'Nouvel onglet',
+    de: 'Neuer Tab',
+    ja: '新しいタブ',
+  );
+}
+
+String _wrReloadLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '刷新',
+    zhHant: '重新整理',
+    en: 'Reload',
+    fr: 'Recharger',
+    de: 'Neu laden',
+    ja: '再読み込み',
+  );
+}
+
+String _wrScreenshotFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '截图失败',
+    zhHant: '截圖失敗',
+    en: 'Screenshot failed',
+    fr: 'Échec de la capture',
+    de: 'Screenshot fehlgeschlagen',
+    ja: 'スクリーンショットに失敗しました',
+  );
 }

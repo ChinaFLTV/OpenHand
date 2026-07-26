@@ -1273,7 +1273,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     unawaited(
       cancelStreamSubscriptionBounded<List<WebWriteApprovalRequest>>(
         subscription,
-        onError: (error, stack) => silentLog('openhand_home_page', action, error, stack),
+        onError: (error, stack) =>
+            silentLog('openhand_home_page', action, error, stack),
       ),
     );
   }
@@ -1601,7 +1602,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             decision: BashCommandApprovalDecision.dismissed,
           );
         } catch (fallbackError, fallbackStack) {
-          silentLog('openhand_home_page', '关闭共享写入审批失败', fallbackError, fallbackStack);
+          silentLog(
+            'openhand_home_page',
+            '关闭共享写入审批失败',
+            fallbackError,
+            fallbackStack,
+          );
         }
       }
     } finally {
@@ -7891,11 +7897,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
       AppSection.memory => openHandMemoryLabel(context),
       AppSection.mcp => openHandLocalizedText(context, zh: 'MCP', en: 'MCP'),
-      AppSection.hooks => openHandLocalizedText(
-        context,
-        zh: 'Hooks',
-        en: 'Hooks',
-      ),
+      AppSection.hooks => _homeHooksLabel(context),
       AppSection.crons => 'Crons',
       AppSection.instructions => openHandInstructionsLabel(context),
       AppSection.messageGateway => openHandLocalizedText(
@@ -7903,17 +7905,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '消息网关',
         en: 'Message Gateway',
       ),
-      AppSection.pluginService => openHandLocalizedText(
-        context,
-        zh: '插件',
-        en: 'Plugins',
-      ),
+      AppSection.pluginService => _homePluginsLabel(context),
       AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
-      AppSection.agents => openHandLocalizedText(
-        context,
-        zh: '智能体',
-        en: 'Agents',
-      ),
+      AppSection.agents => _homeAgentsLabel(context),
       AppSection.settings => openHandLocalizedText(
         context,
         zh: '设置',
@@ -8043,7 +8037,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final controller = context.read<AiSessionController>();
     final submitted = await showOpenHandTextInputDialog(
       context: context,
-      title: openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+      title: _homeRenameThreadLabel(context),
       initialValue: session.title,
       hintText: openHandLocalizedText(
         context,
@@ -8516,11 +8510,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final dialogSession = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: openHandLocalizedText(
-        context,
-        zh: '导出会话数据',
-        en: 'Export Session Data',
-      ),
+      title: _homeExportSessionDataLabel(context),
       subtitle: openHandLocalizedText(
         context,
         zh: '正在导出 “${loaded.title}”…',
@@ -8606,11 +8596,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final dialogSession = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: openHandLocalizedText(
-        context,
-        zh: '导出会话数据',
-        en: 'Export Session Data',
-      ),
+      title: _homeExportSessionDataLabel(context),
       subtitle: openHandLocalizedText(
         context,
         zh: '正在导出 “${record.title}”…',
@@ -8844,7 +8830,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'Create a new session from this point. The new session keeps this message and everything before it, and drops later messages.',
       ),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
-      confirmLabel: openHandLocalizedText(context, zh: '派生', en: 'Fork'),
+      confirmLabel: _homeForkLabel(context),
     );
     if (confirmed != true || !mounted) {
       return;
@@ -9781,4 +9767,111 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               ),
     };
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 本库内共用的文案
+//
+// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
+// 得同步改两到三处。
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _homeAgentsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '智能体', en: 'Agents');
+}
+
+String _homeAwaitingApprovalLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '等待批准', en: 'Awaiting Approval');
+}
+
+String _homeCreatedAtLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '创建时间', en: 'Created At');
+}
+
+String _homeEvidenceLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '证据', en: 'Evidence');
+}
+
+String _homeExportSessionDataLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '导出会话数据',
+    en: 'Export Session Data',
+  );
+}
+
+String _homeFailedLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '异常', en: 'Failed');
+}
+
+String _homeForkLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '派生', en: 'Fork');
+}
+
+String _homeHooksLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: 'Hooks', en: 'Hooks');
+}
+
+String _homeMissingLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '缺口', en: 'Missing');
+}
+
+String _homeModeLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '模式', en: 'Mode');
+}
+
+String _homeNoTextualDiffAvailableLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '内容相同或不可对比。',
+    en: 'No textual diff available.',
+  );
+}
+
+String _homeOpenLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '打开', en: 'Open');
+}
+
+String _homePlatformLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '平台', en: 'Platform');
+}
+
+String _homePluginsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '插件', en: 'Plugins');
+}
+
+String _homeRenameThreadLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread');
+}
+
+String _homeRunningLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '运行中', en: 'Running');
+}
+
+String _homeSessionsDirectoryLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '会话目录', en: 'Sessions Directory');
+}
+
+String _homeStartingLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '启动中', en: 'Starting');
+}
+
+String _homeStoppedLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '已停止', en: 'Stopped');
+}
+
+String _homeTerminalLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '终端', en: 'Terminal');
+}
+
+String _homeTerminalsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '终端数量', en: 'Terminals');
+}
+
+String _homeUpdatedAtLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '更新时间', en: 'Updated At');
+}
+
+String _homeWorkingDirectoryLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '工作目录', en: 'Working Directory');
 }

@@ -1460,11 +1460,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               zh: '停止回答',
               en: 'Stop Response',
             ),
-            AiSendPhase.awaitingApproval => openHandLocalizedText(
-              context,
-              zh: '等待批准',
-              en: 'Awaiting Approval',
-            ),
+            AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),
             AiSendPhase.idle => l10n.composerSend,
           };
 
@@ -2650,7 +2646,7 @@ class _ComposerCreationModeButtonState
     final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.creationMode != _CreationMode.none;
     return Tooltip(
-      message: openHandLocalizedText(context, zh: '模式', en: 'Mode'),
+      message: _homeModeLabel(context),
       child: SizedBox(
         width: 52,
         height: 52,

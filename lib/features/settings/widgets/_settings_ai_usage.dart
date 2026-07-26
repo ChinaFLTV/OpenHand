@@ -184,7 +184,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
         en: 'This permanently removes local token, cost, and request analytics. Sessions and knowledge content are not affected.',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(context, zh: '确认清空', en: 'Clear'),
+      confirmLabel: _settingsClearLabel(context),
       destructive: true,
     );
     if (confirmed != true) return;

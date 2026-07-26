@@ -1241,15 +1241,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
             onPressed: onStart,
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(
-              openHandLocalizedText(
-                context,
-                zh: '开始执行',
-                zhHant: '開始執行',
-                en: 'Start',
-                fr: 'Démarrer',
-                de: 'Starten',
-                ja: '開始',
-              ),
+              _heStartLabel(context),
             ),
           ),
         ],
@@ -1403,15 +1395,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
               onPressed: onRestart,
               icon: const Icon(Icons.restart_alt_rounded),
               label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '重新执行',
-                  zhHant: '重新執行',
-                  en: 'Run Again',
-                  fr: 'Relancer',
-                  de: 'Erneut ausführen',
-                  ja: '再実行',
-                ),
+                _heRunAgainLabel(context),
               ),
             ),
           ],

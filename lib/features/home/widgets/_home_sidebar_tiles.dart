@@ -28,7 +28,7 @@ Future<void> _showSidebarThreadContextMenu(
             const Icon(Icons.edit_outlined, size: 18),
             const SizedBox(width: 8),
             Text(
-              openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+              _homeRenameThreadLabel(context),
             ),
           ],
         ),
@@ -50,11 +50,7 @@ Future<void> _showSidebarThreadContextMenu(
             const Icon(Icons.file_download_outlined, size: 18),
             const SizedBox(width: 8),
             Text(
-              openHandLocalizedText(
-                context,
-                zh: '导出会话数据',
-                en: 'Export Session Data',
-              ),
+              _homeExportSessionDataLabel(context),
             ),
           ],
         ),
@@ -493,11 +489,7 @@ class _ActiveThreadBadge extends StatelessWidget {
         en: 'Sending',
       ),
       AiSendPhase.responding => openHandActiveLabel(context),
-      AiSendPhase.awaitingApproval => openHandLocalizedText(
-        context,
-        zh: '等待批准',
-        en: 'Awaiting Approval',
-      ),
+      AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),
       AiSendPhase.idle => '',
     };
     return _SweepBadge(

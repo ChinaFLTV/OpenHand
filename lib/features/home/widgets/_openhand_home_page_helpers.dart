@@ -1219,11 +1219,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<String>(
                         context: context,
-                        title: openHandLocalizedText(
-                          context,
-                          zh: '模式',
-                          en: 'Mode',
-                        ),
+                        title: _homeModeLabel(context),
                         values: _videoModes,
                         selected: _mode,
                         labelFor: (value) => value,

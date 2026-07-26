@@ -1386,7 +1386,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           id: 'fork',
           onPressed: widget.onFork,
           icon: Icons.call_merge_rounded,
-          label: openHandLocalizedText(context, zh: '派生', en: 'Fork'),
+          label: _homeForkLabel(context),
         ),
         _MessageActionSpec(
           id: 'delete',
@@ -2520,11 +2520,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                           onPressed: _opening ? null : () => _openFile(context),
                           icon: const Icon(Icons.open_in_new_rounded, size: 18),
                           label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '打开',
-                              en: 'Open',
-                            ),
+                            _homeOpenLabel(context),
                           ),
                         ),
                       ],
@@ -6674,7 +6670,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if (data.evidence.isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageBulletList(
-            label: openHandLocalizedText(context, zh: '证据', en: 'Evidence'),
+            label: _homeEvidenceLabel(context),
             values: data.evidence,
             textColor: textColor,
             accent: OpenHandStatusColors.success,
@@ -6683,7 +6679,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if (data.missing.isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageBulletList(
-            label: openHandLocalizedText(context, zh: '缺口', en: 'Missing'),
+            label: _homeMissingLabel(context),
             values: data.missing,
             textColor: textColor,
             accent: theme.colorScheme.tertiary,

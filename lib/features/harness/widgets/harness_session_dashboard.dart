@@ -2040,44 +2040,10 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                   ja: '送信',
                 ))
         : _isRunning
-        ? openHandLocalizedText(
-            context,
-            zh: '中止',
-            zhHant: '中止',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: '中止',
-          )
+        ? _heCancelLabel(context)
         : _canRetryFailedRun
-        ? openHandLocalizedText(
-            context,
-            zh: '重试失败阶段',
-            zhHant: '重試失敗階段',
-            en: 'Retry Failed Phase',
-            fr: 'Réessayer la phase échouée',
-            de: 'Fehlgeschlagene Phase wiederholen',
-            ja: '失敗したフェーズを再試行',
-          )
-        : (_isDone
-              ? openHandLocalizedText(
-                  context,
-                  zh: '重新执行',
-                  zhHant: '重新執行',
-                  en: 'Run Again',
-                  fr: 'Relancer',
-                  de: 'Erneut ausführen',
-                  ja: '再実行',
-                )
-              : openHandLocalizedText(
-                  context,
-                  zh: '开始执行',
-                  zhHant: '開始執行',
-                  en: 'Start',
-                  fr: 'Démarrer',
-                  de: 'Starten',
-                  ja: '開始',
-                ));
+        ? _heRetryFailedPhaseLabel(context)
+        : (_isDone ? _heRunAgainLabel(context) : _heStartLabel(context));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2404,19 +2370,66 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Weiter ausführen',
         ja: '実行を続ける',
       ),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '中止',
-        zhHant: '中止',
-        en: 'Cancel',
-        fr: 'Annuler',
-        de: 'Abbrechen',
-        ja: '中止',
-      ),
+      confirmLabel: _heCancelLabel(context),
       destructive: true,
     );
     if (confirmed == true && mounted) {
       widget.orchestrator.cancel();
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 本库内共用的文案
+//
+// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
+// 得同步改两到三处。
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _heCancelLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '中止',
+    zhHant: '中止',
+    en: 'Cancel',
+    fr: 'Annuler',
+    de: 'Abbrechen',
+    ja: '中止',
+  );
+}
+
+String _heRetryFailedPhaseLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重试失败阶段',
+    zhHant: '重試失敗階段',
+    en: 'Retry Failed Phase',
+    fr: 'Réessayer la phase échouée',
+    de: 'Fehlgeschlagene Phase wiederholen',
+    ja: '失敗したフェーズを再試行',
+  );
+}
+
+String _heRunAgainLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重新执行',
+    zhHant: '重新執行',
+    en: 'Run Again',
+    fr: 'Relancer',
+    de: 'Erneut ausführen',
+    ja: '再実行',
+  );
+}
+
+String _heStartLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '开始执行',
+    zhHant: '開始執行',
+    en: 'Start',
+    fr: 'Démarrer',
+    de: 'Starten',
+    ja: '開始',
+  );
 }

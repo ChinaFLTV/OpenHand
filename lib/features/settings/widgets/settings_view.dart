@@ -207,7 +207,7 @@ Future<bool> _confirmClearToolTelemetry({
       en: 'Removes the recent call ring buffer (up to 200 entries) and all per-engine success-rate/latency aggregates. Cached summaries are not affected.',
     ),
     cancelLabel: openHandCancelLabel(context),
-    confirmLabel: openHandLocalizedText(context, zh: '确认清空', en: 'Clear'),
+    confirmLabel: _settingsClearLabel(context),
     destructive: true,
   );
 }
@@ -3215,9 +3215,7 @@ class _SettingsViewState extends State<SettingsView> {
                     FilledButton.tonalIcon(
                       onPressed: () => _exportAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.upload_rounded, size: 18),
-                      label: Text(
-                        openHandExportJsonLabel(context),
-                      ),
+                      label: Text(openHandExportJsonLabel(context)),
                     ),
                     FilledButton.tonalIcon(
                       onPressed: () => _importAiStreamThrottleConfig(context),
@@ -8263,4 +8261,19 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 本库内共用的文案
+//
+// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
+// 得同步改两到三处。
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _settingsClearLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '确认清空', en: 'Clear');
+}
+
+String _settingsLocalCacheLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '本地缓存', en: 'Local Cache');
 }

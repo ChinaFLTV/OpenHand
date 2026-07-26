@@ -572,7 +572,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
         // ── 本地持久化缓存 ──
         Text(
-          openHandLocalizedText(context, zh: '本地缓存', en: 'Local Cache'),
+          _settingsLocalCacheLabel(context),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 4),

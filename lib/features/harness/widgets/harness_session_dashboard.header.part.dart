@@ -238,15 +238,7 @@ class _HePaneHeader extends StatelessWidget {
       if (isRunning)
         OhPill(
           icon: Icons.stop_circle_outlined,
-          label: openHandLocalizedText(
-            context,
-            zh: '中止',
-            zhHant: '中止',
-            en: 'Cancel',
-            fr: 'Annuler',
-            de: 'Abbrechen',
-            ja: '中止',
-          ),
+          label: _heCancelLabel(context),
           foregroundColor: colorScheme.error,
           onTap: onCancel,
         ),
@@ -254,15 +246,7 @@ class _HePaneHeader extends StatelessWidget {
         OhPill(
           icon: Icons.restart_alt_rounded,
           label: orchestrator.status == HarnessOrchestratorStatus.failed
-              ? openHandLocalizedText(
-                  context,
-                  zh: '重试失败阶段',
-                  zhHant: '重試失敗階段',
-                  en: 'Retry Failed Phase',
-                  fr: 'Réessayer la phase échouée',
-                  de: 'Fehlgeschlagene Phase wiederholen',
-                  ja: '失敗したフェーズを再試行',
-                )
+              ? _heRetryFailedPhaseLabel(context)
               : openHandLocalizedText(
                   context,
                   zh: '重新开始',

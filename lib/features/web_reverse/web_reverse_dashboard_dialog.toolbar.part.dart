@@ -351,15 +351,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     _Tab.browser => openHandBrowserLabel(context),
     _Tab.overview => openHandOverviewLabel(context),
     _Tab.network => openHandNetworkLabel(context),
-    _Tab.console => openHandLocalizedText(
-      context,
-      zh: '控制台',
-      zhHant: '主控台',
-      en: 'Console',
-      fr: 'Console',
-      de: 'Konsole',
-      ja: 'コンソール',
-    ),
+    _Tab.console => _wrConsoleLabel(context),
     _Tab.sources => openHandLocalizedText(
       context,
       zh: '源码',
@@ -598,15 +590,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     if (bytes == null) {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '截图失败',
-          zhHant: '截圖失敗',
-          en: 'Screenshot failed',
-          fr: 'Échec de la capture',
-          de: 'Screenshot fehlgeschlagen',
-          ja: 'スクリーンショットに失敗しました',
-        ),
+        _wrScreenshotFailedLabel(context),
         duration: const Duration(seconds: 2),
       );
       return;

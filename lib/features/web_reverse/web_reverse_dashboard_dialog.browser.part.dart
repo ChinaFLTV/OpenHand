@@ -1322,15 +1322,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (png == null) {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '截图失败',
-          zhHant: '截圖失敗',
-          en: 'Screenshot failed',
-          fr: 'Échec de la capture',
-          de: 'Screenshot fehlgeschlagen',
-          ja: 'スクリーンショットに失敗しました',
-        ),
+        _wrScreenshotFailedLabel(context),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -1455,15 +1447,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         PopupMenuItem(
           value: 'reload',
           child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '刷新',
-              zhHant: '重新整理',
-              en: 'Reload',
-              fr: 'Recharger',
-              de: 'Neu laden',
-              ja: '再読み込み',
-            ),
+            _wrReloadLabel(context),
           ),
         ),
         PopupMenuItem(
@@ -1806,15 +1790,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           ),
           const SizedBox(width: 6),
           _NavIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '刷新',
-              zhHant: '重新整理',
-              en: 'Reload',
-              fr: 'Recharger',
-              de: 'Neu laden',
-              ja: '再読み込み',
-            ),
+            tooltip: _wrReloadLabel(context),
             icon: Icons.refresh_rounded,
             onPressed: alive ? () => ctrl.reload() : null,
           ),
@@ -2671,15 +2647,7 @@ class _TabStripState extends State<_TabStrip> {
                   final label = t.title.isNotEmpty
                       ? t.title
                       : (t.url.isEmpty
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '新标签页',
-                                zhHant: '新分頁',
-                                en: 'New tab',
-                                fr: 'Nouvel onglet',
-                                de: 'Neuer Tab',
-                                ja: '新しいタブ',
-                              )
+                            ? _wrNewTabLabel(context)
                             : Uri.tryParse(t.url)?.host ?? t.url);
                   return Padding(
                     key: ValueKey<String>(t.id),

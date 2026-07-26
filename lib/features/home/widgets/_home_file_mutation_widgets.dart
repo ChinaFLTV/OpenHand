@@ -1751,11 +1751,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '内容相同或不可对比。',
-              en: 'No textual diff available.',
-            ),
+            _homeNoTextualDiffAvailableLabel(context),
             style: theme.textTheme.labelSmall?.copyWith(
               color: palette.mutedText,
               fontWeight: FontWeight.w600,
@@ -4734,11 +4730,7 @@ class _DiffEmptyPlaceholder extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Text(
           message ??
-              openHandLocalizedText(
-                context,
-                zh: '内容相同或不可对比。',
-                en: 'No textual diff available.',
-              ),
+              _homeNoTextualDiffAvailableLabel(context),
           style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),

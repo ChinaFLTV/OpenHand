@@ -684,16 +684,8 @@ String _localizedMetadataField(BuildContext context, String field) {
       en: 'Session ID',
     ),
     'template' => openHandTemplateLabel(context),
-    'created_at' => openHandLocalizedText(
-      context,
-      zh: '创建时间',
-      en: 'Created At',
-    ),
-    'updated_at' => openHandLocalizedText(
-      context,
-      zh: '更新时间',
-      en: 'Updated At',
-    ),
+    'created_at' => _homeCreatedAtLabel(context),
+    'updated_at' => _homeUpdatedAtLabel(context),
     'last_model' => openHandLocalizedText(
       context,
       zh: '最近模型',
@@ -809,7 +801,7 @@ String _localizedMetadataField(BuildContext context, String field) {
       zh: '语言区域',
       en: 'Locale Tag',
     ),
-    'platform' => openHandLocalizedText(context, zh: '平台', en: 'Platform'),
+    'platform' => _homePlatformLabel(context),
     'app_version' => openHandLocalizedText(
       context,
       zh: '应用版本',
@@ -860,11 +852,7 @@ String _localizedMetadataField(BuildContext context, String field) {
       zh: '记忆文件',
       en: 'User Memory File',
     ),
-    'sessions_directory' => openHandLocalizedText(
-      context,
-      zh: '会话目录',
-      en: 'Sessions Directory',
-    ),
+    'sessions_directory' => _homeSessionsDirectoryLabel(context),
     _ => field,
   };
 }

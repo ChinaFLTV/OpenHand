@@ -1334,7 +1334,7 @@ Widget _buildMachineTerminalMetadataSection(
           ),
           _MetadataInfoTile(
             icon: Icons.tab_rounded,
-            label: openHandLocalizedText(context, zh: '终端数量', en: 'Terminals'),
+            label: _homeTerminalsLabel(context),
             value: terminalCount > 0 ? '$terminalCount' : '${terminals.length}',
             color: colorScheme.primary,
           ),
@@ -1374,11 +1374,11 @@ Widget _buildMachineTerminalMetadataSection(
         value: _metadataDisplayValue(metadata['default_working_directory']),
       ),
       OpenHandMetadataEntryRow(
-        label: openHandLocalizedText(context, zh: '创建时间', en: 'Created At'),
+        label: _homeCreatedAtLabel(context),
         value: _metadataDisplayValue(metadata['created_at']),
       ),
       OpenHandMetadataEntryRow(
-        label: openHandLocalizedText(context, zh: '更新时间', en: 'Updated At'),
+        label: _homeUpdatedAtLabel(context),
         value: _metadataDisplayValue(metadata['updated_at']),
       ),
       if (activeTerminal.isNotEmpty)
@@ -1588,10 +1588,10 @@ String _terminalSizeText(Map<String, Object?> terminal) {
 
 String _machineTerminalStatusLabel(BuildContext context, String? status) {
   return switch (status) {
-    'running' => openHandLocalizedText(context, zh: '运行中', en: 'Running'),
-    'starting' => openHandLocalizedText(context, zh: '启动中', en: 'Starting'),
-    'stopped' => openHandLocalizedText(context, zh: '已停止', en: 'Stopped'),
-    'failed' => openHandLocalizedText(context, zh: '异常', en: 'Failed'),
+    'running' => _homeRunningLabel(context),
+    'starting' => _homeStartingLabel(context),
+    'stopped' => _homeStoppedLabel(context),
+    'failed' => _homeFailedLabel(context),
     'idle' => openHandLocalizedText(context, zh: '空闲', en: 'Idle'),
     _ => openHandUnknownLabel(context),
   };
@@ -2044,7 +2044,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '${openHandLocalizedText(context, zh: '终端', en: 'Terminal')} #$index',
+                '${_homeTerminalLabel(context)} #$index',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),

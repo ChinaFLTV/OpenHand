@@ -2707,15 +2707,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     onPressed: _exportSeriesCsv,
                     icon: const Icon(Icons.download_rounded, size: 16),
                     label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '导出 CSV',
-                        zhHant: '匯出 CSV',
-                        en: 'Export CSV',
-                        fr: 'Exporter CSV',
-                        de: 'CSV exportieren',
-                        ja: 'CSV をエクスポート',
-                      ),
+                      _wrExportCsvLabel(context),
                     ),
                   ),
                 if (_tab == 3 && _events.isNotEmpty)
@@ -2724,15 +2716,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                       await copyWebReverseTextToClipboard(
                         context: context,
                         text: prettyPrintJson(_events),
-                        successBase: openHandLocalizedText(
-                          context,
-                          zh: '已复制',
-                          zhHant: '已複製',
-                          en: 'Copied',
-                          fr: 'Copie',
-                          de: 'Kopiert',
-                          ja: 'コピーしました',
-                        ),
+                        successBase: _wrCopiedLabel(context),
                         logTag: 'web_reverse_webrtc_dialog',
                         logAction: '复制事件',
                         successDuration: const Duration(seconds: 1),
@@ -3955,15 +3939,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: openHandLocalizedText(
-                                context,
-                                zh: '编辑',
-                                zhHant: '編輯',
-                                en: 'Edit',
-                                fr: 'Modifier',
-                                de: 'Bearbeiten',
-                                ja: '編集',
-                              ),
+                              tooltip: _wrEditLabel(context),
                               visualDensity: VisualDensity.compact,
                               iconSize: 18,
                               padding: const EdgeInsets.all(6),

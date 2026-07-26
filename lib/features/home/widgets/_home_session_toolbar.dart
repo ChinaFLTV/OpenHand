@@ -1975,7 +1975,7 @@ class _GoalEvaluationRow extends StatelessWidget {
             if (evaluation.evidence.isNotEmpty) ...[
               const SizedBox(height: 8),
               _GoalInlineList(
-                label: openHandLocalizedText(context, zh: '证据', en: 'Evidence'),
+                label: _homeEvidenceLabel(context),
                 values: evaluation.evidence,
                 color: OpenHandStatusColors.success,
               ),
@@ -1983,7 +1983,7 @@ class _GoalEvaluationRow extends StatelessWidget {
             if (evaluation.missing.isNotEmpty) ...[
               const SizedBox(height: 8),
               _GoalInlineList(
-                label: openHandLocalizedText(context, zh: '缺口', en: 'Missing'),
+                label: _homeMissingLabel(context),
                 values: evaluation.missing,
                 color: theme.colorScheme.tertiary,
               ),
@@ -2076,15 +2076,15 @@ class _GoalEnvironmentSection extends StatelessWidget {
           '${session.messages.length}',
         ),
         _GoalKeyValue(
-          openHandLocalizedText(context, zh: '平台', en: 'Platform'),
+          _homePlatformLabel(context),
           environment.platform,
         ),
         _GoalKeyValue(
-          openHandLocalizedText(context, zh: '工作目录', en: 'Working Directory'),
+          _homeWorkingDirectoryLabel(context),
           environment.applicationDirectory,
         ),
         _GoalKeyValue(
-          openHandLocalizedText(context, zh: '会话目录', en: 'Sessions Directory'),
+          _homeSessionsDirectoryLabel(context),
           environment.sessionsDirectoryPath,
         ),
       ],

@@ -710,7 +710,7 @@ class _MachineTerminalHistoryDialogState
         children: [
           _historyCell(
             context,
-            openHandLocalizedText(context, zh: '终端', en: 'Terminal'),
+            _homeTerminalLabel(context),
             width: columns.terminal,
             header: true,
           ),
@@ -1234,7 +1234,7 @@ class _MachineTerminalHistoryMetrics extends StatelessWidget {
     final metrics = <Widget>[
       _MachineTerminalHistoryMetric(
         icon: Icons.layers_rounded,
-        label: openHandLocalizedText(context, zh: '终端数量', en: 'Terminals'),
+        label: _homeTerminalsLabel(context),
         value: '$terminalCount',
       ),
       _MachineTerminalHistoryMetric(
@@ -2310,26 +2310,10 @@ Color _terminalStatusColor(ColorScheme cs, MachineTerminalStatus status) {
 
 String _statusLabel(BuildContext context, MachineTerminalStatus status) {
   return switch (status) {
-    MachineTerminalStatus.running => openHandLocalizedText(
-      context,
-      zh: '运行中',
-      en: 'Running',
-    ),
-    MachineTerminalStatus.starting => openHandLocalizedText(
-      context,
-      zh: '启动中',
-      en: 'Starting',
-    ),
-    MachineTerminalStatus.stopped => openHandLocalizedText(
-      context,
-      zh: '已停止',
-      en: 'Stopped',
-    ),
-    MachineTerminalStatus.failed => openHandLocalizedText(
-      context,
-      zh: '异常',
-      en: 'Failed',
-    ),
+    MachineTerminalStatus.running => _homeRunningLabel(context),
+    MachineTerminalStatus.starting => _homeStartingLabel(context),
+    MachineTerminalStatus.stopped => _homeStoppedLabel(context),
+    MachineTerminalStatus.failed => _homeFailedLabel(context),
     MachineTerminalStatus.idle => openHandLocalizedText(
       context,
       zh: '待机',

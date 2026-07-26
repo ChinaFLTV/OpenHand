@@ -423,11 +423,7 @@ class _WriteCommandDirectoryPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '工作目录',
-                    en: 'Working Directory',
-                  ),
+                  _homeWorkingDirectoryLabel(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w800,

@@ -622,11 +622,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
                   vertical: 10,
                 ),
                 child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '内容相同或不可对比。',
-                    en: 'No textual diff available.',
-                  ),
+                  _homeNoTextualDiffAvailableLabel(context),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: palette.mutedText,
                     fontWeight: FontWeight.w600,
@@ -3710,7 +3706,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           action: savedPath == null
               ? null
               : SnackBarAction(
-                  label: openHandLocalizedText(context, zh: '打开', en: 'Open'),
+                  label: _homeOpenLabel(context),
                   onPressed: () {
                     unawaited(_openSavedSvgFile(savedPath!));
                   },
