@@ -303,6 +303,11 @@ class WebMessagePlatformService {
   static final RegExp _metricWhitespacePattern = RegExp(r'\s+');
   static const int _maxTrafficLatencySamplesPerMinute = 512;
   static const Duration _opsSnapshotPersistenceInterval = Duration(seconds: 15);
+
+  /// SSE 会话快照的最小下发间隔。这是**节流**而不是防抖：流式输出期间
+  /// AiSessionController 的通知间隔远小于这个值，若按防抖实现（每次通知都
+  /// 取消并重排定时器），定时器会被无限推迟、整段回复期间 Web 端一帧都收不到。
+  static const Duration _sseSnapshotMinInterval = Duration(milliseconds: 80);
   static const int _maxLatencyBuffer = 256;
   static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 20;
@@ -5940,6 +5945,7 @@ class WebMessagePlatformService {
     }
 
     String? lastSnapshotHash;
+    DateTime? lastSnapshotStartedAt;
     Timer? throttleTimer;
     Timer? keepaliveTimer;
     var disposed = false;
@@ -6055,83 +6061,101 @@ class WebMessagePlatformService {
       Future<void>.microtask(dispose);
     }
 
-    void scheduleSnapshot() {
+    late void Function() scheduleSnapshot;
+
+    Future<void> runSnapshot() async {
+      if (disposed) return;
+      if (snapshotInFlight) {
+        snapshotQueued = true;
+        return;
+      }
+      snapshotInFlight = true;
+      lastSnapshotStartedAt = DateTime.now();
+      try {
+        if (!authStillValid()) {
+          closeUnauthorizedStream();
+          return;
+        }
+        final live = _findAuthorizedSession(auth, sessionId);
+        if (live == null) {
+          emit('session_deleted', <String, Object?>{
+            'error': 'session_deleted_or_not_found',
+            'session_id': sessionId,
+            'served_at': DateTime.now().toUtc().toIso8601String(),
+          });
+          Future<void>.microtask(dispose);
+          return;
+        }
+        final snapshot = await buildSnapshot(live);
+        if (disposed) return;
+        if (!authStillValid()) {
+          closeUnauthorizedStream();
+          return;
+        }
+        final sessionPayload = snapshot['session'] as Map<String, Object?>;
+        final throttlePayload =
+            snapshot['effective_stream_throttle'] as Map<String, Object?>?;
+        final buckets = throttlePayload?['throughput_buckets'];
+        final bucketsSig = buckets is List<int>
+            ? '${buckets.isNotEmpty ? buckets.first : 0}/${buckets.fold<int>(0, (a, b) => b > a ? b : a)}'
+            : '0/0';
+        final stats = sessionPayload['statistics'] as Map<String, Object?>?;
+        final tokenStatsSig = stats == null
+            ? '0:0:0:0:0:0:0'
+            : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
+        final promptMetadata =
+            sessionPayload['last_prompt_metadata'] as Map<String, Object?>?;
+        final contextUsageSig = promptMetadata == null
+            ? '0:0:0'
+            : '${promptMetadata['context_budget_estimated_prompt_tokens'] ?? 0}:${promptMetadata['context_budget_effective_window_tokens'] ?? 0}:${promptMetadata['context_budget_usage_percent'] ?? 0}';
+        final goalStateSig = jsonEncode(sessionPayload['goal_state']);
+        final modelSelectionLocked =
+            sessionPayload['input_cache_model_selection_locked'] == true;
+        final messagesPayload = snapshot['messages'] as List;
+        final hash =
+            '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|model_lock=$modelSelectionLocked|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|context=$contextUsageSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
+        if (hash == lastSnapshotHash) return;
+        lastSnapshotHash = hash;
+        emit('snapshot', snapshot);
+      } catch (error, stack) {
+        silentLog('web_message_platform_service', '生成 SSE 快照', error, stack);
+      } finally {
+        snapshotInFlight = false;
+        if (!disposed && snapshotQueued) {
+          snapshotQueued = false;
+          scheduleSnapshot();
+        }
+      }
+    }
+
+    scheduleSnapshot = () {
       if (disposed) return;
       if (paused) {
         snapshotQueued = true;
         return;
       }
-      throttleTimer?.cancel();
+      // 已经排好下一次触发就直接合并进去——不要 cancel 后重排，那是防抖语义，
+      // 会在高频通知（流式追加）下把下发无限推迟。
+      if (throttleTimer != null) return;
+      final startedAt = lastSnapshotStartedAt;
+      final elapsed = startedAt == null
+          ? null
+          : DateTime.now().difference(startedAt);
+      if (elapsed == null || elapsed >= _sseSnapshotMinInterval) {
+        unawaited(runSnapshot());
+        return;
+      }
       throttleTimer = startSafeTimer(
-        const Duration(milliseconds: 80),
-        () async {
-          if (disposed) return;
-          if (snapshotInFlight) {
-            snapshotQueued = true;
-            return;
-          }
-          snapshotInFlight = true;
-          try {
-            if (!authStillValid()) {
-              closeUnauthorizedStream();
-              return;
-            }
-            final live = _findAuthorizedSession(auth, sessionId);
-            if (live == null) {
-              emit('session_deleted', <String, Object?>{
-                'error': 'session_deleted_or_not_found',
-                'session_id': sessionId,
-                'served_at': DateTime.now().toUtc().toIso8601String(),
-              });
-              Future<void>.microtask(dispose);
-              return;
-            }
-            final snapshot = await buildSnapshot(live);
-            if (disposed) return;
-            if (!authStillValid()) {
-              closeUnauthorizedStream();
-              return;
-            }
-            final sessionPayload = snapshot['session'] as Map<String, Object?>;
-            final throttlePayload =
-                snapshot['effective_stream_throttle'] as Map<String, Object?>?;
-            final buckets = throttlePayload?['throughput_buckets'];
-            final bucketsSig = buckets is List<int>
-                ? '${buckets.isNotEmpty ? buckets.first : 0}/${buckets.fold<int>(0, (a, b) => b > a ? b : a)}'
-                : '0/0';
-            final stats = sessionPayload['statistics'] as Map<String, Object?>?;
-            final tokenStatsSig = stats == null
-                ? '0:0:0:0:0:0:0'
-                : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
-            final promptMetadata =
-                sessionPayload['last_prompt_metadata'] as Map<String, Object?>?;
-            final contextUsageSig = promptMetadata == null
-                ? '0:0:0'
-                : '${promptMetadata['context_budget_estimated_prompt_tokens'] ?? 0}:${promptMetadata['context_budget_effective_window_tokens'] ?? 0}:${promptMetadata['context_budget_usage_percent'] ?? 0}';
-            final goalStateSig = jsonEncode(sessionPayload['goal_state']);
-            final modelSelectionLocked =
-                sessionPayload['input_cache_model_selection_locked'] == true;
-            final messagesPayload = snapshot['messages'] as List;
-            final hash =
-                '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|model_lock=$modelSelectionLocked|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|context=$contextUsageSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
-            if (hash == lastSnapshotHash) return;
-            lastSnapshotHash = hash;
-            emit('snapshot', snapshot);
-          } catch (error, stack) {
-            silentLog('web_message_platform_service', '生成 SSE 快照', error, stack);
-          } finally {
-            snapshotInFlight = false;
-            if (!disposed && snapshotQueued) {
-              snapshotQueued = false;
-              scheduleSnapshot();
-            }
-          }
+        _sseSnapshotMinInterval - elapsed,
+        () {
+          throttleTimer = null;
+          unawaited(runSnapshot());
         },
         onError: (error, stack) {
           silentLog('web_message_platform_service', '调度 SSE 快照', error, stack);
         },
       );
-    }
+    };
 
     void controllerListener() => scheduleSnapshot();
 
@@ -6182,7 +6206,12 @@ class WebMessagePlatformService {
           controller.add(bytes);
           _recordStreamingOutboundBytes(bytes.length);
         } catch (error, stack) {
-          silentLog('web_message_platform_service', '发送 SSE 保活消息', error, stack);
+          silentLog(
+            'web_message_platform_service',
+            '发送 SSE 保活消息',
+            error,
+            stack,
+          );
         }
       },
       onError: (error, stack) {

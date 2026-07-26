@@ -323,6 +323,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   String? _errorMessage;
   bool _isDisposed = false;
   bool _isShuttingDown = false;
+
+  /// 进程级停机（dispose / SIGTERM / SIGINT）。与 [_isShuttingDown] 不同，
+  /// 它一旦置位就不再解除；桌面端窗口全部关闭触发的 detached 不属于此类，
+  /// 那只是可恢复的挂起。
+  bool _isPermanentlyStopped = false;
   int _runtimeGeneration = 0;
   final Set<Object> _activeExecutionTokens = <Object>{};
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
@@ -384,7 +389,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       WidgetsBinding.instance.removeObserver(this);
     }
     _isDisposed = true;
-    _shutdownSchedulersAndJobs();
+    _shutdownSchedulersAndJobs(permanent: true);
     final sigTermWatcher = _sigTermWatcher;
     final sigIntWatcher = _sigIntWatcher;
     _sigTermWatcher = null;
@@ -409,13 +414,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
     if (state == AppLifecycleState.detached) {
-      _shutdownSchedulersAndJobs();
+      _shutdownSchedulersAndJobs(permanent: false);
       return;
     }
-    if (!_isDisposed && !_isShuttingDown) {
-      _restartScheduler();
-      notifyListeners();
-    }
+    if (_isDisposed || _isPermanentlyStopped) return;
+    // detached 在桌面端只代表窗口全部关闭，应用仍可被重新唤起。必须解除
+    // 停机闩锁，否则 _canExecuteInCurrentState 恒为 false，_restartScheduler
+    // 与 runNow 都会静默直接 return，所有定时任务永久失效。
+    _isShuttingDown = false;
+    _restartScheduler();
+    notifyListeners();
   }
 
   // CRUD
@@ -802,10 +810,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (kIsWeb || Platform.isWindows) return;
     try {
       _sigTermWatcher = ProcessSignal.sigterm.watch().listen((_) {
-        _shutdownSchedulersAndJobs();
+        _shutdownSchedulersAndJobs(permanent: true);
       });
       _sigIntWatcher = ProcessSignal.sigint.watch().listen((_) {
-        _shutdownSchedulersAndJobs();
+        _shutdownSchedulersAndJobs(permanent: true);
       });
     } catch (error, stack) {
       silentLog('crons_controller', '绑定进程信号监听', error, stack);
@@ -821,7 +829,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         _appLifecycleState != AppLifecycleState.detached;
   }
 
-  void _shutdownSchedulersAndJobs() {
+  void _shutdownSchedulersAndJobs({required bool permanent}) {
+    if (permanent) _isPermanentlyStopped = true;
     if (_isShuttingDown) return;
     _isShuttingDown = true;
     _runtimeGeneration++;

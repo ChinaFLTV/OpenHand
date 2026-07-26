@@ -508,7 +508,13 @@ class KnowledgeEmbeddingService {
     return '$prefix $value';
   }
 
-  void dispose() => _embeddings.dispose();
+  void dispose() {
+    // 只销毁自己创建的实例。外部注入的 AiEmbeddingsService 由注入方持有，
+    // 在这里 dispose 会让共享实例的 HTTP 客户端提前关闭。
+    if (_ownsEmbeddings) {
+      _embeddings.dispose();
+    }
+  }
 }
 
 class KnowledgeEmbeddingException implements Exception {

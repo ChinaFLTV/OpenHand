@@ -180,9 +180,11 @@ class McpKeywordIndex {
       }
     }
 
-    final indexedTools = <McpToolRef>{
-      for (final refs in nextByName.values) ...refs,
-    };
+    final indexedTools = _collectIndexedTools(
+      nextByName,
+      nextByDescription,
+      nextBySearchHint,
+    );
     return McpKeywordIndex(
       byName: nextByName,
       byDescription: nextByDescription,
@@ -193,6 +195,24 @@ class McpKeywordIndex {
       durationMs: 0,
     );
   }
+
+}
+
+/// 统计口径必须与全量构建一致：取三张倒排表的并集。
+///
+/// 只数 byName 会漏掉「工具名分词后为空（纯符号 / 全停用词），仅靠描述或
+/// searchHint 入索引」的工具——这类服务一旦触发增量刷新，索引摘要里的
+/// 服务数与工具数就会比全量构建凭空缩水。
+Set<McpToolRef> _collectIndexedTools(
+  Map<String, List<McpToolRef>> byName,
+  Map<String, List<McpToolRef>> byDescription,
+  Map<String, List<McpToolRef>> bySearchHint,
+) {
+  return <McpToolRef>{
+    for (final refs in byName.values) ...refs,
+    for (final refs in byDescription.values) ...refs,
+    for (final refs in bySearchHint.values) ...refs,
+  };
 }
 
 String? _mcpToolSearchHint(McpTool tool) {
@@ -436,18 +456,19 @@ class McpKeywordIndexService {
       await Future<void>.delayed(Duration.zero);
     }
     stopwatch.stop();
-    final indexedTools = <McpToolRef>{
-      for (final refs in byName.values) ...refs,
-      for (final refs in byDescription.values) ...refs,
-      for (final refs in bySearchHint.values) ...refs,
-    };
+    final indexedTools = _collectIndexedTools(
+      byName,
+      byDescription,
+      bySearchHint,
+    );
     final index = McpKeywordIndex(
       byName: byName,
       byDescription: byDescription,
       bySearchHint: bySearchHint,
       totalTools: indexedTools.length,
       totalServers: indexedTools.map((ref) => ref.serverName).toSet().length,
-      builtAt: DateTime.now(),
+      // 与空索引哨兵（isUtc: true）和 toJson 的 ISO8601 持久化保持一致。
+      builtAt: DateTime.now().toUtc(),
       durationMs: stopwatch.elapsedMilliseconds,
     );
     await _persistenceQueue.enqueue(() async {
