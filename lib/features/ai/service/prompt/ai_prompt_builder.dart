@@ -612,6 +612,9 @@ class AiPromptBuilder {
           AiPromptSectionHeaders.dynamicSessionState,
           dynamicSessionState,
         ),
+      // Theme Context 属可自变状态（跟随系统明暗切换），入 runtime tail
+      // 而非稳定前缀，避免主题翻转击穿全部 history 缓存。
+      ..._buildThemeContextReminderTurns(runtimeContext: runtimeContext),
       if (focusContext.isNotEmpty)
         _runtimeContextSectionTurn(
           AiPromptSectionHeaders.focusContext,
@@ -1203,19 +1206,6 @@ class AiPromptBuilder {
             ),
           );
         }
-        final themeContext = AiOutputFormatPrompts.themeContextFor(
-          brightness: runtimeContext.appThemeBrightness,
-          presetName: runtimeContext.appThemePresetName,
-          primaryColor: runtimeContext.appThemePrimaryColor,
-        );
-        if (themeContext.isNotEmpty) {
-          turns.add(
-            _systemSectionTurn(
-              AiPromptSectionHeaders.themeContextReminder,
-              themeContext,
-            ),
-          );
-        }
         if (_isGptSeriesModel(model.modelId) &&
             AiOutputFormatPrompts.gptChatRules.isNotEmpty) {
           turns.add(
@@ -1228,6 +1218,33 @@ class AiPromptBuilder {
         break;
     }
     return turns;
+  }
+
+  /// Theme Context 属于会话内可自变的状态（跟随系统的明暗模式会在日落等
+  /// 时刻自动翻转）。它若留在稳定前缀，一次主题切换就会让全部 history
+  /// 缓存失效；因此与其它易变状态一致，作为 runtime tail 轮次锚定内容
+  /// 下发：随 round anchor 快照持久化、后续轮从历史逐字重放，
+  /// 新主题在下一个 round anchor 生效。
+  List<AiChatTurn> _buildThemeContextReminderTurns({
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    if (runtimeContext.messageContentFormat != AiMessageContentFormat.html) {
+      return const <AiChatTurn>[];
+    }
+    final themeContext = AiOutputFormatPrompts.themeContextFor(
+      brightness: runtimeContext.appThemeBrightness,
+      presetName: runtimeContext.appThemePresetName,
+      primaryColor: runtimeContext.appThemePrimaryColor,
+    );
+    if (themeContext.isEmpty) {
+      return const <AiChatTurn>[];
+    }
+    return <AiChatTurn>[
+      _runtimeContextSectionTurn(
+        AiPromptSectionHeaders.themeContextReminder,
+        themeContext,
+      ),
+    ];
   }
 
   String _renderWorkspaceInstructions(AiSessionRuntimeContext runtimeContext) {
