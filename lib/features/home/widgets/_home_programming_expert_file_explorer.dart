@@ -11358,7 +11358,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         scrollController: scrollController,
         language: language,
         fontSize: _fontSize,
-        codeTheme: context.watch<SettingsController>().editorCodeTheme,
+        codeTheme: context.select<SettingsController, EditorCodeTheme>(
+          (controller) => controller.editorCodeTheme,
+        ),
         onOpenFullEditor: () {
           if (!mounted) return;
           textController.forceFullEditorHighlighting = true;
@@ -11386,8 +11388,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         focusNode: focusNode,
         language: language,
         fontSize: _fontSize,
-        wordWrap: context.watch<SettingsController>().editorWordWrap,
-        codeTheme: context.watch<SettingsController>().editorCodeTheme,
+        // 逐项订阅：整体 watch 会让任意一条设置变更都重建整个编辑器。
+        wordWrap: context.select<SettingsController, bool>(
+          (controller) => controller.editorWordWrap,
+        ),
+        codeTheme: context.select<SettingsController, EditorCodeTheme>(
+          (controller) => controller.editorCodeTheme,
+        ),
         activeLine: _cursorLine,
         diagnostics: diagnostics,
         diagnosticsByLine: diagnosticsByLine,

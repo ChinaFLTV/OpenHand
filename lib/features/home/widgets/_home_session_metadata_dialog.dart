@@ -786,7 +786,9 @@ class _SessionMetadataDialog extends StatelessWidget {
     if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
 
     final l10n = AppLocalizations.of(context)!;
-    final budget = context.watch<SettingsController>().aiBudgetUsdPerSession;
+    final budget = context.select<SettingsController, double>(
+      (controller) => controller.aiBudgetUsdPerSession,
+    );
     final overBudget =
         budget > 0 &&
         breakdown.totalUsd != null &&

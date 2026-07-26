@@ -1744,7 +1744,10 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
       maxBodyHeight: maxBodyHeight,
       lineCount: visibleLines.length,
     );
-    final codeTheme = context.watch<SettingsController>().editorCodeTheme;
+    // 只订阅代码主题这一项：整体 watch 会让任意一条设置变更都重建每张差异卡。
+    final codeTheme = context.select<SettingsController, EditorCodeTheme>(
+      (controller) => controller.editorCodeTheme,
+    );
     final brightness = theme.brightness;
     final paletteSignature = palette.signature;
     final diffDecoration = BoxDecoration(
