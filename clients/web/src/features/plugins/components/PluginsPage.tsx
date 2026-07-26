@@ -21,25 +21,38 @@ import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t } from '../../../i18n';
 import { showSnackbar } from '../../../components/Snackbar';
 import { describeApiError } from '../../../utils/api_error';
+import {
+  STATUS_SUCCESS_COLOR,
+  STATUS_SUCCESS_BG,
+  STATUS_ACTIVE_BG,
+  STATUS_ERROR_BG,
+  STATUS_WARNING_COLOR,
+  STATUS_WARNING_BG,
+  STATUS_NEUTRAL_BG,
+  STATUS_NEUTRAL_BG_FAINT,
+  ERROR_BANNER_BG,
+  ERROR_BANNER_BORDER,
+} from '../../../shared/ui/status_palette';
+import { templateAssociationLabel } from '../../../shared/util/template_association';
 
 const PLUGINS_POLL_INTERVAL_MS = 5_000;
 
 function statusBadge(status: PluginStatus): { color: string; bg: string; label: string } {
   switch (status) {
     case 'installed':
-      return { color: '#16a34a', bg: 'rgba(22,163,74,0.10)', label: t('plugins.status.installed', '已安装') };
+      return { color: STATUS_SUCCESS_COLOR, bg: STATUS_SUCCESS_BG, label: t('plugins.status.installed', '已安装') };
     case 'notInstalled':
-      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.10)', label: t('plugins.status.notInstalled', '未安装') };
+      return { color: 'var(--m3-on-surface-variant)', bg: STATUS_NEUTRAL_BG, label: t('plugins.status.notInstalled', '未安装') };
     case 'installing':
-      return { color: 'var(--m3-primary)', bg: 'rgba(99,102,241,0.10)', label: t('plugins.status.installing', '安装中…') };
+      return { color: 'var(--m3-primary)', bg: STATUS_ACTIVE_BG, label: t('plugins.status.installing', '安装中…') };
     case 'updating':
-      return { color: 'var(--m3-primary)', bg: 'rgba(99,102,241,0.10)', label: t('plugins.status.updating', '更新中…') };
+      return { color: 'var(--m3-primary)', bg: STATUS_ACTIVE_BG, label: t('plugins.status.updating', '更新中…') };
     case 'uninstalling':
-      return { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', label: t('plugins.status.uninstalling', '卸载中…') };
+      return { color: STATUS_WARNING_COLOR, bg: STATUS_WARNING_BG, label: t('plugins.status.uninstalling', '卸载中…') };
     case 'error':
-      return { color: 'var(--m3-error)', bg: 'rgba(239,68,68,0.10)', label: t('plugins.status.error', '错误') };
+      return { color: 'var(--m3-error)', bg: STATUS_ERROR_BG, label: t('plugins.status.error', '错误') };
     default:
-      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.06)', label: status };
+      return { color: 'var(--m3-on-surface-variant)', bg: STATUS_NEUTRAL_BG_FAINT, label: status };
   }
 }
 
@@ -53,17 +66,13 @@ function pluginIcon(id: string): string {
   }
 }
 
-function associationLabel(item: { template_id: string; label_zh?: string; label_en?: string }): string {
-  return item.label_zh || item.label_en || item.template_id;
-}
-
 function TemplatePluginSummary(props: { plugins: PluginSummary[] }) {
   const groups = new Map<string, { label: string; total: number; ready: number; disabled: number }>();
   for (const plugin of props.plugins) {
     for (const association of plugin.template_associations ?? []) {
-      const key = association.template_id || associationLabel(association);
+      const key = association.template_id || templateAssociationLabel(association);
       const current = groups.get(key) ?? {
-        label: associationLabel(association),
+        label: templateAssociationLabel(association),
         total: 0,
         ready: 0,
         disabled: 0,
@@ -89,7 +98,7 @@ function TemplatePluginSummary(props: { plugins: PluginSummary[] }) {
           <span
             key={row.label}
             class="oh-toolbox-badge"
-            style={{ color: 'var(--m3-primary)', background: 'rgba(99,102,241,0.10)' }}
+            style={{ color: 'var(--m3-primary)', background: STATUS_ACTIVE_BG }}
           >
             {row.label} · {row.ready}/{row.total}
             {row.disabled > 0 ? ` · ${t('plugins.disabledCount', '禁用')} ${row.disabled}` : ''}
@@ -225,9 +234,9 @@ export function PluginsPage() {
           <div
             class="rounded-m3-md px-3 py-2 text-sm mb-4"
             style={{
-              background: 'rgba(239,68,68,0.08)',
+              background: ERROR_BANNER_BG,
               color: 'var(--m3-error)',
-              border: '1px solid rgba(239,68,68,0.30)',
+              border: `1px solid ${ERROR_BANNER_BORDER}`,
             }}
           >
             {error}
@@ -291,8 +300,8 @@ export function PluginsPage() {
                               <span
                                 class="oh-toolbox-badge"
                                 style={{
-                                  color: plugin.enabled === false ? '#f59e0b' : '#16a34a',
-                                  background: plugin.enabled === false ? 'rgba(245,158,11,0.10)' : 'rgba(22,163,74,0.10)',
+                                  color: plugin.enabled === false ? STATUS_WARNING_COLOR : STATUS_SUCCESS_COLOR,
+                                  background: plugin.enabled === false ? STATUS_WARNING_BG : STATUS_SUCCESS_BG,
                                 }}
                               >
                                 {plugin.enabled === false ? t('plugins.disabled', '已禁用') : t('plugins.enabled', '可用')}
@@ -302,9 +311,9 @@ export function PluginsPage() {
                               <span
                                 key={association.template_id}
                                 class="oh-toolbox-badge"
-                                style={{ color: 'var(--m3-primary)', background: 'rgba(99,102,241,0.10)' }}
+                                style={{ color: 'var(--m3-primary)', background: STATUS_ACTIVE_BG }}
                               >
-                                {associationLabel(association)}
+                                {templateAssociationLabel(association)}
                               </span>
                             ))}
                           </div>
@@ -315,7 +324,7 @@ export function PluginsPage() {
                             <div class="oh-toolbox-meta-grid mt-2">
                               <div>{t('plugins.version', '版本')}: <code>{plugin.installed_version}</code></div>
                               {plugin.has_update && plugin.latest_version ? (
-                                <div style={{ color: '#f59e0b' }}>
+                                <div style={{ color: STATUS_WARNING_COLOR }}>
                                   {t('plugins.updateAvailable', '可更新到')}: <code>{plugin.latest_version}</code>
                                 </div>
                               ) : null}
@@ -337,8 +346,8 @@ export function PluginsPage() {
                                     key={dep}
                                     class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
                                     style={{
-                                      background: depInstalled ? 'rgba(22,163,74,0.10)' : 'rgba(239,68,68,0.10)',
-                                      color: depInstalled ? '#16a34a' : 'var(--m3-error)',
+                                      background: depInstalled ? STATUS_SUCCESS_BG : STATUS_ERROR_BG,
+                                      color: depInstalled ? STATUS_SUCCESS_COLOR : 'var(--m3-error)',
                                     }}
                                   >
                                     {depPlugin?.name || dep} {depInstalled ? '✓' : '✗'}

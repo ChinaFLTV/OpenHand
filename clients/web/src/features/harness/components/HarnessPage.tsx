@@ -21,6 +21,17 @@ import {
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t, tDateTime } from '../../../i18n';
 import { describeApiError } from '../../../utils/api_error';
+import {
+  STATUS_SUCCESS_COLOR,
+  STATUS_SUCCESS_BG,
+  STATUS_ACTIVE_BG,
+  STATUS_ERROR_BG,
+  STATUS_WARNING_BG,
+  STATUS_NEUTRAL_BG,
+  STATUS_NEUTRAL_BG_FAINT,
+  ERROR_BANNER_BG,
+  ERROR_BANNER_BORDER,
+} from '../../../shared/ui/status_palette';
 
 const HARNESS_POLL_INTERVAL_MS = 5_000;
 
@@ -43,15 +54,15 @@ const PHASE_NAMES_ZH: Record<HarnessPhaseValue, string> = {
 function phaseStatusBadge(status: HarnessPhaseStatus): { color: string; bg: string; icon: string } {
   switch (status) {
     case 'running':
-      return { color: 'var(--m3-primary)', bg: 'rgba(99,102,241,0.10)', icon: '⟳' };
+      return { color: 'var(--m3-primary)', bg: STATUS_ACTIVE_BG, icon: '⟳' };
     case 'completed':
-      return { color: '#16a34a', bg: 'rgba(22,163,74,0.10)', icon: '✓' };
+      return { color: STATUS_SUCCESS_COLOR, bg: STATUS_SUCCESS_BG, icon: '✓' };
     case 'failed':
-      return { color: 'var(--m3-error)', bg: 'rgba(239,68,68,0.10)', icon: '✕' };
+      return { color: 'var(--m3-error)', bg: STATUS_ERROR_BG, icon: '✕' };
     case 'skipped':
-      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.10)', icon: '↷' };
+      return { color: 'var(--m3-on-surface-variant)', bg: STATUS_NEUTRAL_BG, icon: '↷' };
     default:
-      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.06)', icon: '○' };
+      return { color: 'var(--m3-on-surface-variant)', bg: STATUS_NEUTRAL_BG_FAINT, icon: '○' };
   }
 }
 
@@ -99,9 +110,9 @@ export function HarnessPage() {
           <div
             class="rounded-m3-md px-3 py-2 text-sm mb-4"
             style={{
-              background: 'rgba(239,68,68,0.08)',
+              background: ERROR_BANNER_BG,
               color: 'var(--m3-error)',
-              border: '1px solid rgba(239,68,68,0.30)',
+              border: `1px solid ${ERROR_BANNER_BORDER}`,
             }}
           >
             {error}
@@ -158,10 +169,10 @@ function HarnessRecordView(props: { record: HarnessSessionRecord }) {
               style={{
                 color: r.status === 'failed' ? 'var(--m3-error)' :
                        r.status === 'running' ? 'var(--m3-primary)' :
-                       r.status === 'completed' ? '#16a34a' : 'var(--m3-on-surface-variant)',
-                background: r.status === 'failed' ? 'rgba(239,68,68,0.10)' :
-                            r.status === 'running' ? 'rgba(99,102,241,0.10)' :
-                            r.status === 'completed' ? 'rgba(22,163,74,0.10)' : 'rgba(120,120,120,0.06)',
+                       r.status === 'completed' ? STATUS_SUCCESS_COLOR : 'var(--m3-on-surface-variant)',
+                background: r.status === 'failed' ? STATUS_ERROR_BG :
+                            r.status === 'running' ? STATUS_ACTIVE_BG :
+                            r.status === 'completed' ? STATUS_SUCCESS_BG : STATUS_NEUTRAL_BG_FAINT,
               }}
             >
               {overallStatusLabel(r.status)}
@@ -186,7 +197,7 @@ function HarnessRecordView(props: { record: HarnessSessionRecord }) {
             <div
               class="mt-2 rounded-m3-sm px-2 py-1.5 text-xs oh-pulse-soft"
               style={{
-                background: 'rgba(245,158,11,0.10)',
+                background: STATUS_WARNING_BG,
                 color: '#d97706',
                 border: '1px solid rgba(245,158,11,0.30)',
               }}
@@ -268,8 +279,8 @@ function PhaseCard(props: {
                 <span
                   class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
                   style={{
-                    background: log.exit_code === 0 ? 'rgba(22,163,74,0.10)' : 'rgba(239,68,68,0.10)',
-                    color: log.exit_code === 0 ? '#16a34a' : 'var(--m3-error)',
+                    background: log.exit_code === 0 ? STATUS_SUCCESS_BG : STATUS_ERROR_BG,
+                    color: log.exit_code === 0 ? STATUS_SUCCESS_COLOR : 'var(--m3-error)',
                   }}
                 >
                   exit {log.exit_code}
@@ -278,7 +289,7 @@ function PhaseCard(props: {
               {log?.review_verdict_fail ? (
                 <span
                   class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
-                  style={{ background: 'rgba(239,68,68,0.10)', color: 'var(--m3-error)' }}
+                  style={{ background: STATUS_ERROR_BG, color: 'var(--m3-error)' }}
                 >
                   REVIEW FAIL
                 </span>
@@ -333,7 +344,7 @@ function PhaseCard(props: {
                       >
                         <span
                           style={{
-                            color: f.change_type === 'added' ? '#16a34a' :
+                            color: f.change_type === 'added' ? STATUS_SUCCESS_COLOR :
                                    f.change_type === 'deleted' ? 'var(--m3-error)' : 'var(--m3-primary)',
                             width: 14,
                             display: 'inline-block',

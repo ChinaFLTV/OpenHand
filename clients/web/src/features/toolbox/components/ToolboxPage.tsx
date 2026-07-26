@@ -31,6 +31,17 @@ import { ResourceUsageDialog } from '../../../components/ResourceUsageDialog';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { t, tDateTime } from '../../../i18n';
 import { describeApiError } from '../../../utils/api_error';
+import {
+  STATUS_SUCCESS_COLOR,
+  STATUS_SUCCESS_BG,
+  STATUS_ACTIVE_BG,
+  STATUS_ERROR_BG,
+  STATUS_NEUTRAL_BG,
+  STATUS_NEUTRAL_BG_FAINT,
+  ERROR_BANNER_BG,
+  ERROR_BANNER_BORDER,
+} from '../../../shared/ui/status_palette';
+import { templateAssociationLabel } from '../../../shared/util/template_association';
 
 type TabKey = 'tools' | 'mcp' | 'skills' | 'memories' | 'hooks' | 'knowledge' | 'agents' | 'crons';
 const TOOLBOX_POLL_INTERVAL_MS = 5_000;
@@ -43,22 +54,18 @@ interface TabSpec {
 function statusBadge(status: string): { color: string; bg: string; label: string } {
   switch (status) {
     case 'running':
-      return { color: 'var(--m3-primary)', bg: 'rgba(99,102,241,0.10)', label: status };
+      return { color: 'var(--m3-primary)', bg: STATUS_ACTIVE_BG, label: status };
     case 'success':
     case 'idle':
-      return { color: '#16a34a', bg: 'rgba(22,163,74,0.10)', label: status };
+      return { color: STATUS_SUCCESS_COLOR, bg: STATUS_SUCCESS_BG, label: status };
     case 'failed':
     case 'error':
-      return { color: 'var(--m3-error)', bg: 'rgba(239,68,68,0.10)', label: status };
+      return { color: 'var(--m3-error)', bg: STATUS_ERROR_BG, label: status };
     case 'disabled':
-      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.10)', label: status };
+      return { color: 'var(--m3-on-surface-variant)', bg: STATUS_NEUTRAL_BG, label: status };
     default:
-      return { color: 'var(--m3-on-surface-variant)', bg: 'rgba(120,120,120,0.06)', label: status };
+      return { color: 'var(--m3-on-surface-variant)', bg: STATUS_NEUTRAL_BG_FAINT, label: status };
   }
-}
-
-function associationLabel(item: { template_id: string; label_zh?: string; label_en?: string }): string {
-  return item.label_zh || item.label_en || item.template_id;
 }
 
 export function ToolboxPage() {
@@ -161,9 +168,9 @@ export function ToolboxPage() {
           <div
             class="rounded-m3-md px-3 py-2 text-sm mb-4"
             style={{
-              background: 'rgba(239,68,68,0.08)',
+              background: ERROR_BANNER_BG,
               color: 'var(--m3-error)',
-              border: '1px solid rgba(239,68,68,0.30)',
+              border: `1px solid ${ERROR_BANNER_BORDER}`,
             }}
           >
             {error}
@@ -217,7 +224,7 @@ function ToolsList(props: { items: BuiltinToolSummary[] }) {
           <li class="oh-toolbox-card">
             <div class="flex items-baseline justify-between gap-3">
               <h3 class="text-sm font-semibold">{item.name}</h3>
-              <span class="oh-toolbox-badge" style={{ color: item.enabled ? '#16a34a' : 'var(--m3-on-surface-variant)', background: item.enabled ? 'rgba(22,163,74,.1)' : 'rgba(120,120,120,.1)' }}>
+              <span class="oh-toolbox-badge" style={{ color: item.enabled ? STATUS_SUCCESS_COLOR : 'var(--m3-on-surface-variant)', background: item.enabled ? STATUS_SUCCESS_BG : STATUS_NEUTRAL_BG }}>
                 {item.enabled ? t('common.enabled', '已启用') : t('common.disabled', '未启用')}
               </span>
             </div>
@@ -238,7 +245,7 @@ function HooksList(props: { items: HookEntrySummary[] }) {
           <li class="oh-toolbox-card">
             <div class="flex items-baseline justify-between gap-3">
               <h3 class="text-sm font-semibold">{item.label}</h3>
-              <span class="oh-toolbox-badge" style={{ color: item.enabled ? '#16a34a' : 'var(--m3-on-surface-variant)', background: item.enabled ? 'rgba(22,163,74,.1)' : 'rgba(120,120,120,.1)' }}>
+              <span class="oh-toolbox-badge" style={{ color: item.enabled ? STATUS_SUCCESS_COLOR : 'var(--m3-on-surface-variant)', background: item.enabled ? STATUS_SUCCESS_BG : STATUS_NEUTRAL_BG }}>
                 {item.enabled ? t('common.enabled', '已启用') : t('common.disabled', '未启用')}
               </span>
             </div>
@@ -313,9 +320,9 @@ function McpList(props: { items: McpServerSummary[] }) {
                     <span
                       key={association.template_id}
                       class="oh-toolbox-badge"
-                      style={{ color: 'var(--m3-primary)', background: 'rgba(99,102,241,0.10)' }}
+                      style={{ color: 'var(--m3-primary)', background: STATUS_ACTIVE_BG }}
                     >
-                      {associationLabel(association)}
+                      {templateAssociationLabel(association)}
                     </span>
                   ))}
                   <span
@@ -343,7 +350,7 @@ function McpList(props: { items: McpServerSummary[] }) {
                         <span
                           key={`${association.template_id}:${capability.id}`}
                           class="oh-toolbox-badge"
-                          style={{ color: 'var(--m3-on-surface-variant)', background: 'rgba(120,120,120,0.10)' }}
+                          style={{ color: 'var(--m3-on-surface-variant)', background: STATUS_NEUTRAL_BG }}
                         >
                           {capability.label_zh || capability.label_en || capability.id}
                         </span>
@@ -379,7 +386,7 @@ function SkillsList(props: { items: SkillSummary[]; root: string }) {
                 {sk.has_default_prompt ? (
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
-                    style={{ background: 'rgba(99,102,241,0.10)', color: 'var(--m3-primary)' }}
+                    style={{ background: STATUS_ACTIVE_BG, color: 'var(--m3-primary)' }}
                   >
                     {t('toolbox.skills.defaultPrompt', '含默认 prompt')}
                   </span>
@@ -422,12 +429,12 @@ function MemoriesList(props: { items: MemoryEntrySummary[] }) {
             </p>
             <div class="mt-1.5 flex flex-wrap gap-1">
               {m.is_user_profile ? (
-                <span class="text-[10px] px-1.5 py-0.5 rounded-m3-xs" style={{ background: 'rgba(99,102,241,0.10)', color: 'var(--m3-primary)' }}>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-m3-xs" style={{ background: STATUS_ACTIVE_BG, color: 'var(--m3-primary)' }}>
                   {t('toolbox.memory.userProfile', '用户画像')}
                 </span>
               ) : null}
               {m.is_auto_learned ? (
-                <span class="text-[10px] px-1.5 py-0.5 rounded-m3-xs" style={{ background: 'rgba(22,163,74,0.10)', color: '#16a34a' }}>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-m3-xs" style={{ background: STATUS_SUCCESS_BG, color: STATUS_SUCCESS_COLOR }}>
                   {t('toolbox.memory.autoLearned', '自动学习')}
                 </span>
               ) : null}

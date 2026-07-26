@@ -219,11 +219,6 @@ html, body, #root {
   from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   to   { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.965); }
 }
-@keyframes oh-pulse-in {
-  0%   { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
 @keyframes oh-pulse-soft {
   0%, 100% { opacity: 0.7; }
   50%      { opacity: 1; }
@@ -2329,8 +2324,7 @@ button.oh-message-context-capsule {
 }
 .oh-settings-saving-pill,
 .oh-settings-readonly-pill,
-.oh-settings-state-pill,
-.oh-settings-inline-note {
+.oh-settings-state-pill {
   min-height: 24px;
   display: inline-flex;
   align-items: center;
@@ -6456,19 +6450,6 @@ button.oh-message-context-capsule {
 .oh-composer-mode-control {
   padding-right: 8px;
 }
-.oh-composer-kb-control {
-  flex: 0 1 auto;
-}
-.oh-composer-control.oh-composer-kb-control.is-tonal {
-  border-color: color-mix(in srgb, var(--m3-primary) 46%, transparent);
-  background: var(--m3-primary-container);
-  color: var(--m3-on-primary-container);
-  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 70%, transparent);
-}
-.oh-composer-control.oh-composer-kb-control.is-tonal .oh-composer-control-icon {
-  background: color-mix(in srgb, var(--m3-primary) 16%, transparent);
-  color: var(--m3-primary);
-}
 .oh-composer-control-icon {
   width: 26px;
   height: 26px;
@@ -8009,11 +7990,6 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-composer-reasoning-control {
     width: 100%;
   }
-  .oh-composer-kb-control {
-    order: 2;
-    grid-column: 1 / -1;
-    max-width: none;
-  }
   .oh-composer-permission-control {
     order: 2;
     grid-column: 1 / -1;
@@ -8326,12 +8302,6 @@ button.oh-composer-pill:not(:disabled):hover {
     padding-block: 7px;
   }
 }
-
-/* 标签/按钮内文字小幅 hover 上移效果（不破坏布局）。 */
-.oh-hover-lift {
-  transition: transform var(--oh-motion-duration-base) var(--oh-motion-emphasized);
-}
-.oh-hover-lift:hover { transform: translateY(-2px); }
 
 .oh-session-error-banner {
   animation: oh-snackbar-enter 240ms var(--oh-motion-spring) both;
