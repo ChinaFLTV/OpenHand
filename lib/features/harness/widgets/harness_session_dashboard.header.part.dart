@@ -282,34 +282,14 @@ class _HePaneHeader extends StatelessWidget {
       ),
     ];
 
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: OpenHandAnimatedTitleText(
-              text: effectiveTitle,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 3,
-            child: OpenHandTrailingToolbar(
-              spacing: _heToolbarItemSpacing,
-              children: toolbarItems,
-            ),
-          ),
-        ],
+    return OpenHandSessionHeaderBar(
+      toolbarSpacing: _heToolbarItemSpacing,
+      toolbarItems: toolbarItems,
+      title: OpenHandAnimatedTitleText(
+        text: effectiveTitle,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

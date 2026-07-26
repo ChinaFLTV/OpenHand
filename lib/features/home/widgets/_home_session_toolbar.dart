@@ -103,7 +103,6 @@ class _SessionToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final runtimeStatus = _runtimeToolCatalogStatus(
       session,
       livePreview: liveRuntimeToolPreview,
@@ -217,95 +216,72 @@ class _SessionToolbar extends StatelessWidget {
         },
       ),
     ];
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
+    return OpenHandSessionHeaderBar(
+      toolbarItems: toolbarItems,
+      title: OpenHandAnimatedTitleText(
+        text: session.title,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      below: AnimatedSwitcher(
+        duration: cardMotionDurationFor(
+          context,
+          expanding: !planTimelineCollapsed,
+        ),
+        layoutBuilder: (currentChild, previousChildren) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                flex: 2,
-                child: OpenHandAnimatedTitleText(
-                  text: session.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 3,
-                child: OpenHandTrailingToolbar(children: toolbarItems),
-              ),
+              ...previousChildren,
+              currentChild ?? const SizedBox.shrink(),
             ],
-          ),
-          AnimatedSwitcher(
-            duration: cardMotionDurationFor(
-              context,
-              expanding: !planTimelineCollapsed,
-            ),
-            layoutBuilder: (currentChild, previousChildren) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...previousChildren,
-                  currentChild ?? const SizedBox.shrink(),
-                ],
-              );
-            },
-            transitionBuilder: (child, animation) {
-              final fade = openHandBoundedCurveAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-                reverseCurve: Curves.easeInCubic,
-              );
-              final slide = openHandCurveAnimation(
-                parent: animation,
-                curve: kCardMotionCurve,
-                reverseCurve: Curves.easeInCubic,
-              );
-              return ClipRect(
-                child: FadeTransition(
-                  opacity: fade,
-                  child: SizeTransition(
-                    sizeFactor: fade,
-                    axisAlignment: -1,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, -0.04),
-                        end: Offset.zero,
-                      ).animate(slide),
-                      child: child,
-                    ),
-                  ),
+          );
+        },
+        transitionBuilder: (child, animation) {
+          final fade = openHandBoundedCurveAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          final slide = openHandCurveAnimation(
+            parent: animation,
+            curve: kCardMotionCurve,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return ClipRect(
+            child: FadeTransition(
+              opacity: fade,
+              child: SizeTransition(
+                sizeFactor: fade,
+                axisAlignment: -1,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, -0.04),
+                    end: Offset.zero,
+                  ).animate(slide),
+                  child: child,
                 ),
-              );
-            },
-            child: planTimeline == null || planTimelineCollapsed
-                ? const SizedBox(key: ValueKey<String>('plan-timeline-hidden'))
-                : Padding(
-                    key: ValueKey<String>(
-                      'plan-timeline-visible-${planTimeline.awaitingApproval}-${planTimeline.requiresReview}-${planTimeline.steps.length}',
-                    ),
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _SessionPlanTimelineBar(
-                      data: planTimeline,
-                      onVisibilityToggle: showPlanTimelineToggle
-                          ? () {
-                              onPlanTimelineCollapsedChanged?.call(true);
-                            }
-                          : null,
-                    ),
-                  ),
-          ),
-        ],
+              ),
+            ),
+          );
+        },
+        child: planTimeline == null || planTimelineCollapsed
+            ? const SizedBox(key: ValueKey<String>('plan-timeline-hidden'))
+            : Padding(
+                key: ValueKey<String>(
+                  'plan-timeline-visible-${planTimeline.awaitingApproval}-${planTimeline.requiresReview}-${planTimeline.steps.length}',
+                ),
+                padding: const EdgeInsets.only(top: 12),
+                child: _SessionPlanTimelineBar(
+                  data: planTimeline,
+                  onVisibilityToggle: showPlanTimelineToggle
+                      ? () {
+                          onPlanTimelineCollapsedChanged?.call(true);
+                        }
+                      : null,
+                ),
+              ),
       ),
     );
   }

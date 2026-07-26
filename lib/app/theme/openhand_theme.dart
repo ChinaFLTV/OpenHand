@@ -1,17 +1,21 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 
 import 'openhand_palette.dart';
 import 'openhand_theme_preset.dart';
 
 abstract final class OpenHandTheme {
-  // ThemeData construction (ColorScheme.fromSeed +
-  // OpenHandPalette + ~30 component sub-themes) is non-trivial and runs on
-  // every OpenHandApp.build(). MaterialApp rebuilds frequently from
-  // SettingsController notifications even when neither brightness nor
-  // preset changed (e.g. unrelated locale or model-list updates), so cache
-  // by (brightness, preset.id) to avoid recomputing identical themes.
-  // Bounded to 8 entries (2 brightnesses × N presets); cheap LRU eviction.
-  static final Map<String, ThemeData> _cache = <String, ThemeData>{};
+  /// 主题构造（ColorScheme.fromSeed + OpenHandPalette + 三十来个组件子主题）
+  /// 开销不小，而 MaterialApp 会因为 SettingsController 的任意通知重建——
+  /// 语言、模型列表变化同样会触发，此时亮度与预设其实没变。按
+  /// (brightness, preset) 缓存即可避开重复构造。
+  ///
+  /// 预设有二十种上下，两种亮度合计四十余个组合，缓存放不下全部，所以淘汰
+  /// 策略必须是 LRU 而不是插入序：当前正在用的那一对（亮 + 暗）始终是最近
+  /// 使用的，永远不会被挤掉；换预设时被淘汰的是早已不用的旧主题。
+  static final LinkedHashMap<String, ThemeData> _cache =
+      LinkedHashMap<String, ThemeData>();
   static const int _cacheLimit = 8;
 
   static ThemeData light(OpenHandThemePreset preset) =>
@@ -25,11 +29,12 @@ abstract final class OpenHandTheme {
     OpenHandThemePreset preset,
   ) {
     final key = '${brightness.name}:${preset.name}';
-    final cached = _cache[key];
+    final cached = _cache.remove(key);
     if (cached != null) {
-      return cached;
+      // 重新插入到末尾即为「最近使用」。
+      return _cache[key] = cached;
     }
-    if (_cache.length >= _cacheLimit) {
+    while (_cache.length >= _cacheLimit) {
       _cache.remove(_cache.keys.first);
     }
     return _cache[key] = _buildTheme(brightness, preset);
