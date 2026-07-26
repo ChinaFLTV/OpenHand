@@ -904,14 +904,13 @@ class AiToolUtils {
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,
       cancelSignal: context.cancelSignal,
-      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+      timeoutMs: context.writeConfirmationTimeoutMs,
     );
     if (confirmationResult != null) {
       return AiFileMutationPreparation(error: confirmationResult);
     }
 
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileTracker = context.fileTracker;
     final readValidation = await validateReadBeforeMutation(
       toolName: toolName,
       filePath: filePath,
@@ -930,7 +929,7 @@ class AiToolUtils {
         filePath: filePath,
         sessionId: context.sessionId,
         toolCallId: context.toolCall.id,
-        fileHistory: context.metadata['file_history'] as AiFileHistoryService?,
+        fileHistory: context.fileHistory,
       );
       beforeContent = await readFileContentForLedger(filePath);
     }
@@ -1052,6 +1051,58 @@ class AiToolUtils {
       await _deleteFileIfExistsBestEffort(tempFile, '清理安全写入临时文件');
       rethrow;
     }
+  }
+
+  /// 文本落盘的固定三步：加锁写入 → 回读校验 → 记入变更账本。
+  ///
+  /// Write / Edit / MultiEdit 此前各写一遍这三步。顺序不能颠倒——校验没过就
+  /// 不该记账，否则账本里会留下一条从未真正落盘的记录，回滚时按它还原等于
+  /// 凭空改文件；而漏掉任一步都不会报错，只在需要回滚时才暴露。
+  ///
+  /// [failure] 非空表示应当直接把它当作工具结果返回；否则 [ledgerRecordId]
+  /// 为账本记录 id（未启用账本时为 null）。
+  static Future<({AiToolExecutionResult? failure, String? ledgerRecordId})>
+  commitTextFileMutation({
+    required AiToolExecutionContext context,
+    required String toolName,
+    required File file,
+    required String filePath,
+    required String content,
+    required bool fileExists,
+    required AiFileMutationPreparation preparation,
+  }) async {
+    final guardedWrite = await writeTextFileWithMutationGuard(
+      toolName: toolName,
+      file: file,
+      content: content,
+      previouslyReadFiles: context.previouslyReadFiles,
+      requireExistingFileRead: fileExists,
+      fileTracker: preparation.fileTracker,
+    );
+    if (guardedWrite != null) {
+      return (failure: guardedWrite, ledgerRecordId: null);
+    }
+
+    final verificationError = await verifyTextFileWrite(
+      toolName: toolName,
+      file: file,
+      expectedContent: content,
+    );
+    if (verificationError != null) {
+      return (failure: verificationError, ledgerRecordId: null);
+    }
+
+    final ledgerRecordId = await recordFileMutationToLedger(
+      ledger: context.mutationLedger,
+      sessionId: context.sessionId,
+      toolCallId: context.toolCall.id,
+      toolName: toolName,
+      filePath: filePath,
+      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
+      beforeContent: preparation.beforeContent,
+      afterContent: content,
+    );
+    return (failure: null, ledgerRecordId: ledgerRecordId);
   }
 
   /// 写入前执行最终读取校验，避免确认或历史记录流程形成过期写入窗口。

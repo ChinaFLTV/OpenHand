@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -130,36 +129,17 @@ class AiMultiEditTool extends AiTool {
       appliedNewStrings.add(newString);
     }
     final writeContent = editableText.restoreLineEndings(content);
-    final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
+    final committed = await AiToolUtils.commitTextFileMutation(
+      context: context,
       toolName: 'MultiEdit',
       file: file,
-      content: writeContent,
-      previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: fileExists,
-      fileTracker: preparation.fileTracker,
-    );
-    if (guardedWrite != null) return guardedWrite;
-
-    final verificationError = await AiToolUtils.verifyTextFileWrite(
-      toolName: 'MultiEdit',
-      file: file,
-      expectedContent: writeContent,
-    );
-    if (verificationError != null) return verificationError;
-
-    // ledger 记录双快照
-    final mutationLedger =
-        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
-      ledger: mutationLedger,
-      sessionId: context.sessionId,
-      toolCallId: context.toolCall.id,
-      toolName: 'MultiEdit',
       filePath: filePath,
-      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
-      beforeContent: preparation.beforeContent,
-      afterContent: writeContent,
+      content: writeContent,
+      fileExists: fileExists,
+      preparation: preparation,
     );
+    if (committed.failure != null) return committed.failure!;
+    final ledgerRecordId = committed.ledgerRecordId;
 
     return AiToolUtils.simpleSuccessResult(
       command: 'MultiEdit $filePath',

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -55,12 +54,9 @@ class AiApplyFileDiffsTool extends AiTool {
       );
     }
 
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory =
-        context.metadata['file_history'] as AiFileHistoryService?;
-    final mutationLedger =
-        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+    final fileTracker = context.fileTracker;
+    final fileHistory = context.fileHistory;
+    final mutationLedger = context.mutationLedger;
 
     // ── 阶段 1：解析 + 内存中应用所有 hunk，发现不匹配立即整体失败 ──
     final plans = <_FileDiffPlan>[];
@@ -204,7 +200,7 @@ class AiApplyFileDiffsTool extends AiTool {
         requireWriteConfirmation: context.requireWriteCommandConfirmation,
         confirmWriteCommand: context.confirmWriteCommand,
         cancelSignal: context.cancelSignal,
-        timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+        timeoutMs: context.writeConfirmationTimeoutMs,
       );
       if (confirmation != null) return confirmation;
     }

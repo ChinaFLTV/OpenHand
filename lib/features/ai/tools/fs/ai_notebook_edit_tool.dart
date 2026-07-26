@@ -4,9 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
-import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -82,17 +80,15 @@ class AiNotebookEditTool extends AiTool {
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,
       cancelSignal: context.cancelSignal,
-      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+      timeoutMs: context.writeConfirmationTimeoutMs,
     );
     if (confirmationResult != null) {
       return confirmationResult;
     }
 
     // 从 metadata 获取追踪服务
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory =
-        context.metadata['file_history'] as AiFileHistoryService?;
+    final fileTracker = context.fileTracker;
+    final fileHistory = context.fileHistory;
 
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
       toolName: 'NotebookEdit',
@@ -111,8 +107,7 @@ class AiNotebookEditTool extends AiTool {
     );
 
     // 双快照中的 before 捕获
-    final mutationLedger =
-        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
+    final mutationLedger = context.mutationLedger;
     final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
       notebookPath,
     );

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -49,36 +48,17 @@ class AiWriteTool extends AiTool {
     );
     if (preparation.error != null) return preparation.error!;
 
-    final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
+    final committed = await AiToolUtils.commitTextFileMutation(
+      context: context,
       toolName: 'Write',
       file: file,
-      content: content,
-      previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: fileExists,
-      fileTracker: preparation.fileTracker,
-    );
-    if (guardedWrite != null) return guardedWrite;
-
-    final verificationError = await AiToolUtils.verifyTextFileWrite(
-      toolName: 'Write',
-      file: file,
-      expectedContent: content,
-    );
-    if (verificationError != null) return verificationError;
-
-    // Ledger 同时记录写入前后的快照。
-    final mutationLedger =
-        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
-      ledger: mutationLedger,
-      sessionId: context.sessionId,
-      toolCallId: context.toolCall.id,
-      toolName: 'Write',
       filePath: filePath,
-      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
-      beforeContent: preparation.beforeContent,
-      afterContent: content,
+      content: content,
+      fileExists: fileExists,
+      preparation: preparation,
     );
+    if (committed.failure != null) return committed.failure!;
+    final ledgerRecordId = committed.ledgerRecordId;
 
     return AiToolUtils.simpleSuccessResult(
       command: 'Write $filePath',

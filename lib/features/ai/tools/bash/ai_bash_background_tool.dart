@@ -289,7 +289,7 @@ class AiBashBackgroundTool extends AiTool {
               context.requireWriteCommandConfirmation || forceWriteConfirmation,
           confirmWriteCommand: confirmationGate.callback,
           cancelSignal: context.cancelSignal,
-          timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+          timeoutMs: context.writeConfirmationTimeoutMs,
           approvalCommand: cmd,
           approvalWorkingDirectory: cwd,
           resultCommand: cmd,

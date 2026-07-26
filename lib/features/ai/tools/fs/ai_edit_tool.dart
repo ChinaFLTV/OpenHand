@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/text_clip.dart';
-import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -65,9 +64,6 @@ class AiEditTool extends AiTool {
     );
     if (preparation.error != null) return preparation.error!;
 
-    final mutationLedger =
-        context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-
     final AiEditableTextSnapshot editableText;
     if (fileExists) {
       try {
@@ -95,22 +91,17 @@ class AiEditTool extends AiTool {
       return AiToolUtils.invalidResult('Edit', replacement.errorMessage);
     }
     final writeContent = editableText.restoreLineEndings(replacement.content);
-    final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
+    final committed = await AiToolUtils.commitTextFileMutation(
+      context: context,
       toolName: 'Edit',
       file: file,
+      filePath: filePath,
       content: writeContent,
-      previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: fileExists,
-      fileTracker: preparation.fileTracker,
+      fileExists: fileExists,
+      preparation: preparation,
     );
-    if (guardedWrite != null) return guardedWrite;
-
-    final verificationError = await AiToolUtils.verifyTextFileWrite(
-      toolName: 'Edit',
-      file: file,
-      expectedContent: writeContent,
-    );
-    if (verificationError != null) return verificationError;
+    if (committed.failure != null) return committed.failure!;
+    final ledgerRecordId = committed.ledgerRecordId;
 
     final replacementCount = replacement.replacementCount;
     final outputMessage = !fileExists
@@ -118,18 +109,6 @@ class AiEditTool extends AiTool {
         : replaceAll
         ? 'Updated $filePath (replaced $replacementCount occurrence${replacementCount > 1 ? 's' : ''}, verified)'
         : 'Updated $filePath (verified)';
-
-    // ledger 记录双快照
-    final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
-      ledger: mutationLedger,
-      sessionId: context.sessionId,
-      toolCallId: context.toolCall.id,
-      toolName: 'Edit',
-      filePath: filePath,
-      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
-      beforeContent: preparation.beforeContent,
-      afterContent: writeContent,
-    );
 
     return AiToolUtils.simpleSuccessResult(
       command: 'Edit $filePath',

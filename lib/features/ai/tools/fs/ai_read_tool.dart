@@ -82,8 +82,7 @@ class AiReadTool extends AiTool {
     final pdfPages = pdfPagesResult.pages;
 
     // 从 metadata 获取追踪服务
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileTracker = context.fileTracker;
 
     final offset = AiToolUtils.readInt(args['offset']);
     final limit =
