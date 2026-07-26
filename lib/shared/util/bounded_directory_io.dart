@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'argument_guards.dart';
 import 'async_concurrency.dart';
 
 const Duration defaultBoundedDirectoryIdleTimeout = Duration(seconds: 3);
@@ -42,9 +43,7 @@ Future<BoundedDirectoryListing> listDirectoryBounded(
   Duration idleTimeout = defaultBoundedDirectoryIdleTimeout,
   Duration totalTimeout = defaultBoundedDirectoryTotalTimeout,
 }) async {
-  if (maxEntries < 1) {
-    throw ArgumentError.value(maxEntries, 'maxEntries', 'Must be positive.');
-  }
+  requirePositiveInt(maxEntries, 'maxEntries');
   if (idleTimeout <= Duration.zero || totalTimeout <= Duration.zero) {
     throw ArgumentError('Directory listing timeouts must be positive.');
   }
@@ -88,9 +87,7 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
   Duration totalTimeout = defaultBoundedDirectoryTotalTimeout,
   Duration operationTimeout = defaultBoundedDirectoryIdleTimeout,
 }) async {
-  if (maxEntries < 1) {
-    throw ArgumentError.value(maxEntries, 'maxEntries', 'Must be positive.');
-  }
+  requirePositiveInt(maxEntries, 'maxEntries');
   if (idleTimeout <= Duration.zero ||
       totalTimeout <= Duration.zero ||
       operationTimeout <= Duration.zero) {

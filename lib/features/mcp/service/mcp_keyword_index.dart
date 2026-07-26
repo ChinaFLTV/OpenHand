@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
@@ -272,13 +273,7 @@ class McpKeywordIndexService {
   }) : _storageDir =
            storageDir ?? Directory(OpenHandPaths.defaultMcpDirectoryPath()),
        _maxPersistedBytes = maxPersistedBytes {
-    if (maxPersistedBytes < 1) {
-      throw ArgumentError.value(
-        maxPersistedBytes,
-        'maxPersistedBytes',
-        'Must be positive.',
-      );
-    }
+    requirePositiveInt(maxPersistedBytes, 'maxPersistedBytes');
   }
 
   final Directory _storageDir;

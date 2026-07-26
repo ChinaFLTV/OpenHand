@@ -1,12 +1,11 @@
 import 'dart:async';
+import 'argument_guards.dart';
 
 /// 按 FIFO 顺序执行异步任务。单个任务失败不会阻断队列，调用方仍会收到
 /// 对应任务的结果或异常。
 final class SerialTaskQueue {
   SerialTaskQueue({this.maxPendingTasks = defaultMaxPendingTasks}) {
-    if (maxPendingTasks < 1) {
-      throw ArgumentError.value(maxPendingTasks, 'maxPendingTasks', '必须大于零。');
-    }
+    requirePositiveInt(maxPendingTasks, 'maxPendingTasks');
   }
 
   static const int defaultMaxPendingTasks = 4096;

@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'argument_guards.dart';
 import 'text_clip.dart';
 
 /// 保留最新日志，同时限制行数和字符数，避免单个超长日志撑爆内存。
@@ -8,12 +9,8 @@ class BoundedLogBuffer {
     this.maxLines = defaultMaxLines,
     this.maxCharacters = defaultMaxCharacters,
   }) {
-    if (maxLines < 1) {
-      throw ArgumentError.value(maxLines, 'maxLines', '必须大于零。');
-    }
-    if (maxCharacters < 1) {
-      throw ArgumentError.value(maxCharacters, 'maxCharacters', '必须大于零。');
-    }
+    requirePositiveInt(maxLines, 'maxLines');
+    requirePositiveInt(maxCharacters, 'maxCharacters');
   }
 
   static const int defaultMaxLines = 2000;

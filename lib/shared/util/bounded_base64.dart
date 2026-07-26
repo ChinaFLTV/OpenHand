@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'argument_guards.dart';
 
 class BoundedBase64FormatException implements Exception {
   const BoundedBase64FormatException(this.message);
@@ -26,13 +27,7 @@ class BoundedBase64SizeException implements Exception {
 /// Validates the encoded shape and decoded size before allocating the decoded
 /// byte buffer. Only canonical standard Base64 is accepted.
 Uint8List decodeBase64Bounded(String encoded, {required int maxDecodedBytes}) {
-  if (maxDecodedBytes < 0) {
-    throw ArgumentError.value(
-      maxDecodedBytes,
-      'maxDecodedBytes',
-      'Must not be negative.',
-    );
-  }
+  requireNonNegativeInt(maxDecodedBytes, 'maxDecodedBytes');
   if (encoded.isEmpty || encoded.length % 4 != 0) {
     throw const BoundedBase64FormatException('Invalid Base64 payload.');
   }

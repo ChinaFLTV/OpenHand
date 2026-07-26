@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
 import 'silent_log.dart';
 
@@ -124,9 +125,7 @@ Duration _positiveCleanupDuration(
   String name, {
   Duration? maximum,
 }) {
-  if (value <= Duration.zero) {
-    throw ArgumentError.value(value, name, '必须大于零。');
-  }
+  requirePositiveDuration(value, name);
   if (maximum != null && value > maximum) return maximum;
   return value;
 }

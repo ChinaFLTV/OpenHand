@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'bounded_file_io.dart';
 import 'physical_path_safety.dart';

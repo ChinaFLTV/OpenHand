@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'path_safety.dart';
 
@@ -27,12 +28,8 @@ final class BoundedDeletePolicy {
   final Duration totalTimeout;
 
   void validate() {
-    if (maxEntries < 1) {
-      throw ArgumentError.value(maxEntries, 'maxEntries', 'Must be positive.');
-    }
-    if (maxDepth < 0) {
-      throw ArgumentError.value(maxDepth, 'maxDepth', 'Must not be negative.');
-    }
+    requirePositiveInt(maxEntries, 'maxEntries');
+    requireNonNegativeInt(maxDepth, 'maxDepth');
     if (directoryIdleTimeout <= Duration.zero ||
         operationTimeout <= Duration.zero ||
         totalTimeout <= Duration.zero) {

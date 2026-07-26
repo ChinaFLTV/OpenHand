@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../util/argument_guards.dart';
 
 Future<ServerSocket> bindServerSocketBounded(
   Object address,
@@ -48,9 +49,7 @@ Future<T> _bindBounded<T>(
   required Duration timeout,
   required Future<void> Function(T server) closeLateServer,
 }) async {
-  if (timeout <= Duration.zero) {
-    throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
-  }
+  requirePositiveDuration(timeout, 'timeout');
   final bindFuture = bind();
   try {
     return await bindFuture.timeout(timeout);

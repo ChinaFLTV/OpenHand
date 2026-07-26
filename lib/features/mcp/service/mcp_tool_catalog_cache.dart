@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
@@ -46,13 +47,7 @@ class McpToolCatalogCacheService {
   }) : _storageDir =
            storageDir ?? Directory(OpenHandPaths.defaultMcpDirectoryPath()),
        _maxPersistedBytes = maxPersistedBytes {
-    if (maxPersistedBytes < 1) {
-      throw ArgumentError.value(
-        maxPersistedBytes,
-        'maxPersistedBytes',
-        '必须大于零。',
-      );
-    }
+    requirePositiveInt(maxPersistedBytes, 'maxPersistedBytes');
   }
 
   static const String _fileName = 'tool_catalog_cache.json';

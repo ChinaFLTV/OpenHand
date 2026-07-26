@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 
 import '../net/http_response_utils.dart';
+import 'argument_guards.dart';
 import 'bounded_file_io.dart';
 
 const Duration kBoundedXFileMetadataTimeout = Duration(seconds: 5);
@@ -38,9 +39,7 @@ Future<Uint8List> readBoundedXFileBytes(
   Duration totalTimeout = kBoundedXFileTotalTimeout,
   Duration metadataTimeout = kBoundedXFileMetadataTimeout,
 }) async {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
+  requirePositiveInt(maxBytes, 'maxBytes');
   if (idleTimeout <= Duration.zero ||
       totalTimeout <= Duration.zero ||
       metadataTimeout <= Duration.zero) {

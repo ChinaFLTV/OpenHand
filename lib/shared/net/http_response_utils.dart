@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 import '../util/timer_safety.dart';
 import 'http_status_utils.dart';
@@ -38,9 +39,7 @@ Future<Uint8List> fetchBoundedHttpBytes({
   if ((scheme != 'http' && scheme != 'https') || uri.host.isEmpty) {
     throw FormatException('仅支持有效的 HTTP(S) 地址：$uri');
   }
-  if (openTimeout <= Duration.zero) {
-    throw ArgumentError.value(openTimeout, 'openTimeout', '必须大于零。');
-  }
+  requirePositiveDuration(openTimeout, 'openTimeout');
   _validateByteStreamLimits(
     maxBytes: maxBytes,
     idleTimeout: idleTimeout,
@@ -472,14 +471,12 @@ void _validateByteStreamLimits({
   Duration? idleTimeout,
   Duration? totalTimeout,
 }) {
-  if (maxBytes != null && maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', '必须大于 0。');
+  if (maxBytes != null) requirePositiveInt(maxBytes, 'maxBytes');
+  if (idleTimeout != null) {
+    requirePositiveDuration(idleTimeout, 'idleTimeout');
   }
-  if (idleTimeout != null && idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', '必须大于 0。');
-  }
-  if (totalTimeout != null && totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(totalTimeout, 'totalTimeout', '必须大于 0。');
+  if (totalTimeout != null) {
+    requirePositiveDuration(totalTimeout, 'totalTimeout');
   }
 }
 

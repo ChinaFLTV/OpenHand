@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/text_clip.dart';
@@ -72,9 +73,7 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
   requirePositiveDuration(openTimeout, 'openTimeout');
   requirePositiveDuration(responseTimeout, 'responseTimeout');
   requirePositiveDuration(responseIdleTimeout, 'responseIdleTimeout');
-  if (maxResponseBytes < 1) {
-    throw ArgumentError.value(maxResponseBytes, 'maxResponseBytes', '必须大于零。');
-  }
+  requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
   if (retryCount < 0 || retryCount > _qdrantMaxRetryCount) {
     throw RangeError.range(
       retryCount,
@@ -84,8 +83,8 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
       '必须在有效范围内。',
     );
   }
-  if (retryCount > 0 && retryBackoff <= Duration.zero) {
-    throw ArgumentError.value(retryBackoff, 'retryBackoff', '必须大于零。');
+  if (retryCount > 0) {
+    requirePositiveDuration(retryBackoff, 'retryBackoff');
   }
   if (await isCancelSignalCompleted(cancelSignal)) {
     throw const QdrantRequestCancelledException();

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
@@ -38,20 +39,8 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
   Duration totalTimeout = _mcpNodeResolverTotalTimeout,
   int maxRuntimeCandidates = _mcpNodeResolverRuntimeCandidateLimit,
 }) async {
-  if (totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
-  if (maxRuntimeCandidates < 1) {
-    throw ArgumentError.value(
-      maxRuntimeCandidates,
-      'maxRuntimeCandidates',
-      'Must be positive.',
-    );
-  }
+  requirePositiveDuration(totalTimeout, 'totalTimeout');
+  requirePositiveInt(maxRuntimeCandidates, 'maxRuntimeCandidates');
   final cleanName = normalizeMcpNodePackageName(packageName);
   if (cleanName == null) return null;
   final home = homeDirectory?.trim();
@@ -209,13 +198,7 @@ Future<McpNodePackageResolution?> resolveMcpNodePackageCandidate({
   required String packageDirectory,
   Duration totalTimeout = _mcpNodeResolverTotalTimeout,
 }) {
-  if (totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
+  requirePositiveDuration(totalTimeout, 'totalTimeout');
   return _resolvePackageCandidate(
     nodeBin: nodeBin,
     packageDirectory: packageDirectory,

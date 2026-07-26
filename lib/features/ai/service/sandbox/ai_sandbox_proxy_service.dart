@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/bounded_server_bind.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
+import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -82,44 +83,12 @@ class _SandboxProxyLimits {
     required this.maxConcurrentConnections,
     required this.maxHttpRequestBodyBytes,
   }) {
-    if (handshakeTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        handshakeTimeout,
-        'handshakeTimeout',
-        '必须大于 0。',
-      );
-    }
-    if (connectionTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        connectionTimeout,
-        'connectionTimeout',
-        '必须大于 0。',
-      );
-    }
-    if (idleTimeout <= Duration.zero) {
-      throw ArgumentError.value(idleTimeout, 'idleTimeout', '必须大于 0。');
-    }
-    if (maxConnectionDuration <= Duration.zero) {
-      throw ArgumentError.value(
-        maxConnectionDuration,
-        'maxConnectionDuration',
-        '必须大于 0。',
-      );
-    }
-    if (maxConcurrentConnections <= 0) {
-      throw ArgumentError.value(
-        maxConcurrentConnections,
-        'maxConcurrentConnections',
-        '必须大于 0。',
-      );
-    }
-    if (maxHttpRequestBodyBytes < 1) {
-      throw ArgumentError.value(
-        maxHttpRequestBodyBytes,
-        'maxHttpRequestBodyBytes',
-        '必须大于 0。',
-      );
-    }
+    requirePositiveDuration(handshakeTimeout, 'handshakeTimeout');
+    requirePositiveDuration(connectionTimeout, 'connectionTimeout');
+    requirePositiveDuration(idleTimeout, 'idleTimeout');
+    requirePositiveDuration(maxConnectionDuration, 'maxConnectionDuration');
+    requirePositiveInt(maxConcurrentConnections, 'maxConcurrentConnections');
+    requirePositiveInt(maxHttpRequestBodyBytes, 'maxHttpRequestBodyBytes');
   }
 
   final Duration handshakeTimeout;
@@ -1501,9 +1470,7 @@ class _SocketReadBuffer {
   }
 
   void restartReadWindow(Duration timeout) {
-    if (timeout <= Duration.zero) {
-      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
-    }
+    requirePositiveDuration(timeout, 'timeout');
     if (_operationActive || _handedOff || _cancelled) {
       throw StateError('Proxy socket reader is not available.');
     }

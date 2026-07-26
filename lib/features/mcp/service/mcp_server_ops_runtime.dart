@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -184,41 +185,11 @@ class McpServerOpsRuntime {
        _requestBodyTotalTimeout = requestBodyTotalTimeout,
        _maxConcurrentRequests = maxConcurrentRequests,
        _maxBatchItems = maxBatchItems {
-    if (maxRequestBodyBytes < 1) {
-      throw ArgumentError.value(
-        maxRequestBodyBytes,
-        'maxRequestBodyBytes',
-        'Must be positive.',
-      );
-    }
-    if (requestBodyIdleTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        requestBodyIdleTimeout,
-        'requestBodyIdleTimeout',
-        'Must be positive.',
-      );
-    }
-    if (requestBodyTotalTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        requestBodyTotalTimeout,
-        'requestBodyTotalTimeout',
-        'Must be positive.',
-      );
-    }
-    if (maxConcurrentRequests < 1) {
-      throw ArgumentError.value(
-        maxConcurrentRequests,
-        'maxConcurrentRequests',
-        'Must be positive.',
-      );
-    }
-    if (maxBatchItems < 1) {
-      throw ArgumentError.value(
-        maxBatchItems,
-        'maxBatchItems',
-        'Must be positive.',
-      );
-    }
+    requirePositiveInt(maxRequestBodyBytes, 'maxRequestBodyBytes');
+    requirePositiveDuration(requestBodyIdleTimeout, 'requestBodyIdleTimeout');
+    requirePositiveDuration(requestBodyTotalTimeout, 'requestBodyTotalTimeout');
+    requirePositiveInt(maxConcurrentRequests, 'maxConcurrentRequests');
+    requirePositiveInt(maxBatchItems, 'maxBatchItems');
   }
 
   static const String _protocolVersion = '2025-11-25';

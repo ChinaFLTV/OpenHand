@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
+import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
@@ -152,9 +153,7 @@ Future<void> copyFileAtomically(
   File targetFile, {
   required int maxBytes,
 }) {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
+  requirePositiveInt(maxBytes, 'maxBytes');
   return _runWithAtomicWriteLock(
     targetFile,
     (targetFile) => _copyFileAtomicallyLocked(

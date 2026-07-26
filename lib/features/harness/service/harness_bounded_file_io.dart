@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/timer_safety.dart';
 
@@ -28,16 +29,10 @@ class HarnessFileIoLimits {
       'maxTotalBytes': maxTotalBytes,
     };
     for (final entry in positiveIntegers.entries) {
-      if (entry.value < 1) {
-        throw ArgumentError.value(entry.value, entry.key, '必须大于零。');
-      }
+      requirePositiveInt(entry.value, entry.key);
     }
-    if (totalTimeout <= Duration.zero) {
-      throw ArgumentError.value(totalTimeout, 'totalTimeout', '必须大于零。');
-    }
-    if (operationTimeout <= Duration.zero) {
-      throw ArgumentError.value(operationTimeout, 'operationTimeout', '必须大于零。');
-    }
+    requirePositiveDuration(totalTimeout, 'totalTimeout');
+    requirePositiveDuration(operationTimeout, 'operationTimeout');
   }
 
   final int maxScannedFiles;

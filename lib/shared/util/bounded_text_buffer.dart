@@ -1,13 +1,12 @@
 import 'dart:collection';
 
+import 'argument_guards.dart';
 import 'text_clip.dart';
 
 /// 保留最新文本并记录绝对偏移，避免滚动裁剪后丢失增量读取位置。
 final class BoundedTextBuffer {
   BoundedTextBuffer({required this.maxCharacters, String initialValue = ''}) {
-    if (maxCharacters < 1) {
-      throw ArgumentError.value(maxCharacters, 'maxCharacters', '必须大于零。');
-    }
+    requirePositiveInt(maxCharacters, 'maxCharacters');
     replace(initialValue);
   }
 

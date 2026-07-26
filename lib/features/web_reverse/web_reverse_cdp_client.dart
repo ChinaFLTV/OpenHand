@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 
@@ -66,27 +67,12 @@ class WebReverseCdpClient {
         'Must be an absolute ws or wss endpoint.',
       );
     }
-    if (reconnectMaxAttempts < 0) {
-      throw ArgumentError.value(
-        reconnectMaxAttempts,
-        'reconnectMaxAttempts',
-        'Must not be negative.',
-      );
-    }
-    if (handshakeTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        handshakeTimeout,
-        'handshakeTimeout',
-        'Must be positive.',
-      );
-    }
-    if (connectionCleanupTimeout.isNegative) {
-      throw ArgumentError.value(
-        connectionCleanupTimeout,
-        'connectionCleanupTimeout',
-        'Must not be negative.',
-      );
-    }
+    requireNonNegativeInt(reconnectMaxAttempts, 'reconnectMaxAttempts');
+    requirePositiveDuration(handshakeTimeout, 'handshakeTimeout');
+    requireNonNegativeDuration(
+      connectionCleanupTimeout,
+      'connectionCleanupTimeout',
+    );
     if (reconnectInitialDelay.isNegative || reconnectMaxDelay.isNegative) {
       throw ArgumentError.value(
         reconnectInitialDelay.isNegative
@@ -262,9 +248,7 @@ class WebReverseCdpClient {
     String? sessionId,
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    if (timeout.isNegative) {
-      throw ArgumentError.value(timeout, 'timeout', 'Must not be negative.');
-    }
+    requireNonNegativeDuration(timeout, 'timeout');
     if (_closed) throw StateError('CDP client is closed');
     if (_isReconnecting) throw StateError('CDP client is reconnecting');
     final transport = _transport;

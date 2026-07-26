@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
+import '../util/argument_guards.dart';
 import '../util/localized_text.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
@@ -678,9 +679,7 @@ class OpenHandDialogSession<T extends Object?> {
     String logAction = '关闭跟踪弹窗',
     Duration attachTimeout = kOpenHandDialogRouteAttachTimeout,
   }) {
-    if (attachTimeout <= Duration.zero) {
-      throw ArgumentError.value(attachTimeout, 'attachTimeout', '必须大于零。');
-    }
+    requirePositiveDuration(attachTimeout, 'attachTimeout');
     if (_closed) return Future<bool>.value(false);
     final activeDismiss = _dismissInFlight;
     if (activeDismiss != null) return activeDismiss;

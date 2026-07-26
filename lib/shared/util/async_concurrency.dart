@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'argument_guards.dart';
 
 typedef OpenHandAsyncContinuePredicate = bool Function();
 typedef OpenHandAsyncCleanupErrorHandler =
@@ -49,12 +50,6 @@ final class MonotonicDeadline {
   }
 
   void stop() => _stopwatch.stop();
-}
-
-void requirePositiveDuration(Duration value, String name) {
-  if (value <= Duration.zero) {
-    throw ArgumentError.value(value, name, '必须大于零。');
-  }
 }
 
 /// 尽力执行异步清理，同时防止异常资源永久阻塞关闭流程。

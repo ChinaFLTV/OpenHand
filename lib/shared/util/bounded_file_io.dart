@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'byte_size_format.dart';
 
@@ -138,13 +139,7 @@ final class BoundedRandomAccessFileLease {
     Duration cleanupTimeout = _boundedFileCleanupTimeout,
   }) : _release = release,
        _cleanupTimeout = cleanupTimeout {
-    if (cleanupTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        cleanupTimeout,
-        'cleanupTimeout',
-        'Must be positive.',
-      );
-    }
+    requirePositiveDuration(cleanupTimeout, 'cleanupTimeout');
   }
 
   final RandomAccessFile file;
@@ -159,9 +154,7 @@ final class BoundedRandomAccessFileLease {
     Future<T> Function(RandomAccessFile file) operation, {
     required Duration timeout,
   }) async {
-    if (timeout <= Duration.zero) {
-      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
-    }
+    requirePositiveDuration(timeout, 'timeout');
     if (_cleanupRequested ||
         _pendingOperation != null ||
         _releaseFuture != null) {
@@ -193,9 +186,7 @@ final class BoundedRandomAccessFileLease {
   }
 
   Future<void> close({required Duration timeout}) {
-    if (timeout <= Duration.zero) {
-      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
-    }
+    requirePositiveDuration(timeout, 'timeout');
     if (_pendingOperation != null) {
       throw StateError(
         'Cannot close a random-access file while an operation is pending.',
@@ -249,9 +240,7 @@ Future<BoundedRandomAccessFileLease> openBoundedRandomAccessFileLease(
   bool deleteIfOpenCompletesLate = false,
   Future<void> Function(RandomAccessFile file)? release,
 }) async {
-  if (timeout <= Duration.zero) {
-    throw ArgumentError.value(timeout, 'timeout', '必须大于零。');
-  }
+  requirePositiveDuration(timeout, 'timeout');
   final openFuture = file.open(mode: mode);
   try {
     final opened = await openFuture.timeout(
@@ -327,9 +316,7 @@ Future<Uint8List> readBoundedFileBytes(
   bool truncateToMaxBytes = false,
   BoundedFileHandleOwner? handleOwner,
 }) async {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
+  requirePositiveInt(maxBytes, 'maxBytes');
   requirePositiveDuration(idleTimeout, 'idleTimeout');
   final deadline = MonotonicDeadline(
     totalTimeout,
@@ -515,9 +502,7 @@ Future<FileSystemEntityType> probeFileSystemEntityType(
   bool followLinks = false,
 }) async {
   if (path.trim().isEmpty) return FileSystemEntityType.notFound;
-  if (timeout <= Duration.zero) {
-    throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
-  }
+  requirePositiveDuration(timeout, 'timeout');
   try {
     return await FileSystemEntity.type(
       path,

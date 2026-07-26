@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'bounded_delete.dart';
 import 'bounded_directory_io.dart';
@@ -31,15 +32,9 @@ final class BoundedCopyPolicy {
   final Duration totalTimeout;
 
   void validate() {
-    if (maxEntries < 1) {
-      throw ArgumentError.value(maxEntries, 'maxEntries', 'Must be positive.');
-    }
-    if (maxBytes < 1) {
-      throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-    }
-    if (maxDepth < 0) {
-      throw ArgumentError.value(maxDepth, 'maxDepth', 'Must not be negative.');
-    }
+    requirePositiveInt(maxEntries, 'maxEntries');
+    requirePositiveInt(maxBytes, 'maxBytes');
+    requireNonNegativeInt(maxDepth, 'maxDepth');
     if (directoryIdleTimeout <= Duration.zero ||
         operationTimeout <= Duration.zero ||
         totalTimeout <= Duration.zero) {

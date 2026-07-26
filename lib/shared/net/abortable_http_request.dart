@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 
 /// 将普通 package:http 请求作为 [http.AbortableRequest] 发送。
@@ -14,9 +15,7 @@ Future<http.StreamedResponse> sendAbortableHttpRequest({
   required Duration connectionTimeout,
   Future<void>? cancelSignal,
 }) async {
-  if (connectionTimeout <= Duration.zero) {
-    throw ArgumentError.value(connectionTimeout, 'connectionTimeout', '必须大于零。');
-  }
+  requirePositiveDuration(connectionTimeout, 'connectionTimeout');
   if (request.finalized) {
     throw StateError('不能重复发送已完成构建的 HTTP 请求。');
   }
