@@ -1061,38 +1061,56 @@ Future<void> _handleAgentAction(
   }
 }
 
+/// 打开跟随控制器实时刷新的数字员工弹窗。
+///
+/// 统一订阅 [AgentsController] 并解析最新快照——员工在弹窗打开期间被删除时
+/// 回落到入参快照，避免弹窗内容突然清空。
+Future<void> _showLiveAgentDialog(
+  BuildContext context,
+  AgentProfile agent, {
+  required double maxWidth,
+  required double maxHeight,
+  required Widget Function(BuildContext context, AgentProfile currentAgent)
+  builder,
+}) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => Consumer<AgentsController>(
+      builder: (context, controller, _) => buildOpenHandDialog(
+        maxWidth: maxWidth,
+        maxHeight: maxHeight,
+        child: builder(context, controller.agentById(agent.id) ?? agent),
+      ),
+    ),
+  );
+}
+
 Future<void> _showAgentActivitiesDialog(
   BuildContext context,
   AgentProfile agent,
 ) {
   final l10n = AppLocalizations.of(context)!;
-  return showAnimatedDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return Consumer<AgentsController>(
-        builder: (context, controller, _) {
-          final currentAgent = controller.agentById(agent.id) ?? agent;
-          final activities = currentAgent.activities;
-          return buildOpenHandDialog(
-            maxWidth: 820,
-            maxHeight: 680,
-            child: _AgentDialogScaffold(
-              icon: Icons.history_rounded,
-              title: l10n.agentsDialogTitleWithName(
-                l10n.agentsActivities,
-                currentAgent.name,
-              ),
-              scrollable: activities.isEmpty,
-              child: activities.isEmpty
-                  ? FeatureStateCard.inline(
-                      icon: Icons.history_rounded,
-                      title: l10n.agentsActivitiesEmptyTitle,
-                      body: l10n.agentsListEmptyBody,
-                    )
-                  : _AgentActivityStream(activities: activities),
-            ),
-          );
-        },
+  return _showLiveAgentDialog(
+    context,
+    agent,
+    maxWidth: 820,
+    maxHeight: 680,
+    builder: (context, currentAgent) {
+      final activities = currentAgent.activities;
+      return _AgentDialogScaffold(
+        icon: Icons.history_rounded,
+        title: l10n.agentsDialogTitleWithName(
+          l10n.agentsActivities,
+          currentAgent.name,
+        ),
+        scrollable: activities.isEmpty,
+        child: activities.isEmpty
+            ? FeatureStateCard.inline(
+                icon: Icons.history_rounded,
+                title: l10n.agentsActivitiesEmptyTitle,
+                body: l10n.agentsListEmptyBody,
+              )
+            : _AgentActivityStream(activities: activities),
       );
     },
   );
@@ -1292,35 +1310,26 @@ Future<void> _showAgentCapabilityLogsDialog(
   AgentProfile agent,
 ) {
   final l10n = AppLocalizations.of(context)!;
-  return showAnimatedDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return Consumer<AgentsController>(
-        builder: (context, controller, _) {
-          final currentAgent = controller.agentById(agent.id) ?? agent;
-          final events = currentAgent.auditEvents;
-          return buildOpenHandDialog(
-            maxWidth: 860,
-            maxHeight: 700,
-            child: _AgentDialogScaffold(
-              icon: Icons.receipt_long_rounded,
-              title: l10n.agentsDialogTitleWithName(
-                l10n.agentsCapabilityLogs,
-                currentAgent.name,
-              ),
-              child: events.isEmpty
-                  ? FeatureStateCard.inline(
-                      icon: Icons.receipt_long_rounded,
-                      title: l10n.agentsLogsEmptyTitle,
-                      body: l10n.agentsListEmptyBody,
-                    )
-                  : _AgentCapabilityLogBody(
-                      agent: currentAgent,
-                      events: events,
-                    ),
-            ),
-          );
-        },
+  return _showLiveAgentDialog(
+    context,
+    agent,
+    maxWidth: 860,
+    maxHeight: 700,
+    builder: (context, currentAgent) {
+      final events = currentAgent.auditEvents;
+      return _AgentDialogScaffold(
+        icon: Icons.receipt_long_rounded,
+        title: l10n.agentsDialogTitleWithName(
+          l10n.agentsCapabilityLogs,
+          currentAgent.name,
+        ),
+        child: events.isEmpty
+            ? FeatureStateCard.inline(
+                icon: Icons.receipt_long_rounded,
+                title: l10n.agentsLogsEmptyTitle,
+                body: l10n.agentsListEmptyBody,
+              )
+            : _AgentCapabilityLogBody(agent: currentAgent, events: events),
       );
     },
   );
@@ -2289,55 +2298,49 @@ Future<void> _showAgentApprovalsDialog(
   AgentProfile agent,
 ) {
   final l10n = AppLocalizations.of(context)!;
-  return showAnimatedDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return Consumer<AgentsController>(
-        builder: (context, controller, _) {
-          final currentAgent = controller.agentById(agent.id) ?? agent;
-          return buildOpenHandDialog(
-            maxWidth: 820,
-            maxHeight: 680,
-            child: _AgentDialogScaffold(
-              icon: Icons.verified_user_rounded,
-              title: l10n.agentsDialogTitleWithName(
-                l10n.agentsApprovals,
-                currentAgent.name,
-              ),
-              footer: _agentDialogPrimaryActionFooter(
-                icon: Icons.add_moderator_outlined,
-                onPressed: () =>
-                    _showAgentApprovalRequestDialog(context, currentAgent),
-                label: openHandLocalizedText(
+  return _showLiveAgentDialog(
+    context,
+    agent,
+    maxWidth: 820,
+    maxHeight: 680,
+    builder: (context, currentAgent) {
+      return _AgentDialogScaffold(
+        icon: Icons.verified_user_rounded,
+        title: l10n.agentsDialogTitleWithName(
+          l10n.agentsApprovals,
+          currentAgent.name,
+        ),
+        footer: _agentDialogPrimaryActionFooter(
+          icon: Icons.add_moderator_outlined,
+          onPressed: () =>
+              _showAgentApprovalRequestDialog(context, currentAgent),
+          label: openHandLocalizedText(
+            context,
+            zh: '发起审批',
+            en: 'Request approval',
+          ),
+        ),
+        child: currentAgent.approvals.isEmpty
+            ? FeatureStateCard.inline(
+                icon: Icons.verified_user_outlined,
+                title: l10n.agentsApprovalsEmptyTitle,
+                body: l10n.agentsListEmptyBody,
+              )
+            : _AgentApprovalsBody(
+                approvals: currentAgent.approvals,
+                onApproved: (approval) => _resolveAgentApprovalFromDialog(
                   context,
-                  zh: '发起审批',
-                  en: 'Request approval',
+                  currentAgent,
+                  approval,
+                  AgentApprovalStatus.approved,
+                ),
+                onRejected: (approval) => _resolveAgentApprovalFromDialog(
+                  context,
+                  currentAgent,
+                  approval,
+                  AgentApprovalStatus.rejected,
                 ),
               ),
-              child: currentAgent.approvals.isEmpty
-                  ? FeatureStateCard.inline(
-                      icon: Icons.verified_user_outlined,
-                      title: l10n.agentsApprovalsEmptyTitle,
-                      body: l10n.agentsListEmptyBody,
-                    )
-                  : _AgentApprovalsBody(
-                      approvals: currentAgent.approvals,
-                      onApproved: (approval) => _resolveAgentApprovalFromDialog(
-                        dialogContext,
-                        currentAgent,
-                        approval,
-                        AgentApprovalStatus.approved,
-                      ),
-                      onRejected: (approval) => _resolveAgentApprovalFromDialog(
-                        dialogContext,
-                        currentAgent,
-                        approval,
-                        AgentApprovalStatus.rejected,
-                      ),
-                    ),
-            ),
-          );
-        },
       );
     },
   );
@@ -3217,39 +3220,32 @@ class _AgentClusterSettingsEditorState
 
 Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
   final l10n = AppLocalizations.of(context)!;
-  return showAnimatedDialog<void>(
-    context: context,
-    builder: (_) => Consumer<AgentsController>(
-      builder: (context, controller, _) {
-        final currentAgent = controller.agentById(agent.id) ?? agent;
-        return buildOpenHandDialog(
-          maxWidth: 960,
-          maxHeight: 720,
-          child: _AgentDialogScaffold(
-            icon: Icons.task_alt_rounded,
-            title: l10n.agentsDialogTitleWithName(
-              l10n.agentsTaskDesk,
-              currentAgent.name,
-            ),
-            footer: _agentDialogPrimaryActionFooter(
-              icon: Icons.add_task_rounded,
-              onPressed: () => _showPublishTaskDialog(context, currentAgent),
-              label: l10n.agentsPublishTask,
-            ),
-            child: currentAgent.tasks.isEmpty
-                ? FeatureStateCard.inline(
-                    icon: Icons.task_alt_rounded,
-                    title: l10n.agentsNoTasksTitle,
-                    body: l10n.agentsNoTasksBody,
-                  )
-                : _AgentTasksBody(
-                    agent: currentAgent,
-                    tasks: currentAgent.tasks,
-                  ),
-          ),
-        );
-      },
-    ),
+  return _showLiveAgentDialog(
+    context,
+    agent,
+    maxWidth: 960,
+    maxHeight: 720,
+    builder: (context, currentAgent) {
+      return _AgentDialogScaffold(
+        icon: Icons.task_alt_rounded,
+        title: l10n.agentsDialogTitleWithName(
+          l10n.agentsTaskDesk,
+          currentAgent.name,
+        ),
+        footer: _agentDialogPrimaryActionFooter(
+          icon: Icons.add_task_rounded,
+          onPressed: () => _showPublishTaskDialog(context, currentAgent),
+          label: l10n.agentsPublishTask,
+        ),
+        child: currentAgent.tasks.isEmpty
+            ? FeatureStateCard.inline(
+                icon: Icons.task_alt_rounded,
+                title: l10n.agentsNoTasksTitle,
+                body: l10n.agentsNoTasksBody,
+              )
+            : _AgentTasksBody(agent: currentAgent, tasks: currentAgent.tasks),
+      );
+    },
   );
 }
 
@@ -4233,47 +4229,39 @@ Future<void> _showAgentAuditDialog(BuildContext context, AgentProfile agent) {
 
 Future<void> _showAgentKpiDialog(BuildContext context, AgentProfile agent) {
   final l10n = AppLocalizations.of(context)!;
-  return showAnimatedDialog<void>(
-    context: context,
-    builder: (_) => Consumer<AgentsController>(
-      builder: (context, controller, _) {
-        final currentAgent = controller.agentById(agent.id) ?? agent;
-        return buildOpenHandDialog(
-          maxWidth: 860,
-          maxHeight: 680,
-          child: _AgentDialogScaffold(
-            icon: Icons.flag_rounded,
-            title: l10n.agentsDialogTitleWithName(
-              l10n.agentsKpi,
-              currentAgent.name,
-            ),
-            footer: _agentDialogPrimaryActionFooter(
-              icon: Icons.add_rounded,
-              onPressed: () async {
-                final draft = await _showAgentKpiEditorDialog(context);
-                if (draft == null || !context.mounted) return;
-                await context.read<AgentsController>().saveKpi(
-                  currentAgent.id,
-                  draft,
-                );
-              },
-              label: openHandLocalizedText(
-                context,
-                zh: '新增 KPI',
-                en: 'Add KPI',
-              ),
-            ),
-            child: currentAgent.kpis.isEmpty
-                ? FeatureStateCard.inline(
-                    icon: Icons.flag_outlined,
-                    title: l10n.agentsNoKpiTitle,
-                    body: l10n.agentsNoKpiBody,
-                  )
-                : _AgentKpiBody(agent: currentAgent, kpis: currentAgent.kpis),
-          ),
-        );
-      },
-    ),
+  return _showLiveAgentDialog(
+    context,
+    agent,
+    maxWidth: 860,
+    maxHeight: 680,
+    builder: (context, currentAgent) {
+      return _AgentDialogScaffold(
+        icon: Icons.flag_rounded,
+        title: l10n.agentsDialogTitleWithName(
+          l10n.agentsKpi,
+          currentAgent.name,
+        ),
+        footer: _agentDialogPrimaryActionFooter(
+          icon: Icons.add_rounded,
+          onPressed: () async {
+            final draft = await _showAgentKpiEditorDialog(context);
+            if (draft == null || !context.mounted) return;
+            await context.read<AgentsController>().saveKpi(
+              currentAgent.id,
+              draft,
+            );
+          },
+          label: openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI'),
+        ),
+        child: currentAgent.kpis.isEmpty
+            ? FeatureStateCard.inline(
+                icon: Icons.flag_outlined,
+                title: l10n.agentsNoKpiTitle,
+                body: l10n.agentsNoKpiBody,
+              )
+            : _AgentKpiBody(agent: currentAgent, kpis: currentAgent.kpis),
+      );
+    },
   );
 }
 

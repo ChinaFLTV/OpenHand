@@ -2297,6 +2297,8 @@ const double _mcpOpsDialogMaxWidth = 1180;
 const double _mcpOpsDialogMaxHeight = 860;
 const double _mcpOpsOuterRadius = 28;
 const double _mcpOpsShellRadius = 20;
+const double _mcpOpsSubDialogWidthFraction = 0.94;
+const double _mcpOpsSubDialogHeightFraction = 0.92;
 const double _mcpOpsPanelRadius = 14;
 const double _mcpOpsControlRadius = 12;
 const double _mcpOpsGridGap = 16;
@@ -4524,6 +4526,38 @@ class _McpOpsInsightSpec {
   final String subtitle;
   final Color? tone;
   final _McpOpsInsightSections sections;
+}
+
+/// MCP 运维子弹窗的统一外壳：透明底 + 圆角裁切 + 控制台表面 + 拉伸列布局。
+///
+/// 主控制台自带更宽的边距与标签页，不走这里；三个详情/编辑子弹窗共用同一份
+/// 尺寸与视觉，避免各自复制一遍外壳参数后逐渐漂移。
+Widget buildMcpOpsSubDialog({
+  required BuildContext context,
+  required double maxWidth,
+  double maxHeight = kOpenHandToolDialogDefaultMaxHeight,
+  required List<Widget> children,
+}) {
+  return buildOpenHandResponsiveDialogShell(
+    context: context,
+    maxWidth: maxWidth,
+    maxHeight: maxHeight,
+    maxWidthFraction: _mcpOpsSubDialogWidthFraction,
+    maxHeightFraction: _mcpOpsSubDialogHeightFraction,
+    backgroundColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
+    ),
+    child: _McpOpsDialogSurface(
+      child: _McpOpsConsoleShell(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ),
+    ),
+  );
 }
 
 class _McpOpsDialogSurface extends StatelessWidget {
@@ -7407,58 +7441,42 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
     final fields = _schemaFields(currentSchema);
     return _McpOpsRouteEscapeDismissScope(
       enabled: !_saving,
-      child: buildOpenHandResponsiveDialogShell(
+      child: buildMcpOpsSubDialog(
         context: context,
         maxWidth: 820,
-        maxWidthFraction: 0.94,
-        maxHeightFraction: 0.92,
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
-        ),
-        child: _McpOpsDialogSurface(
-          child: _McpOpsConsoleShell(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHero(context, theme, cs),
-                const SizedBox(height: 14),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: openHandDialogAwareScrollPhysics(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_editable)
-                          _McpOpsSchemaFormEditor(
-                            scope: _schemaDraft,
-                            onChanged: () {
-                              setState(() {
-                                _error = null;
-                                _syncSourceFromDraft();
-                              });
-                            },
-                          )
-                        else
-                          _McpOpsSchemaFieldList(fields: fields),
-                        const SizedBox(height: _mcpOpsGridGap),
-                        _buildSourcePanel(context),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 10),
-                  _McpOpsHeaderMessage(text: _error!, tone: cs.error),
+        children: [
+          _buildHero(context, theme, cs),
+          const SizedBox(height: 14),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: openHandDialogAwareScrollPhysics(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_editable)
+                    _McpOpsSchemaFormEditor(
+                      scope: _schemaDraft,
+                      onChanged: () {
+                        setState(() {
+                          _error = null;
+                          _syncSourceFromDraft();
+                        });
+                      },
+                    )
+                  else
+                    _McpOpsSchemaFieldList(fields: fields),
+                  const SizedBox(height: _mcpOpsGridGap),
+                  _buildSourcePanel(context),
                 ],
-                buildOpenHandDialogActionsBar(
-                  actions: _buildActions(context, l10n),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            _McpOpsHeaderMessage(text: _error!, tone: cs.error),
+          ],
+          buildOpenHandDialogActionsBar(actions: _buildActions(context, l10n)),
+        ],
       ),
     );
   }
@@ -8816,158 +8834,120 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = _mcpOpsAuditStatusColor(context, entry);
-    final content = buildOpenHandResponsiveDialogShell(
+    final content = buildMcpOpsSubDialog(
       context: context,
       maxWidth: 920,
       maxHeight: 760,
-      maxWidthFraction: 0.94,
-      maxHeightFraction: 0.92,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
-      ),
-      child: _McpOpsDialogSurface(
-        child: _McpOpsConsoleShell(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHero(context, statusColor),
+        const SizedBox(height: 14),
+        Expanded(
+          child: ListView(
+            physics: openHandDialogAwareScrollPhysics(context),
+            padding: EdgeInsets.zero,
             children: [
-              _buildHero(context, statusColor),
-              const SizedBox(height: 14),
-              Expanded(
-                child: ListView(
-                  physics: openHandDialogAwareScrollPhysics(context),
-                  padding: EdgeInsets.zero,
-                  children: [
-                    _McpOpsDetailSection(
-                      icon: Icons.route_rounded,
-                      title: _localizedText(
-                        context,
-                        zh: '调用环节',
-                        en: 'Call Stage',
-                      ),
-                      rows: {
-                        _localizedText(context, zh: '环节', en: 'Stage'):
-                            _mcpOpsAuditKindLabel(context, entry.kind),
-                        _localizedText(context, zh: '工具/方法', en: 'Tool/Method'):
-                            _mcpOpsAuditTitle(context, entry),
-                        _localizedText(
-                          context,
-                          zh: '暴露面',
-                          en: 'Surface',
-                        ): _mcpOpsSurfaceLabelFromValue(
-                          context,
-                          entry.surface,
-                        ),
-                        _localizedText(
-                          context,
-                          zh: '接口',
-                          en: 'Endpoint',
-                        ): _mcpOpsEndpointLabel(
-                          context,
-                          entry.endpoint,
-                          surfaceValue: entry.surface,
-                        ),
-                        _localizedText(context, zh: '状态', en: 'Status'):
-                            _mcpOpsAuditStatusLabel(context, entry.status),
-                        _localizedText(context, zh: '日志ID', en: 'Log ID'):
-                            entry.id,
-                      },
-                    ),
-                    const SizedBox(height: _mcpOpsGridGap),
-                    _McpOpsDetailSection(
-                      icon: Icons.speed_rounded,
-                      title: _localizedText(
-                        context,
-                        zh: '性能与流量',
-                        en: 'Performance',
-                      ),
-                      rows: {
-                        _localizedText(context, zh: '调用耗时', en: 'Duration'):
-                            '${entry.durationMs}ms',
-                        _localizedText(
-                          context,
-                          zh: 'Token数',
-                          en: 'Tokens',
-                        ): '${entry.totalTokens} (${entry.promptTokens} + ${entry.completionTokens})',
-                        _localizedText(context, zh: '入口流量', en: 'Inbound'):
-                            formatByteSize(entry.inboundBytes),
-                        _localizedText(context, zh: '出口流量', en: 'Outbound'):
-                            formatByteSize(entry.outboundBytes),
-                      },
-                    ),
-                    const SizedBox(height: _mcpOpsGridGap),
-                    _McpOpsDetailSection(
-                      icon: Icons.hub_rounded,
-                      title: _localizedText(
-                        context,
-                        zh: '来源与环境',
-                        en: 'Peer & Environment',
-                      ),
-                      rows: {
-                        _localizedText(context, zh: '请求时间', en: 'Time'):
-                            formatYearMonthDayHms(entry.timestamp.toLocal()),
-                        _localizedText(context, zh: '来源客户端', en: 'Client'):
-                            entry.clientName,
-                        _localizedText(context, zh: '来源地址', en: 'Peer'):
-                            entry.ipAddress,
-                        _localizedText(context, zh: '协议', en: 'Protocol'):
-                            _mcpOpsDisplayAuditValue(context, entry.protocol),
-                        _localizedText(context, zh: '模型', en: 'Model'):
-                            _mcpOpsDisplayAuditValue(context, entry.model),
-                        for (final environmentEntry
-                            in entry.environment.entries)
-                          _mcpOpsEnvironmentLabel(
-                            context,
-                            environmentEntry.key,
-                          ): _mcpOpsEnvironmentValue(
-                            context,
-                            environmentEntry.key,
-                            environmentEntry.value,
-                          ),
-                      },
-                    ),
-                    if (entry.errorMessage.trim().isNotEmpty) ...[
-                      const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsDetailText(
-                        icon: Icons.report_gmailerrorred_rounded,
-                        title: _localizedText(context, zh: '错误信息', en: 'Error'),
-                        text: entry.errorMessage,
-                        tone: statusColor,
-                      ),
-                    ],
-                    const SizedBox(height: _mcpOpsGridGap),
-                    _McpOpsStructuredPayload(
-                      title: _localizedText(
-                        context,
-                        zh: '请求参数',
-                        en: 'Parameters',
-                      ),
-                      text: entry.argumentsPreview,
-                    ),
-                    const SizedBox(height: _mcpOpsGridGap),
-                    _McpOpsDetailText(
-                      icon: Icons.http_rounded,
-                      title: _localizedText(context, zh: '请求摘要', en: 'Request'),
-                      text: entry.requestSummary,
-                    ),
-                    const SizedBox(height: _mcpOpsGridGap),
-                    _McpOpsStructuredPayload(
-                      icon: Icons.subject_rounded,
-                      title: _localizedText(
-                        context,
-                        zh: '响应内容',
-                        en: 'Response',
-                      ),
-                      text: entry.responsePreview,
-                    ),
-                  ],
+              _McpOpsDetailSection(
+                icon: Icons.route_rounded,
+                title: _localizedText(context, zh: '调用环节', en: 'Call Stage'),
+                rows: {
+                  _localizedText(context, zh: '环节', en: 'Stage'):
+                      _mcpOpsAuditKindLabel(context, entry.kind),
+                  _localizedText(context, zh: '工具/方法', en: 'Tool/Method'):
+                      _mcpOpsAuditTitle(context, entry),
+                  _localizedText(context, zh: '暴露面', en: 'Surface'):
+                      _mcpOpsSurfaceLabelFromValue(context, entry.surface),
+                  _localizedText(
+                    context,
+                    zh: '接口',
+                    en: 'Endpoint',
+                  ): _mcpOpsEndpointLabel(
+                    context,
+                    entry.endpoint,
+                    surfaceValue: entry.surface,
+                  ),
+                  _localizedText(context, zh: '状态', en: 'Status'):
+                      _mcpOpsAuditStatusLabel(context, entry.status),
+                  _localizedText(context, zh: '日志ID', en: 'Log ID'): entry.id,
+                },
+              ),
+              const SizedBox(height: _mcpOpsGridGap),
+              _McpOpsDetailSection(
+                icon: Icons.speed_rounded,
+                title: _localizedText(context, zh: '性能与流量', en: 'Performance'),
+                rows: {
+                  _localizedText(context, zh: '调用耗时', en: 'Duration'):
+                      '${entry.durationMs}ms',
+                  _localizedText(
+                    context,
+                    zh: 'Token数',
+                    en: 'Tokens',
+                  ): '${entry.totalTokens} (${entry.promptTokens} + ${entry.completionTokens})',
+                  _localizedText(context, zh: '入口流量', en: 'Inbound'):
+                      formatByteSize(entry.inboundBytes),
+                  _localizedText(context, zh: '出口流量', en: 'Outbound'):
+                      formatByteSize(entry.outboundBytes),
+                },
+              ),
+              const SizedBox(height: _mcpOpsGridGap),
+              _McpOpsDetailSection(
+                icon: Icons.hub_rounded,
+                title: _localizedText(
+                  context,
+                  zh: '来源与环境',
+                  en: 'Peer & Environment',
                 ),
+                rows: {
+                  _localizedText(context, zh: '请求时间', en: 'Time'):
+                      formatYearMonthDayHms(entry.timestamp.toLocal()),
+                  _localizedText(context, zh: '来源客户端', en: 'Client'):
+                      entry.clientName,
+                  _localizedText(context, zh: '来源地址', en: 'Peer'):
+                      entry.ipAddress,
+                  _localizedText(context, zh: '协议', en: 'Protocol'):
+                      _mcpOpsDisplayAuditValue(context, entry.protocol),
+                  _localizedText(context, zh: '模型', en: 'Model'):
+                      _mcpOpsDisplayAuditValue(context, entry.model),
+                  for (final environmentEntry in entry.environment.entries)
+                    _mcpOpsEnvironmentLabel(
+                      context,
+                      environmentEntry.key,
+                    ): _mcpOpsEnvironmentValue(
+                      context,
+                      environmentEntry.key,
+                      environmentEntry.value,
+                    ),
+                },
+              ),
+              if (entry.errorMessage.trim().isNotEmpty) ...[
+                const SizedBox(height: _mcpOpsGridGap),
+                _McpOpsDetailText(
+                  icon: Icons.report_gmailerrorred_rounded,
+                  title: _localizedText(context, zh: '错误信息', en: 'Error'),
+                  text: entry.errorMessage,
+                  tone: statusColor,
+                ),
+              ],
+              const SizedBox(height: _mcpOpsGridGap),
+              _McpOpsStructuredPayload(
+                title: _localizedText(context, zh: '请求参数', en: 'Parameters'),
+                text: entry.argumentsPreview,
+              ),
+              const SizedBox(height: _mcpOpsGridGap),
+              _McpOpsDetailText(
+                icon: Icons.http_rounded,
+                title: _localizedText(context, zh: '请求摘要', en: 'Request'),
+                text: entry.requestSummary,
+              ),
+              const SizedBox(height: _mcpOpsGridGap),
+              _McpOpsStructuredPayload(
+                icon: Icons.subject_rounded,
+                title: _localizedText(context, zh: '响应内容', en: 'Response'),
+                text: entry.responsePreview,
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
     return _McpOpsRouteEscapeDismissScope(child: content);
   }
@@ -18031,90 +18011,74 @@ class _McpOpsInsightDialog extends StatelessWidget {
     final accent = tone ?? cs.primary;
     final children = sections(context, data);
     return _McpOpsRouteEscapeDismissScope(
-      child: buildOpenHandResponsiveDialogShell(
+      child: buildMcpOpsSubDialog(
         context: context,
         maxWidth: 940,
         maxHeight: 800,
-        maxWidthFraction: 0.94,
-        maxHeightFraction: 0.92,
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
-        ),
-        child: _McpOpsDialogSurface(
-          child: _McpOpsConsoleShell(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: accent.withValues(alpha: 0.26)),
+                ),
+                child: Icon(icon, color: accent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(13),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.26),
+                    _McpOpsCopyText(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      _McpOpsCopyText(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
-                      child: Icon(icon, color: accent),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _McpOpsCopyText(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          if (subtitle.trim().isNotEmpty) ...[
-                            const SizedBox(height: 3),
-                            _McpOpsCopyText(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).closeButtonTooltip,
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 14),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: openHandDialogAwareScrollPhysics(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < children.length; i++) ...[
-                          if (i != 0) const SizedBox(height: _mcpOpsGridGap),
-                          children[i],
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
+              IconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: openHandDialogAwareScrollPhysics(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i != 0) const SizedBox(height: _mcpOpsGridGap),
+                    children[i],
+                  ],
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

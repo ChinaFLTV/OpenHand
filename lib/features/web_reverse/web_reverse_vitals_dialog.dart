@@ -149,7 +149,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       const Duration(seconds: 1),
       (_) => _pull(),
     );
-    _pull();
+    unawaited(_pull());
   }
 
   Future<void> _pull() async {

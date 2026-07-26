@@ -154,7 +154,7 @@ class HooksView extends StatelessWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    context.read<HooksController>().deleteHook(entry.id);
+    await context.read<HooksController>().deleteHook(entry.id);
   }
 }
 

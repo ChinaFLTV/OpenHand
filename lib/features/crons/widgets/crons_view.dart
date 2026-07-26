@@ -195,7 +195,7 @@ class CronsView extends StatelessWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    context.read<CronsController>().deleteCron(entry.id);
+    await context.read<CronsController>().deleteCron(entry.id);
   }
 }
 
@@ -2059,7 +2059,7 @@ class _CronHistoryDialog extends StatelessWidget {
     if (!confirmed) {
       return;
     }
-    controller.clearHistoryForCron(entry.id);
+    await controller.clearHistoryForCron(entry.id);
   }
 
   Future<bool> _confirmDeleteRecord(
