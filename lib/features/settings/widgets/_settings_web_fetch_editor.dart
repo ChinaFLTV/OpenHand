@@ -37,10 +37,6 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   late TextEditingController _cacheMaxBytesController;
   late TextEditingController _parallelWorkersController;
 
-  // 当前磁盘上已经落盘的 WebFetch 缓存字节数，由 [_refreshCacheBytesOnDisk]
-  // 异步加载；null 代表尚未读取或读取失败。
-
-  // ── Telemetry (调用日志 + 引擎健康度) ──
   WebFetchScraplingProbeStatus _scraplingProbe =
       const WebFetchScraplingProbeStatus(
         ready: false,
