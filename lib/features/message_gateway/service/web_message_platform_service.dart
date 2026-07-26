@@ -69,6 +69,9 @@ part 'web_message_platform_service_auth.part.dart';
 part 'web_message_platform_service_logger.part.dart';
 part 'web_message_platform_service_telemetry.part.dart';
 
+/// 会话不存在或已被删除的错误码，与 Web 端 `api/session_events.ts` 的判定一致。
+const String _kWebGatewayErrorSessionMissing = 'session_deleted_or_not_found';
+
 class _WebWriteApprovalRequest {
   _WebWriteApprovalRequest({
     required this.id,
@@ -2827,9 +2830,7 @@ class WebMessagePlatformService {
   ) async {
     final auth = _authorize(request);
     if (auth == null) {
-      return _json(HttpStatus.unauthorized, <String, Object?>{
-        'error': 'unauthorized',
-      });
+      return _errorJson(HttpStatus.unauthorized, 'unauthorized');
     }
     return handler(request, auth);
   }
@@ -2849,9 +2850,7 @@ class WebMessagePlatformService {
 
   Future<shelf.Response> _opsSnapshot() async {
     if (!_config.opsEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'ops_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'ops_disabled');
     }
     return _json(HttpStatus.ok, (await runtimeSnapshotAsync()).toJson());
   }
@@ -3064,9 +3063,10 @@ class WebMessagePlatformService {
     }
     final controller = _knowledgeBaseController;
     if (controller == null) {
-      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-        'error': 'knowledge_base_unavailable',
-      });
+      return _errorJson(
+        HttpStatus.serviceUnavailable,
+        'knowledge_base_unavailable',
+      );
     }
     final items = controller.sources
         .map(
@@ -3107,9 +3107,7 @@ class WebMessagePlatformService {
       request.url.queryParameters['kind'],
     );
     if (kind == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'resource_usage_kind_invalid',
-      });
+      return _errorJson(HttpStatus.badRequest, 'resource_usage_kind_invalid');
     }
     final store = _sessionController.toolUsagePromotionStore;
     await store.initialize();
@@ -3124,15 +3122,14 @@ class WebMessagePlatformService {
     shelf.Request request,
   ) async {
     if (!_config.knowledgeBaseEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'knowledge_base_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'knowledge_base_disabled');
     }
     final controller = _knowledgeBaseController;
     if (controller == null) {
-      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-        'error': 'knowledge_base_unavailable',
-      });
+      return _errorJson(
+        HttpStatus.serviceUnavailable,
+        'knowledge_base_unavailable',
+      );
     }
     final rawMaxPoints = request.url.queryParameters['max_points'] ?? '';
     final maxPoints = nonNegativeIntFromText(
@@ -3159,29 +3156,27 @@ class WebMessagePlatformService {
     shelf.Request request,
   ) async {
     if (!_config.knowledgeBaseEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'knowledge_base_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'knowledge_base_disabled');
     }
     final controller = _knowledgeBaseController;
     if (controller == null) {
-      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-        'error': 'knowledge_base_unavailable',
-      });
+      return _errorJson(
+        HttpStatus.serviceUnavailable,
+        'knowledge_base_unavailable',
+      );
     }
     final sourceId = (request.url.queryParameters['source_id'] ?? '').trim();
     final chunkId = (request.url.queryParameters['chunk_id'] ?? '').trim();
     if (sourceId.isEmpty || chunkId.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'source_id_and_chunk_id_required',
-      });
+      return _errorJson(
+        HttpStatus.badRequest,
+        'source_id_and_chunk_id_required',
+      );
     }
     try {
       final source = await controller.loadSource(sourceId);
       if (source == null) {
-        return _json(HttpStatus.notFound, <String, Object?>{
-          'error': 'knowledge_source_not_found',
-        });
+        return _errorJson(HttpStatus.notFound, 'knowledge_source_not_found');
       }
       final chunks = await controller.loadChunksForSource(sourceId);
       KnowledgeChunk? chunk;
@@ -3347,16 +3342,13 @@ class WebMessagePlatformService {
     final sessionId = _string(body['session_id'], '').trim();
     final parsed = _parseModelKey(modelKey);
     if (parsed == null || effort.isEmpty || sessionId.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_key_effort_and_session_id_required',
-      });
+      return _errorJson(
+        HttpStatus.badRequest,
+        'model_key_effort_and_session_id_required',
+      );
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     if (await _resolveSessionInputCacheModelSelectionLocked(session)) {
       return _json(HttpStatus.conflict, <String, Object?>{
         'error': 'input_cache_model_selection_locked',
@@ -3364,9 +3356,7 @@ class WebMessagePlatformService {
       });
     }
     if (!_allowedModels().any((model) => model.key == modelKey)) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'model_not_found_or_not_allowed',
-      });
+      return _errorJson(HttpStatus.notFound, 'model_not_found_or_not_allowed');
     }
     AiModelConfig? provider;
     for (final item in _settingsController.aiModels) {
@@ -3377,9 +3367,7 @@ class WebMessagePlatformService {
       }
     }
     if (provider == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'model_not_found_or_not_allowed',
-      });
+      return _errorJson(HttpStatus.notFound, 'model_not_found_or_not_allowed');
     }
     final resolvedModel = provider.copyWith(modelId: parsed.modelId);
     final profile = resolvedModel.profileFor(parsed.modelId);
@@ -3388,9 +3376,7 @@ class WebMessagePlatformService {
         .toList(growable: false);
     if (!resolvedModel.resolvedReasoningEffortControlEnabled ||
         !selectable.any((option) => option.value.toLowerCase() == effort)) {
-      return _json(HttpStatus.conflict, <String, Object?>{
-        'error': 'reasoning_effort_not_supported',
-      });
+      return _errorJson(HttpStatus.conflict, 'reasoning_effort_not_supported');
     }
     final saved = await _settingsController.updateAiModelReasoningEffort(
       parsed.providerId,
@@ -3398,9 +3384,10 @@ class WebMessagePlatformService {
       effort,
     );
     if (!saved) {
-      return _json(HttpStatus.internalServerError, <String, Object?>{
-        'error': 'reasoning_effort_save_failed',
-      });
+      return _errorJson(
+        HttpStatus.internalServerError,
+        'reasoning_effort_save_failed',
+      );
     }
     final updatedProvider = _settingsController.aiModels
         .where((item) => item.id == parsed.providerId)
@@ -3769,9 +3756,7 @@ class WebMessagePlatformService {
           'device_id': deviceId,
           'remote_ip': remoteAddress,
         });
-        return _json(HttpStatus.unauthorized, <String, Object?>{
-          'error': 'invalid_credentials',
-        });
+        return _errorJson(HttpStatus.unauthorized, 'invalid_credentials');
       }
     }
     final token = _makeToken();
@@ -3925,16 +3910,12 @@ class WebMessagePlatformService {
     final body = await _readJsonBody(request);
     final templateId = _string(body['template_id'], 'default').trim();
     if (!_templateAllowed(templateId)) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'template_not_allowed',
-      });
+      return _errorJson(HttpStatus.forbidden, 'template_not_allowed');
     }
     final requestedMode = _string(body['mode'], 'chat').trim();
     if (requestedMode == 'goal' &&
         !aiSessionGoalModeAllowedForTemplate(templateId)) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'goal_mode_not_available',
-      });
+      return _errorJson(HttpStatus.forbidden, 'goal_mode_not_available');
     }
     if (requestedMode.isNotEmpty &&
         requestedMode != 'chat' &&
@@ -3976,9 +3957,7 @@ class WebMessagePlatformService {
       awaitStartHook: false,
     );
     if (!ok || _sessionController.currentSession == null) {
-      return _json(HttpStatus.internalServerError, <String, Object?>{
-        'error': 'create_failed',
-      });
+      return _errorJson(HttpStatus.internalServerError, 'create_failed');
     }
     var session = _sessionController.currentSession!;
     if (requestedModel != null) {
@@ -4037,11 +4016,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final includeCacheHitTrend = _truthy(
       request.requestedUri.queryParameters['hydrate_cache_statistics'],
     );
@@ -4105,9 +4080,7 @@ class WebMessagePlatformService {
     final includeHistory = _includeTerminalHistory(request, body);
     final data = _string(body['data'] ?? body['text'] ?? body['input'], '');
     if (data.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'terminal_input_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'terminal_input_required');
     }
     await _machineTerminalService.writeInput(
       sessionId: session.id,
@@ -4137,9 +4110,7 @@ class WebMessagePlatformService {
     final includeHistory = _includeTerminalHistory(request, body);
     final command = _string(body['command'] ?? body['cmd'], '').trimRight();
     if (command.trim().isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'terminal_command_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'terminal_command_required');
     }
     final timeout = Duration(milliseconds: _terminalTimeoutMs(body));
     final result = await _machineTerminalService.executeCommand(
@@ -4171,9 +4142,7 @@ class WebMessagePlatformService {
     final includeHistory = _includeTerminalHistory(request, body);
     final action = _string(body['action'], '').trim();
     if (action.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'terminal_action_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'terminal_action_required');
     }
     try {
       final snapshot = await _machineTerminalService.control(
@@ -4221,20 +4190,12 @@ class WebMessagePlatformService {
     final hasFullAccess = body.containsKey('full_access_permission');
     if (!_config.sessionManagementEnabled &&
         (hasTitle || hasMode || hasFullAccess)) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'session_management_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'session_management_disabled');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     if (!hasTitle && !hasMode && !hasFullAccess) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'session_patch_empty',
-      });
+      return _errorJson(HttpStatus.badRequest, 'session_patch_empty');
     }
     var ok = true;
     var updated = session;
@@ -4243,9 +4204,7 @@ class WebMessagePlatformService {
     if (hasTitle) {
       final title = _string(body['title'], '').trim();
       if (title.isEmpty) {
-        return _json(HttpStatus.badRequest, <String, Object?>{
-          'error': 'title_required',
-        });
+        return _errorJson(HttpStatus.badRequest, 'title_required');
       }
       final renamed = await _sessionController.renameSession(session.id, title);
       ok = ok && renamed;
@@ -4269,15 +4228,11 @@ class WebMessagePlatformService {
       }
       final mode = AiSessionMode.fromStorage(rawMode);
       if (mode == AiSessionMode.plan && !_config.planModeEnabled) {
-        return _json(HttpStatus.forbidden, <String, Object?>{
-          'error': 'plan_mode_disabled',
-        });
+        return _errorJson(HttpStatus.forbidden, 'plan_mode_disabled');
       }
       if (mode == AiSessionMode.goal &&
           !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
-        return _json(HttpStatus.forbidden, <String, Object?>{
-          'error': 'goal_mode_not_available',
-        });
+        return _errorJson(HttpStatus.forbidden, 'goal_mode_not_available');
       }
       final updatedMode = await _sessionController.updateSessionMode(
         session.id,
@@ -4321,16 +4276,10 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     if (!_config.sessionManagementEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'session_management_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'session_management_disabled');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final deletedBy = auth.deviceName.trim().isEmpty
         ? auth.source.storageValue
         : auth.browserName.trim().isEmpty
@@ -4362,11 +4311,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final limit = _queryInt(request, 'limit', fallback: 80, min: 1, max: 200);
     final rawOffset = _queryInt(request, 'offset', fallback: 0, min: 0);
     final tail =
@@ -4420,11 +4365,7 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     AiSessionMessage? message;
     try {
       message = await _sessionController.store.loadMessage(
@@ -4432,14 +4373,10 @@ class WebMessagePlatformService {
         messageId,
       );
     } on ArgumentError {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'invalid_message_id',
-      });
+      return _errorJson(HttpStatus.badRequest, 'invalid_message_id');
     }
     if (message == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'message_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'message_not_found');
     }
     return _json(HttpStatus.ok, <String, Object?>{
       'message': _messageJson(message, includeTelemetryMetadata: true),
@@ -4452,11 +4389,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     try {
       final sourceMessages = await _loadTitleSourceMessages(session);
       final userMessages = sourceMessages
@@ -4576,11 +4509,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final exportSession = await _loadExportSessionSnapshot(session);
     final filename = buildJsonlExportFilename(
       title: exportSession.title,
@@ -4687,11 +4616,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final recentMessageWindow = await _loadStoredMessageWindow(
       session,
       limit: _settingsController.aiInputCacheEnabled
@@ -4704,9 +4629,7 @@ class WebMessagePlatformService {
       session.displayMessages.length,
     );
     if (existingMessageCount >= _config.maxMessagesPerSession) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'session_message_limit_reached',
-      });
+      return _errorJson(HttpStatus.forbidden, 'session_message_limit_reached');
     }
     final body = await _readJsonBody(
       request,
@@ -4726,9 +4649,7 @@ class WebMessagePlatformService {
         WebGatewayConversationMode.fromStorage(rawMode) ??
         WebGatewayConversationMode.normal;
     if (!_config.allowedConversationModes.contains(conversationMode)) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'conversation_mode_not_allowed',
-      });
+      return _errorJson(HttpStatus.forbidden, 'conversation_mode_not_allowed');
     }
     final rawAttachments = body['attachments'];
     if (rawAttachments is List &&
@@ -4747,24 +4668,18 @@ class WebMessagePlatformService {
           WebGatewayMessageType.attachment,
         )) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'attachments_not_allowed',
-      });
+      return _errorJson(HttpStatus.forbidden, 'attachments_not_allowed');
     }
     if (content.isNotEmpty &&
         !_config.allowedMessageTypes.contains(WebGatewayMessageType.text)) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'text_not_allowed',
-      });
+      return _errorJson(HttpStatus.forbidden, 'text_not_allowed');
     }
     final requestedModelKey = _string(body['model_key'], '').trim();
     final model = _resolveModel(requestedModelKey);
     if (model == null) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_not_configured',
-      });
+      return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
     if (_isSessionInputCacheModelSelectionLocked(
       session,
@@ -4801,9 +4716,7 @@ class WebMessagePlatformService {
     );
     if (selectedSkill.error != null) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': selectedSkill.error,
-      });
+      return _errorJson(HttpStatus.badRequest, selectedSkill.error!);
     }
     // 本轮临时跳过的用户指令（与 App 端 _ComposerInstructionsStrip 一致），
     // 仅作用于本次 send，不持久化。
@@ -4843,16 +4756,12 @@ class WebMessagePlatformService {
         : AiSessionGoalStartOptions.fromJson(goalOptionsRaw);
     if (goalOptionsRaw != null && goalStartOptions == null) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'goal_options_invalid',
-      });
+      return _errorJson(HttpStatus.badRequest, 'goal_options_invalid');
     }
     if (goalStartOptions != null &&
         !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'goal_mode_not_available',
-      });
+      return _errorJson(HttpStatus.forbidden, 'goal_mode_not_available');
     }
     final allowQueuedGoalInterruption =
         boolFromValue(body['allow_queued_goal_interruption']) ||
@@ -4868,9 +4777,7 @@ class WebMessagePlatformService {
         goalStartOptions == null &&
         !allowQueuedGoalInterruption) {
       await _deleteMaterializedAttachments(attachments);
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'goal_options_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'goal_options_required');
     }
     // 单一发送通道 + 互斥：同一会话若已在 sending/responding/streaming/finalizing
     // 等任一非 idle 阶段，立刻拒绝新的 web 端发送，避免并发触发同一控制器。
@@ -4964,41 +4871,30 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     if (!_config.feedbackEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'message_feedback_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'message_feedback_disabled');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final body = await _readJsonBody(request, maxBytes: 4096);
     if (!body.containsKey('feedback')) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'feedback_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'feedback_required');
     }
     final rawFeedback = body['feedback'];
     final feedback = AiSessionMessageFeedback.fromStorage(rawFeedback);
     if (rawFeedback != null &&
         '$rawFeedback'.trim().isNotEmpty &&
         feedback == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'invalid_feedback',
-      });
+      return _errorJson(HttpStatus.badRequest, 'invalid_feedback');
     }
     final message = await _loadMessageForWebOperation(session, messageId);
     if (message == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'message_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'message_not_found');
     }
     if (!_messageSupportsWebFeedback(message)) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'message_feedback_not_supported',
-      });
+      return _errorJson(
+        HttpStatus.badRequest,
+        'message_feedback_not_supported',
+      );
     }
     final ok = await _sessionController.updateMessageFeedback(
       sessionId: session.id,
@@ -5038,38 +4934,30 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     if (!_config.translationEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'message_translation_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'message_translation_disabled');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final message = await _loadMessageForWebOperation(session, messageId);
     if (message == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'message_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'message_not_found');
     }
     if (!_messageSupportsWebTextAction(message)) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'message_translation_not_supported',
-      });
+      return _errorJson(
+        HttpStatus.badRequest,
+        'message_translation_not_supported',
+      );
     }
     final settings = _settingsController.aiTranslationSettings;
     if (!settings.enabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'translation_settings_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'translation_settings_disabled');
     }
     final text = _webTranslationMessageText(message, settings);
     if (text == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'message_translation_not_supported',
-      });
+      return _errorJson(
+        HttpStatus.badRequest,
+        'message_translation_not_supported',
+      );
     }
     try {
       final fallbackModel =
@@ -5147,19 +5035,13 @@ class WebMessagePlatformService {
       return _runtimeUnavailableResponse();
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final message = await _loadMessageForWebOperation(session, messageId);
     if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
       return _runtimeUnavailableResponse();
     }
     if (message == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'message_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'message_not_found');
     }
     if (_ttsPlaybackService.isPlayingMessage(message.id)) {
       await _ttsPlaybackService.stop();
@@ -5172,26 +5054,18 @@ class WebMessagePlatformService {
       });
     }
     if (!_config.readAloudEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'message_tts_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'message_tts_disabled');
     }
     if (!_messageSupportsWebTextAction(message)) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'message_tts_not_supported',
-      });
+      return _errorJson(HttpStatus.badRequest, 'message_tts_not_supported');
     }
     final settings = _settingsController.aiTtsSettings;
     if (!settings.enabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'tts_settings_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'tts_settings_disabled');
     }
     final text = _webTtsMessageText(message);
     if (text == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'message_tts_not_supported',
-      });
+      return _errorJson(HttpStatus.badRequest, 'message_tts_not_supported');
     }
     final fallbackModel =
         _resolveModel(_lastModelKeyForSession(session) ?? '') ??
@@ -5243,26 +5117,19 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     if (!_config.regenerationEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'message_regeneration_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'message_regeneration_disabled');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final message = await _loadMessageForWebOperation(session, messageId);
     if (message == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'message_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'message_not_found');
     }
     if (!_messageSupportsWebRegeneration(message)) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'message_regeneration_not_supported',
-      });
+      return _errorJson(
+        HttpStatus.badRequest,
+        'message_regeneration_not_supported',
+      );
     }
     final currentPhase = _sessionController.sendPhaseForSession(session.id);
     if (currentPhase != AiSendPhase.idle) {
@@ -5287,9 +5154,7 @@ class WebMessagePlatformService {
         _resolveModel(_lastModelKeyForSession(session) ?? '') ??
         _resolveModel('');
     if (model == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_not_configured',
-      });
+      return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
     final lockedModelKey = _lastModelKeyForSession(session);
     if (await _resolveSessionInputCacheModelSelectionLocked(session) &&
@@ -5359,11 +5224,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     if (!_sessionController.canStopResponding(session.id)) {
       return _json(HttpStatus.ok, <String, Object?>{
         'ok': false,
@@ -5395,11 +5256,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final ok = await _sessionController.pauseGoal(session.id);
     final latest = _findAuthorizedSession(auth, session.id) ?? session;
     return _json(
@@ -5417,11 +5274,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final ok = await _sessionController.terminateGoal(session.id);
     final latest = _findAuthorizedSession(auth, session.id) ?? session;
     return _json(
@@ -5439,11 +5292,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final body = await _readJsonBody(request);
     final rawHasPending =
         body['has_pending'] ?? body['hasPending'] ?? body['pending'];
@@ -5465,11 +5314,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final body = await _readJsonBody(request);
     final requestedModelKey = _string(body['model_key'], '').trim();
     final model = requestedModelKey.isNotEmpty
@@ -5477,9 +5322,7 @@ class WebMessagePlatformService {
         : _resolveModel(_lastModelKeyForSession(session) ?? '') ??
               _resolveModel('');
     if (model == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_not_configured',
-      });
+      return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
     final lockedModelKey = _lastModelKeyForSession(session);
     if (await _resolveSessionInputCacheModelSelectionLocked(session) &&
@@ -5541,31 +5384,21 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final body = await _readJsonBody(request);
     if (body.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'invalid_body',
-      });
+      return _errorJson(HttpStatus.badRequest, 'invalid_body');
     }
     final content = _string(body['content'], '').trim();
     if (content.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'content_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'content_required');
     }
     final requestedModelKey = _string(body['model_key'], '').trim();
     final requestedModel = requestedModelKey.isEmpty
         ? null
         : _resolveModel(requestedModelKey);
     if (requestedModelKey.isNotEmpty && requestedModel == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_not_configured',
-      });
+      return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
     final model =
         requestedModel ?? _resolveTitleGenerationModelForSession(session);
@@ -5609,11 +5442,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     Map<String, Object?> body = const <String, Object?>{};
     try {
       body = await _readJsonBody(request);
@@ -5622,9 +5451,7 @@ class WebMessagePlatformService {
     }
     final model = _resolveModel(_string(body['model_key'], ''));
     if (model == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'model_not_configured',
-      });
+      return _errorJson(HttpStatus.badRequest, 'model_not_configured');
     }
     final result = await _sessionController.requestManualCompaction(
       sessionId: session.id,
@@ -5675,16 +5502,10 @@ class WebMessagePlatformService {
     String approvalId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final approval = _pendingWriteApprovals[approvalId];
     if (approval == null || approval.sessionId != session.id) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'write_approval_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'write_approval_not_found');
     }
     final body = await _readJsonBody(request);
     // 兼容历史 web 客户端：仅传 approved=true/false → 转为 approved/rejected。
@@ -5710,9 +5531,7 @@ class WebMessagePlatformService {
       source: 'web',
       deviceId: auth.deviceId,
     )) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'write_approval_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'write_approval_not_found');
     }
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
@@ -5731,11 +5550,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final body = await _readJsonBody(request);
     final hasChars = body.containsKey('chars_per_second');
     final hasCards = body.containsKey('cards_per_second');
@@ -5785,11 +5600,7 @@ class WebMessagePlatformService {
     String sessionId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     _sessionController.clearSessionStreamThrottleOverride(session.id);
     return _json(HttpStatus.ok, <String, Object?>{'ok': true});
   }
@@ -5802,11 +5613,7 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final ok = await _sessionController.deleteMessages(<String>[
       messageId,
     ], sessionId: session.id);
@@ -5829,16 +5636,10 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     if (!_config.sessionManagementEnabled) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'session_management_disabled',
-      });
+      return _errorJson(HttpStatus.forbidden, 'session_management_disabled');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final metadata = _metadataForRequest(auth, request, <String, Object?>{
       'created_via': 'web_api',
       'derived_via': 'web_api',
@@ -5851,9 +5652,10 @@ class WebMessagePlatformService {
       extraMetadata: metadata,
     );
     if (forked == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'message_not_found_or_fork_failed',
-      });
+      return _errorJson(
+        HttpStatus.notFound,
+        'message_not_found_or_fork_failed',
+      );
     }
     _log(
       WebGatewayLogLevel.success,
@@ -5883,11 +5685,7 @@ class WebMessagePlatformService {
     String messageId,
   ) async {
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final ok = await _sessionController.deleteMessagesFrom(
       messageId,
       sessionId: session.id,
@@ -5920,16 +5718,10 @@ class WebMessagePlatformService {
   ) async {
     final auth = _authorizeFromRequestOrQuery(request);
     if (auth == null) {
-      return _json(HttpStatus.unauthorized, <String, Object?>{
-        'error': 'unauthorized',
-      });
+      return _errorJson(HttpStatus.unauthorized, 'unauthorized');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final clientKey = _config.authEnabled
         ? auth.token
         : _requestRemoteAddress(request);
@@ -6080,7 +5872,7 @@ class WebMessagePlatformService {
         final live = _findAuthorizedSession(auth, sessionId);
         if (live == null) {
           emit('session_deleted', <String, Object?>{
-            'error': 'session_deleted_or_not_found',
+            'error': _kWebGatewayErrorSessionMissing,
             'session_id': sessionId,
             'served_at': DateTime.now().toUtc().toIso8601String(),
           });
@@ -6274,33 +6066,21 @@ class WebMessagePlatformService {
   ) async {
     final auth = _authorizeFromRequestOrQuery(request);
     if (auth == null) {
-      return _json(HttpStatus.unauthorized, <String, Object?>{
-        'error': 'unauthorized',
-      });
+      return _errorJson(HttpStatus.unauthorized, 'unauthorized');
     }
     final session = _findAuthorizedSession(auth, sessionId);
-    if (session == null) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'session_deleted_or_not_found',
-      });
-    }
+    if (session == null) return _sessionMissingResponse();
     final requested = request.requestedUri.queryParameters['path'] ?? '';
     if (requested.isEmpty) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'missing_path',
-      });
+      return _errorJson(HttpStatus.badRequest, 'missing_path');
     }
     final whitelist = _collectSessionAssetPaths(session);
     if (!whitelist.contains(requested)) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'asset_not_in_whitelist',
-      });
+      return _errorJson(HttpStatus.forbidden, 'asset_not_in_whitelist');
     }
     final file = File(requested);
     if (!await file.exists()) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'asset_missing',
-      });
+      return _errorJson(HttpStatus.notFound, 'asset_missing');
     }
     final stat = await file.stat();
     // 简单上限: 单文件 ≤ 512 MiB, 覆盖常见生成视频同时防止误暴露超大文件。
@@ -6650,9 +6430,7 @@ class WebMessagePlatformService {
     final logs = target == 'logs' || target == 'all';
     final uploads = target == 'uploads' || target == 'all';
     if (!logs && !uploads) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'invalid_cleanup_target',
-      });
+      return _errorJson(HttpStatus.badRequest, 'invalid_cleanup_target');
     }
     final result = await cleanupArtifacts(
       logs: logs,
@@ -6712,9 +6490,7 @@ class WebMessagePlatformService {
     );
     final dir = await _resolveWorkspacePath(relative);
     if (dir == null || !await FileSystemEntity.isDirectory(dir)) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'directory_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'directory_not_found');
     }
     final root = _workspaceDirectoryPath;
     final listing = await listDirectoryBounded(
@@ -6799,14 +6575,10 @@ class WebMessagePlatformService {
     final relative = request.requestedUri.queryParameters['path'] ?? '';
     final filePath = await _resolveWorkspacePath(relative);
     if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'file_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'file_not_found');
     }
     if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'file_extension_not_allowed',
-      });
+      return _errorJson(HttpStatus.forbidden, 'file_extension_not_allowed');
     }
     final file = File(filePath);
     final Uint8List bytes;
@@ -6826,14 +6598,10 @@ class WebMessagePlatformService {
         'limit_bytes': _config.workspaceFileMaxBytes,
       });
     } on FileSystemException {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'file_not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'file_not_found');
     }
     if (_looksBinary(bytes)) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'binary_file_not_supported',
-      });
+      return _errorJson(HttpStatus.badRequest, 'binary_file_not_supported');
     }
     return _json(HttpStatus.ok, <String, Object?>{
       'path': _relativeWorkspacePath(filePath),
@@ -6864,14 +6632,10 @@ class WebMessagePlatformService {
     }
     final filePath = await _resolveWorkspacePath(relative);
     if (filePath == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'path_outside_workspace',
-      });
+      return _errorJson(HttpStatus.badRequest, 'path_outside_workspace');
     }
     if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
-      return _json(HttpStatus.forbidden, <String, Object?>{
-        'error': 'file_extension_not_allowed',
-      });
+      return _errorJson(HttpStatus.forbidden, 'file_extension_not_allowed');
     }
     final file = File(filePath);
     await writeFileAtomically(file, content);
@@ -6901,21 +6665,15 @@ class WebMessagePlatformService {
     final body = await _readJsonBody(request, maxBytes: 16 * 1024);
     final relative = _string(body['path'], '');
     if (relative.trim().isEmpty || relative == '.' || relative == '/') {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'path_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'path_required');
     }
     final dirPath = await _resolveWorkspacePath(relative);
     if (dirPath == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'path_outside_workspace',
-      });
+      return _errorJson(HttpStatus.badRequest, 'path_outside_workspace');
     }
     final type = await FileSystemEntity.type(dirPath, followLinks: false);
     if (type == FileSystemEntityType.file) {
-      return _json(HttpStatus.conflict, <String, Object?>{
-        'error': 'file_already_exists',
-      });
+      return _errorJson(HttpStatus.conflict, 'file_already_exists');
     }
     await Directory(dirPath).create(recursive: true);
     if (type == FileSystemEntityType.notFound) _fileMutationCount++;
@@ -6942,28 +6700,20 @@ class WebMessagePlatformService {
     }
     final relative = request.requestedUri.queryParameters['path'] ?? '';
     if (relative.trim().isEmpty || relative == '.' || relative == '/') {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'path_required',
-      });
+      return _errorJson(HttpStatus.badRequest, 'path_required');
     }
     final resolved = await _resolveWorkspacePath(relative);
     if (resolved == null) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'path_outside_workspace',
-      });
+      return _errorJson(HttpStatus.badRequest, 'path_outside_workspace');
     }
     final type = await FileSystemEntity.type(resolved, followLinks: false);
     if (type == FileSystemEntityType.notFound) {
-      return _json(HttpStatus.notFound, <String, Object?>{
-        'error': 'not_found',
-      });
+      return _errorJson(HttpStatus.notFound, 'not_found');
     }
     if (type == FileSystemEntityType.directory) {
       // 不递归：让用户明确清空再删（避免一次误调清掉整棵子树）。
       if (!await isDirectoryEmpty(Directory(resolved))) {
-        return _json(HttpStatus.conflict, <String, Object?>{
-          'error': 'directory_not_empty',
-        });
+        return _errorJson(HttpStatus.conflict, 'directory_not_empty');
       }
       await Directory(resolved).delete();
     } else {
@@ -6971,9 +6721,7 @@ class WebMessagePlatformService {
         resolved,
         _workspaceAllowedExtensions(),
       )) {
-        return _json(HttpStatus.forbidden, <String, Object?>{
-          'error': 'file_extension_not_allowed',
-        });
+        return _errorJson(HttpStatus.forbidden, 'file_extension_not_allowed');
       }
       await File(resolved).delete();
     }
@@ -7089,7 +6837,7 @@ class WebMessagePlatformService {
       <String, Object?>{
         'error': exists
             ? 'machine_terminal_not_available'
-            : 'session_deleted_or_not_found',
+            : _kWebGatewayErrorSessionMissing,
       },
     );
   }
@@ -9031,6 +8779,19 @@ class WebMessagePlatformService {
   }
 
   /// 构造 JSON 响应。`Cache-Control: no-store` 避免浏览器/CDN 缓存敏感数据。
+  /// 仅带错误码的 JSON 响应——网关绝大多数失败分支都是这一形态。
+  shelf.Response _errorJson(int statusCode, String code) {
+    return _json(statusCode, <String, Object?>{'error': code});
+  }
+
+  /// 会话不存在或已被删除的统一 404 响应。
+  ///
+  /// 错误码必须是 [_kWebGatewayErrorSessionMissing]：Web 端据此弹出「会话已被
+  /// 删除」提示，换成别的码只会退化成一句通用错误。
+  shelf.Response _sessionMissingResponse() {
+    return _errorJson(HttpStatus.notFound, _kWebGatewayErrorSessionMissing);
+  }
+
   shelf.Response _json(
     int statusCode,
     Map<String, Object?> payload, {
