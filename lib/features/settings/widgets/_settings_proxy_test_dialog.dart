@@ -567,7 +567,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     for (final entry in _entries) {
       buffer.writeln(_formatEntryAsPlainText(entry));
     }
-    await _copySettingsTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'settings',
       context: context,
       text: buffer.toString(),
       successMessage: AppLocalizations.of(context)!.proxyTestConsoleCopied,
@@ -947,7 +948,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Future<void> _copyEntryLine(_ProxyTestLogEntry entry) async {
-    await _copySettingsTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'settings',
       context: context,
       text: _formatEntryAsPlainText(entry),
       successMessage: AppLocalizations.of(context)!.proxyTestConsoleCopied,

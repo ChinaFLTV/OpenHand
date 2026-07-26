@@ -1579,7 +1579,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     } catch (error, stack) {
       silentLog('tts', '切换消息播放状态', error, stack);
       if (!mounted) return;
-      flashHomeSnack(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1643,7 +1643,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
     } catch (error) {
       if (!mounted) return;
-      flashHomeSnack(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,

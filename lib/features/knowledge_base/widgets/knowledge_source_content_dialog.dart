@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -23,7 +24,6 @@ import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
-import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
@@ -541,7 +541,8 @@ class _KnowledgeSourceContentDialogState
           onPressed: snapshot?.source == null
               ? null
               : () async {
-                  await copyKnowledgeBaseTextToClipboard(
+                  await copyOpenHandTextToClipboard(
+                    logTag: 'knowledge_base',
                     context: context,
                     text: snapshot!.source!.originalPath,
                     successMessage: openHandLocalizedText(
@@ -1250,7 +1251,8 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                         onPressed: text.trim().isEmpty
                             ? null
                             : () async {
-                                await copyKnowledgeBaseTextToClipboard(
+                                await copyOpenHandTextToClipboard(
+                                  logTag: 'knowledge_base',
                                   context: context,
                                   text: text,
                                   successMessage: openHandLocalizedText(

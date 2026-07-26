@@ -1,3 +1,4 @@
+import 'android_reverse_session_config.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -298,7 +299,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<List<String>> getPackagePaths(String packageName) async {
-    if (!_looksLikePackageName(packageName)) return const <String>[];
+    if (!looksLikeAndroidPackageName(packageName)) return const <String>[];
     final result = await shellDetailed(
       'pm path $packageName',
       timeout: _kAdbShellReadTimeout,
@@ -315,7 +316,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<String?> getPackageVersion(String packageName) async {
-    if (!_looksLikePackageName(packageName)) return null;
+    if (!looksLikeAndroidPackageName(packageName)) return null;
     final result = await shellDetailed(
       'dumpsys package $packageName',
       timeout: _kAdbShellDumpsysTimeout,
@@ -342,7 +343,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<String?> resolveLauncherActivity(String packageName) async {
-    if (!_looksLikePackageName(packageName)) return null;
+    if (!looksLikeAndroidPackageName(packageName)) return null;
     final commands = <String>[
       'cmd package resolve-activity --brief '
           '-a android.intent.action.MAIN '
@@ -409,7 +410,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> forceStopAppDetailed(String packageName) {
-    if (!_looksLikePackageName(packageName)) {
+    if (!looksLikeAndroidPackageName(packageName)) {
       return Future<AdbCommandResult>.value(
         AdbCommandResult(
           args: const <String>['shell', 'am force-stop <invalid-package>'],
@@ -423,7 +424,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> clearPackageDataDetailed(String packageName) {
-    if (!_looksLikePackageName(packageName)) {
+    if (!looksLikeAndroidPackageName(packageName)) {
       return Future<AdbCommandResult>.value(
         AdbCommandResult(
           args: const <String>['shell', 'pm clear <invalid-package>'],
@@ -440,7 +441,7 @@ class AndroidReverseAdbClient {
     String packageName, {
     bool keepData = false,
   }) {
-    if (!_looksLikePackageName(packageName)) {
+    if (!looksLikeAndroidPackageName(packageName)) {
       return Future<AdbCommandResult>.value(
         AdbCommandResult(
           args: const <String>['uninstall', '<invalid-package>'],
@@ -458,7 +459,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> startPackageDetailed(String packageName) async {
-    if (!_looksLikePackageName(packageName)) {
+    if (!looksLikeAndroidPackageName(packageName)) {
       return AdbCommandResult(
         args: const <String>['shell', 'monkey -p <invalid-package>'],
         exitCode: -1,
@@ -507,7 +508,7 @@ class AndroidReverseAdbClient {
     String packageName,
   ) async {
     final normalizedPackageName = nullIfBlank(packageName) ?? '';
-    if (!_looksLikePackageName(normalizedPackageName)) {
+    if (!looksLikeAndroidPackageName(normalizedPackageName)) {
       return AndroidPackagePidLookupResult(
         packageName: normalizedPackageName,
         pid: null,
@@ -956,14 +957,6 @@ class AndroidReverseAdbClient {
         stderr: 'TCP port must be between $_kMinTcpPort and $_kMaxTcpPort.',
       ),
     );
-  }
-
-  bool _looksLikePackageName(String value) {
-    final packageName = nullIfBlank(value);
-    if (packageName == null || packageName.length > 220) return false;
-    return RegExp(
-      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
-    ).hasMatch(packageName);
   }
 
   String? _launcherActivityFromResolveOutput(String raw, String packageName) {

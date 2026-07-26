@@ -1102,7 +1102,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       cancelSignal: cancelSignal,
     );
     final responseUri = response.request?.url ?? uri;
-    final responseSessionId = _readHeader(response.headers, 'mcp-session-id');
+    final responseSessionId = readResponseHeader(
+      response.headers,
+      'mcp-session-id',
+    );
     if (isHttpFailureStatus(response.statusCode)) {
       final responseBody = await _readMcpHttpErrorBodyBestEffort(
         response,
@@ -1121,7 +1124,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       );
     }
 
-    final contentType = _readHeader(response.headers, 'content-type');
+    final contentType = readResponseHeader(response.headers, 'content-type');
     final body = await _readMcpHttpResponseBody(
       response,
       timeout: effectiveRequestTimeout,
@@ -1340,16 +1343,6 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       default:
         return prettyPrintJson(item);
     }
-  }
-
-  String _readHeader(Map<String, String> headers, String name) {
-    final target = name.toLowerCase();
-    for (final entry in headers.entries) {
-      if (entry.key.toLowerCase() == target) {
-        return entry.value.trim();
-      }
-    }
-    return '';
   }
 
   Object? _firstPresentValue(Map<String, Object?> source, List<String> keys) {

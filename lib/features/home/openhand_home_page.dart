@@ -142,7 +142,6 @@ import 'util/editor_indentation.dart';
 import 'util/message_path_linking.dart';
 import 'util/slash_command_parser.dart';
 import 'util/tool_call_argument_parser.dart';
-import 'widgets/home_dialog_utils.dart';
 import 'widgets/html_selection_bridge_clipboard.dart';
 import 'widgets/token_popup_cache_hit_trend_chart.dart';
 part 'widgets/_home_navigation.dart';
@@ -3673,24 +3672,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       r'(?:包名|package(?:\s+name)?|pkg)\s*[:：=]?\s*([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)',
       caseSensitive: false,
     ).firstMatch(value)?.group(1);
-    if (_looksLikeAndroidPackageName(labeled)) return labeled;
+    if (looksLikeAndroidPackageName(labeled)) return labeled;
     final commonPackage = RegExp(
       r'\b(?:com|org|net|io|cn|dev|app)\.[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*){2,}\b',
       caseSensitive: false,
     ).firstMatch(value)?.group(0);
-    return _looksLikeAndroidPackageName(commonPackage) ? commonPackage : null;
-  }
-
-  bool _looksLikeAndroidPackageName(String? value) {
-    final packageName = value?.trim();
-    if (packageName == null ||
-        packageName.isEmpty ||
-        packageName.length > 220) {
-      return false;
-    }
-    return RegExp(
-      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
-    ).hasMatch(packageName);
+    return looksLikeAndroidPackageName(commonPackage) ? commonPackage : null;
   }
 
   void _onWebReverseControllerChanged() {
@@ -8081,7 +8068,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () async {
-                final copied = await copyHomeTextToClipboard(
+                final copied = await copyOpenHandTextToClipboard(
+                  logTag: 'home',
                   context: context,
                   text: feedbackTemplate,
                   logAction: '复制反馈模板',
@@ -8386,7 +8374,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       en: '$enAction: $error',
     );
     if (postFrame) {
-      flashHomeSnack(
+      flashOpenHandSnack(
         context,
         message,
         kind: OpenHandSnackKind.error,
@@ -8822,7 +8810,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       content = loaded.content;
     }
-    await copyHomeTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: content,
       logAction: '复制消息内容',

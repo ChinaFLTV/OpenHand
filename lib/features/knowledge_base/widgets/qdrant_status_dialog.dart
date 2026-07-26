@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -14,7 +15,6 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../knowledge_base_controller.dart';
 import '../service/qdrant_monitoring_service.dart';
-import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 const int _qdrantTrendSampleCap = 48;
@@ -344,7 +344,8 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   Future<void> _copyDiagnostics() async {
     final snapshot = _snapshot;
     if (snapshot == null) return;
-    await copyKnowledgeBaseTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'knowledge_base',
       context: context,
       text: prettyPrintJson(<String, Object?>{
         'collected_at': snapshot.collectedAt.toIso8601String(),

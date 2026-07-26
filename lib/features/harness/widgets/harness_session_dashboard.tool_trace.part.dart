@@ -793,7 +793,8 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                 onPressed: normalized.isEmpty
                     ? null
                     : () async {
-                        await copyHarnessTextToClipboard(
+                        await copyOpenHandTextToClipboard(
+                          logTag: 'harness',
                           context: context,
                           text: normalized,
                           successMessage: openHandLocalizedText(

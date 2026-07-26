@@ -13,6 +13,7 @@ import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -3213,7 +3214,7 @@ fi
   }
 
   Future<void> _copyText(String text) async {
-    await copyAndroidReverseTextToClipboard(
+    await copyOpenHandTextToClipboard(
       context: context,
       text: text,
       logTag: 'android_reverse_dashboard',
@@ -5590,7 +5591,7 @@ fi
     if (overlay == null) return;
     final center = overlay.size.center(Offset.zero);
     final position = globalPosition ?? overlay.localToGlobal(center);
-    final isPackageProcess = _looksLikePackageName(process.name);
+    final isPackageProcess = looksLikeAndroidPackageName(process.name);
     final selected = await showAnimatedMenu<_ProcessMenuAction>(
       context: context,
       position: RelativeRect.fromRect(
@@ -5720,7 +5721,7 @@ fi
         );
         await _doRefreshProcesses();
       case _ProcessMenuAction.forceStopPackage:
-        if (!_looksLikePackageName(process.name)) return;
+        if (!looksLikeAndroidPackageName(process.name)) return;
         await _runDeviceAction(
           () => _ctrl.forceStopAppDetailed(process.name, serial: _targetSerial),
         );
@@ -11082,14 +11083,6 @@ fi
       return value;
     }
     return "'${value.replaceAll("'", "'\"'\"'")}'";
-  }
-
-  bool _looksLikePackageName(String value) {
-    final packageName = value.trim();
-    if (packageName.length > 220) return false;
-    return RegExp(
-      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
-    ).hasMatch(packageName);
   }
 }
 

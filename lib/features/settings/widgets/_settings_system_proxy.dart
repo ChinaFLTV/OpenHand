@@ -545,7 +545,8 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
             onPressed: restarting
                 ? null
                 : () async {
-                    await _copySettingsTextToClipboard(
+                    await copyOpenHandTextToClipboard(
+                      logTag: 'settings',
                       context: dialogContext,
                       text: _formatRepairReport(report),
                       successMessage: AppLocalizations.of(

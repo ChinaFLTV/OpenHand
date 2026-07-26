@@ -23,6 +23,25 @@ enum AiSessionMessageKind {
 
   final String storageValue;
 
+  /// 是否为工具结果类消息（tool / mcp / skill / hook）。
+  ///
+  /// transcript 配对与提示词组装共用此判定；穷举 switch 保证新增
+  /// kind 时编译期强制补充归类，避免两处漂移。
+  bool get isToolResultKind => switch (this) {
+    AiSessionMessageKind.tool ||
+    AiSessionMessageKind.mcp ||
+    AiSessionMessageKind.skill ||
+    AiSessionMessageKind.hook => true,
+    AiSessionMessageKind.user ||
+    AiSessionMessageKind.assistant ||
+    AiSessionMessageKind.reasoning ||
+    AiSessionMessageKind.toolCall ||
+    AiSessionMessageKind.compressionPoint ||
+    AiSessionMessageKind.selfLearning ||
+    AiSessionMessageKind.fileMutationSummary ||
+    AiSessionMessageKind.status => false,
+  };
+
   static AiSessionMessageKind fromStorage(String value) {
     return enumByStorageValueOr(
       values,

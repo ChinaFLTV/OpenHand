@@ -247,7 +247,8 @@ class _MachineExpertTerminalPanelState
   }
 
   Future<void> _copyTerminalId(String terminalId) async {
-    await copyHomeTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: terminalId,
       logAction: '复制机器终端 ID',
@@ -1460,7 +1461,8 @@ class _MachineTerminalHistoryDetailDialogState
   }
 
   Future<void> _copyDetails() async {
-    await copyHomeTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: _terminalHistoryDetailText(widget.snapshot),
       logAction: '复制机器终端历史详情',
@@ -2357,7 +2359,8 @@ Future<void> _copyCommandRecord(
   BuildContext context,
   MachineTerminalCommandRecord record,
 ) async {
-  await copyHomeTextToClipboard(
+  await copyOpenHandTextToClipboard(
+    logTag: 'home',
     context: context,
     text: _commandRecordDetailText(record),
     logAction: '复制机器终端命令输出',

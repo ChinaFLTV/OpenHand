@@ -307,7 +307,8 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () async {
-            await _copySettingsTextToClipboard(
+            await copyOpenHandTextToClipboard(
+              logTag: 'settings',
               context: context,
               text: _entries.map((entry) => entry.line).join('\n').trimRight(),
               successMessage: l10n.settingsScraplingRuntimeCopiedAllLogs,

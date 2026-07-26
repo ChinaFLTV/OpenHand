@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_clipboard.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
-import '../../shared/util/localized_text.dart';
 
 const OpenHandAnimationTransitionProfile kAndroidReverseDialogMotionProfile =
     OpenHandAnimationTransitionProfile(
@@ -43,35 +40,5 @@ Future<T?> showAndroidReverseToolDialog<T>({
     routeSettings: routeSettings,
     alignment: alignment,
     builder: builder,
-  );
-}
-
-Future<bool> copyAndroidReverseTextToClipboard({
-  required BuildContext context,
-  required String text,
-  String? successMessage,
-  String logTag = 'android_reverse',
-  String logAction = '复制',
-  Duration successDuration = kOpenHandSnackBarSuccessDuration,
-  Duration errorDuration = kOpenHandSnackBarErrorDuration,
-}) {
-  return copyOpenHandTextToClipboard(
-    context: context,
-    text: text,
-    logTag: logTag,
-    logAction: logAction,
-    successMessage:
-        successMessage ??
-        openHandLocalizedText(
-          context,
-          zh: '已复制',
-          zhHant: '已複製',
-          en: 'Copied',
-          fr: 'Copié',
-          de: 'Kopiert',
-          ja: 'コピーしました',
-        ),
-    successDuration: successDuration,
-    errorDuration: errorDuration,
   );
 }

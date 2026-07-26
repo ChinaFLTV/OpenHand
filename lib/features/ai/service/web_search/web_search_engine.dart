@@ -198,11 +198,6 @@ class WebSearchEngineContext {
   final List<AiModelConfig> availableModels;
 
   /// 解析复用 provider 的 API key（仅 kimi/grok/gemini）。
-  String? resolveProviderApiKey(String? configId) {
-    if (configId == null || configId.isEmpty) return null;
-    for (final m in availableModels) {
-      if (m.id == configId) return m.token.isEmpty ? null : m.token;
-    }
-    return null;
-  }
+  String? resolveProviderApiKey(String? configId) =>
+      resolveWebEngineProviderApiKey(availableModels, configId);
 }

@@ -30,6 +30,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -68,7 +69,6 @@ import '../model/mcp_tool.dart';
 import '../service/mcp_ops_endpoint.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
-import 'mcp_dialog_utils.dart';
 import 'mcp_keyword_index_progress_dialog.dart';
 import 'mcp_payload_format.dart';
 import 'mcp_stdio_dialogs.dart';
@@ -1046,7 +1046,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     }
 
     final formatLabel = format == _McpHistoryExportFormat.json ? 'JSON' : 'CSV';
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: text,
       successMessage: _localizedText(
@@ -2733,7 +2734,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     BuildContext context,
     String endpointUri,
   ) async {
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: endpointUri,
       successMessage: _localizedText(
@@ -2772,7 +2774,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final content = prettyPrintJson(<String, Object?>{
       'mcpServers': <String, Object?>{'openhand': serverConfig},
     });
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: content,
       successMessage: _localizedText(
@@ -7562,7 +7565,8 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
           _McpOpsIconButton(
             icon: Icons.copy_rounded,
             tooltip: _localizedText(context, zh: '复制', en: 'Copy'),
-            onPressed: () => copyMcpTextToClipboard(
+            onPressed: () => copyOpenHandTextToClipboard(
+              logTag: 'mcp',
               context: context,
               text: _sourceText,
               successMessage: _localizedText(
@@ -12214,7 +12218,8 @@ class _ToolSchemaBlock extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.copy_rounded, size: 16),
                   onPressed: () async {
-                    await copyMcpTextToClipboard(
+                    await copyOpenHandTextToClipboard(
+                      logTag: 'mcp',
                       context: context,
                       text: pretty,
                       successMessage: _localizedText(
@@ -12463,7 +12468,8 @@ class _McpHealthHistorySheet extends StatelessWidget {
       _McpHistoryExportFormat.json => 'JSON',
       _McpHistoryExportFormat.csv => 'CSV',
     };
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: text,
       successMessage: _localizedText(

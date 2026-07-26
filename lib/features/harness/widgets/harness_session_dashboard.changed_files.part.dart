@@ -315,7 +315,8 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                   onPressed: _computing
                       ? null
                       : () async {
-                          await copyHarnessTextToClipboard(
+                          await copyOpenHandTextToClipboard(
+                            logTag: 'harness',
                             context: context,
                             text: diffLines.join('\n'),
                             successMessage: openHandLocalizedText(

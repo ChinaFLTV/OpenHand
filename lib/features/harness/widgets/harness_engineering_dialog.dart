@@ -10,6 +10,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -21,7 +22,6 @@ import '../model/harness_session_config.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_cli_install_dialog.dart';
 import 'harness_cli_login_dialog.dart';
-import 'harness_dialog_utils.dart';
 
 const double _kHarnessModeDropdownWidth = 132;
 
@@ -518,7 +518,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
       ja: 'リンクをクリップボードにコピーしました',
     );
     if (!canOpenExternally) {
-      await copyHarnessTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'harness',
         context: context,
         text: normalizedUrl,
         successMessage: copiedMessage,
@@ -534,7 +535,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
       );
       if (!launched) {
         if (!mounted) return;
-        await copyHarnessTextToClipboard(
+        await copyOpenHandTextToClipboard(
+          logTag: 'harness',
           context: context,
           text: normalizedUrl,
           successMessage: copiedMessage,
@@ -544,7 +546,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     } catch (error, stack) {
       silentLog('harness_engineering', '打开文档链接', error, stack);
       if (!mounted) return;
-      await copyHarnessTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'harness',
         context: context,
         text: normalizedUrl,
         successMessage: copiedMessage,

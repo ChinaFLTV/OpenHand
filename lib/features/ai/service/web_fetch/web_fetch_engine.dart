@@ -174,11 +174,6 @@ class WebFetchEngineContext {
   final List<AiModelConfig> availableModels;
   final WebFetchScraplingBridge? scraplingBridge;
 
-  String? resolveProviderApiKey(String? configId) {
-    if (configId == null || configId.isEmpty) return null;
-    for (final m in availableModels) {
-      if (m.id == configId) return m.token.isEmpty ? null : m.token;
-    }
-    return null;
-  }
+  String? resolveProviderApiKey(String? configId) =>
+      resolveWebEngineProviderApiKey(availableModels, configId);
 }

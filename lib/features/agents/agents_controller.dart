@@ -1132,7 +1132,7 @@ class AgentsController extends ManagedChangeNotifier {
       usage.extra[_resourceTelemetryExtraKey],
     );
     final activeTaskCount = agent.tasks
-        .where((task) => !_agentTaskStatusIsTerminal(task.status))
+        .where((task) => !_taskStatusIsTerminal(task.status))
         .length;
     final busyWorkerCount = agent.workers
         .where(
@@ -1346,19 +1346,6 @@ class AgentsController extends ManagedChangeNotifier {
     } catch (_) {
       return utf8.encode('$value').length;
     }
-  }
-
-  bool _agentTaskStatusIsTerminal(AgentTaskStatus status) {
-    return switch (status) {
-      AgentTaskStatus.completed ||
-      AgentTaskStatus.failed ||
-      AgentTaskStatus.canceled => true,
-      AgentTaskStatus.backlog ||
-      AgentTaskStatus.ready ||
-      AgentTaskStatus.running ||
-      AgentTaskStatus.waitingApproval ||
-      AgentTaskStatus.paused => false,
-    };
   }
 
   AgentScaleSettings _normalizeScaleSettings(
@@ -2039,6 +2026,8 @@ class AgentsController extends ManagedChangeNotifier {
     };
   }
 
+  /// 语义独立于 [_taskStatusIsTerminal]：这里回答“是否计入已执行数”，
+  /// 当前取值集合恰好相同，一旦两个概念分叉必须各自演进，勿合并。
   bool _taskStatusCountsExecution(AgentTaskStatus status) {
     return switch (status) {
       AgentTaskStatus.completed ||

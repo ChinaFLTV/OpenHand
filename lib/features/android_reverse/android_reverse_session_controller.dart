@@ -394,7 +394,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String? serial,
   }) async {
     final normalizedPackage = packageName.trim();
-    if (!_looksLikePackageName(normalizedPackage)) {
+    if (!looksLikeAndroidPackageName(normalizedPackage)) {
       return AdbCommandResult(
         args: const <String>['package-report', '<invalid-package>'],
         exitCode: -1,
@@ -2126,14 +2126,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return 'artifact';
   }
 
-  bool _looksLikePackageName(String value) {
-    final packageName = value.trim();
-    if (packageName.length > 220) return false;
-    return RegExp(
-      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
-    ).hasMatch(packageName);
-  }
-
   String _packageDumpsysSummary(String raw) {
     final summary = <String>[];
     for (final line in raw.split('\n')) {
@@ -3616,7 +3608,6 @@ MAX_BODY_PREVIEW = int(os.environ.get("OPENHAND_BODY_PREVIEW_BYTES", "4096"))
 def _headers(headers):
     return {str(k): str(v) for k, v in headers.items()}
 
-
 def _body_preview(raw):
     if not raw:
         return None
@@ -3634,7 +3625,6 @@ def _body_preview(raw):
             "truncated": truncated,
             "value": base64.b64encode(clipped).decode("ascii"),
         }
-
 
 def _write(record):
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

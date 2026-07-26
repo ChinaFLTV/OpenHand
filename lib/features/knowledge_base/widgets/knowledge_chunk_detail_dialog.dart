@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
-import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeChunkDetailDialog(
@@ -509,7 +509,8 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
     String text,
     String message,
   ) async {
-    await copyKnowledgeBaseTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'knowledge_base',
       context: context,
       text: text,
       successMessage: message,

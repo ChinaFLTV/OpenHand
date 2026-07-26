@@ -1,6 +1,8 @@
 /// AI 聊天与 MCP 工具发现共用的 HTTP 重定向工具。
 library;
 
+import '../util/input_value_parsing.dart';
+
 const Set<String> _sensitiveRedirectHeaderNames = <String>{
   'authorization',
   'cookie',
@@ -69,6 +71,14 @@ String readResponseHeader(Map<String, String> headers, String name) {
     }
   }
   return '';
+}
+
+/// 忽略大小写读取响应头；不存在或为空白时返回 null。
+///
+/// 与 [readResponseHeader] 的空字符串约定并列存在：调用方需要用
+/// null 区分“未携带该头”时选用本变体，勿互相替换。
+String? readResponseHeaderOrNull(Map<String, String> headers, String name) {
+  return nullIfBlank(readResponseHeader(headers, name));
 }
 
 /// 删除跨域重定向时不得透传的敏感请求头。

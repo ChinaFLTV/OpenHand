@@ -1143,7 +1143,8 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   Future<void> _copyContent() async {
     final text = _effectiveContent.text;
     if (text.isEmpty || _loadingFile) return;
-    final copied = await copyHomeTextToClipboard(
+    final copied = await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: text,
       successMessage: openHandLocalizedText(
@@ -1231,7 +1232,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     String message, {
     OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    flashHomeSnack(context, message, kind: kind, postFrame: true);
+    flashOpenHandSnack(context, message, kind: kind, postFrame: true);
   }
 
   _ToolContentDialogStats _statsFor(String text) {

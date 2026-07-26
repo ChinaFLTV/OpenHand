@@ -2362,7 +2362,7 @@ class AiPromptBuilder {
     String renderForCompression(AiSessionMessage m) {
       final compacted = microCompactContentMap[m.id];
       if (compacted != null) return compacted;
-      if (_isToolResultKind(m.kind)) {
+      if (m.kind.isToolResultKind) {
         return _promptHistoryToolResultContent(m, compressionConfig);
       }
       return _renderMessageForCompression(m);
@@ -3162,7 +3162,7 @@ $identity''';
         index = mappedGroup.nextIndex;
         continue;
       }
-      if (_isToolResultKind(message.kind)) {
+      if (message.kind.isToolResultKind) {
         index += 1;
         continue;
       }
@@ -3337,7 +3337,7 @@ $identity''';
     final toolMessagesByCallId = <String, AiSessionMessage>{};
     final toolMessageIndexByCallId = <String, int>{};
     while (cursor < messages.length &&
-        _isToolResultKind(messages[cursor].kind)) {
+        messages[cursor].kind.isToolResultKind) {
       final toolMessage = messages[cursor];
       final toolCallId = _readToolCallId(toolMessage.metadata);
       if (toolCallId != null &&
@@ -6623,13 +6623,6 @@ $content
   String? _readToolCallId(Map<String, Object?> metadata) {
     final value = '${metadata['tool_call_id'] ?? ''}'.trim();
     return value.isEmpty ? null : value;
-  }
-
-  bool _isToolResultKind(AiSessionMessageKind kind) {
-    return kind == AiSessionMessageKind.tool ||
-        kind == AiSessionMessageKind.mcp ||
-        kind == AiSessionMessageKind.skill ||
-        kind == AiSessionMessageKind.hook;
   }
 
   List<String> _readStringList(Object? rawValue) {

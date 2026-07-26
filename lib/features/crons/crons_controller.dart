@@ -1305,7 +1305,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       statusLabel,
       localeName,
     );
-    final level = _mapNotifySeverityToLevel(notifyConfig.severity);
+    final level = notifyConfig.severity.notificationLevel;
 
     if (notifyConfig.type == CronNotifyType.system) {
       final shown = await OpenHandNotificationService.showSystem(
@@ -1364,18 +1364,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         playSound: entry.onFailurePlaySound,
         vibrate: entry.onFailureVibrate,
       ),
-    };
-  }
-
-  OpenHandNotificationLevel _mapNotifySeverityToLevel(
-    CronNotifySeverity severity,
-  ) {
-    return switch (severity) {
-      CronNotifySeverity.info => OpenHandNotificationLevel.info,
-      CronNotifySeverity.success => OpenHandNotificationLevel.success,
-      CronNotifySeverity.warning => OpenHandNotificationLevel.warning,
-      CronNotifySeverity.error => OpenHandNotificationLevel.error,
-      CronNotifySeverity.critical => OpenHandNotificationLevel.critical,
     };
   }
 
@@ -1498,4 +1486,16 @@ class AgentHandlerResult {
 
   final String stdout;
   final Map<String, String> appContext;
+}
+
+/// [CronNotifySeverity] 到通知级别的唯一映射，控制器与编辑弹窗共用，
+/// 避免两处 switch 随枚举演进各自漂移。
+extension CronNotifySeverityLevel on CronNotifySeverity {
+  OpenHandNotificationLevel get notificationLevel => switch (this) {
+    CronNotifySeverity.info => OpenHandNotificationLevel.info,
+    CronNotifySeverity.success => OpenHandNotificationLevel.success,
+    CronNotifySeverity.warning => OpenHandNotificationLevel.warning,
+    CronNotifySeverity.error => OpenHandNotificationLevel.error,
+    CronNotifySeverity.critical => OpenHandNotificationLevel.critical,
+  };
 }

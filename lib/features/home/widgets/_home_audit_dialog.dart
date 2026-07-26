@@ -498,7 +498,8 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                       tooltip: AppLocalizations.of(context)!.auditCopyJson,
                       icon: const Icon(Icons.copy_all_rounded, size: 18),
                       onPressed: () async {
-                        await copyHomeTextToClipboard(
+                        await copyOpenHandTextToClipboard(
+                          logTag: 'home',
                           context: context,
                           text: rendered,
                           successMessage: AppLocalizations.of(
@@ -1414,7 +1415,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 'session_title': session.title,
                 'environment': _auditSafeMap(session.environment.toJson),
               };
-              await copyHomeTextToClipboard(
+              await copyOpenHandTextToClipboard(
+                logTag: 'home',
                 context: context,
                 text: _auditFormatJson(payload),
                 successMessage: AppLocalizations.of(
@@ -1537,7 +1539,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
       }
       await widget.controller.updateSessionMetadata(_liveSession.id, payload);
       if (!mounted) return;
-      flashHomeSnack(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.auditSessionMetadataSaved,
         kind: OpenHandSnackKind.success,

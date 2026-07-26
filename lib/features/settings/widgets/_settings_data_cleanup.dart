@@ -1002,7 +1002,8 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     try {
       final json = await _ledger.exportBundleJson();
       if (!mounted) return;
-      final copied = await _copySettingsTextToClipboard(
+      final copied = await copyOpenHandTextToClipboard(
+        logTag: 'settings',
         context: context,
         text: json,
         logAction: '复制账本数据包',
@@ -1488,7 +1489,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     final json = prettyPrintJson(
       _results.map((v) => v.record.toJson()).toList(),
     );
-    await _copySettingsTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'settings',
       context: context,
       text: json,
       successMessage: openHandLocalizedText(
@@ -1509,7 +1511,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         _results.map((v) => v.record),
       );
       if (!mounted) return;
-      await _copySettingsTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'settings',
         context: context,
         text: bundle,
         successMessage: openHandLocalizedText(

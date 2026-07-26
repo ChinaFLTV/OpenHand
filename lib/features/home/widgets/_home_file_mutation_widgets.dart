@@ -370,7 +370,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       buf.writeln();
     }
     if (!mounted) return;
-    await copyHomeTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: buf.toString(),
       logAction: '复制全部文件变更差异',
@@ -2184,7 +2185,8 @@ String? _languageFromFilePath(String path) {
 /// 把 `filePath` 写入剪贴板并 SnackBar 提示。统一从 Row 的右键
 /// / 长按手势调用，因此抽到顶层而非 row state。
 Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
-  await copyHomeTextToClipboard(
+  await copyOpenHandTextToClipboard(
+    logTag: 'home',
     context: context,
     text: filePath,
     logAction: '复制文件变更路径',
@@ -2948,7 +2950,8 @@ class _InspectorEntryRow extends StatelessWidget {
     if (!context.mounted) return;
     if (selected == 'copy_json') {
       final json = jsonEncode(view.record.toJson());
-      await copyHomeTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'home',
         context: context,
         text: json,
         logAction: '复制文件变更记录 JSON',
@@ -2963,7 +2966,8 @@ class _InspectorEntryRow extends StatelessWidget {
         ),
       );
     } else if (selected == 'copy_id') {
-      await copyHomeTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'home',
         context: context,
         text: view.record.recordId,
         logAction: '复制文件变更记录 ID',

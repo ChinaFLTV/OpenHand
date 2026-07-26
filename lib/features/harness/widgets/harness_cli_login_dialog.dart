@@ -10,13 +10,13 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_text_buffer.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
-import 'harness_dialog_utils.dart';
 
 class HarnessCliLoginDialog extends StatefulWidget {
   const HarnessCliLoginDialog({super.key, required this.entry});
@@ -385,7 +385,8 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   }
 
   Future<void> _copyCommand() async {
-    await copyHarnessTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'harness',
       context: context,
       text: _commandPreview,
       successMessage: _l10n.commonCopiedToClipboard,

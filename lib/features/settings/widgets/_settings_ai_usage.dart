@@ -3104,7 +3104,8 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => unawaited(
-                    _copySettingsTextToClipboard(
+                    copyOpenHandTextToClipboard(
+                      logTag: 'settings',
                       context: context,
                       text: _diagnosticJson(),
                       successMessage: openHandLocalizedText(

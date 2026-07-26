@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -1873,7 +1874,7 @@ class AiImageGenerationService {
       }
       if (value is! Map) return;
       final map = stringKeyedMapFromValue(value);
-      final nestedLabel = _firstTextValue(map, const <String>[
+      final nestedLabel = firstNonBlankStringForKeys(map, const <String>[
         'revised_prompt',
         'prompt',
         'caption',
@@ -1882,7 +1883,7 @@ class AiImageGenerationService {
         'title',
       ]);
       final nextLabel = nestedLabel ?? label;
-      final nextMimeType = _firstTextValue(map, const <String>[
+      final nextMimeType = firstNonBlankStringForKeys(map, const <String>[
         'mime_type',
         'mimeType',
         'content_type',
@@ -1992,17 +1993,6 @@ class AiImageGenerationService {
         'data',
       ],
     };
-  }
-
-  String? _firstTextValue(Map<String, Object?> map, List<String> keys) {
-    for (final key in keys) {
-      final value = map[key];
-      if (value is String) {
-        final normalized = nullIfBlank(value);
-        if (normalized != null) return normalized;
-      }
-    }
-    return null;
   }
 
   bool _looksLikeUrl(String value) {
@@ -2639,18 +2629,8 @@ class AiImageGenerationService {
     }
   }
 
-  String? _headerValue(Map<String, String> headers, String name) {
-    final normalizedName = lowercaseStringFromValue(name);
-    for (final entry in headers.entries) {
-      if (lowercaseStringFromValue(entry.key) == normalizedName) {
-        return nullIfBlank(entry.value);
-      }
-    }
-    return null;
-  }
-
   String _responseContentType(Map<String, String> headers) {
-    final raw = _headerValue(headers, 'content-type') ?? '';
+    final raw = readResponseHeaderOrNull(headers, 'content-type') ?? '';
     return lowercaseStringFromValue(raw.split(';').first);
   }
 

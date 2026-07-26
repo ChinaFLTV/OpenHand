@@ -2696,13 +2696,10 @@ class _DiagnosisBanner extends StatefulWidget {
   State<_DiagnosisBanner> createState() => _DiagnosisBannerState();
 }
 
-class _DiagnosisBannerState extends State<_DiagnosisBanner> {
+class _DiagnosisBannerState extends State<_DiagnosisBanner>
+    with WebReverseProfileResetCooldown {
   bool _expanded = true;
   bool _busy = false;
-  // 重置后 60s 冷却：避免误连击两次造成"刚建好的空 profile 又被删"。
-  Timer? _cooldownTimer;
-  int _cooldownLeftSec = 0;
-  bool get _onCooldown => _cooldownLeftSec > 0;
   // 自动关闭定时器：诊断 banner 在 12 秒后自动隐藏，避免长期占顶。
   // didUpdateWidget 检测 errorMessage 变化后重新起表；手动点击「关闭」
   // 或任意代理按钮会立刻提前结束（通过 clearErrorMessage 触发）。
@@ -2738,21 +2735,9 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
 
   @override
   void dispose() {
-    _cooldownTimer?.cancel();
+    cancelProfileResetCooldown();
     _autoDismissTimer?.cancel();
     super.dispose();
-  }
-
-  void _startCooldown() {
-    _cooldownTimer?.cancel();
-    setState(() => _cooldownLeftSec = 60);
-    _cooldownTimer = startSafePeriodicTimer(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-      setState(() => _cooldownLeftSec--);
-      if (_cooldownLeftSec <= 0) {
-        t.cancel();
-      }
-    });
   }
 
   Future<void> _runProgressive() async {
@@ -2766,7 +2751,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
     switch (outcome) {
       case ProgressiveProfileOutcome.reset:
         widget.controller.clearErrorMessage();
-        _startCooldown();
+        startProfileResetCooldown();
       case ProgressiveProfileOutcome.cleaned:
         // 清理已生效，diagnosis 仍保留以便用户复盘；不进冷却。
         break;
@@ -2912,11 +2897,11 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                 children: [
                   // 渐进式按钮：先清理 → 仍有锁则引导重置。重置成功后自动 60s 冷却。
                   FilledButton.tonalIcon(
-                    onPressed: (_busy || _onCooldown) ? null : _runProgressive,
+                    onPressed: (_busy || onProfileResetCooldown) ? null : _runProgressive,
                     icon: Icon(
                       _busy
                           ? Icons.hourglass_top_rounded
-                          : (_onCooldown
+                          : (onProfileResetCooldown
                                 ? Icons.timer_rounded
                                 : Icons.auto_fix_high_rounded),
                       size: 16,
@@ -2932,15 +2917,15 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                               de: 'Wird verarbeitet…',
                               ja: '処理中…',
                             )
-                          : _onCooldown
+                          : onProfileResetCooldown
                           ? openHandLocalizedText(
                               context,
-                              zh: '冷却中（${_cooldownLeftSec}s）',
-                              zhHant: '冷卻中（${_cooldownLeftSec}s）',
-                              en: 'Cool-down ${_cooldownLeftSec}s',
-                              fr: 'Pause ${_cooldownLeftSec}s',
-                              de: 'Abklingzeit ${_cooldownLeftSec}s',
-                              ja: 'クールダウン ${_cooldownLeftSec}s',
+                              zh: '冷却中（${profileResetCooldownLeftSec}s）',
+                              zhHant: '冷卻中（${profileResetCooldownLeftSec}s）',
+                              en: 'Cool-down ${profileResetCooldownLeftSec}s',
+                              fr: 'Pause ${profileResetCooldownLeftSec}s',
+                              de: 'Abklingzeit ${profileResetCooldownLeftSec}s',
+                              ja: 'クールダウン ${profileResetCooldownLeftSec}s',
                             )
                           : openHandLocalizedText(
                               context,

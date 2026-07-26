@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
@@ -10,7 +8,6 @@ import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
-import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'web_reverse_browser_detector.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -454,13 +451,10 @@ class _ProfileDirRow extends StatefulWidget {
   State<_ProfileDirRow> createState() => _ProfileDirRowState();
 }
 
-class _ProfileDirRowState extends State<_ProfileDirRow> {
+class _ProfileDirRowState extends State<_ProfileDirRow>
+    with WebReverseProfileResetCooldown {
   bool _busy = false;
   bool? _hasLock;
-  // 重置后 60s 冷却：避免误连击两次造成"刚建好的空 profile 又被删"。
-  Timer? _cooldownTimer;
-  int _cooldownLeftSec = 0;
-  bool get _onCooldown => _cooldownLeftSec > 0;
 
   @override
   void initState() {
@@ -478,20 +472,8 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
 
   @override
   void dispose() {
-    _cooldownTimer?.cancel();
+    cancelProfileResetCooldown();
     super.dispose();
-  }
-
-  void _startCooldown() {
-    _cooldownTimer?.cancel();
-    setState(() => _cooldownLeftSec = 60);
-    _cooldownTimer = startSafePeriodicTimer(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-      setState(() => _cooldownLeftSec--);
-      if (_cooldownLeftSec <= 0) {
-        t.cancel();
-      }
-    });
   }
 
   Future<void> _refreshLockState() async {
@@ -509,7 +491,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (outcome == ProgressiveProfileOutcome.reset) {
-      _startCooldown();
+      startProfileResetCooldown();
     }
     await _refreshLockState();
   }
@@ -584,11 +566,11 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton.tonalIcon(
-              onPressed: (_busy || _onCooldown) ? null : _runProgressive,
+              onPressed: (_busy || onProfileResetCooldown) ? null : _runProgressive,
               icon: Icon(
                 _busy
                     ? Icons.hourglass_top_rounded
-                    : (_onCooldown
+                    : (onProfileResetCooldown
                           ? Icons.timer_rounded
                           : Icons.auto_fix_high_rounded),
                 size: 16,
@@ -596,9 +578,9 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
               label: Text(
                 _busy
                     ? (loc?.webReverseSetupWorking ?? 'Working…')
-                    : _onCooldown
-                    ? (loc?.webReverseSetupCooldown(_cooldownLeftSec) ??
-                          'Cool-down ${_cooldownLeftSec}s')
+                    : onProfileResetCooldown
+                    ? (loc?.webReverseSetupCooldown(profileResetCooldownLeftSec) ??
+                          'Cool-down ${profileResetCooldownLeftSec}s')
                     : (loc?.webReverseSetupResolveLock ??
                           'Resolve profile lock'),
               ),

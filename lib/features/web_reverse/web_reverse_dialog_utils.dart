@@ -10,6 +10,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/timer_safety.dart';
 import 'web_reverse_session_config.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -231,5 +232,37 @@ class WebReverseSelectableListTile extends StatelessWidget {
         child: Padding(padding: padding, child: child),
       ),
     );
+  }
+}
+
+/// 重置 profile 后的统一冷却状态（避免误连击把刚建好的空 profile 又删掉）。
+///
+/// 设置向导与仪表盘诊断横幅共用；使用方需在 [State.dispose] 中调用
+/// [cancelProfileResetCooldown]。
+mixin WebReverseProfileResetCooldown<T extends StatefulWidget> on State<T> {
+  static const int _kCooldownSeconds = 60;
+
+  Timer? _cooldownTimer;
+  int _cooldownLeftSec = 0;
+
+  bool get onProfileResetCooldown => _cooldownLeftSec > 0;
+
+  int get profileResetCooldownLeftSec => _cooldownLeftSec;
+
+  void startProfileResetCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _cooldownLeftSec = _kCooldownSeconds);
+    _cooldownTimer = startSafePeriodicTimer(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _cooldownLeftSec--);
+      if (_cooldownLeftSec <= 0) {
+        t.cancel();
+      }
+    });
+  }
+
+  void cancelProfileResetCooldown() {
+    _cooldownTimer?.cancel();
+    _cooldownTimer = null;
   }
 }

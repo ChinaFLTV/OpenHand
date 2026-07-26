@@ -1,5 +1,23 @@
 import '../../shared/util/input_value_parsing.dart';
 
+const int _kAndroidPackageNameMaxLength = 220;
+
+/// Android 包名形态校验（如 com.example.app）：至少两段、每段以字母开头。
+/// 预编译正则供高频 ADB 路径复用。
+final RegExp _androidPackageNamePattern = RegExp(
+  r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
+);
+
+/// 是否形如合法 Android 包名；null / 空白 / 超长(>220) 一律视为非法。
+bool looksLikeAndroidPackageName(String? value) {
+  final packageName = nullIfBlank(value);
+  if (packageName == null ||
+      packageName.length > _kAndroidPackageNameMaxLength) {
+    return false;
+  }
+  return _androidPackageNamePattern.hasMatch(packageName);
+}
+
 /// Android 逆向会话的运行时配置，序列化进 session metadata。
 class AndroidReverseSessionConfig {
   const AndroidReverseSessionConfig({

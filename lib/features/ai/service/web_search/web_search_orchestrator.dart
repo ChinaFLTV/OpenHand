@@ -167,7 +167,11 @@ class WebSearchOrchestrator {
     );
 
     final results = settings.parallel
-        ? await _runParallel(engines, request, onProgress)
+        ? await runWebEnginesWithLimit(
+            engines,
+            parallelWorkers: settings.parallelWorkers,
+            run: (e) => _runEngine(e, request, onProgress),
+          )
         : await _runSerial(engines, request, onProgress);
 
     final merged = _mergeAndRank(
@@ -196,19 +200,6 @@ class WebSearchOrchestrator {
       out.add(await _runEngine(e, request, onProgress));
     }
     return out;
-  }
-
-  Future<List<WebSearchEngineResult>> _runParallel(
-    List<WebSearchEngine> engines,
-    WebSearchEngineRequest request,
-    WebSearchProgressEmitter onProgress,
-  ) async {
-    final concurrency = settings.parallelWorkers.clamp(1, engines.length);
-    final semaphore = WebEngineSemaphore(concurrency);
-    final futures = engines.map((e) async {
-      return semaphore.withPermit(() => _runEngine(e, request, onProgress));
-    });
-    return Future.wait(futures);
   }
 
   Future<WebSearchEngineResult> _runEngine(

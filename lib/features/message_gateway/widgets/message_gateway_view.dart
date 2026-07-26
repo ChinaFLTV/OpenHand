@@ -19,6 +19,7 @@ import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -32,7 +33,6 @@ import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
-import 'message_gateway_dialog_utils.dart';
 
 String _gatewayEmptyMeansAllLabel(BuildContext context, String label) {
   final suffix = openHandLocalizedText(
@@ -2810,7 +2810,8 @@ class _WebGatewayConnectivityDialogState
   }
 
   Future<void> _copyResult(WebGatewayConnectivityTestResult result) async {
-    await copyMessageGatewayTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'message_gateway',
       context: context,
       text: prettyPrintJson(result.toJson()),
       successMessage: openHandLocalizedText(
@@ -3742,7 +3743,8 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   }
 
   Future<void> _copyLogs(List<WebGatewayLogEntry> logs) async {
-    await copyMessageGatewayTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'message_gateway',
       context: context,
       text: logs.map((entry) => entry.toLogLine()).join('\n'),
       successMessage: openHandLocalizedText(
@@ -8232,7 +8234,8 @@ class _AccessibleUrlsBar extends StatelessWidget {
   final List<String> urls;
 
   Future<void> _copy(BuildContext context, String url) async {
-    await copyMessageGatewayTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'message_gateway',
       context: context,
       text: url,
       successMessage: openHandLocalizedText(

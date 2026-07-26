@@ -604,7 +604,8 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       'repo_root' => relativeFromRoot,
       _ => absolutePath,
     };
-    await copyHomeTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: textToCopy,
       logAction: '复制编程资源管理器路径',
@@ -9858,7 +9859,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       'workspace_root' => relativeFromWorkspace,
       _ => filePath,
     };
-    await copyHomeTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'home',
       context: context,
       text: textToCopy,
       logAction: '复制编辑器标签页路径',
@@ -10394,50 +10396,51 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   // ── Refactor submenu ──
 
+  /// 重构 / 导航 / 折叠三个子菜单共用的条目构造，样式保持一致。
+  PopupMenuItem<String> _buildSubmenuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+    String? shortcut,
+    bool enabled = true,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      enabled: enabled,
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label)),
+          if (shortcut != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 24),
+              child: Text(
+                shortcut,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showRefactorSubmenu(
     String filePath,
     Offset globalPosition,
   ) async {
     if (!mounted) return;
 
-    PopupMenuItem<String> buildItem({
-      required String value,
-      required IconData icon,
-      required String label,
-      String? shortcut,
-      bool enabled = true,
-    }) {
-      return PopupMenuItem<String>(
-        value: value,
-        enabled: enabled,
-        child: Row(
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label)),
-            if (shortcut != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 24),
-                child: Text(
-                  shortcut,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
     final selected = await showAnimatedMenu<String>(
       context: context,
       position: _menuPositionForGlobalOffset(globalPosition),
       items: [
-        buildItem(
+        _buildSubmenuItem(
           value: 'rename',
           icon: Icons.drive_file_rename_outline,
           label: _editorText(
@@ -10450,7 +10453,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           shortcut: 'F2',
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'code_actions',
           icon: Icons.lightbulb_outline_rounded,
           label: _editorText(
@@ -10464,7 +10467,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           shortcut: '⌘.',
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'extract_method',
           icon: Icons.functions_rounded,
           label: _editorText(
@@ -10477,7 +10480,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           shortcut: '⌥⌘M',
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'extract_variable',
           icon: Icons.data_object_rounded,
           label: _editorText(
@@ -10490,7 +10493,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           shortcut: '⌥⌘V',
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'extract_constant',
           icon: Icons.pin_rounded,
           label: _editorText(
@@ -10504,7 +10507,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           shortcut: '⌥⌘C',
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'inline',
           icon: Icons.compress_rounded,
           label: _editorText(
@@ -10517,7 +10520,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           shortcut: '⌥⌘N',
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'change_signature',
           icon: Icons.tune_rounded,
           label: _editorText(
@@ -10566,44 +10569,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   ) async {
     if (!mounted) return;
 
-    PopupMenuItem<String> buildItem({
-      required String value,
-      required IconData icon,
-      required String label,
-      String? shortcut,
-      bool enabled = true,
-    }) {
-      return PopupMenuItem<String>(
-        value: value,
-        enabled: enabled,
-        child: Row(
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label)),
-            if (shortcut != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 24),
-                child: Text(
-                  shortcut,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
     final selected = await showAnimatedMenu<String>(
       context: context,
       position: _menuPositionForGlobalOffset(globalPosition),
       items: [
-        buildItem(
+        _buildSubmenuItem(
           value: 'definition',
           icon: Icons.gps_fixed_rounded,
           label: _editorText(
@@ -10616,7 +10586,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           shortcut: '⌘B',
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'implementation',
           icon: Icons.integration_instructions_outlined,
           label: _editorText(
@@ -10630,7 +10600,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           shortcut: '⌥⌘B',
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'document_symbols',
           icon: Icons.account_tree_rounded,
           label: _editorText(
@@ -10643,7 +10613,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           shortcut: '⌘⇧O',
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'workspace_symbols',
           icon: Icons.workspaces_outlined,
           label: _editorText(
@@ -10657,7 +10627,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           shortcut: '⌘T',
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'go_to_line',
           icon: Icons.format_list_numbered_rounded,
           label: _editorText(
@@ -10699,44 +10669,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final foldableRegions = _foldableRegionsForFile(filePath);
     final hasFoldableRegions = foldableRegions.isNotEmpty;
 
-    PopupMenuItem<String> buildItem({
-      required String value,
-      required IconData icon,
-      required String label,
-      String? shortcut,
-      bool enabled = true,
-    }) {
-      return PopupMenuItem<String>(
-        value: value,
-        enabled: enabled,
-        child: Row(
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label)),
-            if (shortcut != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 24),
-                child: Text(
-                  shortcut,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
     final selected = await showAnimatedMenu<String>(
       context: context,
       position: _menuPositionForGlobalOffset(globalPosition),
       items: [
-        buildItem(
+        _buildSubmenuItem(
           value: 'toggle_fold',
           icon: Icons.unfold_more_rounded,
           label: _editorText(
@@ -10750,7 +10687,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           enabled: hasFoldableRegions,
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'fold_all',
           icon: Icons.unfold_less_rounded,
           label: _editorText(
@@ -10764,7 +10701,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           shortcut: '⇧⌘-',
           enabled: hasFoldableRegions,
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'unfold_all',
           icon: Icons.unfold_more_rounded,
           label: _editorText(
@@ -10779,7 +10716,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           enabled: hasFoldedRegions,
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'fold_at_cursor',
           icon: Icons.expand_less_rounded,
           label: _editorText(
@@ -10793,7 +10730,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           shortcut: '⌘-',
           enabled: hasFoldableRegions,
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'unfold_at_cursor',
           icon: Icons.expand_more_rounded,
           label: _editorText(
@@ -10808,7 +10745,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           enabled: hasFoldedRegions,
         ),
         const PopupMenuDivider(),
-        buildItem(
+        _buildSubmenuItem(
           value: 'fold_comments',
           icon: Icons.comment_rounded,
           label: _editorText(
@@ -10821,7 +10758,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           enabled: hasFoldableRegions,
         ),
-        buildItem(
+        _buildSubmenuItem(
           value: 'unfold_comments',
           icon: Icons.insert_comment_rounded,
           label: _editorText(

@@ -2715,7 +2715,7 @@ class _ComposerCreationModeButtonState
         _ => '',
       };
       if (label.isNotEmpty) {
-        flashHomeSnack(context, label, duration: const Duration(seconds: 2));
+        flashOpenHandSnack(context, label, duration: const Duration(seconds: 2));
       }
       return;
     }

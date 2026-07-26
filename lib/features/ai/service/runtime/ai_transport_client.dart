@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -695,7 +696,10 @@ class AiTransportClient {
             );
           }
 
-          final contentType = _headerValue(streamed.headers, 'content-type');
+          final contentType = readResponseHeaderOrNull(
+            streamed.headers,
+            'content-type',
+          );
           final responseLimit = _isJsonContentType(contentType)
               ? _smallerInt(maxBytes, maxJsonBytes)
               : maxBytes;
@@ -1000,16 +1004,6 @@ class AiTransportClient {
       throw TimeoutException('HTTP response exceeded the request time limit.');
     }
     return remaining;
-  }
-
-  String? _headerValue(Map<String, String> headers, String name) {
-    final normalizedName = lowercaseStringFromValue(name);
-    for (final entry in headers.entries) {
-      if (lowercaseStringFromValue(entry.key) == normalizedName) {
-        return nullIfBlank(entry.value);
-      }
-    }
-    return null;
   }
 
   bool _isJsonContentType(String? contentType) {

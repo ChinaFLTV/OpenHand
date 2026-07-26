@@ -1666,7 +1666,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       return;
     }
 
-    final level = _mapSeverity(config.severity);
+    final level = config.severity.notificationLevel;
     if (config.type == CronNotifyType.system) {
       final shown = await OpenHandNotificationService.showSystem(
         title: title,
@@ -1747,16 +1747,6 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         label: strings.cronsNotificationScenarioAll,
         defaultBody: strings.cronsNotificationTestDefaultBodyFailure,
       ),
-    };
-  }
-
-  OpenHandNotificationLevel _mapSeverity(CronNotifySeverity severity) {
-    return switch (severity) {
-      CronNotifySeverity.info => OpenHandNotificationLevel.info,
-      CronNotifySeverity.success => OpenHandNotificationLevel.success,
-      CronNotifySeverity.warning => OpenHandNotificationLevel.warning,
-      CronNotifySeverity.error => OpenHandNotificationLevel.error,
-      CronNotifySeverity.critical => OpenHandNotificationLevel.critical,
     };
   }
 

@@ -3091,7 +3091,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
           en: 'Copied image to clipboard.',
         );
       } catch (_) {
-        await copyHomeTextToClipboard(
+        await copyOpenHandTextToClipboard(
+          logTag: 'home',
           context: context,
           text: sourceUri.toString(),
           timeout: _mediaClipboardOperationTimeout,
@@ -5387,7 +5388,8 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         );
         return;
       }
-      await copyHomeTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'home',
         context: context,
         text: widget.source.uri.toString(),
         timeout: _mediaClipboardOperationTimeout,

@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
-import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 
@@ -78,7 +78,8 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
             if (source != null)
               OpenHandDialogActionButton.secondary(
                 onPressed: () async {
-                  await copyKnowledgeBaseTextToClipboard(
+                  await copyOpenHandTextToClipboard(
+                    logTag: 'knowledge_base',
                     context: context,
                     text: source.originalPath,
                     successMessage: openHandLocalizedText(

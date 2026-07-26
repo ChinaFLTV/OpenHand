@@ -10,12 +10,12 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
-import 'harness_dialog_utils.dart';
 
 /// 执行 CLI 安装命令并实时展示输出；安装成功时返回 `true`。
 class HarnessCliInstallDialog extends StatefulWidget {
@@ -577,7 +577,8 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
                     if (widget.cli.installDocUrl != null)
                       TextButton.icon(
                         onPressed: () async {
-                          await copyHarnessTextToClipboard(
+                          await copyOpenHandTextToClipboard(
+                            logTag: 'harness',
                             context: context,
                             text: widget.cli.installDocUrl!,
                             successMessage: l10n.commonCopiedToClipboard,

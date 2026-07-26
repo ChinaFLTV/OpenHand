@@ -29,6 +29,7 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_animated_title_text.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_file_hover_popup.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -52,7 +53,6 @@ import '../model/harness_role_config.dart';
 import '../model/harness_session_config.dart';
 import '../service/harness_cli_catalog.dart';
 import '../service/harness_orchestrator.dart';
-import 'harness_dialog_utils.dart';
 import 'harness_pending_replay_badge.dart';
 part 'harness_session_dashboard.header.part.dart';
 part 'harness_session_dashboard.phase_card.part.dart';
@@ -2327,7 +2327,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
 
   void _copyLog(BuildContext context, HarnessPhaseLog log) {
     unawaited(
-      copyHarnessTextToClipboard(
+      copyOpenHandTextToClipboard(
+        logTag: 'harness',
         context: context,
         text: log.lines.join('\n'),
         successMessage: openHandLocalizedText(

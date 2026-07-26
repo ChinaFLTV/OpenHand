@@ -58,13 +58,6 @@ String _messageMetadataText(AiSessionMessage message, String key) {
   return '${message.metadata[key] ?? ''}'.trim();
 }
 
-bool _isTranscriptToolResultKind(AiSessionMessageKind kind) {
-  return kind == AiSessionMessageKind.tool ||
-      kind == AiSessionMessageKind.mcp ||
-      kind == AiSessionMessageKind.skill ||
-      kind == AiSessionMessageKind.hook;
-}
-
 Set<String> unmatchedTranscriptToolCallIds(
   Iterable<AiSessionMessage> messages,
 ) {
@@ -76,7 +69,7 @@ Set<String> unmatchedTranscriptToolCallIds(
     if (toolCallId.isEmpty) continue;
     if (message.kind == AiSessionMessageKind.toolCall) {
       toolCallIds.add(toolCallId);
-    } else if (_isTranscriptToolResultKind(message.kind)) {
+    } else if (message.kind.isToolResultKind) {
       toolResultCallIds.add(toolCallId);
     }
   }
@@ -115,7 +108,7 @@ bool _shouldSuppressTranscriptToolResult(
   Set<String> toolCallIds, {
   required bool suppressUnpairedToolResults,
 }) {
-  if (!_isTranscriptToolResultKind(message.kind)) {
+  if (!message.kind.isToolResultKind) {
     return false;
   }
   final toolCallId = _messageMetadataText(message, 'tool_call_id');
@@ -787,7 +780,7 @@ class AiSession {
 
     final starter = messages[starterIndex];
     final toolCallId = _messageMetadataText(starter, 'tool_call_id');
-    if (_isTranscriptToolResultKind(starter.kind) && toolCallId.isNotEmpty) {
+    if (starter.kind.isToolResultKind && toolCallId.isNotEmpty) {
       final toolCallsById = _displayToolCallByCallIdCache ??=
           <String, AiSessionMessage>{
             for (final message in displayMessages)

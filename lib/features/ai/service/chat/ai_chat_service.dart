@@ -3785,7 +3785,7 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
   }
   if (map.isEmpty) return null;
 
-  final explicitMime = _firstNonEmptyString(map, const <String>[
+  final explicitMime = firstNonBlankStringForKeys(map, const <String>[
     'mime_type',
     'mimeType',
     'content_type',
@@ -3795,7 +3795,7 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
   ]);
   final mimeKind = _streamingMediaKindFromMime(explicitMime ?? '');
   final typeKind = _streamingMediaKindFromType(
-    _firstNonEmptyString(map, const <String>[
+    firstNonBlankStringForKeys(map, const <String>[
           'type',
           'kind',
           'media_kind',
@@ -3865,17 +3865,6 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
           mimeKind != null || allowHintedKindWithoutExtension,
     );
     if (found != null) return found;
-  }
-  return null;
-}
-
-String? _firstNonEmptyString(Map<String, Object?> map, List<String> keys) {
-  for (final key in keys) {
-    final value = map[key];
-    if (value is String) {
-      final normalized = nullIfBlank(value);
-      if (normalized != null) return normalized;
-    }
   }
   return null;
 }

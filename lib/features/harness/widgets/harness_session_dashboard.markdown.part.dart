@@ -21,7 +21,8 @@ GestureRecognizer _createMarkdownPathLink({
   if (resolvedPath == null) return recognizer;
   recognizer.onTap = () {
     unawaited(
-      copyHarnessTextToClipboard(
+      copyOpenHandTextToClipboard(
+        logTag: 'harness',
         context: context,
         text: resolvedPath.resolvedPath,
         successMessage: openHandLocalizedText(
@@ -55,7 +56,8 @@ TextSpan _formatMarkdownPathCode({
   final recognizer = TapGestureRecognizer()
     ..onTap = () {
       unawaited(
-        copyHarnessTextToClipboard(
+        copyOpenHandTextToClipboard(
+          logTag: 'harness',
           context: context,
           text: resolvedPath.resolvedPath,
           successMessage: openHandLocalizedText(
@@ -820,7 +822,8 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
     unawaited(
-      copyHarnessTextToClipboard(
+      copyOpenHandTextToClipboard(
+            logTag: 'harness',
             context: context,
             text: widget.content,
             successMessage: openHandLocalizedText(

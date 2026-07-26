@@ -13,6 +13,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -24,7 +25,6 @@ import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
-import 'mcp_dialog_utils.dart';
 
 const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
@@ -201,7 +201,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
 
   Future<void> _handleCopy(String name) async {
     final l10n = AppLocalizations.of(context);
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: 'select:$name',
       successMessage: l10n?.snackToolSearchLoadedCopiedToast,
@@ -213,7 +214,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (group.names.isEmpty) return;
     final payload = group.names.map((n) => 'select:$n').join(', ');
     final l10n = AppLocalizations.of(context);
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: payload,
       successMessage: l10n?.snackToolSearchLoadedCopiedToast,
@@ -236,7 +238,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     // 退化路径：未提供 onReplayBatch 时，回退为复制到剪贴板。
     final payload = entry.addedNames.map((n) => 'select:$n').join(', ');
     final l10n = AppLocalizations.of(context);
-    await copyMcpTextToClipboard(
+    await copyOpenHandTextToClipboard(
+      logTag: 'mcp',
       context: context,
       text: payload,
       successMessage: l10n?.snackToolSearchLoadedCopiedToast,
@@ -278,7 +281,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         ? ToolSearchHistorySerializer.toJson(entries)
         : ToolSearchHistorySerializer.toMarkdown(entries);
     if (action.destination == _HistoryExportDestination.clipboard) {
-      await copyMcpTextToClipboard(
+      await copyOpenHandTextToClipboard(
+        logTag: 'mcp',
         context: context,
         text: payload,
         successMessage: l10n.snackToolSearchLoadedHistoryExportedToast(
