@@ -3900,34 +3900,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
   static IconData _atMentionIcon(_AtMentionItem item) {
     if (item.isLocalFileAction) return Icons.attach_file_rounded;
     if (item.isDirectory) return Icons.folder_rounded;
-    final ext = p.extension(item.name).toLowerCase();
-    return switch (ext) {
-      '.dart' => Icons.code_rounded,
-      '.py' => Icons.code_rounded,
-      '.js' || '.jsx' || '.ts' || '.tsx' => Icons.javascript_rounded,
-      '.json' => Icons.data_object_rounded,
-      '.yaml' || '.yml' => Icons.settings_rounded,
-      '.md' => Icons.article_rounded,
-      '.html' || '.htm' => Icons.web_rounded,
-      '.css' || '.scss' || '.less' => Icons.palette_rounded,
-      '.png' ||
-      '.jpg' ||
-      '.jpeg' ||
-      '.gif' ||
-      '.svg' ||
-      '.webp' => Icons.image_rounded,
-      '.go' ||
-      '.rs' ||
-      '.java' ||
-      '.kt' ||
-      '.swift' ||
-      '.c' ||
-      '.cpp' => Icons.code_rounded,
-      '.sql' => Icons.storage_rounded,
-      '.sh' || '.bash' || '.zsh' => Icons.terminal_rounded,
-      '.vue' => Icons.web_rounded,
-      _ => Icons.insert_drive_file_rounded,
-    };
+    return openHandFileNameIcon(item.name);
   }
 }
 

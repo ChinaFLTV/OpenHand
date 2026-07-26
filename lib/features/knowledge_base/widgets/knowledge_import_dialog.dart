@@ -329,26 +329,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    String t({
-      required String zh,
-      required String en,
-      String? zhHans,
-      String? zhHant,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        en: en,
-        zhHans: zhHans,
-        zhHant: zhHant,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final t = openHandTextResolver(context);
 
     final boldPlaceholder = t(
       zh: '加粗',

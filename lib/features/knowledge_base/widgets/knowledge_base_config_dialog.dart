@@ -638,26 +638,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         _knowledgeDependencyPluginIds.contains(
           pluginController.checkingPluginId,
         );
-    String t({
-      required String zh,
-      required String en,
-      String? zhHans,
-      String? zhHant,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        en: en,
-        zhHans: zhHans,
-        zhHant: zhHant,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final t = openHandTextResolver(context);
 
     final embeddingModelSupportsRerank =
         _selectedEmbeddingProfile(embeddingModels)?.supportsRerank == true;
