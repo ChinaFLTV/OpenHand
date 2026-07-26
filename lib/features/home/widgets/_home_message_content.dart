@@ -1233,29 +1233,20 @@ class _MessageMarkdownThemeData {
   }) {
     final colorScheme = theme.colorScheme;
     final palette = theme.extension<OpenHandPalette>();
-    final bubbleIsDark =
-        ThemeData.estimateBrightnessForColor(backgroundColor) ==
-        Brightness.dark;
-    final overlayBase = bubbleIsDark ? Colors.white : Colors.black;
-    final subtleSurface = Color.alphaBlend(
-      overlayBase.withValues(alpha: bubbleIsDark ? 0.06 : 0.035),
-      backgroundColor,
+    final tones = OpenHandMarkdownSurfaceTones.resolve(
+      colorScheme: colorScheme,
+      background: backgroundColor,
     );
-    final elevatedSurface = Color.alphaBlend(
-      overlayBase.withValues(alpha: bubbleIsDark ? 0.11 : 0.06),
-      backgroundColor,
-    );
+    final bubbleIsDark = tones.isDark;
+    final overlayBase = tones.overlayBase;
+    final subtleSurface = tones.subtleSurface;
+    final elevatedSurface = tones.elevatedSurface;
     final inlineCodeSurface = Color.alphaBlend(
       overlayBase.withValues(alpha: bubbleIsDark ? 0.12 : 0.055),
       backgroundColor,
     );
-    final accentColor = bubbleIsDark
-        ? Color.lerp(colorScheme.primaryContainer, Colors.white, 0.08) ??
-              colorScheme.primaryContainer
-        : colorScheme.primary;
-    final linkColor = bubbleIsDark
-        ? Color.lerp(accentColor, Colors.white, 0.08) ?? accentColor
-        : accentColor;
+    final accentColor = tones.accent;
+    final linkColor = tones.link;
     final borderColor =
         palette?.outlineSoft.withValues(alpha: bubbleIsDark ? 0.72 : 0.88) ??
         Color.alphaBlend(

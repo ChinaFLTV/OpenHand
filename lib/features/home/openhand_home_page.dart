@@ -71,6 +71,7 @@ import '../../shared/ui/interactive_image_preview.dart';
 import '../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../shared/ui/markdown_inline_code.dart';
 import '../../shared/ui/markdown_math.dart';
+import '../../shared/ui/markdown_surface_tones.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/micro_press_feedback.dart';
 import '../../shared/ui/model_search_selector.dart';
@@ -219,7 +220,6 @@ class OpenHandHomePage extends StatefulWidget {
   @override
   State<OpenHandHomePage> createState() => _OpenHandHomePageState();
 }
-
 
 class _OpenHandHomePageState extends State<OpenHandHomePage>
     with WidgetsBindingObserver {

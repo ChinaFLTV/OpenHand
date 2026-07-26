@@ -27,6 +27,7 @@ import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/markdown_math.dart';
+import '../../../shared/ui/markdown_surface_tones.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -642,27 +643,19 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
   Color cardBg,
   Color? explicitTextColor,
 ) {
-  final bubbleIsDark =
-      ThemeData.estimateBrightnessForColor(cardBg) == Brightness.dark;
-  final overlayBase = bubbleIsDark ? Colors.white : Colors.black;
+  final tones = OpenHandMarkdownSurfaceTones.resolve(
+    colorScheme: colorScheme,
+    background: cardBg,
+  );
+  final bubbleIsDark = tones.isDark;
+  final overlayBase = tones.overlayBase;
   final textColor =
       explicitTextColor ??
       (bubbleIsDark ? Colors.white : colorScheme.onSurface);
-  final subtleSurface = Color.alphaBlend(
-    overlayBase.withValues(alpha: bubbleIsDark ? 0.06 : 0.035),
-    cardBg,
-  );
-  final elevatedSurface = Color.alphaBlend(
-    overlayBase.withValues(alpha: bubbleIsDark ? 0.11 : 0.06),
-    cardBg,
-  );
-  final accentColor = bubbleIsDark
-      ? Color.lerp(colorScheme.primaryContainer, Colors.white, 0.08) ??
-            colorScheme.primaryContainer
-      : colorScheme.primary;
-  final linkColor = bubbleIsDark
-      ? Color.lerp(accentColor, Colors.white, 0.08) ?? accentColor
-      : accentColor;
+  final subtleSurface = tones.subtleSurface;
+  final elevatedSurface = tones.elevatedSurface;
+  final accentColor = tones.accent;
+  final linkColor = tones.link;
   final borderColor = Color.alphaBlend(
     overlayBase.withValues(alpha: bubbleIsDark ? 0.18 : 0.12),
     cardBg,
