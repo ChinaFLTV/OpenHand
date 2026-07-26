@@ -1042,8 +1042,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final settingsController = context.watch<SettingsController>();
-    final globalInputCacheEnabled = settingsController.aiInputCacheEnabled;
+    // 这个 1400 行的编辑器只用到全局输入缓存开关这一项，整体订阅会让任意
+    // 一条设置变更都把它整棵重建。
+    final globalInputCacheEnabled = context.select<SettingsController, bool>(
+      (controller) => controller.aiInputCacheEnabled,
+    );
 
     return PopScope(
       canPop: !_isSaving,
@@ -4611,9 +4614,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             TextButton.icon(
               onPressed: () => onChanged(<String>{}),
               icon: const Icon(Icons.clear_all_rounded, size: 16),
-              label: Text(
-                openHandClearLabel(context),
-              ),
+              label: Text(openHandClearLabel(context)),
             ),
           ],
         ),

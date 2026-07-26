@@ -7965,9 +7965,11 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final c = context.watch<SettingsController>();
+    final c = context.read<SettingsController>();
     final providerEnum = ThrottleCloudSyncProvider.fromStorage(
-      c.aiStreamThrottleCloudSyncProvider,
+      context.select<SettingsController, String>(
+        (controller) => controller.aiStreamThrottleCloudSyncProvider,
+      ),
     );
     return Container(
       padding: const EdgeInsets.all(12),

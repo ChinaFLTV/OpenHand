@@ -627,7 +627,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   @override
   Widget build(BuildContext context) {
     final knowledgeController = context.watch<KnowledgeBaseController>();
-    final pluginController = context.watch<PluginServiceController>();
+    final pluginController = context.read<PluginServiceController>();
+    // 只关心「当前正在检测哪个插件」，不必跟着插件控制器的其余变更重建。
+    final checkingPluginId = context.select<PluginServiceController, String?>(
+      (controller) => controller.checkingPluginId,
+    );
     final settingsController = context.watch<SettingsController>();
     final embeddingModels = _embeddingModels(settingsController.aiModels);
     final rerankModels = _rerankModels(settingsController.aiModels);
@@ -635,9 +639,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final dependencies = knowledgeController.dependencies(pluginController);
     final dependencyRefreshing =
         _dependencyRefreshFuture != null ||
-        _knowledgeDependencyPluginIds.contains(
-          pluginController.checkingPluginId,
-        );
+        _knowledgeDependencyPluginIds.contains(checkingPluginId);
     final t = openHandTextResolver(context);
 
     final embeddingModelSupportsRerank =
