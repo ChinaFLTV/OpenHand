@@ -5084,17 +5084,14 @@ class _AiProviderWebsiteLink extends StatelessWidget {
       decoration: TextDecoration.underline,
       decorationColor: colorScheme.primary.withValues(alpha: 0.72),
     );
-    final child = MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onPressed,
-        child: Text(
-          url,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: linkStyle,
-        ),
+    final child = OpenHandTapRegion(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Text(
+        url,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: linkStyle,
       ),
     );
     return Tooltip(

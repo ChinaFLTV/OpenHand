@@ -64,6 +64,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';

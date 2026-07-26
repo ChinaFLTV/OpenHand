@@ -2049,35 +2049,32 @@ class _ImageInlinePreview extends StatelessWidget {
           const SizedBox(height: 8),
           Expanded(
             child: Center(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () {
-                    webReverseToolDialogs.show<void>(
-                      context: context,
-                      builder: (_) => bytes != null
-                          ? MediaPreviewDialog.bytes(
-                              bytes: bytes,
-                              title: fallbackName.isEmpty
-                                  ? entry.url
-                                  : fallbackName,
-                              sourceUrl: entry.url,
-                              mimeType: entry.mimeType,
-                            )
-                          : MediaPreviewDialog.network(
-                              url: entry.url,
-                              title: fallbackName.isEmpty
-                                  ? entry.url
-                                  : fallbackName,
-                              mimeType: entry.mimeType,
-                            ),
-                    );
-                  },
-                  child: Container(
-                    decoration: webReverseSurfaceCardDecoration(cs),
-                    padding: const EdgeInsets.all(8),
-                    child: image,
-                  ),
+              child: OpenHandTapRegion(
+                onTap: () {
+                  webReverseToolDialogs.show<void>(
+                    context: context,
+                    builder: (_) => bytes != null
+                        ? MediaPreviewDialog.bytes(
+                            bytes: bytes,
+                            title: fallbackName.isEmpty
+                                ? entry.url
+                                : fallbackName,
+                            sourceUrl: entry.url,
+                            mimeType: entry.mimeType,
+                          )
+                        : MediaPreviewDialog.network(
+                            url: entry.url,
+                            title: fallbackName.isEmpty
+                                ? entry.url
+                                : fallbackName,
+                            mimeType: entry.mimeType,
+                          ),
+                  );
+                },
+                child: Container(
+                  decoration: webReverseSurfaceCardDecoration(cs),
+                  padding: const EdgeInsets.all(8),
+                  child: image,
                 ),
               ),
             ),

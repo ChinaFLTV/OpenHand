@@ -2970,47 +2970,44 @@ class _ComposerAttachmentChip extends StatelessWidget {
         onRemove: onRemove,
       );
     }
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.outlineVariant),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _iconForAttachmentKind(attachment.kind),
+    return OpenHandTapRegion(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _iconForAttachmentKind(attachment.kind),
+              size: 16,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: onRemove,
+              child: Icon(
+                Icons.close_rounded,
                 size: 16,
                 color: colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 260),
-                child: Text(
-                  '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: onRemove,
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -3045,32 +3042,29 @@ class _ComposerImageThumbChip extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: onTap,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colorScheme.outlineVariant),
-                      color: colorScheme.surfaceContainerHighest,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.file(
-                      File(attachment.filePath),
-                      fit: BoxFit.cover,
-                      cacheWidth: 192,
-                      gaplessPlayback: true,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            size: 24,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        );
-                      },
-                    ),
+              child: OpenHandTapRegion(
+                onTap: onTap,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    color: colorScheme.surfaceContainerHighest,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.file(
+                    File(attachment.filePath),
+                    fit: BoxFit.cover,
+                    cacheWidth: 192,
+                    gaplessPlayback: true,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          size: 24,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -3078,30 +3072,27 @@ class _ComposerImageThumbChip extends StatelessWidget {
             Positioned(
               top: -6,
               right: -6,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: onRemove,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colorScheme.outlineVariant),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 14,
-                      color: colorScheme.onSurface,
-                    ),
+              child: OpenHandTapRegion(
+                onTap: onRemove,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -3185,15 +3176,12 @@ class _ProjectReferenceChip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
+          OpenHandTapRegion(
+            onTap: onRemove,
+            child: Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),
         ],

@@ -39,6 +39,7 @@ import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_scroll_behaviors.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/async_concurrency.dart';
