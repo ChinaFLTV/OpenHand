@@ -592,7 +592,7 @@ class _HeComposer extends StatelessWidget {
               },
             ),
             AnimatedContainer(
-              duration: kOpenHandMotion260,
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
               curve: Curves.easeInOutCubicEmphasized,
               height: isCollapsed ? 0 : 14,
             ),

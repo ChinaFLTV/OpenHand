@@ -423,8 +423,8 @@ class _NetworkList extends StatelessWidget {
         final e = items[items.length - 1 - idx];
         return Padding(
           padding: const EdgeInsets.only(bottom: 4),
-          child: _AnimatedAppearOnce(
-            duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+          child: AppearOnce(
+            duration: _kSwitchDuration,
             child: _NetworkRow(
               entry: e,
               earliest: earliest,
@@ -437,55 +437,6 @@ class _NetworkList extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// 仅在第一次构建时做 fade+slide 入场，后续 rebuild 不再播。
-/// 用于列表项滚入视口时的丝滑感，不会因 list rebuild 抖动。
-class _AnimatedAppearOnce extends StatefulWidget {
-  const _AnimatedAppearOnce({required this.child, required this.duration});
-
-  final Widget child;
-  final Duration duration;
-
-  @override
-  State<_AnimatedAppearOnce> createState() => _AnimatedAppearOnceState();
-}
-
-class _AnimatedAppearOnceState extends State<_AnimatedAppearOnce>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ac = AnimationController(
-    vsync: this,
-    duration: widget.duration,
-  )..forward();
-
-  @override
-  void dispose() {
-    _ac.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.duration == Duration.zero) return widget.child;
-    // Q 弹入场：Fade + Slide(easeOutBack 微回弹) + Scale(0.96 → 1)。
-    // 既覆盖 Network / Console 等条目卡片的「出现」动效，又把过去的纯
-    // easeOutCubic 升级为带轻微弹簧的曲线，让条目堆叠时更生动。
-    final fade = CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic);
-    final pop = CurvedAnimation(parent: _ac, curve: Curves.easeOutBack);
-    return FadeTransition(
-      opacity: fade,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.08),
-          end: Offset.zero,
-        ).animate(pop),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1).animate(pop),
-          child: widget.child,
-        ),
-      ),
     );
   }
 }

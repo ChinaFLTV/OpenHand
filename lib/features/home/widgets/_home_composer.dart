@@ -2332,7 +2332,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               },
             ),
             AnimatedContainer(
-              duration: kOpenHandMotion260,
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
               curve: Curves.easeInOutCubicEmphasized,
               height: widget.isCollapsed ? 0 : 14,
             ),
@@ -2610,7 +2610,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
-            duration: kOpenHandMotion220,
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             curve: Curves.easeOutCubic,
             width: 28,
             height: 28,
@@ -2715,7 +2715,11 @@ class _ComposerCreationModeButtonState
         _ => '',
       };
       if (label.isNotEmpty) {
-        flashOpenHandSnack(context, label, duration: const Duration(seconds: 2));
+        flashOpenHandSnack(
+          context,
+          label,
+          duration: const Duration(seconds: 2),
+        );
       }
       return;
     }
@@ -2732,7 +2736,7 @@ class _ComposerCreationModeButtonState
         width: 52,
         height: 52,
         child: AnimatedContainer(
-          duration: kOpenHandMotion340,
+          duration: openHandMotionDuration(context, kOpenHandMotion340),
           curve: Curves.easeInOutCubicEmphasized,
           child: FilledButton(
             onPressed: () {
@@ -4511,7 +4515,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
         width: 52,
         height: 52,
         child: AnimatedContainer(
-          duration: kOpenHandMotion320,
+          duration: openHandMotionDuration(context, kOpenHandMotion320),
           curve: Curves.easeInOutCubicEmphasized,
           child: FilledButton(
             onPressed: () => unawaited(onTap()),

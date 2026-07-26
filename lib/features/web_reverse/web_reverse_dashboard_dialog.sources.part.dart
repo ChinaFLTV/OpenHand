@@ -1454,7 +1454,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         child: InkWell(
                           onTap: () => _toggleBreakpoint(idx),
                           child: AnimatedContainer(
-                            duration: kOpenHandMotion240,
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion240,
+                            ),
                             curve: Curves.easeOutCubic,
                             color: isHighlighted
                                 ? cs.tertiaryContainer.withValues(alpha: 0.32)
@@ -1526,7 +1529,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                 ? () => _onLineLongPress(idx, line)
                                 : null,
                             child: AnimatedContainer(
-                              duration: kOpenHandMotion240,
+                              duration: openHandMotionDuration(
+                                context,
+                                kOpenHandMotion240,
+                              ),
                               curve: Curves.easeOutCubic,
                               color: isHighlighted
                                   ? cs.tertiaryContainer.withValues(alpha: 0.5)

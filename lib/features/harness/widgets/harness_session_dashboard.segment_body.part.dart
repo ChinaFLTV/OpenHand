@@ -663,7 +663,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
             const SizedBox(width: 8),
             Expanded(
               child: AnimatedCrossFade(
-                duration: kOpenHandMotion220,
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
                 firstCurve: Curves.easeOutCubic,
                 secondCurve: Curves.easeOutCubic,
                 crossFadeState: _expanded

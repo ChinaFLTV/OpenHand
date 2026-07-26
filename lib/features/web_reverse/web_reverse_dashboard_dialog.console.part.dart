@@ -560,20 +560,29 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                         }
                         return AnimatedSize(
                           key: ValueKey(identityHashCode(slot)),
-                          duration: _kConsoleExitDuration,
+                          duration: openHandMotionDuration(
+                            context,
+                            _kConsoleExitDuration,
+                          ),
                           curve: Curves.easeInCubic,
                           alignment: Alignment.topCenter,
                           child: AnimatedOpacity(
-                            duration: _kConsoleExitDuration,
+                            duration: openHandMotionDuration(
+                              context,
+                              _kConsoleExitDuration,
+                            ),
                             curve: Curves.easeOut,
                             opacity: slot.isExiting ? 0.0 : 1.0,
                             child: AnimatedScale(
-                              duration: _kConsoleExitDuration,
+                              duration: openHandMotionDuration(
+                                context,
+                                _kConsoleExitDuration,
+                              ),
                               curve: Curves.easeInCubic,
                               scale: slot.isExiting ? 0.92 : 1.0,
                               child: slot.isExiting
                                   ? padded
-                                  : _AnimatedAppearOnce(
+                                  : AppearOnce(
                                       duration: _kSwitchDuration,
                                       child: padded,
                                     ),
@@ -589,7 +598,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         // REPL 输入：单行。回车执行；上下方向键浏览历史；
         // 结果通过 controller.runReplExpression 写入 console，复用渲染。
         AnimatedSize(
-          duration: kOpenHandMotion280,
+          duration: openHandMotionDuration(context, kOpenHandMotion280),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: widget.controller.isPaused

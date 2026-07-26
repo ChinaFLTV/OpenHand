@@ -14,6 +14,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/motion_durations.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -3344,7 +3345,7 @@ fi
             ),
           ),
           AnimatedContainer(
-            duration: kOpenHandMotion220,
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -3418,7 +3419,7 @@ fi
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                 child: AnimatedContainer(
-                  duration: _kSwitchDuration,
+                  duration: openHandMotionDuration(context, _kSwitchDuration),
                   curve: _kSwitchInCurve,
                   decoration: BoxDecoration(
                     color: selected
@@ -3471,7 +3472,7 @@ fi
     bool isZh,
   ) {
     return AnimatedSwitcher(
-      duration: _kSwitchDuration,
+      duration: openHandMotionDuration(context, _kSwitchDuration),
       switchInCurve: _kSwitchInCurve,
       child: KeyedSubtree(
         key: ValueKey<_Tab>(_currentTab),

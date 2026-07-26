@@ -1221,20 +1221,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             _buildExplicitPromptCacheControl(
                               globalInputCacheEnabled: globalInputCacheEnabled,
                             ),
-                            AnimatedSwitcher(
+                            OpenHandVerticalRevealSwitcher(
                               duration: kOpenHandMotion180,
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              transitionBuilder: (child, animation) {
-                                return SizeTransition(
-                                  sizeFactor: animation,
-                                  axisAlignment: -1,
-                                  child: FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  ),
-                                );
-                              },
                               child: _usesTokenAuth
                                   ? Column(
                                       key: const ValueKey<String>(

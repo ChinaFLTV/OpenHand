@@ -1796,7 +1796,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AnimatedSize(
-                  duration: kOpenHandMotion180,
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.topCenter,
                   child: SizedBox(
@@ -4348,7 +4348,10 @@ class _RoundSummaryRowTile extends StatelessWidget {
                     ),
                     child: AnimatedRotation(
                       turns: isDiffExpanded ? 0.5 : 0.0,
-                      duration: kOpenHandMotion200,
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion200,
+                      ),
                       child: Icon(
                         Icons.expand_more_rounded,
                         size: 16,
@@ -4369,7 +4372,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
         children: [
           tile,
           AnimatedSize(
-            duration: kOpenHandMotion220,
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: isDiffExpanded
@@ -4444,7 +4447,7 @@ class _GroupHeader extends StatelessWidget {
             children: [
               AnimatedRotation(
                 turns: collapsed ? -0.25 : 0.0,
-                duration: kOpenHandMotion200,
+                duration: openHandMotionDuration(context, kOpenHandMotion200),
                 child: Icon(
                   Icons.expand_more_rounded,
                   size: 16,
@@ -4511,7 +4514,7 @@ class _PathSubGroupHeader extends StatelessWidget {
             children: [
               AnimatedRotation(
                 turns: collapsed ? -0.25 : 0.0,
-                duration: kOpenHandMotion200,
+                duration: openHandMotionDuration(context, kOpenHandMotion200),
                 child: Icon(
                   Icons.chevron_right_rounded,
                   size: 14,

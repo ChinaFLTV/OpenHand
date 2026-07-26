@@ -4,6 +4,7 @@ import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'motion_durations.dart';
+import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
 enum OpenHandCleanupRangePreset { all, today, last24Hours, last7Days, custom }
@@ -152,7 +153,7 @@ class _OpenHandCleanupRangeDialogState
               ],
             ),
             AnimatedSwitcher(
-              duration: kOpenHandMotion180,
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
               child: _preset == OpenHandCleanupRangePreset.custom
                   ? Padding(
                       key: const ValueKey<String>('custom-range-fields'),
@@ -316,7 +317,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
         highlightColor: cs.primary.withValues(alpha: 0.05),
         onTap: onPressed,
         child: AnimatedContainer(
-          duration: kOpenHandMotion180,
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
           curve: Curves.easeOutCubic,
           constraints: const BoxConstraints(minHeight: 42),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

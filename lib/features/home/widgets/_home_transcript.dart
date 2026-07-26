@@ -3394,6 +3394,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
   late final Animation<Offset> _slide;
   late final Animation<double> _scale;
   bool _exiting = false;
+  bool _entranceStarted = false;
 
   @override
   void initState() {
@@ -3413,7 +3414,24 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
       end: Offset.zero,
     ).animate(_fade);
     _scale = Tween<double>(begin: 0.96, end: 1).animate(_fade);
-    _controller.forward();
+  }
+
+  /// 进出场时长跟随全局动效设置：关闭动效时直接置零，横幅瞬时出现/消失。
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final motionEnabled = openHandTickerMotionEnabled(context);
+    _controller.duration = motionEnabled ? kOpenHandMotion340 : Duration.zero;
+    _controller.reverseDuration = motionEnabled
+        ? kOpenHandMotion220
+        : Duration.zero;
+    if (_entranceStarted) return;
+    _entranceStarted = true;
+    if (motionEnabled) {
+      _controller.forward();
+    } else {
+      _controller.value = 1;
+    }
   }
 
   @override

@@ -761,7 +761,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
     };
     return HoverLift(
       child: AnimatedSize(
-        duration: kOpenHandMotion320,
+        duration: openHandMotionDuration(context, kOpenHandMotion320),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: Card(

@@ -2759,7 +2759,10 @@ class _TabStripState extends State<_TabStrip> {
                                     ),
                                   ),
                                   child: AnimatedContainer(
-                                    duration: kOpenHandMotion220,
+                                    duration: openHandMotionDuration(
+                                      context,
+                                      kOpenHandMotion220,
+                                    ),
                                     curve: Curves.easeOutCubic,
                                     decoration: BoxDecoration(
                                       color: active

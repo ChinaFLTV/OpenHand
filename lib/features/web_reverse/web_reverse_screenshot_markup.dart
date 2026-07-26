@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import 'web_reverse_dialog_utils.dart';
 
@@ -222,7 +223,10 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
               GestureDetector(
                 onTap: () => setState(() => _color = c),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 150),
+                  ),
                   width: 22,
                   height: 22,
                   decoration: BoxDecoration(

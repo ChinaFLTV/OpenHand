@@ -12112,7 +12112,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
             padding: const EdgeInsets.only(left: 8, top: 2),
             child: AnimatedRotation(
               turns: _expanded ? 0.5 : 0.0,
-              duration: kOpenHandMotion180,
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
               child: Icon(
                 Icons.expand_more_rounded,
                 size: 18,
@@ -12135,7 +12135,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
             children: [
               header,
               AnimatedSize(
-                duration: kOpenHandMotion180,
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topLeft,
                 child: _expanded
@@ -14152,7 +14152,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
     final headersEmpty = headers.isEmpty;
 
     return AnimatedSize(
-      duration: const Duration(milliseconds: 300),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 300),
+      ),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: Container(

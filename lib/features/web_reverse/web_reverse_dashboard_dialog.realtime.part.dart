@@ -390,7 +390,10 @@ class _ConnTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 160),
+        ),
         curve: Curves.easeOutCubic,
         margin: const EdgeInsets.symmetric(horizontal: 6),
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),

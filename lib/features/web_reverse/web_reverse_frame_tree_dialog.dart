@@ -10,6 +10,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -203,7 +204,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
           ),
           Divider(height: 1, color: cs.outlineVariant),
           AnimatedSize(
-            duration: kOpenHandMotion260,
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: _err.isEmpty

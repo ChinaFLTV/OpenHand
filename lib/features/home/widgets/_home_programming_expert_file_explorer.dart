@@ -15234,7 +15234,10 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                   SizedBox(
                                     width: 18,
                                     child: AnimatedOpacity(
-                                      duration: kOpenHandMotion140,
+                                      duration: openHandMotionDuration(
+                                        context,
+                                        kOpenHandMotion140,
+                                      ),
                                       opacity: showQuickFix ? 1 : 0,
                                       child: IgnorePointer(
                                         ignoring: !showQuickFix,

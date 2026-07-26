@@ -22,6 +22,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/hover_lift.dart';
 import '../../shared/ui/media_preview_dialog.dart';

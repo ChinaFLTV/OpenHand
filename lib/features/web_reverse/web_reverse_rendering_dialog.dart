@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -469,7 +470,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return AnimatedContainer(
-      duration: kOpenHandMotion220,
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: Curves.easeOutCubic,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

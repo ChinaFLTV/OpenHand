@@ -3929,11 +3929,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
             ],
           ),
           AnimatedSize(
-            duration: kOpenHandMotion260,
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
             curve: Curves.easeOutBack,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
-              duration: kOpenHandMotion220,
+              duration: openHandMotionDuration(context, kOpenHandMotion220),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {

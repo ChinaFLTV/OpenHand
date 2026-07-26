@@ -10745,7 +10745,7 @@ class _AgentEditorPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return AnimatedContainer(
-      duration: kThemeAnimationDuration,
+      duration: openHandMotionDuration(context, kThemeAnimationDuration),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -11232,7 +11232,10 @@ class _AgentDraggableChipBody extends StatelessWidget {
             alignment: AlignmentDirectional.centerEnd,
             children: [
               AnimatedContainer(
-                duration: kThemeAnimationDuration,
+                duration: openHandMotionDuration(
+                  context,
+                  kThemeAnimationDuration,
+                ),
                 curve: Curves.easeOutCubic,
                 decoration: BoxDecoration(
                   color: dragging
@@ -12597,7 +12600,7 @@ class _AgentRoutePreviewCard extends StatelessWidget {
             en: 'Add structured routing fields so this agent can join task routing.',
           );
     return AnimatedContainer(
-      duration: kThemeAnimationDuration,
+      duration: openHandMotionDuration(context, kThemeAnimationDuration),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

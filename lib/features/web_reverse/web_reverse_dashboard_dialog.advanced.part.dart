@@ -2781,7 +2781,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
           const Divider(height: 1),
           Flexible(
             child: AnimatedSwitcher(
-              duration: kOpenHandMotion220,
+              duration: openHandMotionDuration(context, kOpenHandMotion220),
               child: switch (_tab) {
                 0 => _buildChartsTab(theme),
                 1 => _buildIceTab(theme),
@@ -3306,7 +3306,7 @@ class _RtcTab extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: AnimatedContainer(
-        duration: kOpenHandMotion220,
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
@@ -3321,7 +3321,7 @@ class _RtcTab extends StatelessWidget {
           ),
         ),
         child: AnimatedDefaultTextStyle(
-          duration: kOpenHandMotion220,
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
           style: TextStyle(
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             color: selected ? cs.primary : cs.onSurfaceVariant,

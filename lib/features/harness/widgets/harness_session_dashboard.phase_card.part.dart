@@ -360,7 +360,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
             ],
 
             AnimatedSwitcher(
-              duration: _expandSwitchDuration,
+              duration: openHandMotionDuration(context, _expandSwitchDuration),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               layoutBuilder: (currentChild, previousChildren) {
