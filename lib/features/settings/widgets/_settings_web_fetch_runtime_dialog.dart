@@ -1,5 +1,9 @@
 part of 'settings_view.dart';
 
+/// 触发「证书校验失败」补充诊断提示的错误特征（小写匹配）。
+const String _certificateVerificationFailedMarker =
+    'certificate verification failed';
+
 /// 运行时控制台的固定前景色：始终渲染在深色控制台底色上，不随主题切换。
 const Color _kConsoleCommandColor = Color(0xFFF1F5F9);
 const Color _kConsoleStatusColor = Color(0xFF64B5F6);
@@ -270,26 +274,39 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                     ),
                   ],
                 ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    _errorMessage!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                    ),
+                OpenHandVerticalRevealSwitcher(
+                  presentKey: ValueKey<String>(
+                    'scrapling-runtime-error-${_errorMessage ?? ''}',
                   ),
-                  if (_errorMessage!.toLowerCase().contains(
-                    'certificate verification failed',
-                  )) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.settingsScraplingRuntimeCertificateDiagnosis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
+                  child: _errorMessage == null
+                      ? null
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _errorMessage!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                              if (_errorMessage!.toLowerCase().contains(
+                                _certificateVerificationFailedMarker,
+                              )) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  l10n.settingsScraplingRuntimeCertificateDiagnosis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
                 const SizedBox(height: 10),
                 Expanded(
                   child: OpenHandConsoleLogView(

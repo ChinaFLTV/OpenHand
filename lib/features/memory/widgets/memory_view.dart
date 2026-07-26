@@ -528,16 +528,10 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                          ),
-                        ],
+                        OpenHandDialogErrorText(
+                          message: _errorMessage,
+                          topGap: 16,
+                        ),
                       ],
                     ),
                   ),

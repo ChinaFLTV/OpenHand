@@ -32,6 +32,45 @@ class OpenHandDialogBusyBar extends StatelessWidget {
   }
 }
 
+/// 弹窗内的错误提示行：出现、切换与消失都走全局动效，不做生硬的插入与移除。
+///
+/// [message] 为空即收起并折叠掉 [topGap]；换成另一条错误时按内容重建，
+/// 由 AnimatedSwitcher 完成交叉过渡。
+class OpenHandDialogErrorText extends StatelessWidget {
+  const OpenHandDialogErrorText({
+    super.key,
+    required this.message,
+    this.topGap = 12,
+    this.style,
+  });
+
+  final String? message;
+  final double topGap;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = message?.trim() ?? '';
+    return OpenHandVerticalRevealSwitcher(
+      presentKey: ValueKey<String>('openhand-dialog-error-$text'),
+      child: text.isEmpty
+          ? null
+          : Padding(
+              padding: EdgeInsets.only(top: topGap),
+              child: Text(
+                text,
+                style:
+                    style ??
+                    theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+              ),
+            ),
+    );
+  }
+}
+
 /// 弹窗底部的「取消 / 确认」动作区。
 ///
 /// [busy] 期间禁用两个按钮以防重复提交，并平滑展开进度条。

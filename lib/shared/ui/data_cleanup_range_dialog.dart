@@ -194,16 +194,14 @@ class _OpenHandCleanupRangeDialogState
                     )
                   : const SizedBox.shrink(key: ValueKey<String>('no-custom')),
             ),
-            if (_errorText != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _errorText!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.error,
-                  fontWeight: FontWeight.w700,
-                ),
+            OpenHandDialogErrorText(
+              message: _errorText,
+              topGap: 10,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.error,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
             const SizedBox(height: 18),
             buildOpenHandDialogActionsBar(
               padding: EdgeInsets.zero,

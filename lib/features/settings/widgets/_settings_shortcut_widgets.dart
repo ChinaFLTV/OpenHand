@@ -240,15 +240,13 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (_errorText != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  _errorText!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+              OpenHandDialogErrorText(
+                message: _errorText,
+                topGap: 10,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
                 ),
-              ],
+              ),
             ],
           ),
         ),

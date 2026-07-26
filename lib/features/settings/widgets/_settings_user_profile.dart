@@ -280,15 +280,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       ),
                     ),
                   ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _errorMessage!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
-                      ),
-                    ),
-                  ],
+                  OpenHandDialogErrorText(message: _errorMessage),
                   OpenHandDialogBusyBar(busy: _isSaving),
                   const SizedBox(height: 16),
                   SizedBox(

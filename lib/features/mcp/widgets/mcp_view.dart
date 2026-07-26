@@ -1614,16 +1614,10 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                             ),
                           ),
                         ],
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                          ),
-                        ],
+                        OpenHandDialogErrorText(
+                          message: _errorMessage,
+                          topGap: 16,
+                        ),
                       ],
                     ),
                   ),
@@ -2125,15 +2119,11 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
               })
               .toList(growable: false),
         ),
-        if (_headerErrorMessage != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _headerErrorMessage!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.error,
-            ),
-          ),
-        ],
+        OpenHandDialogErrorText(
+          message: _headerErrorMessage,
+          topGap: 8,
+          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.error),
+        ),
       ],
     );
   }
@@ -7481,10 +7471,17 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
               ),
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 10),
-            _McpOpsHeaderMessage(text: _error!, tone: cs.error),
-          ],
+          OpenHandVerticalRevealSwitcher(
+            presentKey: ValueKey<String>(
+              'mcp-ops-schema-error-${_error ?? ''}',
+            ),
+            child: _error == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: _McpOpsHeaderMessage(text: _error!, tone: cs.error),
+                  ),
+          ),
           buildOpenHandDialogActionsBar(actions: _buildActions(context, l10n)),
         ],
       ),
@@ -14322,15 +14319,13 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                                 })
                                 .toList(growable: false),
                           ),
-                          if (_headerErrorMessage != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _headerErrorMessage!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.error,
-                              ),
+                          OpenHandDialogErrorText(
+                            message: _headerErrorMessage,
+                            topGap: 8,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.error,
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     )

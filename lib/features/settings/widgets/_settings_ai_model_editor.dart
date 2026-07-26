@@ -2438,14 +2438,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   ),
                                 );
                               }),
-                            if (_errorMessage != null) ...[
-                              const SizedBox(height: 16),
-                              Text(
-                                _errorMessage!,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: colorScheme.error),
-                              ),
-                            ],
+                            OpenHandDialogErrorText(
+                              message: _errorMessage,
+                              topGap: 16,
+                            ),
                           ],
                         ),
                       ),

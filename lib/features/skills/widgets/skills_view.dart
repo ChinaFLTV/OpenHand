@@ -827,15 +827,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
                   ),
                 ),
               ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _errorMessage!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ],
+              OpenHandDialogErrorText(message: _errorMessage, topGap: 16),
               OpenHandDialogSaveActions(
                 busy: _isSaving,
                 cancelLabel: l10n.skillsEditorCancel,
@@ -1209,16 +1201,10 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
                             return null;
                           },
                         ),
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                          ),
-                        ],
+                        OpenHandDialogErrorText(
+                          message: _errorMessage,
+                          topGap: 16,
+                        ),
                       ],
                     ),
                   ),
