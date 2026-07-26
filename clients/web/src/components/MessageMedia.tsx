@@ -30,6 +30,8 @@ import {
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
 import { showSnackbar } from './Snackbar';
+import { svgIconProps } from '../shared/ui/svg_icon';
+import { CACHE_NAME_REMOTE_MEDIA } from '../shared/util/storage_keys';
 
 export type MediaKind = 'image' | 'video' | 'audio' | 'file';
 
@@ -57,7 +59,6 @@ const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v'];
 const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 120_000;
 const MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS = 30_000;
-const REMOTE_MEDIA_CACHE_NAME = 'openhand-remote-media-v1';
 const REMOTE_MEDIA_CACHE_TIMEOUT_MS = 120_000;
 const REMOTE_MEDIA_CACHE_MAX_BYTES: Record<MediaKind, number> = {
   image: 64 * 1024 * 1024,
@@ -544,7 +545,7 @@ async function resolveBrowserCachedMediaUrl(
   signal: AbortSignal,
 ): Promise<string | null> {
   if (!canCacheRemoteMedia(item, url)) return null;
-  const cache = await window.caches.open(REMOTE_MEDIA_CACHE_NAME);
+  const cache = await window.caches.open(CACHE_NAME_REMOTE_MEDIA);
   const cached = await cache.match(url);
   if (cached) {
     return objectUrlFromCachedResponse(item, cached, signal);
@@ -570,18 +571,7 @@ async function resolveBrowserCachedMediaUrl(
 }
 
 function MediaKindIcon({ kind, size = 16 }: { kind: MediaKind; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.9,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size, strokeWidth: 1.9 });
   switch (kind) {
     case 'image':
       return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="m7 16 4-4 3 3 2-2 3 3" /><circle cx="9" cy="9" r="1.2" /></svg>;
@@ -932,18 +922,7 @@ function audioDurationFromElement(audio: HTMLAudioElement): number {
 }
 
 function AudioControlIcon({ name }: { name: 'play' | 'pause' | 'rewind' | 'forward' }) {
-  const common = {
-    width: 18,
-    height: 18,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2.2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size: 18, strokeWidth: 2.2 });
   switch (name) {
     case 'pause':
       return <svg {...common}><path d="M9 5v14M15 5v14" /></svg>;

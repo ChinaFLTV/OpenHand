@@ -16,25 +16,15 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { svgIconProps } from '../shared/ui/svg_icon';
+import { STORAGE_KEY_RECENT_MODELS } from '../shared/util/storage_keys';
 
-const RECENT_KEY = 'openhand.web.recent_models';
 const RECENT_MAX = 6;
 
 type ModelPickerIconName = 'close' | 'check' | 'search';
 
 function ModelPickerIcon({ name, size = 16 }: { name: ModelPickerIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size });
   switch (name) {
     case 'close':
       return <svg {...common}><path d="M7 7l10 10M17 7 7 17" /></svg>;
@@ -52,7 +42,7 @@ interface RecentEntry {
 
 function readRecent(): RecentEntry[] {
   try {
-    const raw = readBrowserStorage(RECENT_KEY);
+    const raw = readBrowserStorage(STORAGE_KEY_RECENT_MODELS);
     if (!raw) return [];
     const arr = JSON.parse(raw) as RecentEntry[];
     return Array.isArray(arr) ? arr : [];
@@ -67,7 +57,7 @@ export function pushRecentModel(modelKey: string): void {
     { key: modelKey, ts: Date.now() },
     ...readRecent().filter((r) => r.key !== modelKey),
   ].slice(0, RECENT_MAX);
-  writeBrowserStorage(RECENT_KEY, JSON.stringify(next));
+  writeBrowserStorage(STORAGE_KEY_RECENT_MODELS, JSON.stringify(next));
 }
 
 interface ModelPickerDialogProps {

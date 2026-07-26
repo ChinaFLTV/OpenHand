@@ -8,6 +8,7 @@
 // - 同一 sessionId 共用一个 tag, 后到的会替换旧的, 不堆叠成长串。
 
 import { ignoreError, runIgnoringErrors } from '../shared/util/errors';
+import { NOTIFICATION_TAG_MESSAGE, SW_MESSAGE_TYPE_NOTIFY } from '../shared/util/storage_keys';
 
 let _swRegistration: ServiceWorkerRegistration | null = null;
 let _permissionRequestedOnce = false;
@@ -71,12 +72,12 @@ export async function notifyIfHidden(opts: {
   if (!_isHidden()) return;
   const ok = await _ensurePermission();
   if (!ok) return;
-  const tag = opts.sessionId ? `openhand-${opts.sessionId}` : 'openhand-message';
+  const tag = opts.sessionId ? `openhand-${opts.sessionId}` : NOTIFICATION_TAG_MESSAGE;
   const controller = navigator.serviceWorker.controller;
   if (_swRegistration && controller) {
     if (runIgnoringErrors(() => {
       controller.postMessage({
-        type: 'openhand-notify',
+        type: SW_MESSAGE_TYPE_NOTIFY,
         title: opts.title,
         body: opts.body ?? '',
         tag,

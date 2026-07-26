@@ -7,22 +7,12 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 type ConfirmCloseReason = 'cancel' | 'confirm' | 'dismiss' | 'escape';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
-  const common = {
-    width: 20,
-    height: 20,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size: 20 });
   return danger
     ? <svg {...common}><path d="M12 3 2.8 20h18.4z" /><path d="M12 9v4M12 17h.01" /></svg>
     : <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;

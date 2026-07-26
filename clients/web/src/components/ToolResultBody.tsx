@@ -15,6 +15,7 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useTransientFlag } from '../hooks/useTransientFlag';
 import { truncateEndText } from '../shared/util/text';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 const AUTO_COLLAPSE_CHARS = 600;
 const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
@@ -27,18 +28,7 @@ interface ToolResultBodyProps {
 type ToolBodyIconName = 'copy' | 'check' | 'chevronDown' | 'chevronUp';
 
 function ToolBodyIcon({ name, size = 13 }: { name: ToolBodyIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size });
   switch (name) {
     case 'copy':
       return <svg {...common}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;

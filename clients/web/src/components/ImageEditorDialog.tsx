@@ -8,6 +8,7 @@ import {
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 export interface ImageEditorInput {
   name: string;
@@ -47,18 +48,7 @@ type ImageEditorIconName =
   | 'dot';
 
 function ImageEditorIcon({ name, size = 15 }: { name: ImageEditorIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size });
   switch (name) {
     case 'compare':
       return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 4v16" /></svg>;

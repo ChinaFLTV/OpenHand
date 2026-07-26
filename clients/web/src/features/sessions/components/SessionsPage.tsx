@@ -45,6 +45,7 @@ import {
   PAGE_SHELL_CLASS,
   SESSIONS_SHELL_CLASS,
 } from '../../../shared/ui/layout';
+import { STORAGE_KEY_LAST_MODEL } from '../../../shared/util/storage_keys';
 
 const DEFAULT_PAGE_SIZE = 10;
 const PULL_REFRESH_MIN_VISIBLE_MS = 180;
@@ -244,7 +245,7 @@ export function SessionsPage() {
       prependCreatedSession(res.session);
       // 模型偏好仍写一份本地缓存；服务端也会保存到会话 last-used model。
       if (params.modelKey) {
-        writeBrowserStorage('openhand.web.lastModelKey', params.modelKey);
+        writeBrowserStorage(STORAGE_KEY_LAST_MODEL, params.modelKey);
       }
       setConfigTemplate(null);
       showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });

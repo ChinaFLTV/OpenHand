@@ -7,6 +7,7 @@ import {
   recordFromUnknown,
   stringFromUnknown,
 } from '../shared/util/value';
+import { EVENT_TTS_SETTINGS_CHANGED, STORAGE_KEY_TTS_SETTINGS } from '../shared/util/storage_keys';
 
 export type TtsProvider = 'system' | 'xfyun' | 'youdao' | 'bing' | 'google' | 'baidu' | 'doubao' | 'mimo' | 'apple';
 
@@ -34,8 +35,6 @@ export interface TtsSettings {
   providers: Record<TtsProvider, TtsProviderSettings>;
 }
 
-const STORAGE_KEY = 'openhand_tts_settings';
-const EVENT_NAME = 'openhand:tts-settings-changed';
 const MIN_TIMEOUT_SECONDS = 3;
 const MAX_TIMEOUT_SECONDS = 120;
 const MIN_TEXT_CHARS = 20;
@@ -322,7 +321,7 @@ export function normalizeTtsSettings(value: unknown): TtsSettings {
 }
 
 function readTtsSettings(): TtsSettings {
-  const raw = readBrowserStorage(STORAGE_KEY);
+  const raw = readBrowserStorage(STORAGE_KEY_TTS_SETTINGS);
   if (!raw) return defaultTtsSettings();
   try {
     return normalizeTtsSettings(JSON.parse(raw));
@@ -333,18 +332,18 @@ function readTtsSettings(): TtsSettings {
 
 export function saveTtsSettings(settings: TtsSettings): void {
   const normalized = normalizeTtsSettings(settings);
-  writeBrowserStorage(STORAGE_KEY, JSON.stringify(normalized));
-  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+  writeBrowserStorage(STORAGE_KEY_TTS_SETTINGS, JSON.stringify(normalized));
+  window.dispatchEvent(new CustomEvent(EVENT_TTS_SETTINGS_CHANGED));
 }
 
 export function useTtsSettings(): TtsSettings {
   const [settings, setSettings] = useState<TtsSettings>(readTtsSettings);
   useEffect(() => {
     const refresh = () => setSettings(readTtsSettings());
-    window.addEventListener(EVENT_NAME, refresh);
+    window.addEventListener(EVENT_TTS_SETTINGS_CHANGED, refresh);
     window.addEventListener('storage', refresh);
     return () => {
-      window.removeEventListener(EVENT_NAME, refresh);
+      window.removeEventListener(EVENT_TTS_SETTINGS_CHANGED, refresh);
       window.removeEventListener('storage', refresh);
     };
   }, []);

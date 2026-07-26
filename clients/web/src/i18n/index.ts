@@ -16,10 +16,10 @@ import { dict_ja } from './dict_ja';
 import {
   readBrowserStorage,
 } from '../shared/util/browser_storage';
+import { STORAGE_KEY_LANG } from '../shared/util/storage_keys';
 
 type Lang = 'zh' | 'zh-Hant' | 'en' | 'ja';
 
-const STORAGE_KEY = 'openhand_web_lang';
 const dicts: Record<Lang, Record<string, string>> = {
   zh: dict_zh,
   'zh-Hant': dict_zhHant,
@@ -32,7 +32,7 @@ function isLang(v: unknown): v is Lang {
 }
 
 function detectInitialLang(): Lang {
-  const stored = readBrowserStorage(STORAGE_KEY);
+  const stored = readBrowserStorage(STORAGE_KEY_LANG);
   if (isLang(stored)) return stored;
   try {
     const navLang = (navigator.language || '').toLowerCase();

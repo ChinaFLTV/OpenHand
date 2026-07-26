@@ -15,6 +15,7 @@ import {
   finiteNumberFromUnknown,
   stringFromUnknown,
 } from '../shared/util/value';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 interface ExtractedMeta {
   toolName: string;
@@ -53,18 +54,7 @@ type ToolMetaIconName =
   | 'file';
 
 function ToolMetaIcon({ name, size = 13 }: { name: ToolMetaIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size });
   switch (name) {
     case 'running':
       return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /><path d="M7 21v-4h4" /></svg>;

@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage } from '../shared/util/browser_storage';
+import { STORAGE_KEY_REDUCE_MOTION } from '../shared/util/storage_keys';
 
-const STORAGE_KEY = 'openhand_web_reduce_motion';
 let remoteReducedMotion: boolean | null = null;
 type ReducedMotionListener = (reduced: boolean) => void;
 
@@ -13,7 +13,7 @@ let reducedMotionMediaQuery: MediaQueryList | null = null;
 let reducedMotionSourcesAttached = false;
 
 function readUserPref(): boolean {
-  return readBrowserStorage(STORAGE_KEY) === '1';
+  return readBrowserStorage(STORAGE_KEY_REDUCE_MOTION) === '1';
 }
 
 /** 让 root 元素带上 data-motion='reduced'，让 CSS 全树关闭动画。 */
@@ -52,7 +52,7 @@ function handleReducedMotionSourceChange(): void {
 }
 
 function handleReducedMotionStorageChange(event: StorageEvent): void {
-  if (event.key === STORAGE_KEY || event.key == null) {
+  if (event.key === STORAGE_KEY_REDUCE_MOTION || event.key == null) {
     publishReducedMotion();
   }
 }

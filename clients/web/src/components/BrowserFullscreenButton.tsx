@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 export function BrowserFullscreenIcon({
   active,
@@ -9,19 +10,7 @@ export function BrowserFullscreenIcon({
   size?: number;
   className?: string;
 }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.9,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-    class: className,
-  };
+  const common = svgIconProps({ size, strokeWidth: 1.9, class: className });
   return active ? (
     <svg {...common}><path d="M10 4v6H4" /><path d="m10 10-6-6" /><path d="M14 4v6h6" /><path d="m14 10 6-6" /><path d="M10 20v-6H4" /><path d="m10 14-6 6" /><path d="M14 20v-6h6" /><path d="m14 14 6 6" /></svg>
   ) : (

@@ -3,6 +3,7 @@ import { t } from '../i18n';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { classNames } from '../shared/util/class_names';
 import { useTimeoutController } from '../hooks/useTimeoutController';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 export type MediaGenerationMode = 'image' | 'video' | 'audio' | 'deep_research';
 
@@ -20,15 +21,7 @@ const MODE_CONFIG: Record<MediaGenerationMode, { labelKey: string; fallback: str
 };
 
 function MediaGeneratingIcon({ mode }: { mode: MediaGenerationMode }) {
-  const common = {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: '1.9',
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': true,
-  } as const;
+  const common = svgIconProps({ strokeWidth: 1.9 });
   switch (mode) {
     case 'image':
       return <svg {...common}><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><path d="m6.5 16 4.2-4.2 3 3 2-2 2.8 3.2" /><circle cx="8.7" cy="9" r="1.1" /></svg>;

@@ -21,6 +21,7 @@ import { showSnackbar } from './Snackbar';
 import { RollingText } from './RollingText';
 import { AnimatedTitleText } from './AnimatedTitleText';
 import { BrowserFullscreenButton, BrowserFullscreenIcon } from './BrowserFullscreenButton';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -69,19 +70,11 @@ type TopBarIconName = SessionToolbarIconName
 const COPY_SESSION_ID_TIMEOUT_MS = 2500;
 
 function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
+  const common = svgIconProps({
+    size,
     strokeWidth: 1.9,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
     class: 'oh-topbar-icon-svg',
-  };
+  });
   switch (name) {
     case 'back':
       return <svg {...common}><path d="m15 18-6-6 6-6" /></svg>;

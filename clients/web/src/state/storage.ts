@@ -1,18 +1,16 @@
 // 浏览器端「设备身份」与会话 token 的 localStorage 容器。OpenHand service
 // 要求每个请求带 `x-openhand-device-id` 等头，token 走 Authorization: Bearer。
 // 这里只承担「读 / 写 / 清空」，不做任何 UI 决策；登录态切换由 auth store
-// 调度。所有 key 共用一个前缀方便调试时一键 clear。
+// 调度。所有 key 统一登记在 shared/util/storage_keys（共用
+// STORAGE_KEY_PREFIX 前缀，方便调试时一键 clear）。
 
 import {
   readBrowserStorage,
   removeBrowserStorage,
   writeBrowserStorage,
 } from '../shared/util/browser_storage';
+import { STORAGE_KEY_DEVICE_ID, STORAGE_KEY_PROFILE, STORAGE_KEY_TOKEN } from '../shared/util/storage_keys';
 
-const PREFIX = 'openhand.web.';
-const DEVICE_ID_KEY = `${PREFIX}device_id`;
-const TOKEN_KEY = `${PREFIX}token`;
-const PROFILE_KEY = `${PREFIX}profile`;
 let fallbackDeviceId = '';
 let fallbackToken: string | null = null;
 let fallbackProfile: AuthProfile | null = null;
@@ -29,34 +27,34 @@ export interface AuthProfile {
 /// 首次访问时生成一个 v4 UUID 作为设备 ID 持久化；不依赖 cookie，避免
 /// 跨域 / 隐私模式的兼容问题。
 export function ensureDeviceId(): string {
-  let id = readBrowserStorage(DEVICE_ID_KEY) ?? fallbackDeviceId;
+  let id = readBrowserStorage(STORAGE_KEY_DEVICE_ID) ?? fallbackDeviceId;
   if (!id) {
     id =
       globalThis.crypto?.randomUUID?.() ??
       `web-${Math.random().toString(36).slice(2)}-${Date.now()}`;
     fallbackDeviceId = id;
-    writeBrowserStorage(DEVICE_ID_KEY, id);
+    writeBrowserStorage(STORAGE_KEY_DEVICE_ID, id);
   }
   return id;
 }
 
 export function readToken(): string | null {
-  return readBrowserStorage(TOKEN_KEY) ?? fallbackToken;
+  return readBrowserStorage(STORAGE_KEY_TOKEN) ?? fallbackToken;
 }
 
 export function writeToken(token: string, profile: AuthProfile | null): void {
   fallbackToken = token;
   fallbackProfile = profile;
-  writeBrowserStorage(TOKEN_KEY, token);
+  writeBrowserStorage(STORAGE_KEY_TOKEN, token);
   if (profile) {
-    writeBrowserStorage(PROFILE_KEY, JSON.stringify(profile));
+    writeBrowserStorage(STORAGE_KEY_PROFILE, JSON.stringify(profile));
   } else {
-    removeBrowserStorage(PROFILE_KEY);
+    removeBrowserStorage(STORAGE_KEY_PROFILE);
   }
 }
 
 export function readProfile(): AuthProfile | null {
-  const raw = readBrowserStorage(PROFILE_KEY);
+  const raw = readBrowserStorage(STORAGE_KEY_PROFILE);
   if (!raw) return fallbackProfile;
   try {
     return JSON.parse(raw) as AuthProfile;
@@ -68,6 +66,6 @@ export function readProfile(): AuthProfile | null {
 export function clearAuthStorage(): void {
   fallbackToken = null;
   fallbackProfile = null;
-  removeBrowserStorage(TOKEN_KEY);
-  removeBrowserStorage(PROFILE_KEY);
+  removeBrowserStorage(STORAGE_KEY_TOKEN);
+  removeBrowserStorage(STORAGE_KEY_PROFILE);
 }

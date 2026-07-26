@@ -19,24 +19,14 @@ import { useMemo, useState } from 'preact/hooks';
 import { SendMessageInput, SessionSummary, SessionTodoItem, sendMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { showSnackbar } from './Snackbar';
+import { svgIconProps } from '../shared/ui/svg_icon';
 
 type StepState = 'completed' | 'in_progress' | 'failed' | 'pending';
 
 type PlanIconName = 'check' | 'x' | 'running' | 'chevronDown' | 'chevronUp';
 
 function PlanIcon({ name, size = 15 }: { name: PlanIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size });
   switch (name) {
     case 'check':
       return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
