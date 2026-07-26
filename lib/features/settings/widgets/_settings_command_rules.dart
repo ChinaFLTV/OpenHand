@@ -158,15 +158,11 @@ class _CommandRuleTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            IconButton(
-              onPressed: onEdit,
-              tooltip: AppLocalizations.of(context)!.commonEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              onPressed: onDelete,
-              tooltip: AppLocalizations.of(context)!.commonDelete,
-              icon: const Icon(Icons.delete_outline_rounded),
+            OpenHandRowEditDeleteActions(
+              editTooltip: AppLocalizations.of(context)!.commonEdit,
+              deleteTooltip: AppLocalizations.of(context)!.commonDelete,
+              onEdit: onEdit,
+              onDelete: onDelete,
             ),
           ],
         ),

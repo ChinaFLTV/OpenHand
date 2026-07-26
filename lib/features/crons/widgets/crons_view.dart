@@ -330,24 +330,9 @@ class _CronEntryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Tooltip(
-                  message: l10n.cronsTimeoutTooltip,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${entry.timeoutSeconds}s',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
+                OpenHandMetricChip(
+                  label: '${entry.timeoutSeconds}s',
+                  tooltip: l10n.cronsTimeoutTooltip,
                 ),
                 const SizedBox(width: 8),
                 if (entry.retryCount > 0) ...[

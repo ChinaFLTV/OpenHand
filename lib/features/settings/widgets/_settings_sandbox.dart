@@ -815,20 +815,11 @@ class _SandboxRuleTile extends StatelessWidget {
         leading: Icon(icon),
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            IconButton(
-              onPressed: onEdit,
-              tooltip: AppLocalizations.of(context)!.commonEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              onPressed: onDelete,
-              tooltip: AppLocalizations.of(context)!.commonDelete,
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
-          ],
+        trailing: OpenHandRowEditDeleteActions(
+          editTooltip: AppLocalizations.of(context)!.commonEdit,
+          deleteTooltip: AppLocalizations.of(context)!.commonDelete,
+          onEdit: onEdit,
+          onDelete: onDelete,
         ),
       ),
     );

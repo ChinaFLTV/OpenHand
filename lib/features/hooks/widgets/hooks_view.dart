@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -247,21 +248,9 @@ class _HookEntryCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             // Timeout badge
-            Tooltip(
-              message: l10n.hooksTimeoutTooltip,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${entry.timeoutSeconds}s',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+            OpenHandMetricChip(
+              label: '${entry.timeoutSeconds}s',
+              tooltip: l10n.hooksTimeoutTooltip,
             ),
             const SizedBox(width: 8),
             // Toggle switch
