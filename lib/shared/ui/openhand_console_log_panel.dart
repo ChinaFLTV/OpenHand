@@ -140,3 +140,76 @@ class OpenHandConsoleLogPanel extends StatelessWidget {
     );
   }
 }
+
+/// 终端提示卡片的固定尺寸与配色权重。
+const EdgeInsets kOpenHandTerminalCardPadding = EdgeInsets.fromLTRB(
+  14,
+  12,
+  14,
+  12,
+);
+const double _kTerminalCardBorderAlpha = 0.34;
+const double _kTerminalCardShadowAlpha = 0.18;
+const double _kTerminalCardShadowBlur = 22;
+const double _kTerminalCardShadowOffsetY = 12;
+const double _kTerminalCardTextAlpha = 0.90;
+const double _kTerminalCardFontSize = 13;
+const double _kTerminalCardLineHeight = 1.45;
+
+/// 终端风格的命令提示卡片：深色底 + 细描边 + 柔和投影 + 等宽正文。
+///
+/// MCP 运维与消息网关运维各写了一份完全相同的外壳，只有底色与圆角按各自面板
+/// 定；描边透明度、投影参数、正文排版这些则是逐字重复的。
+class OpenHandTerminalHintCard extends StatelessWidget {
+  const OpenHandTerminalHintCard({
+    super.key,
+    required this.backgroundColor,
+    required this.borderRadius,
+    required this.children,
+  });
+
+  final Color backgroundColor;
+  final double borderRadius;
+
+  /// 卡片内的命令行，纵向铺开。
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: _kTerminalCardBorderAlpha,
+          ),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: _kTerminalCardShadowAlpha),
+            blurRadius: _kTerminalCardShadowBlur,
+            offset: const Offset(0, _kTerminalCardShadowOffsetY),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: kOpenHandTerminalCardPadding,
+        child: DefaultTextStyle(
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: _kTerminalCardTextAlpha),
+            fontSize: _kTerminalCardFontSize,
+            height: _kTerminalCardLineHeight,
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontWeight: FontWeight.w700,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}

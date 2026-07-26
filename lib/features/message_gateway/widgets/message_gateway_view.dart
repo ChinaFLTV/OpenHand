@@ -22,6 +22,7 @@ import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -5821,6 +5822,7 @@ const double _webOpsHeaderCompactBreakpoint = 980;
 const double _webOpsMetricWideBreakpoint = 860;
 const double _webOpsMetricMediumBreakpoint = 560;
 const Color _webOpsTerminalBackground = Color(0xFF10131A);
+const double _kWebOpsTerminalRadius = 8;
 
 class _WebOpsDashboardStats {
   const _WebOpsDashboardStats({
@@ -6543,77 +6545,51 @@ class _WebOpsRuntimeTerminal extends StatelessWidget {
         : snapshot.boundUrl;
     const promptColor = OpenHandStatusColors.success;
     final commandColor = cs.tertiary;
-    final textColor = Colors.white.withValues(alpha: .90);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _webOpsTerminalBackground,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: .34)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .18),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: DefaultTextStyle(
-          style: TextStyle(
-            color: textColor,
-            fontSize: 13,
-            height: 1.45,
-            fontFamily: kOpenHandMonospaceFontFamily,
-            fontWeight: FontWeight.w700,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _WebOpsConsoleLine(
-                prompt: 'OpenHand',
-                command: 'web-gateway',
-                detail: endpoint,
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              _WebOpsConsoleLine(
-                prompt: 'state',
-                command: _runtimeStateLabel(context, snapshot.state),
-                detail:
-                    'uptime=${formatCompactDurationMs(snapshot.uptimeMs)} active=${snapshot.activeRequests} sse=${snapshot.activeSseSubscriptions}',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              _WebOpsConsoleLine(
-                prompt: 'traffic',
-                command:
-                    'in=${formatByteSize(snapshot.totalBytesIn)} out=${formatByteSize(snapshot.totalBytesOut)}',
-                detail:
-                    'rpm=${_rate(snapshot.requestsPerMinute)} err=${_rate(snapshot.errorsPerMinute)} p95=${snapshot.latencyStats.p95Ms}ms',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              _WebOpsConsoleLine(
-                prompt: 'policy',
-                command: config.authEnabled ? 'auth=on' : 'auth=off',
-                detail:
-                    'telemetry=${_webOpsOnOff(config.telemetryEnabled)} logs=${_webOpsOnOff(config.loggingEnabled)} ops=${_webOpsOnOff(config.opsEnabled)}',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              _WebOpsConsoleLine(
-                prompt: 'limits',
-                command: 'concurrency=${config.maxConcurrentRequests}',
-                detail:
-                    'message_tokens=${config.singleMessageTokenLimit} upload_cache=${formatByteSize(config.uploadCacheMaxBytes)}',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-            ],
-          ),
+    return OpenHandTerminalHintCard(
+      backgroundColor: _webOpsTerminalBackground,
+      borderRadius: _kWebOpsTerminalRadius,
+      children: [
+        _WebOpsConsoleLine(
+          prompt: 'OpenHand',
+          command: 'web-gateway',
+          detail: endpoint,
+          promptColor: promptColor,
+          commandColor: commandColor,
         ),
-      ),
+        _WebOpsConsoleLine(
+          prompt: 'state',
+          command: _runtimeStateLabel(context, snapshot.state),
+          detail:
+              'uptime=${formatCompactDurationMs(snapshot.uptimeMs)} active=${snapshot.activeRequests} sse=${snapshot.activeSseSubscriptions}',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+        _WebOpsConsoleLine(
+          prompt: 'traffic',
+          command:
+              'in=${formatByteSize(snapshot.totalBytesIn)} out=${formatByteSize(snapshot.totalBytesOut)}',
+          detail:
+              'rpm=${_rate(snapshot.requestsPerMinute)} err=${_rate(snapshot.errorsPerMinute)} p95=${snapshot.latencyStats.p95Ms}ms',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+        _WebOpsConsoleLine(
+          prompt: 'policy',
+          command: config.authEnabled ? 'auth=on' : 'auth=off',
+          detail:
+              'telemetry=${_webOpsOnOff(config.telemetryEnabled)} logs=${_webOpsOnOff(config.loggingEnabled)} ops=${_webOpsOnOff(config.opsEnabled)}',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+        _WebOpsConsoleLine(
+          prompt: 'limits',
+          command: 'concurrency=${config.maxConcurrentRequests}',
+          detail:
+              'message_tokens=${config.singleMessageTokenLimit} upload_cache=${formatByteSize(config.uploadCacheMaxBytes)}',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+      ],
     );
   }
 }

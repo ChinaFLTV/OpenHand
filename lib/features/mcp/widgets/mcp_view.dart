@@ -32,6 +32,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -5744,84 +5745,58 @@ class _McpOpsRuntimeTerminal extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     const promptColor = OpenHandStatusColors.success;
     final commandColor = cs.tertiary;
-    final textColor = Colors.white.withValues(alpha: 0.90);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _mcpOpsTerminalBackground,
-        borderRadius: BorderRadius.circular(_mcpOpsTerminalRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.34)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: DefaultTextStyle(
-          style: TextStyle(
-            color: textColor,
-            fontSize: 13,
-            height: 1.45,
-            fontFamily: kOpenHandMonospaceFontFamily,
-            fontWeight: FontWeight.w700,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _McpOpsConsoleLine(
-                prompt: 'OpenHand',
-                command: 'mcp-server',
-                detail: endpointUri,
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              if (localEndpointUri != endpointUri)
-                _McpOpsConsoleLine(
-                  prompt: 'local',
-                  command: localEndpointUri,
-                  detail: 'same-machine clients',
-                  promptColor: promptColor,
-                  commandColor: commandColor,
-                ),
-              if (bindEndpointUri != endpointUri)
-                _McpOpsConsoleLine(
-                  prompt: 'bind',
-                  command: bindEndpointUri,
-                  detail: 'listen socket',
-                  promptColor: promptColor,
-                  commandColor: commandColor,
-                ),
-              _McpOpsConsoleLine(
-                prompt: 'state',
-                command: _lifecycleLabel(context, snapshot.lifecycle),
-                detail:
-                    'uptime=${formatCompactDuration(snapshot.uptime)} active=${snapshot.activeRequests} connections=${snapshot.currentConnections}',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              _McpOpsConsoleLine(
-                prompt: 'traffic',
-                command: 'in=${formatByteSize(snapshot.inboundBytes)}',
-                detail:
-                    'out=${formatByteSize(snapshot.outboundBytes)} avg=${snapshot.avgLatencyMs}ms p95=${snapshot.p95LatencyMs}ms',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-              _McpOpsConsoleLine(
-                prompt: 'policy',
-                command: _networkModeLabel(context, config.networkMode),
-                detail:
-                    'write=${_writeModeLabel(context, config.writeMode)} auth=${config.requireAuthToken ? 'token' : 'none'}',
-                promptColor: promptColor,
-                commandColor: commandColor,
-              ),
-            ],
-          ),
+    return OpenHandTerminalHintCard(
+      backgroundColor: _mcpOpsTerminalBackground,
+      borderRadius: _mcpOpsTerminalRadius,
+      children: [
+        _McpOpsConsoleLine(
+          prompt: 'OpenHand',
+          command: 'mcp-server',
+          detail: endpointUri,
+          promptColor: promptColor,
+          commandColor: commandColor,
         ),
-      ),
+        if (localEndpointUri != endpointUri)
+          _McpOpsConsoleLine(
+            prompt: 'local',
+            command: localEndpointUri,
+            detail: 'same-machine clients',
+            promptColor: promptColor,
+            commandColor: commandColor,
+          ),
+        if (bindEndpointUri != endpointUri)
+          _McpOpsConsoleLine(
+            prompt: 'bind',
+            command: bindEndpointUri,
+            detail: 'listen socket',
+            promptColor: promptColor,
+            commandColor: commandColor,
+          ),
+        _McpOpsConsoleLine(
+          prompt: 'state',
+          command: _lifecycleLabel(context, snapshot.lifecycle),
+          detail:
+              'uptime=${formatCompactDuration(snapshot.uptime)} active=${snapshot.activeRequests} connections=${snapshot.currentConnections}',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+        _McpOpsConsoleLine(
+          prompt: 'traffic',
+          command: 'in=${formatByteSize(snapshot.inboundBytes)}',
+          detail:
+              'out=${formatByteSize(snapshot.outboundBytes)} avg=${snapshot.avgLatencyMs}ms p95=${snapshot.p95LatencyMs}ms',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+        _McpOpsConsoleLine(
+          prompt: 'policy',
+          command: _networkModeLabel(context, config.networkMode),
+          detail:
+              'write=${_writeModeLabel(context, config.writeMode)} auth=${config.requireAuthToken ? 'token' : 'none'}',
+          promptColor: promptColor,
+          commandColor: commandColor,
+        ),
+      ],
     );
   }
 }
