@@ -1097,9 +1097,8 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _buildTree(
+                  children: _buildVisibleTree(
                     _rootNode.children,
-                    0,
                     constraints.maxWidth,
                   ),
                 ),
@@ -1208,13 +1207,32 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     );
   }
 
+  /// 构建可见树，并丢弃本轮未出现的行 key。
+  ///
+  /// [_treeItemKeys] 按路径缓存 GlobalKey，只增不减的话，折叠、刷新、切目录
+  /// 途经过的每条路径都会在框架的全局 key 注册表里常驻；大仓浏览久了就是纯
+  /// 泄漏。这里以「本轮可见路径」为准做一次差集回收。
+  List<Widget> _buildVisibleTree(
+    List<_FileNode> nodes,
+    double visibleMinWidth,
+  ) {
+    final visited = <String>{};
+    final tree = _buildTree(nodes, 0, visibleMinWidth, visited);
+    if (_treeItemKeys.length > visited.length) {
+      _treeItemKeys.removeWhere((path, _) => !visited.contains(path));
+    }
+    return tree;
+  }
+
   List<Widget> _buildTree(
     List<_FileNode> nodes,
     int depth,
     double visibleMinWidth,
+    Set<String> visited,
   ) {
     final result = <Widget>[];
     for (final node in nodes) {
+      visited.add(node.path);
       result.add(
         _FileTreeTile(
           key: _treeItemKey(node.path),
@@ -1238,7 +1256,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ),
       );
       if (node.isDirectory && node.isExpanded) {
-        result.addAll(_buildTree(node.children, depth + 1, visibleMinWidth));
+        result.addAll(
+          _buildTree(node.children, depth + 1, visibleMinWidth, visited),
+        );
       }
     }
     return result;

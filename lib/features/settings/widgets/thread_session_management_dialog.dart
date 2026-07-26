@@ -255,8 +255,14 @@ class _ThreadSessionManagementDialogState
     final controller = context.read<AiSessionController>();
     var failed = 0;
     for (final id in ids) {
-      final ok = await controller.deleteSession(id);
-      if (!ok) failed++;
+      // 抛出与返回 false 一样按失败计：否则异常会带着 _animatingOutIds 一起
+      // 逃出去，把没删掉的行永久留在收起态，选择模式也退不出来。
+      try {
+        if (!await controller.deleteSession(id)) failed++;
+      } catch (error, stack) {
+        failed++;
+        silentLog('thread_session_management_dialog', '删除会话：$id', error, stack);
+      }
     }
     if (!mounted) return;
     setState(() {
