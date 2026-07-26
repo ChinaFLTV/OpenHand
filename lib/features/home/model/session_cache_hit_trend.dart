@@ -115,16 +115,6 @@ class SessionCacheHitTurnPoint {
     return delta > 0 ? delta : 0;
   }
 
-  /// 本轮命中率的理论上限 = 上一轮输入规模 / 本轮输入规模。
-  /// 新增输入必然未缓存，命中率不可能高于该值。
-  double? get theoreticalCeilingRatio {
-    final previous = previousDenominatorTokens;
-    if (previous == null || previous <= 0 || denominatorTokens <= 0) {
-      return null;
-    }
-    return unitRatio(previous, denominatorTokens);
-  }
-
   /// 前缀复用率 = 本轮缓存读取 / 上一轮可复用前缀。
   /// 该值接近 1 表示 Prompt 装配保持了前缀延展，未破坏缓存。
   double? get prefixReuseRatio {
