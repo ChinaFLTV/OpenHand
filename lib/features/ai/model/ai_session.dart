@@ -470,9 +470,7 @@ class AiSession {
       lastUsedModelLabel: _readNullableString(
         sessionJson['last_used_model_label'],
       ),
-      isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
-          ? sessionJson['is_title_manually_edited'] as bool
-          : false,
+      isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool && sessionJson['is_title_manually_edited'] as bool,
       autoTitleAcquired: boolFromValue(sessionJson['auto_title_acquired']),
       autoTitleRetryCount: nonNegativeIntFromValue(
         sessionJson['auto_title_retry_count'],
@@ -494,16 +492,12 @@ class AiSession {
         sessionJson['latest_compression_at'],
       ),
       mode: AiSessionMode.fromStorage('${sessionJson['mode'] ?? 'chat'}'),
-      awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool
-          ? sessionJson['awaiting_plan_approval'] as bool
-          : false,
+      awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool && sessionJson['awaiting_plan_approval'] as bool,
       pendingPlan: _readNullableString(sessionJson['pending_plan']),
       pendingPlanAllowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
         sessionJson['pending_plan_allowed_prompts'],
       ),
-      fullAccessPermission: sessionJson['full_access_permission'] is bool
-          ? sessionJson['full_access_permission'] as bool
-          : false,
+      fullAccessPermission: sessionJson['full_access_permission'] is bool && sessionJson['full_access_permission'] as bool,
       planHistory: planHistoryJson is List
           ? planHistoryJson
                 .map(

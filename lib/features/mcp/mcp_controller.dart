@@ -947,9 +947,7 @@ class McpController extends ChangeNotifier {
       );
     }
     _opsAuditEntries.removeWhere(
-      (entry) => clearsAll
-          ? true
-          : isDateTimeInUtcRange(
+      (entry) => clearsAll || isDateTimeInUtcRange(
               entry.timestamp,
               startUtc: startUtc,
               endUtc: endUtc,
@@ -1596,7 +1594,7 @@ class McpController extends ChangeNotifier {
       // 禁用服务时同步禁用探测；启用服务时同步启用探测
       updatedServers[index] = updatedServers[index].copyWith(
         enabled: enabled,
-        probeEnabled: enabled ? true : false,
+        probeEnabled: enabled,
       );
       return _commitSaveLocked(
         updatedServers,

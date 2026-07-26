@@ -2590,7 +2590,7 @@ class AiModelConfig {
     if (!supported) {
       return false;
     }
-    return value is bool ? value : true;
+    return value is! bool || value;
   }
 
   /// 解析列表或 TOML 中二次 JSON 编码的 `available_model_ids`。

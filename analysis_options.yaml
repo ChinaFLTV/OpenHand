@@ -35,6 +35,17 @@ linter:
     use_string_in_part_of_directives: true
     unnecessary_underscores: true
 
+    always_declare_return_types: true
+    null_check_on_nullable_type_parameter: true
+    prefer_null_aware_method_calls: true
+    literal_only_boolean_expressions: true
+    prefer_void_to_null: true
+    avoid_type_to_string: true
+    avoid_bool_literals_in_conditional_expressions: true
+    unnecessary_null_aware_operator_on_extension_on_nullable: true
+    collection_methods_unrelated_type: true
+    avoid_returning_null_for_void: true
+
     # — Null 安全 —
     unnecessary_null_checks: true      # 不必要的 null 检查
 

@@ -604,9 +604,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           command: command ?? '',
           args: capability.suggestedArgs,
         );
-    final saved = identical(server, existing)
-        ? true
-        : await controller.saveServer(server, previousName: existing?.name);
+    final saved = identical(server, existing) || await controller.saveServer(server, previousName: existing?.name);
     if (!context.mounted) return;
     flashOpenHandSnack(
       context,

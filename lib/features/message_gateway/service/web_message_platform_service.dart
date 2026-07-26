@@ -4860,9 +4860,13 @@ class WebMessagePlatformService {
             responseModalities: responseModalities,
             creationRequest: creationRequest,
             denyCommandRules: _settingsController.aiDenyCommandRules,
-            requireWriteCommandConfirmation: session.fullAccessPermission
-                ? false
-                : _settingsController.aiWriteCommandConfirmationEnabled,
+            requireWriteCommandConfirmation:
+                AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+                  templateId: session.templateId,
+                  fullAccessPermission: session.fullAccessPermission,
+                  globalConfirmationEnabled:
+                      _settingsController.aiWriteCommandConfirmationEnabled,
+                ),
             confirmWriteCommand: (request) =>
                 _confirmWebWriteCommand(session.id, request),
             additionalSystemReminders: selectedSkill.reminder == null
@@ -5212,9 +5216,13 @@ class WebMessagePlatformService {
             model: model,
             runtimeContext: runtimeContext,
             denyCommandRules: _settingsController.aiDenyCommandRules,
-            requireWriteCommandConfirmation: session.fullAccessPermission
-                ? false
-                : _settingsController.aiWriteCommandConfirmationEnabled,
+            requireWriteCommandConfirmation:
+                AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+                  templateId: session.templateId,
+                  fullAccessPermission: session.fullAccessPermission,
+                  globalConfirmationEnabled:
+                      _settingsController.aiWriteCommandConfirmationEnabled,
+                ),
             confirmWriteCommand: (request) =>
                 _confirmWebWriteCommand(session.id, request),
           )
@@ -5381,9 +5389,13 @@ class WebMessagePlatformService {
             model: model,
             runtimeContext: runtimeContext,
             denyCommandRules: _settingsController.aiDenyCommandRules,
-            requireWriteCommandConfirmation: session.fullAccessPermission
-                ? false
-                : _settingsController.aiWriteCommandConfirmationEnabled,
+            requireWriteCommandConfirmation:
+                AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+                  templateId: session.templateId,
+                  fullAccessPermission: session.fullAccessPermission,
+                  globalConfirmationEnabled:
+                      _settingsController.aiWriteCommandConfirmationEnabled,
+                ),
             confirmWriteCommand: (request) =>
                 _confirmWebWriteCommand(session.id, request),
           )
@@ -7402,7 +7414,7 @@ class WebMessagePlatformService {
       total: safeTotal,
       hasMore: tail ? resolvedOffset > 0 : resolvedOffset < safeTotal,
       hasOlder: resolvedOffset > 0,
-      hasNewer: tail ? false : resolvedOffset < safeTotal,
+      hasNewer: !tail && resolvedOffset < safeTotal,
       window: tail ? 'tail' : 'offset',
     );
   }

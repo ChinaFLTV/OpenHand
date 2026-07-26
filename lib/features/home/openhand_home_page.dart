@@ -2184,11 +2184,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final currentSession =
           _sessionForId(sessionController, sessionId) ?? latestSession;
       final requireWriteConfirmation =
-          currentSession.templateId == 'android_reverse_expert'
-          ? true
-          : currentSession.fullAccessPermission == true
-          ? false
-          : settingsController.aiWriteCommandConfirmationEnabled;
+          AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+            templateId: currentSession.templateId,
+            fullAccessPermission: currentSession.fullAccessPermission,
+            globalConfirmationEnabled:
+                settingsController.aiWriteCommandConfirmationEnabled,
+          );
       final ok = await sessionController.resumeGoal(
         sessionId: sessionId,
         model: selectedModel,
@@ -6497,13 +6498,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final sendSession = sessionController.sessions
           .cast<AiSession?>()
           .firstWhere((s) => s?.id == targetSessionId, orElse: () => null);
-      final isAndroidReverseSession =
-          sendSession?.templateId == 'android_reverse_expert';
-      final requireWriteConfirmation = isAndroidReverseSession
-          ? true
-          : sendSession?.fullAccessPermission == true
-          ? false
-          : settingsController.aiWriteCommandConfirmationEnabled;
+      final requireWriteConfirmation =
+          AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+            templateId: sendSession?.templateId,
+            fullAccessPermission: sendSession?.fullAccessPermission ?? false,
+            globalConfirmationEnabled:
+                settingsController.aiWriteCommandConfirmationEnabled,
+          );
       final sent = await sessionController.sendMessage(
         sessionId: targetSessionId,
         content: prompt,
@@ -7182,11 +7183,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     if (!mounted) return;
     final requireWriteConfirmation =
-        currentSession.templateId == 'android_reverse_expert'
-        ? true
-        : currentSession.fullAccessPermission == true
-        ? false
-        : settingsController.aiWriteCommandConfirmationEnabled;
+        AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+          templateId: currentSession.templateId,
+          fullAccessPermission: currentSession.fullAccessPermission,
+          globalConfirmationEnabled:
+              settingsController.aiWriteCommandConfirmationEnabled,
+        );
     final ok = await sessionController.resumeGoal(
       sessionId: currentSession.id,
       model: selectedModel,
@@ -8933,11 +8935,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       runtimeContext: runtimeContext,
       denyCommandRules: settingsController.aiDenyCommandRules,
       requireWriteCommandConfirmation:
-          session.fullAccessPermission == true &&
-              session.templateId !=
-                  AiPromptTemplatePolicies.androidReverseExpertTemplateId
-          ? false
-          : settingsController.aiWriteCommandConfirmationEnabled,
+          AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+            templateId: session.templateId,
+            fullAccessPermission: session.fullAccessPermission,
+            globalConfirmationEnabled:
+                settingsController.aiWriteCommandConfirmationEnabled,
+          ),
       confirmWriteCommand: (request) =>
           _confirmWriteCommand(request, sessionId: session.id),
     );

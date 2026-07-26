@@ -1571,12 +1571,10 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
       return;
     }
     final backend = aiLspBackendById(_selectedBackendId);
-    final appliedToVersionField = detected != null
-        ? _maybeMirrorDetectedSdkVersionIntoVersionField(
+    final appliedToVersionField = detected != null && _maybeMirrorDetectedSdkVersionIntoVersionField(
             detected: detected,
             backend: backend,
-          )
-        : false;
+          );
     if (detected == null) {
       _clearAutoAppliedLspVersionIfNeeded();
     }
@@ -1806,12 +1804,10 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   }
                   setState(() {
                     _selectedBackendId = value;
-                    _sdkVersionAppliedToLspVersion = _detectedSdkVersion != null
-                        ? _maybeMirrorDetectedSdkVersionIntoVersionField(
+                    _sdkVersionAppliedToLspVersion = _detectedSdkVersion != null && _maybeMirrorDetectedSdkVersionIntoVersionField(
                             detected: _detectedSdkVersion!,
                             backend: aiLspBackendById(value),
-                          )
-                        : false;
+                          );
                   });
                   _scheduleInstallRootValidation();
                 },

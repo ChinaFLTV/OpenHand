@@ -199,6 +199,24 @@ class AiPromptTemplatePolicies {
   static const String androidReverseExpertTemplateId = 'android_reverse_expert';
   static const String siriHelperTemplateId = 'siri_helper';
 
+  /// 该会话是否需要对写命令二次确认。
+  ///
+  /// 三条链路此前各写一套判断且互相矛盾：主界面发送时安卓逆向会话强制确认，
+  /// 重新生成时却会被全局开关关掉，而 Web 网关那条压根没有安卓逆向这一档。
+  /// 写确认是安全闸门，同一个会话在三条链路上必须给出同一个答案。
+  ///
+  /// 规则：安卓逆向会话始终确认——它直接操作真机，误执行不可回滚；其余会话
+  /// 在拿到完全访问授权时跳过；再往下听全局开关。
+  static bool requiresWriteCommandConfirmation({
+    required String? templateId,
+    required bool fullAccessPermission,
+    required bool globalConfirmationEnabled,
+  }) {
+    if (templateId == androidReverseExpertTemplateId) return true;
+    if (fullAccessPermission) return false;
+    return globalConfirmationEnabled;
+  }
+
   static const String defaultPromptAssetDirectory = 'assets/prompts/default';
   static const String machineExpertPromptAssetDirectory =
       'assets/prompts/machine_expert';
