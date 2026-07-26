@@ -235,7 +235,7 @@ Future<void> _bootstrap() async {
   instructionsControllerHandle = instructions.controller;
   _runMainBackgroundTask(instructions.controller.refresh(), '刷新指令');
   final appInfo = await appInfoFuture;
-  AppRuntimeContext.initialize(appInfo, appLocale: settingsController.locale);
+  AppRuntimeContext.initialize(appInfo);
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
   memoryControllerHandle = memory.controller;
   final ai = await aiModuleFuture;
@@ -314,7 +314,6 @@ Future<void> _bootstrap() async {
     AiLspClientService.instance.updateLanguageSettings(
       settingsController.editorLspSettings,
     );
-    AppRuntimeContext.updateAppLocale(settingsController.locale);
     mcp.controller.updateAutoProbeConcurrency(
       settingsController.mcpAutoProbeConcurrency,
     );

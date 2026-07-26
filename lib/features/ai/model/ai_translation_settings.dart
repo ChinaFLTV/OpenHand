@@ -45,113 +45,59 @@ class AiTranslationProviderSettings extends AiProviderCoreSettings {
     required AiProviderCoreSettings core,
   }) : super.from(core);
 
+  /// 出厂值构造：凭据字段一律留空，各渠道只需声明真正有差异的项。
+  const AiTranslationProviderSettings._defaults({
+    required this.provider,
+    super.enabled,
+    super.endpoint,
+    super.extra,
+  });
+
   factory AiTranslationProviderSettings.defaults(
     AiTranslationProvider provider,
   ) {
-    switch (provider) {
-      case AiTranslationProvider.ai:
-        return const AiTranslationProviderSettings(
-          provider: AiTranslationProvider.ai,
-          enabled: true,
-          endpoint: '',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTranslationProvider.youdao:
-        return const AiTranslationProviderSettings(
+    return switch (provider) {
+      // 内置 AI 渠道复用会话模型，无独立端点，默认即可用。
+      AiTranslationProvider.ai => const AiTranslationProviderSettings._defaults(
+        provider: AiTranslationProvider.ai,
+        enabled: true,
+      ),
+      AiTranslationProvider.youdao =>
+        const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.youdao,
-          enabled: false,
           endpoint: 'https://openapi.youdao.com/api',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTranslationProvider.google:
-        return const AiTranslationProviderSettings(
+        ),
+      AiTranslationProvider.google =>
+        const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.google,
-          enabled: false,
           endpoint: 'https://translation.googleapis.com/language/translate/v2',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTranslationProvider.bing:
-        return const AiTranslationProviderSettings(
+        ),
+      AiTranslationProvider.bing =>
+        const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.bing,
-          enabled: false,
           endpoint: 'https://api.cognitive.microsofttranslator.com/translate',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTranslationProvider.apple:
-        return const AiTranslationProviderSettings(
+        ),
+      // Apple 走系统翻译框架，没有可配置端点。
+      AiTranslationProvider.apple =>
+        const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.apple,
-          enabled: false,
-          endpoint: '',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTranslationProvider.baidu:
-        return const AiTranslationProviderSettings(
+        ),
+      AiTranslationProvider.baidu =>
+        const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.baidu,
-          enabled: false,
           endpoint: 'https://fanyi-api.baidu.com/api/trans/vip/translate',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTranslationProvider.doubao:
-        return const AiTranslationProviderSettings(
+        ),
+      AiTranslationProvider.doubao =>
+        const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.doubao,
-          enabled: false,
           endpoint:
               'https://openspeech.bytedance.com/api/v3/machine_translation/matx_translate',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
           extra: <String, Object?>{
             'resource_id': 'volc.speech.mt',
             'corpus_json': '',
           },
-        );
-    }
+        ),
+    };
   }
 
   factory AiTranslationProviderSettings.fromJson(

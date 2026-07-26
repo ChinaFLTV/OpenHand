@@ -1,9 +1,7 @@
 import 'dart:io';
-import 'dart:ui' show Locale, PlatformDispatcher;
 
 import 'package:characters/characters.dart';
 
-import '../../shared/util/localized_text.dart';
 import '../model/app_info.dart';
 import 'openhand_paths.dart';
 
@@ -32,52 +30,9 @@ abstract final class AppRuntimeContext {
   ];
 
   static AppInfo _appInfo = AppInfo.fallback();
-  static Locale _appLocale = _normalizeLocale(
-    PlatformDispatcher.instance.locale,
-  );
 
-  static void initialize(AppInfo appInfo, {Locale? appLocale}) {
+  static void initialize(AppInfo appInfo) {
     _appInfo = appInfo;
-    _appLocale = _normalizeLocale(
-      appLocale ?? PlatformDispatcher.instance.locale,
-    );
-  }
-
-  static Locale get appLocale => _appLocale;
-
-  static String pickText({
-    required String zh,
-    required String en,
-    String? zhHans,
-    String? zhHant,
-    String? fr,
-    String? de,
-    String? ja,
-  }) {
-    return openHandLocalizedTextForLocale(
-      _appLocale,
-      zh: zh,
-      en: en,
-      zhHans: zhHans,
-      zhHant: zhHant,
-      fr: fr,
-      de: de,
-      ja: ja,
-    );
-  }
-
-  static void updateAppLocale(Locale locale) {
-    _appLocale = _normalizeLocale(locale);
-  }
-
-  static Locale _normalizeLocale(Locale locale) {
-    if (locale.languageCode != 'zh') {
-      return Locale(locale.languageCode);
-    }
-    return Locale.fromSubtags(
-      languageCode: 'zh',
-      scriptCode: locale.scriptCode == 'Hant' ? 'Hant' : 'Hans',
-    );
   }
 
   static Map<String, String> captureContext({

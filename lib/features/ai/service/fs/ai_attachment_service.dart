@@ -340,8 +340,8 @@ class AiAttachmentService {
         ? 'attachment-$sequence'
         : sourceName;
     final kind = aiAttachmentKindForPath(sourcePath);
-    return switch (kind) {
-      AiAttachmentKind.image => _importImageAttachment(
+    if (kind == AiAttachmentKind.image) {
+      return _importImageAttachment(
         sourceFile: sourceFile,
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
@@ -350,69 +350,57 @@ class AiAttachmentService {
         idGenerator: idGenerator,
         promptCharacterLimit: promptCharacterLimit,
         imageSizeLimitBytes: imageSizeLimitBytes,
-      ),
-      AiAttachmentKind.video => _importOpaqueAttachment(
-        sourceFile: sourceFile,
-        targetDirectory: targetDirectory,
-        sourceName: normalizedName,
-        sequence: sequence,
-        messageId: messageId,
-        idGenerator: idGenerator,
-        kind: AiAttachmentKind.video,
-        summaryText:
-            'Video attachment: $normalizedName (${aiFormatBytes(stat.size)}).',
-      ),
-      AiAttachmentKind.audio => _importOpaqueAttachment(
-        sourceFile: sourceFile,
-        targetDirectory: targetDirectory,
-        sourceName: normalizedName,
-        sequence: sequence,
-        messageId: messageId,
-        idGenerator: idGenerator,
-        kind: AiAttachmentKind.audio,
-        summaryText:
-            'Audio attachment: $normalizedName (${aiFormatBytes(stat.size)}).',
-      ),
-      AiAttachmentKind.text => _importTextAttachment(
-        sourceFile: sourceFile,
-        targetDirectory: targetDirectory,
-        sourceName: normalizedName,
-        sequence: sequence,
-        messageId: messageId,
-        idGenerator: idGenerator,
-        promptCharacterLimit: promptCharacterLimit,
-      ),
-      AiAttachmentKind.spreadsheet => _importSpreadsheetAttachment(
-        sourceFile: sourceFile,
-        targetDirectory: targetDirectory,
-        sourceName: normalizedName,
-        sequence: sequence,
-        messageId: messageId,
-        idGenerator: idGenerator,
-        promptCharacterLimit: promptCharacterLimit,
-      ),
-      AiAttachmentKind.pdf => _importPdfAttachment(
-        sourceFile: sourceFile,
-        targetDirectory: targetDirectory,
-        sourceName: normalizedName,
-        sequence: sequence,
-        messageId: messageId,
-        idGenerator: idGenerator,
-        promptCharacterLimit: promptCharacterLimit,
-      ),
-      AiAttachmentKind.binary => _importOpaqueAttachment(
-        sourceFile: sourceFile,
-        targetDirectory: targetDirectory,
-        sourceName: normalizedName,
-        sequence: sequence,
-        messageId: messageId,
-        idGenerator: idGenerator,
-        kind: AiAttachmentKind.binary,
-        summaryText:
-            'Binary attachment: $normalizedName (${aiFormatBytes(stat.size)}). No structured preview is available in this runtime.',
-      ),
-    };
+      );
+    }
+    final sizeLabel = aiFormatBytes(stat.size);
+    return _importCopiedAttachment(
+      sourceFile: sourceFile,
+      targetDirectory: targetDirectory,
+      sourceName: normalizedName,
+      sequence: sequence,
+      messageId: messageId,
+      idGenerator: idGenerator,
+      kind: kind,
+      promptCharacterLimit: promptCharacterLimit,
+      // PDF 的扩展名映射不一定被 aiMimeTypeForPath 覆盖，这里固定声明。
+      mimeType: kind == AiAttachmentKind.pdf ? _pdfMimeType : null,
+      // 兜底摘要只在无法提取正文时使用；未识别的新类型一律按不透明二进制描述。
+      fallbackSummary: switch (kind) {
+        AiAttachmentKind.video => 'Video attachment: $normalizedName '
+            '($sizeLabel).',
+        AiAttachmentKind.audio => 'Audio attachment: $normalizedName '
+            '($sizeLabel).',
+        _ => 'Binary attachment: $normalizedName ($sizeLabel). '
+            'No structured preview is available in this runtime.',
+      },
+      describe: switch (kind) {
+        AiAttachmentKind.text => () async => (
+          typeLabel: _textTypeLabel(sourcePath),
+          excerpt: await _readTextFile(
+            sourceFile,
+            characterLimit: promptCharacterLimit,
+          ),
+        ),
+        AiAttachmentKind.spreadsheet => () async => (
+          typeLabel: 'spreadsheet',
+          excerpt: p.extension(normalizedName).toLowerCase() == '.xlsx'
+              ? await _readXlsxPreview(sourceFile, promptCharacterLimit)
+              : _legacyXlsPreviewNotice,
+        ),
+        AiAttachmentKind.pdf => () async => (
+          typeLabel: 'pdf',
+          excerpt: await _readPdfPreview(sourceFile, promptCharacterLimit),
+        ),
+        // 视频、音频与未识别的二进制没有可提取的正文，直接用兜底摘要。
+        _ => null,
+      },
+    );
   }
+
+  static const String _pdfMimeType = 'application/pdf';
+  static const String _legacyXlsPreviewNotice =
+      'Legacy XLS preview is not available in this runtime. Keep the file name '
+      'and use the surrounding prompt to explain what to inspect.';
 
   int maxImageRawBytes = 50 * kBytesPerMiB;
 
@@ -556,133 +544,12 @@ class AiAttachmentService {
     return (bytes: bytes, width: current.width, height: current.height);
   }
 
-  Future<AiMessageAttachment> _importTextAttachment({
-    required File sourceFile,
-    required Directory targetDirectory,
-    required String sourceName,
-    required int sequence,
-    required String messageId,
-    required String Function() idGenerator,
-    required int promptCharacterLimit,
-  }) async {
-    final attachmentId = idGenerator();
-    final targetFile = await _copyFile(
-      sourceFile: sourceFile,
-      targetDirectory: targetDirectory,
-      targetName: _composeTargetName(
-        sequence: sequence,
-        sourceName: sourceName,
-        messageId: messageId,
-        attachmentId: attachmentId,
-      ),
-    );
-    final rawText = await _readTextFile(
-      sourceFile,
-      characterLimit: promptCharacterLimit,
-    );
-    final promptText = _buildDocumentPromptText(
-      sourceName: sourceName,
-      typeLabel: _textTypeLabel(sourceFile.path),
-      excerpt: rawText,
-      characterLimit: promptCharacterLimit,
-    );
-    return AiMessageAttachment(
-      id: attachmentId,
-      name: sourceName,
-      storagePath: targetFile.path,
-      kind: AiAttachmentKind.text,
-      mimeType: aiMimeTypeForPath(sourceFile.path),
-      sizeBytes: await targetFile.length(),
-      promptText: promptText,
-      summaryText: _summaryFromPrompt(promptText),
-      originalSourcePath: sourceFile.path,
-    );
-  }
-
-  Future<AiMessageAttachment> _importSpreadsheetAttachment({
-    required File sourceFile,
-    required Directory targetDirectory,
-    required String sourceName,
-    required int sequence,
-    required String messageId,
-    required String Function() idGenerator,
-    required int promptCharacterLimit,
-  }) async {
-    final attachmentId = idGenerator();
-    final targetFile = await _copyFile(
-      sourceFile: sourceFile,
-      targetDirectory: targetDirectory,
-      targetName: _composeTargetName(
-        sequence: sequence,
-        sourceName: sourceName,
-        messageId: messageId,
-        attachmentId: attachmentId,
-      ),
-    );
-    final extension = p.extension(sourceName).toLowerCase();
-    final excerpt = extension == '.xlsx'
-        ? await _readXlsxPreview(sourceFile, promptCharacterLimit)
-        : 'Legacy XLS preview is not available in this runtime. Keep the file name and use the surrounding prompt to explain what to inspect.';
-    final promptText = _buildDocumentPromptText(
-      sourceName: sourceName,
-      typeLabel: 'spreadsheet',
-      excerpt: excerpt,
-      characterLimit: promptCharacterLimit,
-    );
-    return AiMessageAttachment(
-      id: attachmentId,
-      name: sourceName,
-      storagePath: targetFile.path,
-      kind: AiAttachmentKind.spreadsheet,
-      mimeType: aiMimeTypeForPath(sourceFile.path),
-      sizeBytes: await targetFile.length(),
-      promptText: promptText,
-      summaryText: _summaryFromPrompt(promptText),
-      originalSourcePath: sourceFile.path,
-    );
-  }
-
-  Future<AiMessageAttachment> _importPdfAttachment({
-    required File sourceFile,
-    required Directory targetDirectory,
-    required String sourceName,
-    required int sequence,
-    required String messageId,
-    required String Function() idGenerator,
-    required int promptCharacterLimit,
-  }) async {
-    final attachmentId = idGenerator();
-    final targetFile = await _copyFile(
-      sourceFile: sourceFile,
-      targetDirectory: targetDirectory,
-      targetName: _composeTargetName(
-        sequence: sequence,
-        sourceName: sourceName,
-        messageId: messageId,
-        attachmentId: attachmentId,
-      ),
-    );
-    final excerpt = await _readPdfPreview(sourceFile, promptCharacterLimit);
-    final promptText = _buildDocumentPromptText(
-      sourceName: sourceName,
-      typeLabel: 'pdf',
-      excerpt: excerpt,
-      characterLimit: promptCharacterLimit,
-    );
-    return AiMessageAttachment(
-      id: attachmentId,
-      name: sourceName,
-      storagePath: targetFile.path,
-      kind: AiAttachmentKind.pdf,
-      mimeType: 'application/pdf',
-      sizeBytes: await targetFile.length(),
-      promptText: promptText,
-      summaryText: _summaryFromPrompt(promptText),
-      originalSourcePath: sourceFile.path,
-    );
-  }
-
-  Future<AiMessageAttachment> _importOpaqueAttachment({
+  /// 原样落盘类附件的统一导入骨架：分配 id、复制副本、组装附件记录。
+  ///
+  /// 图片需要解码与压缩后才知道最终字节，因此单独走 [_importImageAttachment]。
+  /// [describe] 在副本落盘后执行，读取的仍是原文件，与逐类实现时的时序一致；
+  /// 返回 `null` 表示该类附件没有可提取的正文，此时用 [fallbackSummary] 兜底。
+  Future<AiMessageAttachment> _importCopiedAttachment({
     required File sourceFile,
     required Directory targetDirectory,
     required String sourceName,
@@ -690,7 +557,10 @@ class AiAttachmentService {
     required String messageId,
     required String Function() idGenerator,
     required AiAttachmentKind kind,
-    required String summaryText,
+    required String fallbackSummary,
+    Future<({String typeLabel, String excerpt})> Function()? describe,
+    int promptCharacterLimit = 0,
+    String? mimeType,
   }) async {
     final attachmentId = idGenerator();
     final targetFile = await _copyFile(
@@ -703,15 +573,26 @@ class AiAttachmentService {
         attachmentId: attachmentId,
       ),
     );
+    final described = await describe?.call();
+    final promptText = described == null
+        ? fallbackSummary
+        : _buildDocumentPromptText(
+            sourceName: sourceName,
+            typeLabel: described.typeLabel,
+            excerpt: described.excerpt,
+            characterLimit: promptCharacterLimit,
+          );
     return AiMessageAttachment(
       id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
       kind: kind,
-      mimeType: aiMimeTypeForPath(sourceFile.path),
+      mimeType: mimeType ?? aiMimeTypeForPath(sourceFile.path),
       sizeBytes: await targetFile.length(),
-      promptText: summaryText,
-      summaryText: summaryText,
+      promptText: promptText,
+      summaryText: described == null
+          ? fallbackSummary
+          : _summaryFromPrompt(promptText),
       originalSourcePath: sourceFile.path,
     );
   }

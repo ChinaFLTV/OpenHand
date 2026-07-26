@@ -134,6 +134,30 @@ String openHandCloseLabel(BuildContext context) {
   );
 }
 
+/// 界面实际提供文本的语言集合，与 [openHandLocalizedTextForLocale] 的分支一致。
+const Set<String> _openHandSupportedLanguageCodes = <String>{
+  'zh',
+  'en',
+  'fr',
+  'de',
+  'ja',
+};
+
+/// 把任意语言标签收敛为界面确实支持的语言。
+///
+/// 宿主系统语言可能是应用未提供的语种（如 `es`），直接拿去查本地化表会抛错；
+/// 未识别的语种统一回退到英文，中文则只保留简繁书写方向。
+Locale openHandSupportedUiLocale(Locale locale) {
+  final languageCode = locale.languageCode.toLowerCase();
+  if (!_openHandSupportedLanguageCodes.contains(languageCode)) {
+    return const Locale('en');
+  }
+  if (languageCode != 'zh') return Locale(languageCode);
+  return locale.scriptCode?.toLowerCase() == 'hant'
+      ? const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant')
+      : const Locale('zh');
+}
+
 /// 按明确指定的语言返回文本。
 ///
 /// 供没有 [BuildContext] 但必须生成用户可见文本的服务或控制器使用。

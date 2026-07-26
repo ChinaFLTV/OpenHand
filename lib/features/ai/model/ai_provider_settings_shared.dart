@@ -1,17 +1,20 @@
 import '../../../shared/util/input_value_parsing.dart';
 
 class AiProviderCoreSettings {
+  /// 各字段默认取“未配置”值，便于子类的出厂值构造只声明有差异的项。
+  ///
+  /// 子类对外暴露的构造仍应把字段重新标记为 `required`，避免调用方漏填凭据。
   const AiProviderCoreSettings({
-    required this.enabled,
-    required this.endpoint,
-    required this.appId,
-    required this.apiKey,
-    required this.apiSecret,
-    required this.accessToken,
-    required this.region,
-    required this.modelConfigId,
-    required this.modelId,
-    required this.extra,
+    this.enabled = false,
+    this.endpoint = '',
+    this.appId = '',
+    this.apiKey = '',
+    this.apiSecret = '',
+    this.accessToken = '',
+    this.region = '',
+    this.modelConfigId = '',
+    this.modelId = '',
+    this.extra = const <String, Object?>{},
   });
 
   AiProviderCoreSettings.from(AiProviderCoreSettings other)

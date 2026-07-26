@@ -77,219 +77,108 @@ class AiTtsProviderSettings extends AiProviderCoreSettings {
     required this.pitch,
   }) : super.from(core);
 
+  /// 出厂值构造：凭据字段一律留空，各渠道只需声明真正有差异的项。
+  ///
+  /// [speed]、[volume]、[pitch] 的量纲由渠道自身定义（多数为 0~2 的倍率，
+  /// 讯飞/百度为 0~100 与 0~15 的整数档），因此这里只提供最常见的倍率默认值。
+  const AiTtsProviderSettings._defaults({
+    required this.provider,
+    this.voice = '',
+    this.language = _defaultLanguage,
+    this.speed = 1.0,
+    this.volume = 1.0,
+    this.pitch = 1.0,
+    super.enabled,
+    super.endpoint,
+    super.extra,
+  });
+
   factory AiTtsProviderSettings.defaults(AiTtsProvider provider) {
-    switch (provider) {
-      case AiTtsProvider.ai:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.ai,
-          enabled: false,
-          voice: 'alloy',
-          language: 'zh-CN',
-          speed: 1.0,
-          volume: 1.0,
-          pitch: 0.0,
-          endpoint: '',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{
-            'format': 'mp3',
-            'sample_rate': 24000,
-            'bit_rate': 128000,
-          },
-        );
-      case AiTtsProvider.system:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.system,
-          enabled: true,
-          voice: '',
-          language: 'zh-CN',
-          speed: 1.0,
-          volume: 1.0,
-          pitch: 1.0,
-          endpoint: '',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTtsProvider.xfyun:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.xfyun,
-          enabled: false,
-          voice: 'xiaoyan',
-          language: 'zh-CN',
-          speed: 50,
-          volume: 50,
-          pitch: 50,
-          endpoint: 'wss://tts-api.xfyun.cn/v2/tts',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{
-            'aue': 'lame',
-            'auf': 'audio/L16;rate=16000',
-          },
-        );
-      case AiTtsProvider.youdao:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.youdao,
-          enabled: false,
-          voice: '',
-          language: 'zh-CHS',
-          speed: 1.0,
-          volume: 1.0,
-          pitch: 1.0,
-          endpoint: 'https://openapi.youdao.com/ttsapi',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTtsProvider.bing:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.bing,
-          enabled: false,
-          voice: 'zh-CN-XiaoxiaoNeural',
-          language: 'zh-CN',
-          speed: 1.0,
-          volume: 1.0,
-          pitch: 1.0,
-          endpoint: '',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTtsProvider.google:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.google,
-          enabled: false,
-          voice: 'zh-CN-Standard-A',
-          language: 'zh-CN',
-          speed: 1.0,
-          volume: 0.0,
-          pitch: 0.0,
-          endpoint: 'https://texttospeech.googleapis.com/v1/text:synthesize',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{'audioEncoding': 'MP3'},
-        );
-      case AiTtsProvider.baidu:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.baidu,
-          enabled: false,
-          voice: '0',
-          language: 'zh',
-          speed: 5,
-          volume: 5,
-          pitch: 5,
-          endpoint: 'https://tsn.baidu.com/text2audio',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-      case AiTtsProvider.doubao:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.doubao,
-          enabled: false,
-          voice: 'zh_female_vv_uranus_bigtts',
-          language: 'zh-CN',
-          speed: 0,
-          volume: 0,
-          pitch: 0,
-          endpoint:
-              'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{
-            'resource_id': 'seed-tts-2.0',
-            'model': 'seed-tts-2.0-standard',
-            'format': 'mp3',
-            'sample_rate': 24000,
-            'bit_rate': 128000,
-          },
-        );
-      case AiTtsProvider.mimo:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.mimo,
-          enabled: false,
-          voice: 'mimo_default',
-          language: 'zh-CN',
-          speed: 1.0,
-          volume: 1.0,
-          pitch: 1.0,
-          endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{
-            'model': 'mimo-v2.5-tts',
-            'format': aiMimoDefaultAudioFormat,
-            'style_prompt': '自然清晰，语速适中，语气友好。',
-            'sample_rate': 24000,
-            'voice_sample_path': '',
-          },
-        );
-      case AiTtsProvider.apple:
-        return const AiTtsProviderSettings(
-          provider: AiTtsProvider.apple,
-          enabled: false,
-          voice: '',
-          language: 'zh-CN',
-          speed: 1.0,
-          volume: 1.0,
-          pitch: 1.0,
-          endpoint: '',
-          appId: '',
-          apiKey: '',
-          apiSecret: '',
-          accessToken: '',
-          region: '',
-          modelConfigId: '',
-          modelId: '',
-          extra: <String, Object?>{},
-        );
-    }
+    return switch (provider) {
+      // 内置 AI 渠道复用会话模型，端点由所选模型配置提供。
+      AiTtsProvider.ai => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.ai,
+        voice: 'alloy',
+        pitch: 0.0,
+        extra: <String, Object?>{
+          'format': 'mp3',
+          'sample_rate': _defaultSampleRate,
+          'bit_rate': _defaultBitRate,
+        },
+      ),
+      // 系统朗读无需凭据，作为开箱即用的兜底渠道默认开启。
+      AiTtsProvider.system => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.system,
+        enabled: true,
+      ),
+      AiTtsProvider.xfyun => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.xfyun,
+        voice: 'xiaoyan',
+        speed: 50,
+        volume: 50,
+        pitch: 50,
+        endpoint: 'wss://tts-api.xfyun.cn/v2/tts',
+        extra: <String, Object?>{'aue': 'lame', 'auf': 'audio/L16;rate=16000'},
+      ),
+      AiTtsProvider.youdao => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.youdao,
+        language: 'zh-CHS',
+        endpoint: 'https://openapi.youdao.com/ttsapi',
+      ),
+      // Bing 端点由 region 拼接得到，故不预置。
+      AiTtsProvider.bing => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.bing,
+        voice: 'zh-CN-XiaoxiaoNeural',
+      ),
+      AiTtsProvider.google => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.google,
+        voice: 'zh-CN-Standard-A',
+        volume: 0.0,
+        pitch: 0.0,
+        endpoint: 'https://texttospeech.googleapis.com/v1/text:synthesize',
+        extra: <String, Object?>{'audioEncoding': 'MP3'},
+      ),
+      AiTtsProvider.baidu => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.baidu,
+        voice: '0',
+        language: 'zh',
+        speed: 5,
+        volume: 5,
+        pitch: 5,
+        endpoint: 'https://tsn.baidu.com/text2audio',
+      ),
+      AiTtsProvider.doubao => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.doubao,
+        voice: 'zh_female_vv_uranus_bigtts',
+        speed: 0,
+        volume: 0,
+        pitch: 0,
+        endpoint: 'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
+        extra: <String, Object?>{
+          'resource_id': 'seed-tts-2.0',
+          'model': 'seed-tts-2.0-standard',
+          'format': 'mp3',
+          'sample_rate': _defaultSampleRate,
+          'bit_rate': _defaultBitRate,
+        },
+      ),
+      AiTtsProvider.mimo => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.mimo,
+        voice: 'mimo_default',
+        endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
+        extra: <String, Object?>{
+          'model': 'mimo-v2.5-tts',
+          'format': aiMimoDefaultAudioFormat,
+          'style_prompt': '自然清晰，语速适中，语气友好。',
+          'sample_rate': _defaultSampleRate,
+          'voice_sample_path': '',
+        },
+      ),
+      // Apple 走系统语音框架，音色随系统安装的语音包变化，不预置。
+      AiTtsProvider.apple => const AiTtsProviderSettings._defaults(
+        provider: AiTtsProvider.apple,
+      ),
+    };
   }
 
   factory AiTtsProviderSettings.fromJson(
@@ -309,6 +198,10 @@ class AiTtsProviderSettings extends AiProviderCoreSettings {
       pitch: optionalDoubleFromValue(json['pitch']) ?? defaults.pitch,
     ).normalized();
   }
+
+  static const String _defaultLanguage = 'zh-CN';
+  static const int _defaultSampleRate = 24000;
+  static const int _defaultBitRate = 128000;
 
   final AiTtsProvider provider;
   final String voice;

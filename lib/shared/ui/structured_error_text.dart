@@ -1,5 +1,5 @@
-import '../../app/support/app_runtime_context.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/localized_text.dart';
 
 abstract final class StructuredErrorText {
   static const List<String> _legacyAnchors = <String>[
@@ -10,7 +10,7 @@ abstract final class StructuredErrorText {
   ];
 
   static AppLocalizations get _l10n =>
-      lookupAppLocalizations(AppRuntimeContext.appLocale);
+      lookupAppLocalizations(openHandSupportedUiLocale(openHandAmbientLocale));
 
   static String pick({
     required String zh,
@@ -21,7 +21,7 @@ abstract final class StructuredErrorText {
     String? de,
     String? ja,
   }) {
-    return AppRuntimeContext.pickText(
+    return openHandAmbientText(
       zh: zh,
       en: en,
       zhHans: zhHans,
