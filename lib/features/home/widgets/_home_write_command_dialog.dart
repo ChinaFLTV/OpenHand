@@ -198,55 +198,21 @@ class _WriteCommandConfirmationDialogState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: accent.withValues(alpha: 0.28)),
-                    ),
-                    child: Icon(Icons.terminal_rounded, color: accent),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '确认执行写命令',
-                            en: 'Confirm Write Command',
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
-                            en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              buildOpenHandApprovalDialogHeader(
+                context,
+                icon: Icons.terminal_rounded,
+                accent: accent,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '确认执行写命令',
+                  en: 'Confirm Write Command',
+                ),
+                description: openHandLocalizedText(
+                  context,
+                  zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
+                  en: 'This bash command may modify files or system state. '
+                      'OpenHand needs your approval before running it.',
+                ),
               ),
               if (progress != null) ...[
                 const SizedBox(height: 16),

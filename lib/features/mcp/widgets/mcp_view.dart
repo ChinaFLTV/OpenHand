@@ -35,6 +35,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_smooth_line_chart.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -5520,20 +5521,20 @@ class _McpOpsDashboardStats {
   String get blockedRateLabel => _percentLabel(blockedRate);
   String get failedRateLabel => _percentLabel(failedRate);
 
-  List<_McpOpsChartSeries> requestTrendSeries(BuildContext context) {
+  List<OpenHandChartSeries> requestTrendSeries(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return <_McpOpsChartSeries>[
-      _McpOpsChartSeries(
+    return <OpenHandChartSeries>[
+      OpenHandChartSeries(
         label: _localizedText(context, zh: '成功', en: 'Success'),
         values: successBuckets,
         color: OpenHandStatusColors.success,
       ),
-      _McpOpsChartSeries(
+      OpenHandChartSeries(
         label: _localizedText(context, zh: '拦截', en: 'Blocked'),
         values: blockedBuckets,
         color: OpenHandStatusColors.warning,
       ),
-      _McpOpsChartSeries(
+      OpenHandChartSeries(
         label: _localizedText(context, zh: '失败', en: 'Failed'),
         values: failedBuckets,
         color: cs.error,
@@ -5541,15 +5542,15 @@ class _McpOpsDashboardStats {
     ];
   }
 
-  List<_McpOpsChartSeries> latencyTrendSeries(BuildContext context) {
+  List<OpenHandChartSeries> latencyTrendSeries(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return <_McpOpsChartSeries>[
-      _McpOpsChartSeries(
+    return <OpenHandChartSeries>[
+      OpenHandChartSeries(
         label: _localizedText(context, zh: '平均', en: 'Average'),
         values: avgLatencyBuckets,
         color: cs.primary,
       ),
-      _McpOpsChartSeries(
+      OpenHandChartSeries(
         label: 'p95',
         values: p95LatencyBuckets,
         color: cs.tertiary,
@@ -5568,18 +5569,6 @@ class _McpOpsDashboardStats {
   static String _percentLabel(double value) {
     return (value * 100).clamp(0, 100).toStringAsFixed(1);
   }
-}
-
-class _McpOpsChartSeries {
-  const _McpOpsChartSeries({
-    required this.label,
-    required this.values,
-    required this.color,
-  });
-
-  final String label;
-  final List<double> values;
-  final Color color;
 }
 
 class _McpOpsHeroPanel extends StatelessWidget {
@@ -6151,7 +6140,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
 
   final String title;
   final IconData icon;
-  final List<_McpOpsChartSeries> series;
+  final List<OpenHandChartSeries> series;
   final String emptyLabel;
   final String subtitle;
   final String valueSuffix;
@@ -6184,12 +6173,13 @@ class _McpOpsTrendPanel extends StatelessWidget {
             height: 156,
             child: RepaintBoundary(
               child: CustomPaint(
-                painter: _McpOpsSmoothLineChartPainter(
+                painter: OpenHandSmoothLineChartPainter(
                   series: series,
                   gridColor: cs.outlineVariant.withValues(alpha: 0.46),
                   labelColor: cs.onSurfaceVariant,
                   emptyLabel: maxValue <= 0 ? emptyLabel : '',
                   valueSuffix: valueSuffix,
+                  textDirection: Directionality.of(context),
                 ),
               ),
             ),
@@ -6206,149 +6196,6 @@ class _McpOpsTrendPanel extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _McpOpsSmoothLineChartPainter extends CustomPainter {
-  const _McpOpsSmoothLineChartPainter({
-    required this.series,
-    required this.gridColor,
-    required this.labelColor,
-    required this.emptyLabel,
-    required this.valueSuffix,
-  });
-
-  final List<_McpOpsChartSeries> series;
-  final Color gridColor;
-  final Color labelColor;
-  final String emptyLabel;
-  final String valueSuffix;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    final chart = Rect.fromLTWH(8, 8, size.width - 16, size.height - 24);
-    final gridPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-    for (var i = 0; i < 4; i++) {
-      final y = chart.top + chart.height * i / 3;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
-    }
-    for (var i = 0; i < 6; i++) {
-      final x = chart.left + chart.width * i / 5;
-      canvas.drawLine(Offset(x, chart.top), Offset(x, chart.bottom), gridPaint);
-    }
-
-    final allValues = series.expand((item) => item.values).toList();
-    final maxValue = allValues.fold<double>(
-      0,
-      (max, value) => math.max(max, value),
-    );
-    if (maxValue <= 0) {
-      _paintEmpty(canvas, bounds);
-      return;
-    }
-    final normalizedMax = maxValue <= 1 ? 1.0 : maxValue * 1.14;
-    for (final item in series) {
-      if (item.values.isEmpty) continue;
-      final points = <Offset>[];
-      final denominator = math.max(1, item.values.length - 1);
-      for (var i = 0; i < item.values.length; i++) {
-        final x = chart.left + chart.width * i / denominator;
-        final ratio = (item.values[i] / normalizedMax).clamp(0.0, 1.0);
-        final y = chart.bottom - chart.height * ratio;
-        points.add(Offset(x, y));
-      }
-      if (points.length == 1) {
-        points.add(Offset(chart.right, points.first.dy));
-      }
-      final areaPath = _smoothPath(points)
-        ..lineTo(points.last.dx, chart.bottom)
-        ..lineTo(points.first.dx, chart.bottom)
-        ..close();
-      canvas.drawPath(
-        areaPath,
-        Paint()..color = item.color.withValues(alpha: 0.08),
-      );
-      canvas.drawPath(
-        _smoothPath(points),
-        Paint()
-          ..color = item.color
-          ..strokeWidth = 2.6
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round,
-      );
-      canvas.drawCircle(points.last, 3.4, Paint()..color = item.color);
-    }
-    final maxLabel = valueSuffix.isEmpty
-        ? maxValue.round().toString()
-        : '${maxValue.round()}$valueSuffix';
-    _paintLabel(canvas, maxLabel, Offset(chart.left + 2, chart.top + 2));
-  }
-
-  Path _smoothPath(List<Offset> points) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 0; i < points.length - 1; i++) {
-      final current = points[i];
-      final next = points[i + 1];
-      final mid = Offset(
-        (current.dx + next.dx) / 2,
-        (current.dy + next.dy) / 2,
-      );
-      path.quadraticBezierTo(current.dx, current.dy, mid.dx, mid.dy);
-    }
-    path.lineTo(points.last.dx, points.last.dy);
-    return path;
-  }
-
-  void _paintEmpty(Canvas canvas, Rect bounds) {
-    if (emptyLabel.trim().isEmpty) return;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: emptyLabel,
-        style: TextStyle(
-          color: labelColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: bounds.width);
-    painter.paint(
-      canvas,
-      Offset(
-        bounds.center.dx - painter.width / 2,
-        bounds.center.dy - painter.height / 2,
-      ),
-    );
-  }
-
-  void _paintLabel(Canvas canvas, String label, Offset offset) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          color: labelColor,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-    painter.paint(canvas, offset);
-  }
-
-  @override
-  bool shouldRepaint(covariant _McpOpsSmoothLineChartPainter oldDelegate) {
-    return oldDelegate.series != series ||
-        oldDelegate.gridColor != gridColor ||
-        oldDelegate.labelColor != labelColor ||
-        oldDelegate.emptyLabel != emptyLabel ||
-        oldDelegate.valueSuffix != valueSuffix;
   }
 }
 
@@ -18101,7 +17948,7 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final List<_McpOpsChartSeries> series;
+  final List<OpenHandChartSeries> series;
   final List<DateTime> minutes;
   final List<String> columns;
   final String emptyLabel;
@@ -18145,12 +17992,13 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
             height: 208,
             child: RepaintBoundary(
               child: CustomPaint(
-                painter: _McpOpsSmoothLineChartPainter(
+                painter: OpenHandSmoothLineChartPainter(
                   series: series,
                   gridColor: cs.outlineVariant.withValues(alpha: 0.46),
                   labelColor: cs.onSurfaceVariant,
                   emptyLabel: maxValue <= 0 ? emptyLabel : '',
                   valueSuffix: valueSuffix,
+                  textDirection: Directionality.of(context),
                 ),
               ),
             ),

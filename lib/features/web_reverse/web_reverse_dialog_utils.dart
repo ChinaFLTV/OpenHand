@@ -6,8 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/bounded_animation.dart';
-import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
@@ -149,9 +148,8 @@ Widget buildWebReverseStatusBar(
   final text = status.trim();
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final duration = openHandMotionDurationMs(context, 180);
   final child = text.isEmpty
-      ? const SizedBox.shrink(key: ValueKey<String>('empty'))
+      ? null
       : Container(
           key: ValueKey<String>(text),
           width: double.infinity,
@@ -164,35 +162,8 @@ Widget buildWebReverseStatusBar(
             ),
           ),
         );
-  return AnimatedSwitcher(
-    duration: duration,
-    reverseDuration: duration,
-    switchInCurve: Curves.easeOutCubic,
-    switchOutCurve: Curves.easeInCubic,
-    layoutBuilder: (currentChild, previousChildren) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          ...previousChildren,
-          if (currentChild != null) currentChild,
-        ],
-      );
-    },
-    transitionBuilder: (child, animation) {
-      final curved = openHandBoundedCurveAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SizeTransition(
-          sizeFactor: curved,
-          axisAlignment: -1,
-          child: child,
-        ),
-      );
-    },
+  return OpenHandVerticalRevealSwitcher(
+    duration: kOpenHandDialogValidationRevealDuration,
     child: child,
   );
 }

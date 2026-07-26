@@ -174,55 +174,21 @@ class _McpOpsWriteApprovalDialogState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: accent.withValues(alpha: 0.28)),
-                    ),
-                    child: Icon(Icons.verified_user_rounded, color: accent),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: 'MCP写调用确认',
-                            en: 'MCP Write Call Confirmation',
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '外部客户端请求执行写类型工具，需要你明确放行后才会运行。',
-                            en: 'An external client requested a write-capable tool. OpenHand will run it only after your approval.',
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              buildOpenHandApprovalDialogHeader(
+                context,
+                icon: Icons.verified_user_rounded,
+                accent: accent,
+                title: openHandLocalizedText(
+                  context,
+                  zh: 'MCP写调用确认',
+                  en: 'MCP Write Call Confirmation',
+                ),
+                description: openHandLocalizedText(
+                  context,
+                  zh: '外部客户端请求执行写类型工具，需要你明确放行后才会运行。',
+                  en: 'An external client requested a write-capable tool. '
+                      'OpenHand will run it only after your approval.',
+                ),
               ),
               const SizedBox(height: 16),
               OpenHandCountdownProgressBar(

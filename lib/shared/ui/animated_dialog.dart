@@ -13,6 +13,7 @@ import '../util/localized_text.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
+import 'openhand_reveal_switcher.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_tooltip_dismissal.dart';
 import 'safe_edge_insets.dart';
@@ -23,6 +24,9 @@ const double kOpenHandDialogDefaultRadius = 28;
 const double kOpenHandDialogFormRadius = 16;
 const double kOpenHandDialogActionSpacing = 8;
 const double kOpenHandApprovalDialogMaxWidth = 860;
+
+/// 审批弹窗标题左侧图标徽章的边长。
+const double kOpenHandApprovalHeaderBadgeSize = 48;
 const double kOpenHandToolDialogRadius = 20;
 const double kOpenHandToolDialogDefaultMaxWidth = 900;
 const double kOpenHandToolDialogDefaultMaxHeight = 720;
@@ -1556,15 +1560,75 @@ double openHandModalSheetWidth(BuildContext context) {
       : viewportWidth;
 }
 
+/// 审批类弹窗顶部的「图标徽章 + 标题 + 说明」。
+///
+/// 写命令确认与 MCP 写调用确认此前各内联了一份完全相同的布局，只有图标与
+/// 文案不同。
+Widget buildOpenHandApprovalDialogHeader(
+  BuildContext context, {
+  required IconData icon,
+  required Color accent,
+  required String title,
+  required String description,
+}) {
+  final theme = Theme.of(context);
+  return Row(
+    children: [
+      Container(
+        width: kOpenHandApprovalHeaderBadgeSize,
+        height: kOpenHandApprovalHeaderBadgeSize,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accent.withValues(alpha: 0.28)),
+        ),
+        child: Icon(icon, color: accent),
+      ),
+      const SizedBox(width: 14),
+      Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+/// 校验提示展开 / 收起的时长。
+const Duration kOpenHandDialogValidationRevealDuration = Duration(
+  milliseconds: 180,
+);
+
 Widget buildOpenHandDialogValidationMessage(
   BuildContext context, {
   required String? message,
 }) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final duration = openHandMotionDurationMs(context, 180);
   final content = message == null
-      ? const SizedBox.shrink(key: ValueKey<String>('empty'))
+      ? null
       : DecoratedBox(
           key: ValueKey<String>(message),
           decoration: BoxDecoration(
@@ -1598,26 +1662,8 @@ Widget buildOpenHandDialogValidationMessage(
             ),
           ),
         );
-  return AnimatedSwitcher(
-    duration: duration,
-    reverseDuration: duration,
-    switchInCurve: Curves.easeOutCubic,
-    switchOutCurve: Curves.easeInCubic,
-    transitionBuilder: (child, animation) {
-      final curved = openHandBoundedCurveAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SizeTransition(
-          sizeFactor: curved,
-          axisAlignment: -1,
-          child: child,
-        ),
-      );
-    },
+  return OpenHandVerticalRevealSwitcher(
+    duration: kOpenHandDialogValidationRevealDuration,
     child: content,
   );
 }

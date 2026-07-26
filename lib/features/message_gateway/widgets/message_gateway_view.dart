@@ -23,6 +23,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_smooth_line_chart.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -5873,9 +5874,9 @@ class _WebOpsDashboardStats {
   String rateLabel(int value, int total) =>
       '${(unitRatio(value, total) * 100).toStringAsFixed(1)}%';
 
-  List<_WebOpsChartSeries> requestTrendSeries(BuildContext context) {
-    return <_WebOpsChartSeries>[
-      _WebOpsChartSeries(
+  List<OpenHandChartSeries> requestTrendSeries(BuildContext context) {
+    return <OpenHandChartSeries>[
+      OpenHandChartSeries(
         label: openHandLocalizedText(
           context,
           zh: '成功',
@@ -5888,7 +5889,7 @@ class _WebOpsDashboardStats {
         values: successBuckets,
         color: OpenHandStatusColors.success,
       ),
-      _WebOpsChartSeries(
+      OpenHandChartSeries(
         label: openHandLocalizedText(
           context,
           zh: '拦截',
@@ -5901,7 +5902,7 @@ class _WebOpsDashboardStats {
         values: blockedBuckets,
         color: OpenHandStatusColors.warning,
       ),
-      _WebOpsChartSeries(
+      OpenHandChartSeries(
         label: openHandLocalizedText(
           context,
           zh: '失败',
@@ -5917,10 +5918,10 @@ class _WebOpsDashboardStats {
     ];
   }
 
-  List<_WebOpsChartSeries> latencyTrendSeries(BuildContext context) {
+  List<OpenHandChartSeries> latencyTrendSeries(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return <_WebOpsChartSeries>[
-      _WebOpsChartSeries(
+    return <OpenHandChartSeries>[
+      OpenHandChartSeries(
         label: openHandLocalizedText(
           context,
           zh: '平均',
@@ -5933,7 +5934,7 @@ class _WebOpsDashboardStats {
         values: avgLatencyBuckets,
         color: cs.primary,
       ),
-      _WebOpsChartSeries(
+      OpenHandChartSeries(
         label: 'P95',
         values: p95LatencyBuckets,
         color: cs.tertiary,
@@ -5975,18 +5976,6 @@ class _WebOpsDashboardStats {
       ): snapshot.failedRequests,
     }..removeWhere((_, value) => value <= 0);
   }
-}
-
-class _WebOpsChartSeries {
-  const _WebOpsChartSeries({
-    required this.label,
-    required this.values,
-    required this.color,
-  });
-
-  final String label;
-  final List<double> values;
-  final Color color;
 }
 
 class _WebOpsDialogSurface extends StatelessWidget {
@@ -6875,7 +6864,7 @@ class _WebOpsTrendPanel extends StatefulWidget {
   final String title;
   final IconData icon;
   final String subtitle;
-  final List<_WebOpsChartSeries> series;
+  final List<OpenHandChartSeries> series;
   final String emptyLabel;
   final String valueSuffix;
   final VoidCallback? onTap;
@@ -6961,9 +6950,9 @@ class _WebOpsTrendPanelState extends State<_WebOpsTrendPanel> {
                     growable: false,
                   );
                   _lastPaintValues = paintedValues;
-                  final animatedSeries = List<_WebOpsChartSeries>.generate(
+                  final animatedSeries = List<OpenHandChartSeries>.generate(
                     widget.series.length,
-                    (index) => _WebOpsChartSeries(
+                    (index) => OpenHandChartSeries(
                       label: widget.series[index].label,
                       color: widget.series[index].color,
                       values: paintedValues[index],
@@ -6971,7 +6960,7 @@ class _WebOpsTrendPanelState extends State<_WebOpsTrendPanel> {
                     growable: false,
                   );
                   return CustomPaint(
-                    painter: _WebOpsSmoothLineChartPainter(
+                    painter: OpenHandSmoothLineChartPainter(
                       series: animatedSeries,
                       gridColor: cs.outlineVariant.withValues(alpha: .46),
                       labelColor: cs.onSurfaceVariant,
@@ -6998,139 +6987,6 @@ class _WebOpsTrendPanelState extends State<_WebOpsTrendPanel> {
       ),
     );
   }
-}
-
-class _WebOpsSmoothLineChartPainter extends CustomPainter {
-  const _WebOpsSmoothLineChartPainter({
-    required this.series,
-    required this.gridColor,
-    required this.labelColor,
-    required this.emptyLabel,
-    required this.valueSuffix,
-    required this.textDirection,
-  });
-
-  final List<_WebOpsChartSeries> series;
-  final Color gridColor;
-  final Color labelColor;
-  final String emptyLabel;
-  final String valueSuffix;
-  final TextDirection textDirection;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    final chart = Rect.fromLTWH(
-      8,
-      8,
-      math.max(0, size.width - 16),
-      math.max(0, size.height - 24),
-    );
-    if (chart.width <= 0 || chart.height <= 0) return;
-    final gridPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-    for (var index = 0; index < 4; index++) {
-      final y = chart.top + chart.height * index / 3;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
-    }
-    for (var index = 0; index < 6; index++) {
-      final x = chart.left + chart.width * index / 5;
-      canvas.drawLine(Offset(x, chart.top), Offset(x, chart.bottom), gridPaint);
-    }
-    final maxValue = series
-        .expand((item) => item.values)
-        .fold<double>(0, math.max);
-    if (maxValue <= 0) {
-      _paintText(canvas, emptyLabel, bounds.center, centered: true);
-      return;
-    }
-    final normalizedMax = maxValue <= 1 ? 1.0 : maxValue * 1.14;
-    for (final item in series) {
-      if (item.values.isEmpty) continue;
-      final denominator = math.max(1, item.values.length - 1);
-      final points = List<Offset>.generate(item.values.length, (index) {
-        final x = chart.left + chart.width * index / denominator;
-        final ratio = (item.values[index] / normalizedMax).clamp(0.0, 1.0);
-        return Offset(x, chart.bottom - chart.height * ratio);
-      });
-      if (points.length == 1) {
-        points.add(Offset(chart.right, points.first.dy));
-      }
-      final area = _smoothPath(points)
-        ..lineTo(points.last.dx, chart.bottom)
-        ..lineTo(points.first.dx, chart.bottom)
-        ..close();
-      canvas.drawPath(area, Paint()..color = item.color.withValues(alpha: .08));
-      canvas.drawPath(
-        _smoothPath(points),
-        Paint()
-          ..color = item.color
-          ..strokeWidth = 2.6
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round,
-      );
-      canvas.drawCircle(points.last, 3.4, Paint()..color = item.color);
-    }
-    final label = valueSuffix.isEmpty
-        ? '${maxValue.round()}'
-        : '${maxValue.round()}$valueSuffix';
-    _paintText(canvas, label, Offset(chart.left + 2, chart.top + 2));
-  }
-
-  Path _smoothPath(List<Offset> points) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var index = 0; index < points.length - 1; index++) {
-      final current = points[index];
-      final next = points[index + 1];
-      final midpoint = Offset(
-        (current.dx + next.dx) / 2,
-        (current.dy + next.dy) / 2,
-      );
-      path.quadraticBezierTo(current.dx, current.dy, midpoint.dx, midpoint.dy);
-    }
-    return path..lineTo(points.last.dx, points.last.dy);
-  }
-
-  void _paintText(
-    Canvas canvas,
-    String value,
-    Offset offset, {
-    bool centered = false,
-  }) {
-    if (value.trim().isEmpty) return;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: value,
-        style: TextStyle(
-          color: labelColor,
-          fontSize: centered ? 12 : 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: textDirection,
-      maxLines: 1,
-    )..layout();
-    painter.paint(
-      canvas,
-      centered
-          ? Offset(
-              offset.dx - painter.width / 2,
-              offset.dy - painter.height / 2,
-            )
-          : offset,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _WebOpsSmoothLineChartPainter oldDelegate) =>
-      oldDelegate.series != series ||
-      oldDelegate.gridColor != gridColor ||
-      oldDelegate.labelColor != labelColor ||
-      oldDelegate.emptyLabel != emptyLabel ||
-      oldDelegate.valueSuffix != valueSuffix ||
-      oldDelegate.textDirection != textDirection;
 }
 
 class _WebOpsLegendPill extends StatelessWidget {
