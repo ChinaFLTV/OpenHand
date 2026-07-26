@@ -1,4 +1,5 @@
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -167,7 +168,7 @@ class AiToolSearchTool extends AiTool {
     }
 
     // 4) Keyword ranking with `+required` term support.
-    final terms = lower.split(RegExp(r'\s+')).where((t) => t.isNotEmpty);
+    final terms = lower.split(kInlineWhitespacePattern).where((t) => t.isNotEmpty);
     final required = <String>[];
     final optional = <String>[];
     for (final t in terms) {
@@ -253,7 +254,7 @@ class AiToolSearchTool extends AiTool {
         )
         .replaceAll(RegExp(r'[_-]+'), ' ')
         .toLowerCase()
-        .split(RegExp(r'\s+'))
+        .split(kInlineWhitespacePattern)
         .where((p) => p.isNotEmpty)
         .toList(growable: false);
     return _ParsedToolName(parts: parts, full: parts.join(' '), isMcp: false);

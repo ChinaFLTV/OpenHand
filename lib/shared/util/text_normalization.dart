@@ -1,4 +1,6 @@
-final RegExp _inlineWhitespacePattern = RegExp(r'\s+');
+/// 连续空白。共用同一个已编译实例：全库有二十余处按空白切分 / 折叠，其中
+/// 若干位于输入框监听、逐行解析这类高频路径上，每次重新编译纯属浪费。
+final RegExp kInlineWhitespacePattern = RegExp(r'\s+');
 final RegExp _asciiLookupTokenSeparatorPattern = RegExp(r'[^a-z0-9]+');
 final RegExp _snakeStorageKeySeparatorPattern = RegExp(r'[\s-]+');
 
@@ -7,7 +9,7 @@ final RegExp _snakeStorageKeySeparatorPattern = RegExp(r'[\s-]+');
 final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
 
 String collapseInlineWhitespace(String value) {
-  return value.replaceAll(_inlineWhitespacePattern, ' ').trim();
+  return value.replaceAll(kInlineWhitespacePattern, ' ').trim();
 }
 
 /// Removes HTML/XML tags, substituting [replacement] for each. Defaults to a
@@ -18,7 +20,18 @@ String stripHtmlTags(String value, {String replacement = ' '}) {
 }
 
 String removeInlineWhitespace(String value) {
-  return value.replaceAll(_inlineWhitespacePattern, '');
+  return value.replaceAll(kInlineWhitespacePattern, '');
+}
+
+/// 统计以空白分隔的词数；空串或纯空白返回 0。
+int countWhitespaceSeparatedWords(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return 0;
+  var count = 0;
+  for (final token in trimmed.split(kInlineWhitespacePattern)) {
+    if (token.isNotEmpty) count += 1;
+  }
+  return count;
 }
 
 /// 判断是否为常见 ASCII 空白字符。

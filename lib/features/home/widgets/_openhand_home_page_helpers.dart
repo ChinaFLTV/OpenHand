@@ -457,9 +457,9 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 
     String previewLabel(int idx, {int maxLength = 26}) {
       if (idx < 0 || idx >= total) return '#${idx + 1}';
-      final content = widget.userMessages[idx].content
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+      final content = collapseInlineWhitespace(
+        widget.userMessages[idx].content,
+      );
       final preview = clipText(content, maxLength - 1);
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }

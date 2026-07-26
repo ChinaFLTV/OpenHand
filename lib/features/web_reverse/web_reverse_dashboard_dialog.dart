@@ -49,6 +49,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/rolling_hash.dart';
 import '../../shared/util/text_clip.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'lsp/web_reverse_lsp_client.dart';

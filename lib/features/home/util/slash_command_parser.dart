@@ -1,3 +1,5 @@
+import '../../../shared/util/text_normalization.dart';
+
 enum OpenHandSlashCommandKind {
   help,
   feedback,
@@ -25,7 +27,7 @@ OpenHandSlashCommand? parseOpenHandSlashCommand(String rawInput) {
   if (!trimmed.startsWith('/')) {
     return null;
   }
-  final parts = trimmed.split(RegExp(r'\s+'));
+  final parts = trimmed.split(kInlineWhitespacePattern);
   if (parts.isEmpty) {
     return null;
   }

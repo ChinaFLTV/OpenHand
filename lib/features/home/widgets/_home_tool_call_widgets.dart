@@ -1827,10 +1827,13 @@ String _compactToolContentCount(int value) {
   return '${_trimToolContentCount(scaled, value < 10000000 ? 1 : 0)}M';
 }
 
+/// 去掉小数末尾的零与孤立小数点。
+final RegExp _trailingZeroFractionPattern = RegExp(r'\.?0+$');
+
 String _trimToolContentCount(double value, int fractionDigits) {
   final fixed = value.toStringAsFixed(fractionDigits);
   if (!fixed.contains('.')) return fixed;
-  return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+  return fixed.replaceFirst(_trailingZeroFractionPattern, '');
 }
 
 int _countToolContentLines(String text) {

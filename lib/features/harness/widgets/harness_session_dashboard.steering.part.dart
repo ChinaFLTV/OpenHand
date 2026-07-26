@@ -1019,13 +1019,7 @@ class _HeSteeringFileEditorDialogState
                       listenable: _controller,
                       builder: (_, _) {
                         final t = _controller.text;
-                        final words = t.trim().isEmpty
-                            ? 0
-                            : t
-                                  .trim()
-                                  .split(RegExp(r'\s+'))
-                                  .where((w) => w.isNotEmpty)
-                                  .length;
+                        final words = countWhitespaceSeparatedWords(t);
                         return Text(
                           openHandLocalizedText(
                             context,

@@ -21,6 +21,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
@@ -688,7 +689,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       text: e?.onTimeoutMessage ?? '',
     );
 
-    final cronParts = (e?.cronExpression ?? '* * * * *').split(RegExp(r'\s+'));
+    final cronParts = (e?.cronExpression ?? '* * * * *').split(kInlineWhitespacePattern);
     _cronMinController = TextEditingController(
       text: cronParts.isNotEmpty ? cronParts[0] : '*',
     );

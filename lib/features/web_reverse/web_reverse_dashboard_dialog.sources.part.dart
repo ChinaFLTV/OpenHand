@@ -560,7 +560,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       final cmd = cmdCtrl.text.trim();
       final args = argsCtrl.text
           .trim()
-          .split(RegExp(r'\s+'))
+          .split(kInlineWhitespacePattern)
           .where((s) => s.isNotEmpty)
           .toList(growable: false);
       if (cmd.isEmpty) return;

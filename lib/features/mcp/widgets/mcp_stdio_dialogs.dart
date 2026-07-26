@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
@@ -796,7 +797,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     //   1. command="npx", args=["@playwright/mcp"]
     //   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"]
     final cmd = widget.server.command.trim();
-    final tokens = cmd.split(RegExp(r'\s+'));
+    final tokens = cmd.split(kInlineWhitespacePattern);
     // command 字段包含多个 token 时，第二个 token 就是包名
     if (tokens.length > 1) return tokens[1];
     // 否则从 args 的第一个非 flag 参数提取
@@ -812,14 +813,14 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   bool get _isNpxService {
     final cmd = widget.server.command.trim();
     if (cmd == 'npx' || cmd.endsWith('/npx')) return true;
-    final firstToken = cmd.split(RegExp(r'\s+')).first;
+    final firstToken = cmd.split(kInlineWhitespacePattern).first;
     return firstToken == 'npx' || firstToken.endsWith('/npx');
   }
 
   bool get _isUvxService {
     final cmd = widget.server.command.trim();
     if (cmd == 'uvx' || cmd.endsWith('/uvx')) return true;
-    final firstToken = cmd.split(RegExp(r'\s+')).first;
+    final firstToken = cmd.split(kInlineWhitespacePattern).first;
     return firstToken == 'uvx' || firstToken.endsWith('/uvx');
   }
 

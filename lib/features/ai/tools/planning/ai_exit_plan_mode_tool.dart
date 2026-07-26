@@ -1,4 +1,5 @@
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_session.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -154,7 +155,7 @@ class AiExitPlanModeTool extends AiTool {
       }
       final tool = '${entry['tool'] ?? ''}'.trim();
       final prompt = '${entry['prompt'] ?? ''}'.trim().replaceAll(
-        RegExp(r'\s+'),
+        kInlineWhitespacePattern,
         ' ',
       );
       if (tool != 'Bash') {
@@ -198,7 +199,7 @@ class AiExitPlanModeTool extends AiTool {
     if (_shellOperatorPattern.hasMatch(normalized)) {
       return true;
     }
-    final firstToken = normalized.split(RegExp(r'\s+')).first;
+    final firstToken = normalized.split(kInlineWhitespacePattern).first;
     return _concreteCommandPrefixes.contains(firstToken);
   }
 }

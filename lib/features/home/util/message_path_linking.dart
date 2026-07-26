@@ -33,6 +33,8 @@ final RegExp _detectedStandaloneFileNamePattern = RegExp(
 );
 
 /// 匹配域名开头的包导入路径，避免将其误识别为本地文件路径。
+final RegExp _windowsDriveRootPattern = RegExp(r'^[A-Za-z]:[\\/]');
+
 final RegExp _domainQualifiedPathPattern = RegExp(
   r'^[A-Za-z0-9][-A-Za-z0-9]*(?:\.[A-Za-z0-9][-A-Za-z0-9]*)*\.[A-Za-z]{2,}/',
 );
@@ -158,7 +160,7 @@ void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
 }
 
 bool looksLikeAbsoluteMessagePath(String path) {
-  return path.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path);
+  return path.startsWith('/') || _windowsDriveRootPattern.hasMatch(path);
 }
 
 bool looksLikeResolvableMessagePath(String path) {

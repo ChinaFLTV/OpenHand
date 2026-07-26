@@ -11,6 +11,7 @@ import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import 'silent_log.dart';
 import 'url_validation.dart';
@@ -958,7 +959,7 @@ Set<int> _parseChildPids(Object? stdout, {required int parentPid}) {
     _ => '$stdout',
   };
   return output
-      .split(RegExp(r'\s+'))
+      .split(kInlineWhitespacePattern)
       .map(optionalIntFromValue)
       .whereType<int>()
       .where((childPid) => childPid > 0 && childPid != parentPid)

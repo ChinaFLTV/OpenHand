@@ -39,6 +39,7 @@ import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../../agents/index.dart';
@@ -305,7 +306,7 @@ class WebMessagePlatformService {
   static const int _maxMetricDistributionKeys = 128;
   static const int _maxMetricKeyCharacters = 96;
   static const String _metricOverflowKey = 'other';
-  static final RegExp _metricWhitespacePattern = RegExp(r'\s+');
+  static final RegExp _metricWhitespacePattern = kInlineWhitespacePattern;
   static const int _maxTrafficLatencySamplesPerMinute = 512;
   static const Duration _opsSnapshotPersistenceInterval = Duration(seconds: 15);
 
@@ -9165,7 +9166,7 @@ class WebMessagePlatformService {
       tag: 'web_message_gateway_ops',
     );
     if (ps != null && ps.exitCode == 0) {
-      final parts = '${ps.stdout}'.trim().split(RegExp(r'\s+'));
+      final parts = '${ps.stdout}'.trim().split(kInlineWhitespacePattern);
       if (parts.isNotEmpty) cpuPercent = optionalDoubleFromValue(parts[0]);
       if (parts.length > 1) {
         threadCount = optionalNonNegativeIntFromValue(parts[1]);
@@ -9206,11 +9207,11 @@ class WebMessagePlatformService {
       for (final line in const LineSplitter().convert(status)) {
         if (line.startsWith('Threads:')) {
           threadCount = optionalNonNegativeIntFromValue(
-            line.split(RegExp(r'\s+')).last,
+            line.split(kInlineWhitespacePattern).last,
           );
         }
         if (line.startsWith('VmSwap:')) {
-          final parts = line.split(RegExp(r'\s+'));
+          final parts = line.split(kInlineWhitespacePattern);
           if (parts.length > 1) {
             swapBytes = (optionalNonNegativeIntFromValue(parts[1]) ?? 0) * 1024;
           }
@@ -9265,7 +9266,7 @@ class WebMessagePlatformService {
       final processFields = processStat
           .substring(processEnd + 1)
           .trim()
-          .split(RegExp(r'\s+'));
+          .split(kInlineWhitespacePattern);
       if (processFields.length <= 12) return null;
       final userTicks = optionalNonNegativeIntFromValue(processFields[11]);
       final systemTicks = optionalNonNegativeIntFromValue(processFields[12]);
@@ -9280,7 +9281,7 @@ class WebMessagePlatformService {
           .firstWhere((line) => line.startsWith('cpu '), orElse: () => '');
       if (cpuLine.isEmpty) return null;
       var totalTicks = 0;
-      for (final part in cpuLine.trim().split(RegExp(r'\s+')).skip(1)) {
+      for (final part in cpuLine.trim().split(kInlineWhitespacePattern).skip(1)) {
         totalTicks += optionalNonNegativeIntFromValue(part) ?? 0;
       }
       if (totalTicks <= 0) return null;

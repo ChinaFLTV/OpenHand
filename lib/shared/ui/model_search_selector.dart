@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/text_normalization.dart';
 import 'animated_dialog.dart';
 import 'openhand_safe_scrollbar.dart';
 
@@ -148,7 +149,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       if (query.isEmpty) {
         _filtered = widget.entries;
       } else {
-        final terms = query.split(RegExp(r'\s+'));
+        final terms = query.split(kInlineWhitespacePattern);
         _filtered = widget.entries.where((e) {
           final text = e.searchableText;
           return terms.every((t) => text.contains(t));

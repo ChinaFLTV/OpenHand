@@ -6,6 +6,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_normalization.dart';
 import 'android_reverse_session_config.dart';
 
 const String _kTag = 'android_reverse_adb_client';
@@ -146,7 +147,7 @@ List<AndroidProcess> parseAndroidProcessList(String raw, {String? filterName}) {
   final lines = splitTrimmedNonEmpty(raw, separator: '\n');
   if (lines.isEmpty) return const <AndroidProcess>[];
 
-  final header = lines.first.split(RegExp(r'\s+'));
+  final header = lines.first.split(kInlineWhitespacePattern);
   final normalizedHeader = header.map((value) => value.toUpperCase()).toList();
   final pidIndex = normalizedHeader.indexOf('PID');
   final hasHeader = pidIndex >= 0;
@@ -161,7 +162,7 @@ List<AndroidProcess> parseAndroidProcessList(String raw, {String? filterName}) {
   final processes = <AndroidProcess>[];
 
   for (final line in lines.skip(hasHeader ? 1 : 0)) {
-    final parts = line.split(RegExp(r'\s+'));
+    final parts = line.split(kInlineWhitespacePattern);
     final resolvedPidIndex = hasHeader ? pidIndex : (parts.length > 1 ? 1 : -1);
     if (resolvedPidIndex < 0 || resolvedPidIndex >= parts.length) continue;
     final pid = optionalIntFromValue(parts[resolvedPidIndex]);
@@ -232,7 +233,7 @@ class AndroidReverseAdbClient {
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || trimmed.startsWith('List of')) continue;
-      final parts = trimmed.split(RegExp(r'\s+'));
+      final parts = trimmed.split(kInlineWhitespacePattern);
       if (parts.length < 2) continue;
       final serial = parts[0];
       final state = parts[1];
@@ -339,7 +340,7 @@ class AndroidReverseAdbClient {
       if (trimmed.startsWith('versionName=')) {
         versionName = trimmed.substring(12).trim();
       } else if (trimmed.startsWith('versionCode=')) {
-        versionCode = trimmed.substring(12).split(RegExp(r'\s+')).first.trim();
+        versionCode = trimmed.substring(12).split(kInlineWhitespacePattern).first.trim();
       }
     }
     if (versionName != null && versionName.isNotEmpty) {

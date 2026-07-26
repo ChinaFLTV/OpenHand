@@ -49,6 +49,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart'
     show
@@ -17611,7 +17612,7 @@ bool _isNpxCommand(McpServer server) {
   // 精确匹配或路径结尾匹配
   if (cmd == 'npx' || cmd.endsWith('/npx')) return true;
   // 用户把整条命令粘进 command 字段：第一个 token 是 npx
-  final firstToken = cmd.split(RegExp(r'\s+')).first;
+  final firstToken = cmd.split(kInlineWhitespacePattern).first;
   return firstToken == 'npx' || firstToken.endsWith('/npx');
 }
 
@@ -17619,7 +17620,7 @@ bool _isNpxCommand(McpServer server) {
 bool _isUvxCommand(McpServer server) {
   final cmd = server.command.trim();
   if (cmd == 'uvx' || cmd.endsWith('/uvx')) return true;
-  final firstToken = cmd.split(RegExp(r'\s+')).first;
+  final firstToken = cmd.split(kInlineWhitespacePattern).first;
   return firstToken == 'uvx' || firstToken.endsWith('/uvx');
 }
 
@@ -17634,7 +17635,7 @@ bool _isPackageManagerCommand(McpServer server) {
 ///   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"] → "chrome-devtools-mcp@latest"
 String? _extractPackageName(McpServer server) {
   final cmd = server.command.trim();
-  final tokens = cmd.split(RegExp(r'\s+'));
+  final tokens = cmd.split(kInlineWhitespacePattern);
   // 如果 command 字段包含多个 token，第二个 token 就是包名
   if (tokens.length > 1) return tokens[1];
   // 否则从 args 的第一个非 flag 参数提取
