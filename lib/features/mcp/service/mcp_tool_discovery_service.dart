@@ -126,25 +126,6 @@ bool _isExpectedStreamableSessionCloseError(Object error) {
       message.startsWith(_httpConnectionClosedBeforeHeadersMessage);
 }
 
-String _mcpDiscoveryText({
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedTextForLocaleName(
-    Platform.localeName,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
   Future<McpServerHealth> checkHealth(McpServer server);
@@ -1721,7 +1702,7 @@ String _mcpServerResponseDetail(Object? response) {
       raw = '$response';
     }
   }
-  final label = _mcpDiscoveryText(
+  final label = openHandAmbientText(
     zh: '服务端原始响应',
     zhHant: '服務端原始回應',
     en: 'Raw server response',
@@ -1729,7 +1710,7 @@ String _mcpServerResponseDetail(Object? response) {
     de: 'Unverarbeitete Serverantwort',
     ja: 'サーバーの生レスポンス',
   );
-  final empty = _mcpDiscoveryText(
+  final empty = openHandAmbientText(
     zh: '（空响应）',
     zhHant: '（空回應）',
     en: '(empty response)',
@@ -1737,7 +1718,7 @@ String _mcpServerResponseDetail(Object? response) {
     de: '(leere Antwort)',
     ja: '（空のレスポンス）',
   );
-  final truncated = _mcpDiscoveryText(
+  final truncated = openHandAmbientText(
     zh: '…（响应过长，已截断）',
     zhHant: '…（回應過長，已截斷）',
     en: '… (response truncated)',
@@ -3309,7 +3290,7 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
   if (error is ProcessException) {
     final processPath = Platform.environment['PATH'] ?? '';
     final shellPath = _cachedLoginShellPath ?? '';
-    final emptyPathText = _mcpDiscoveryText(
+    final emptyPathText = openHandAmbientText(
       zh: '(空)',
       zhHant: '(空)',
       en: '(empty)',
@@ -3319,7 +3300,7 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
     );
     String pathHint;
     if (shellPath.isNotEmpty) {
-      pathHint = _mcpDiscoveryText(
+      pathHint = openHandAmbientText(
         zh:
             '登录 shell 探测: $shellPath\n'
             '  · 进程 PATH: ${processPath.isEmpty ? emptyPathText : processPath}',
@@ -3343,7 +3324,7 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
       pathHint = processPath.isEmpty ? emptyPathText : processPath;
     }
     return AiTransportDiagnosticMessages.format(
-      title: _mcpDiscoveryText(
+      title: openHandAmbientText(
         zh: 'MCP 进程启动失败 [${server.name}]',
         zhHant: 'MCP 行程啟動失敗 [${server.name}]',
         en: 'MCP stdio launch failed [${server.name}]',
@@ -3351,7 +3332,7 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
         de: 'MCP-stdio-Start fehlgeschlagen [${server.name}]',
         ja: 'MCP stdio の起動に失敗しました [${server.name}]',
       ),
-      reason: _mcpDiscoveryText(
+      reason: openHandAmbientText(
         zh:
             '尝试以子进程方式启动 MCP 服务时被操作系统拒绝：\n'
             '  · 命令: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
@@ -3419,7 +3400,7 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
             '  · 依存関係が未インストール (npm install 未実行、Python venv 未有効化など)\n'
             '  · Sandbox / SIP / Gatekeeper がバイナリを拒否',
       ),
-      try_: _mcpDiscoveryText(
+      try_: openHandAmbientText(
         zh:
             '· 在终端独立运行该命令复现报错：`which npx && npx <pkg>`\n'
             '· 把 command 改成绝对路径 (如 /opt/homebrew/bin/npx) 再保存\n'
@@ -3472,7 +3453,7 @@ String _friendlyTimeoutMessage(
 }) {
   final label = 'MCP · ${server.name}';
   final stageLabel = switch (stage) {
-    'discover' => _mcpDiscoveryText(
+    'discover' => openHandAmbientText(
       zh: '工具扫描',
       zhHant: '工具掃描',
       en: 'tool discovery',
@@ -3480,7 +3461,7 @@ String _friendlyTimeoutMessage(
       de: 'Tool-Erkennung',
       ja: 'ツール検出',
     ),
-    'health' => _mcpDiscoveryText(
+    'health' => openHandAmbientText(
       zh: '健康检查',
       zhHant: '健康檢查',
       en: 'health check',
@@ -3491,7 +3472,7 @@ String _friendlyTimeoutMessage(
     _ => stage,
   };
   final humanLimit = limit.inSeconds >= 90
-      ? _mcpDiscoveryText(
+      ? openHandAmbientText(
           zh: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分钟',
           zhHant:
               '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分鐘',
@@ -3500,7 +3481,7 @@ String _friendlyTimeoutMessage(
           de: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} Min.',
           ja: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分',
         )
-      : _mcpDiscoveryText(
+      : openHandAmbientText(
           zh: '${limit.inSeconds} 秒',
           zhHant: '${limit.inSeconds} 秒',
           en: '${limit.inSeconds} sec',
@@ -3509,7 +3490,7 @@ String _friendlyTimeoutMessage(
           ja: '${limit.inSeconds} 秒',
         );
   return AiTransportDiagnosticMessages.format(
-    title: _mcpDiscoveryText(
+    title: openHandAmbientText(
       zh: 'MCP 超时 [${server.name}]',
       zhHant: 'MCP 逾時 [${server.name}]',
       en: 'MCP timed out [${server.name}]',
@@ -3517,7 +3498,7 @@ String _friendlyTimeoutMessage(
       de: 'MCP-Zeitüberschreitung [${server.name}]',
       ja: 'MCP がタイムアウトしました [${server.name}]',
     ),
-    reason: _mcpDiscoveryText(
+    reason: openHandAmbientText(
       zh:
           '$stageLabel 在 $humanLimit 内未完成。常见诱因：\n'
           '  · stdio 服务进程启动慢 (npx / uvx 首次 cold start 拉镜像 / 依赖，chrome-devtools-mcp 这类还会下载 Chrome Beta ≈250MB)\n'
@@ -3555,7 +3536,7 @@ String _friendlyTimeoutMessage(
           '  · サービス内部でデッドロックしている、または外部 API を待っている\n'
           '  · このマシンの CPU / IO 負荷が非常に高い',
     ),
-    try_: _mcpDiscoveryText(
+    try_: openHandAmbientText(
       zh:
           '· 在终端单独跑一遍 server.command 看下载是否走得通 (网络/代理/镜像源)\n'
           '· 已把 stdio 缓存隔离到 ~/.openhand/mcp/package-cache，可手动 rm -rf 重置\n'

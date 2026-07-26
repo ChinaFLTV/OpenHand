@@ -1823,7 +1823,7 @@ void _warmMarkdownAst({
   }
 
   if (data.length > _markdownDeferredParseThresholdChars) {
-    _MarkdownFrameScheduler.instance.schedule(
+    _markdownFrameScheduler.schedule(
       warmup,
       onDropped: () => _pendingMarkdownWarmups.remove(astCacheKey),
     );
@@ -1905,34 +1905,14 @@ void _warmMarkdownRenderPath({
 /// 调用 `addPostFrameCallback` 注册 deferred 解析，结果下一帧仍要在
 /// 主线程串行跑 N 次 `_parseMarkdown()`，单帧时间常常突破 16ms 预算
 /// 直接触发 ANR。本调度器把 N 个解析任务拆分到 ceil(N/_maxPerFrame)
-/// 帧里执行，与 [_HighlightFrameScheduler] 思路一致 —— 牺牲数十毫秒的
+/// 帧里执行，与 [_highlightFrameScheduler] 思路一致 —— 牺牲数十毫秒的
 /// 完整渲染时间换取主线程持续 60 FPS 的丝滑感。
-class _MarkdownFrameScheduler {
-  _MarkdownFrameScheduler._();
-  static final instance = _MarkdownFrameScheduler._();
-
-  final _FrameTaskScheduler _scheduler = _FrameTaskScheduler(
-    maxPerFrame: _maxPerFrame,
-  );
-
-  /// 每帧最多执行的 markdown 解析任务数。1 条足以让首屏视觉焦点
-  /// (最新消息) 第一时间从轻量占位升级到完整 markdown 渲染，剩余
-  /// 卡片按帧节奏陆续到位；保持 1/帧 严格守住 16 ms 单帧预算，避免
-  /// 单条带多代码块的长消息把帧预算撑爆触发 jank/ANR。
-  static const int _maxPerFrame = 1;
-
-  bool schedule(
-    VoidCallback task, {
-    bool priority = false,
-    bool Function()? isValid,
-    VoidCallback? onDropped,
-  }) => _scheduler.schedule(
-    task,
-    priority: priority,
-    isValid: isValid,
-    onDropped: onDropped,
-  );
-}
+/// 每帧最多执行一个 markdown 解析任务。1 条足以让首屏视觉焦点（最新消息）
+/// 第一时间从轻量占位升级到完整 markdown 渲染，剩余卡片按帧节奏陆续到位；
+/// 1/帧 严格守住 16 ms 单帧预算，避免单条带多代码块的长消息触发 jank/ANR。
+final _FrameTaskScheduler _markdownFrameScheduler = _FrameTaskScheduler(
+  maxPerFrame: 1,
+);
 
 class _MarkdownStabilizingPlaceholder extends StatelessWidget {
   const _MarkdownStabilizingPlaceholder({
@@ -2120,13 +2100,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   ///
   /// On the first mount of a non-trivial body we paint a cheap skeleton
   /// immediately and queue the real parse via the global
-  /// [_MarkdownFrameScheduler]. Streaming updates keep the last rich tree
+  /// [_markdownFrameScheduler]. Streaming updates keep the last rich tree
   /// visible and coalesce reparses into a bounded cadence.
   /// 无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
   /// deferred 路径。这是解决"展开含多代码块消息时ANR"的关键：展开时
   /// 新的 _SafeMarkdownBody 被创建（initial=true），但即使是非 initial
   /// 的更新（如流式追加），大内容也应该 defer 以避免阻塞当前帧。
-  /// deferred 任务交由 [_MarkdownFrameScheduler] 帧节流。同帧内
+  /// deferred 任务交由 [_markdownFrameScheduler] 帧节流。同帧内
   /// 多个 bubble 一起注册时，每帧只跑 1 个 markdown 解析，剩余排队到
   /// 下一帧，避免 N 张卡片同时 parse 把单帧预算撑爆触发 ANR。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
@@ -2215,7 +2195,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       }
     }
     _deferredParseScheduled = true;
-    _MarkdownFrameScheduler.instance.schedule(
+    _markdownFrameScheduler.schedule(
       () {
         if (!mounted) {
           _deferredParseScheduled = false;
@@ -4487,19 +4467,10 @@ void _warmHtmlBubbleMetrics(String data, TextStyle? baseTextStyle) {
   _estimateHtmlBubbleHeight(data);
 }
 
-class _HtmlWebViewFrameScheduler {
-  _HtmlWebViewFrameScheduler._();
-  static final _HtmlWebViewFrameScheduler instance =
-      _HtmlWebViewFrameScheduler._();
-
-  static const int _maxPerFrame = 1;
-  final _FrameTaskScheduler _scheduler = _FrameTaskScheduler(
-    maxPerFrame: _maxPerFrame,
-  );
-
-  bool schedule(VoidCallback task, {bool Function()? isValid}) =>
-      _scheduler.schedule(task, priority: true, isValid: isValid);
-}
+/// 平台视图挂载同样限制为 1/帧：WebView 创建会同步阻塞 UI 线程。
+final _FrameTaskScheduler _htmlWebViewFrameScheduler = _FrameTaskScheduler(
+  maxPerFrame: 1,
+);
 
 void _scheduleHtmlWebViewPermitGrant(void Function() task) {
   WidgetsBinding.instance.addPostFrameCallback((_) => task());
@@ -4658,16 +4629,20 @@ class _DeferredHtmlBubbleWebViewState
       return;
     }
     final generation = ++_generation;
-    final scheduled = _HtmlWebViewFrameScheduler.instance.schedule(() {
-      if (!mounted || generation != _generation || _mountWebView) {
-        return;
-      }
-      if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
-        _pendingMountAfterScroll = true;
-        return;
-      }
-      _tryMountWebView(generation);
-    }, isValid: () => mounted && generation == _generation && !_mountWebView);
+    final scheduled = _htmlWebViewFrameScheduler.schedule(
+      () {
+        if (!mounted || generation != _generation || _mountWebView) {
+          return;
+        }
+        if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+          _pendingMountAfterScroll = true;
+          return;
+        }
+        _tryMountWebView(generation);
+      },
+      priority: true,
+      isValid: () => mounted && generation == _generation && !_mountWebView,
+    );
     if (!scheduled) _handleWebViewFallback();
   }
 

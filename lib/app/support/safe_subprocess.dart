@@ -8,6 +8,7 @@ import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
+import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -367,12 +368,10 @@ Future<void> _terminateTrackedProcessTree(
     } catch (error, stack) {
       silentLog('safe_subprocess', '终止 Windows 子进程', error, stack);
     }
-    final effectiveGracefulTimeout =
-        gracefulTimeout ??
-        Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs);
-    final boundedGracefulTimeout = effectiveGracefulTimeout.isNegative
-        ? Duration.zero
-        : effectiveGracefulTimeout;
+    final boundedGracefulTimeout = nonNegativeDuration(
+      gracefulTimeout ??
+          Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs),
+    );
     try {
       await process.exitCode.timeout(boundedGracefulTimeout);
       return;
@@ -395,12 +394,10 @@ Future<void> _terminateTrackedProcessTree(
   final descendants = isGroupLeader
       ? const <int>[]
       : await _collectDescendantPids(pid);
-  final effectiveGracefulTimeout =
-      gracefulTimeout ??
-      Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs);
-  final boundedGracefulTimeout = effectiveGracefulTimeout.isNegative
-      ? Duration.zero
-      : effectiveGracefulTimeout;
+  final boundedGracefulTimeout = nonNegativeDuration(
+    gracefulTimeout ??
+        Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs),
+  );
 
   if (isGroupLeader) {
     await _sendSignalToProcessGroup(pid, ProcessSignal.sigterm);
@@ -481,17 +478,15 @@ Future<List<int>> _collectDescendantPids(
   if ((!Platform.isMacOS && !Platform.isLinux) || rootPid <= 0) {
     return const <int>[];
   }
-  final boundedTimeout = timeout.isNegative
-      ? Duration.zero
-      : timeout > _directChildEnumerationTimeout
-      ? _directChildEnumerationTimeout
-      : timeout;
+  final boundedTimeout = shorterDuration(
+    nonNegativeDuration(timeout),
+    _directChildEnumerationTimeout,
+  );
   if (boundedTimeout <= Duration.zero) return const <int>[];
   final stopwatch = Stopwatch()..start();
 
   Duration remainingTime() {
-    final remaining = boundedTimeout - stopwatch.elapsed;
-    return remaining.isNegative ? Duration.zero : remaining;
+    return nonNegativeDuration(boundedTimeout - stopwatch.elapsed);
   }
 
   String pgrep = 'pgrep';
@@ -603,10 +598,10 @@ Future<void> _killAllTrackedChildren({
     final preparationStopwatch = Stopwatch()..start();
 
     Duration remainingPreparationTime() {
-      final remaining =
-          _trackedChildrenCleanupPreparationTimeout -
-          preparationStopwatch.elapsed;
-      return remaining.isNegative ? Duration.zero : remaining;
+      return nonNegativeDuration(
+        _trackedChildrenCleanupPreparationTimeout -
+            preparationStopwatch.elapsed,
+      );
     }
 
     List<Process> collectCleanupTargets() {
@@ -998,7 +993,7 @@ Future<ProcessResult?> runProcessWithTimeout(
   final effectiveGracefulMs = configuredGracefulMs < 0
       ? 0
       : configuredGracefulMs;
-  final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final effectiveTimeout = nonNegativeDuration(timeout);
   final argumentSnapshot = List<String>.of(arguments, growable: false);
   final environmentSnapshot = environment == null
       ? null
@@ -1388,18 +1383,15 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   final effectiveMaxLineCharacters = maxLineCharacters
       .clamp(1, _maxProcessLineCharacters)
       .toInt();
-  final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final effectiveTimeout = nonNegativeDuration(timeout);
   final configuredStartTimeout = processStartTimeout;
   final effectiveStartTimeout = configuredStartTimeout == null
       ? effectiveTimeout
-      : configuredStartTimeout.isNegative
-      ? Duration.zero
-      : configuredStartTimeout > effectiveTimeout
-      ? effectiveTimeout
-      : configuredStartTimeout;
-  final effectiveDrainTimeout = streamDrainTimeout.isNegative
-      ? Duration.zero
-      : streamDrainTimeout;
+      : shorterDuration(
+          nonNegativeDuration(configuredStartTimeout),
+          effectiveTimeout,
+        );
+  final effectiveDrainTimeout = nonNegativeDuration(streamDrainTimeout);
   final executionStopwatch = Stopwatch()..start();
   var timedOut = false;
   Process? process;
@@ -1620,7 +1612,7 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
   bool startInNewProcessGroup = false,
   bool terminateProcessTreeOnFailure = true,
 }) async {
-  final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final effectiveTimeout = nonNegativeDuration(timeout);
   final stopwatch = Stopwatch()..start();
   Process? process;
   var isProcessGroupLeader = false;

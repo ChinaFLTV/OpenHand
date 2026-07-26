@@ -2716,24 +2716,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = !openHandTickerMotionEnabled(context);
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final cdpRuntimeMeta = context.select<AiSessionController, Object?>((
       controller,
@@ -3211,24 +3194,7 @@ class _StreamThrottleSessionDialogState
     final theme = Theme.of(context);
     final settings = context.watch<SettingsController>();
     final session = context.watch<AiSessionController>();
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final globalChars = settings.effectiveStreamMaxCharsPerSecond();
     final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond();
@@ -4711,24 +4677,7 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = !openHandTickerMotionEnabled(context);
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final running = ctrl?.isRunning ?? false;
     final deviceOnline = ctrl?.connectedDevice != null;

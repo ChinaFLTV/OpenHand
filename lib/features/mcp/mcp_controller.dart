@@ -9,6 +9,7 @@ import 'package:flutter/scheduler.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
@@ -889,7 +890,7 @@ class McpController extends ChangeNotifier {
     final timeout = request.expiresAt.difference(DateTime.now().toUtc());
     try {
       return await completer.future.timeout(
-        timeout.isNegative ? Duration.zero : timeout,
+        nonNegativeDuration(timeout),
         onTimeout: () => false,
       );
     } finally {

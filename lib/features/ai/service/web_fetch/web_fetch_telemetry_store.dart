@@ -102,12 +102,10 @@ class WebFetchCallLog {
               )
               .toList(growable: false)
         : const <WebFetchPerEngineLog>[];
-    final winningRaw = '${m['winning_engine'] ?? ''}'.trim();
-    final winning = winningRaw.isEmpty
-        ? null
-        : AiWebFetchEngineKind.values
-              .where((k) => k.name == winningRaw)
-              .firstOrNull;
+    final winning = enumByName(
+      AiWebFetchEngineKind.values,
+      m['winning_engine'],
+    );
     return WebFetchCallLog(
       timestampMs: webEngineNonNegativeIntFromValue(m['timestamp_ms']),
       url: '${m['url'] ?? ''}',

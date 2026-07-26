@@ -109,25 +109,6 @@ class PluginOperationResult {
   String? get message => _localizedPluginLifecycleMessage(_message);
 }
 
-String _pluginLifecycleText({
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedTextForLocaleName(
-    Platform.localeName,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String? _localizedPluginLifecycleMessage(String? message) {
   if (message == null || message.trim().isEmpty) {
     return message;
@@ -138,7 +119,7 @@ String? _localizedPluginLifecycleMessage(String? message) {
   }
 
   String text({required String en, String? fr, String? de, String? ja}) {
-    return _pluginLifecycleText(zh: message, en: en, fr: fr, de: de, ja: ja);
+    return openHandAmbientText(zh: message, en: en, fr: fr, de: de, ja: ja);
   }
 
   Match? match;

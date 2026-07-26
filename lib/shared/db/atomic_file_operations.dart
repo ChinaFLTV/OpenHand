@@ -10,6 +10,7 @@ import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
+import '../util/duration_bounds.dart';
 import '../util/text_clip.dart';
 
 /// Process-local queue for each normalized target. A separate OS file lock is
@@ -247,7 +248,7 @@ Future<_AtomicProcessLockLease> _acquireAtomicProcessLock(
       final lockFuture = handle.lock();
       try {
         await lockFuture.timeout(
-          _shorterAtomicDuration(_atomicProcessLockAttemptTimeout, remaining),
+          shorterDuration(_atomicProcessLockAttemptTimeout, remaining),
           onTimeout: () => throw _atomicProcessLockTimeoutException(),
         );
         return _AtomicProcessLockLease(handle);
@@ -262,7 +263,7 @@ Future<_AtomicProcessLockLease> _acquireAtomicProcessLock(
           throw _atomicProcessLockTimeoutException();
         }
         await Future<void>.delayed(
-          _shorterAtomicDuration(_atomicProcessLockRetryDelay, retryBudget),
+          shorterDuration(_atomicProcessLockRetryDelay, retryBudget),
         );
       } on TimeoutException {
         unawaited(_releaseLateAtomicProcessLock(handle, lockFuture));
@@ -386,7 +387,7 @@ Future<void> _writeAtomicTempFile(
   writeChunks,
 ) async {
   Duration nextOperationTimeout() =>
-      _shorterAtomicDuration(_atomicIoIdleTimeout, remainingBudget());
+      shorterDuration(_atomicIoIdleTimeout, remainingBudget());
 
   BoundedRandomAccessFileLease? output;
   try {
@@ -418,7 +419,7 @@ Future<void> _copyFileAtomicallyLocked(
 }) async {
   await _writeAtomicallyLocked(targetFile, (tempFile, remainingBudget) async {
     Duration nextOperationTimeout() =>
-        _shorterAtomicDuration(_atomicIoIdleTimeout, remainingBudget());
+        shorterDuration(_atomicIoIdleTimeout, remainingBudget());
 
     final preflightStat = await sourceFile.stat().timeout(
       nextOperationTimeout(),
@@ -576,10 +577,6 @@ Future<void> _closeLateAtomicFile(
       // Stale-artifact cleanup remains the final fallback.
     }
   }
-}
-
-Duration _shorterAtomicDuration(Duration first, Duration second) {
-  return first < second ? first : second;
 }
 
 Future<void> _writeAtomicallyLocked(

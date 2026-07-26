@@ -11,6 +11,7 @@ import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
@@ -261,10 +262,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         final openedOutput = await openBoundedRandomAccessFileLease(
           partialFile,
           mode: FileMode.write,
-          timeout: _shorterUpdateDuration(
-            _kUpdateFileIoTimeout,
-            remainingBudget(),
-          ),
+          timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
           deleteIfOpenCompletesLate: true,
           release: (file) async {
             await file.close();
@@ -293,10 +291,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           }
           await openedOutput.run(
             (file) => file.writeFrom(chunk),
-            timeout: _shorterUpdateDuration(
-              _kUpdateFileIoTimeout,
-              remainingBudget(),
-            ),
+            timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
           );
           received += chunk.length;
           onProgress(unitRatio(received, expectedLength));
@@ -312,16 +307,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         }
         await openedOutput.run(
           (file) => file.flush(),
-          timeout: _shorterUpdateDuration(
-            _kUpdateFileIoTimeout,
-            remainingBudget(),
-          ),
+          timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
         );
         await openedOutput.close(
-          timeout: _shorterUpdateDuration(
-            _kUpdateFileIoTimeout,
-            remainingBudget(),
-          ),
+          timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
         );
         output = null;
       } finally {
@@ -372,9 +361,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       _validateSecureUpdateUri(uri);
       final request = await client
           .getUrl(uri)
-          .timeout(
-            _shorterUpdateDuration(connectionTimeout, remainingBudget()),
-          );
+          .timeout(shorterDuration(connectionTimeout, remainingBudget()));
       request
         ..followRedirects = false
         ..maxRedirects = 0;
@@ -382,10 +369,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         request.headers.set(header.key, header.value);
       }
       final response = await request.close().timeout(
-        _shorterUpdateDuration(
-          _kUpdateResponseHeaderTimeout,
-          remainingBudget(),
-        ),
+        shorterDuration(_kUpdateResponseHeaderTimeout, remainingBudget()),
       );
       if (!isRedirectStatusCode(response.statusCode)) {
         return (response: response, uri: uri);
@@ -405,10 +389,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       final remaining = remainingBudget();
       await drainByteStreamWithTimeout(
         response,
-        idleTimeout: _shorterUpdateDuration(
-          _kUpdateRedirectDrainTimeout,
-          remaining,
-        ),
+        idleTimeout: shorterDuration(_kUpdateRedirectDrainTimeout, remaining),
         totalTimeout: remaining,
       );
       uri = nextUri;
@@ -423,10 +404,6 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (Platform.isIOS) return '.ipa';
     return '';
   }
-}
-
-Duration _shorterUpdateDuration(Duration first, Duration second) {
-  return first <= second ? first : second;
 }
 
 void _validateSecureUpdateUri(Uri uri) {

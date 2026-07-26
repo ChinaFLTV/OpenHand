@@ -1,3 +1,4 @@
+import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 const String mcpOpsDefaultListenHost = '127.0.0.1';
@@ -705,8 +706,7 @@ class McpOpsRuntimeSnapshot {
   Duration get uptime {
     final start = startedAt;
     if (start == null || !isRunning) return Duration.zero;
-    final delta = DateTime.now().toUtc().difference(start);
-    return delta.isNegative ? Duration.zero : delta;
+    return nonNegativeDuration(DateTime.now().toUtc().difference(start));
   }
 
   McpOpsRuntimeSnapshot asOfflinePersistedSnapshot() {

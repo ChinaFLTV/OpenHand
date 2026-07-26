@@ -13,6 +13,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/duration_bounds.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -353,7 +354,7 @@ class WebFetchScraplingBridge {
       );
       final process = await _awaitBridgeProcessStart(
         processStart,
-        timeout: _remainingStartupTimeout(startupTimeout, startupStopwatch),
+        timeout: nonNegativeDuration(startupTimeout - startupStopwatch.elapsed),
       );
       if (_disposed) {
         await _disposeUnclaimedProcess(process);
@@ -368,7 +369,7 @@ class WebFetchScraplingBridge {
       _listenToRuntime(runtime);
       _throwIfDisposed();
       await runtime.ready.future.timeout(
-        _remainingStartupTimeout(startupTimeout, startupStopwatch),
+        nonNegativeDuration(startupTimeout - startupStopwatch.elapsed),
       );
       _throwIfDisposed();
       if (!identical(_runtime, runtime)) {
@@ -381,11 +382,6 @@ class WebFetchScraplingBridge {
       }
       Error.throwWithStackTrace(error, stack);
     }
-  }
-
-  Duration _remainingStartupTimeout(Duration timeout, Stopwatch stopwatch) {
-    final remaining = timeout - stopwatch.elapsed;
-    return remaining > Duration.zero ? remaining : Duration.zero;
   }
 
   Future<Process> _awaitBridgeProcessStart(

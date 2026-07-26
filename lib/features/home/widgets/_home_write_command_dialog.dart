@@ -84,8 +84,7 @@ class _WriteCommandConfirmationDialogState
     if (expiresAt == null) {
       return null;
     }
-    final value = expiresAt.difference(_now);
-    return value.isNegative ? Duration.zero : value;
+    return nonNegativeDuration(expiresAt.difference(_now));
   }
 
   double? get _remainingProgress {

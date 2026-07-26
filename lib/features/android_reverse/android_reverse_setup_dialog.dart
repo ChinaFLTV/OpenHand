@@ -154,24 +154,8 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
     );
   }
 
-  String _text({
-    required String zh,
-    required String en,
-    String? zhHant,
-    String? fr,
-    String? de,
-    String? ja,
-  }) {
-    return openHandLocalizedText(
-      context,
-      zh: zh,
-      en: en,
-      zhHant: zhHant,
-      fr: fr,
-      de: de,
-      ja: ja,
-    );
-  }
+  /// 绑定当前语言的行内文本取值；语言切换后随重建自动生效。
+  OpenHandLocalizedTextResolver get _text => openHandTextResolver(context);
 
   @override
   Widget build(BuildContext context) {

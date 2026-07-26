@@ -482,8 +482,7 @@ class AiModelScanner {
         return AiModelScanResult(
           modelIds: fallback,
           error: _ScanErrorMessages._format(
-            title: openHandLocalizedTextForLocaleName(
-              Platform.localeName,
+            title: openHandAmbientText(
               zh: '未返回任何模型',
               zhHant: '未返回任何模型',
               en: 'Empty model list',
@@ -491,8 +490,7 @@ class AiModelScanner {
               de: 'Leere Modellliste',
               ja: 'モデル一覧が空です',
             ),
-            reason: openHandLocalizedTextForLocaleName(
-              Platform.localeName,
+            reason: openHandAmbientText(
               zh: '服务端 /v1/models 端点连通但返回了空列表。多数中转代理不提供该接口，或者仅准许某一个账号调用后才返回。',
               zhHant:
                   '服務端 /v1/models 端點可連通但返回了空列表。多數中轉代理不提供該介面，或只允許特定帳號呼叫後才返回。',
@@ -501,8 +499,7 @@ class AiModelScanner {
               de: 'Der Endpunkt /v1/models ist erreichbar, liefert aber eine leere Liste. Viele Relay-Anbieter stellen ihn nicht bereit oder erlauben ihn nur für bestimmte Konten.',
               ja: '/v1/models エンドポイントには接続できましたが、空の一覧が返りました。多くの中継プロバイダーはこの API を公開していないか、特定アカウントだけに返します。',
             ),
-            try_: openHandLocalizedTextForLocaleName(
-              Platform.localeName,
+            try_: openHandAmbientText(
               zh:
                   '· 在“手动添加模型 ID”处直接录入希望使用的模型名\n'
                   '· 联系中转方确认 /v1/models 是否需要付费或额外鉴权',

@@ -37,32 +37,13 @@ final Set<int> _pendingHighlightWarmups = <int>{};
 /// 所有代码块的 highlight 回调都注册到同一个 addPostFrameCallback，
 /// 导致下一帧仍然要同步执行 N 次 tokenize。此调度器将 N 个任务分散
 /// 到 ceil(N/2) 个帧中执行（每帧最多处理 2 个），彻底消除 ANR。
-class _HighlightFrameScheduler {
-  _HighlightFrameScheduler._();
-  static final instance = _HighlightFrameScheduler._();
-
-  final _FrameTaskScheduler _scheduler = _FrameTaskScheduler(
-    maxPerFrame: _maxPerFrame,
-  );
-
-  /// 每帧最多执行的 highlight 任务数。
-  /// 一些大段 bash/log 输出 tokenize 单次可能 ~30ms；同帧多个任务会
-  /// 直接撑爆 60 fps 帧预算。改为 1/帧后慢机器也能稳；
-  /// 配合 [_HighlightSpanCache] 第二次展开/滚回时仍能瞬时拉起。
-  static const int _maxPerFrame = 1;
-
-  bool schedule(
-    VoidCallback task, {
-    bool priority = false,
-    bool Function()? isValid,
-    VoidCallback? onDropped,
-  }) => _scheduler.schedule(
-    task,
-    priority: priority,
-    isValid: isValid,
-    onDropped: onDropped,
-  );
-}
+/// 每帧最多执行一个 highlight 任务。
+/// 一些大段 bash/log 输出 tokenize 单次可能 ~30ms；同帧多个任务会直接撑爆
+/// 60 fps 帧预算。1/帧 让慢机器也能稳；配合 [_HighlightSpanCache]，第二次
+/// 展开 / 滚回时仍能瞬时拉起。
+final _FrameTaskScheduler _highlightFrameScheduler = _FrameTaskScheduler(
+  maxPerFrame: 1,
+);
 
 class _HighlightSpanCache {
   _HighlightSpanCache({required this.maxEntries});
@@ -237,7 +218,7 @@ void _warmHighlightedCodeSpan({
   }
 
   if (content.length > _highlightDeferThresholdChars) {
-    _HighlightFrameScheduler.instance.schedule(
+    _highlightFrameScheduler.schedule(
       warmup,
       onDropped: () => _pendingHighlightWarmups.remove(signature),
     );
@@ -1392,7 +1373,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       return;
     }
     _highlightScheduled = true;
-    _HighlightFrameScheduler.instance.schedule(
+    _highlightFrameScheduler.schedule(
       () {
         if (!mounted) return;
         if (_scrollActivity?.value ?? false) {

@@ -1261,10 +1261,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
 
-    final localeName = Platform.localeName;
     final statusLabel = switch (record.status) {
-      'success' => openHandLocalizedTextForLocaleName(
-        localeName,
+      'success' => openHandAmbientText(
         zh: '执行成功',
         en: 'Succeeded',
         zhHant: '執行成功',
@@ -1272,8 +1270,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         de: 'Erfolgreich',
         ja: '成功',
       ),
-      'timed_out' => openHandLocalizedTextForLocaleName(
-        localeName,
+      'timed_out' => openHandAmbientText(
         zh: '执行超时',
         en: 'Timed Out',
         zhHant: '執行逾時',
@@ -1281,8 +1278,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         de: 'Zeitüberschreitung',
         ja: 'タイムアウト',
       ),
-      'failed' => openHandLocalizedTextForLocaleName(
-        localeName,
+      'failed' => openHandAmbientText(
         zh: '执行失败',
         en: 'Failed',
         zhHant: '執行失敗',
@@ -1293,8 +1289,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       _ => record.status,
     };
 
-    final title = openHandLocalizedTextForLocaleName(
-      localeName,
+    final title = openHandAmbientText(
       zh: '定时任务：${entry.name}',
       en: 'Cron Job: ${entry.name}',
       zhHant: '定時任務：${entry.name}',
@@ -1302,12 +1297,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       de: 'Cron-Aufgabe: ${entry.name}',
       ja: '定期タスク: ${entry.name}',
     );
-    final body = _resolveNotificationBody(
-      entry,
-      record,
-      statusLabel,
-      localeName,
-    );
+    final body = _resolveNotificationBody(entry, record, statusLabel);
     final level = notifyConfig.severity.notificationLevel;
 
     if (notifyConfig.type == CronNotifyType.system) {
@@ -1374,7 +1364,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     CronEntry entry,
     CronExecutionRecord record,
     String statusLabel,
-    String localeName,
   ) {
     final custom = switch (record.status) {
       'success' => entry.onSuccessMessage,
@@ -1386,9 +1375,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     final elapsed = '${record.elapsedMs}ms';
-    if (record.status == 'success') {
-      return openHandLocalizedTextForLocaleName(
-        localeName,
+    // 仅失败且带错误详情时追加原因，其余状态共用同一条耗时文案。
+    final error = record.status == 'success'
+        ? ''
+        : (record.errorMessage ?? '').trim();
+    if (error.isEmpty) {
+      return openHandAmbientText(
         zh: '$statusLabel，耗时 $elapsed。',
         en: '$statusLabel in $elapsed.',
         zhHant: '$statusLabel，耗時 $elapsed。',
@@ -1397,28 +1389,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         ja: '$statusLabel、所要時間 $elapsed。',
       );
     }
-
-    final error = (record.errorMessage ?? '').trim();
-    if (error.isNotEmpty) {
-      return openHandLocalizedTextForLocaleName(
-        localeName,
-        zh: '$statusLabel，耗时 $elapsed。原因：$error',
-        en: '$statusLabel in $elapsed. Reason: $error',
-        zhHant: '$statusLabel，耗時 $elapsed。原因：$error',
-        fr: '$statusLabel en $elapsed. Raison : $error',
-        de: '$statusLabel in $elapsed. Grund: $error',
-        ja: '$statusLabel、所要時間 $elapsed。理由: $error',
-      );
-    }
-
-    return openHandLocalizedTextForLocaleName(
-      localeName,
-      zh: '$statusLabel，耗时 $elapsed。',
-      en: '$statusLabel in $elapsed.',
-      zhHant: '$statusLabel，耗時 $elapsed。',
-      fr: '$statusLabel en $elapsed.',
-      de: '$statusLabel in $elapsed.',
-      ja: '$statusLabel、所要時間 $elapsed。',
+    return openHandAmbientText(
+      zh: '$statusLabel，耗时 $elapsed。原因：$error',
+      en: '$statusLabel in $elapsed. Reason: $error',
+      zhHant: '$statusLabel，耗時 $elapsed。原因：$error',
+      fr: '$statusLabel en $elapsed. Raison : $error',
+      de: '$statusLabel in $elapsed. Grund: $error',
+      ja: '$statusLabel、所要時間 $elapsed。理由: $error',
     );
   }
 

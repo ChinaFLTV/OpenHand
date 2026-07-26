@@ -1,6 +1,8 @@
 // 流式文本渐显：每批增量拥有独立渐显窗口，新文本不会重启旧文本动画。
 // 减少动态效果或文本过长时直接渲染，避免无意义的 GPU 合成开销。
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -386,7 +388,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
 
     final step = _stepForBacklog(backlog);
     setState(() {
-      _visibleGraphemes = _minInt(_targetGraphemes, _visibleGraphemes + step);
+      _visibleGraphemes = math.min(_targetGraphemes, _visibleGraphemes + step);
     });
     if (_visibleGraphemes >= _targetGraphemes) {
       _stopTicker();
@@ -422,8 +424,6 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     );
   }
 }
-
-int _minInt(int a, int b) => a < b ? a : b;
 
 bool _isGraphemeBoundary(String text, int offset) {
   if (offset <= 0 || offset >= text.length) {

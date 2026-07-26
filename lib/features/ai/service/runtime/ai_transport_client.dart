@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -11,9 +12,11 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/duration_bounds.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
 const String _contentTypeHeaderName = 'content-type';
@@ -117,7 +120,7 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) async {
-    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
     final encodedBody = jsonEncode(body);
     return _runAbortable((abort) {
       final request =
@@ -146,7 +149,7 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) async {
-    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
     return _runAbortable((abort) {
       final request =
           http.AbortableRequest(
@@ -175,7 +178,7 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) async {
-    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
     return _runAbortable((abort) {
       final request = http.AbortableRequest(
         method.toUpperCase(),
@@ -213,7 +216,7 @@ class AiTransportClient {
     consume,
     Future<void>? cancelSignal,
   }) async {
-    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
     final encodedBody = jsonEncode(body);
     return _runAbortable((abort) {
       final request =
@@ -252,7 +255,7 @@ class AiTransportClient {
           final stream = limitByteStream(
             streamed.stream,
             maxBytes: maxResponseBytes,
-            idleTimeout: _shorterDuration(_responseIdleTimeout, remaining),
+            idleTimeout: shorterDuration(_responseIdleTimeout, remaining),
             totalTimeout: remaining,
           );
           try {
@@ -283,10 +286,10 @@ class AiTransportClient {
     int maxFiles = defaultAiMultipartMaxFiles,
     Future<void>? cancelSignal,
   }) async {
-    _requirePositive(maxResponseBytes, 'maxResponseBytes');
-    _requirePositive(maxFileBytes, 'maxFileBytes');
-    _requirePositive(maxTotalBytes, 'maxTotalBytes');
-    _requirePositive(maxFiles, 'maxFiles');
+    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveInt(maxFileBytes, 'maxFileBytes');
+    requirePositiveInt(maxTotalBytes, 'maxTotalBytes');
+    requirePositiveInt(maxFiles, 'maxFiles');
     final effectiveTimeout = _effectiveRequestTimeout(timeout);
     return _runAbortable((abort) async {
       final preparation = Stopwatch()..start();
@@ -532,7 +535,7 @@ class AiTransportClient {
     required Duration Function() remainingBudget,
   }) async {
     Duration nextOperationTimeout() =>
-        _shorterDuration(_responseIdleTimeout, remainingBudget());
+        shorterDuration(_responseIdleTimeout, remainingBudget());
 
     final digests = <String>[];
     var remaining = lease.length;
@@ -667,8 +670,8 @@ class AiTransportClient {
     int maxJsonBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) {
-    _requirePositive(maxBytes, 'maxBytes');
-    _requirePositive(maxJsonBytes, 'maxJsonBytes');
+    requirePositiveInt(maxBytes, 'maxBytes');
+    requirePositiveInt(maxJsonBytes, 'maxJsonBytes');
     return _runAbortable((abort) {
       final request = http.AbortableRequest(
         'GET',
@@ -701,7 +704,7 @@ class AiTransportClient {
             'content-type',
           );
           final responseLimit = _isJsonContentType(contentType)
-              ? _smallerInt(maxBytes, maxJsonBytes)
+              ? math.min(maxBytes, maxJsonBytes)
               : maxBytes;
           _rejectOversizedDeclaredResponse(
             streamed,
@@ -733,7 +736,7 @@ class AiTransportClient {
     required Duration timeout,
     required int maxResponseBytes,
   }) {
-    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
     return _executeRequest(
       request,
       abort: abort,
@@ -797,7 +800,7 @@ class AiTransportClient {
   }) async {
     final isFailure = isHttpFailureStatus(streamed.statusCode);
     final responseLimit = isFailure
-        ? _smallerInt(maxResponseBytes, defaultAiTransportErrorResponseMaxBytes)
+        ? math.min(maxResponseBytes, defaultAiTransportErrorResponseMaxBytes)
         : maxResponseBytes;
     if (!isFailure) {
       _rejectOversizedDeclaredResponse(
@@ -813,7 +816,7 @@ class AiTransportClient {
     final bodyBytes = await readBoundedByteStream(
       streamed.stream,
       maxBytes: responseLimit,
-      idleTimeout: _shorterDuration(_responseIdleTimeout, remaining),
+      idleTimeout: shorterDuration(_responseIdleTimeout, remaining),
       totalTimeout: remaining,
       truncateOnOverflow: isFailure,
     );
@@ -887,7 +890,7 @@ class AiTransportClient {
         response.stream,
         writeChunk: openedOutput.writeFrom,
         maxBytes: responseLimit,
-        idleTimeout: _shorterDuration(_responseIdleTimeout, remaining),
+        idleTimeout: shorterDuration(_responseIdleTimeout, remaining),
         totalTimeout: remaining,
       );
       await _runWithinBudget(
@@ -1013,18 +1016,6 @@ class AiTransportClient {
     return mimeType == 'application/json' ||
         mimeType == 'text/json' ||
         mimeType.endsWith('+json');
-  }
-
-  void _requirePositive(int value, String name) {
-    if (value < 1) {
-      throw ArgumentError.value(value, name, 'Must be positive.');
-    }
-  }
-
-  int _smallerInt(int first, int second) => first < second ? first : second;
-
-  Duration _shorterDuration(Duration first, Duration second) {
-    return first < second ? first : second;
   }
 
   Future<T> _runAbortable<T>(

@@ -469,8 +469,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (chosen == null) {
       throw CdpException(
         code: -1,
-        message: openHandLocalizedTextForLocaleName(
-          Platform.localeName,
+        message: openHandAmbientText(
           zh: '未发现目标 page target；浏览器可能没有打开目标页面',
           zhHant: '未發現目標 page target；瀏覽器可能沒有開啟目標頁面',
           en: 'No target page target was found. The browser may not have opened the target page.',

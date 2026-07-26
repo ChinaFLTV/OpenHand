@@ -1,9 +1,44 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/widgets.dart';
 
 /// 组件内按语言选择文本的唯一入口。
 ///
 /// 旧代码曾在各功能模块重复实现 `_localizedText`，且中文判断规则不一致。
 /// 此处统一处理 `zh-Hans`、`zh_CN` 及大小写变体。
+
+Locale? _ambientLocaleOverride;
+
+/// 无 [BuildContext] 场景使用的界面语言。
+///
+/// 服务、控制器产生的用户可见文本（通知、异常消息、日志摘要）必须与界面语言
+/// 一致。此值由设置控制器在语言变更时同步；同步之前回退到宿主平台语言。
+Locale get openHandAmbientLocale =>
+    _ambientLocaleOverride ?? PlatformDispatcher.instance.locale;
+
+set openHandAmbientLocale(Locale locale) => _ambientLocaleOverride = locale;
+
+/// 按 [openHandAmbientLocale] 返回文本，供没有 [BuildContext] 的调用方使用。
+String openHandAmbientText({
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedTextForLocale(
+    openHandAmbientLocale,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
 
 /// 当前语言是否应显示中文文本。
 bool openHandIsChineseLocale(BuildContext context) {
@@ -27,6 +62,50 @@ String openHandLocalizedText(
 }) {
   return openHandLocalizedTextForLocale(
     Localizations.localeOf(context),
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+/// 已绑定语言的文本取值函数。
+///
+/// 与 [openHandLocalizedText] 参数一致，但省去每次调用重复传 `context`。
+typedef OpenHandLocalizedTextResolver =
+    String Function({
+      required String zh,
+      required String en,
+      String? zhHans,
+      String? zhHant,
+      String? fr,
+      String? de,
+      String? ja,
+    });
+
+/// 绑定 [context] 当前语言，返回可复用的取值函数。
+///
+/// 供一个 `build` / 弹窗构建器内需要多次取文本的界面使用：语言只解析一次，
+/// 后续调用不再重复走 `Localizations.localeOf`。
+OpenHandLocalizedTextResolver openHandTextResolver(BuildContext context) {
+  return openHandTextResolverForLocale(Localizations.localeOf(context));
+}
+
+/// 绑定显式 [locale]，返回可复用的取值函数。供没有 [BuildContext] 的场景使用。
+OpenHandLocalizedTextResolver openHandTextResolverForLocale(Locale locale) {
+  return ({
+    required String zh,
+    required String en,
+    String? zhHans,
+    String? zhHant,
+    String? fr,
+    String? de,
+    String? ja,
+  }) => openHandLocalizedTextForLocale(
+    locale,
     zh: zh,
     en: en,
     zhHans: zhHans,

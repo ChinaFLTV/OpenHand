@@ -1367,24 +1367,7 @@ class _FileTreeTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final indent = _kFileTreeIndentBase + depth * _kFileTreeIndentPerLevel;
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final labelStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: node.isDirectory
@@ -2979,24 +2962,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         final colorScheme = theme.colorScheme;
-        String text({
-          required String zh,
-          String? zhHant,
-          required String en,
-          String? fr,
-          String? de,
-          String? ja,
-        }) {
-          return openHandLocalizedText(
-            dialogContext,
-            zh: zh,
-            zhHant: zhHant,
-            en: en,
-            fr: fr,
-            de: de,
-            ja: ja,
-          );
-        }
+        final text = openHandTextResolver(dialogContext);
 
         final canApply = preparedEdit.files.isNotEmpty;
         final fileCount = preparedEdit.files.length;
@@ -5644,24 +5610,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     required String filePath,
     required AiLspBackendResolution? resolution,
   }) {
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final effectiveFileLanguage = normalizeAiLspLanguage(
       _resolvedLanguageForFile(filePath),
@@ -6353,24 +6302,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_projectToolchainBarVisible) {
       return const SizedBox.shrink();
     }
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final settingsController = context.watch<SettingsController>();
     final filePath = widget.activeFilePath;

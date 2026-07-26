@@ -23,22 +23,7 @@ class WebReverseLaunchDiagnosis {
     final matched = <WebReverseLaunchCause>[];
     bool has(List<String> needles) =>
         needles.any((n) => lower.contains(n.toLowerCase()));
-    String text({
-      required String zh,
-      required String en,
-      String? zhHant,
-      String? fr,
-      String? de,
-      String? ja,
-    }) => openHandLocalizedTextForLocale(
-      locale,
-      zh: zh,
-      zhHant: zhHant,
-      en: en,
-      fr: fr,
-      de: de,
-      ja: ja,
-    );
+    final text = openHandTextResolverForLocale(locale);
 
     // ① profile 锁占用：另一个 Chrome 实例咬着同一个 user-data-dir。
     if (has(const [

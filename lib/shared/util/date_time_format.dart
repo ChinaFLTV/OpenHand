@@ -1,3 +1,4 @@
+import 'duration_bounds.dart';
 import 'input_value_parsing.dart';
 
 const int _minHourOfDay = 0;
@@ -102,7 +103,7 @@ bool isDateTimeInUtcRange(
 }
 
 String formatCompactDuration(Duration value) {
-  final duration = value.isNegative ? Duration.zero : value;
+  final duration = nonNegativeDuration(value);
   if (duration.inHours > 0) {
     return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
   }

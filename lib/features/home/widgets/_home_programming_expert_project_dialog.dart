@@ -828,24 +828,7 @@ class _ProgrammingExpertProjectDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    String text({
-      required String zh,
-      String? zhHant,
-      required String en,
-      String? fr,
-      String? de,
-      String? ja,
-    }) {
-      return openHandLocalizedText(
-        context,
-        zh: zh,
-        zhHant: zhHant,
-        en: en,
-        fr: fr,
-        de: de,
-        ja: ja,
-      );
-    }
+    final text = openHandTextResolver(context);
 
     final recentProjectRoots = widget.recentPathCache.projectRoots;
     final recentSdkPaths =

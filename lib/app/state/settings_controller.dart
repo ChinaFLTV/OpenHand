@@ -23,6 +23,7 @@ import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/fps/openhand_fps_monitor.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
@@ -221,7 +222,9 @@ class SettingsController extends ChangeNotifier {
        _bashOutputMaxBytes = snapshot.bashOutputMaxBytes,
        _maxConcurrentTools = snapshot.maxConcurrentTools,
        _persistenceIssue = persistenceIssue,
-       _canPersistSettings = canPersist;
+       _canPersistSettings = canPersist {
+    openHandAmbientLocale = _language.locale;
+  }
 
   static const int _maxRecentModelSelections = 10;
   static const Uuid _uuid = Uuid();
@@ -701,6 +704,7 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _language = value;
+      openHandAmbientLocale = value.locale;
       return _MutationDisposition.apply;
     });
   }
@@ -2491,6 +2495,7 @@ class SettingsController extends ChangeNotifier {
     _themeMode = snapshot.themeMode;
     _themePreset = snapshot.themePreset;
     _language = snapshot.language;
+    openHandAmbientLocale = _language.locale;
     _skillsStoragePath = snapshot.skillsStoragePath;
     _mcpEnabled = snapshot.mcpEnabled;
     _mcpLazyLoadingMode = snapshot.mcpLazyLoadingMode;

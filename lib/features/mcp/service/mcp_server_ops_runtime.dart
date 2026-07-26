@@ -13,6 +13,7 @@ import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
@@ -1168,9 +1169,9 @@ class McpServerOpsRuntime {
       );
     }
     if (tool.isWrite && _config.writeMode == McpOpsWriteMode.approvalRequired) {
-      final approvalTimeout = _shorterDuration(
+      final approvalTimeout = shorterDuration(
         _config.approvalTimeout,
-        _remainingUntil(processingDeadline),
+        remainingUntil(processingDeadline),
       );
       if (approvalTimeout <= Duration.zero) {
         _recordBlocked(
@@ -1220,9 +1221,9 @@ class McpServerOpsRuntime {
       }
     }
 
-    final invocationTimeout = _shorterDuration(
+    final invocationTimeout = shorterDuration(
       _config.timeout,
-      _remainingUntil(processingDeadline),
+      remainingUntil(processingDeadline),
     );
     if (invocationTimeout <= Duration.zero) {
       _recordBlocked(
@@ -1492,9 +1493,9 @@ class McpServerOpsRuntime {
     Map<String, Object?> arguments,
     DateTime processingDeadline,
   ) {
-    final timeout = _shorterDuration(
+    final timeout = shorterDuration(
       _mcpOpsWorkspacePathCheckTimeout,
-      _remainingUntil(processingDeadline),
+      remainingUntil(processingDeadline),
     );
     if (timeout <= Duration.zero) return Future<bool>.value(false);
     return _argumentsWithinWorkspace(
@@ -1887,15 +1888,6 @@ class McpServerOpsRuntime {
   int _estimateTokens(String text) {
     if (text.isEmpty) return 0;
     return math.max(1, (text.length / 4).ceil());
-  }
-
-  Duration _remainingUntil(DateTime deadline) {
-    final remaining = deadline.difference(DateTime.now().toUtc());
-    return remaining > Duration.zero ? remaining : Duration.zero;
-  }
-
-  Duration _shorterDuration(Duration first, Duration second) {
-    return first < second ? first : second;
   }
 
   void _increment(Map<String, int> map, String key) {

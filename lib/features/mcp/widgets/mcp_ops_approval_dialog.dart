@@ -11,6 +11,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -95,8 +96,7 @@ class _McpOpsWriteApprovalDialogState
       _argumentsPreview.length > 220 || _argumentsPreview.contains('\n');
 
   Duration get _remaining {
-    final value = widget.request.expiresAt.difference(_now);
-    return value.isNegative ? Duration.zero : value;
+    return nonNegativeDuration(widget.request.expiresAt.difference(_now));
   }
 
   double get _remainingProgress {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'argument_guards.dart';
+import 'duration_bounds.dart';
 
 typedef OpenHandAsyncContinuePredicate = bool Function();
 typedef OpenHandAsyncCleanupErrorHandler =
@@ -45,8 +46,7 @@ final class MonotonicDeadline {
 
   Duration limit(Duration maximum) {
     requirePositiveDuration(maximum, 'maximum');
-    final budget = remaining();
-    return maximum < budget ? maximum : budget;
+    return shorterDuration(maximum, remaining());
   }
 
   void stop() => _stopwatch.stop();
@@ -61,11 +61,10 @@ Future<bool> runAsyncCleanupBounded(
   Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
   OpenHandAsyncCleanupErrorHandler? onError,
 }) async {
-  final effectiveTimeout = timeout <= Duration.zero
-      ? Duration.zero
-      : timeout > kOpenHandMaxAsyncCleanupTimeout
-      ? kOpenHandMaxAsyncCleanupTimeout
-      : timeout;
+  final effectiveTimeout = shorterDuration(
+    nonNegativeDuration(timeout),
+    kOpenHandMaxAsyncCleanupTimeout,
+  );
   try {
     await Future<void>.sync(cleanup).timeout(effectiveTimeout);
     return true;
