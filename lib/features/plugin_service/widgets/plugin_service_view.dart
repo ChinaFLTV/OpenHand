@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
-import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -22,8 +21,17 @@ import '../../mcp/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../model/plugin_info.dart';
 import '../plugin_service_controller.dart';
+import '../service/plugin_toolchain_shell.dart';
 
 enum _PluginServiceAction { install, update, uninstall }
+
+const String _playwrightMcpPackage = '@playwright/mcp';
+const String _playwrightMcpServerName = 'Playwright MCP';
+
+bool _isPlaywrightMcpServer(McpServer server) {
+  return server.name == _playwrightMcpServerName ||
+      server.command == 'npx' && server.args.contains(_playwrightMcpPackage);
+}
 
 extension _PluginServiceActionL10n on _PluginServiceAction {
   String label(AppLocalizations l10n) {
@@ -53,19 +61,20 @@ String _localizedPluginDescription(AppLocalizations l10n, PluginInfo plugin) {
     PluginCatalogIds.nodejs => l10n.pluginServiceDescriptionNodejs,
     PluginCatalogIds.playwright => l10n.pluginServiceDescriptionPlaywright,
     PluginCatalogIds.hermesAgent => l10n.pluginServiceDescriptionHermesAgent,
-    'python' => l10n.pluginServiceDescriptionPython,
-    'pip' => l10n.pluginServiceDescriptionPip,
-    'java' => l10n.pluginServiceDescriptionJava,
-    'frida' => l10n.pluginServiceDescriptionFrida,
-    'mitmproxy' => l10n.pluginServiceDescriptionMitmproxy,
-    'apktool' => l10n.pluginServiceDescriptionApktool,
-    'jadx' => l10n.pluginServiceDescriptionJadx,
-    'radare2' => l10n.pluginServiceDescriptionRadare2,
-    'blutter' => l10n.pluginServiceDescriptionBlutter,
-    'doldrums' => l10n.pluginServiceDescriptionDoldrums,
-    'anything_analyzer' => l10n.pluginServiceDescriptionAnythingAnalyzer,
-    'docker' => l10n.pluginServiceDescriptionDocker,
-    'qdrant' => l10n.pluginServiceDescriptionQdrant,
+    PluginCatalogIds.python => l10n.pluginServiceDescriptionPython,
+    PluginCatalogIds.pip => l10n.pluginServiceDescriptionPip,
+    PluginCatalogIds.java => l10n.pluginServiceDescriptionJava,
+    PluginCatalogIds.frida => l10n.pluginServiceDescriptionFrida,
+    PluginCatalogIds.mitmproxy => l10n.pluginServiceDescriptionMitmproxy,
+    PluginCatalogIds.apktool => l10n.pluginServiceDescriptionApktool,
+    PluginCatalogIds.jadx => l10n.pluginServiceDescriptionJadx,
+    PluginCatalogIds.radare2 => l10n.pluginServiceDescriptionRadare2,
+    PluginCatalogIds.blutter => l10n.pluginServiceDescriptionBlutter,
+    PluginCatalogIds.doldrums => l10n.pluginServiceDescriptionDoldrums,
+    PluginCatalogIds.anythingAnalyzer =>
+      l10n.pluginServiceDescriptionAnythingAnalyzer,
+    PluginCatalogIds.docker => l10n.pluginServiceDescriptionDocker,
+    PluginCatalogIds.qdrant => l10n.pluginServiceDescriptionQdrant,
     _ => plugin.description,
   };
 }
@@ -304,18 +313,18 @@ class _PluginCard extends StatelessWidget {
     };
     final statusLabel = plugin.status.label(l10n);
     final pluginIcon = switch (plugin.id) {
-      'nodejs' => Icons.javascript_rounded,
-      'python' => Icons.code_rounded,
-      'pip' => Icons.inventory_2_rounded,
-      'playwright' => Icons.theaters_rounded,
+      PluginCatalogIds.nodejs => Icons.javascript_rounded,
+      PluginCatalogIds.python => Icons.code_rounded,
+      PluginCatalogIds.pip => Icons.inventory_2_rounded,
+      PluginCatalogIds.playwright => Icons.theaters_rounded,
       PluginCatalogIds.hermesAgent => Icons.auto_awesome_rounded,
-      'java' => Icons.coffee_rounded,
-      'frida' => Icons.bug_report_rounded,
-      'mitmproxy' => Icons.lan_rounded,
-      'apktool' => Icons.archive_rounded,
-      'jadx' => Icons.data_object_rounded,
-      'docker' => Icons.view_in_ar_rounded,
-      'qdrant' => Icons.hub_rounded,
+      PluginCatalogIds.java => Icons.coffee_rounded,
+      PluginCatalogIds.frida => Icons.bug_report_rounded,
+      PluginCatalogIds.mitmproxy => Icons.lan_rounded,
+      PluginCatalogIds.apktool => Icons.archive_rounded,
+      PluginCatalogIds.jadx => Icons.data_object_rounded,
+      PluginCatalogIds.docker => Icons.view_in_ar_rounded,
+      PluginCatalogIds.qdrant => Icons.hub_rounded,
       _ => Icons.extension_rounded,
     };
 
@@ -450,7 +459,7 @@ class _PluginCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final isCheckingUpdate = controller.checkingPluginId == plugin.id;
     final isBusy = plugin.isBusy || controller.isBusy;
-    final hasMcp = plugin.id == 'playwright';
+    final hasMcp = plugin.id == PluginCatalogIds.playwright;
 
     return Wrap(
       spacing: 6,
@@ -672,8 +681,7 @@ class _PluginCard extends StatelessWidget {
     );
   }
 
-  /// Progress shell for long plugin ops: non-dismissible (tap + ESC) and
-  /// tracked so completion only removes this route, never the host page.
+  /// 长时插件操作的不可关闭进度弹窗；结束时仅移除自身路由。
   OpenHandDialogSession<void> _showOperationDialog(
     BuildContext context,
     String action,
@@ -1196,24 +1204,29 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       }
       final executablePath =
           metadata['executable_path'] ??
-          (widget.plugin.id == 'qdrant' ? null : installPath);
+          (widget.plugin.id == PluginCatalogIds.qdrant ? null : installPath);
       if (executablePath != null &&
           '$executablePath'.trim().isNotEmpty &&
           executablePath != installationTarget) {
         fileSystemInfo['executable_path'] = executablePath;
       }
       // 获取额外运行时信息
-      if (widget.plugin.id == 'nodejs' && widget.plugin.isInstalled) {
+      if (widget.plugin.id == PluginCatalogIds.nodejs &&
+          widget.plugin.isInstalled) {
         try {
-          final npmResult = await runTrackedProcessOrFailed('npm', [
-            '--version',
-          ], timeout: const Duration(seconds: 5));
+          final npmResult = await runPluginToolchainCommandOrFailed(
+            'npm',
+            const <String>['--version'],
+            timeout: const Duration(seconds: 5),
+          );
           if (npmResult.exitCode == 0) {
             info['npm'] = npmResult.stdout.toString().trim();
           }
-          final npxResult = await runTrackedProcessOrFailed('npx', [
-            '--version',
-          ], timeout: const Duration(seconds: 5));
+          final npxResult = await runPluginToolchainCommandOrFailed(
+            'npx',
+            const <String>['--version'],
+            timeout: const Duration(seconds: 5),
+          );
           if (npxResult.exitCode == 0) {
             info['npx'] = npxResult.stdout.toString().trim();
           }
@@ -1221,7 +1234,8 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           silentLog('plugin_service_view', '加载 Node 环境信息', error, stack);
         }
       }
-      if (widget.plugin.id == 'python' && widget.plugin.isInstalled) {
+      if (widget.plugin.id == PluginCatalogIds.python &&
+          widget.plugin.isInstalled) {
         try {
           final pythonExecutable = widget.plugin.installPath ?? 'python3';
           final pythonResult = await runTrackedProcessOrFailed(
@@ -1237,7 +1251,8 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           silentLog('plugin_service_view', '加载 Python 环境信息', error, stack);
         }
       }
-      if (widget.plugin.id == 'pip' && widget.plugin.isInstalled) {
+      if (widget.plugin.id == PluginCatalogIds.pip &&
+          widget.plugin.isInstalled) {
         try {
           final pythonExecutable = widget.plugin.installPath ?? 'python3';
           final pipResult = await runTrackedProcessOrFailed(pythonExecutable, [
@@ -1438,7 +1453,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                               ],
                             ),
                           ],
-                          if (plugin.id == 'playwright') ...[
+                          if (plugin.id == PluginCatalogIds.playwright) ...[
                             const SizedBox(height: 18),
                             _DetailSection(
                               title: 'MCP',
@@ -1446,7 +1461,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                               children: [
                                 _DetailRow(
                                   label: l10n.pluginServiceMcpPackage,
-                                  value: '@playwright/mcp',
+                                  value: _playwrightMcpPackage,
                                 ),
                                 _DetailRow(
                                   label: l10n.pluginServiceDetailDescription,
@@ -1602,7 +1617,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
   @override
   void initState() {
     super.initState();
-    _checkMcpStatus();
+    unawaited(_checkMcpStatus());
   }
 
   @override
@@ -1630,33 +1645,33 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     });
   }
 
-  Future<void> _checkMcpStatus() async {
+  Future<bool> _checkMcpStatus() async {
     setState(() => _checking = true);
+    var succeeded = true;
     try {
-      if (widget.plugin.id == 'playwright') {
+      if (widget.plugin.id == PluginCatalogIds.playwright) {
         // 同时检查 npm 全局包状态 和 MCP 控制器中的服务注册状态。
         // 只有两者都满足才视为「已安装」——用户在 MCP 板块删除服务卡片后，
         // 即使 npm 包仍在全局，也应视为「未注册」状态。
         bool npmInstalled = false;
         String? npmVersion;
         try {
-          final listResult = await runTrackedProcessOrFailed(
+          final listResult = await runPluginToolchainCommandOrFailed(
             'npm',
-            ['list', '-g', '@playwright/mcp', '--depth=0'],
+            const <String>['list', '-g', _playwrightMcpPackage, '--depth=0'],
             timeout: const Duration(seconds: 10),
-            environment: SystemProxyResolver.instance
-                .resolveSubprocessEnvironment(),
           );
           npmInstalled =
               listResult.exitCode == 0 &&
-              listResult.stdout.toString().contains('@playwright/mcp');
+              listResult.stdout.toString().contains(_playwrightMcpPackage);
           if (npmInstalled) {
             final match = RegExp(
-              r'@playwright/mcp@([\d.]+)',
+              '$_playwrightMcpPackage@([\\d.]+)',
             ).firstMatch(listResult.stdout.toString());
             npmVersion = match?.group(1);
           }
         } catch (error, stack) {
+          succeeded = false;
           silentLog(
             'plugin_service_view',
             '检查 Playwright MCP npm 包',
@@ -1670,12 +1685,9 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         if (mounted) {
           try {
             final mcpController = context.read<McpController>();
-            mcpRegistered = mcpController.servers.any(
-              (s) =>
-                  s.name == 'Playwright MCP' ||
-                  s.command == 'npx' && s.args.contains('@playwright/mcp'),
-            );
+            mcpRegistered = mcpController.servers.any(_isPlaywrightMcpServer);
           } catch (error, stack) {
+            succeeded = false;
             silentLog(
               'plugin_service_view',
               '检查 Playwright MCP 注册表',
@@ -1689,9 +1701,11 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         _mcpVersion = npmVersion;
       }
     } catch (error, stack) {
+      succeeded = false;
       silentLog('plugin_service_view', '检查 Playwright MCP', error, stack);
     }
     if (mounted) setState(() => _checking = false);
+    return succeeded && mounted;
   }
 
   Future<void> _runMcpOperation(
@@ -1708,11 +1722,9 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     _addLog('> npm ${args.join(' ')}');
     _addLog('');
     try {
-      final result = await runTrackedProcessWithLineLogging(
+      final result = await runPluginToolchainCommandWithLineLogging(
         'npm',
         args,
-        environment: SystemProxyResolver.instance
-            .resolveSubprocessEnvironment(),
         timeout: const Duration(minutes: 3),
         tag: 'plugin_service_view',
         onStdoutLine: _addLog,
@@ -1721,8 +1733,6 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
       );
       final exitCode = result.exitCode;
       if (exitCode == 0) {
-        _addLog('');
-        _addLog(l10n.pluginServiceMcpOperationCompleted(actionLabel, exitCode));
         // npm 操作成功后先同步 MCP 配置，再复检最终状态，避免短暂误报未安装。
         final synced = mounted && await _syncMcpController(action);
         if (!mounted) return;
@@ -1731,7 +1741,20 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           _addLog(message);
           _error = message;
         } else {
-          await _checkMcpStatus();
+          final checked = await _checkMcpStatus();
+          if (!mounted) return;
+          final shouldBeInstalled = action != _PluginServiceAction.uninstall;
+          if (!checked || _mcpInstalled != shouldBeInstalled) {
+            final message = l10n.pluginServiceMcpVerificationFailed;
+            _addLog(message);
+            _error = message;
+          }
+        }
+        if (_error == null) {
+          _addLog('');
+          _addLog(
+            l10n.pluginServiceMcpOperationCompleted(actionLabel, exitCode),
+          );
         }
       } else {
         _addLog('');
@@ -1755,35 +1778,38 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     try {
       if (!mounted) return false;
       final mcpController = context.read<McpController>();
-      const mcpName = 'Playwright MCP';
+      const mcpName = _playwrightMcpServerName;
       if (action == _PluginServiceAction.install ||
           action == _PluginServiceAction.update) {
         // 注册/更新 MCP 服务到 MCP 板块
         final existing = mcpController.servers
-            .where((server) => server.name == mcpName)
+            .where(_isPlaywrightMcpServer)
             .firstOrNull;
         final server =
             existing?.copyWith(
               type: McpServerType.stdio,
               enabled: true,
               command: 'npx',
-              args: const <String>['@playwright/mcp'],
+              args: const <String>[_playwrightMcpPackage],
             ) ??
             const McpServer(
               name: mcpName,
               type: McpServerType.stdio,
               enabled: true,
               command: 'npx',
-              args: <String>['@playwright/mcp'],
+              args: <String>[_playwrightMcpPackage],
               visibleTemplateIds: <String>{
                 AiPromptTemplatePolicies.webReverseExpertTemplateId,
               },
             );
-        return await mcpController.saveServer(server, previousName: mcpName);
+        return await mcpController.saveServer(
+          server,
+          previousName: existing?.name ?? mcpName,
+        );
       } else if (action == _PluginServiceAction.uninstall) {
         // 从 MCP 板块移除
         final existing = mcpController.servers
-            .where((s) => s.name == mcpName)
+            .where(_isPlaywrightMcpServer)
             .toList();
         var succeeded = true;
         for (final s in existing) {
@@ -1798,21 +1824,22 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     }
   }
 
-  Future<void> _installMcp() => _runMcpOperation(_PluginServiceAction.install, [
-    'install',
-    '-g',
-    '@playwright/mcp',
-  ]);
+  Future<void> _installOrUpdateMcp(_PluginServiceAction action) {
+    return _runMcpOperation(action, <String>[
+      'install',
+      '-g',
+      '$_playwrightMcpPackage@latest',
+    ]);
+  }
 
-  Future<void> _updateMcp() => _runMcpOperation(_PluginServiceAction.update, [
-    'update',
-    '-g',
-    '@playwright/mcp',
-  ]);
+  Future<void> _installMcp() =>
+      _installOrUpdateMcp(_PluginServiceAction.install);
+
+  Future<void> _updateMcp() => _installOrUpdateMcp(_PluginServiceAction.update);
 
   Future<void> _uninstallMcp() => _runMcpOperation(
     _PluginServiceAction.uninstall,
-    ['uninstall', '-g', '@playwright/mcp'],
+    ['uninstall', '-g', _playwrightMcpPackage],
   );
 
   @override
@@ -1832,7 +1859,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
             context: context,
             icon: Icons.hub_rounded,
             title: '${widget.plugin.name} MCP',
-            subtitle: '@playwright/mcp',
+            subtitle: _playwrightMcpPackage,
           ),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           // 状态 + 操作按钮

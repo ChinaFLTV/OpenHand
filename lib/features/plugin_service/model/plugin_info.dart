@@ -29,7 +29,39 @@ class PluginCatalogIds {
 
   static const String nodejs = 'nodejs';
   static const String playwright = 'playwright';
+  static const String python = 'python';
+  static const String pip = 'pip';
+  static const String java = 'java';
+  static const String frida = 'frida';
+  static const String mitmproxy = 'mitmproxy';
+  static const String apktool = 'apktool';
+  static const String jadx = 'jadx';
+  static const String radare2 = 'radare2';
+  static const String blutter = 'blutter';
+  static const String doldrums = 'doldrums';
+  static const String anythingAnalyzer = 'anything_analyzer';
+  static const String docker = 'docker';
+  static const String qdrant = 'qdrant';
   static const String hermesAgent = 'hermes_agent';
+
+  static const List<String> displayOrder = <String>[
+    nodejs,
+    playwright,
+    python,
+    pip,
+    java,
+    frida,
+    mitmproxy,
+    apktool,
+    jadx,
+    radare2,
+    blutter,
+    doldrums,
+    anythingAnalyzer,
+    docker,
+    qdrant,
+    hermesAgent,
+  ];
 }
 
 class PluginInfo {
@@ -82,7 +114,7 @@ class PluginInfo {
   /// 是否支持卸载
   final bool supportsUninstall;
 
-  /// Plugin-specific structured diagnostics.
+  /// 插件专属的结构化诊断信息。
   final Map<String, Object?> metadata;
 
   /// 错误信息

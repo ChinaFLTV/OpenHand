@@ -622,9 +622,9 @@ class PluginLifecycleService {
     String? tag,
     Map<String, String>? environment,
   }) {
-    return runTrackedProcessOrFailed(
-      pluginShellExecutable(),
-      ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
+    return runPluginToolchainCommandOrFailed(
+      executable,
+      arguments,
       timeout: timeout,
       tag: tag ?? 'plugin_lifecycle.command.$executable',
       environment: environment ?? pluginProxyEnvironment(),
@@ -665,7 +665,7 @@ class PluginLifecycleService {
       environment: environment ?? pluginProxyEnvironment(),
     );
     if (result.exitCode != 0) return null;
-    return _extractAbsolutePathFromOutput(result.stdout.toString());
+    return extractPluginAbsolutePath(result.stdout.toString());
   }
 
   Future<PluginNpmPackageInstallation?> _resolveGlobalNpmPackage(
@@ -676,9 +676,7 @@ class PluginLifecycleService {
       '-g',
     ]);
     if (rootResult.exitCode != 0) return null;
-    final globalRoot = _extractAbsolutePathFromOutput(
-      rootResult.stdout.toString(),
-    );
+    final globalRoot = extractPluginAbsolutePath(rootResult.stdout.toString());
     if (globalRoot == null) return null;
     return resolvePluginNpmPackageInstallation(
       globalRoot: globalRoot,
@@ -698,7 +696,7 @@ class PluginLifecycleService {
   }
 
   Future<bool> _isDockerDaemonAvailable() async {
-    final result = await runTrackedProcessOrFailed(
+    final result = await runPluginToolchainCommandOrFailed(
       'docker',
       ['info'],
       timeout: _pluginLifecycleVerifyTimeout,
@@ -1017,20 +1015,18 @@ fi
 
     if (await _isExecutableAvailable('fnm')) {
       onProgress?.call('使用 fnm 安装 Node.js LTS…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'fnm',
         ['install', '--lts'],
         onProgress: onProgress,
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await runTrackedProcessOrFailed('fnm', [
+        await _runManagedToolchainCommand('fnm', [
           'default',
           'lts-latest',
         ], timeout: const Duration(seconds: 10));
-        final verify = await runTrackedProcessOrFailed('node', [
-          '--version',
-        ], timeout: _pluginLifecycleVerifyTimeout);
+        final verify = await _runManagedToolchainCommand('node', ['--version']);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js $version 安装成功');
@@ -1049,16 +1045,14 @@ fi
 
     if (await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew 安装 Node.js…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'brew',
         ['install', 'node'],
         onProgress: onProgress,
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await runTrackedProcessOrFailed('node', [
-          '--version',
-        ], timeout: _pluginLifecycleVerifyTimeout);
+        final verify = await _runManagedToolchainCommand('node', ['--version']);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js $version 安装成功');
@@ -1112,7 +1106,7 @@ fi
 
     if (await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew 安装 Python…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'brew',
         ['install', 'python'],
         onProgress: onProgress,
@@ -1344,7 +1338,7 @@ fi
       );
     }
     onProgress?.call('使用 Homebrew 安装 $label…');
-    final result = await _runWithProgress(
+    final result = await _runManagedToolchainCommandWithProgress(
       'brew',
       ['install', formula],
       onProgress: onProgress,
@@ -1383,7 +1377,7 @@ fi
       );
     }
     onProgress?.call('使用 Homebrew 更新 $label…');
-    final result = await _runWithProgress(
+    final result = await _runManagedToolchainCommandWithProgress(
       'brew',
       ['upgrade', formula],
       onProgress: onProgress,
@@ -1413,7 +1407,7 @@ fi
       );
     }
     onProgress?.call('使用 Homebrew 卸载 $label…');
-    final result = await _runWithProgress(
+    final result = await _runManagedToolchainCommandWithProgress(
       'brew',
       ['uninstall', formula],
       onProgress: onProgress,
@@ -2094,7 +2088,7 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
 
     if (Platform.isMacOS && await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew Cask 安装 Docker Desktop…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'brew',
         ['install', '--cask', 'docker'],
         onProgress: onProgress,
@@ -2205,12 +2199,7 @@ exit 4
     void Function(String line)? onProgress,
   }) async {
     onProgress?.call('正在检测 Node.js 安装方式…');
-    final whichResult = await runTrackedProcessOrFailed('which', [
-      'node',
-    ], timeout: _pluginLifecycleProbeTimeout);
-    final nodePath = whichResult.exitCode == 0
-        ? whichResult.stdout.toString().trim()
-        : '';
+    final nodePath = await _resolveManagedToolchainCommandPath('node') ?? '';
 
     final isNvm = nodePath.contains('.nvm/');
     final isFnm = nodePath.contains('.fnm/') || nodePath.contains('/fnm/');
@@ -2251,20 +2240,18 @@ exit 4
 
     if (isFnm) {
       onProgress?.call('检测到 fnm 管理的 Node.js，使用 fnm 更新…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'fnm',
         ['install', '--lts'],
         onProgress: onProgress,
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await runTrackedProcessOrFailed('fnm', [
+        await _runManagedToolchainCommand('fnm', [
           'default',
           'lts-latest',
         ], timeout: const Duration(seconds: 10));
-        final verify = await runTrackedProcessOrFailed('node', [
-          '--version',
-        ], timeout: _pluginLifecycleVerifyTimeout);
+        final verify = await _runManagedToolchainCommand('node', ['--version']);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -2283,16 +2270,14 @@ exit 4
 
     if (isVolta) {
       onProgress?.call('检测到 volta 管理的 Node.js，使用 volta 更新…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'volta',
         ['install', 'node@latest'],
         onProgress: onProgress,
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await runTrackedProcessOrFailed('node', [
-          '--version',
-        ], timeout: _pluginLifecycleVerifyTimeout);
+        final verify = await _runManagedToolchainCommand('node', ['--version']);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -2311,16 +2296,14 @@ exit 4
 
     if (isBrew) {
       onProgress?.call('检测到 Homebrew 管理的 Node.js，使用 brew 更新…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'brew',
         ['upgrade', 'node'],
         onProgress: onProgress,
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await runTrackedProcessOrFailed('node', [
-          '--version',
-        ], timeout: _pluginLifecycleVerifyTimeout);
+        final verify = await _runManagedToolchainCommand('node', ['--version']);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           onProgress?.call('Node.js 已更新到 $version');
@@ -2339,20 +2322,18 @@ exit 4
 
     onProgress?.call('未能确定安装方式，尝试可用的包管理器…');
     if (await _isExecutableAvailable('fnm')) {
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'fnm',
         ['install', '--lts'],
         onProgress: onProgress,
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await runTrackedProcessOrFailed('fnm', [
+        await _runManagedToolchainCommand('fnm', [
           'default',
           'lts-latest',
         ], timeout: const Duration(seconds: 10));
-        final verify = await runTrackedProcessOrFailed('node', [
-          '--version',
-        ], timeout: _pluginLifecycleVerifyTimeout);
+        final verify = await _runManagedToolchainCommand('node', ['--version']);
         if (verify.exitCode == 0) {
           final version = verify.stdout.toString().trim();
           return PluginOperationResult(
@@ -2435,7 +2416,7 @@ exit 4
         final formula = context.brewFormula ?? 'python';
         final targetVersion = await _queryLatestHomebrewVersion(formula);
         onProgress?.call('使用 Homebrew 更新 Python…');
-        final result = await _runWithProgress(
+        final result = await _runManagedToolchainCommandWithProgress(
           'brew',
           ['upgrade', formula],
           onProgress: onProgress,
@@ -2620,7 +2601,7 @@ exit 4
   }) async {
     if (Platform.isMacOS && await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew Cask 更新 Docker Desktop…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'brew',
         ['upgrade', '--cask', 'docker'],
         onProgress: onProgress,
@@ -2720,7 +2701,7 @@ exit 4
     }
     onProgress?.call('正在卸载 Node.js…');
     if (await _isExecutableAvailable('brew')) {
-      final result = await _runWithProgress('brew', [
+      final result = await _runManagedToolchainCommandWithProgress('brew', [
         'uninstall',
         'node',
       ], onProgress: onProgress);
@@ -2791,7 +2772,7 @@ exit 4
       case _PythonRuntimeSource.homebrew:
         final formula = context.brewFormula ?? 'python';
         onProgress?.call('使用 Homebrew 卸载 Python…');
-        final result = await _runWithProgress(
+        final result = await _runManagedToolchainCommandWithProgress(
           'brew',
           ['uninstall', formula],
           onProgress: onProgress,
@@ -2946,7 +2927,7 @@ exit 4
   }) async {
     if (Platform.isMacOS && await _isExecutableAvailable('brew')) {
       onProgress?.call('使用 Homebrew Cask 卸载 Docker Desktop…');
-      final result = await _runWithProgress(
+      final result = await _runManagedToolchainCommandWithProgress(
         'brew',
         ['uninstall', '--cask', 'docker'],
         onProgress: onProgress,
@@ -3161,14 +3142,6 @@ String? _extractFirstSemver(String output, {String? prefix}) {
     final value = match.group(1);
     if (value == null) continue;
     if (prefix == null || value.startsWith(prefix)) return value;
-  }
-  return null;
-}
-
-String? _extractAbsolutePathFromOutput(String output) {
-  for (final line in output.split('\n').reversed) {
-    final trimmed = line.trim();
-    if (trimmed.startsWith('/')) return trimmed;
   }
   return null;
 }

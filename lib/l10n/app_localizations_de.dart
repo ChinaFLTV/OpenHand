@@ -649,6 +649,10 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get pluginServiceMcpVerificationFailed =>
+      'Die MCP-Statusprüfung nach dem Vorgang ist fehlgeschlagen';
+
+  @override
   String get pluginServiceDescriptionNodejs =>
       'JavaScript-Laufzeit für JS/TS-Skripte und Toolchains';
 

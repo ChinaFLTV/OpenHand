@@ -324,6 +324,7 @@
       "error": {}
     }
   },
+  "pluginServiceMcpVerificationFailed": "Die MCP-Statusprüfung nach dem Vorgang ist fehlgeschlagen",
   "pluginServiceDescriptionNodejs": "JavaScript-Laufzeit für JS/TS-Skripte und Toolchains",
   "pluginServiceDescriptionPlaywright": "Framework für Browser-Automatisierungstests mit Chromium, Firefox und WebKit",
   "pluginServiceDescriptionHermesAgent": "Hermes-Agent-Laufzeit für Agent-Orchestrierung, Selbstlernen und Skill-Verfeinerung",

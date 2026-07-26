@@ -220,20 +220,12 @@ class PluginScannerService {
     return (version: resolvedVersion, nodeBin: nodeBin, npmBin: npmBin);
   }
 
-  static String? _extractAbsolutePath(String output) {
-    for (final line in output.split('\n').reversed) {
-      final trimmed = line.trim();
-      if (p.isAbsolute(trimmed)) return p.normalize(trimmed);
-    }
-    return null;
-  }
-
   Future<PluginNpmPackageInstallation?> _resolveGlobalNpmPackage(
     String packageName,
   ) async {
     final rootResult = await _shellRun('npm root -g');
     if (rootResult.exitCode != 0) return null;
-    final globalRoot = _extractAbsolutePath(rootResult.stdout.toString());
+    final globalRoot = extractPluginAbsolutePath(rootResult.stdout.toString());
     if (globalRoot == null) return null;
     return resolvePluginNpmPackageInstallation(
       globalRoot: globalRoot,
@@ -506,7 +498,9 @@ class PluginScannerService {
         includeNpmGlobalBinFallback: latestNpmPackage != null,
       );
       if (pathResult.exitCode != 0) continue;
-      final installPath = _extractAbsolutePath(pathResult.stdout.toString());
+      final installPath = extractPluginAbsolutePath(
+        pathResult.stdout.toString(),
+      );
       if (installPath == null || installPath.isEmpty) continue;
       final versionResult = await _shellRun(
         [_shellQuote(installPath), ...versionArgs.map(_shellQuote)].join(' '),
@@ -540,22 +534,22 @@ class PluginScannerService {
 
   static PluginInfo _placeholderById(String id) {
     return switch (id) {
-      'nodejs' => _nodeNotInstalled,
-      'playwright' => _playwrightNotInstalled,
+      PluginCatalogIds.nodejs => _nodeNotInstalled,
+      PluginCatalogIds.playwright => _playwrightNotInstalled,
       PluginCatalogIds.hermesAgent => _hermesAgentNotInstalled,
-      'python' => _pythonNotInstalled,
-      'pip' => _pipNotInstalled,
-      'java' => _javaNotInstalled,
-      'frida' => _fridaNotInstalled,
-      'mitmproxy' => _mitmproxyNotInstalled,
-      'apktool' => _apktoolNotInstalled,
-      'jadx' => _jadxNotInstalled,
-      'radare2' => _radare2NotInstalled,
-      'blutter' => _blutterNotInstalled,
-      'doldrums' => _doldrumsNotInstalled,
-      'anything_analyzer' => _anythingAnalyzerNotInstalled,
-      'docker' => _dockerNotInstalled,
-      'qdrant' => _qdrantNotInstalled,
+      PluginCatalogIds.python => _pythonNotInstalled,
+      PluginCatalogIds.pip => _pipNotInstalled,
+      PluginCatalogIds.java => _javaNotInstalled,
+      PluginCatalogIds.frida => _fridaNotInstalled,
+      PluginCatalogIds.mitmproxy => _mitmproxyNotInstalled,
+      PluginCatalogIds.apktool => _apktoolNotInstalled,
+      PluginCatalogIds.jadx => _jadxNotInstalled,
+      PluginCatalogIds.radare2 => _radare2NotInstalled,
+      PluginCatalogIds.blutter => _blutterNotInstalled,
+      PluginCatalogIds.doldrums => _doldrumsNotInstalled,
+      PluginCatalogIds.anythingAnalyzer => _anythingAnalyzerNotInstalled,
+      PluginCatalogIds.docker => _dockerNotInstalled,
+      PluginCatalogIds.qdrant => _qdrantNotInstalled,
       _ => PluginInfo(
         id: id,
         name: id,
@@ -577,7 +571,9 @@ class PluginScannerService {
     for (final command in const ['python3', 'python']) {
       final whichResult = await _shellRun('pyenv which $command');
       if (whichResult.exitCode != 0) continue;
-      final executable = _extractAbsolutePath(whichResult.stdout.toString());
+      final executable = extractPluginAbsolutePath(
+        whichResult.stdout.toString(),
+      );
       if (executable == null || executable.isEmpty) continue;
       final versionResult = await runTrackedProcessOrFailed(
         executable,
@@ -635,7 +631,7 @@ class PluginScannerService {
       if (version == null) continue;
       final pathResult = await _shellRun('command -v $command');
       final executable = pathResult.exitCode == 0
-          ? _extractAbsolutePath(pathResult.stdout.toString())
+          ? extractPluginAbsolutePath(pathResult.stdout.toString())
           : null;
       if (executable == null || executable.isEmpty) continue;
       final formula = pluginLooksLikeHomebrewPythonPath(executable)
@@ -684,7 +680,7 @@ class PluginScannerService {
   PluginInfo _pythonInfoFromRuntime(_PythonRuntimeScan? runtime) {
     if (runtime == null) return _pythonNotInstalled;
     return PluginInfo(
-      id: 'python',
+      id: PluginCatalogIds.python,
       name: 'Python',
       description: 'Python 运行时环境，用于执行 Python 脚本、库与扩展能力',
       status: PluginStatus.installed,
@@ -712,14 +708,14 @@ class PluginScannerService {
           releaseHint: await _readNvmDefaultAlias(),
         );
         return PluginInfo(
-          id: 'nodejs',
+          id: PluginCatalogIds.nodejs,
           name: 'Node.js',
           description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
           status: PluginStatus.installed,
           installedVersion: version,
           latestVersion: _pickHigherNodeVersion(version, latestVersion),
           installPath: nvm.nodeBin,
-          dependents: const ['playwright'],
+          dependents: const <String>[PluginCatalogIds.playwright],
         );
       }
 
@@ -731,7 +727,7 @@ class PluginScannerService {
         }
         final pathResult = await _shellRun('which node');
         final installPath = pathResult.exitCode == 0
-            ? _extractAbsolutePath(pathResult.stdout.toString())
+            ? extractPluginAbsolutePath(pathResult.stdout.toString())
             : null;
         final releaseHint =
             (installPath != null &&
@@ -744,14 +740,14 @@ class PluginScannerService {
           releaseHint: releaseHint,
         );
         return PluginInfo(
-          id: 'nodejs',
+          id: PluginCatalogIds.nodejs,
           name: 'Node.js',
           description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
           status: PluginStatus.installed,
           installedVersion: version,
           latestVersion: _pickHigherNodeVersion(version, latestVersion),
           installPath: installPath?.isEmpty == true ? null : installPath,
-          dependents: const ['playwright'],
+          dependents: const <String>[PluginCatalogIds.playwright],
         );
       }
     } catch (e) {
@@ -788,14 +784,14 @@ class PluginScannerService {
       _ => null,
     };
     return PluginInfo(
-      id: 'pip',
+      id: PluginCatalogIds.pip,
       name: 'pip',
       description: 'Python 包管理工具，用于安装、升级与管理 Python 库',
       status: PluginStatus.installed,
       installedVersion: version,
       latestVersion: latestVersion,
       installPath: runtime.executable,
-      dependencies: const ['python'],
+      dependencies: const <String>[PluginCatalogIds.python],
       supportsUninstall: false,
     );
   }
@@ -828,23 +824,24 @@ class PluginScannerService {
       final globalRoot = p.dirname(installation.packageDirectory);
       final npmCacheResult = await _shellRun('npm config get cache');
       final npmCache = npmCacheResult.exitCode == 0
-          ? _extractAbsolutePath(npmCacheResult.stdout.toString())
+          ? extractPluginAbsolutePath(npmCacheResult.stdout.toString())
           : null;
+      final dataDirectory = pluginPlaywrightDataDirectory(
+        packageDirectory: installation.packageDirectory,
+      );
       return PluginInfo(
-        id: 'playwright',
+        id: PluginCatalogIds.playwright,
         name: 'Playwright',
         description: '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit',
         status: PluginStatus.installed,
         installedVersion: version,
         latestVersion: latestVersion,
         installPath: installation.executablePath,
-        dependencies: const ['nodejs'],
+        dependencies: const <String>[PluginCatalogIds.nodejs],
         metadata: <String, Object?>{
           'installation_target': installation.packageDirectory,
           'executable_path': installation.executablePath,
-          'data_directory': pluginPlaywrightDataDirectory(
-            packageDirectory: installation.packageDirectory,
-          ),
+          if (dataDirectory != null) 'data_directory': dataDirectory,
           if (npmCache != null) 'cache_directory': npmCache,
           'npm_global_root': globalRoot,
         },
@@ -874,14 +871,17 @@ class PluginScannerService {
     operation: '扫描 Java',
     fallback: _javaNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'java',
+      id: PluginCatalogIds.java,
       name: 'Java',
       description: 'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具',
       commands: const <String>['java'],
       versionArgs: const <String>['-version'],
       versionParser: _extractJavaVersion,
       latestBrewFormula: 'openjdk',
-      dependents: const <String>['apktool', 'jadx'],
+      dependents: const <String>[
+        PluginCatalogIds.apktool,
+        PluginCatalogIds.jadx,
+      ],
     ),
   );
 
@@ -889,14 +889,17 @@ class PluginScannerService {
     operation: '扫描 Frida',
     fallback: _fridaNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'frida',
+      id: PluginCatalogIds.frida,
       name: 'Frida',
       description: '动态插桩与 Hook 工具链，用于 Android 运行时验证',
       commands: const <String>['frida'],
       versionArgs: const <String>['--version'],
       versionParser: _extractLooseVersion,
       latestPypiPackage: 'frida-tools',
-      dependencies: const <String>['python', 'pip'],
+      dependencies: const <String>[
+        PluginCatalogIds.python,
+        PluginCatalogIds.pip,
+      ],
     ),
   );
 
@@ -904,7 +907,7 @@ class PluginScannerService {
     operation: '扫描 mitmproxy',
     fallback: _mitmproxyNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'mitmproxy',
+      id: PluginCatalogIds.mitmproxy,
       name: 'mitmproxy',
       description: 'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证',
       commands: const <String>['mitmdump', 'mitmproxy'],
@@ -918,14 +921,14 @@ class PluginScannerService {
     operation: '扫描 apktool',
     fallback: _apktoolNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'apktool',
+      id: PluginCatalogIds.apktool,
       name: 'apktool',
       description: 'APK 解包与 smali 分析工具',
       commands: const <String>['apktool'],
       versionArgs: const <String>['--version'],
       versionParser: _extractLooseVersion,
       latestBrewFormula: 'apktool',
-      dependencies: const <String>['java'],
+      dependencies: const <String>[PluginCatalogIds.java],
     ),
   );
 
@@ -933,14 +936,14 @@ class PluginScannerService {
     operation: '扫描 jadx',
     fallback: _jadxNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'jadx',
+      id: PluginCatalogIds.jadx,
       name: 'jadx',
       description: 'DEX / APK Java 反编译工具',
       commands: const <String>['jadx'],
       versionArgs: const <String>['--version'],
       versionParser: _extractLooseVersion,
       latestBrewFormula: 'jadx',
-      dependencies: const <String>['java'],
+      dependencies: const <String>[PluginCatalogIds.java],
     ),
   );
 
@@ -948,7 +951,7 @@ class PluginScannerService {
     operation: '扫描 radare2',
     fallback: _radare2NotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'radare2',
+      id: PluginCatalogIds.radare2,
       name: 'radare2',
       description: '二进制静态分析与 ELF / native so 逆向工具',
       commands: const <String>['r2', 'radare2'],
@@ -962,13 +965,16 @@ class PluginScannerService {
     operation: '扫描 blutter',
     fallback: _blutterNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'blutter',
+      id: PluginCatalogIds.blutter,
       name: 'blutter',
       description: 'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析',
       commands: <String>['blutter', _openHandToolBin('blutter')],
       versionArgs: const <String>['--help'],
       versionParser: (_) => null,
-      dependencies: const <String>['python', 'pip'],
+      dependencies: const <String>[
+        PluginCatalogIds.python,
+        PluginCatalogIds.pip,
+      ],
     ),
   );
 
@@ -976,13 +982,16 @@ class PluginScannerService {
     operation: '扫描 Doldrums',
     fallback: _doldrumsNotInstalled,
     operationBody: () => _scanCommandPlugin(
-      id: 'doldrums',
+      id: PluginCatalogIds.doldrums,
       name: 'Doldrums',
       description: 'Flutter snapshot / ELF 辅助分析工具',
       commands: <String>['doldrums', 'Doldrums', _openHandToolBin('doldrums')],
       versionArgs: const <String>['--help'],
       versionParser: (_) => null,
-      dependencies: const <String>['python', 'pip'],
+      dependencies: const <String>[
+        PluginCatalogIds.python,
+        PluginCatalogIds.pip,
+      ],
     ),
   );
 
@@ -991,7 +1000,7 @@ class PluginScannerService {
     fallback: _anythingAnalyzerNotInstalled,
     operationBody: () async {
       final commandScan = await _scanCommandPlugin(
-        id: 'anything_analyzer',
+        id: PluginCatalogIds.anythingAnalyzer,
         name: 'Anything Analyzer',
         description: '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动',
         commands: <String>[
@@ -1006,7 +1015,7 @@ class PluginScannerService {
         if (await probeFileSystemEntityType(path, followLinks: true) !=
             FileSystemEntityType.notFound) {
           return PluginInfo(
-            id: 'anything_analyzer',
+            id: PluginCatalogIds.anythingAnalyzer,
             name: 'Anything Analyzer',
             description: '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动',
             status: PluginStatus.installed,
@@ -1025,11 +1034,11 @@ class PluginScannerService {
       if (pathResult.exitCode != 0) {
         if (desktopAppExists) {
           return const PluginInfo(
-            id: 'docker',
+            id: PluginCatalogIds.docker,
             name: 'Docker',
             description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
             status: PluginStatus.error,
-            dependents: <String>['qdrant'],
+            dependents: <String>[PluginCatalogIds.qdrant],
             metadata: <String, Object?>{
               'desktop_app_detected': true,
               'daemon_running': false,
@@ -1039,7 +1048,9 @@ class PluginScannerService {
         }
         return _dockerNotInstalled;
       }
-      final installPath = _extractAbsolutePath(pathResult.stdout.toString());
+      final installPath = extractPluginAbsolutePath(
+        pathResult.stdout.toString(),
+      );
       final versionResult = await _shellRun('docker --version');
       final version = versionResult.exitCode == 0
           ? _extractLooseVersion(versionResult.stdout.toString())
@@ -1075,24 +1086,24 @@ class PluginScannerService {
           metadata['compose_version'] = compose.stdout.toString().trim();
         }
         return PluginInfo(
-          id: 'docker',
+          id: PluginCatalogIds.docker,
           name: 'Docker',
           description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
           status: PluginStatus.installed,
           installedVersion: version,
           installPath: installPath,
-          dependents: const <String>['qdrant'],
+          dependents: const <String>[PluginCatalogIds.qdrant],
           metadata: metadata,
         );
       }
       return PluginInfo(
-        id: 'docker',
+        id: PluginCatalogIds.docker,
         name: 'Docker',
         description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
         status: PluginStatus.error,
         installedVersion: version,
         installPath: installPath,
-        dependents: const <String>['qdrant'],
+        dependents: const <String>[PluginCatalogIds.qdrant],
         metadata: metadata,
         errorMessage: 'docker CLI 可用，但 Docker daemon 未运行或不可访问。',
       );
@@ -1164,30 +1175,30 @@ class PluginScannerService {
           : imageVersion;
       if (!openHandManaged) {
         return PluginInfo(
-          id: 'qdrant',
+          id: PluginCatalogIds.qdrant,
           name: 'Qdrant',
           description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
           status: PluginStatus.error,
           installedVersion: installedVersion,
-          dependencies: const <String>['docker'],
+          dependencies: const <String>[PluginCatalogIds.docker],
           metadata: metadata,
           errorMessage: '检测到同名 Qdrant 容器，但缺少 OpenHand 管理标记。',
         );
       }
       if (!running) {
         return PluginInfo(
-          id: 'qdrant',
+          id: PluginCatalogIds.qdrant,
           name: 'Qdrant',
           description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
           status: PluginStatus.error,
           installedVersion: installedVersion,
-          dependencies: const <String>['docker'],
+          dependencies: const <String>[PluginCatalogIds.docker],
           metadata: metadata,
           errorMessage: 'OpenHand Qdrant 容器已存在但未运行。',
         );
       }
       return PluginInfo(
-        id: 'qdrant',
+        id: PluginCatalogIds.qdrant,
         name: 'Qdrant',
         description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
         status: PluginStatus.installed,
@@ -1195,7 +1206,7 @@ class PluginScannerService {
         installPath: '${metadata['data_directory'] ?? ''}'.trim().isEmpty
             ? null
             : '${metadata['data_directory']}',
-        dependencies: const <String>['docker'],
+        dependencies: const <String>[PluginCatalogIds.docker],
         metadata: metadata,
       );
     } catch (e, stack) {
@@ -1261,7 +1272,7 @@ class PluginScannerService {
   }
 
   static const _nodeNotInstalled = PluginInfo(
-    id: 'nodejs',
+    id: PluginCatalogIds.nodejs,
     name: 'Node.js',
     description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
     status: PluginStatus.notInstalled,
@@ -1269,11 +1280,11 @@ class PluginScannerService {
   );
 
   static const _playwrightNotInstalled = PluginInfo(
-    id: 'playwright',
+    id: PluginCatalogIds.playwright,
     name: 'Playwright',
     description: '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit',
     status: PluginStatus.notInstalled,
-    dependencies: ['nodejs'],
+    dependencies: <String>[PluginCatalogIds.nodejs],
   );
 
   static const _hermesAgentNotInstalled = PluginInfo(
@@ -1285,104 +1296,104 @@ class PluginScannerService {
   );
 
   static const _pythonNotInstalled = PluginInfo(
-    id: 'python',
+    id: PluginCatalogIds.python,
     name: 'Python',
     description: 'Python 运行时环境，用于执行 Python 脚本、库与扩展能力',
     status: PluginStatus.notInstalled,
   );
 
   static const _pipNotInstalled = PluginInfo(
-    id: 'pip',
+    id: PluginCatalogIds.pip,
     name: 'pip',
     description: 'Python 包管理工具，用于安装、升级与管理 Python 库',
     status: PluginStatus.notInstalled,
-    dependencies: ['python'],
+    dependencies: <String>[PluginCatalogIds.python],
     supportsUninstall: false,
   );
 
   static const _javaNotInstalled = PluginInfo(
-    id: 'java',
+    id: PluginCatalogIds.java,
     name: 'Java',
     description: 'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具',
     status: PluginStatus.notInstalled,
-    dependents: ['apktool', 'jadx'],
+    dependents: <String>[PluginCatalogIds.apktool, PluginCatalogIds.jadx],
   );
 
   static const _fridaNotInstalled = PluginInfo(
-    id: 'frida',
+    id: PluginCatalogIds.frida,
     name: 'Frida',
     description: '动态插桩与 Hook 工具链，用于 Android 运行时验证',
     status: PluginStatus.notInstalled,
-    dependencies: ['python', 'pip'],
+    dependencies: <String>[PluginCatalogIds.python, PluginCatalogIds.pip],
   );
 
   static const _mitmproxyNotInstalled = PluginInfo(
-    id: 'mitmproxy',
+    id: PluginCatalogIds.mitmproxy,
     name: 'mitmproxy',
     description: 'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证',
     status: PluginStatus.notInstalled,
   );
 
   static const _apktoolNotInstalled = PluginInfo(
-    id: 'apktool',
+    id: PluginCatalogIds.apktool,
     name: 'apktool',
     description: 'APK 解包与 smali 分析工具',
     status: PluginStatus.notInstalled,
-    dependencies: ['java'],
+    dependencies: <String>[PluginCatalogIds.java],
   );
 
   static const _jadxNotInstalled = PluginInfo(
-    id: 'jadx',
+    id: PluginCatalogIds.jadx,
     name: 'jadx',
     description: 'DEX / APK Java 反编译工具',
     status: PluginStatus.notInstalled,
-    dependencies: ['java'],
+    dependencies: <String>[PluginCatalogIds.java],
   );
 
   static const _radare2NotInstalled = PluginInfo(
-    id: 'radare2',
+    id: PluginCatalogIds.radare2,
     name: 'radare2',
     description: '二进制静态分析与 ELF / native so 逆向工具',
     status: PluginStatus.notInstalled,
   );
 
   static const _blutterNotInstalled = PluginInfo(
-    id: 'blutter',
+    id: PluginCatalogIds.blutter,
     name: 'blutter',
     description: 'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析',
     status: PluginStatus.notInstalled,
-    dependencies: ['python', 'pip'],
+    dependencies: <String>[PluginCatalogIds.python, PluginCatalogIds.pip],
   );
 
   static const _doldrumsNotInstalled = PluginInfo(
-    id: 'doldrums',
+    id: PluginCatalogIds.doldrums,
     name: 'Doldrums',
     description: 'Flutter snapshot / ELF 辅助分析工具',
     status: PluginStatus.notInstalled,
-    dependencies: ['python', 'pip'],
+    dependencies: <String>[PluginCatalogIds.python, PluginCatalogIds.pip],
   );
 
   static const _anythingAnalyzerNotInstalled = PluginInfo(
-    id: 'anything_analyzer',
+    id: PluginCatalogIds.anythingAnalyzer,
     name: 'Anything Analyzer',
     description: '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动',
     status: PluginStatus.notInstalled,
   );
 
   static const _dockerNotInstalled = PluginInfo(
-    id: 'docker',
+    id: PluginCatalogIds.docker,
     name: 'Docker',
     description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
     status: PluginStatus.notInstalled,
-    dependents: ['qdrant'],
+    dependents: <String>[PluginCatalogIds.qdrant],
   );
 
   static const _qdrantNotInstalled = PluginInfo(
-    id: 'qdrant',
+    id: PluginCatalogIds.qdrant,
     name: 'Qdrant',
     description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
     status: PluginStatus.notInstalled,
-    dependencies: ['docker'],
+    dependencies: <String>[PluginCatalogIds.docker],
   );
 
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
@@ -1456,12 +1467,14 @@ class PluginScannerService {
       ],
     );
     final updatedDocker = docker.copyWith(
-      dependents: qdrant.isInstalled ? const ['qdrant'] : const [],
+      dependents: qdrant.isInstalled
+          ? const <String>[PluginCatalogIds.qdrant]
+          : const <String>[],
     );
     final updatedJava = java.copyWith(
       dependents: <String>[
-        if (apktool.isInstalled) 'apktool',
-        if (jadx.isInstalled) 'jadx',
+        if (apktool.isInstalled) PluginCatalogIds.apktool,
+        if (jadx.isInstalled) PluginCatalogIds.jadx,
       ],
     );
     return [

@@ -652,6 +652,10 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get pluginServiceMcpVerificationFailed =>
+      'La vérification de l’état MCP après l’opération a échoué';
+
+  @override
   String get pluginServiceDescriptionNodejs =>
       'Runtime JavaScript pour scripts JS/TS et chaînes d’outils';
 

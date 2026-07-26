@@ -1,4 +1,4 @@
-// Domain model re-export so external callers reach it through the barrel.
+// 统一导出插件领域模型与功能入口。
 export 'model/plugin_info.dart';
 
 export 'plugin_service_controller.dart';

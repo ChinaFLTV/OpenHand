@@ -1,18 +1,57 @@
 import 'dart:io';
 
+import '../../../app/support/safe_subprocess.dart';
+import 'plugin_environment_probe.dart';
+
 final RegExp _pythonVersionOutputPattern = RegExp(r'Python\s+(\d+\.\d+\.\d+)');
 final RegExp _pipVersionOutputPattern = RegExp(r'pip\s+(\d+(?:\.\d+)+)');
 
-/// Extracts the semantic version from `python --version` output
-/// (e.g. `Python 3.12.1` → `3.12.1`). Returns null when absent.
+/// 从 `python --version` 输出提取语义化版本。
 String? extractPythonVersion(String output) {
   return _pythonVersionOutputPattern.firstMatch(output)?.group(1);
 }
 
-/// Extracts the version from `pip --version` output
-/// (e.g. `pip 24.0 from ...` → `24.0`). Returns null when absent.
+/// 从 `pip --version` 输出提取版本号。
 String? extractPipVersion(String output) {
   return _pipVersionOutputPattern.firstMatch(output)?.group(1);
+}
+
+Future<ProcessResult> runPluginToolchainCommandOrFailed(
+  String executable,
+  List<String> arguments, {
+  required Duration timeout,
+  String? tag,
+  Map<String, String>? environment,
+}) {
+  return runTrackedProcessOrFailed(
+    pluginShellExecutable(),
+    ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
+    timeout: timeout,
+    tag: tag ?? 'plugin_toolchain.command.$executable',
+    environment: environment ?? pluginProxyEnvironment(),
+  );
+}
+
+Future<TrackedProcessLineLogResult> runPluginToolchainCommandWithLineLogging(
+  String executable,
+  List<String> arguments, {
+  required Duration timeout,
+  required String tag,
+  ProcessLogLineHandler? onStdoutLine,
+  ProcessLogLineHandler? onStderrLine,
+  void Function()? onTimeout,
+  Map<String, String>? environment,
+}) {
+  return runTrackedProcessWithLineLogging(
+    pluginShellExecutable(),
+    ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
+    environment: environment ?? pluginProxyEnvironment(),
+    timeout: timeout,
+    tag: tag,
+    onStdoutLine: onStdoutLine,
+    onStderrLine: onStderrLine,
+    onTimeout: onTimeout,
+  );
 }
 
 String pluginToolchainManagedCommandScript(
@@ -65,9 +104,16 @@ command -v $command
 
 String pluginToolchainShellPrefix() {
   final home = Platform.environment['HOME'] ?? '';
+  final defaultVoltaHome = pluginToolchainShellQuote('$home/.volta');
+  final defaultPyenvRoot = pluginToolchainShellQuote('$home/.pyenv');
+  final defaultNvmDirectory = pluginToolchainShellQuote('$home/.nvm');
   return '''
-export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"
-export PYENV_ROOT="\${PYENV_ROOT:-$home/.pyenv}"
+if [ -z "\${VOLTA_HOME:-}" ]; then
+  export VOLTA_HOME=$defaultVoltaHome
+fi
+if [ -z "\${PYENV_ROOT:-}" ]; then
+  export PYENV_ROOT=$defaultPyenvRoot
+fi
 export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$VOLTA_HOME/bin:\$PATH"
 if command -v pyenv >/dev/null 2>&1; then
   eval "\$(pyenv init -)"
@@ -75,7 +121,9 @@ fi
 if command -v fnm >/dev/null 2>&1; then
   eval "\$(fnm env)"
 fi
-export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
+if [ -z "\${NVM_DIR:-}" ]; then
+  export NVM_DIR=$defaultNvmDirectory
+fi
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 ''';
 }

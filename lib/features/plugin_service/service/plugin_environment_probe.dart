@@ -41,6 +41,14 @@ final class PluginNpmPackageInstallation {
   final String executablePath;
 }
 
+String? extractPluginAbsolutePath(String output) {
+  for (final line in output.split('\n').reversed) {
+    final path = line.trim();
+    if (p.isAbsolute(path)) return p.normalize(path);
+  }
+  return null;
+}
+
 Future<PluginNpmPackageInstallation?> resolvePluginNpmPackageInstallation({
   required String globalRoot,
   required String packageName,
@@ -66,7 +74,7 @@ Future<PluginNpmPackageInstallation?> resolvePluginNpmPackageInstallation({
   );
 }
 
-String pluginPlaywrightDataDirectory({
+String? pluginPlaywrightDataDirectory({
   required String packageDirectory,
   Map<String, String>? environment,
   String? homeDirectory,
@@ -82,20 +90,21 @@ String pluginPlaywrightDataDirectory({
     );
   }
   if (configured != null && configured.isNotEmpty) {
-    return p.normalize(
-      p.isAbsolute(configured) ? configured : p.absolute(configured),
-    );
+    return p.isAbsolute(configured) ? p.normalize(configured) : null;
   }
 
   final home = (homeDirectory ?? env['HOME'] ?? env['USERPROFILE'] ?? '')
       .trim();
   if (Platform.isWindows) {
     final localAppData = env['LOCALAPPDATA']?.trim();
-    if (localAppData != null && localAppData.isNotEmpty) {
+    if (localAppData != null && p.isAbsolute(localAppData)) {
       return p.join(localAppData, 'ms-playwright');
     }
-    return p.join(home, 'AppData', 'Local', 'ms-playwright');
+    return p.isAbsolute(home)
+        ? p.join(home, 'AppData', 'Local', 'ms-playwright')
+        : null;
   }
+  if (!p.isAbsolute(home)) return null;
   if (Platform.isMacOS) {
     return p.join(home, 'Library', 'Caches', 'ms-playwright');
   }

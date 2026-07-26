@@ -324,6 +324,7 @@
       "error": {}
     }
   },
+  "pluginServiceMcpVerificationFailed": "MCP 操作後の状態確認に失敗しました",
   "pluginServiceDescriptionNodejs": "JS/TS スクリプトとツールチェーン向けの JavaScript ランタイム",
   "pluginServiceDescriptionPlaywright": "Chromium / Firefox / WebKit に対応したブラウザ自動化テストフレームワーク",
   "pluginServiceDescriptionHermesAgent": "エージェント編成、自己学習、スキル洗練のための Hermes Agent ランタイム",

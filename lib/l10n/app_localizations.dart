@@ -1255,6 +1255,12 @@ abstract class AppLocalizations {
   /// **'✗ 异常：{error}'**
   String pluginServiceMcpOperationError(Object error);
 
+  /// No description provided for @pluginServiceMcpVerificationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'MCP 操作后的状态校验失败'**
+  String get pluginServiceMcpVerificationFailed;
+
   /// No description provided for @pluginServiceDescriptionNodejs.
   ///
   /// In zh, this message translates to:

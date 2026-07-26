@@ -3,11 +3,9 @@ import 'package:provider/single_child_widget.dart';
 
 import 'plugin_service_controller.dart';
 
-/// Assembly point for the plugin_service feature.
+/// 插件服务功能的装配入口。
 ///
-/// Construction is synchronous. `main.dart` currently bootstraps the module
-/// during app startup and then schedules `controller.initialize()` in the
-/// background so the first plugin scan does not block first paint.
+/// 模块同步构造，首次扫描由 `main.dart` 在后台启动，避免阻塞首帧。
 class PluginServiceModule {
   PluginServiceModule._({required this.controller});
 

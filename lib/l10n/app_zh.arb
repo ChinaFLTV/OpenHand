@@ -324,6 +324,7 @@
       "error": {}
     }
   },
+  "pluginServiceMcpVerificationFailed": "MCP 操作后的状态校验失败",
   "pluginServiceDescriptionNodejs": "JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链",
   "pluginServiceDescriptionPlaywright": "浏览器自动化测试框架，支持 Chromium / Firefox / WebKit",
   "pluginServiceDescriptionHermesAgent": "Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀",

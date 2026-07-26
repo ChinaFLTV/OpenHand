@@ -324,6 +324,7 @@
       "error": {}
     }
   },
+  "pluginServiceMcpVerificationFailed": "La vérification de l’état MCP après l’opération a échoué",
   "pluginServiceDescriptionNodejs": "Runtime JavaScript pour scripts JS/TS et chaînes d’outils",
   "pluginServiceDescriptionPlaywright": "Framework de tests d’automatisation navigateur pour Chromium, Firefox et WebKit",
   "pluginServiceDescriptionHermesAgent": "Runtime Hermes Agent pour l’orchestration d’agents, l’auto-apprentissage et l’affinage des compétences",

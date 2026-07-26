@@ -104,9 +104,11 @@ class PluginServiceController extends ManagedChangeNotifier {
       _plugins = _mergeScannedPlugins(await _scanner.scanAll());
     } catch (e) {
       _errorMessage = '$e';
-      _plugins = _mergeScannedPlugins(
-        PluginScannerService.knownPluginPlaceholders(),
-      );
+      if (_plugins.isEmpty) {
+        _plugins = _mergeScannedPlugins(
+          PluginScannerService.knownPluginPlaceholders(),
+        );
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -127,24 +129,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     // 插件页展示顺序按插件被纳入 OpenHand 的时间顺序固定；新增插件只能
     // 追加到列表末尾，不能因为依赖关系或功能分组插入到中间，避免用户
     // 看到既有插件位置跳动。
-    for (final id in const <String>[
-      'nodejs',
-      'playwright',
-      'python',
-      'pip',
-      'java',
-      'frida',
-      'mitmproxy',
-      'apktool',
-      'jadx',
-      'radare2',
-      'blutter',
-      'doldrums',
-      'anything_analyzer',
-      'docker',
-      'qdrant',
-      PluginCatalogIds.hermesAgent,
-    ]) {
+    for (final id in PluginCatalogIds.displayOrder) {
       final plugin = byId[id];
       if (plugin == null) continue;
       seen.add(id);
@@ -173,26 +158,26 @@ class PluginServiceController extends ManagedChangeNotifier {
     notifyListeners();
     try {
       final refreshed = await switch (pluginId) {
-        'nodejs' => _scanner.scanNodeJs(),
-        'playwright' => _scanner.scanPlaywright(),
+        PluginCatalogIds.nodejs => _scanner.scanNodeJs(),
+        PluginCatalogIds.playwright => _scanner.scanPlaywright(),
         PluginCatalogIds.hermesAgent => _scanner.scanHermesAgent(),
-        'python' => _scanner.scanPython(),
-        'pip' => _scanner.scanPip(),
-        'java' => _scanner.scanJava(),
-        'frida' => _scanner.scanFrida(),
-        'mitmproxy' => _scanner.scanMitmproxy(),
-        'apktool' => _scanner.scanApktool(),
-        'jadx' => _scanner.scanJadx(),
-        'radare2' => _scanner.scanRadare2(),
-        'blutter' => _scanner.scanBlutter(),
-        'doldrums' => _scanner.scanDoldrums(),
-        'anything_analyzer' => _scanner.scanAnythingAnalyzer(),
-        'docker' => _scanner.scanDocker(),
-        'qdrant' => _scanner.scanQdrant(),
+        PluginCatalogIds.python => _scanner.scanPython(),
+        PluginCatalogIds.pip => _scanner.scanPip(),
+        PluginCatalogIds.java => _scanner.scanJava(),
+        PluginCatalogIds.frida => _scanner.scanFrida(),
+        PluginCatalogIds.mitmproxy => _scanner.scanMitmproxy(),
+        PluginCatalogIds.apktool => _scanner.scanApktool(),
+        PluginCatalogIds.jadx => _scanner.scanJadx(),
+        PluginCatalogIds.radare2 => _scanner.scanRadare2(),
+        PluginCatalogIds.blutter => _scanner.scanBlutter(),
+        PluginCatalogIds.doldrums => _scanner.scanDoldrums(),
+        PluginCatalogIds.anythingAnalyzer => _scanner.scanAnythingAnalyzer(),
+        PluginCatalogIds.docker => _scanner.scanDocker(),
+        PluginCatalogIds.qdrant => _scanner.scanQdrant(),
         _ => Future<PluginInfo?>.value(),
       };
       if (refreshed == null) return null;
-      final merged = pluginId == 'nodejs'
+      final merged = pluginId == PluginCatalogIds.nodejs
           ? refreshed.copyWith(
               dependents: <String>[
                 if (pluginById(PluginCatalogIds.playwright)?.isInstalled ==
@@ -254,26 +239,46 @@ class PluginServiceController extends ManagedChangeNotifier {
       pluginId: pluginId,
       transientStatus: PluginStatus.installing,
       operation: () => switch (pluginId) {
-        'nodejs' => _lifecycle.installNodeJs(onProgress: _addLog),
-        'playwright' => _lifecycle.installPlaywright(onProgress: _addLog),
+        PluginCatalogIds.nodejs => _lifecycle.installNodeJs(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.playwright => _lifecycle.installPlaywright(
+          onProgress: _addLog,
+        ),
         PluginCatalogIds.hermesAgent => _lifecycle.installHermesAgent(
           onProgress: _addLog,
         ),
-        'python' => _lifecycle.installPython(onProgress: _addLog),
-        'pip' => _lifecycle.installPip(onProgress: _addLog),
-        'java' => _lifecycle.installJava(onProgress: _addLog),
-        'frida' => _lifecycle.installFrida(onProgress: _addLog),
-        'mitmproxy' => _lifecycle.installMitmproxy(onProgress: _addLog),
-        'apktool' => _lifecycle.installApktool(onProgress: _addLog),
-        'jadx' => _lifecycle.installJadx(onProgress: _addLog),
-        'radare2' => _lifecycle.installRadare2(onProgress: _addLog),
-        'blutter' => _lifecycle.installBlutter(onProgress: _addLog),
-        'doldrums' => _lifecycle.installDoldrums(onProgress: _addLog),
-        'anything_analyzer' => _lifecycle.installAnythingAnalyzer(
+        PluginCatalogIds.python => _lifecycle.installPython(
           onProgress: _addLog,
         ),
-        'docker' => _lifecycle.installDocker(onProgress: _addLog),
-        'qdrant' => _lifecycle.installQdrant(onProgress: _addLog),
+        PluginCatalogIds.pip => _lifecycle.installPip(onProgress: _addLog),
+        PluginCatalogIds.java => _lifecycle.installJava(onProgress: _addLog),
+        PluginCatalogIds.frida => _lifecycle.installFrida(onProgress: _addLog),
+        PluginCatalogIds.mitmproxy => _lifecycle.installMitmproxy(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.apktool => _lifecycle.installApktool(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.jadx => _lifecycle.installJadx(onProgress: _addLog),
+        PluginCatalogIds.radare2 => _lifecycle.installRadare2(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.blutter => _lifecycle.installBlutter(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.doldrums => _lifecycle.installDoldrums(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.anythingAnalyzer => _lifecycle.installAnythingAnalyzer(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.docker => _lifecycle.installDocker(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.qdrant => _lifecycle.installQdrant(
+          onProgress: _addLog,
+        ),
         _ => _unknownPluginOperation(),
       },
     );
@@ -287,26 +292,38 @@ class PluginServiceController extends ManagedChangeNotifier {
       pluginId: pluginId,
       transientStatus: PluginStatus.updating,
       operation: () => switch (pluginId) {
-        'nodejs' => _lifecycle.updateNodeJs(onProgress: _addLog),
-        'playwright' => _lifecycle.updatePlaywright(onProgress: _addLog),
+        PluginCatalogIds.nodejs => _lifecycle.updateNodeJs(onProgress: _addLog),
+        PluginCatalogIds.playwright => _lifecycle.updatePlaywright(
+          onProgress: _addLog,
+        ),
         PluginCatalogIds.hermesAgent => _lifecycle.updateHermesAgent(
           onProgress: _addLog,
         ),
-        'python' => _lifecycle.updatePython(onProgress: _addLog),
-        'pip' => _lifecycle.updatePip(onProgress: _addLog),
-        'java' => _lifecycle.updateJava(onProgress: _addLog),
-        'frida' => _lifecycle.updateFrida(onProgress: _addLog),
-        'mitmproxy' => _lifecycle.updateMitmproxy(onProgress: _addLog),
-        'apktool' => _lifecycle.updateApktool(onProgress: _addLog),
-        'jadx' => _lifecycle.updateJadx(onProgress: _addLog),
-        'radare2' => _lifecycle.updateRadare2(onProgress: _addLog),
-        'blutter' => _lifecycle.updateBlutter(onProgress: _addLog),
-        'doldrums' => _lifecycle.updateDoldrums(onProgress: _addLog),
-        'anything_analyzer' => _lifecycle.updateAnythingAnalyzer(
+        PluginCatalogIds.python => _lifecycle.updatePython(onProgress: _addLog),
+        PluginCatalogIds.pip => _lifecycle.updatePip(onProgress: _addLog),
+        PluginCatalogIds.java => _lifecycle.updateJava(onProgress: _addLog),
+        PluginCatalogIds.frida => _lifecycle.updateFrida(onProgress: _addLog),
+        PluginCatalogIds.mitmproxy => _lifecycle.updateMitmproxy(
           onProgress: _addLog,
         ),
-        'docker' => _lifecycle.updateDocker(onProgress: _addLog),
-        'qdrant' => _lifecycle.updateQdrant(onProgress: _addLog),
+        PluginCatalogIds.apktool => _lifecycle.updateApktool(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.jadx => _lifecycle.updateJadx(onProgress: _addLog),
+        PluginCatalogIds.radare2 => _lifecycle.updateRadare2(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.blutter => _lifecycle.updateBlutter(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.doldrums => _lifecycle.updateDoldrums(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.anythingAnalyzer => _lifecycle.updateAnythingAnalyzer(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.docker => _lifecycle.updateDocker(onProgress: _addLog),
+        PluginCatalogIds.qdrant => _lifecycle.updateQdrant(onProgress: _addLog),
         _ => _unknownPluginOperation(),
       },
     );
@@ -346,34 +363,54 @@ class PluginServiceController extends ManagedChangeNotifier {
         }
       }
     }
-    final playwrightInstalled = pluginById('playwright')?.isInstalled ?? false;
+    final playwrightInstalled =
+        pluginById(PluginCatalogIds.playwright)?.isInstalled ?? false;
     return _runPluginLifecycleOperation(
       pluginId: pluginId,
       transientStatus: PluginStatus.uninstalling,
       operation: () => switch (pluginId) {
-        'nodejs' => _lifecycle.uninstallNodeJs(
+        PluginCatalogIds.nodejs => _lifecycle.uninstallNodeJs(
           playwrightInstalled: playwrightInstalled,
           onProgress: _addLog,
         ),
-        'playwright' => _lifecycle.uninstallPlaywright(onProgress: _addLog),
+        PluginCatalogIds.playwright => _lifecycle.uninstallPlaywright(
+          onProgress: _addLog,
+        ),
         PluginCatalogIds.hermesAgent => _lifecycle.uninstallHermesAgent(
           onProgress: _addLog,
         ),
-        'python' => _lifecycle.uninstallPython(onProgress: _addLog),
-        'pip' => _lifecycle.uninstallPip(onProgress: _addLog),
-        'java' => _lifecycle.uninstallJava(onProgress: _addLog),
-        'frida' => _lifecycle.uninstallFrida(onProgress: _addLog),
-        'mitmproxy' => _lifecycle.uninstallMitmproxy(onProgress: _addLog),
-        'apktool' => _lifecycle.uninstallApktool(onProgress: _addLog),
-        'jadx' => _lifecycle.uninstallJadx(onProgress: _addLog),
-        'radare2' => _lifecycle.uninstallRadare2(onProgress: _addLog),
-        'blutter' => _lifecycle.uninstallBlutter(onProgress: _addLog),
-        'doldrums' => _lifecycle.uninstallDoldrums(onProgress: _addLog),
-        'anything_analyzer' => _lifecycle.uninstallAnythingAnalyzer(
+        PluginCatalogIds.python => _lifecycle.uninstallPython(
           onProgress: _addLog,
         ),
-        'docker' => _lifecycle.uninstallDocker(onProgress: _addLog),
-        'qdrant' => _lifecycle.uninstallQdrant(onProgress: _addLog),
+        PluginCatalogIds.pip => _lifecycle.uninstallPip(onProgress: _addLog),
+        PluginCatalogIds.java => _lifecycle.uninstallJava(onProgress: _addLog),
+        PluginCatalogIds.frida => _lifecycle.uninstallFrida(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.mitmproxy => _lifecycle.uninstallMitmproxy(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.apktool => _lifecycle.uninstallApktool(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.jadx => _lifecycle.uninstallJadx(onProgress: _addLog),
+        PluginCatalogIds.radare2 => _lifecycle.uninstallRadare2(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.blutter => _lifecycle.uninstallBlutter(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.doldrums => _lifecycle.uninstallDoldrums(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.anythingAnalyzer =>
+          _lifecycle.uninstallAnythingAnalyzer(onProgress: _addLog),
+        PluginCatalogIds.docker => _lifecycle.uninstallDocker(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.qdrant => _lifecycle.uninstallQdrant(
+          onProgress: _addLog,
+        ),
         _ => _unknownPluginOperation(),
       },
     );
@@ -386,6 +423,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   }) async {
     if (isBusy) return false;
     _isOperating = true;
+    _errorMessage = null;
     _operationLogs.clear();
     _updatePluginStatus(pluginId, transientStatus);
     notifyListeners();
@@ -394,55 +432,113 @@ class PluginServiceController extends ManagedChangeNotifier {
       if (result.success) {
         await _refreshAllPlugins();
         final expectedVersion = result.newVersion?.trim();
-        final refreshed = pluginById(pluginId);
-        if (transientStatus != PluginStatus.uninstalling &&
-            expectedVersion != null &&
-            expectedVersion.isNotEmpty &&
-            (refreshed?.installedVersion == null ||
-                compareSemanticVersions(
-                      refreshed!.installedVersion!,
-                      expectedVersion,
-                    ) <
-                    0)) {
-          final actualVersion = refreshed?.installedVersion?.trim();
-          final message = _pluginServiceText(
-            zh: '操作后版本校验失败：预期 $expectedVersion，实际 ${actualVersion?.isNotEmpty == true ? actualVersion : '未检测到'}',
-            zhHant:
-                '操作後版本驗證失敗：預期 $expectedVersion，實際 ${actualVersion?.isNotEmpty == true ? actualVersion : '未偵測到'}',
-            en: 'Post-operation verification failed: expected $expectedVersion, got ${actualVersion?.isNotEmpty == true ? actualVersion : 'not detected'}.',
-            fr: 'Échec de la vérification après l’opération : $expectedVersion attendu, ${actualVersion?.isNotEmpty == true ? actualVersion : 'non détecté'} obtenu.',
-            de: 'Überprüfung nach dem Vorgang fehlgeschlagen: erwartet $expectedVersion, erhalten ${actualVersion?.isNotEmpty == true ? actualVersion : 'nicht erkannt'}.',
-            ja: '操作後のバージョン確認に失敗しました：期待値 $expectedVersion、実際 ${actualVersion?.isNotEmpty == true ? actualVersion : '未検出'}。',
-          );
-          _updatePluginStatus(
-            pluginId,
-            PluginStatus.error,
-            errorMessage: message,
-          );
-          _errorMessage = message;
-          notifyListeners();
+        final verificationError = _pluginOperationVerificationError(
+          pluginId: pluginId,
+          transientStatus: transientStatus,
+          expectedVersion: expectedVersion,
+          refreshError: _errorMessage,
+        );
+        if (verificationError != null) {
+          _setPluginOperationFailure(pluginId, verificationError);
           return false;
         }
         _operationSuccessPulse.emit();
         return true;
       }
-      _updatePluginStatus(
+      _setPluginOperationFailure(
         pluginId,
-        PluginStatus.error,
-        errorMessage: result.message,
+        result.message ??
+            _pluginServiceText(
+              zh: '插件操作失败',
+              zhHant: '外掛操作失敗',
+              en: 'Plugin operation failed.',
+              fr: 'Échec de l’opération sur le plugin.',
+              de: 'Der Plugin-Vorgang ist fehlgeschlagen.',
+              ja: 'プラグイン操作に失敗しました。',
+            ),
       );
-      _errorMessage = result.message;
-      notifyListeners();
       return false;
     } catch (e) {
-      _updatePluginStatus(pluginId, PluginStatus.error, errorMessage: '$e');
-      _errorMessage = '$e';
-      notifyListeners();
+      _setPluginOperationFailure(pluginId, '$e');
       return false;
     } finally {
       _isOperating = false;
       notifyListeners();
     }
+  }
+
+  String? _pluginOperationVerificationError({
+    required String pluginId,
+    required PluginStatus transientStatus,
+    required String? expectedVersion,
+    required String? refreshError,
+  }) {
+    final plugin = pluginById(pluginId);
+    final name = plugin?.name ?? pluginId;
+    if (refreshError != null) {
+      return _pluginServiceText(
+        zh: '操作已完成，但无法重新扫描 $name 状态：$refreshError',
+        zhHant: '操作已完成，但無法重新掃描 $name 狀態：$refreshError',
+        en: 'The operation completed, but $name could not be rescanned: $refreshError',
+        fr: 'L’opération est terminée, mais l’état de $name n’a pas pu être vérifié : $refreshError',
+        de: 'Der Vorgang wurde abgeschlossen, aber der Status von $name konnte nicht erneut geprüft werden: $refreshError',
+        ja: '操作は完了しましたが、$name の状態を再確認できませんでした：$refreshError',
+      );
+    }
+    if (transientStatus == PluginStatus.uninstalling) {
+      if (plugin == null || plugin.status == PluginStatus.notInstalled) {
+        return null;
+      }
+      return _pluginServiceText(
+        zh: '$name 卸载后仍可检测到，结果未通过校验',
+        zhHant: '$name 解除安裝後仍可偵測到，結果未通過驗證',
+        en: '$name is still detected after uninstall and failed verification.',
+        fr: '$name est toujours détecté après la désinstallation ; la vérification a échoué.',
+        de: '$name wird nach der Deinstallation weiterhin erkannt; die Überprüfung ist fehlgeschlagen.',
+        ja: '$name はアンインストール後も検出され、確認に失敗しました。',
+      );
+    }
+    if (plugin?.status != PluginStatus.installed) {
+      return _pluginServiceText(
+        zh: '$name 操作后未处于可用状态，结果未通过校验',
+        zhHant: '$name 操作後未處於可用狀態，結果未通過驗證',
+        en: '$name is not available after the operation and failed verification.',
+        fr: '$name n’est pas disponible après l’opération ; la vérification a échoué.',
+        de: '$name ist nach dem Vorgang nicht verfügbar; die Überprüfung ist fehlgeschlagen.',
+        ja: '$name は操作後に利用可能な状態ではなく、確認に失敗しました。',
+      );
+    }
+    if (expectedVersion == null || expectedVersion.isEmpty) return null;
+    final actualVersion = plugin?.installedVersion?.trim();
+    if (actualVersion != null &&
+        actualVersion.isNotEmpty &&
+        compareSemanticVersions(actualVersion, expectedVersion) >= 0) {
+      return null;
+    }
+    final actualLabel = actualVersion?.isNotEmpty == true
+        ? actualVersion!
+        : _pluginServiceText(
+            zh: '未检测到',
+            zhHant: '未偵測到',
+            en: 'not detected',
+            fr: 'non détecté',
+            de: 'nicht erkannt',
+            ja: '未検出',
+          );
+    return _pluginServiceText(
+      zh: '操作后版本校验失败：预期 $expectedVersion，实际 $actualLabel',
+      zhHant: '操作後版本驗證失敗：預期 $expectedVersion，實際 $actualLabel',
+      en: 'Post-operation verification failed: expected $expectedVersion, got $actualLabel.',
+      fr: 'Échec de la vérification après l’opération : $expectedVersion attendu, $actualLabel obtenu.',
+      de: 'Überprüfung nach dem Vorgang fehlgeschlagen: erwartet $expectedVersion, erhalten $actualLabel.',
+      ja: '操作後のバージョン確認に失敗しました：期待値 $expectedVersion、実際 $actualLabel。',
+    );
+  }
+
+  void _setPluginOperationFailure(String pluginId, String message) {
+    _updatePluginStatus(pluginId, PluginStatus.error, errorMessage: message);
+    _errorMessage = message;
+    notifyListeners();
   }
 
   Future<PluginOperationResult> _unknownPluginOperation() {

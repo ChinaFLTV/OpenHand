@@ -638,6 +638,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get pluginServiceMcpVerificationFailed => 'MCP 操作后的状态校验失败';
+
+  @override
   String get pluginServiceDescriptionNodejs =>
       'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链';
 
@@ -11311,6 +11314,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String pluginServiceMcpOperationError(Object error) {
     return '✗ 異常：$error';
   }
+
+  @override
+  String get pluginServiceMcpVerificationFailed => 'MCP 操作後的狀態驗證失敗';
 
   @override
   String get pluginServiceDescriptionNodejs =>

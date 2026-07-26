@@ -324,6 +324,7 @@
       "error": {}
     }
   },
+  "pluginServiceMcpVerificationFailed": "MCP 操作後的狀態驗證失敗",
   "pluginServiceDescriptionNodejs": "JavaScript 執行階段環境，用於執行 JS/TS 腳本與工具鏈",
   "pluginServiceDescriptionPlaywright": "瀏覽器自動化測試框架，支援 Chromium / Firefox / WebKit",
   "pluginServiceDescriptionHermesAgent": "Hermes Agent 執行階段，用於智能體編排、自我學習與技能沉澱",
