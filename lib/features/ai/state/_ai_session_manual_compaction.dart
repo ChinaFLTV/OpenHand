@@ -11,7 +11,7 @@ extension AiSessionControllerManualCompaction on AiSessionController {
   ///   * 触发熔断（[_compressionFailureCountsBySession] 已超阈值）也拒绝。
   ///
   /// 调用方典型流程：
-  ///   1. 在 UI 中通过 [AiSessionRuntimeContextBuilder] 拼好 runtimeContext；
+  ///   1. 在 UI 中拼好 [AiSessionRuntimeContext]；
   ///   2. await 本方法；
   ///   3. 根据 [AiManualCompactionResult.status] 弹 toast / 日志。
   Future<AiManualCompactionResult> requestManualCompaction({

@@ -205,11 +205,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       if (useProxy) {
         final spec = via.substring('PROXY '.length).trim();
         final colon = spec.lastIndexOf(':');
-        if (colon <= 0) {
+        final parsedPort = colon <= 0
+            ? null
+            : int.tryParse(spec.substring(colon + 1));
+        if (parsedPort == null || parsedPort <= 0 || parsedPort > 65535) {
           throw FormatException('Malformed PROXY directive: "$via"');
         }
         hopHost = spec.substring(0, colon);
-        hopPort = int.parse(spec.substring(colon + 1));
+        hopPort = parsedPort;
         _log(
           _ProxyTestLogLevel.info,
           'RESOLVE',

@@ -3354,8 +3354,7 @@ $identity''';
     }
     final toolMessagesByCallId = <String, AiSessionMessage>{};
     final toolMessageIndexByCallId = <String, int>{};
-    while (cursor < messages.length &&
-        messages[cursor].kind.isToolResultKind) {
+    while (cursor < messages.length && messages[cursor].kind.isToolResultKind) {
       final toolMessage = messages[cursor];
       final toolCallId = _readToolCallId(toolMessage.metadata);
       if (toolCallId != null &&
@@ -6041,11 +6040,11 @@ $content
   }
 
   /// 仅在摘要检查点 prompt 内补做微压缩：为 [messages] 中
-  /// 已被消费的旧工具结果计算 [old_tool_result_cleared] 摘要，返回
+  /// 已被消费的旧工具结果计算 `[old_tool_result_cleared]` 摘要，返回
   /// messageId → 摘要的映射。
   ///
   /// 正常对话 history 不能使用这层清理：同一条工具结果一旦从
-  /// [tool_result_summary] 被跨轮改写成 [old_tool_result_cleared]，provider
+  /// `[tool_result_summary]` 被跨轮改写成 `[old_tool_result_cleared]`，provider
   /// prefix cache 会在该历史位置断裂，所有线程模板都会被影响。
   Map<String, String> _computeMicroCompactContentMap(
     List<AiSessionMessage> messages,

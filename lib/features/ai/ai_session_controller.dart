@@ -1008,8 +1008,8 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, _CachedStreamThroughputSnapshot>
   _lastRawCharThroughputSnapshot = <String, _CachedStreamThroughputSnapshot>{};
 
-  /// 手动压缩防抖 — 同一会话两次手动压缩之间的最小间隔。
-  /// 值不可低于 [_manualCompactionMinIntervalMs]，与「Cooldown」错误一并消化。
+  /// 手动压缩防抖 — 记录同一会话上次手动压缩的时刻。
+  /// 间隔不足 [_manualCompactionDebounce] 时以「Cooldown」结果拒绝。
   final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
 
   /// 同一会话上是否有手动压缩正在进行（避免重复并发触发）。

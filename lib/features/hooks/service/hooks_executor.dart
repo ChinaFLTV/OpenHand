@@ -15,6 +15,15 @@ import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../hooks_controller.dart';
 
+/// 钩子执行结果状态；与 [HookEntryResult.status] 及用量记录字段同源。
+const String kHookStatusSuccess = 'success';
+const String kHookStatusFailed = 'failed';
+const String kHookStatusTimedOut = 'timed_out';
+const String kHookStatusBlocked = 'blocked';
+
+/// 钩子脚本以该退出码表示“拦截本次操作”，沿用 Claude Code 钩子约定。
+const int kHookBlockExitCode = 2;
+
 const int _maxHookOutputCharacters = 4000;
 const int _maxHookCapturedOutputBytes = 1024 * 1024;
 
@@ -96,7 +105,8 @@ class HookEntryResult {
   final String hookLabel;
   final HookEvent hookEvent;
 
-  /// One of: 'success', 'failed', 'timed_out', 'blocked'.
+  /// [kHookStatusSuccess] / [kHookStatusFailed] / [kHookStatusTimedOut] /
+  /// [kHookStatusBlocked] 之一。
   final String status;
   final int elapsedMs;
   final String stdout;
@@ -227,6 +237,23 @@ class HooksExecutor {
     for (final hook in hooks) {
       executedHookIds.add(hook.id);
       final stopwatch = Stopwatch()..start();
+      void record(String status, {_HookScriptResult? result, String? error}) {
+        hookResults.add(
+          HookEntryResult(
+            hookLabel: hook.label,
+            hookEvent: hook.event,
+            status: status,
+            elapsedMs: stopwatch.elapsedMilliseconds,
+            stdout: result?.stdout ?? '',
+            stderr: error ?? result?.stderr ?? '',
+            stdoutFile: result?.stdoutFile,
+            stderrFile: result?.stderrFile,
+            scriptPath: hook.scriptPath,
+            scriptContent: hook.scriptContent,
+          ),
+        );
+      }
+
       try {
         final result = await _runHookScript(
           hook: hook,
@@ -239,41 +266,15 @@ class HooksExecutor {
           errors.add(
             'Hook "${hook.label}" timed out after ${hook.timeoutSeconds}s.',
           );
-          hookResults.add(
-            HookEntryResult(
-              hookLabel: hook.label,
-              hookEvent: hook.event,
-              status: 'timed_out',
-              elapsedMs: stopwatch.elapsedMilliseconds,
-              stdout: result.stdout,
-              stderr: result.stderr,
-              stdoutFile: result.stdoutFile,
-              stderrFile: result.stderrFile,
-              scriptPath: hook.scriptPath,
-              scriptContent: hook.scriptContent,
-            ),
-          );
+          record(kHookStatusTimedOut, result: result);
           continue;
         }
-        if (result.exitCode == 2) {
+        if (result.exitCode == kHookBlockExitCode) {
           failedCount++;
           blockReason = result.stdout.isNotEmpty
               ? result.stdout
               : 'Blocked by hook "${hook.label}".';
-          hookResults.add(
-            HookEntryResult(
-              hookLabel: hook.label,
-              hookEvent: hook.event,
-              status: 'blocked',
-              elapsedMs: stopwatch.elapsedMilliseconds,
-              stdout: result.stdout,
-              stderr: result.stderr,
-              stdoutFile: result.stdoutFile,
-              stderrFile: result.stderrFile,
-              scriptPath: hook.scriptPath,
-              scriptContent: hook.scriptContent,
-            ),
-          );
+          record(kHookStatusBlocked, result: result);
           break;
         }
         if (result.exitCode != null && result.exitCode != 0) {
@@ -282,52 +283,16 @@ class HooksExecutor {
             'Hook "${hook.label}" exited with code ${result.exitCode}.'
             '${result.stderr.isNotEmpty ? ' stderr: ${result.stderr}' : ''}',
           );
-          hookResults.add(
-            HookEntryResult(
-              hookLabel: hook.label,
-              hookEvent: hook.event,
-              status: 'failed',
-              elapsedMs: stopwatch.elapsedMilliseconds,
-              stdout: result.stdout,
-              stderr: result.stderr,
-              stdoutFile: result.stdoutFile,
-              stderrFile: result.stderrFile,
-              scriptPath: hook.scriptPath,
-              scriptContent: hook.scriptContent,
-            ),
-          );
+          record(kHookStatusFailed, result: result);
           continue;
         }
         successCount++;
-        hookResults.add(
-          HookEntryResult(
-            hookLabel: hook.label,
-            hookEvent: hook.event,
-            status: 'success',
-            elapsedMs: stopwatch.elapsedMilliseconds,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            stdoutFile: result.stdoutFile,
-            stderrFile: result.stderrFile,
-            scriptPath: hook.scriptPath,
-            scriptContent: hook.scriptContent,
-          ),
-        );
+        record(kHookStatusSuccess, result: result);
       } catch (error) {
         stopwatch.stop();
         failedCount++;
         errors.add('Hook "${hook.label}" failed to start: $error');
-        hookResults.add(
-          HookEntryResult(
-            hookLabel: hook.label,
-            hookEvent: hook.event,
-            status: 'failed',
-            elapsedMs: stopwatch.elapsedMilliseconds,
-            stderr: '$error',
-            scriptPath: hook.scriptPath,
-            scriptContent: hook.scriptContent,
-          ),
-        );
+        record(kHookStatusFailed, error: '$error');
       }
     }
 

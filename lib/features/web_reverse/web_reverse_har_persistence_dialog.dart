@@ -1,6 +1,6 @@
 /// HAR 全量持久化面板。
 ///
-/// 在 [web_reverse_session_controller] 的基础 HAR 导出能力之上提供：
+/// 在 [WebReverseSessionController] 的基础 HAR 导出能力之上提供：
 /// - 即时落盘到用户选定路径
 /// - 反向加载外部 HAR 文件（替换/合并到当前会话）
 /// - 周期性自动轮转：每 N 分钟把当前 HAR 写到指定目录下带时间戳的文件

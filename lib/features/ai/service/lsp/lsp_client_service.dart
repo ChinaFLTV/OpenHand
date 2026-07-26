@@ -595,13 +595,17 @@ class AiLspClientService {
     return (backend: backend, session: session);
   }
 
-  Future<Object?> request({
-    required String operation,
+  /// 解析后端并同步文档，随后在会话上执行 [run]。
+  ///
+  /// 后端不可用时：未提供 [whenUnavailable] 则抛 [StateError]（编辑类能力必须
+  /// 让调用方看见失败）；提供了则返回其结果，让补全、代码动作、格式化这类
+  /// 查询能力静默降级为空结果，不打断编辑流。
+  Future<T> _onSyncedSession<T>({
     required String filePath,
-    required int line,
-    required int character,
-    String? language,
-    String? documentText,
+    required String? language,
+    required String? documentText,
+    required Future<T> Function(_AiLspSession session) run,
+    T Function()? whenUnavailable,
   }) async {
     final resolved = await _resolveSyncedSessionForFile(
       filePath: filePath,
@@ -610,13 +614,33 @@ class AiLspClientService {
     );
     final session = resolved.session;
     if (session == null) {
-      throw StateError(_resolutionErrorMessage(resolved.backend));
+      final fallback = whenUnavailable;
+      if (fallback == null) {
+        throw StateError(_resolutionErrorMessage(resolved.backend));
+      }
+      return fallback();
     }
-    return session.request(
-      operation: operation,
+    return run(session);
+  }
+
+  Future<Object?> request({
+    required String operation,
+    required String filePath,
+    required int line,
+    required int character,
+    String? language,
+    String? documentText,
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
-      line: line,
-      character: character,
+      language: language,
+      documentText: documentText,
+      run: (session) => session.request(
+        operation: operation,
+        filePath: filePath,
+        line: line,
+        character: character,
+      ),
     );
   }
 
@@ -689,22 +713,19 @@ class AiLspClientService {
     required int character,
     String? language,
     String? documentText,
-  }) async {
-    final resolved = await _resolveSyncedSessionForFile(
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
       language: language,
       documentText: documentText,
+      run: (session) async => parsePrepareRename(
+        await session.prepareRename(
+          filePath: filePath,
+          line: line,
+          character: character,
+        ),
+      ),
     );
-    final session = resolved.session;
-    if (session == null) {
-      throw StateError(_resolutionErrorMessage(resolved.backend));
-    }
-    final result = await session.prepareRename(
-      filePath: filePath,
-      line: line,
-      character: character,
-    );
-    return parsePrepareRename(result);
   }
 
   Future<AiLspWorkspaceEdit> renameSymbol({
@@ -714,23 +735,20 @@ class AiLspClientService {
     required String newName,
     String? language,
     String? documentText,
-  }) async {
-    final resolved = await _resolveSyncedSessionForFile(
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
       language: language,
       documentText: documentText,
+      run: (session) async => parseWorkspaceEdit(
+        await session.rename(
+          filePath: filePath,
+          line: line,
+          character: character,
+          newName: newName,
+        ),
+      ),
     );
-    final session = resolved.session;
-    if (session == null) {
-      throw StateError(_resolutionErrorMessage(resolved.backend));
-    }
-    final result = await session.rename(
-      filePath: filePath,
-      line: line,
-      character: character,
-      newName: newName,
-    );
-    return parseWorkspaceEdit(result);
   }
 
   Future<AiLspHoverResult?> hover({
@@ -759,24 +777,22 @@ class AiLspClientService {
     String? documentText,
     String? triggerCharacter,
     bool isRetrigger = false,
-  }) async {
-    final resolved = await _resolveSyncedSessionForFile(
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
       language: language,
       documentText: documentText,
+      whenUnavailable: () => const <AiLspCompletionItem>[],
+      run: (session) async => parseCompletionItems(
+        await session.completion(
+          filePath: filePath,
+          line: line,
+          character: character,
+          triggerCharacter: triggerCharacter,
+          isRetrigger: isRetrigger,
+        ),
+      ),
     );
-    final session = resolved.session;
-    if (session == null) {
-      return const <AiLspCompletionItem>[];
-    }
-    final result = await session.completion(
-      filePath: filePath,
-      line: line,
-      character: character,
-      triggerCharacter: triggerCharacter,
-      isRetrigger: isRetrigger,
-    );
-    return parseCompletionItems(result);
   }
 
   Future<AiLspSignatureHelp?> signatureHelp({
@@ -787,22 +803,22 @@ class AiLspClientService {
     String? documentText,
     String? triggerCharacter,
     bool isRetrigger = false,
-  }) async {
-    final resolved = await _resolveSyncedSessionForFile(
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
       language: language,
       documentText: documentText,
+      whenUnavailable: () => null,
+      run: (session) async => parseSignatureHelp(
+        await session.signatureHelp(
+          filePath: filePath,
+          line: line,
+          character: character,
+          triggerCharacter: triggerCharacter,
+          isRetrigger: isRetrigger,
+        ),
+      ),
     );
-    final session = resolved.session;
-    if (session == null) return null;
-    final result = await session.signatureHelp(
-      filePath: filePath,
-      line: line,
-      character: character,
-      triggerCharacter: triggerCharacter,
-      isRetrigger: isRetrigger,
-    );
-    return parseSignatureHelp(result);
   }
 
   Future<List<AiLspDocumentSymbol>> documentSymbols({
@@ -827,22 +843,20 @@ class AiLspClientService {
     List<AiLspDiagnostic> diagnostics = const <AiLspDiagnostic>[],
     String? language,
     String? documentText,
-  }) async {
-    final resolved = await _resolveSyncedSessionForFile(
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
       language: language,
       documentText: documentText,
+      whenUnavailable: () => const <AiLspCodeAction>[],
+      run: (session) async => parseCodeActions(
+        await session.codeActions(
+          filePath: filePath,
+          range: range,
+          diagnostics: diagnostics,
+        ),
+      ),
     );
-    final session = resolved.session;
-    if (session == null) {
-      return const <AiLspCodeAction>[];
-    }
-    final result = await session.codeActions(
-      filePath: filePath,
-      range: range,
-      diagnostics: diagnostics,
-    );
-    return parseCodeActions(result);
   }
 
   Future<List<AiLspTextEdit>> formatDocument({
@@ -851,22 +865,20 @@ class AiLspClientService {
     String? language,
     String? documentText,
     bool insertSpaces = true,
-  }) async {
-    final resolved = await _resolveSyncedSessionForFile(
+  }) {
+    return _onSyncedSession(
       filePath: filePath,
       language: language,
       documentText: documentText,
+      whenUnavailable: () => const <AiLspTextEdit>[],
+      run: (session) async => _parseTextEdits(
+        await session.formatDocument(
+          filePath: filePath,
+          tabSize: tabSize,
+          insertSpaces: insertSpaces,
+        ),
+      ),
     );
-    final session = resolved.session;
-    if (session == null) {
-      return const <AiLspTextEdit>[];
-    }
-    final result = await session.formatDocument(
-      filePath: filePath,
-      tabSize: tabSize,
-      insertSpaces: insertSpaces,
-    );
-    return _parseTextEdits(result);
   }
 
   Future<AiLspCodeAction> resolveCodeAction({

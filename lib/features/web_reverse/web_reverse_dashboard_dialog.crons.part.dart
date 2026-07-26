@@ -177,6 +177,7 @@ class _CronsBodyState extends State<_CronsBody>
     final id = _selectedId;
     if (id == null) return;
     if (_dirty && !await _save()) return;
+    if (!mounted) return;
     setState(() {
       _runningNow = true;
       _lastResultPreview = null;
