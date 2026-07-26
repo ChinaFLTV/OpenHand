@@ -16,7 +16,9 @@ import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_clipboard.dart';
+import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_tap_region.dart';
@@ -3149,7 +3151,7 @@ fi
     final payload = text.trim();
     return _DashboardActionButton(
       onPressed: payload.isEmpty ? null : () => _copyText(payload),
-      icon: const Icon(Icons.copy_rounded),
+      icon: Icons.copy_rounded,
       label: openHandLocalizedText(
         context,
         zh: '复制结果',
@@ -3487,7 +3489,7 @@ fi
                   onPressed: () {
                     _refreshAll();
                   },
-                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  icon: Icons.refresh_rounded,
                   label: openHandRefreshLabel(context),
                 ),
               ),
@@ -3559,13 +3561,8 @@ fi
                   const SizedBox(width: 10),
                   _DashboardActionButton(
                     onPressed: _runningShell ? null : _runShell,
-                    icon: _runningShell
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.play_arrow_rounded, size: 16),
+                    icon: Icons.play_arrow_rounded,
+                    busy: _runningShell,
                     label: openHandRunLabel(context),
                     filled: true,
                     height: _kAdbInlineControlHeight,
@@ -3686,7 +3683,7 @@ fi
                       de: 'Ausgabe kopieren',
                       ja: '出力をコピー',
                     ),
-                    icon: const Icon(Icons.copy_rounded),
+                    icon: Icons.copy_rounded,
                     onPressed: output.trim().isEmpty
                         ? null
                         : () => _copyText(output),
@@ -3702,7 +3699,7 @@ fi
                       de: 'Ausgabe leeren',
                       ja: '出力をクリア',
                     ),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icons.close_rounded,
                     onPressed: () => setState(() {
                       _lastShellResult = null;
                       _shellOutputCtrl.clear();
@@ -3900,12 +3897,13 @@ fi
                   ),
                 ),
               ),
-              if (_loadingDeviceDetails)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
-                ),
+              // 只在忙碌时显示；用固定占位的切换，避免转圈出现时把整行顶开。
+              OpenHandBusyStatusIcon(
+                busy: _loadingDeviceDetails,
+                icon: null,
+                size: 14,
+                strokeWidth: 1.5,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -4018,7 +4016,7 @@ fi
               const SizedBox(width: 8),
               _DashboardActionButton(
                 onPressed: _runningDeviceAction ? null : _connectWirelessDevice,
-                icon: const Icon(Icons.link_rounded),
+                icon: Icons.link_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: '连接',
@@ -4165,7 +4163,7 @@ fi
                   onPressed: serial == null || _runningDeviceAction
                       ? null
                       : _addForward,
-                  icon: const Icon(Icons.add_rounded),
+                  icon: Icons.add_rounded,
                   label: openHandAddLabel(context),
                 ),
               ),
@@ -4325,7 +4323,7 @@ fi
                   onPressed: serial == null || _runningDeviceAction
                       ? null
                       : _addReverse,
-                  icon: const Icon(Icons.add_link_rounded),
+                  icon: Icons.add_link_rounded,
                   label: openHandAddLabel(context),
                 ),
               ),
@@ -5616,13 +5614,8 @@ fi
             actions: [
               _DashboardActionButton(
                 onPressed: _makingEvidenceBundle ? null : _makeEvidenceBundle,
-                icon: _makingEvidenceBundle
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.inventory_2_rounded),
+                icon: Icons.inventory_2_rounded,
+                busy: _makingEvidenceBundle,
                 label: openHandLocalizedText(
                   context,
                   zh: '生成证据包',
@@ -5767,13 +5760,8 @@ fi
             actions: [
               _DashboardActionButton(
                 onPressed: _loadingToolchain ? null : _refreshToolchain,
-                icon: _loadingToolchain
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.refresh_rounded),
+                icon: Icons.refresh_rounded,
+                busy: _loadingToolchain,
                 label: openHandRefreshLabel(context),
               ),
             ],
@@ -5800,150 +5788,158 @@ fi
             ),
           ),
         Expanded(
-          child: _loadingToolchain && _toolchainRows.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : OpenHandSafeScrollbar(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                    itemCount: _toolchainRows.length,
-                    separatorBuilder: (_, _) =>
-                        Divider(height: 1, color: cs.outlineVariant),
-                    itemBuilder: (_, i) {
-                      final row = _toolchainRows[i];
-                      final plugin = _toolchainPluginForProbe(
-                        row.probe,
-                        pluginController,
-                      );
-                      final ok = row.ok;
-                      final statusColor = ok
-                          ? cs.primary
-                          : row.probe.required
-                          ? cs.error
-                          : cs.tertiary;
-                      return ListTile(
-                        leading: Icon(
-                          ok
-                              ? Icons.check_circle_rounded
-                              : Icons.error_outline_rounded,
-                          color: statusColor,
-                        ),
-                        title: Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Text(
-                              row.probe.label,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            if (row.probe.required)
-                              _StatusPill(
-                                label: openHandLocalizedText(
-                                  context,
-                                  zh: '必需',
-                                  zhHant: '必要',
-                                  en: 'required',
-                                  fr: 'requis',
-                                  de: 'erforderlich',
-                                  ja: '必須',
-                                ),
-                                color: cs.error,
-                                compact: true,
-                                subtle: true,
-                              ),
-                            if (plugin != null)
-                              _StatusPill(
-                                label: openHandLocalizedText(
-                                  context,
-                                  zh: '插件托管',
-                                  zhHant: '外掛托管',
-                                  en: 'plugin-managed',
-                                  fr: 'géré par plugin',
-                                  de: 'pluginverwaltet',
-                                  ja: 'プラグイン管理',
-                                ),
-                                color: cs.secondary,
-                                compact: true,
-                                subtle: true,
-                              ),
-                          ],
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+          child: OpenHandContentStateSwitcher(
+            stateKey: _loadingToolchain && _toolchainRows.isEmpty
+                ? 'loading'
+                : 'list',
+            animateSize: false,
+            child: _loadingToolchain && _toolchainRows.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : OpenHandSafeScrollbar(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      itemCount: _toolchainRows.length,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: cs.outlineVariant),
+                      itemBuilder: (_, i) {
+                        final row = _toolchainRows[i];
+                        final plugin = _toolchainPluginForProbe(
+                          row.probe,
+                          pluginController,
+                        );
+                        final ok = row.ok;
+                        final statusColor = ok
+                            ? cs.primary
+                            : row.probe.required
+                            ? cs.error
+                            : cs.tertiary;
+                        return ListTile(
+                          leading: Icon(
+                            ok
+                                ? Icons.check_circle_rounded
+                                : Icons.error_outline_rounded,
+                            color: statusColor,
+                          ),
+                          title: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              SelectableText(
-                                ok
-                                    ? row.displayValue
-                                    : _androidToolchainInstallHint(
-                                        context,
-                                        row.probe,
-                                      ),
-                                style: TextStyle(
-                                  fontFamily: ok
-                                      ? kOpenHandMonospaceFontFamily
-                                      : null,
-                                  fontSize: 12,
-                                  color: ok ? cs.onSurface : statusColor,
+                              Text(
+                                row.probe.label,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${openHandLocalizedText(context, zh: "耗时", zhHant: "耗時", en: "Duration", fr: "Durée", de: "Dauer", ja: "所要時間")}: ${row.durationMs}ms',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
+                              if (row.probe.required)
+                                _StatusPill(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '必需',
+                                    zhHant: '必要',
+                                    en: 'required',
+                                    fr: 'requis',
+                                    de: 'erforderlich',
+                                    ja: '必須',
+                                  ),
+                                  color: cs.error,
+                                  compact: true,
+                                  subtle: true,
                                 ),
+                              if (plugin != null)
+                                _StatusPill(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '插件托管',
+                                    zhHant: '外掛托管',
+                                    en: 'plugin-managed',
+                                    fr: 'géré par plugin',
+                                    de: 'pluginverwaltet',
+                                    ja: 'プラグイン管理',
+                                  ),
+                                  color: cs.secondary,
+                                  compact: true,
+                                  subtle: true,
+                                ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SelectableText(
+                                  ok
+                                      ? row.displayValue
+                                      : _androidToolchainInstallHint(
+                                          context,
+                                          row.probe,
+                                        ),
+                                  style: TextStyle(
+                                    fontFamily: ok
+                                        ? kOpenHandMonospaceFontFamily
+                                        : null,
+                                    fontSize: 12,
+                                    color: ok ? cs.onSurface : statusColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${openHandLocalizedText(context, zh: "耗时", zhHant: "耗時", en: "Duration", fr: "Durée", de: "Dauer", ja: "所要時間")}: ${row.durationMs}ms',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _DashboardIconActionButton(
+                                icon: Icons.copy_rounded,
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '复制诊断',
+                                  zhHant: '複製診斷',
+                                  en: 'Copy diagnostic',
+                                  fr: 'Copier le diagnostic',
+                                  de: 'Diagnose kopieren',
+                                  ja: '診断をコピー',
+                                ),
+                                onPressed: () => _copyText(
+                                  '${row.probe.label}\n${row.displayValue}\n${_androidToolchainInstallHint(context, row.probe)}',
+                                ),
+                              ),
+                              const SizedBox(
+                                width: _kDashboardTrailingActionGap,
+                              ),
+                              _DashboardPopupIconActionButton<
+                                _ToolchainCommandAction
+                              >(
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '安装 / 更新 / 卸载 / 信息',
+                                  zhHant: '安裝 / 更新 / 解除安裝 / 資訊',
+                                  en: 'Install / update / uninstall / info',
+                                  fr: 'Installer / mettre à jour / désinstaller / infos',
+                                  de: 'Installieren / aktualisieren / deinstallieren / Info',
+                                  ja: 'インストール / 更新 / アンインストール / 情報',
+                                ),
+                                icon: const Icon(Icons.terminal_rounded),
+                                itemBuilder: (context) =>
+                                    _toolchainCommandMenuItems(row.probe),
+                                onSelected: (action) =>
+                                    _handleToolchainAction(row.probe, action),
                               ),
                             ],
                           ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _DashboardIconActionButton(
-                              icon: const Icon(Icons.copy_rounded),
-                              tooltip: openHandLocalizedText(
-                                context,
-                                zh: '复制诊断',
-                                zhHant: '複製診斷',
-                                en: 'Copy diagnostic',
-                                fr: 'Copier le diagnostic',
-                                de: 'Diagnose kopieren',
-                                ja: '診断をコピー',
-                              ),
-                              onPressed: () => _copyText(
-                                '${row.probe.label}\n${row.displayValue}\n${_androidToolchainInstallHint(context, row.probe)}',
-                              ),
-                            ),
-                            const SizedBox(width: _kDashboardTrailingActionGap),
-                            _DashboardPopupIconActionButton<
-                              _ToolchainCommandAction
-                            >(
-                              tooltip: openHandLocalizedText(
-                                context,
-                                zh: '安装 / 更新 / 卸载 / 信息',
-                                zhHant: '安裝 / 更新 / 解除安裝 / 資訊',
-                                en: 'Install / update / uninstall / info',
-                                fr: 'Installer / mettre à jour / désinstaller / infos',
-                                de: 'Installieren / aktualisieren / deinstallieren / Info',
-                                ja: 'インストール / 更新 / アンインストール / 情報',
-                              ),
-                              icon: const Icon(Icons.terminal_rounded),
-                              itemBuilder: (context) =>
-                                  _toolchainCommandMenuItems(row.probe),
-                              onSelected: (action) =>
-                                  _handleToolchainAction(row.probe, action),
-                            ),
-                          ],
-                        ),
-                        dense: true,
-                      );
-                    },
+                          dense: true,
+                        );
+                      },
+                    ),
                   ),
-                ),
+          ),
         ),
       ],
     );
@@ -5992,13 +5988,8 @@ fi
                 onPressed: mcpController.isLoading
                     ? null
                     : () => unawaited(mcpController.refresh()),
-                icon: mcpController.isLoading
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.sync_rounded),
+                icon: Icons.sync_rounded,
+                busy: mcpController.isLoading,
                 label: openHandLocalizedText(
                   context,
                   zh: '刷新 MCP',
@@ -6013,13 +6004,8 @@ fi
                 onPressed: _writingMcpArtifacts
                     ? null
                     : _ensureMcpLinkageArtifacts,
-                icon: _writingMcpArtifacts
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.article_rounded),
+                icon: Icons.article_rounded,
+                busy: _writingMcpArtifacts,
                 label: openHandLocalizedText(
                   context,
                   zh: '生成联动工件',
@@ -6150,13 +6136,8 @@ fi
                 onPressed: pluginController.isBusy
                     ? null
                     : () => unawaited(pluginController.rescan()),
-                icon: pluginController.isLoading
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.refresh_rounded),
+                icon: Icons.refresh_rounded,
+                busy: pluginController.isLoading,
                 label: openHandLocalizedText(
                   context,
                   zh: '扫描插件',
@@ -6169,13 +6150,8 @@ fi
               ),
               _DashboardActionButton(
                 onPressed: _loadingToolchain ? null : _refreshToolchain,
-                icon: _loadingToolchain
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.construction_rounded),
+                icon: Icons.construction_rounded,
+                busy: _loadingToolchain,
                 label: openHandLocalizedText(
                   context,
                   zh: '刷新工具链',
@@ -6264,13 +6240,22 @@ fi
             ),
           ),
           const SizedBox(height: 8),
-          if (_loadingToolchain && _toolchainRows.isEmpty)
-            const Center(child: CircularProgressIndicator())
-          else if (_toolchainRows.isNotEmpty)
-            for (final row in _toolchainRows) ...[
-              _buildToolchainCommandTile(row, cs, theme, isZh),
-              const SizedBox(height: 8),
-            ],
+          OpenHandContentStateSwitcher(
+            stateKey: _loadingToolchain && _toolchainRows.isEmpty
+                ? 'loading'
+                : 'tiles',
+            child: _loadingToolchain && _toolchainRows.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final row in _toolchainRows) ...[
+                        _buildToolchainCommandTile(row, cs, theme, isZh),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -6368,11 +6353,9 @@ fi
                             de: 'MCP aktivieren',
                             ja: 'MCP を有効化',
                           ),
-                    icon: Icon(
-                      server.enabled
-                          ? Icons.toggle_on_rounded
-                          : Icons.toggle_off_outlined,
-                    ),
+                    icon: server.enabled
+                        ? Icons.toggle_on_rounded
+                        : Icons.toggle_off_outlined,
                     onPressed: () => unawaited(
                       _toggleAndroidMcpServer(server, !server.enabled),
                     ),
@@ -6387,13 +6370,8 @@ fi
                       de: 'Status prüfen',
                       ja: 'ヘルスチェック',
                     ),
-                    icon: health.status == McpServerHealthStatus.checking
-                        ? const SizedBox(
-                            width: 15,
-                            height: 15,
-                            child: CircularProgressIndicator(strokeWidth: 1.7),
-                          )
-                        : const Icon(Icons.health_and_safety_rounded),
+                    icon: Icons.health_and_safety_rounded,
+                    busy: health.status == McpServerHealthStatus.checking,
                     onPressed: health.status == McpServerHealthStatus.checking
                         ? null
                         : () => unawaited(
@@ -6412,13 +6390,8 @@ fi
                       de: 'Diesen MCP-Katalog aktualisieren',
                       ja: 'この MCP カタログを更新',
                     ),
-                    icon: catalog.isLoading
-                        ? const SizedBox(
-                            width: 15,
-                            height: 15,
-                            child: CircularProgressIndicator(strokeWidth: 1.7),
-                          )
-                        : const Icon(Icons.sync_rounded),
+                    icon: Icons.sync_rounded,
+                    busy: catalog.isLoading,
                     onPressed: catalog.isLoading
                         ? null
                         : () => unawaited(
@@ -6438,7 +6411,7 @@ fi
                         de: 'ToolSearch-Abfrage kopieren',
                         ja: 'ToolSearch クエリをコピー',
                       ),
-                      icon: const Icon(Icons.manage_search_rounded),
+                      icon: Icons.manage_search_rounded,
                       onPressed: () => _copyText(query),
                     ),
                   _DashboardIconActionButton(
@@ -6451,7 +6424,8 @@ fi
                       de: 'MCP-Dienst löschen',
                       ja: 'MCP サービスを削除',
                     ),
-                    icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+                    icon: Icons.delete_outline_rounded,
+                    color: cs.error,
                     onPressed: () => unawaited(_deleteAndroidMcpServer(server)),
                   ),
                 ],
@@ -6677,11 +6651,9 @@ fi
                         controller.isLoading
                     ? null
                     : () => unawaited(_installAndroidMcpCapability(capability)),
-                icon: Icon(
-                  needsAssociation
-                      ? Icons.link_rounded
-                      : Icons.download_rounded,
-                ),
+                icon: needsAssociation
+                    ? Icons.link_rounded
+                    : Icons.download_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: needsAssociation ? '关联' : '安装',
@@ -6696,7 +6668,7 @@ fi
                 onPressed: !installed || controller.isLoading
                     ? null
                     : () => unawaited(_refreshAndroidMcpCapability(matches)),
-                icon: const Icon(Icons.system_update_alt_rounded),
+                icon: Icons.system_update_alt_rounded,
                 label: openHandUpdateLabel(context),
               ),
               _DashboardActionButton(
@@ -6705,7 +6677,7 @@ fi
                     : () => unawaited(
                         _uninstallAndroidMcpCapability(capability, matches),
                       ),
-                icon: const Icon(Icons.delete_outline_rounded),
+                icon: Icons.delete_outline_rounded,
                 label: _androidReverseUninstallLabel(context),
               ),
             ],
@@ -7113,7 +7085,7 @@ fi
                 de: 'Pfad kopieren',
                 ja: 'パスをコピー',
               ),
-              icon: const Icon(Icons.copy_rounded),
+              icon: Icons.copy_rounded,
               onPressed: () => _copyText(path),
             ),
           ],
@@ -7638,129 +7610,139 @@ fi
             actions: [
               _DashboardActionButton(
                 onPressed: _loadingPackages ? null : _doRefreshPackages,
-                icon: _loadingPackages
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.refresh_rounded),
+                icon: Icons.refresh_rounded,
+                busy: _loadingPackages,
                 label: openHandRefreshLabel(context),
               ),
             ],
           ),
         ),
         Expanded(
-          child: _loadingPackages && _packages.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : OpenHandSafeScrollbar(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _packages.length,
-                    itemBuilder: (_, i) {
-                      final pkg = _packages[i];
-                      final selected = _selectedPackageName == pkg;
-                      return GestureDetector(
-                        onSecondaryTapDown: (details) =>
-                            _showPackageMenu(pkg, details.globalPosition),
-                        onDoubleTap: () => _showPackageMenu(pkg, null),
-                        child: ListTile(
-                          selected: selected,
-                          selectedTileColor: cs.primaryContainer.withValues(
-                            alpha: 0.22,
-                          ),
-                          leading: Icon(
-                            Icons.apps_rounded,
-                            size: 18,
-                            color: selected ? cs.primary : cs.onSurfaceVariant,
-                          ),
-                          title: Text(
-                            pkg,
-                            style: const TextStyle(
-                              fontFamily: kOpenHandMonospaceFontFamily,
-                              fontSize: 12,
+          child: OpenHandContentStateSwitcher(
+            stateKey: _loadingPackages && _packages.isEmpty
+                ? 'loading'
+                : 'list',
+            animateSize: false,
+            child: _loadingPackages && _packages.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : OpenHandSafeScrollbar(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _packages.length,
+                      itemBuilder: (_, i) {
+                        final pkg = _packages[i];
+                        final selected = _selectedPackageName == pkg;
+                        return GestureDetector(
+                          onSecondaryTapDown: (details) =>
+                              _showPackageMenu(pkg, details.globalPosition),
+                          onDoubleTap: () => _showPackageMenu(pkg, null),
+                          child: ListTile(
+                            selected: selected,
+                            selectedTileColor: cs.primaryContainer.withValues(
+                              alpha: 0.22,
                             ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 14),
-                                tooltip: _androidReverseCopyPackageNameLabel(
-                                  context,
-                                ),
-                                onPressed: () => _copyText(pkg),
-                                visualDensity: VisualDensity.compact,
+                            leading: Icon(
+                              Icons.apps_rounded,
+                              size: 18,
+                              color: selected
+                                  ? cs.primary
+                                  : cs.onSurfaceVariant,
+                            ),
+                            title: Text(
+                              pkg,
+                              style: const TextStyle(
+                                fontFamily: kOpenHandMonospaceFontFamily,
+                                fontSize: 12,
                               ),
-                              const SizedBox(width: _kIconButtonGap),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.play_arrow_rounded,
-                                  size: 15,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 14,
+                                  ),
+                                  tooltip: _androidReverseCopyPackageNameLabel(
+                                    context,
+                                  ),
+                                  onPressed: () => _copyText(pkg),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                                tooltip: _androidReverseLaunchAppLabel(context),
-                                onPressed: _runningDeviceAction
-                                    ? null
-                                    : () => _runDeviceAction(
-                                        () => _ctrl.startPackageDetailed(
-                                          pkg,
-                                          serial: _targetSerial,
-                                        ),
-                                      ),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              const SizedBox(width: _kIconButtonGap),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.stop_rounded,
-                                  size: 14,
-                                  color: Colors.redAccent,
-                                ),
-                                tooltip: _androidReverseForceStopLabel(context),
-                                onPressed: _runningDeviceAction
-                                    ? null
-                                    : () async {
-                                        await _runDeviceAction(
-                                          () => _ctrl.forceStopAppDetailed(
+                                const SizedBox(width: _kIconButtonGap),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 15,
+                                  ),
+                                  tooltip: _androidReverseLaunchAppLabel(
+                                    context,
+                                  ),
+                                  onPressed: _runningDeviceAction
+                                      ? null
+                                      : () => _runDeviceAction(
+                                          () => _ctrl.startPackageDetailed(
                                             pkg,
                                             serial: _targetSerial,
                                           ),
-                                        );
-                                        if (!mounted) return;
-                                        _showSnack(
-                                          openHandLocalizedText(
-                                            context,
-                                            zh: '已发送强制停止：$pkg',
-                                            zhHant: '已送出強制停止：$pkg',
-                                            en: 'Force-stop sent: $pkg',
-                                            fr: 'Arrêt forcé envoyé : $pkg',
-                                            de: 'Stopp erzwingen gesendet: $pkg',
-                                            ja: '強制停止を送信しました: $pkg',
-                                          ),
-                                          kind: OpenHandSnackKind.success,
-                                        );
-                                      },
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              const SizedBox(width: _kIconButtonGap),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.more_horiz_rounded,
-                                  size: 16,
+                                        ),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                                tooltip: openHandMoreActionsLabel(context),
-                                onPressed: () => _showPackageMenu(pkg, null),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ],
+                                const SizedBox(width: _kIconButtonGap),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.stop_rounded,
+                                    size: 14,
+                                    color: Colors.redAccent,
+                                  ),
+                                  tooltip: _androidReverseForceStopLabel(
+                                    context,
+                                  ),
+                                  onPressed: _runningDeviceAction
+                                      ? null
+                                      : () async {
+                                          await _runDeviceAction(
+                                            () => _ctrl.forceStopAppDetailed(
+                                              pkg,
+                                              serial: _targetSerial,
+                                            ),
+                                          );
+                                          if (!mounted) return;
+                                          _showSnack(
+                                            openHandLocalizedText(
+                                              context,
+                                              zh: '已发送强制停止：$pkg',
+                                              zhHant: '已送出強制停止：$pkg',
+                                              en: 'Force-stop sent: $pkg',
+                                              fr: 'Arrêt forcé envoyé : $pkg',
+                                              de: 'Stopp erzwingen gesendet: $pkg',
+                                              ja: '強制停止を送信しました: $pkg',
+                                            ),
+                                            kind: OpenHandSnackKind.success,
+                                          );
+                                        },
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                const SizedBox(width: _kIconButtonGap),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.more_horiz_rounded,
+                                    size: 16,
+                                  ),
+                                  tooltip: openHandMoreActionsLabel(context),
+                                  onPressed: () => _showPackageMenu(pkg, null),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
+                            ),
+                            onTap: () => _analyzePackage(pkg),
+                            dense: true,
                           ),
-                          onTap: () => _analyzePackage(pkg),
-                          dense: true,
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
+          ),
         ),
         if (_selectedPackageName != null) ...[
           Divider(height: 1, color: cs.outlineVariant),
@@ -7783,21 +7765,21 @@ fi
                           ),
                         ),
                       ),
-                      if (_loadingPackageAnalysis)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                      OpenHandBusyStatusIcon(
+                        busy: _loadingPackageAnalysis,
+                        icon: null,
+                        size: 14,
+                        strokeWidth: 1.5,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: OpenHandBusyStatusIcon(
+                          busy: _capturingPackageReport,
+                          icon: null,
+                          size: 14,
+                          strokeWidth: 1.5,
                         ),
-                      if (_capturingPackageReport)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 8),
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.5),
-                          ),
-                        ),
+                      ),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, size: 16),
@@ -7923,82 +7905,86 @@ fi
               const SizedBox(width: 8),
               _DashboardActionButton(
                 onPressed: _loadingProcesses ? null : _doRefreshProcesses,
-                icon: _loadingProcesses
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.refresh_rounded),
+                icon: Icons.refresh_rounded,
+                busy: _loadingProcesses,
                 label: openHandRefreshLabel(context),
               ),
             ],
           ),
         ),
         Expanded(
-          child: _loadingProcesses && _processes.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : OpenHandSafeScrollbar(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _processes.length,
-                    itemBuilder: (_, i) {
-                      final p = _processes[i];
-                      return GestureDetector(
-                        onSecondaryTapDown: (details) =>
-                            _showProcessMenu(p, details.globalPosition),
-                        onDoubleTap: () => _showProcessMenu(p, null),
-                        child: ListTile(
-                          leading: Text(
-                            '${p.pid}',
-                            style: TextStyle(
-                              fontFamily: kOpenHandMonospaceFontFamily,
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant,
+          child: OpenHandContentStateSwitcher(
+            stateKey: _loadingProcesses && _processes.isEmpty
+                ? 'loading'
+                : 'list',
+            animateSize: false,
+            child: _loadingProcesses && _processes.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : OpenHandSafeScrollbar(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _processes.length,
+                      itemBuilder: (_, i) {
+                        final p = _processes[i];
+                        return GestureDetector(
+                          onSecondaryTapDown: (details) =>
+                              _showProcessMenu(p, details.globalPosition),
+                          onDoubleTap: () => _showProcessMenu(p, null),
+                          child: ListTile(
+                            leading: Text(
+                              '${p.pid}',
+                              style: TextStyle(
+                                fontFamily: kOpenHandMonospaceFontFamily,
+                                fontSize: 11,
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                          title: Text(
-                            p.name,
-                            style: const TextStyle(
-                              fontFamily: kOpenHandMonospaceFontFamily,
-                              fontSize: 12,
+                            title: Text(
+                              p.name,
+                              style: const TextStyle(
+                                fontFamily: kOpenHandMonospaceFontFamily,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                          subtitle: p.user != null
-                              ? Text(
-                                  'user: ${p.user}',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
+                            subtitle: p.user != null
+                                ? Text(
+                                    'user: ${p.user}',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  )
+                                : null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 14,
                                   ),
-                                )
-                              : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 14),
-                                onPressed: () => _copyText('${p.pid}'),
-                                tooltip: _androidReverseCopyPidLabel(context),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              const SizedBox(width: _kIconButtonGap),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.more_horiz_rounded,
-                                  size: 16,
+                                  onPressed: () => _copyText('${p.pid}'),
+                                  tooltip: _androidReverseCopyPidLabel(context),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                                onPressed: () => _showProcessMenu(p, null),
-                                tooltip: openHandMoreActionsLabel(context),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ],
+                                const SizedBox(width: _kIconButtonGap),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.more_horiz_rounded,
+                                    size: 16,
+                                  ),
+                                  onPressed: () => _showProcessMenu(p, null),
+                                  tooltip: openHandMoreActionsLabel(context),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
+                            ),
+                            dense: true,
                           ),
-                          dense: true,
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
+          ),
         ),
       ],
     );
@@ -8108,26 +8094,24 @@ fi
                   ),
                   if (_logcatPackageTarget()?.isNotEmpty ?? false)
                     _buildLogcatPackageFilterChip(cs, theme, isZh),
-                  if (_loadingLogcat)
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
-                    ),
+                  OpenHandBusyStatusIcon(
+                    busy: _loadingLogcat,
+                    icon: null,
+                    size: 14,
+                    strokeWidth: 1.5,
+                  ),
                 ],
                 actions: [
                   _DashboardActionButton(
                     onPressed: _loadingLogcat ? null : _fetchLogcat,
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: Icons.refresh_rounded,
                     label: openHandRefreshLabel(context),
                   ),
                   _DashboardActionButton(
                     onPressed: () => _setLogcatAutoRefresh(!_logcatAutoRefresh),
-                    icon: Icon(
-                      _logcatAutoRefresh
-                          ? Icons.pause_circle_outline_rounded
-                          : Icons.play_circle_outline_rounded,
-                    ),
+                    icon: _logcatAutoRefresh
+                        ? Icons.pause_circle_outline_rounded
+                        : Icons.play_circle_outline_rounded,
                     label: _logcatAutoRefresh
                         ? openHandLocalizedText(
                             context,
@@ -8153,13 +8137,8 @@ fi
                     onPressed: _capturingLogcatSnapshot || _clearingLogcat
                         ? null
                         : _captureLogcatArtifactSnapshot,
-                    icon: _capturingLogcatSnapshot
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.6),
-                          )
-                        : const Icon(Icons.snippet_folder_rounded),
+                    icon: Icons.snippet_folder_rounded,
+                    busy: _capturingLogcatSnapshot,
                     label: openHandLocalizedText(
                       context,
                       zh: '快照',
@@ -8174,33 +8153,23 @@ fi
                     onPressed: _logcatLines.isEmpty || _savingLogcatFile
                         ? null
                         : _saveLogcatSnapshot,
-                    icon: _savingLogcatFile
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.6),
-                          )
-                        : const Icon(Icons.save_alt_rounded),
+                    icon: Icons.save_alt_rounded,
+                    busy: _savingLogcatFile,
                     label: openHandSaveLabel(context),
                   ),
                   _DashboardActionButton(
                     onPressed: _logcatLines.isEmpty
                         ? null
                         : () => _copyText(_logcatLines.join('\n')),
-                    icon: const Icon(Icons.copy_rounded),
+                    icon: Icons.copy_rounded,
                     label: openHandCopyLabel(context),
                   ),
                   _DashboardActionButton(
                     onPressed: _clearingLogcat || _capturingLogcatSnapshot
                         ? null
                         : _clearLogcat,
-                    icon: _clearingLogcat
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.6),
-                          )
-                        : const Icon(Icons.delete_sweep_rounded),
+                    icon: Icons.delete_sweep_rounded,
+                    busy: _clearingLogcat,
                     label: openHandClearLabel(context),
                   ),
                 ],
@@ -8417,7 +8386,7 @@ fi
                       const SizedBox(height: 10),
                       _DashboardActionButton(
                         onPressed: _loadingLogcat ? null : _fetchLogcat,
-                        icon: const Icon(Icons.download_rounded),
+                        icon: Icons.download_rounded,
                         label: openHandLocalizedText(
                           context,
                           zh: '加载 Logcat',
@@ -8590,13 +8559,8 @@ fi
                 _runningFridaAction
             ? null
             : _saveFridaScriptArtifact,
-        icon: _savingFridaScript
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 1.6),
-              )
-            : const Icon(Icons.save_alt_rounded),
+        icon: Icons.save_alt_rounded,
+        busy: _savingFridaScript,
         label: openHandLocalizedText(
           context,
           zh: '保存工件',
@@ -8611,7 +8575,7 @@ fi
         onPressed: _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _copyText(_fridaScriptCtrl.text),
-        icon: const Icon(Icons.copy_rounded),
+        icon: Icons.copy_rounded,
         label: openHandLocalizedText(
           context,
           zh: '复制脚本',
@@ -8626,13 +8590,8 @@ fi
         onPressed: _runningFridaDoctor || _runningFridaAction
             ? null
             : _runFridaDoctor,
-        icon: _runningFridaDoctor
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 1.6),
-              )
-            : const Icon(Icons.health_and_safety_rounded),
+        icon: Icons.health_and_safety_rounded,
+        busy: _runningFridaDoctor,
         label: openHandLocalizedText(
           context,
           zh: '运行诊断',
@@ -8645,24 +8604,14 @@ fi
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction ? null : _readFridaArtifacts,
-        icon: _runningFridaAction
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 1.6),
-              )
-            : const Icon(Icons.folder_open_rounded),
+        icon: Icons.folder_open_rounded,
+        busy: _runningFridaAction,
         label: _androidReverseReadArtifactsLabel(context),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction ? null : _startExistingFridaServer,
-        icon: _runningFridaAction
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 1.6),
-              )
-            : const Icon(Icons.play_circle_outline_rounded),
+        icon: Icons.play_circle_outline_rounded,
+        busy: _runningFridaAction,
         label: openHandLocalizedText(
           context,
           zh: '启动服务',
@@ -8680,7 +8629,7 @@ fi
                 _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _runFridaCapture(spawn: true),
-        icon: const Icon(Icons.rocket_launch_rounded),
+        icon: Icons.rocket_launch_rounded,
         label: openHandLocalizedText(
           context,
           zh: 'Spawn 注入',
@@ -8698,7 +8647,7 @@ fi
                 _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _runFridaCapture(spawn: false),
-        icon: const Icon(Icons.link_rounded),
+        icon: Icons.link_rounded,
         label: openHandLocalizedText(
           context,
           zh: 'Attach 注入',
@@ -8814,13 +8763,8 @@ fi
             actions: [
               _DashboardActionButton(
                 onPressed: _writingNetworkAddon ? null : _ensureMitmproxyAddon,
-                icon: _writingNetworkAddon
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.receipt_long_rounded),
+                icon: Icons.receipt_long_rounded,
+                busy: _writingNetworkAddon,
                 label: openHandLocalizedText(
                   context,
                   zh: '生成 JSONL Addon',
@@ -8835,13 +8779,8 @@ fi
                 onPressed: _runningNetworkProbe || _runningNetworkAction
                     ? null
                     : _runNetworkProxyProbe,
-                icon: _runningNetworkProbe
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.fact_check_rounded),
+                icon: Icons.fact_check_rounded,
+                busy: _runningNetworkProbe,
                 label: openHandLocalizedText(
                   context,
                   zh: '运行预检',
@@ -8899,13 +8838,8 @@ fi
               onPressed: _runningNetworkAction || captureRunning
                   ? null
                   : _startNetworkCapture,
-              icon: _runningNetworkAction
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.8),
-                    )
-                  : const Icon(Icons.fiber_manual_record_rounded),
+              icon: Icons.fiber_manual_record_rounded,
+              busy: _runningNetworkAction,
               label: openHandLocalizedText(
                 context,
                 zh: '启动抓包',
@@ -8920,7 +8854,7 @@ fi
               onPressed: _runningNetworkAction || !captureRunning
                   ? null
                   : () => _runNetworkAction(_ctrl.stopNetworkCapture),
-              icon: const Icon(Icons.stop_circle_rounded),
+              icon: Icons.stop_circle_rounded,
               label: openHandLocalizedText(
                 context,
                 zh: '停止抓包',
@@ -8933,7 +8867,7 @@ fi
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _setDeviceProxy,
-              icon: const Icon(Icons.settings_ethernet_rounded),
+              icon: Icons.settings_ethernet_rounded,
               label: openHandLocalizedText(
                 context,
                 zh: '设置代理',
@@ -8946,7 +8880,7 @@ fi
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _readDeviceProxy,
-              icon: const Icon(Icons.visibility_rounded),
+              icon: Icons.visibility_rounded,
               label: openHandLocalizedText(
                 context,
                 zh: '读取代理',
@@ -8959,7 +8893,7 @@ fi
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _clearDeviceProxy,
-              icon: const Icon(Icons.cleaning_services_rounded),
+              icon: Icons.cleaning_services_rounded,
               label: openHandLocalizedText(
                 context,
                 zh: '清除代理',
@@ -8974,7 +8908,7 @@ fi
               onPressed: _runningNetworkAction
                   ? null
                   : () => _runNetworkAction(_ctrl.readNetworkCaptureSummary),
-              icon: const Icon(Icons.article_rounded),
+              icon: Icons.article_rounded,
               label: openHandLocalizedText(
                 context,
                 zh: '读取抓包',
@@ -8989,7 +8923,7 @@ fi
               onPressed: _runningNetworkAction
                   ? null
                   : _exportNetworkFlowsWithPicker,
-              icon: const Icon(Icons.ios_share_rounded),
+              icon: Icons.ios_share_rounded,
               label: openHandLocalizedText(
                 context,
                 zh: '导出 flows',
@@ -9023,13 +8957,8 @@ fi
             actions: [
               _DashboardActionButton(
                 onPressed: staticBusy ? null : _runStaticQuickScan,
-                icon: _runningStaticQuickScan
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.manage_search_rounded),
+                icon: Icons.manage_search_rounded,
+                busy: _runningStaticQuickScan,
                 label: openHandLocalizedText(
                   context,
                   zh: '快速扫描 APK',
@@ -9049,7 +8978,7 @@ fi
                           packageName: target.packageName,
                         ),
                       ),
-                icon: const Icon(Icons.folder_open_rounded),
+                icon: Icons.folder_open_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: '读取产物',
@@ -9069,7 +8998,7 @@ fi
                           packageName: target.packageName,
                         ),
                       ),
-                icon: const Icon(Icons.badge_rounded),
+                icon: Icons.badge_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: '身份验签',
@@ -9089,7 +9018,7 @@ fi
                           packageName: target.packageName,
                         ),
                       ),
-                icon: const Icon(Icons.code_rounded),
+                icon: Icons.code_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'jadx 反编译',
@@ -9109,7 +9038,7 @@ fi
                           packageName: target.packageName,
                         ),
                       ),
-                icon: const Icon(Icons.inventory_2_rounded),
+                icon: Icons.inventory_2_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'apktool 解包',
@@ -9129,7 +9058,7 @@ fi
                           packageName: target.packageName,
                         ),
                       ),
-                icon: const Icon(Icons.search_rounded),
+                icon: Icons.search_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: '字符串扫描',
@@ -9169,13 +9098,8 @@ fi
             actions: [
               _DashboardActionButton(
                 onPressed: certificateBusy ? null : _ensureCertificateArtifacts,
-                icon: _writingCertificateArtifacts
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.description_rounded),
+                icon: Icons.description_rounded,
+                busy: _writingCertificateArtifacts,
                 label: openHandLocalizedText(
                   context,
                   zh: '生成证书工件',
@@ -9188,24 +9112,14 @@ fi
               ),
               _DashboardActionButton(
                 onPressed: certificateBusy ? null : _readCertificateArtifacts,
-                icon: _runningCertificateAction
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.folder_open_rounded),
+                icon: Icons.folder_open_rounded,
+                busy: _runningCertificateAction,
                 label: _androidReverseReadArtifactsLabel(context),
               ),
               _DashboardActionButton(
                 onPressed: certificateBusy ? null : _generateDebugKeystore,
-                icon: _runningCertificateAction
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.key_rounded),
+                icon: Icons.key_rounded,
+                busy: _runningCertificateAction,
                 label: openHandLocalizedText(
                   context,
                   zh: '生成密钥库',
@@ -9220,13 +9134,8 @@ fi
                 onPressed: certificateBusy
                     ? null
                     : _verifyConfiguredApkSignature,
-                icon: _runningCertificateAction
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.verified_rounded),
+                icon: Icons.verified_rounded,
+                busy: _runningCertificateAction,
                 label: openHandLocalizedText(
                   context,
                   zh: '验签 APK',
@@ -9239,13 +9148,8 @@ fi
               ),
               _DashboardActionButton(
                 onPressed: certificateBusy ? null : _inspectMitmproxyCa,
-                icon: _runningCertificateAction
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.policy_rounded),
+                icon: Icons.policy_rounded,
+                busy: _runningCertificateAction,
                 label: openHandLocalizedText(
                   context,
                   zh: '检查 CA',
@@ -9258,13 +9162,8 @@ fi
               ),
               _DashboardActionButton(
                 onPressed: certificateBusy ? null : _installMitmproxySystemCa,
-                icon: _runningCertificateAction
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.security_update_good_rounded),
+                icon: Icons.security_update_good_rounded,
+                busy: _runningCertificateAction,
                 label: openHandLocalizedText(
                   context,
                   zh: '安装系统 CA',
@@ -9346,7 +9245,7 @@ fi
                         ),
                         base64Encode(utf8.encode(_base64Ctrl.text)),
                       ),
-                icon: const Icon(Icons.upload_rounded),
+                icon: Icons.upload_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'Base64 编码',
@@ -9359,7 +9258,7 @@ fi
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty ? null : _decodeBase64Input,
-                icon: const Icon(Icons.download_rounded),
+                icon: Icons.download_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'Base64 解码',
@@ -9385,7 +9284,7 @@ fi
                         ),
                         Uri.encodeComponent(_base64Ctrl.text),
                       ),
-                icon: const Icon(Icons.link_rounded),
+                icon: Icons.link_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'URL 编码',
@@ -9398,7 +9297,7 @@ fi
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty ? null : _decodeUrlInput,
-                icon: const Icon(Icons.link_off_rounded),
+                icon: Icons.link_off_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'URL 解码',
@@ -9413,33 +9312,33 @@ fi
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _hashCryptoInput('MD5', crypto.md5),
-                icon: const Icon(Icons.tag_rounded),
+                icon: Icons.tag_rounded,
                 label: 'MD5',
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _hashCryptoInput('SHA1', crypto.sha1),
-                icon: const Icon(Icons.tag_rounded),
+                icon: Icons.tag_rounded,
                 label: 'SHA1',
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _hashCryptoInput('SHA256', crypto.sha256),
-                icon: const Icon(Icons.tag_rounded),
+                icon: Icons.tag_rounded,
                 label: 'SHA256',
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _hashCryptoInput('SHA512', crypto.sha512),
-                icon: const Icon(Icons.tag_rounded),
+                icon: Icons.tag_rounded,
                 label: 'SHA512',
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty ? null : _decodeJwtInput,
-                icon: const Icon(Icons.token_rounded),
+                icon: Icons.token_rounded,
                 label: openHandLocalizedText(
                   context,
                   zh: 'JWT 解析',
@@ -10469,7 +10368,7 @@ fi
             padding: const EdgeInsets.only(top: 4),
             child: _DashboardActionButton(
               onPressed: onPressed,
-              icon: Icon(icon),
+              icon: icon,
               label: label,
             ),
           ),
@@ -10692,13 +10591,21 @@ class _DashboardActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onPressed,
+    this.busy = false,
     this.filled = false,
     this.height = _kDashboardActionButtonHeight,
   });
 
-  final Widget icon;
+  final IconData icon;
   final String label;
   final VoidCallback? onPressed;
+
+  /// 忙碌时前导位换成转圈：与图标同边长、走全局动效切换。
+  ///
+  /// 此前二十多个按钮各自内联 `busy ? SizedBox(spinner) : Icon(...)`，转圈边长
+  /// 取遍 12/14/16 而图标固定 14，状态一翻转按钮文字就横向抖一下。
+  final bool busy;
+
   final bool filled;
   final double height;
 
@@ -10715,9 +10622,11 @@ class _DashboardActionButton extends StatelessWidget {
         height: 1,
       ),
     );
-    final effectiveIcon = IconTheme.merge(
-      data: const IconThemeData(size: _kDashboardActionIconSize),
-      child: icon,
+    final effectiveIcon = OpenHandBusyStatusIcon(
+      busy: busy,
+      icon: icon,
+      size: _kDashboardActionIconSize,
+      strokeWidth: 1.6,
     );
     final labelWidget = Text(
       label,
@@ -10802,11 +10711,19 @@ class _DashboardIconActionButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.busy = false,
+    this.color,
   });
 
-  final Widget icon;
+  final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
+
+  /// 忙碌时图标位换成同边长的转圈，避免按钮大小随状态跳变。
+  final bool busy;
+
+  /// 覆盖图标配色，用于删除这类破坏性动作。
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -10818,9 +10735,12 @@ class _DashboardIconActionButton extends StatelessWidget {
         onPressed: onPressed,
         splashRadius: _kDashboardIconActionButtonSize / 2,
         style: _dashboardIconActionStyle(cs),
-        icon: IconTheme.merge(
-          data: const IconThemeData(size: _kDashboardIconActionIconSize),
-          child: icon,
+        icon: OpenHandBusyStatusIcon(
+          busy: busy,
+          icon: icon,
+          color: color,
+          size: _kDashboardIconActionIconSize,
+          strokeWidth: 1.7,
         ),
       ),
     );
@@ -11029,7 +10949,7 @@ class _SmallActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return _DashboardActionButton(
       onPressed: onPressed,
-      icon: Icon(icon),
+      icon: icon,
       label: label,
     );
   }
