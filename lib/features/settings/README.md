@@ -10,7 +10,7 @@
 ## 对外 API
 - `SettingsView` — 设置页主入口
 - `showAiModelEditorDialog(...)` — 顶层函数，弹出 AI 模型编辑对话框（home composer 也会用到）
-- `ThreadSessionManagementDialog` — 会话管理对话框
+- `showThreadSessionManagementDialog(...)` — 顶层函数，弹出会话管理对话框
 - barrel: `features/settings/index.dart`
 
 ## 文件组织

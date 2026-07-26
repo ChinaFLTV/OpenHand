@@ -5,10 +5,10 @@
 
 ## 对外 API
 - `McpController` — Provider 提供，含 servers / tools / isLoading 与 connect/disconnect/refresh 等
-- 领域模型：`McpServer / McpTool / McpServerHealth / McpKeywordIndexUpdateMode / McpLazyLoadingMode / McpStdioMirrorMode`
-- service：`McpToolDiscoveryService / McpLazyLoadingApplier / ToolSearchHistoryExportPrefs / ToolSearchReplayDispatcher`
+- 领域模型：`McpServer / McpTool / McpServerHealth / McpKeywordIndexUpdateMode / McpLazyLoadingMode / McpStdioMirrorMode / McpHttpHeaders / McpServerOps`
+- service：`McpToolDiscoveryService / McpLazyLoadingApplier / ToolSearchHistoryExportPrefs / ToolSearchReplayDispatcher / McpOpsEndpoint / stdio 镜像策略与进程管理`
 - `McpModule.bootstrap(initialFilePath:)` / `McpModule.providers(m)`
-- `McpView` / `ToolSearchLoadedDialog` — 设置页 widget
+- `McpView` / `ToolSearchLoadedDialog` / `showToolSearchLoadedDialog` — 设置页 widget 与入口函数
 - barrel: `features/mcp/index.dart`
 
 ## 依赖

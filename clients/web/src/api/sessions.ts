@@ -743,7 +743,7 @@ export type CompactSessionStatus =
   | 'failed'
   | 'no_session';
 
-export interface CompactSessionResponse {
+interface CompactSessionResponse {
   ok: boolean;
   status: CompactSessionStatus;
   rejection_reason?: string | null;

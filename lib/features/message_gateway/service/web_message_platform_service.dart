@@ -3259,7 +3259,7 @@ class WebMessagePlatformService {
         'record': record?.toJson(),
       });
     } catch (e, st) {
-      silentLog('web_gateway', '加载 Harness 会话', e, st);
+      silentLog('web_message_platform_service', '加载 Harness 会话', e, st);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'harness_load_failed',
         'message': e.toString(),
@@ -5528,20 +5528,6 @@ class WebMessagePlatformService {
     });
   }
 
-  /// 用户主动触发的历史压缩入口（POST `/api/sessions/{id}/compact`）。
-  ///
-  /// Body 可选 `{model_key?: string}`：未传时回退 `_resolveModel('')`，
-  /// 与桌面端「使用当前选中模型」保持一致。返回结构：
-  /// ```
-  /// 200 OK
-  /// {
-  ///   "ok": true | false,
-  ///   "status": "success" | "cooldown" | "not_needed" | "inflight" |
-  ///             "session_busy" | "circuit_breaker" | "failed" | "no_session",
-  ///   "rejection_reason": string?,
-  ///   "retry_after_ms": int?,
-  ///   "session": { ... 同 _getSession 的 session 字段 }?
-  /// }
   /// 手动触发标题生成：接收用户选择的消息内容，调用 AI 生成摘要标题。
   Future<shelf.Response> _generateTitle(
     shelf.Request request,
@@ -5596,6 +5582,20 @@ class WebMessagePlatformService {
     }
   }
 
+  /// 用户主动触发的历史压缩入口（POST `/api/sessions/{id}/compact`）。
+  ///
+  /// Body 可选 `{model_key?: string}`：未传时回退 `_resolveModel('')`，
+  /// 与桌面端「使用当前选中模型」保持一致。返回结构：
+  /// ```
+  /// 200 OK
+  /// {
+  ///   "ok": true | false,
+  ///   "status": "success" | "cooldown" | "not_needed" | "inflight" |
+  ///             "session_busy" | "circuit_breaker" | "failed" | "no_session",
+  ///   "rejection_reason": string?,
+  ///   "retry_after_ms": int?,
+  ///   "session": { ... 同 _getSession 的 session 字段 }?
+  /// }
   /// ```
   Future<shelf.Response> _compactSession(
     shelf.Request request,
@@ -9037,7 +9037,7 @@ class WebMessagePlatformService {
       final html = await rootBundle.loadString('assets/web/index.html');
       return _html(html);
     } catch (e, stack) {
-      silentLog('web_gateway_service', '加载 Web 页面构建产物', e, stack);
+      silentLog('web_message_platform_service', '加载 Web 页面构建产物', e, stack);
       return _html(_missingBundleHtml(), status: HttpStatus.serviceUnavailable);
     }
   }
@@ -9078,7 +9078,7 @@ class WebMessagePlatformService {
         },
       );
     } catch (e, stack) {
-      silentLog('web_gateway_service', '加载 Web 构建资源：$key', e, stack);
+      silentLog('web_message_platform_service', '加载 Web 构建资源：$key', e, stack);
       return shelf.Response.notFound('asset_not_found: $key');
     }
   }

@@ -10,7 +10,7 @@ import {
 
 export type { CacheHitDisplayMode };
 
-export interface CacheHitComposition {
+interface CacheHitComposition {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   uncachedPromptTokens: number;

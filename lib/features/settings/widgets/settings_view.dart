@@ -5627,7 +5627,7 @@ class _SettingsViewState extends State<SettingsView> {
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
     } catch (error, stack) {
-      silentLog('设置', '打开节流配置保存位置', error, stack);
+      silentLog('settings', '打开节流配置保存位置', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -5649,7 +5649,7 @@ class _SettingsViewState extends State<SettingsView> {
       final doc = controller.exportAiStreamThrottleConfig();
       await writeFileAtomically(File(location.path), prettyPrintJson(doc));
     } catch (error, stack) {
-      silentLog('设置', '写入节流配置', error, stack);
+      silentLog('settings', '写入节流配置', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -5690,7 +5690,7 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       file = await openFile(acceptedTypeGroups: const <XTypeGroup>[typeGroup]);
     } catch (error, stack) {
-      silentLog('设置', '打开节流配置文件', error, stack);
+      silentLog('settings', '打开节流配置文件', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -5721,7 +5721,7 @@ class _SettingsViewState extends State<SettingsView> {
       }
       nextDoc = stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
-      silentLog('设置', '解析节流配置', error, stack);
+      silentLog('settings', '解析节流配置', error, stack);
       if (!context.mounted) return;
       final maxSize = formatByteSize(_kThrottleConfigImportMaxBytes);
       flashOpenHandSnack(
@@ -5833,7 +5833,7 @@ class _SettingsViewState extends State<SettingsView> {
             : OpenHandSnackKind.success,
       );
     } catch (error, stack) {
-      silentLog('设置', '应用节流配置', error, stack);
+      silentLog('settings', '应用节流配置', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -6548,8 +6548,8 @@ class _SettingsViewState extends State<SettingsView> {
     flashOpenHandSnack(context, l10n.mcpToolSearchExportLastDirResetToast);
   }
 
-  /// 一键重置 stdio MCP 隔离包缓存（~/.openhand/mcp/package-cache）。
-  /// 弹确认对话框 → 删整个目录 → toast 反馈。失败时落 silentLog 并提示用户手删。
+  /// stdio 镜像设置变更后的一键重连：刷新全部 MCP 服务，让子进程携带新
+  /// env（含 mirror override）重新拉起。
   Future<void> _reconnectMcpServersForMirrorChange(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final mcp = context.read<McpController>();
@@ -6564,6 +6564,8 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  /// 一键重置 stdio MCP 隔离包缓存（~/.openhand/mcp/package-cache）。
+  /// 弹确认对话框 → 删整个目录 → toast 反馈。失败时落 silentLog 并提示用户手删。
   Future<void> _resetStdioPackageCache(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showOpenHandConfirmDialog(
@@ -6584,7 +6586,7 @@ class _SettingsViewState extends State<SettingsView> {
         kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
-      silentLog('MCP设置', '重置标准输入输出软件包缓存', error, stack);
+      silentLog('settings', '重置标准输入输出软件包缓存', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
@@ -7518,7 +7520,7 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
         if (!mounted) return;
         setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
       },
-      onError: (error, stack) => silentLog('设置', '刷新自动模式帧率', error, stack),
+      onError: (error, stack) => silentLog('settings', '刷新自动模式帧率', error, stack),
     );
   }
 

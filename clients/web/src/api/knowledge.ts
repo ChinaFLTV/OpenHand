@@ -19,7 +19,7 @@ interface KnowledgeVectorDistributionPointDto {
   rerank_score?: number;
 }
 
-export interface KnowledgeVectorDistributionDto {
+interface KnowledgeVectorDistributionDto {
   algorithm?: string;
   original_dimensions?: number;
   sampled_count?: number;

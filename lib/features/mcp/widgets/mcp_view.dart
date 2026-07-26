@@ -627,7 +627,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     try {
       await context.read<McpController>().openStorageDirectory();
     } catch (error, stack) {
-      silentLog('mcp_view', '打开 MCP 存储目录', error, stack);
+      silentLog('mcp', '打开 MCP 存储目录', error, stack);
       if (!context.mounted) {
         return;
       }
@@ -844,7 +844,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             );
           }
         } catch (error, stack) {
-          silentLog('mcp_view', '清理软件包缓存 $packageName', error, stack);
+          silentLog('mcp', '清理软件包缓存 $packageName', error, stack);
         }
       }
 
@@ -1733,7 +1733,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
         previousName: widget.initialServer?.name,
       );
     } catch (error, stack) {
-      silentLog('mcp_view', '保存 MCP 服务', error, stack);
+      silentLog('mcp', '保存 MCP 服务', error, stack);
       if (!mounted) {
         return;
       }
@@ -4471,7 +4471,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         );
       } catch (error, stack) {
         _auditDetailDialogQueued = false;
-        silentLog('mcp_view', '显示 MCP 运维审计详情', error, stack);
+        silentLog('mcp', '显示 MCP 运维审计详情', error, stack);
       }
     });
   }
@@ -10966,7 +10966,8 @@ class _McpServerCardState extends State<_McpServerCard> {
   }
 }
 
-/// STDIO 类型 MCP 服务卡片右上角的专属按钮组：运行/停止、日志、详情。
+/// STDIO 类型 MCP 服务卡片右上角的专属按钮组：运行/停止、日志、运行时
+/// 详情；包管理器命令启动的服务额外提供依赖管理入口。
 class _StdioProcessButtons extends StatelessWidget {
   const _StdioProcessButtons({required this.server});
 
@@ -13176,8 +13177,7 @@ class _ProbeServerRow extends StatelessWidget {
   }
 }
 
-/// 失败热点筛选栏：两枚等尺寸动作按钮，窄屏自动换成一行一个。
-
+/// 服务启用/停用切换 chip：点击在启用与停用之间切换。
 class _McpServerToggleChip extends StatelessWidget {
   const _McpServerToggleChip({
     super.key,
@@ -15148,7 +15148,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
           revision,
         );
       } catch (error, stack) {
-        silentLog('mcp_view', '格式化工具结果', error, stack);
+        silentLog('mcp', '格式化工具结果', error, stack);
         if (!mounted || revision != _formatRevision) continue;
         final (display, truncated) = _capDisplay(rawText);
         _applyDisplay(

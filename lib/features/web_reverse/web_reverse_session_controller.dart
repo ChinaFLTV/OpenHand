@@ -804,7 +804,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 新建一个 page target（默认 about:blank）；上层切到它即可在新 tab 操作。
   /// 重排 page target 顺序：只动本地 `_pageTargets` 数组，并把当前顺序
   /// 同步给上层（持久化到 session metadata 由调用方负责）。
   void reorderPageTarget(int oldIndex, int newIndex) {
@@ -885,6 +884,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _replacePageTargetsFromData(normalized);
   }
 
+  /// 新建一个 page target（默认 about:blank）；上层切到它即可在新 tab 操作。
   Future<String?> createPageTarget({String url = 'about:blank'}) async {
     final cdp = _browserCdp;
     final normalizedUrl = _validatedPageUrlInput(url);
@@ -1082,7 +1082,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 跑一次 `Performance.startTrace` / `stopTrace` 并返回 trace JSON 字符串。
+  /// 跑一次 `Tracing.start` / `Tracing.end` 并返回 trace JSON 字符串。
   /// CDP 把 trace 通过 dataCollected 事件分块推；本方法做完整收集。
   ///
   /// 传入 [earlyStop]（任一 Future 完成即提前结束）即可在 UI 上提供 Stop。
@@ -3147,7 +3147,6 @@ class WebReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// Console REPL：把表达式喂给 page 的 Runtime.evaluate，
   /// REPL 命令历史，按时间顺序追加；UI 上下箭头浏览历史。
   /// 重启 dashboard / 切会话不丢，由 dashboard 侧把它持久化到 session metadata。
   final List<String> _replHistory = <String>[];
@@ -3869,6 +3868,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// Console REPL：把表达式喂给 page 的 Runtime.evaluate；
   /// 输入和结果都以 [_appendConsole] 写回 console buffer，
   /// 渲染端按 'repl-input' / 'repl-result' / 'error' level 区分配色。
   Future<String?> runReplExpression(String expression) async {
@@ -5034,9 +5034,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
-  /// `Emulation.setDeviceMetricsOverride` + `Emulation.setUserAgentOverride`。
-  /// 传 `null` 则 `Emulation.clearDeviceMetricsOverride`。
   /// 让分辨率档位真正影响页面渲染：传入 cssWidth/cssHeight/
   /// deviceScaleFactor=0 表示清除 override（恢复浏览器原生窗口尺寸）；其
   /// 它值则下发 Emulation.setDeviceMetricsOverride，让页面真正按该 CSS
@@ -5071,7 +5068,9 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
+  /// 设备模拟预设：移动 / 平板 / 桌面等档位；底层走
+  /// `Emulation.setDeviceMetricsOverride` + `Emulation.setUserAgentOverride`，
+  /// 传 `null` 则清除两类 override。
   Future<bool> setDeviceMetricsPreset(WebReverseDevicePreset? preset) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
@@ -5500,7 +5499,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 停止采样并返回汇总。停止前可多次调 stopMemorySampling 取中间快照。
+  /// 停止采样并返回汇总；采样未开启或已停止时调用返回 null。
   Future<
     ({int totalSize, List<({String label, int size, List<String> stack})> top})?
   >
@@ -6965,13 +6964,13 @@ class WebReverseSessionController extends ChangeNotifier {
 
     // 判断当前位置 i 上的 `/` 应当被解析为正则字面量起始（true）还是
     // 除号 / 注释（false）。基于 prevSig：若前一个有效字符是表达式起
-    // 始/分隔符（如 `=,;:!&|?{}([*/+-~^%<>` 或空），则是正则。
+    // 始/分隔符（如 `=,;:!&|?{([*/+-~^%<>` 或空），则是正则。
     bool looksLikeRegexStart() {
       if (prevSig.isEmpty) return true;
       const exprStarters = r'=,;:!&|?{([*/+-~^%<>';
       if (exprStarters.contains(prevSig)) return true;
       // `return` / `typeof` / `in` / `of` 等关键字后接 `/` 也是正则。
-      // 简化处理：回扫最多 8 个字符判断是否以这些关键字结尾。
+      // 简化处理：回扫最多 12 个字符判断是否以这些关键字结尾。
       final tail = out.length > 12
           ? out.toString().substring(out.length - 12)
           : out.toString();

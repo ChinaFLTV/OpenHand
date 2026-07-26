@@ -10020,7 +10020,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       if (!mounted) return;
       setState(() => _avatar.text = path);
     } catch (error, stack) {
-      silentLog('agents_view', '选择头像图片', error, stack);
+      silentLog('agents', '选择头像图片', error, stack);
       if (!mounted) return;
       _showAgentErrorSnack(
         context,

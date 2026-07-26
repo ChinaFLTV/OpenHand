@@ -14,6 +14,8 @@ widget-bundle。无自身全局 Controller — 状态分布在：
 入口：`features/home/index.dart`。
 
 - `OpenHandHomePage` — 主页面 widget
+- `OpenHandSessionTokenUsageDial` 与缓存命中趋势（`session_cache_hit_trend` /
+  `token_popup_cache_hit_trend_chart`）
 - `message_path_linking.dart` 全部公开：`MessageResolvedPath / MessagePathCodeSyntax / MessageFilePathSyntax / resolveMarkdownMessageLinkPath / resolveExistingMessagePath / resolveExistingMessagePathAsync / parseSupportedMessageLinkUri / messageFilePathRoots`（供 harness session_dashboard 使用）
 
 ## 目录组织
@@ -26,12 +28,13 @@ lib/features/home/
   widgets/                       # 页面 part、独立 dialog 与局部组件
     _home_navigation.dart        # part of '../openhand_home_page.dart'
     _home_transcript.dart        # 同上
-    _home_composer.dart          # 同上（3.7k 行）
-    _home_message_bubble.dart    # 同上（3.8k 行）
-    _home_tool_call_widgets.dart # 同上（3.9k 行）
-    _home_file_mutation_widgets.dart  # 同上（4.1k 行）
-    _home_programming_expert_file_explorer.dart  # 同上（14.4k 行，文件浏览器）
-    ... 13 其他 _home_*.dart
+    _home_composer.dart          # 同上
+    _home_message_bubble.dart    # 同上
+    _home_tool_call_widgets.dart # 同上
+    _home_file_mutation_widgets.dart  # 同上
+    _home_programming_expert_file_explorer.dart  # 同上（文件浏览器）
+    ... 15 个其他 _home_*.dart part 文件，另有独立非 part 文件
+    token_popup_cache_hit_trend_chart.dart 与 html_selection_bridge_clipboard.dart
   util/                          # 页面工具
     editor_indentation.dart      # 编辑器缩进推断
     slash_command_parser.dart    # /command 解析
@@ -47,7 +50,10 @@ lib/features/home/
 
 ## 跨 feature 依赖
 - 入向：openhand_app.dart 通过 `import '../features/home/openhand_home_page.dart'` 注入到 MaterialApp.home
-- 出向（通过 sibling barrel）：ai / mcp / harness / settings / crons / hooks / instructions / memory / skills / plugin_service / message_gateway
+- 出向（通过 sibling barrel）：agents / ai / android_reverse / crons / harness /
+  hooks / instructions / knowledge_base / machine_terminal / mcp / memory /
+  message_gateway / plugin_service / settings / skills /
+  thread_template_runtime / web_reverse
 
 ## 拆分边界
 - 页面部件归 `widgets/`，工具归 `util/`，轻量模型归 `model/`。

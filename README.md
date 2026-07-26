@@ -167,6 +167,7 @@ lib/
     hooks/                   生命周期 hook
     crons/                   定时任务与系统托管任务
     harness/                 Harness Engineering 编排
+    settings/                模型、内建工具、命令规则、沙箱、代理、动画、快捷键与数据清理设置页
     web_reverse/             Web 逆向 CDP Dashboard 与浏览器调试能力
     android_reverse/         Android 逆向 Dashboard、ADB / Frida / 抓包工具链
     machine_terminal/        机器专家内建终端

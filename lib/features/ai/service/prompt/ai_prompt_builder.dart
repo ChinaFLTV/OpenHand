@@ -6273,17 +6273,9 @@ $content
     return '[omitted $characterCount chars; $action payload stored locally$targetSuffix]';
   }
 
-  /// 通用工具调用结果压缩。当 [aiGenericToolResultCompressionThreshold] 阈值
-  /// 被超过时，把整段 raw 输出替换成结构化摘要：
-  ///
-  /// - 工具名称 + 状态
-  /// - 工具调用自述目的（purpose / intent / goal / description / reason）
-  /// - 受影响文件路径与行号（基于正则提取，去重保留前 12 条）
-  /// - 首尾各 256 字符片段，保留语义钩子但杜绝海量正文进入 prompt
-  ///
-  /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
-  /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
-
+  /// 知识库检索类工具结果压缩：超出提示词预算时按
+  /// [_knowledgeToolPromptMaxChars] 截断，并以 `[knowledge_tool_result]`
+  /// 标记压缩产物。
   String? _compressKnowledgeToolResultContent(
     AiSessionMessage message,
     _ToolCompressionConfig compressionConfig, {
@@ -6389,6 +6381,16 @@ $content
     return buffer.toString().trimRight();
   }
 
+  /// 通用工具调用结果压缩。原文超过配置的压缩阈值（thresholdChars，调用方
+  /// 可传阈值覆盖）时，把整段 raw 输出替换成结构化摘要：
+  ///
+  /// - 工具名称 + 状态
+  /// - 工具调用自述目的（purpose / intent / goal / description / reason）
+  /// - 受影响文件路径与行号（基于正则提取，去重保留前 12 条）
+  /// - 首尾各 256 字符片段，保留语义钩子但杜绝海量正文进入 prompt
+  ///
+  /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
+  /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
   String _compressGenericToolResultContent(
     AiSessionMessage message,
     _ToolCompressionConfig compressionConfig, {
@@ -6798,7 +6800,7 @@ class _MappedToolExchange {
 }
 
 /// 工具调用结果压缩相关的运行期配置。从 [AiSessionRuntimeContext]
-/// 派生，统一传入历史映射函数链，避免逐层传递 5 个独立参数。
+/// 派生，统一传入历史映射函数链，避免逐层传递一串独立参数。
 class _ToolCompressionConfig {
   const _ToolCompressionConfig({
     required this.enabled,

@@ -8287,7 +8287,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         ),
       );
     } catch (error, stack) {
-      silentLog('message_gateway_view', '打开地址', error, stack);
+      silentLog('message_gateway', '打开地址', error, stack);
       if (!context.mounted) return;
       showOpenHandErrorSnack(
         context,

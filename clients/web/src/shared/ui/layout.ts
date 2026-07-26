@@ -6,7 +6,7 @@ export const SESSIONS_SHELL_CLASS = 'oh-sessions-shell';
 export const SESSION_DETAIL_SHELL_CLASS = 'oh-session-detail-shell';
 
 /** 消息气泡最大宽度：按消息形态分层，统一管理便于后续调优。 */
-export const MESSAGE_BUBBLE_MAX_WIDTH = {
+const MESSAGE_BUBBLE_MAX_WIDTH = {
   wideSystem: 'min(96%, 1480px)',
   htmlAssistant: 'min(96%, 1520px)',
   expertRequest: 'min(92%, 1280px)',

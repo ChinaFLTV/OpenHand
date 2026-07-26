@@ -3,7 +3,7 @@
 OpenHand 桌面端 AI 会话核心，状态机心脏，由 `AiSessionController` 统一管理会话生命周期。
 
 ## 形态
-Controller-bearing。`AiModule.bootstrap()` 注入 hooks executor / skills dir provider / memory controller provider，返回 controller 实例。main.dart 早 kick-off，await 后挂入 MultiProvider。
+Controller-bearing。`AiModule.bootstrap()` 注入 8 项跨 feature 依赖（hooks executor、skills dir provider、memory / agents / instructions / knowledge_base controller provider、AI 模型 provider、机器终端服务），返回 controller 实例。main.dart 早 kick-off，await 后挂入 MultiProvider。
 
 ## 对外 API（barrel）
 入口：`features/ai/index.dart`。
@@ -13,7 +13,7 @@ Controller-bearing。`AiModule.bootstrap()` 注入 hooks executor / skills dir p
 - **Model**：会话、模型配置、上下文、用量与内置工具等领域模型
 - **Service**：按聊天、Prompt、运行时、文件、媒体、沙箱与 Web 能力分组
 - **Tool**：按文件、终端、搜索、Web、Git、规划和资源能力分组
-- **Store**：`AiSessionStore`（data/）
+- **Store**：`AiSessionStore` / `AiUsageStore`（data/，经 controller 与服务间接使用）
 
 ## 目录组织
 
@@ -21,13 +21,15 @@ Controller-bearing。`AiModule.bootstrap()` 注入 hooks executor / skills dir p
 lib/features/ai/
   ai_module.dart                  # 装配入口
   ai_session_controller.dart      # 状态机心脏
-  _ai_session_models.dart         # part of controller
-  _ai_session_utils.dart          # part of controller
   index.dart                      # barrel
   README.md
+  state/                          # controller 的 6 个 part 文件（_ai_session_*.dart）
   data/
     ai_session_store.dart         # SQLite 持久化
+    ai_usage_store.dart           # 用量持久化
   model/                          # 领域模型
+  util/                           # 轻量展示辅助
+  widgets/                        # 资源占用统计等独立弹窗
   service/                        # 按能力分组的服务
     chat/                         # ai_chat_service, ai_protocol_adapter, ai_transport_diagnostic_messages
     prompt/                       # ai_prompt_builder, ai_prompt_template_repository, ai_prompt_template_assembly
@@ -71,13 +73,14 @@ lib/features/ai/
 
 ## 不变量
 - `AiSessionController` 是状态机心脏；外部禁止旁路修改 session 状态，必须经 controller 公开方法。
-- `_ai_session_*.part.dart` 与 `ai_session_controller.dart` 共生：必须同目录、`part of` 引用同文件名。
+- `state/_ai_session_*.dart` 是 `ai_session_controller.dart` 的 part 文件：
+  `part` / `part of` 引用关系必须保持一致，不能独立编译。
 - `ai_module.dart` 的 bootstrap 是单飞：跨 isolate / 多实例化未经验证。
 - service/<sub>/ 与 tools/<sub>/ 是组织约定，不引入额外抽象层；同 sub 内 peer 互相 bare-import，跨 sub 走 `'../<peer_sub>/X.dart'`。
 
 ## 跨 feature 依赖
 - 入向：hooks executor / skills dir / memory controller provider 通过 `AiModule.bootstrap()` 注入
-- 出向（通过对应 sibling 的 barrel）：mcp / memory / skills / harness / crons
+- 出向（通过对应 sibling 的 barrel）：agents / harness / instructions / knowledge_base / machine_terminal / mcp / memory / skills
 
 ## 拆分边界
 - `service/` 与 `tools/` 已按职责分层；新增能力优先落到对应子目录。

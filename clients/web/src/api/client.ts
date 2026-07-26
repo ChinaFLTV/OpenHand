@@ -29,7 +29,7 @@ export class UnauthorizedError extends ApiError {
   }
 }
 
-export interface ApiOptions {
+interface ApiOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;

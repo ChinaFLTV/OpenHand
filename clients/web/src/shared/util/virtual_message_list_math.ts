@@ -3,14 +3,14 @@
 export const MESSAGE_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
 export const MESSAGE_LIST_MAX_LOADED_MESSAGES = 200;
-export const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 24;
+const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 24;
 export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 1000;
 export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
 const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
 /// 仅用于拦截异常值，不截断真实行高：工具卡片带长输出时几千像素是常态，
 /// 一旦截断，锚点补偿每次都会算出非零 delta 并写 scrollTop，列表永远抖动。
 const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 40_000;
-export const MESSAGE_LIST_GAP_PX = 12;
+const MESSAGE_LIST_GAP_PX = 12;
 /** 首次打开或滚动的范围约为视口行数加预渲染行数，并始终从尾部开始。 */
 const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 8;
 const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 4;

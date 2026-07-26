@@ -167,6 +167,7 @@ lib/
     hooks/                   lifecycle hooks
     crons/                   scheduled and system-managed jobs
     harness/                 Harness Engineering orchestration
+    settings/                Settings pages for models, built-in tools, command rules, sandbox, proxy, animations, shortcuts and data cleanup
     web_reverse/             Web reverse CDP Dashboard and browser debugging
     android_reverse/         Android reverse Dashboard, ADB / Frida / network toolchain
     machine_terminal/        built-in terminal for Machine Expert

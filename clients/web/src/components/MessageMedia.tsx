@@ -33,7 +33,7 @@ import { showSnackbar } from './Snackbar';
 import { svgIconProps } from '../shared/ui/svg_icon';
 import { CACHE_NAME_REMOTE_MEDIA } from '../shared/util/storage_keys';
 
-export type MediaKind = 'image' | 'video' | 'audio' | 'file';
+type MediaKind = 'image' | 'video' | 'audio' | 'file';
 
 export interface MediaItem {
   /// 原始本地绝对路径或网络 URL

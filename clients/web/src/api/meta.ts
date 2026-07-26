@@ -66,7 +66,7 @@ export interface ApiMetaShortcutBinding {
   label?: string;
 }
 
-export interface ApiMetaThemeRaw {
+interface ApiMetaThemeRaw {
   primary?: string;
   on_primary?: string;
   primary_container?: string;
