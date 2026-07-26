@@ -98,6 +98,26 @@ class _ComposerTriggerDismissal {
   final String query;
 }
 
+/// 一次 @ 提及检索的不变量，随浅层遍历与递归下钻整体透传。
+///
+/// 目录遍历是异步的，输入框随时可能变化；把这些值打包传递，可以在每个可能
+/// 让出事件循环的位置用同一份基准判断结果是否已经过期。
+class _AtMentionSearchScope {
+  const _AtMentionSearchScope({
+    required this.searchGeneration,
+    required this.triggerOffset,
+    required this.query,
+    required this.currentDirectory,
+    required this.rootPath,
+  });
+
+  final int searchGeneration;
+  final int triggerOffset;
+  final String query;
+  final String currentDirectory;
+  final String rootPath;
+}
+
 class _ComposerPanel extends StatefulWidget {
   const _ComposerPanel({
     required this.currentSession,
@@ -352,22 +372,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _atMentionLoading = false;
   }
 
-  bool _isAtMentionSearchStillActive({
-    required int searchGeneration,
-    required int triggerOffset,
-    required String query,
-    required String currentDirectory,
-    required String rootPath,
-  }) {
-    if (!mounted) return false;
-    if (searchGeneration != _atMentionSearchGeneration) return false;
-    if (widget.projectRoot != rootPath) return false;
-    if (_atMentionCurrentDirectory != currentDirectory) return false;
-    if (_atMentionTriggerOffset != triggerOffset) return false;
+  /// 一次 @ 提及检索的身份：目录遍历与递归下钻都靠它判断结果是否仍该采纳。
+  ///
+  /// 输入框内容、当前目录或触发位置一变，本次检索的结果就已过期，必须整体丢弃。
+  bool _isAtMentionSearchStale(_AtMentionSearchScope scope) {
+    if (!mounted) return true;
+    if (scope.searchGeneration != _atMentionSearchGeneration) return true;
+    if (widget.projectRoot != scope.rootPath) return true;
+    if (_atMentionCurrentDirectory != scope.currentDirectory) return true;
+    if (_atMentionTriggerOffset != scope.triggerOffset) return true;
     final trigger = _computeAtMentionTrigger();
-    return trigger != null &&
-        trigger.triggerOffset == triggerOffset &&
-        trigger.query == query;
+    return trigger == null ||
+        trigger.triggerOffset != scope.triggerOffset ||
+        trigger.query != scope.query;
   }
 
   void _pruneAtMentionDismissal() {
@@ -502,9 +519,14 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   Future<void> _performAtMentionSearch(String rootPath, String query) async {
     if (!mounted) return;
-    final searchGeneration = ++_atMentionSearchGeneration;
-    final triggerOffset = _atMentionTriggerOffset;
     final currentDirectory = _atMentionCurrentDirectory;
+    final scope = _AtMentionSearchScope(
+      searchGeneration: ++_atMentionSearchGeneration,
+      triggerOffset: _atMentionTriggerOffset,
+      query: query,
+      currentDirectory: currentDirectory,
+      rootPath: rootPath,
+    );
     final restoreSelectionRelativePath = _atMentionRestoreSelectionRelativePath;
     setState(() => _atMentionLoading = true);
     _atMentionOverlayMode = _AtMentionOverlayMode.projectFiles;
@@ -516,13 +538,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     try {
       final dir = Directory(basePath);
       if (!await dir.exists()) {
-        if (!_isAtMentionSearchStillActive(
-          searchGeneration: searchGeneration,
-          triggerOffset: triggerOffset,
-          query: query,
-          currentDirectory: currentDirectory,
-          rootPath: rootPath,
-        )) {
+        if (_isAtMentionSearchStale(scope)) {
           return;
         }
         setState(() {
@@ -537,13 +553,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         dir,
         maxEntries: _atMentionDirectoryEntryLimit,
       )).entries.toList(growable: false);
-      if (!_isAtMentionSearchStillActive(
-        searchGeneration: searchGeneration,
-        triggerOffset: triggerOffset,
-        query: query,
-        currentDirectory: currentDirectory,
-        rootPath: rootPath,
-      )) {
+      if (_isAtMentionSearchStale(scope)) {
         return;
       }
       entries.sort((a, b) {
@@ -556,13 +566,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             .compareTo(p.basename(b.path).toLowerCase());
       });
       for (final entry in entries) {
-        if (!_isAtMentionSearchStillActive(
-          searchGeneration: searchGeneration,
-          triggerOffset: triggerOffset,
-          query: query,
-          currentDirectory: currentDirectory,
-          rootPath: rootPath,
-        )) {
+        if (_isAtMentionSearchStale(scope)) {
           return;
         }
         if (results.length >= _atMentionShallowResultLimit) break;
@@ -589,25 +593,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           Directory(rootPath),
           trimmedQuery,
           results,
-          rootPath,
           0,
-          searchGeneration: searchGeneration,
-          triggerOffset: triggerOffset,
-          triggerQuery: query,
-          currentDirectory: currentDirectory,
+          scope: scope,
           budget: _DirectoryScanBudget(_atMentionDeepSearchEntryLimit),
         );
       }
     } catch (error, stack) {
       silentLog('composer', '@ 提及浅层搜索', error, stack);
     }
-    if (!_isAtMentionSearchStillActive(
-      searchGeneration: searchGeneration,
-      triggerOffset: triggerOffset,
-      query: query,
-      currentDirectory: currentDirectory,
-      rootPath: rootPath,
-    )) {
+    if (_isAtMentionSearchStale(scope)) {
       return;
     }
     setState(() {
@@ -633,12 +627,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     Directory dir,
     String query,
     List<_AtMentionItem> results,
-    String rootPath,
     int depth, {
-    required int searchGeneration,
-    required int triggerOffset,
-    required String triggerQuery,
-    required String currentDirectory,
+    required _AtMentionSearchScope scope,
     required _DirectoryScanBudget budget,
   }) async {
     if (depth > _atMentionDeepSearchMaxDepth ||
@@ -646,13 +636,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         budget.remaining <= 0) {
       return;
     }
-    if (!_isAtMentionSearchStillActive(
-      searchGeneration: searchGeneration,
-      triggerOffset: triggerOffset,
-      query: triggerQuery,
-      currentDirectory: currentDirectory,
-      rootPath: rootPath,
-    )) {
+    if (_isAtMentionSearchStale(scope)) {
       return;
     }
     try {
@@ -660,31 +644,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         dir,
         maxEntries: math.min(_atMentionDirectoryEntryLimit, budget.remaining),
       )).entries;
-      if (!_isAtMentionSearchStillActive(
-        searchGeneration: searchGeneration,
-        triggerOffset: triggerOffset,
-        query: triggerQuery,
-        currentDirectory: currentDirectory,
-        rootPath: rootPath,
-      )) {
+      if (_isAtMentionSearchStale(scope)) {
         return;
       }
       for (final entry in entries) {
         if (!budget.consume()) return;
-        if (!_isAtMentionSearchStillActive(
-          searchGeneration: searchGeneration,
-          triggerOffset: triggerOffset,
-          query: triggerQuery,
-          currentDirectory: currentDirectory,
-          rootPath: rootPath,
-        )) {
+        if (_isAtMentionSearchStale(scope)) {
           return;
         }
         if (results.length >= _atMentionDeepSearchResultLimit) return;
         final name = p.basename(entry.path);
         if (name.startsWith('.')) continue;
         if (_atMentionIgnoredEntryNames.contains(name)) continue;
-        final relativePath = p.relative(entry.path, from: rootPath);
+        final relativePath = p.relative(entry.path, from: scope.rootPath);
         // Avoid duplicates already in the shallow list.
         if (name.toLowerCase().contains(query) &&
             !results.any((r) => r.path == entry.path)) {
@@ -702,12 +674,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             entry,
             query,
             results,
-            rootPath,
             depth + 1,
-            searchGeneration: searchGeneration,
-            triggerOffset: triggerOffset,
-            triggerQuery: triggerQuery,
-            currentDirectory: currentDirectory,
+            scope: scope,
             budget: budget,
           );
         }

@@ -18,6 +18,9 @@ const Duration _kFileMutationRowStateDuration = Duration(milliseconds: 220);
 const Duration _kFileMutationRowSlideDuration = Duration(milliseconds: 320);
 const Duration _kFileMutationRowChevronDuration = Duration(milliseconds: 180);
 
+/// 需要用户读完再消失的提示（跳转降级、保存失败），比默认信息提示久一点。
+const Duration _kFileMutationNoticeSnackDuration = Duration(milliseconds: 2800);
+
 /// 聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
 List<String> _fileMutationPaths(AiSessionMessage message) {
@@ -3484,7 +3487,7 @@ class _RoundFileMutationSummaryCardState
                 zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
                 en: 'Target message is before compression point. Jumped to earliest visible message.',
               ),
-              duration: const Duration(milliseconds: 2800),
+              duration: _kFileMutationNoticeSnackDuration,
             );
             return;
           }
@@ -3648,7 +3651,7 @@ class _RoundFileMutationSummaryCardState
           zh: '保存失败：$error',
           en: 'Save failed: $error',
         ),
-        duration: const Duration(milliseconds: 2800),
+        duration: _kFileMutationNoticeSnackDuration,
       );
       return;
     }
