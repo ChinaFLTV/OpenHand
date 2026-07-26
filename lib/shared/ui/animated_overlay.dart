@@ -7,9 +7,8 @@ import '../../app/state/settings_controller.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
-const double _kDefaultOverlayScaleBegin = 0.95;
-const double _kMinOverlayScaleBegin = 0.5;
-const double _kMaxOverlayScaleBegin = 1.0;
+/// 浮层进出场的起始缩放：略小于 1，避免弹出时的生硬跳变。
+const double _kOverlayScaleBegin = 0.95;
 
 /// Builds one animated overlay entry owned by an
 /// [AnimatedOverlayEntryController].
@@ -167,9 +166,8 @@ class _AnimatedOverlayEntrySession {
 /// Provides animated entrance and exit effects for overlay content (hover
 /// popups, tooltips, autocomplete panels, etc.).
 ///
-/// Wraps child content with configurable fade-in and scale animations that
-/// respect global animation settings when [useMenuSettings] is true.
-/// Otherwise uses faster default animations suitable for quick popups.
+/// 动效一律取自全局菜单动画设置；[customSettings] 供已自行解析过设置的宿主
+/// 透传，不提供绕过全局设置的固定时长通道。
 ///
 /// Pass [visibility] and [onExitCompleted] when the owner removes an
 /// [OverlayEntry]. Setting the listenable to false reverses the configured
@@ -180,11 +178,6 @@ class AnimatedOverlayContent extends StatefulWidget {
   const AnimatedOverlayContent({
     super.key,
     required this.child,
-    this.useMenuSettings = true,
-    this.customDuration,
-    this.customCurve,
-    this.enableScaleAnimation = true,
-    this.scaleBegin = _kDefaultOverlayScaleBegin,
     this.alignment = Alignment.center,
     this.customSettings,
     this.visibility,
@@ -193,24 +186,8 @@ class AnimatedOverlayContent extends StatefulWidget {
 
   final Widget child;
 
-  /// 是否读取 [SettingsController.menuAnimationSettings]。
-  /// 默认读取全局菜单动画设置；显式关闭时使用快速默认动画。
-  final bool useMenuSettings;
-
-  /// Override the animation duration.
-  final Duration? customDuration;
-
-  /// Override the animation curve.
-  final Curve? customCurve;
-
-  /// Fully override the resolved animation settings.
+  /// 已由宿主解析好的动画设置；为空时读取全局菜单动画设置。
   final DialogAnimationSettings? customSettings;
-
-  /// Whether to include scale animation along with fade.
-  final bool enableScaleAnimation;
-
-  /// The starting scale value when [enableScaleAnimation] is true.
-  final double scaleBegin;
 
   final Alignment alignment;
 
@@ -231,9 +208,9 @@ class AnimatedOverlayContent extends StatefulWidget {
 class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  DialogAnimationSettings _settings = const DialogAnimationSettings(
-    durationMs: 150,
-  );
+  // 首帧尚未拿到 SettingsController 时的占位值，didChangeDependencies 会立刻
+  // 用全局菜单设置覆盖它。
+  DialogAnimationSettings _settings = OpenHandMotionDefaults.menu;
   bool _animationsDisabled = false;
   SettingsController? _settingsController;
   bool _exitCompletionScheduled = false;
@@ -274,11 +251,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
       // from [_syncAnimationPreference] below.
       _cancelExitCompletion();
     }
-    if (oldWidget.useMenuSettings != widget.useMenuSettings ||
-        oldWidget.customDuration != widget.customDuration ||
-        oldWidget.customCurve != widget.customCurve ||
-        oldWidget.customSettings != widget.customSettings ||
-        oldWidget.enableScaleAnimation != widget.enableScaleAnimation ||
+    if (oldWidget.customSettings != widget.customSettings ||
         oldWidget.alignment != widget.alignment ||
         oldWidget.visibility != widget.visibility ||
         oldWidget.onExitCompleted != widget.onExitCompleted) {
@@ -287,30 +260,16 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   }
 
   DialogAnimationSettings _resolveSettings() {
-    if (widget.customSettings != null) {
-      return widget.customSettings!;
-    }
-    if (widget.useMenuSettings) {
-      return openHandMotionSettingsFallbackOf(
-        context,
-        OpenHandMotionSettingsScope.menu,
-      ).copyWith(durationMs: widget.customDuration?.inMilliseconds);
-    }
-    return DialogAnimationSettings(
-      entranceStyle: widget.enableScaleAnimation
-          ? DialogAnimationStyle.fadeScale
-          : DialogAnimationStyle.fade,
-      exitStyle: widget.enableScaleAnimation
-          ? DialogAnimationStyle.fadeScale
-          : DialogAnimationStyle.fade,
-      durationMs: widget.customDuration?.inMilliseconds ?? 150,
-    );
+    return widget.customSettings ??
+        openHandMotionSettingsFallbackOf(
+          context,
+          OpenHandMotionSettingsScope.menu,
+        );
   }
 
   void _bindSettingsController() {
-    final shouldListen = widget.useMenuSettings && widget.customSettings == null;
     SettingsController? nextController;
-    if (shouldListen) {
+    if (widget.customSettings == null) {
       try {
         nextController = context.read<SettingsController>();
       } on ProviderNotFoundException {
@@ -433,14 +392,13 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   }
 
   OpenHandAnimationTransitionProfile _transitionProfile() {
-    final scaleBegin = _safeOverlayScaleBegin(widget.scaleBegin);
     return OpenHandAnimationTransitionProfile(
       alignment: widget.alignment,
-      fadeScaleBegin: scaleBegin,
-      expandScaleBegin: scaleBegin,
-      rotateScaleBegin: scaleBegin,
-      elasticScaleBegin: scaleBegin,
-      springScaleBegin: scaleBegin,
+      fadeScaleBegin: _kOverlayScaleBegin,
+      expandScaleBegin: _kOverlayScaleBegin,
+      rotateScaleBegin: _kOverlayScaleBegin,
+      elasticScaleBegin: _kOverlayScaleBegin,
+      springScaleBegin: _kOverlayScaleBegin,
     );
   }
 
@@ -456,15 +414,8 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
         animation: _controller,
         settings: _settings,
         profile: _transitionProfile(),
-        curveOverride: widget.customCurve,
-        reverseCurveOverride: widget.customCurve,
         child: child!,
       ),
     );
   }
-}
-
-double _safeOverlayScaleBegin(double value) {
-  if (!value.isFinite || value <= 0) return _kDefaultOverlayScaleBegin;
-  return value.clamp(_kMinOverlayScaleBegin, _kMaxOverlayScaleBegin).toDouble();
 }

@@ -239,6 +239,34 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _accountSnapshotRestoreConcurrency = 4;
   static const Duration _accountSnapshotCommandTimeout = Duration(seconds: 3);
   static const Duration _accountSnapshotRestoreTimeout = Duration(seconds: 45);
+
+  // ── CDP 命令超时预算 ──────────────────────────────────────────────────
+  // 按命令的开销量级分档，同档共用一个常量：调 某一类命令的预算只需改一处，
+  // 也让「这条命令为什么给这么久」有据可查。
+
+  /// 控制与轻量命令：enable / ack / 释放对象 / 输入派发 / 小体量求值。
+  static const Duration _cdpControlTimeout = Duration(seconds: 3);
+
+  /// 轻量查询与节点操作：滚动定位、高亮、指标开关。
+  static const Duration _cdpLightCommandTimeout = Duration(seconds: 4);
+
+  /// 脚本注入、节点解析与请求改写：需要页面侧配合但不返回大对象。
+  static const Duration _cdpScriptTimeout = Duration(seconds: 5);
+
+  /// DOM / 样式 / 监听器的结构化查询：返回体量随节点规模增长。
+  static const Duration _cdpInspectTimeout = Duration(seconds: 6);
+
+  /// 存储、导航与响应体等 I/O 类命令：受磁盘与网络影响。
+  static const Duration _cdpIoTimeout = Duration(seconds: 10);
+
+  /// 调试器求值与脚本源码：可能被页面自身代码阻塞。
+  static const Duration _cdpDebuggerTimeout = Duration(seconds: 15);
+
+  /// 截图：耗时随视口尺寸与渲染压力增长。
+  static const Duration _cdpScreenshotTimeout = Duration(seconds: 30);
+
+  /// 堆快照：数据量最大，单独给最长预算。
+  static const Duration _cdpHeapSnapshotTimeout = Duration(seconds: 60);
   static const Set<String> _fetchErrorReasons = <String>{
     'Failed',
     'Aborted',
@@ -1065,7 +1093,7 @@ class WebReverseSessionController extends ChangeNotifier {
         await cdp.send(
           'Performance.enable',
           sessionId: sessionId,
-          timeout: const Duration(seconds: 4),
+          timeout: _cdpLightCommandTimeout,
         );
         if (_pageSessionId != sessionId) return const [];
         _performanceEnabled = true;
@@ -1073,7 +1101,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final r = await cdp.send(
         'Performance.getMetrics',
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       return normalizeWebReversePerformanceMetrics(r['metrics']);
@@ -1120,7 +1148,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'captureNumericValue': false,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 60),
+        timeout: _cdpHeapSnapshotTimeout,
       );
       // takeHeapSnapshot 同步返回时一般 chunk 已 flush 完，等一小段防边界。
       await Future.any<void>([
@@ -1703,7 +1731,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'pageSize': normalizedPageSize,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
       final hasMore = r['hasMore'] == true;
       final entries = compactWebReverseIndexedDbEntries(
@@ -1743,7 +1771,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'objectStoreName': normalizedStoreName,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
       return true;
     } catch (error, stack) {
@@ -1793,7 +1821,7 @@ class WebReverseSessionController extends ChangeNotifier {
           },
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
       return true;
     } catch (error, stack) {
@@ -1838,7 +1866,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'databaseName': normalizedDbName,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
       return true;
     } catch (error, stack) {
@@ -2942,7 +2970,7 @@ class WebReverseSessionController extends ChangeNotifier {
               'Page.screencastFrameAck',
               params: <String, Object?>{'sessionId': sessionId.toInt()},
               sessionId: _pageSessionId,
-              timeout: const Duration(seconds: 3),
+              timeout: _cdpControlTimeout,
             )
             .catchError((_) => <String, Object?>{}),
       );
@@ -3455,7 +3483,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Page.addScriptToEvaluateOnNewDocument',
         params: <String, Object?>{'source': h.code},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       final sid = r['identifier'];
       if (sid is String) _hookCdpScriptId[h.id] = sid;
@@ -3473,7 +3501,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Page.removeScriptToEvaluateOnNewDocument',
         params: <String, Object?>{'identifier': sid},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '卸载钩子', e, st);
@@ -3697,7 +3725,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOM.describeNode',
         params: <String, Object?>{'nodeId': nodeId, 'depth': safeDepth},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return null;
       final node = r['node'];
@@ -3719,7 +3747,7 @@ class WebReverseSessionController extends ChangeNotifier {
         await cdp.send(
           'CSS.enable',
           sessionId: sessionId,
-          timeout: const Duration(seconds: 3),
+          timeout: _cdpControlTimeout,
         );
         if (_pageSessionId != sessionId) return const [];
         _cssEnabled = true;
@@ -3728,7 +3756,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'CSS.getComputedStyleForNode',
         params: <String, Object?>{'nodeId': nodeId},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseComputedStyles(r['computedStyle']);
@@ -3752,7 +3780,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOM.resolveNode',
         params: <String, Object?>{'nodeId': nodeId},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       final obj = resolved['object'];
@@ -3768,7 +3796,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOMDebugger.getEventListeners',
         params: <String, Object?>{'objectId': objectId, 'depth': 1},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseDomEventListeners(r['listeners']);
@@ -3782,7 +3810,7 @@ class WebReverseSessionController extends ChangeNotifier {
             'Runtime.releaseObject',
             params: <String, Object?>{'objectId': objectId},
             sessionId: sessionId,
-            timeout: const Duration(seconds: 3),
+            timeout: _cdpControlTimeout,
           );
         } catch (error, stack) {
           silentLog(
@@ -3815,7 +3843,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOM.resolveNode',
         params: <String, Object?>{'nodeId': nodeId},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       final obj = resolved['object'];
       if (obj is! Map) return null;
@@ -3829,7 +3857,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       final result = r['result'];
       if (result is Map && result['value'] is String) {
@@ -3850,7 +3878,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send(
         'Overlay.enable',
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
       await cdp.send(
         'Overlay.highlightNode',
@@ -3887,7 +3915,7 @@ class WebReverseSessionController extends ChangeNotifier {
           },
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 4),
+        timeout: _cdpLightCommandTimeout,
       );
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '高亮页面节点', e, st);
@@ -3901,7 +3929,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send(
         'Overlay.hideHighlight',
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '隐藏页面节点高亮', e, st);
@@ -3917,7 +3945,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOM.scrollIntoViewIfNeeded',
         params: <String, Object?>{'nodeId': nodeId},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 4),
+        timeout: _cdpLightCommandTimeout,
       );
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '滚动到页面节点', e, st);
@@ -3956,7 +3984,7 @@ class WebReverseSessionController extends ChangeNotifier {
             'objectGroup': 'oh_console',
           },
           sessionId: _pageSessionId,
-          timeout: const Duration(seconds: 15),
+          timeout: _cdpDebuggerTimeout,
         );
       } else {
         r = await cdp.send(
@@ -3968,7 +3996,7 @@ class WebReverseSessionController extends ChangeNotifier {
             'allowUnsafeEvalBlockedByCSP': true,
           },
           sessionId: _pageSessionId,
-          timeout: const Duration(seconds: 15),
+          timeout: _cdpDebuggerTimeout,
         );
       }
       final exception = r['exceptionDetails'];
@@ -4553,7 +4581,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       final raw = cdpStringResultValue(r);
@@ -4770,7 +4798,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       final raw = cdpStringResultValue(r);
@@ -4797,7 +4825,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: sessionId,
-        timeout: const Duration(seconds: 4),
+        timeout: _cdpLightCommandTimeout,
       );
       if (_pageSessionId != sessionId) return null;
       final v = cdpResultValue(r);
@@ -4971,7 +4999,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'modifiers': modifiers,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '派发鼠标事件：$type', error, stack);
@@ -5007,7 +5035,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'autoRepeat': autoRepeat,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '派发键盘事件：$type', error, stack);
@@ -5024,7 +5052,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Input.insertText',
         params: <String, Object?>{'text': text},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '插入文本', error, stack);
@@ -5041,7 +5069,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Page.navigate',
         params: <String, Object?>{'url': normalizedUrl},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
     } catch (error, stack) {
       silentLog(
@@ -5074,7 +5102,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final r = await cdp.send(
         'Page.getNavigationHistory',
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
       final entries = (r['entries'] as List?) ?? const [];
       final current = intFromValue(r['currentIndex'], fallback: -1);
@@ -5283,7 +5311,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       final v = cdpResultValue(r);
       return v is num ? v.toInt() : 0;
@@ -5427,7 +5455,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
+        timeout: _cdpControlTimeout,
       );
       final value = cdpResultValue(r);
       return value is String
@@ -5485,7 +5513,7 @@ class WebReverseSessionController extends ChangeNotifier {
         final metrics = await cdp.send(
           'Page.getLayoutMetrics',
           sessionId: _pageSessionId,
-          timeout: const Duration(seconds: 10),
+          timeout: _cdpIoTimeout,
         );
         final content = stringKeyedMapFromValue(metrics['cssContentSize']);
         if (content.isNotEmpty) {
@@ -5513,7 +5541,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Page.captureScreenshot',
         params: params,
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 30),
+        timeout: _cdpScreenshotTimeout,
       );
       final data = r['data'] as String?;
       if (data == null || data.isEmpty) return null;
@@ -5572,7 +5600,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final r = await cdp.send(
         'HeapProfiler.stopSampling',
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
       final profile = stringKeyedMapFromValue(r['profile']);
       if (profile.isEmpty) return null;
@@ -6031,7 +6059,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'body': body,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       _mockHits.insert(
         0,
@@ -6137,7 +6165,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 30),
+        timeout: _cdpScreenshotTimeout,
       );
       final raw = cdpStringResultValue(r);
       if (raw == null) return null;
@@ -6270,7 +6298,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Debugger.getScriptSource',
         params: <String, Object?>{'scriptId': scriptId},
         sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 15),
+        timeout: _cdpDebuggerTimeout,
       );
       final source = r['scriptSource'] as String?;
       if (source == null) return null;
@@ -6916,7 +6944,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'generatePreview': generatePreview,
         },
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseRuntimeProperties(r['result']);
@@ -6943,7 +6971,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'objectGroup': objectGroup,
         },
         sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
+        timeout: _cdpScriptTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       final objectId = (win['result'] as Map?)?['objectId'] as String?;
@@ -6954,7 +6982,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'DOMDebugger.getEventListeners',
         params: <String, Object?>{'objectId': objectId, 'depth': 1},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 6),
+        timeout: _cdpInspectTimeout,
       );
       if (_pageSessionId != sessionId) return const [];
       return compactWebReverseDomEventListeners(r['listeners']);
@@ -6968,7 +6996,7 @@ class WebReverseSessionController extends ChangeNotifier {
             'Runtime.releaseObjectGroup',
             params: const <String, Object?>{'objectGroup': objectGroup},
             sessionId: sessionId,
-            timeout: const Duration(seconds: 3),
+            timeout: _cdpControlTimeout,
           );
         } catch (error, stack) {
           silentLog(
@@ -7711,7 +7739,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Network.getResponseBody',
         params: <String, Object?>{'requestId': normalizedRequestId},
         sessionId: sessionId,
-        timeout: const Duration(seconds: 10),
+        timeout: _cdpIoTimeout,
       );
       if (_pageSessionId != sessionId ||
           _networkByRequestId[normalizedRequestId] != entry) {
@@ -8278,7 +8306,7 @@ class WebReverseSessionController extends ChangeNotifier {
               'silent': true,
             },
             sessionId: _pageSessionId,
-            timeout: const Duration(seconds: 3),
+            timeout: _cdpControlTimeout,
           );
         } catch (e, st) {
           silentLog('web_reverse_session_controller', '执行断点表达式', e, st);

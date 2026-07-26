@@ -61,6 +61,22 @@ abstract final class AiThinkingRequestPolicy {
     return model.resolvedSupportsThinking || model.resolvedThinkingEnabled;
   }
 
+  /// MiMo 的 thinking 开关：显式写 enabled / disabled，开启时移除采样参数。
+  ///
+  /// MiMo 的 OpenAI 与 Anthropic 两套端点都不接受 thinking 与
+  /// temperature / top_p 同时出现，两个适配器必须写成同一形态。
+  static void applyMimoThinking(
+    Map<String, Object?> body,
+    AiModelConfig model,
+  ) {
+    body[_thinkingField] = <String, Object?>{
+      'type': model.resolvedThinkingEnabled ? 'enabled' : 'disabled',
+    };
+    if (!model.resolvedThinkingEnabled) return;
+    body.remove('temperature');
+    body.remove('top_p');
+  }
+
   static void applyOpenAiCompatible(
     Map<String, Object?> body,
     AiModelConfig model,
@@ -2531,13 +2547,7 @@ class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
     }
     body.remove('stream_options');
     body.remove('reasoning_effort');
-    body['thinking'] = <String, Object?>{
-      'type': model.resolvedThinkingEnabled ? 'enabled' : 'disabled',
-    };
-    if (model.resolvedThinkingEnabled) {
-      body.remove('temperature');
-      body.remove('top_p');
-    }
+    AiThinkingRequestPolicy.applyMimoThinking(body, model);
     _normalizeResponseFormat(body);
     if (body['tools'] is List && (body['tools']! as List).isNotEmpty) {
       body['tool_choice'] = 'auto';
@@ -3484,16 +3494,8 @@ class MimoAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
   }
 
   static void _normalizeBody(Map<String, Object?> body, AiModelConfig model) {
-    body['thinking'] = <String, Object?>{
-      'type': model.resolvedThinkingEnabled ? 'enabled' : 'disabled',
-    };
+    AiThinkingRequestPolicy.applyMimoThinking(body, model);
     body.remove('output_config');
-    final thinking = body['thinking'];
-    if (thinking is Map) thinking.remove('budget_tokens');
-    if (model.resolvedThinkingEnabled) {
-      body.remove('temperature');
-      body.remove('top_p');
-    }
   }
 
   @override
