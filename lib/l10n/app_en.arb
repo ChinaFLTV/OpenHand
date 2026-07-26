@@ -2220,6 +2220,18 @@
       }
     }
   },
+  "tokenPopupPrefixReuse": "Prefix reuse",
+  "tokenPopupTooltipFreshReuse": "+{fresh} new · reuse {reuse}%",
+  "@tokenPopupTooltipFreshReuse": {
+    "placeholders": {
+      "fresh": {
+        "type": "String"
+      },
+      "reuse": {
+        "type": "int"
+      }
+    }
+  },
   "tokenPopupFirstRequestShort": "Ignored",
   "tokenPopupFirstRequestNotAveraged": "Not averaged",
   "tokenPopupTrendNoData": "No cache hit data yet. The trend appears after messages are sent.",

@@ -453,6 +453,8 @@ export const dict_zhHant: Record<string, string> = {
   'tokenPopup.promptBuilds': '提示詞構建',
   'tokenPopup.promptChars': '提示詞字元',
   'tokenPopup.cacheHitBar.title': '左：快取命中 · 中：快取寫入 · 右：未快取提示詞',
+  'tokenPopup.prefixReuse': '前綴復用',
+  'tokenPopup.tooltipFreshReuse': '新增 {{fresh}} · 復用 {{reuse}}%',
   'tokenPopup.cacheHitMode.excludeExpired': '不含過期異常',
   'tokenPopup.cacheHitMode.includeExpired': '含過期異常',
   'tokenPopup.firstRequestIgnored': '首輪不計平均',

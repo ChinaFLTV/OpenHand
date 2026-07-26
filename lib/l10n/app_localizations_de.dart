@@ -4135,6 +4135,14 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get tokenPopupPrefixReuse => 'Präfix-Wiederverwendung';
+
+  @override
+  String tokenPopupTooltipFreshReuse(String fresh, int reuse) {
+    return '+$fresh neu · Wiederverw. $reuse%';
+  }
+
+  @override
   String get tokenPopupFirstRequestShort => 'Ignoriert';
 
   @override

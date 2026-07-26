@@ -7,6 +7,12 @@ const double kCacheHitExpiryHitRatioThreshold = 0.03; // 3%
 const int kAutomaticProviderCacheMissMinGapSeconds = 0;
 const double kAutomaticProviderCacheMissHitRatioThreshold = 0.80;
 
+/// 前缀复用健康阈值：本轮缓存读取达到上一轮可复用前缀的 95% 以上，
+/// 视为已达理论上限（供应商按 token 块对齐缓存，允许少量块级抖动）。
+/// 命中率（read/prompt）会被"本轮新增且必然未缓存"的输入稀释，
+/// 复用率才是衡量 Prompt 装配是否破坏缓存的口径。
+const double kCacheHitHealthyPrefixReuseRatio = 0.95;
+
 enum SessionCacheHitDisplayMode { excludeExpiredMisses, includeExpiredMisses }
 
 class SessionCacheHitDisplayData {
@@ -14,6 +20,7 @@ class SessionCacheHitDisplayData {
     required this.mode,
     required this.trend,
     required this.averageHitRatio,
+    required this.averagePrefixReuseRatio,
     required this.cacheReadTokens,
     required this.cacheWriteTokens,
     required this.uncachedPromptTokens,
@@ -26,6 +33,10 @@ class SessionCacheHitDisplayData {
   final SessionCacheHitDisplayMode mode;
   final SessionCacheHitTrend trend;
   final double averageHitRatio;
+
+  /// 平均前缀复用率 = Σ缓存读取 / Σ上一轮可复用前缀，仅统计存在上一轮
+  /// 基准的轮次；无可统计轮次时为 null。
+  final double? averagePrefixReuseRatio;
   final int cacheReadTokens;
   final int cacheWriteTokens;
   final int uncachedPromptTokens;
@@ -62,6 +73,8 @@ class SessionCacheHitTurnPoint {
     required this.promptTokens,
     required this.cacheReadTokens,
     required this.cacheWriteTokens,
+    required this.denominatorTokens,
+    required this.previousDenominatorTokens,
     required this.idleGapSeconds,
     required this.ttlSuspected,
     required this.prefixDriftSuspected,
@@ -79,12 +92,52 @@ class SessionCacheHitTurnPoint {
   final int promptTokens;
   final int cacheReadTokens;
   final int cacheWriteTokens;
+
+  /// 本轮请求总输入规模（命中率分母口径，兼容 Claude / OpenAI 两种统计）。
+  final int denominatorTokens;
+
+  /// 上一轮请求的总输入规模；首轮或缺失时为 null。
+  /// 该值即"本轮理论可复用前缀"的上限基准。
+  final int? previousDenominatorTokens;
   final int? idleGapSeconds;
   final bool ttlSuspected;
   final bool prefixDriftSuspected;
   final bool automaticProviderMissSuspected;
 
   bool get isFirstRequest => turnIndex <= 1;
+
+  /// 本轮相对上一轮新增的输入 token（新工具结果 / 新对话内容）。
+  /// 这部分内容首次出现，结构上不可能命中任何缓存。
+  int get freshInputTokens {
+    final previous = previousDenominatorTokens;
+    if (previous == null) return 0;
+    final delta = denominatorTokens - previous;
+    return delta > 0 ? delta : 0;
+  }
+
+  /// 本轮命中率的理论上限 = 上一轮输入规模 / 本轮输入规模。
+  /// 新增输入必然未缓存，命中率不可能高于该值。
+  double? get theoreticalCeilingRatio {
+    final previous = previousDenominatorTokens;
+    if (previous == null || previous <= 0 || denominatorTokens <= 0) {
+      return null;
+    }
+    return unitRatio(previous, denominatorTokens);
+  }
+
+  /// 前缀复用率 = 本轮缓存读取 / 上一轮可复用前缀。
+  /// 该值接近 1 表示 Prompt 装配保持了前缀延展，未破坏缓存。
+  double? get prefixReuseRatio {
+    final previous = previousDenominatorTokens;
+    if (previous == null || previous <= 0) return null;
+    return unitRatio(cacheReadTokens, previous);
+  }
+
+  /// 本轮缓存复用已达理论上限（未命中部分基本都是新增输入）。
+  bool get reachedTheoreticalCeiling {
+    final reuse = prefixReuseRatio;
+    return reuse != null && reuse >= kCacheHitHealthyPrefixReuseRatio;
+  }
 
   AiSessionCacheHitTrendPoint toStatisticsPoint() {
     return AiSessionCacheHitTrendPoint(
@@ -208,6 +261,8 @@ class SessionCacheHitTrend {
     var cacheReadTokens = 0;
     var cacheWriteTokens = 0;
     var uncachedPromptTokens = 0;
+    var reusableCacheReadTokens = 0;
+    var reusablePrefixTokens = 0;
     for (final point in averagePoints) {
       cacheReadTokens += point.cacheReadTokens;
       cacheWriteTokens += point.cacheWriteTokens;
@@ -217,10 +272,18 @@ class SessionCacheHitTrend {
         claudeStyle: claudeStyle,
         cacheWriteTokens: point.cacheWriteTokens,
       );
+      final previousDenominator = point.previousDenominatorTokens;
+      if (previousDenominator != null && previousDenominator > 0) {
+        reusableCacheReadTokens += point.cacheReadTokens;
+        reusablePrefixTokens += previousDenominator;
+      }
     }
     final denominator =
         cacheReadTokens + cacheWriteTokens + uncachedPromptTokens;
     final averageHitRatio = unitRatio(cacheReadTokens, denominator);
+    final averagePrefixReuseRatio = reusablePrefixTokens > 0
+        ? unitRatio(reusableCacheReadTokens, reusablePrefixTokens)
+        : null;
     final visibleTurnIndexes = chartPoints
         .map((point) => point.turnIndex)
         .toSet();
@@ -232,6 +295,7 @@ class SessionCacheHitTrend {
         claudeStyle: claudeStyle,
       ),
       averageHitRatio: averageHitRatio,
+      averagePrefixReuseRatio: averagePrefixReuseRatio,
       cacheReadTokens: cacheReadTokens,
       cacheWriteTokens: cacheWriteTokens,
       uncachedPromptTokens: uncachedPromptTokens,
@@ -261,6 +325,7 @@ class SessionCacheHitTrend {
     var averagePromptTotal = 0;
     var averageCacheReadTotal = 0;
     var averageCacheWriteTotal = 0;
+    int? previousDenominatorTokens;
     AiSessionMessage? previousRoundStarter;
 
     for (var index = 0; index < session.messages.length; index++) {
@@ -319,11 +384,17 @@ class SessionCacheHitTrend {
       final fallbackIdleGapSeconds = previousStarter == null
           ? null
           : message.createdAt.difference(previousStarter.createdAt).inSeconds;
+      final pointPreviousDenominator = previousDenominatorTokens;
+      final prefixReuseRatio =
+          pointPreviousDenominator != null && pointPreviousDenominator > 0
+          ? unitRatio(cacheReadTokens, pointPreviousDenominator)
+          : null;
       final diagnostics = _cacheHitDiagnostics(
         primaryMetadata: telemetryMessage.metadata,
         relatedMetadata: message.metadata,
         fallbackIdleGapSeconds: fallbackIdleGapSeconds,
         hitRatio: hitRatio,
+        prefixReuseRatio: prefixReuseRatio,
         requiresExplicitCacheControls: claudeStyle,
       );
       final anchor = session.transcriptAnchorForRoundStarter(message.id);
@@ -340,6 +411,8 @@ class SessionCacheHitTrend {
           promptTokens: promptTokens,
           cacheReadTokens: cacheReadTokens,
           cacheWriteTokens: cacheWriteTokens,
+          denominatorTokens: denominator,
+          previousDenominatorTokens: pointPreviousDenominator,
           idleGapSeconds: diagnostics.idleGapSeconds,
           ttlSuspected: diagnostics.ttlSuspected,
           prefixDriftSuspected: diagnostics.prefixDriftSuspected,
@@ -347,6 +420,7 @@ class SessionCacheHitTrend {
               diagnostics.automaticProviderMissSuspected,
         ),
       );
+      previousDenominatorTokens = denominator;
     }
 
     final averageHitRatio = _averageCacheHitRatioForPoints(
@@ -401,6 +475,7 @@ class SessionCacheHitTrend {
     var promptTotal = 0;
     var cacheReadTotal = 0;
     var cacheWriteTotal = 0;
+    int? previousDenominatorTokens;
     final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
       0,
       isUtc: true,
@@ -445,12 +520,15 @@ class SessionCacheHitTrend {
           promptTokens: point.promptTokens,
           cacheReadTokens: point.cacheReadTokens,
           cacheWriteTokens: point.cacheWriteTokens,
+          denominatorTokens: denominator,
+          previousDenominatorTokens: previousDenominatorTokens,
           idleGapSeconds: point.idleGapSeconds,
           ttlSuspected: ttlSuspected,
           prefixDriftSuspected: false,
           automaticProviderMissSuspected: false,
         ),
       );
+      previousDenominatorTokens = denominator;
     }
     final averageHitRatio = _averageCacheHitRatioForPoints(
       points.where((point) {
@@ -568,6 +646,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   required Map<String, Object?> relatedMetadata,
   required int? fallbackIdleGapSeconds,
   required double hitRatio,
+  required double? prefixReuseRatio,
   required bool requiresExplicitCacheControls,
 }) {
   Map<String, Object?>? asMap(Object? value) => switch (value) {
@@ -717,10 +796,16 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     idleGapSeconds: idleGapSeconds,
     hitRatio: hitRatio,
   );
+  // 前缀复用率达标说明未命中部分只是本轮新增输入：即使原始命中率被大体量
+  // 工具结果稀释到阈值以下，也不属于供应商缓存丢失，不应误报。
+  final prefixReuseHealthy =
+      prefixReuseRatio != null &&
+      prefixReuseRatio >= kCacheHitHealthyPrefixReuseRatio;
   final automaticProviderMissSuspected =
       !explicitCacheControlsRequired &&
       (automaticProviderCacheProtected || automaticProviderCacheBestEffort) &&
       !ttlSuspected &&
+      !prefixReuseHealthy &&
       stablePrefixUnchanged &&
       toolCatalogStable &&
       idleGapSeconds != null &&

@@ -3961,6 +3961,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get tokenPopupPrefixReuse => '前缀复用';
+
+  @override
+  String tokenPopupTooltipFreshReuse(String fresh, int reuse) {
+    return '新增 $fresh · 复用 $reuse%';
+  }
+
+  @override
   String get tokenPopupFirstRequestShort => '首轮不计';
 
   @override
@@ -14619,6 +14627,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String tokenPopupExcludedRounds(int count) {
     return '已排除 $count 輪';
+  }
+
+  @override
+  String get tokenPopupPrefixReuse => '前綴復用';
+
+  @override
+  String tokenPopupTooltipFreshReuse(String fresh, int reuse) {
+    return '新增 $fresh · 復用 $reuse%';
   }
 
   @override

@@ -1,7 +1,9 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import { clampNumber } from '../../../shared/util/number';
 import {
+  CACHE_HIT_HEALTHY_PREFIX_REUSE_RATIO,
   cacheHitDisplayData,
+  cacheHitPrefixStatsByTurn,
   DEFAULT_CACHE_HIT_DISPLAY_MODE,
   isFirstCacheHitRequest,
   type CacheHitDisplayMode,
@@ -39,8 +41,10 @@ const CACHE_TREND_HOVER_IN_DURATION_MS = 240;
 const CACHE_TREND_HOVER_OUT_DURATION_MS = 200;
 const CACHE_TOOLTIP_WIDTH_PX = 132;
 const CACHE_TOOLTIP_FIRST_WIDTH_PX = 148;
+const CACHE_TOOLTIP_REUSE_WIDTH_PX = 172;
 const CACHE_TOOLTIP_HEIGHT_PX = 46;
 const CACHE_TOOLTIP_FIRST_HEIGHT_PX = 58;
+const CACHE_TOOLTIP_REUSE_HEIGHT_PX = 60;
 const CACHE_TOOLTIP_OFFSET_PX = 12;
 
 interface Viewport {
@@ -267,6 +271,13 @@ export default function CacheHitTrendChart({
   );
   const filteredPoints = displayData.points;
   const displayedAverageRatio = displayData.averageRatio;
+  // 前缀复用信息按原始轮次序列计算（不受展示口径过滤影响），
+  // 用于 tooltip 展示"本轮新增 + 复用率"与均值徽标。
+  const prefixStats = useMemo(
+    () => cacheHitPrefixStatsByTurn(points, claudeStyle),
+    [points, claudeStyle],
+  );
+  const averagePrefixReuseRatio = displayData.averagePrefixReuseRatio;
   const displayCompositionTotal = displayData.cacheReadTokens +
     displayData.cacheWriteTokens +
     displayData.uncachedPromptTokens;
@@ -541,6 +552,19 @@ export default function CacheHitTrendChart({
             {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
             {Math.round(displayedAverageRatio * 100)}%
           </span>
+          {averagePrefixReuseRatio != null ? (
+            <span
+              class="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold tabular-nums"
+              style={{
+                color: 'var(--m3-on-surface-variant)',
+                background: 'color-mix(in srgb, var(--m3-surface-container-highest) 62%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 48%, transparent)',
+              }}
+            >
+              {t2('tokenPopup.prefixReuse', '前缀复用')}:{' '}
+              {Math.round(averagePrefixReuseRatio * 100)}%
+            </span>
+          ) : null}
         </div>
         <CacheHitCompositionSummary
           composition={composition}
@@ -631,6 +655,20 @@ export default function CacheHitTrendChart({
           {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
           {Math.round(displayedAverageRatio * 100)}%
         </span>
+        {averagePrefixReuseRatio != null ? (
+          <span
+            class="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold tabular-nums"
+            style={{
+              color: 'var(--m3-on-surface-variant)',
+              background: 'color-mix(in srgb, var(--m3-surface-container-highest) 62%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 48%, transparent)',
+              fontFeatureSettings: '"tnum" 1',
+            }}
+          >
+            {t2('tokenPopup.prefixReuse', '前缀复用')}:{' '}
+            {Math.round(averagePrefixReuseRatio * 100)}%
+          </span>
+        ) : null}
         <button
           type="button"
           class="oh-tap-press"
@@ -974,12 +1012,28 @@ export default function CacheHitTrendChart({
               const ratio = point.hitRatio;
               const cy = point.y;
               const cx = point.x;
+              // 非首轮补充"本轮新增 + 前缀复用"：新增输入必然未缓存，
+              // 命中率被其稀释属正常；复用率才反映前缀是否被破坏。
+              const prefix = point.firstRequest
+                ? undefined
+                : prefixStats.get(point.turnIndex);
+              const prefixReuseRatio = prefix?.prefixReuseRatio ?? null;
+              const freshReuseNote =
+                prefixReuseRatio != null
+                  ? t2('tokenPopup.tooltipFreshReuse', '新增 {{fresh}} · 复用 {{reuse}}%')
+                      .replace('{{fresh}}', compactTokenCount(prefix?.freshInputTokens ?? 0))
+                      .replace('{{reuse}}', String(Math.round(prefixReuseRatio * 100)))
+                  : '';
               const tooltipH = point.firstRequest
                 ? CACHE_TOOLTIP_FIRST_HEIGHT_PX
-                : CACHE_TOOLTIP_HEIGHT_PX;
+                : freshReuseNote
+                  ? CACHE_TOOLTIP_REUSE_HEIGHT_PX
+                  : CACHE_TOOLTIP_HEIGHT_PX;
               const tooltipW = point.firstRequest
                 ? CACHE_TOOLTIP_FIRST_WIDTH_PX
-                : CACHE_TOOLTIP_WIDTH_PX;
+                : freshReuseNote
+                  ? CACHE_TOOLTIP_REUSE_WIDTH_PX
+                  : CACHE_TOOLTIP_WIDTH_PX;
               const showAbove = cy - tooltipH - CACHE_TOOLTIP_OFFSET_PX >= PAD_TOP;
               const tooltipTop = showAbove
                 ? cy - tooltipH - CACHE_TOOLTIP_OFFSET_PX
@@ -1093,6 +1147,26 @@ export default function CacheHitTrendChart({
                         }}
                       >
                         {t2('tokenPopup.firstRequestNotAveraged', '不参与平均')}
+                      </div>
+                    ) : null}
+                    {freshReuseNote ? (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color:
+                            prefixReuseRatio != null &&
+                            prefixReuseRatio >=
+                              CACHE_HIT_HEALTHY_PREFIX_REUSE_RATIO
+                              ? 'var(--m3-on-surface-variant)'
+                              : 'var(--m3-error)',
+                          fontWeight: 700,
+                          lineHeight: 1.0,
+                          marginTop: 4,
+                          whiteSpace: 'nowrap',
+                          fontFeatureSettings: '"tnum" 1',
+                        }}
+                      >
+                        {freshReuseNote}
                       </div>
                     ) : null}
                   </div>

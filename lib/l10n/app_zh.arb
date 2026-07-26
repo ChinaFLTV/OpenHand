@@ -2277,6 +2277,18 @@
       }
     }
   },
+  "tokenPopupPrefixReuse": "前缀复用",
+  "tokenPopupTooltipFreshReuse": "新增 {fresh} · 复用 {reuse}%",
+  "@tokenPopupTooltipFreshReuse": {
+    "placeholders": {
+      "fresh": {
+        "type": "String"
+      },
+      "reuse": {
+        "type": "int"
+      }
+    }
+  },
   "tokenPopupFirstRequestShort": "首轮不计",
   "tokenPopupFirstRequestNotAveraged": "不参与平均",
   "tokenPopupTrendNoData": "尚无缓存命中率数据，发送消息后将在此展示走势。",

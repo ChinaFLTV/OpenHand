@@ -467,6 +467,8 @@ export const dict_zh: Record<string, string> = {
   'tokenPopup.promptBuilds': '提示词构建',
   'tokenPopup.promptChars': '提示词字符',
   'tokenPopup.cacheHitBar.title': '左：缓存命中 · 中：缓存写入 · 右：未缓存提示词',
+  'tokenPopup.prefixReuse': '前缀复用',
+  'tokenPopup.tooltipFreshReuse': '新增 {{fresh}} · 复用 {{reuse}}%',
   'tokenPopup.cacheHitMode.excludeExpired': '不含过期异常',
   'tokenPopup.cacheHitMode.includeExpired': '含过期异常',
   'tokenPopup.firstRequestIgnored': '首轮不计平均',

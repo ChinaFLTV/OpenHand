@@ -2220,6 +2220,18 @@
       }
     }
   },
+  "tokenPopupPrefixReuse": "Réutilisation du préfixe",
+  "tokenPopupTooltipFreshReuse": "+{fresh} nouveaux · réutil. {reuse}%",
+  "@tokenPopupTooltipFreshReuse": {
+    "placeholders": {
+      "fresh": {
+        "type": "String"
+      },
+      "reuse": {
+        "type": "int"
+      }
+    }
+  },
   "tokenPopupFirstRequestShort": "Première ignorée",
   "tokenPopupFirstRequestNotAveraged": "Hors moyenne",
   "tokenPopupTrendNoData": "Aucune donnée de taux de cache pour l'instant. La tendance apparaîtra après l'envoi de messages.",

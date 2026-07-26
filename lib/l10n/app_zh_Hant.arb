@@ -2220,6 +2220,18 @@
       }
     }
   },
+  "tokenPopupPrefixReuse": "前綴復用",
+  "tokenPopupTooltipFreshReuse": "新增 {fresh} · 復用 {reuse}%",
+  "@tokenPopupTooltipFreshReuse": {
+    "placeholders": {
+      "fresh": {
+        "type": "String"
+      },
+      "reuse": {
+        "type": "int"
+      }
+    }
+  },
   "tokenPopupFirstRequestShort": "首輪不計",
   "tokenPopupFirstRequestNotAveraged": "不參與平均",
   "tokenPopupTrendNoData": "尚無快取命中率資料，傳送訊息後會在此展示走勢。",

@@ -18,6 +18,8 @@ export type CacheHitDisplayMode = 'excludeExpiredMisses' | 'includeExpiredMisses
 interface CacheHitDisplayData {
   points: CacheHitTrendPoint[];
   averageRatio: number;
+  /** 平均前缀复用率（Σ缓存读取 / Σ上一轮可复用前缀）；无基准轮时为 null。 */
+  averagePrefixReuseRatio: number | null;
   cacheReadTokens: number;
   cacheWriteTokens: number;
   uncachedPromptTokens: number;
@@ -26,6 +28,19 @@ interface CacheHitDisplayData {
   excludedExpiredMissCount: number;
   averagePointCount: number;
 }
+
+/** 单轮前缀复用信息：命中率会被本轮新增（必然未缓存）输入稀释，复用率不会。 */
+export interface CacheHitPrefixStats {
+  /** 本轮相对上一轮新增的输入 token（结构上不可能命中缓存）。 */
+  freshInputTokens: number;
+  /** 上一轮总输入规模，即本轮理论可复用前缀的上限；首轮为 null。 */
+  previousDenominatorTokens: number | null;
+  /** 缓存读取 / 上一轮可复用前缀；首轮或缺基准时为 null。 */
+  prefixReuseRatio: number | null;
+}
+
+/** 复用率达到该阈值即视为已达理论上限（供应商块对齐允许少量抖动）。 */
+export const CACHE_HIT_HEALTHY_PREFIX_REUSE_RATIO = 0.95;
 
 export const DEFAULT_CACHE_HIT_DISPLAY_MODE: CacheHitDisplayMode =
   'excludeExpiredMisses';
@@ -54,6 +69,47 @@ function trendPointUncachedPromptTokens(
   const write = Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
   if (claudeStyle) return prompt;
   return Math.max(0, prompt - read - write);
+}
+
+function trendPointDenominatorTokens(
+  point: CacheHitTrendPoint,
+  claudeStyle: boolean,
+): number {
+  const prompt = Math.max(0, Math.round(point.promptTokens ?? 0));
+  const read = Math.max(0, Math.round(point.cacheReadTokens ?? 0));
+  const write = Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
+  if (claudeStyle) return prompt + read + write;
+  return Math.max(prompt, read + write);
+}
+
+/**
+ * 按原始轮次序列（不受展示口径过滤影响）计算每轮的前缀复用信息，
+ * 键为 turnIndex。上一轮总输入即"本轮理论可复用前缀"的上限基准。
+ */
+export function cacheHitPrefixStatsByTurn(
+  points: CacheHitTrendPoint[],
+  claudeStyle: boolean,
+): Map<number, CacheHitPrefixStats> {
+  const stats = new Map<number, CacheHitPrefixStats>();
+  let previousDenominator: number | null = null;
+  for (const point of points) {
+    const denominator = trendPointDenominatorTokens(point, claudeStyle);
+    if (denominator <= 0) continue;
+    const read = Math.max(0, Math.round(point.cacheReadTokens ?? 0));
+    stats.set(point.turnIndex, {
+      freshInputTokens:
+        previousDenominator == null
+          ? 0
+          : Math.max(0, denominator - previousDenominator),
+      previousDenominatorTokens: previousDenominator,
+      prefixReuseRatio:
+        previousDenominator == null || previousDenominator <= 0
+          ? null
+          : clampNumber(read / previousDenominator, 0, 1),
+    });
+    previousDenominator = denominator;
+  }
+  return stats;
 }
 
 function cacheHitAverageRatio(
@@ -101,20 +157,40 @@ export function cacheHitDisplayData({
   let cacheReadTokens = 0;
   let cacheWriteTokens = 0;
   let uncachedPromptTokens = 0;
+  let reusableCacheReadTokens = 0;
+  let reusablePrefixTokens = 0;
+  const prefixStats = cacheHitPrefixStatsByTurn(points, claudeStyle);
   for (const point of averagePoints) {
     cacheReadTokens += Math.max(0, Math.round(point.cacheReadTokens ?? 0));
     cacheWriteTokens += Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
     uncachedPromptTokens += trendPointUncachedPromptTokens(point, claudeStyle);
+    const prefix = prefixStats.get(point.turnIndex);
+    if (
+      prefix &&
+      prefix.previousDenominatorTokens != null &&
+      prefix.previousDenominatorTokens > 0
+    ) {
+      reusableCacheReadTokens += Math.max(
+        0,
+        Math.round(point.cacheReadTokens ?? 0),
+      );
+      reusablePrefixTokens += prefix.previousDenominatorTokens;
+    }
   }
   const averageRatio = cacheHitAverageRatio(
     averagePoints,
     claudeStyle,
     fallbackAverageRatio,
   );
+  const averagePrefixReuseRatio =
+    reusablePrefixTokens > 0
+      ? clampNumber(reusableCacheReadTokens / reusablePrefixTokens, 0, 1)
+      : null;
   const visibleTurns = new Set(visiblePoints.map((point) => point.turnIndex));
   return {
     points: visiblePoints,
     averageRatio,
+    averagePrefixReuseRatio,
     cacheReadTokens,
     cacheWriteTokens,
     uncachedPromptTokens,

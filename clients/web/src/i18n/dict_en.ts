@@ -468,6 +468,8 @@ export const dict_en: Record<string, string> = {
   'tokenPopup.promptBuilds': 'Prompt builds',
   'tokenPopup.promptChars': 'Prompt chars',
   'tokenPopup.cacheHitBar.title': 'Left: cache hits · Middle: cache writes · Right: uncached prompt',
+  'tokenPopup.prefixReuse': 'Prefix reuse',
+  'tokenPopup.tooltipFreshReuse': '+{{fresh}} new · reuse {{reuse}}%',
   'tokenPopup.cacheHitMode.excludeExpired': 'Exclude expiry anomalies',
   'tokenPopup.cacheHitMode.includeExpired': 'Include expiry anomalies',
   'tokenPopup.firstRequestIgnored': 'First request ignored',

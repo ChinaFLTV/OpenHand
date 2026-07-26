@@ -24,8 +24,16 @@ const double _tokenPopupCacheHitPanEpsilon = 0.01;
 const double _tokenPopupCacheHitTooltipGap = 12;
 const double _tokenPopupCacheHitTooltipWidth = 132;
 const double _tokenPopupCacheHitFirstRequestTooltipWidth = 148;
+const double _tokenPopupCacheHitReuseTooltipWidth = 172;
 const double _tokenPopupCacheHitTooltipHeight = 46;
 const double _tokenPopupCacheHitFirstRequestTooltipHeight = 58;
+const double _tokenPopupCacheHitReuseTooltipHeight = 60;
+
+String _compactTokenCount(int value) {
+  if (value < 1000) return '$value';
+  if (value < 1000000) return '${(value / 1000).toStringAsFixed(1)}k';
+  return '${(value / 1000000).toStringAsFixed(1)}m';
+}
 
 double _clampTokenPopupOverlayOrigin({
   required double desired,
@@ -439,6 +447,18 @@ class _TokenPopupCacheHitTrendChartState
                   fontWeight: FontWeight.w800,
                 ),
               ),
+              // 平均前缀复用率：衡量 Prompt 装配是否保持前缀延展的健康口径。
+              // 命中率会被本轮新增（必然未缓存）的输入稀释，复用率不会。
+              if (displayData.averagePrefixReuseRatio != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '${l10n.tokenPopupPrefixReuse}: ${(displayData.averagePrefixReuseRatio! * 100).round()}%',
+                  style: valueStyle?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               InkWell(
                 onTap: () {
@@ -985,11 +1005,24 @@ class _TokenPopupCacheHitTrendChartState
     final firstRequestNote = point.isFirstRequest
         ? l10n.tokenPopupFirstRequestNotAveraged
         : '';
+    // 非首轮补充"本轮新增 + 前缀复用"：新增输入必然未缓存，命中率被其
+    // 稀释属正常现象；复用率才反映装配是否破坏了缓存前缀。
+    final prefixReuseRatio = point.prefixReuseRatio;
+    final freshReuseNote = !point.isFirstRequest && prefixReuseRatio != null
+        ? l10n.tokenPopupTooltipFreshReuse(
+            _compactTokenCount(point.freshInputTokens),
+            (prefixReuseRatio * 100).round(),
+          )
+        : '';
     final tooltipWidth = point.isFirstRequest
         ? _tokenPopupCacheHitFirstRequestTooltipWidth
+        : freshReuseNote.isNotEmpty
+        ? _tokenPopupCacheHitReuseTooltipWidth
         : _tokenPopupCacheHitTooltipWidth;
     final tooltipHeight = point.isFirstRequest
         ? _tokenPopupCacheHitFirstRequestTooltipHeight
+        : freshReuseNote.isNotEmpty
+        ? _tokenPopupCacheHitReuseTooltipHeight
         : _tokenPopupCacheHitTooltipHeight;
     // tooltip 优先放在点的上方；空间不足时翻转到下方。
     final showAbove =
@@ -1111,6 +1144,21 @@ class _TokenPopupCacheHitTrendChartState
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                      if (freshReuseNote.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          freshReuseNote,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: point.reachedTheoreticalCeiling
+                                ? colorScheme.onSurfaceVariant
+                                : colorScheme.error,
                             fontWeight: FontWeight.w700,
                             height: 1.0,
                           ),
@@ -1306,12 +1354,6 @@ class _CacheHitCompositionSummary extends StatelessWidget {
   final int uncachedPrompt;
   final double averageRatio;
 
-  String _compact(int value) {
-    if (value < 1000) return '$value';
-    if (value < 1000000) return '${(value / 1000).toStringAsFixed(1)}k';
-    return '${(value / 1000000).toStringAsFixed(1)}m';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1388,15 +1430,15 @@ class _CacheHitCompositionSummary extends StatelessWidget {
           children: [
             _CacheHitCompositionLegend(
               color: readColor,
-              label: '${l10n.tokenPopupCacheRead} ${_compact(cacheRead)}',
+              label: '${l10n.tokenPopupCacheRead} ${_compactTokenCount(cacheRead)}',
             ),
             _CacheHitCompositionLegend(
               color: writeColor,
-              label: '${l10n.tokenPopupCacheWrite} ${_compact(cacheWrite)}',
+              label: '${l10n.tokenPopupCacheWrite} ${_compactTokenCount(cacheWrite)}',
             ),
             _CacheHitCompositionLegend(
               color: missColor,
-              label: '${l10n.tokenPopupUncached} ${_compact(uncachedPrompt)}',
+              label: '${l10n.tokenPopupUncached} ${_compactTokenCount(uncachedPrompt)}',
             ),
           ],
         ),

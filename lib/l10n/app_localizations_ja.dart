@@ -4008,6 +4008,14 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get tokenPopupPrefixReuse => 'プレフィックス再利用';
+
+  @override
+  String tokenPopupTooltipFreshReuse(String fresh, int reuse) {
+    return '新規 $fresh · 再利用 $reuse%';
+  }
+
+  @override
   String get tokenPopupFirstRequestShort => '初回除外';
 
   @override

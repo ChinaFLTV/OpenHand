@@ -2220,6 +2220,18 @@
       }
     }
   },
+  "tokenPopupPrefixReuse": "Präfix-Wiederverwendung",
+  "tokenPopupTooltipFreshReuse": "+{fresh} neu · Wiederverw. {reuse}%",
+  "@tokenPopupTooltipFreshReuse": {
+    "placeholders": {
+      "fresh": {
+        "type": "String"
+      },
+      "reuse": {
+        "type": "int"
+      }
+    }
+  },
   "tokenPopupFirstRequestShort": "Ignoriert",
   "tokenPopupFirstRequestNotAveraged": "Nicht im Schnitt",
   "tokenPopupTrendNoData": "Noch keine Daten zur Trefferquote. Der Trend erscheint nach gesendeten Nachrichten.",

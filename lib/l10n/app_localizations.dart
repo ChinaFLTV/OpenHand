@@ -7273,6 +7273,18 @@ abstract class AppLocalizations {
   /// **'已排除 {count} 轮'**
   String tokenPopupExcludedRounds(int count);
 
+  /// No description provided for @tokenPopupPrefixReuse.
+  ///
+  /// In zh, this message translates to:
+  /// **'前缀复用'**
+  String get tokenPopupPrefixReuse;
+
+  /// No description provided for @tokenPopupTooltipFreshReuse.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增 {fresh} · 复用 {reuse}%'**
+  String tokenPopupTooltipFreshReuse(String fresh, int reuse);
+
   /// No description provided for @tokenPopupFirstRequestShort.
   ///
   /// In zh, this message translates to:

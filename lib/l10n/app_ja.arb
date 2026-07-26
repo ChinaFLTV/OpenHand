@@ -2220,6 +2220,18 @@
       }
     }
   },
+  "tokenPopupPrefixReuse": "プレフィックス再利用",
+  "tokenPopupTooltipFreshReuse": "新規 {fresh} · 再利用 {reuse}%",
+  "@tokenPopupTooltipFreshReuse": {
+    "placeholders": {
+      "fresh": {
+        "type": "String"
+      },
+      "reuse": {
+        "type": "int"
+      }
+    }
+  },
   "tokenPopupFirstRequestShort": "初回除外",
   "tokenPopupFirstRequestNotAveraged": "平均外",
   "tokenPopupTrendNoData": "キャッシュ命中率データはまだありません。メッセージ送信後に推移を表示します。",

@@ -453,6 +453,8 @@ export const dict_ja: Record<string, string> = {
   'tokenPopup.promptBuilds': 'プロンプト生成',
   'tokenPopup.promptChars': 'プロンプト文字数',
   'tokenPopup.cacheHitBar.title': '左：キャッシュ命中 · 中：キャッシュ書込 · 右：未キャッシュプロンプト',
+  'tokenPopup.prefixReuse': 'プレフィックス再利用',
+  'tokenPopup.tooltipFreshReuse': '新規 {{fresh}} · 再利用 {{reuse}}%',
   'tokenPopup.cacheHitMode.excludeExpired': '期限切れ異常を除外',
   'tokenPopup.cacheHitMode.includeExpired': '期限切れ異常を含む',
   'tokenPopup.firstRequestIgnored': '初回は平均外',
