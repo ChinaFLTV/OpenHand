@@ -19005,12 +19005,6 @@ abstract class AppLocalizations {
   /// **'{count} 点'**
   String qdrantStatusTrendSampleCount(int count);
 
-  /// No description provided for @qdrantStatusViewConfig.
-  ///
-  /// In zh, this message translates to:
-  /// **'查看配置'**
-  String get qdrantStatusViewConfig;
-
   /// No description provided for @qdrantSectionOverview.
   ///
   /// In zh, this message translates to:

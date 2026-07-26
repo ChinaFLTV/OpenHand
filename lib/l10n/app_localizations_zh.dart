@@ -10414,9 +10414,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get qdrantStatusViewConfig => '查看配置';
-
-  @override
   String get qdrantSectionOverview => '总览';
 
   @override
@@ -21073,9 +21070,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String qdrantStatusTrendSampleCount(int count) {
     return '$count 點';
   }
-
-  @override
-  String get qdrantStatusViewConfig => '查看設定';
 
   @override
   String get qdrantSectionOverview => '總覽';

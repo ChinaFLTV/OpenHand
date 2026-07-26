@@ -10754,9 +10754,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get qdrantStatusViewConfig => 'View config';
-
-  @override
   String get qdrantSectionOverview => 'Overview';
 
   @override

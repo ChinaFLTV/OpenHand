@@ -8617,7 +8617,6 @@
       }
     }
   },
-  "qdrantStatusViewConfig": "查看配置",
   "qdrantSectionOverview": "总览",
   "qdrantSectionDockerContainer": "Docker / 容器指标",
   "qdrantSectionApiMetrics": "Qdrant API 指标",

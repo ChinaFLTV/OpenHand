@@ -10535,9 +10535,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get qdrantStatusViewConfig => '設定を表示';
-
-  @override
   String get qdrantSectionOverview => '概要';
 
   @override

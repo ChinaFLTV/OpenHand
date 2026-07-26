@@ -8550,7 +8550,6 @@
       }
     }
   },
-  "qdrantStatusViewConfig": "設定を表示",
   "qdrantSectionOverview": "概要",
   "qdrantSectionDockerContainer": "Docker / コンテナ",
   "qdrantSectionApiMetrics": "Qdrant API メトリクス",

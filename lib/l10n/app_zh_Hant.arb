@@ -8550,7 +8550,6 @@
       }
     }
   },
-  "qdrantStatusViewConfig": "查看設定",
   "qdrantSectionOverview": "總覽",
   "qdrantSectionDockerContainer": "Docker / 容器指標",
   "qdrantSectionApiMetrics": "Qdrant API 指標",

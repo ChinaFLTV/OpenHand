@@ -8550,7 +8550,6 @@
       }
     }
   },
-  "qdrantStatusViewConfig": "Voir la configuration",
   "qdrantSectionOverview": "Vue d’ensemble",
   "qdrantSectionDockerContainer": "Docker / conteneur",
   "qdrantSectionApiMetrics": "Métriques API Qdrant",
