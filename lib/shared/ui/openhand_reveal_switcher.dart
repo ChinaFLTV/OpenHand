@@ -97,6 +97,74 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
   }
 }
 
+/// 行内展开档默认时长：比纵向档略短，行内元素的宽度变化不宜拖沓。
+const Duration kOpenHandInlineRevealDuration = Duration(milliseconds: 220);
+const Duration kOpenHandInlineRevealReverseDuration = Duration(
+  milliseconds: 180,
+);
+
+/// 行内（横向）展开/收起切换动效，[OpenHandVerticalRevealSwitcher] 的同轴兄弟。
+///
+/// 用于工具栏、状态行里「只在忙碌/有内容时才出现」的进度片：直接
+/// `if (busy) ...[chip]` 会让同一行的其余元素在忙碌翻转的瞬间整体平移一次，
+/// 而这类状态常在数百毫秒内反复翻转，观感就是抖动。这里让宽度随动效平滑
+/// 增减，并与全局动效设置保持一致。
+class OpenHandInlineRevealSwitcher extends StatelessWidget {
+  const OpenHandInlineRevealSwitcher({
+    super.key,
+    required this.child,
+    this.duration = kOpenHandInlineRevealDuration,
+    this.reverseDuration = kOpenHandInlineRevealReverseDuration,
+    this.presentKey,
+  });
+
+  /// 为 null 时收起为零宽度。
+  final Widget? child;
+
+  final Duration duration;
+  final Duration? reverseDuration;
+
+  /// 存在态的 key；仅在调用方未自行给 [child] 挂 key 时使用。
+  final Key? presentKey;
+
+  static const Key _absentKey = ValueKey<String>(
+    'openhand-inline-reveal-absent',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final hasChild = child != null;
+    final present = hasChild && presentKey != null
+        ? KeyedSubtree(key: presentKey, child: child!)
+        : child;
+    if (!openHandTickerMotionEnabled(context)) {
+      return present ?? const SizedBox.shrink(key: _absentKey);
+    }
+    return AnimatedSwitcher(
+      duration: openHandMotionDuration(
+        context,
+        hasChild ? duration : (reverseDuration ?? duration),
+      ),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => SizeTransition(
+        sizeFactor: animation,
+        axis: Axis.horizontal,
+        axisAlignment: -1,
+        child: FadeTransition(opacity: animation, child: child),
+      ),
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.centerLeft,
+        children: <Widget>[
+          ...previousChildren,
+          if (currentChild != null) currentChild,
+        ],
+      ),
+      child: present ?? const SizedBox.shrink(key: _absentKey),
+    );
+  }
+}
+
 /// 同位交叉切换的默认时长与上滑幅度。
 const Duration kOpenHandCrossFadeDuration = Duration(milliseconds: 280);
 const double kOpenHandCrossFadeSlideOffsetY = 0.05;

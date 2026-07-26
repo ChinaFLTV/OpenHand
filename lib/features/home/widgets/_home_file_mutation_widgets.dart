@@ -636,27 +636,40 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                             const SizedBox(width: 6),
                             _FileMutationLineDeltaBadge(delta: totalLineDelta),
                           ],
-                          // 批量撤销进度 chip。
-                          if (_bulkUndoBusy) ...[
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.6,
-                                value: _bulkUndoTotal == 0
-                                    ? null
-                                    : unitRatio(_bulkUndoDone, _bulkUndoTotal),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$_bulkUndoDone/$_bulkUndoTotal',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                          // 批量撤销进度 chip：宽度随动效增减，否则忙碌一
+                          // 翻转，这一行右侧的按钮会整体平移一次。
+                          OpenHandInlineRevealSwitcher(
+                            presentKey: const ValueKey<String>('bulk-undo'),
+                            child: _bulkUndoBusy
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.6,
+                                          value: _bulkUndoTotal == 0
+                                              ? null
+                                              : unitRatio(
+                                                  _bulkUndoDone,
+                                                  _bulkUndoTotal,
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '$_bulkUndoDone/$_bulkUndoTotal',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                          ),
                           const Spacer(),
                           if (anyUndoable && !_bulkUndoBusy)
                             _IconActionButton(
@@ -1243,10 +1256,11 @@ class _FileMutationCardRow extends StatelessWidget {
                         ],
                         const SizedBox(width: 8),
                         if (busy)
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.6),
+                          const OpenHandBusyStatusIcon(
+                            busy: true,
+                            icon: null,
+                            size: 14,
+                            strokeWidth: 1.6,
                           )
                         else if (view.canUndo)
                           _IconActionButton(
@@ -3931,27 +3945,36 @@ class _RoundFileMutationSummaryCardState
                 ),
               ),
             ),
-          // 进度 chip — 全部撤销中显示 N/M。
-          if (_bulkUndoBusy) ...[
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.6,
-                value: _bulkUndoTotal == 0
-                    ? null
-                    : unitRatio(_bulkUndoDone, _bulkUndoTotal),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '$_bulkUndoDone/$_bulkUndoTotal',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 6),
-          ],
+          // 进度 chip — 全部撤销中显示 N/M；宽度随动效增减，避免翻转时
+          // 把右侧动作组整体推走。
+          OpenHandInlineRevealSwitcher(
+            presentKey: const ValueKey<String>('bulk-undo'),
+            child: _bulkUndoBusy
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          value: _bulkUndoTotal == 0
+                              ? null
+                              : unitRatio(_bulkUndoDone, _bulkUndoTotal),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$_bulkUndoDone/$_bulkUndoTotal',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                  )
+                : null,
+          ),
           // 右侧动作组（按 reduceMotion 透明度逐个淡入由
           // 上层 HighlightPulse 提供反馈，无需在此再加入场动画）。
           if (rows.isNotEmpty &&

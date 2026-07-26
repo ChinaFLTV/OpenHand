@@ -80,6 +80,7 @@ import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/natural_image_size_resolver.dart';
 import '../../shared/ui/openhand_animated_title_text.dart';
 import '../../shared/ui/openhand_approval_chip.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
