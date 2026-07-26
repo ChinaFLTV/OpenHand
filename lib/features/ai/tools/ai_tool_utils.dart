@@ -839,19 +839,7 @@ class AiToolUtils {
     Map<String, Object?> metadata,
   ) {
     if (metadata.isEmpty) return result;
-    return AiToolExecutionResult(
-      status: result.status,
-      command: result.command,
-      workingDirectory: result.workingDirectory,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      durationMs: result.durationMs,
-      resultText: result.resultText,
-      exitCode: result.exitCode,
-      matchedRuleId: result.matchedRuleId,
-      matchedRulePattern: result.matchedRulePattern,
-      isWriteCommand: result.isWriteCommand,
-      writeAnalysisReason: result.writeAnalysisReason,
+    return result.copyWith(
       metadata: <String, Object?>{...result.metadata, ...metadata},
     );
   }

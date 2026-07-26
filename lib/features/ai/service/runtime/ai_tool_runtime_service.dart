@@ -370,6 +370,33 @@ class AiToolExecutionResult {
   final String writeAnalysisReason;
   final Map<String, Object?> metadata;
 
+  /// 按需替换若干字段，其余原样保留。
+  ///
+  /// 截断输出、补记文件变更、合并元数据这几处此前各自手抄一遍十三个字段的
+  /// 构造调用：漏抄一个字段就是静默丢数据，新增字段还得逐处补齐。
+  AiToolExecutionResult copyWith({
+    String? stdout,
+    String? stderr,
+    String? resultText,
+    Map<String, Object?>? metadata,
+  }) {
+    return AiToolExecutionResult(
+      status: status,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: stdout ?? this.stdout,
+      stderr: stderr ?? this.stderr,
+      durationMs: durationMs,
+      resultText: resultText ?? this.resultText,
+      exitCode: exitCode,
+      matchedRuleId: matchedRuleId,
+      matchedRulePattern: matchedRulePattern,
+      isWriteCommand: isWriteCommand,
+      writeAnalysisReason: writeAnalysisReason,
+      metadata: metadata ?? this.metadata,
+    );
+  }
+
   String toToolOutput() => nullIfBlank(resultText) ?? '';
 }
 
@@ -1522,19 +1549,10 @@ class AiToolRuntimeService {
     final truncatedStdout = capStream(result.stdout);
     final truncatedStderr = capStream(result.stderr);
     final fullContentAvailable = persisted != null;
-    return AiToolExecutionResult(
-      status: result.status,
-      command: result.command,
-      workingDirectory: result.workingDirectory,
+    return result.copyWith(
       stdout: truncatedStdout,
       stderr: truncatedStderr,
-      durationMs: result.durationMs,
       resultText: resultView.text,
-      exitCode: result.exitCode,
-      matchedRuleId: result.matchedRuleId,
-      matchedRulePattern: result.matchedRulePattern,
-      isWriteCommand: result.isWriteCommand,
-      writeAnalysisReason: result.writeAnalysisReason,
       metadata: <String, Object?>{
         ...result.metadata,
         'tool_output_truncated': true,
@@ -1835,19 +1853,7 @@ class AiToolRuntimeService {
       }
     }
     if (recorded.isEmpty) return result;
-    return AiToolExecutionResult(
-      status: result.status,
-      command: result.command,
-      workingDirectory: result.workingDirectory,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      durationMs: result.durationMs,
-      resultText: result.resultText,
-      exitCode: result.exitCode,
-      matchedRuleId: result.matchedRuleId,
-      matchedRulePattern: result.matchedRulePattern,
-      isWriteCommand: result.isWriteCommand,
-      writeAnalysisReason: result.writeAnalysisReason,
+    return result.copyWith(
       metadata: <String, Object?>{
         ...meta,
         'file_mutation_ledger_record_ids': recorded,
