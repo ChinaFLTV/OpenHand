@@ -94,24 +94,24 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
   var cursor = 0;
   var ordinal = 0;
   while (cursor < canonical.length) {
-    final openMatch = _invokeOpenPattern.firstMatch(
-      canonical.substring(cursor),
-    );
+    // 用带起始下标的 allMatches 而不是先 substring 再 firstMatch：后者每轮
+    // 都要整尾拷贝一次，在长回复上叠成 O(n²)。allMatches 是惰性的，取 first
+    // 就会在命中后停止扫描。
+    final openMatch = _firstMatchFrom(_invokeOpenPattern, canonical, cursor);
     if (openMatch == null) {
       break;
     }
-    final absoluteOpenEnd = cursor + openMatch.end;
+    final absoluteOpenEnd = openMatch.end;
     final attributes = _parseAttributes(openMatch.group(1) ?? '');
     final name = (attributes['name'] ?? '').trim();
-    final closeMatch = _invokeClosePattern.firstMatch(
-      canonical.substring(absoluteOpenEnd),
+    final closeMatch = _firstMatchFrom(
+      _invokeClosePattern,
+      canonical,
+      absoluteOpenEnd,
     );
     final body = closeMatch == null
         ? canonical.substring(absoluteOpenEnd)
-        : canonical.substring(
-            absoluteOpenEnd,
-            absoluteOpenEnd + closeMatch.start,
-          );
+        : canonical.substring(absoluteOpenEnd, closeMatch.start);
     final args = <String, Object?>{};
     for (final pm in _parameterPattern.allMatches(body)) {
       final pAttrs = _parseAttributes(pm.group(1) ?? '');
@@ -137,15 +137,15 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
     if (closeMatch == null) {
       break; // trailing partial — nothing more to scan
     }
-    cursor = absoluteOpenEnd + closeMatch.end;
+    cursor = closeMatch.end;
   }
   // Trailing "preparing" placeholder: if there is an unclosed
   // `<DSML:invoke` token after the last fully-scanned position AND no
   // partial invoke was already emitted for it (name still empty), emit a
   // sentinel preparing entry so the UI can show a generic card before
   // the tool name lands.
-  final tail = canonical.substring(cursor);
-  if (_unclosedInvokeOpenerPattern.hasMatch(tail) &&
+  if (_firstMatchFrom(_unclosedInvokeOpenerPattern, canonical, cursor) !=
+          null &&
       (invokes.isEmpty || invokes.last.isComplete)) {
     final pendingOrdinal = ordinal + 1;
     invokes.add(
@@ -169,54 +169,79 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
 /// false-positives are fine (we just pay one regex pass), but
 /// false-negatives would silently drop the partial preview.
 bool _mayContainToolCallMarker(String buffer) {
-  final lower = buffer.toLowerCase();
-  // Already-canonical form.
-  if (lower.contains('<dsml:invoke')) return true;
-  // Bracket-pipe wrappers (ASCII + fullwidth + doubled).
-  if (lower.contains('<|dsml') ||
-      lower.contains('<｜dsml') ||
-      lower.contains('<｜｜dsml') ||
-      lower.contains('<||dsml')) {
-    return true;
-  }
-  // Bracket-style wrappers used by some weak fine-tunes.
-  if (lower.contains('<<dsml') ||
-      lower.contains('<【dsml') ||
-      lower.contains('<《dsml') ||
-      lower.contains('<[dsml') ||
-      lower.contains('<「dsml') ||
-      lower.contains('<『dsml')) {
-    return true;
-  }
-  // Raw or namespaced invoke / function_calls openers.
-  if (lower.contains('<invoke') ||
-      lower.contains('<function_calls') ||
-      lower.contains('<tool_calls') ||
-      lower.contains('.invoke') ||
-      lower.contains(':invoke')) {
-    return true;
-  }
-  // JSON/YAML envelope variants recognized by the final extractor.
-  if (lower.contains('##tool_call##') ||
-      lower.contains('[tool_call]') ||
-      lower.contains('[tool_use]') ||
-      lower.contains('[openai_fn]') ||
-      lower.contains('[function_call]') ||
-      lower.contains('<tool_call') ||
-      lower.contains('<tool_use') ||
-      lower.contains('<function_call') ||
-      lower.contains('<openai_fn') ||
-      lower.contains('<fn_call') ||
-      lower.contains('```tool') ||
-      lower.contains('```dsml') ||
-      lower.contains('```openai') ||
-      lower.contains('tool_call:') ||
-      lower.contains('tool_use:') ||
-      lower.contains('function_call:') ||
-      lower.contains('openai_fn:')) {
-    return true;
+  for (var index = 0; index < buffer.length; index++) {
+    final needles = _markerNeedlesByLeadChar[_asciiLower(
+      buffer.codeUnitAt(index),
+    )];
+    if (needles == null) continue;
+    for (final needle in needles) {
+      if (_matchesIgnoreCaseAt(buffer, index, needle)) return true;
+    }
   }
   return false;
+}
+
+/// 所有标记按首字符分桶。热路径逐字符扫描一次，只在首字符命中时才逐个比对
+/// 同桶内的候选，全程零分配。
+///
+/// 此前的实现是 `buffer.toLowerCase()` 后再跑 30 次 contains——每个 text
+/// delta 都要把**整个累积缓冲**复制一份，长回复上叠成 O(n²) 的分配与拷贝，
+/// 而这个函数正是为了让纯文本 delta「几乎免费」才存在的。
+final Map<int, List<String>> _markerNeedlesByLeadChar = _groupNeedlesByLeadChar(
+  const <String>[
+    // Already-canonical form.
+    '<dsml:invoke',
+    // Bracket-pipe wrappers (ASCII + fullwidth + doubled).
+    '<|dsml', '<｜dsml', '<｜｜dsml', '<||dsml',
+    // Bracket-style wrappers used by some weak fine-tunes.
+    '<<dsml', '<【dsml', '<《dsml', '<[dsml', '<「dsml', '<『dsml',
+    // Raw or namespaced invoke / function_calls openers.
+    '<invoke', '<function_calls', '<tool_calls', '.invoke', ':invoke',
+    // JSON/YAML envelope variants recognized by the final extractor.
+    '##tool_call##', '[tool_call]', '[tool_use]', '[openai_fn]',
+    '[function_call]', '<tool_call', '<tool_use', '<function_call',
+    '<openai_fn', '<fn_call', '```tool', '```dsml', '```openai',
+    'tool_call:', 'tool_use:', 'function_call:', 'openai_fn:',
+  ],
+);
+
+Map<int, List<String>> _groupNeedlesByLeadChar(List<String> needles) {
+  final grouped = <int, List<String>>{};
+  for (final needle in needles) {
+    grouped
+        .putIfAbsent(_asciiLower(needle.codeUnitAt(0)), () => <String>[])
+        .add(needle);
+  }
+  return grouped;
+}
+
+/// 只折叠 'A'..'Z'。标记本身全是 ASCII 或按原样比较的全角标点，因此与
+/// `toLowerCase()` 的差异仅限于同形异码点（如开尔文符号 U+212A 折叠成 'k'）
+/// 这类不可能出现在模型标签里的输入；即便真的出现，流结束后的完整抽取器仍会
+/// 识别该工具调用，受影响的只是流式期间的预览卡片。
+int _asciiLower(int codeUnit) {
+  return (codeUnit >= 0x41 && codeUnit <= 0x5A) ? codeUnit | 0x20 : codeUnit;
+}
+
+bool _matchesIgnoreCaseAt(String buffer, int offset, String needle) {
+  if (offset + needle.length > buffer.length) return false;
+  for (var i = 0; i < needle.length; i++) {
+    if (_asciiLower(buffer.codeUnitAt(offset + i)) !=
+        _asciiLower(needle.codeUnitAt(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// 从 [start] 开始找第一个匹配，避免 `substring` 整尾拷贝。
+/// [RegExp.allMatches] 是惰性的，取首个即停止扫描。
+RegExpMatch? _firstMatchFrom(RegExp pattern, String input, int start) {
+  if (start >= input.length) return null;
+  for (final match in pattern.allMatches(input, start)) {
+    return match;
+  }
+  return null;
 }
 
 /// Matches an opening `<DSML:invoke` whose `>` has not yet arrived. Used

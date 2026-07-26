@@ -2097,9 +2097,27 @@ class MachineTerminalSession {
     required Duration timeout,
   }) async {
     final deadline = MonotonicDeadline(timeout, timeoutMessage: '等待终端命令标记超时。');
+    // 增量剥离：每轮只对新增的原始输出跑一次 _plainText，而不是对最多 24 万
+    // 字符的整段缓冲重跑四遍全文替换。刷屏型命令（npm install / find /）此前
+    // 每秒要在 UI isolate 上做数百万字符的字符串工作，直接表现为掉帧。
+    final plainBuffer = StringBuffer();
+    var scannedOffset = startOffset;
     try {
       while (true) {
-        final segment = _plainText(_outputSince(startOffset));
+        if (_output.discardedSince(scannedOffset)) {
+          // 缓冲已滚过尚未扫描的区间，增量状态不再可信，退回整段剥离。
+          plainBuffer.clear();
+          scannedOffset = _output.endOffset;
+          plainBuffer.write(_plainText(_outputSince(startOffset)));
+        } else {
+          final rawTail = _output.textFrom(scannedOffset);
+          final consumable = _ansiSafeSplitLength(rawTail);
+          if (consumable > 0) {
+            plainBuffer.write(_plainText(rawTail.substring(0, consumable)));
+            scannedOffset += consumable;
+          }
+        }
+        final segment = plainBuffer.toString();
         final beginIndex = segment.indexOf(begin);
         final outputStart = beginIndex >= 0
             ? beginIndex + begin.length
@@ -2111,7 +2129,7 @@ class MachineTerminalSession {
             : segment.indexOf(end, outputStart);
         if (endIndex >= outputStart && outputStart >= 0) {
           final afterEnd = segment.substring(endIndex + end.length);
-          final exitCodeMatch = RegExp(r':(-?\d+)').firstMatch(afterEnd);
+          final exitCodeMatch = _markerExitCodePattern.firstMatch(afterEnd);
           final output = segment.substring(outputStart, endIndex);
           return _ParsedCommandOutput(
             output: _removeMarkerNoise(output),
@@ -2390,12 +2408,56 @@ String _commandPayload({
       'stty echo 2>/dev/null\n';
 }
 
+/// ANSI CSI / OSC 序列。提到顶层复用：命令等待循环每 80ms 调一次
+/// [_plainText]，就地构造正则等于每秒白白编译 25 次。
+final RegExp _ansiCsiPattern = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
+final RegExp _markerExitCodePattern = RegExp(r':(-?\d+)');
+final RegExp _ansiOscPattern = RegExp(r'\x1B\][^\x07]*(\x07|\x1B\\)');
+
 String _plainText(String value) {
   return value
-      .replaceAll(RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]'), '')
-      .replaceAll(RegExp(r'\x1B\][^\x07]*(\x07|\x1B\\)'), '')
+      .replaceAll(_ansiCsiPattern, '')
+      .replaceAll(_ansiOscPattern, '')
       .replaceAll('\r\n', '\n')
       .replaceAll('\r', '\n');
+}
+
+/// 返回 [raw] 中可以安全做 [_plainText] 剥离的前缀长度。
+///
+/// 增量剥离要求切点不能落在「跨增量才完整」的序列中间，否则剥离结果与整段
+/// 剥离不等价：
+///   * 未闭合的 ESC 序列会被原样保留成乱码；
+///   * 结尾的裸 `\r` 会先变成 `\n`，下一增量的 `\n` 再补一个，`\r\n` 就成了两行。
+/// 这两种情况都把切点回退到该字符之前，等下一批数据到齐再处理。
+int _ansiSafeSplitLength(String raw) {
+  if (raw.isEmpty) return 0;
+  var limit = raw.length;
+  // 必须从前往后逐个跳过完整序列，不能直接找最后一个 ESC：OSC 的字符串终止符
+  // 本身就是 `ESC \`，反向查找会落到终止符上，把前面那段完整的 OSC 误判为
+  // 未闭合。matchAsPrefix 带起始下标，全程不做 substring 拷贝。
+  var cursor = 0;
+  var lastPlainIndex = -1;
+  while (true) {
+    final escape = raw.indexOf('\x1B', cursor);
+    final plainEnd = (escape < 0 || escape >= limit) ? limit : escape;
+    if (plainEnd > cursor) lastPlainIndex = plainEnd - 1;
+    if (escape < 0 || escape >= limit) break;
+    final match =
+        _ansiCsiPattern.matchAsPrefix(raw, escape) ??
+        _ansiOscPattern.matchAsPrefix(raw, escape);
+    if (match == null || match.end > limit) {
+      limit = escape;
+      break;
+    }
+    cursor = match.end;
+  }
+  // 剥离 ANSI 之后，末尾可能露出一个原本被转义序列挡住的 `\r`。它有可能是
+  // 跨增量的 `\r\n` 前半段，必须留到下一批一起处理，否则会先被替换成 `\n`、
+  // 下一批的 `\n` 再补一个，一行变两行。
+  if (lastPlainIndex >= 0 && raw.codeUnitAt(lastPlainIndex) == 0x0D) {
+    limit = lastPlainIndex;
+  }
+  return limit < 0 ? 0 : limit;
 }
 
 String _removeMarkerNoise(String value) {

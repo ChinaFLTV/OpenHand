@@ -1625,7 +1625,7 @@ class AiChatService implements AiChatClient {
     AiTokenUsage? usage;
     String? finishReason;
     String? providerWarning;
-    final lineBuffer = StringBuffer();
+    final lineBuffer = _SseLineCarry();
     StreamSubscription<String>? responseSubscription;
     Future<void>? responseSubscriptionCancelFuture;
     var discardingOversizedEvent = false;
@@ -1889,7 +1889,7 @@ class AiChatService implements AiChatClient {
     void processChunk(String chunk) {
       discardingOversizedEvent = _processBoundedSseChunk(
         chunk: chunk,
-        lineBuffer: lineBuffer,
+        carry: lineBuffer,
         maxBufferLength: maxStreamLineBufferBytes,
         discardingOversizedEvent: discardingOversizedEvent,
         isComplete: isStreamComplete,
@@ -1927,7 +1927,7 @@ class AiChatService implements AiChatClient {
             if (!discardingOversizedEvent &&
                 lineBuffer.isNotEmpty &&
                 lineBuffer.length <= maxStreamLineBufferBytes) {
-              processEventBlock(lineBuffer.toString());
+              processEventBlock(lineBuffer.pending);
             }
             completeStreamResult('stream_closed');
           },
@@ -2199,7 +2199,7 @@ class AiChatService implements AiChatClient {
     final reasoningBuffer = StringBuffer();
     final toolCalls = <int, AiResponsesStreamToolCall>{};
     final rawResponseBuffer = StringBuffer();
-    final lineBuffer = StringBuffer();
+    final lineBuffer = _SseLineCarry();
     AiTokenUsage? usage;
     String? finishReason;
     Map<String, Object?>? completedResponse;
@@ -2457,7 +2457,7 @@ class AiChatService implements AiChatClient {
     void processChunk(String chunk) {
       discardingOversizedEvent = _processBoundedSseChunk(
         chunk: chunk,
-        lineBuffer: lineBuffer,
+        carry: lineBuffer,
         maxBufferLength: maxStreamLineBufferBytes,
         discardingOversizedEvent: discardingOversizedEvent,
         isComplete: isStreamComplete,
@@ -2482,7 +2482,7 @@ class AiChatService implements AiChatClient {
             if (!discardingOversizedEvent &&
                 lineBuffer.isNotEmpty &&
                 lineBuffer.length <= maxStreamLineBufferBytes) {
-              processEventBlock(lineBuffer.toString());
+              processEventBlock(lineBuffer.pending);
             }
             unawaited(completeStreamResult());
           },
@@ -2834,39 +2834,54 @@ class AiChatService implements AiChatClient {
   }
 }
 
+/// SSE 行缓冲。
+///
+/// 刻意用可变 String 而不是 StringBuffer：解析每轮都要读「当前尚未消费的
+/// 全部内容」，而 StringBuffer 每次读都得整体 toString 再重建。一个 TCP
+/// 分片里若含 k 个完整事件，就会做 k 次「整缓冲 toString + 整余量 substring
+/// + 整余量 write」，在上限 4 MiB 的缓冲上退化为 O(k·n) 字符拷贝——而这条
+/// 路径是流式渲染最热的一环。
+class _SseLineCarry {
+  String pending = '';
+
+  bool get isNotEmpty => pending.isNotEmpty;
+
+  int get length => pending.length;
+}
+
 bool _processBoundedSseChunk({
   required String chunk,
-  required StringBuffer lineBuffer,
+  required _SseLineCarry carry,
   required int maxBufferLength,
   required bool discardingOversizedEvent,
   required bool Function() isComplete,
   required void Function(String block) processEventBlock,
 }) {
-  lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+  var pending =
+      carry.pending + chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  // 已消费前缀的游标：整轮只在最后切一次，循环内不复制字符串。
+  var cut = 0;
   while (!isComplete()) {
-    if (lineBuffer.length < 2) break;
-    final current = lineBuffer.toString();
-    final separatorIndex = current.indexOf('\n\n');
+    if (pending.length - cut < 2) break;
+    final separatorIndex = pending.indexOf('\n\n', cut);
     if (separatorIndex < 0) {
-      if (lineBuffer.length > maxBufferLength) {
-        final preserveBoundaryPrefix = current.endsWith('\n');
-        lineBuffer.clear();
-        if (preserveBoundaryPrefix) lineBuffer.write('\n');
+      if (pending.length - cut > maxBufferLength) {
+        final preserveBoundaryPrefix = pending.endsWith('\n');
+        pending = preserveBoundaryPrefix ? '\n' : '';
+        cut = 0;
         discardingOversizedEvent = true;
       }
       break;
     }
-    final block = current.substring(0, separatorIndex);
-    final remaining = current.substring(separatorIndex + 2);
-    lineBuffer
-      ..clear()
-      ..write(remaining);
+    final block = pending.substring(cut, separatorIndex);
+    cut = separatorIndex + 2;
     if (discardingOversizedEvent || block.length > maxBufferLength) {
       discardingOversizedEvent = false;
       continue;
     }
     processEventBlock(block);
   }
+  carry.pending = cut == 0 ? pending : pending.substring(cut);
   return discardingOversizedEvent;
 }
 
