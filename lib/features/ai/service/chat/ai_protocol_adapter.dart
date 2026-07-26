@@ -1467,6 +1467,16 @@ abstract class AiProtocolAdapter {
     return const <AiToolCall>[];
   }
 
+  /// 媒体附件的统一前置校验：路径或 MIME 缺失即视为无效附件，交由调用方跳过。
+  ({String filePath, String mimeType})? _inlineMediaSource(
+    AiChatContentPart part,
+  ) {
+    final filePath = (part.filePath ?? '').trim();
+    final mimeType = (part.mimeType ?? '').trim();
+    if (filePath.isEmpty || mimeType.isEmpty) return null;
+    return (filePath: filePath, mimeType: mimeType);
+  }
+
   Future<String> encodeFileAsDataUrl({
     required String filePath,
     required String mimeType,
@@ -1752,36 +1762,20 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           }
           payload.add(<String, Object?>{'type': 'text', 'text': text});
         case AiChatContentPartKind.imageFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
-            continue;
-          }
-          payload.add(<String, Object?>{
-            'type': 'image_url',
-            'image_url': <String, Object?>{
-              'url': await encodeFileAsDataUrl(
-                filePath: filePath,
-                mimeType: mimeType,
-                maxBytes: inlineMaxBytes,
-              ),
-              'detail': protocolType == AiProtocolType.minimax
-                  ? 'default'
-                  : 'auto',
-            },
-          });
         case AiChatContentPartKind.videoFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
+          final media = _inlineMediaSource(part);
+          if (media == null) {
             continue;
           }
+          final urlKey = part.kind == AiChatContentPartKind.videoFile
+              ? 'video_url'
+              : 'image_url';
           payload.add(<String, Object?>{
-            'type': 'video_url',
-            'video_url': <String, Object?>{
+            'type': urlKey,
+            urlKey: <String, Object?>{
               'url': await encodeFileAsDataUrl(
-                filePath: filePath,
-                mimeType: mimeType,
+                filePath: media.filePath,
+                mimeType: media.mimeType,
                 maxBytes: inlineMaxBytes,
               ),
               'detail': protocolType == AiProtocolType.minimax
@@ -1790,9 +1784,8 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
             },
           });
         case AiChatContentPartKind.audioFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
+          final media = _inlineMediaSource(part);
+          if (media == null) {
             continue;
           }
           payload.add(<String, Object?>{
@@ -1800,13 +1793,13 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
             'input_audio': <String, Object?>{
               if (protocolType == AiProtocolType.mimo)
                 'data': await encodeFileAsDataUrl(
-                  filePath: filePath,
-                  mimeType: mimeType,
+                  filePath: media.filePath,
+                  mimeType: media.mimeType,
                   maxBytes: inlineMaxBytes,
                 )
               else ...<String, Object?>{
-                'data': await encodeFileAsBase64(filePath),
-                'format': _audioFormatForMimeType(mimeType),
+                'data': await encodeFileAsBase64(media.filePath),
+                'format': _audioFormatForMimeType(media.mimeType),
               },
             },
           });
@@ -3288,45 +3281,22 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           }
           payload.add(<String, Object?>{'type': 'text', 'text': text});
         case AiChatContentPartKind.imageFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
-            continue;
-          }
-          payload.add(<String, Object?>{
-            'type': 'image',
-            'source': <String, Object?>{
-              'type': 'base64',
-              'media_type': mimeType,
-              'data': await encodeFileAsBase64(filePath),
-            },
-          });
         case AiChatContentPartKind.videoFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
-            continue;
-          }
-          payload.add(<String, Object?>{
-            'type': 'video',
-            'source': <String, Object?>{
-              'type': 'base64',
-              'media_type': mimeType,
-              'data': await encodeFileAsBase64(filePath),
-            },
-          });
         case AiChatContentPartKind.audioFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
+          final media = _inlineMediaSource(part);
+          if (media == null) {
             continue;
           }
           payload.add(<String, Object?>{
-            'type': 'input_audio',
+            'type': switch (part.kind) {
+              AiChatContentPartKind.videoFile => 'video',
+              AiChatContentPartKind.audioFile => 'input_audio',
+              _ => 'image',
+            },
             'source': <String, Object?>{
               'type': 'base64',
-              'media_type': mimeType,
-              'data': await encodeFileAsBase64(filePath),
+              'media_type': media.mimeType,
+              'data': await encodeFileAsBase64(media.filePath),
             },
           });
       }
@@ -3763,39 +3733,16 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           }
           payload.add(<String, Object?>{'text': text});
         case AiChatContentPartKind.imageFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
-            continue;
-          }
-          payload.add(<String, Object?>{
-            'inline_data': <String, Object?>{
-              'mime_type': mimeType,
-              'data': await encodeFileAsBase64(filePath),
-            },
-          });
         case AiChatContentPartKind.videoFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
-            continue;
-          }
-          payload.add(<String, Object?>{
-            'inline_data': <String, Object?>{
-              'mime_type': mimeType,
-              'data': await encodeFileAsBase64(filePath),
-            },
-          });
         case AiChatContentPartKind.audioFile:
-          final filePath = (part.filePath ?? '').trim();
-          final mimeType = (part.mimeType ?? '').trim();
-          if (filePath.isEmpty || mimeType.isEmpty) {
+          final media = _inlineMediaSource(part);
+          if (media == null) {
             continue;
           }
           payload.add(<String, Object?>{
             'inline_data': <String, Object?>{
-              'mime_type': mimeType,
-              'data': await encodeFileAsBase64(filePath),
+              'mime_type': media.mimeType,
+              'data': await encodeFileAsBase64(media.filePath),
             },
           });
       }

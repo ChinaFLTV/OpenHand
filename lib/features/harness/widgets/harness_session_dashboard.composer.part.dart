@@ -120,23 +120,8 @@ class _HeComposer extends StatelessWidget {
         builder: (btnContext) {
           return OutlinedButton(
             onPressed: () {
-              final button = btnContext.findRenderObject()! as RenderBox;
-              final overlay =
-                  Navigator.of(btnContext).overlay!.context.findRenderObject()!
-                      as RenderBox;
-              final position = RelativeRect.fromRect(
-                Rect.fromPoints(
-                  button.localToGlobal(Offset.zero, ancestor: overlay),
-                  button.localToGlobal(
-                    button.size.bottomRight(Offset.zero),
-                    ancestor: overlay,
-                  ),
-                ),
-                Offset.zero & overlay.size,
-              );
-              showAnimatedMenu<bool>(
+              showAnimatedAnchoredPopupMenu<bool>(
                 context: btnContext,
-                position: position,
                 items: [
                   PopupMenuItem<bool>(
                     value: false,

@@ -64,6 +64,56 @@ Future<T?> showAnimatedMenu<T>({
   return pushOpenHandTransitionRoute(navigator, route, sourceContext: context);
 }
 
+/// 以全局坐标点为锚显示上下文菜单（右键、长按、指针命中等场景）。
+///
+/// 统一解析 Overlay、校验挂载状态，并把锚点夹取到 Overlay 可视范围内，
+/// 避免贴边触发时菜单落到窗口外。[globalPosition] 为空时回落到 Overlay 中心。
+Future<T?> showAnimatedPointerMenu<T>({
+  required BuildContext context,
+  required List<PopupMenuEntry<T>> items,
+  Offset? globalPosition,
+  double? elevation,
+  Color? color,
+  ShapeBorder? shape,
+  BoxConstraints? constraints,
+  DialogAnimationSettings? settings,
+  bool useRootNavigator = false,
+  bool rootOverlay = false,
+  bool enableBidirectionalScroll = false,
+  bool barrierDismissible = true,
+}) {
+  if (items.isEmpty || !context.mounted) return Future<T?>.value();
+  final overlay = Overlay.maybeOf(
+    context,
+    rootOverlay: rootOverlay,
+  )?.context.findRenderObject();
+  if (overlay is! RenderBox || !overlay.hasSize) return Future<T?>.value();
+  final overlaySize = overlay.size;
+  final origin =
+      globalPosition ?? overlay.localToGlobal(overlaySize.center(Offset.zero));
+  final local = overlay.globalToLocal(origin);
+  final anchor = Offset(
+    local.dx.clamp(0.0, overlaySize.width),
+    local.dy.clamp(0.0, overlaySize.height),
+  );
+  return showAnimatedMenu<T>(
+    context: context,
+    position: RelativeRect.fromRect(
+      Rect.fromLTWH(anchor.dx, anchor.dy, 0, 0),
+      Offset.zero & overlaySize,
+    ),
+    items: items,
+    elevation: elevation,
+    color: color,
+    shape: shape,
+    constraints: constraints,
+    settings: settings,
+    useRootNavigator: useRootNavigator,
+    enableBidirectionalScroll: enableBidirectionalScroll,
+    barrierDismissible: barrierDismissible,
+  );
+}
+
 /// 以当前组件为锚点显示标准弹出菜单，并统一处理挂载对象与窗口尺寸校验。
 Future<T?> showAnimatedAnchoredPopupMenu<T>({
   required BuildContext context,

@@ -1544,168 +1544,131 @@ class _SettingsViewState extends State<SettingsView> {
     final settingsController = context.watch<SettingsController>();
     final appInfo = context.read<AppInfo>();
 
-    if (!_skillsPathFocusNode.hasFocus &&
-        _skillsPathController.text != settingsController.skillsStoragePath) {
-      _skillsPathController.text = settingsController.skillsStoragePath;
-    }
-    final compressionThresholdText =
-        '${settingsController.aiMessageCompressionThresholdChars}';
-    if (!_compressionThresholdFocusNode.hasFocus &&
-        _compressionThresholdController.text != compressionThresholdText) {
-      _compressionThresholdController.text = compressionThresholdText;
-    }
-    final toolResultCompressionThresholdText =
-        '${settingsController.aiToolResultCompressionThresholdChars}';
-    if (!_toolResultCompressionThresholdFocusNode.hasFocus &&
-        _toolResultCompressionThresholdController.text !=
-            toolResultCompressionThresholdText) {
-      _toolResultCompressionThresholdController.text =
-          toolResultCompressionThresholdText;
-    }
-    final toolResultCompressionHeadTailWindowText =
-        '${settingsController.aiToolResultCompressionHeadTailWindowChars}';
-    if (!_toolResultCompressionHeadTailWindowFocusNode.hasFocus &&
-        _toolResultCompressionHeadTailWindowController.text !=
-            toolResultCompressionHeadTailWindowText) {
-      _toolResultCompressionHeadTailWindowController.text =
-          toolResultCompressionHeadTailWindowText;
-    }
-    final toolResultCompressionMaxPathHitsText =
-        '${settingsController.aiToolResultCompressionMaxPathHits}';
-    if (!_toolResultCompressionMaxPathHitsFocusNode.hasFocus &&
-        _toolResultCompressionMaxPathHitsController.text !=
-            toolResultCompressionMaxPathHitsText) {
-      _toolResultCompressionMaxPathHitsController.text =
-          toolResultCompressionMaxPathHitsText;
-    }
-    final aiInputCacheUpdateIntervalText =
-        '${settingsController.aiInputCacheUpdateInterval}';
-    if (!_aiInputCacheUpdateIntervalFocusNode.hasFocus &&
-        _aiInputCacheUpdateIntervalController.text !=
-            aiInputCacheUpdateIntervalText) {
-      _aiInputCacheUpdateIntervalController.text =
-          aiInputCacheUpdateIntervalText;
-    }
-    final aiInputCacheBreakpointCountText =
-        '${settingsController.aiInputCacheBreakpointCount}';
-    if (!_aiInputCacheBreakpointCountFocusNode.hasFocus &&
-        _aiInputCacheBreakpointCountController.text !=
-            aiInputCacheBreakpointCountText) {
-      _aiInputCacheBreakpointCountController.text =
-          aiInputCacheBreakpointCountText;
-    }
-    final aiBudgetUsdPerSessionText = _formatBudgetUsd(
-      settingsController.aiBudgetUsdPerSession,
-    );
-    if (!_aiBudgetUsdPerSessionFocusNode.hasFocus &&
-        _aiBudgetUsdPerSessionController.text != aiBudgetUsdPerSessionText) {
-      _aiBudgetUsdPerSessionController.text = aiBudgetUsdPerSessionText;
-    }
-    final writeToolSummaryMaxCharsText =
-        '${settingsController.aiWriteToolSummaryMaxChars}';
-    if (!_writeToolSummaryMaxCharsFocusNode.hasFocus &&
-        _writeToolSummaryMaxCharsController.text !=
-            writeToolSummaryMaxCharsText) {
-      _writeToolSummaryMaxCharsController.text = writeToolSummaryMaxCharsText;
-    }
-    final toolCallLimitText =
-        '${settingsController.aiSingleRoundToolCallLimit}';
-    if (!_toolCallLimitFocusNode.hasFocus &&
-        _toolCallLimitController.text != toolCallLimitText) {
-      _toolCallLimitController.text = toolCallLimitText;
-    }
-    final sequentialToolRoundLimitText =
-        '${settingsController.aiSequentialToolRoundLimit}';
-    if (!_sequentialToolRoundLimitFocusNode.hasFocus &&
-        _sequentialToolRoundLimitController.text !=
-            sequentialToolRoundLimitText) {
-      _sequentialToolRoundLimitController.text = sequentialToolRoundLimitText;
-    }
-    final maxRecentErrorsText = '${settingsController.aiMaxRecentErrors}';
-    if (!_maxRecentErrorsFocusNode.hasFocus &&
-        _maxRecentErrorsController.text != maxRecentErrorsText) {
-      _maxRecentErrorsController.text = maxRecentErrorsText;
-    }
-    final maxPlanHistoryEntriesText =
-        '${settingsController.aiMaxPlanHistoryEntries}';
-    if (!_maxPlanHistoryEntriesFocusNode.hasFocus &&
-        _maxPlanHistoryEntriesController.text != maxPlanHistoryEntriesText) {
-      _maxPlanHistoryEntriesController.text = maxPlanHistoryEntriesText;
-    }
-    final maxTruncationContinuationsText =
-        '${settingsController.aiMaxTruncationContinuations}';
-    if (!_maxTruncationContinuationsFocusNode.hasFocus &&
-        _maxTruncationContinuationsController.text !=
-            maxTruncationContinuationsText) {
-      _maxTruncationContinuationsController.text =
-          maxTruncationContinuationsText;
-    }
-    final estimatedCharactersPerTokenText =
-        '${settingsController.aiEstimatedCharactersPerToken}';
-    if (!_estimatedCharactersPerTokenFocusNode.hasFocus &&
-        _estimatedCharactersPerTokenController.text !=
-            estimatedCharactersPerTokenText) {
-      _estimatedCharactersPerTokenController.text =
-          estimatedCharactersPerTokenText;
-    }
-    final imageSizeLimitText = formatMegabytesInput(
-      settingsController.aiImageSizeLimitBytes,
-    );
-    if (!_imageSizeLimitFocusNode.hasFocus &&
-        _imageSizeLimitController.text != imageSizeLimitText) {
-      _imageSizeLimitController.text = imageSizeLimitText;
-    }
-    final connectTimeoutText = '${settingsController.aiConnectTimeoutSeconds}';
-    if (!_connectTimeoutFocusNode.hasFocus &&
-        _connectTimeoutController.text != connectTimeoutText) {
-      _connectTimeoutController.text = connectTimeoutText;
-    }
-    final responseTimeoutText =
-        '${settingsController.aiResponseTimeoutSeconds}';
-    if (!_responseTimeoutFocusNode.hasFocus &&
-        _responseTimeoutController.text != responseTimeoutText) {
-      _responseTimeoutController.text = responseTimeoutText;
-    }
-    final streamIdleTimeoutText =
-        '${settingsController.aiStreamIdleTimeoutSeconds}';
-    if (!_streamIdleTimeoutFocusNode.hasFocus &&
-        _streamIdleTimeoutController.text != streamIdleTimeoutText) {
-      _streamIdleTimeoutController.text = streamIdleTimeoutText;
-    }
-    final streamMaxCharsPerSecondText =
-        '${settingsController.aiStreamMaxCharsPerSecond}';
-    if (!_streamMaxCharsPerSecondFocusNode.hasFocus &&
-        _streamMaxCharsPerSecondController.text !=
-            streamMaxCharsPerSecondText) {
-      _streamMaxCharsPerSecondController.text = streamMaxCharsPerSecondText;
-    }
-    final streamMaxMessageCardsPerSecondText =
-        '${settingsController.aiStreamMaxMessageCardsPerSecond}';
-    if (!_streamMaxMessageCardsPerSecondFocusNode.hasFocus &&
-        _streamMaxMessageCardsPerSecondController.text !=
-            streamMaxMessageCardsPerSecondText) {
-      _streamMaxMessageCardsPerSecondController.text =
-          streamMaxMessageCardsPerSecondText;
-    }
-    final streamThrottleDurationText =
-        '${settingsController.aiStreamThrottleDurationSeconds}';
-    if (!_streamThrottleDurationFocusNode.hasFocus &&
-        _streamThrottleDurationController.text != streamThrottleDurationText) {
-      _streamThrottleDurationController.text = streamThrottleDurationText;
-    }
-    final mcpLazyLoadingThresholdText =
-        '${settingsController.mcpLazyLoadingThresholdTokens}';
-    if (!_mcpLazyLoadingThresholdFocusNode.hasFocus &&
-        _mcpLazyLoadingThresholdController.text !=
-            mcpLazyLoadingThresholdText) {
-      _mcpLazyLoadingThresholdController.text = mcpLazyLoadingThresholdText;
-    }
-    final mcpAutoProbeConcurrencyText =
-        '${settingsController.mcpAutoProbeConcurrency}';
-    if (!_mcpAutoProbeConcurrencyFocusNode.hasFocus &&
-        _mcpAutoProbeConcurrencyController.text !=
-            mcpAutoProbeConcurrencyText) {
-      _mcpAutoProbeConcurrencyController.text = mcpAutoProbeConcurrencyText;
+    // 受控输入回填：设置变化时同步文本框；焦点停留在输入框上时保留用户正在输入的内容。
+    final syncedTextFields = <(TextEditingController, FocusNode, String)>[
+      (
+        _skillsPathController,
+        _skillsPathFocusNode,
+        settingsController.skillsStoragePath,
+      ),
+      (
+        _compressionThresholdController,
+        _compressionThresholdFocusNode,
+        '${settingsController.aiMessageCompressionThresholdChars}',
+      ),
+      (
+        _toolResultCompressionThresholdController,
+        _toolResultCompressionThresholdFocusNode,
+        '${settingsController.aiToolResultCompressionThresholdChars}',
+      ),
+      (
+        _toolResultCompressionHeadTailWindowController,
+        _toolResultCompressionHeadTailWindowFocusNode,
+        '${settingsController.aiToolResultCompressionHeadTailWindowChars}',
+      ),
+      (
+        _toolResultCompressionMaxPathHitsController,
+        _toolResultCompressionMaxPathHitsFocusNode,
+        '${settingsController.aiToolResultCompressionMaxPathHits}',
+      ),
+      (
+        _aiInputCacheUpdateIntervalController,
+        _aiInputCacheUpdateIntervalFocusNode,
+        '${settingsController.aiInputCacheUpdateInterval}',
+      ),
+      (
+        _aiInputCacheBreakpointCountController,
+        _aiInputCacheBreakpointCountFocusNode,
+        '${settingsController.aiInputCacheBreakpointCount}',
+      ),
+      (
+        _aiBudgetUsdPerSessionController,
+        _aiBudgetUsdPerSessionFocusNode,
+        _formatBudgetUsd(settingsController.aiBudgetUsdPerSession),
+      ),
+      (
+        _writeToolSummaryMaxCharsController,
+        _writeToolSummaryMaxCharsFocusNode,
+        '${settingsController.aiWriteToolSummaryMaxChars}',
+      ),
+      (
+        _toolCallLimitController,
+        _toolCallLimitFocusNode,
+        '${settingsController.aiSingleRoundToolCallLimit}',
+      ),
+      (
+        _sequentialToolRoundLimitController,
+        _sequentialToolRoundLimitFocusNode,
+        '${settingsController.aiSequentialToolRoundLimit}',
+      ),
+      (
+        _maxRecentErrorsController,
+        _maxRecentErrorsFocusNode,
+        '${settingsController.aiMaxRecentErrors}',
+      ),
+      (
+        _maxPlanHistoryEntriesController,
+        _maxPlanHistoryEntriesFocusNode,
+        '${settingsController.aiMaxPlanHistoryEntries}',
+      ),
+      (
+        _maxTruncationContinuationsController,
+        _maxTruncationContinuationsFocusNode,
+        '${settingsController.aiMaxTruncationContinuations}',
+      ),
+      (
+        _estimatedCharactersPerTokenController,
+        _estimatedCharactersPerTokenFocusNode,
+        '${settingsController.aiEstimatedCharactersPerToken}',
+      ),
+      (
+        _imageSizeLimitController,
+        _imageSizeLimitFocusNode,
+        formatMegabytesInput(settingsController.aiImageSizeLimitBytes),
+      ),
+      (
+        _connectTimeoutController,
+        _connectTimeoutFocusNode,
+        '${settingsController.aiConnectTimeoutSeconds}',
+      ),
+      (
+        _responseTimeoutController,
+        _responseTimeoutFocusNode,
+        '${settingsController.aiResponseTimeoutSeconds}',
+      ),
+      (
+        _streamIdleTimeoutController,
+        _streamIdleTimeoutFocusNode,
+        '${settingsController.aiStreamIdleTimeoutSeconds}',
+      ),
+      (
+        _streamMaxCharsPerSecondController,
+        _streamMaxCharsPerSecondFocusNode,
+        '${settingsController.aiStreamMaxCharsPerSecond}',
+      ),
+      (
+        _streamMaxMessageCardsPerSecondController,
+        _streamMaxMessageCardsPerSecondFocusNode,
+        '${settingsController.aiStreamMaxMessageCardsPerSecond}',
+      ),
+      (
+        _streamThrottleDurationController,
+        _streamThrottleDurationFocusNode,
+        '${settingsController.aiStreamThrottleDurationSeconds}',
+      ),
+      (
+        _mcpLazyLoadingThresholdController,
+        _mcpLazyLoadingThresholdFocusNode,
+        '${settingsController.mcpLazyLoadingThresholdTokens}',
+      ),
+      (
+        _mcpAutoProbeConcurrencyController,
+        _mcpAutoProbeConcurrencyFocusNode,
+        '${settingsController.mcpAutoProbeConcurrency}',
+      ),
+    ];
+    for (final (controller, focusNode, value) in syncedTextFields) {
+      syncTextControllerText(controller, value, focusNode: focusNode);
     }
 
     final sections = <_SettingsSection>[

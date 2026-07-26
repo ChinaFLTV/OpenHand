@@ -600,16 +600,10 @@ class _NetworkRow extends StatelessWidget {
   }
 
   Future<void> _showRowMenu(BuildContext context, Offset position) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
     final blocked = controller.blockedUrls.contains(entry.url);
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: position,
       items: [
         PopupMenuItem(
           value: 'copy_url',

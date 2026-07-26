@@ -296,14 +296,9 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     required bool longText,
     required bool expanded,
   }) async {
-    final overlay = Overlay.of(context).context.findRenderObject();
-    if (overlay is! RenderBox || !overlay.hasSize) return;
-    final selected = await showAnimatedMenu<_ConsoleEntryAction>(
+    final selected = await showAnimatedPointerMenu<_ConsoleEntryAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 1, 1),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: position,
       items: [
         if (longText)
           PopupMenuItem<_ConsoleEntryAction>(

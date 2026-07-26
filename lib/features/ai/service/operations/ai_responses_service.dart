@@ -766,6 +766,11 @@ class AiResponsesService {
         parts.map((part) => part.text),
       ).join('\n\n');
     }
+    const encoder = OpenAiProtocolAdapter(AiProtocolType.openai);
+    final inlineMaxBytes = model.protocolType == AiProtocolType.mimo
+        ? aiMimoUnderstandingMaxRawBytes
+        : aiMessageAttachmentMaxFileBytes;
+    final isMiniMax = model.protocolType == AiProtocolType.minimax;
     final content = <Map<String, Object?>>[];
     for (final part in parts) {
       switch (part.kind) {
@@ -780,54 +785,33 @@ class AiResponsesService {
             });
           }
         case AiChatContentPartKind.imageFile:
-          final filePath = nullIfBlank(part.filePath);
-          final mimeType = nullIfBlank(part.mimeType);
-          if (filePath == null || mimeType == null) continue;
-          final dataUrl =
-              await const OpenAiProtocolAdapter(
-                AiProtocolType.openai,
-              ).encodeFileAsDataUrl(
-                filePath: filePath,
-                mimeType: mimeType,
-                maxBytes: model.protocolType == AiProtocolType.mimo
-                    ? aiMimoUnderstandingMaxRawBytes
-                    : aiMessageAttachmentMaxFileBytes,
-              );
-          content.add(<String, Object?>{
-            'type': 'input_image',
-            if (model.protocolType == AiProtocolType.minimax)
-              'image_url': <String, Object?>{
-                'url': dataUrl,
-                'detail': 'default',
-              }
-            else ...<String, Object?>{'image_url': dataUrl, 'detail': 'auto'},
-          });
         case AiChatContentPartKind.videoFile:
-          final filePath = nullIfBlank(part.filePath);
-          final mimeType = nullIfBlank(part.mimeType);
-          if (filePath == null || mimeType == null) continue;
-          final dataUrl = await const OpenAiProtocolAdapter(
-            AiProtocolType.openai,
-          ).encodeFileAsDataUrl(filePath: filePath, mimeType: mimeType);
-          content.add(<String, Object?>{
-            'type': 'input_video',
-            if (model.protocolType == AiProtocolType.minimax)
-              'video_url': <String, Object?>{
-                'url': dataUrl,
-                'detail': 'default',
-              }
-            else ...<String, Object?>{'video_url': dataUrl, 'detail': 'auto'},
-          });
         case AiChatContentPartKind.audioFile:
           final filePath = nullIfBlank(part.filePath);
           final mimeType = nullIfBlank(part.mimeType);
           if (filePath == null || mimeType == null) continue;
-          final dataUrl = await const OpenAiProtocolAdapter(
-            AiProtocolType.openai,
-          ).encodeFileAsDataUrl(filePath: filePath, mimeType: mimeType);
+          final dataUrl = await encoder.encodeFileAsDataUrl(
+            filePath: filePath,
+            mimeType: mimeType,
+            maxBytes: inlineMaxBytes,
+          );
+          if (part.kind == AiChatContentPartKind.audioFile) {
+            content.add(<String, Object?>{
+              'type': 'input_audio',
+              'input_audio': <String, Object?>{'data': dataUrl},
+            });
+            continue;
+          }
+          final urlKey = part.kind == AiChatContentPartKind.videoFile
+              ? 'video_url'
+              : 'image_url';
           content.add(<String, Object?>{
-            'type': 'input_audio',
-            'input_audio': <String, Object?>{'data': dataUrl},
+            'type': part.kind == AiChatContentPartKind.videoFile
+                ? 'input_video'
+                : 'input_image',
+            if (isMiniMax)
+              urlKey: <String, Object?>{'url': dataUrl, 'detail': 'default'}
+            else ...<String, Object?>{urlKey: dataUrl, 'detail': 'auto'},
           });
       }
     }

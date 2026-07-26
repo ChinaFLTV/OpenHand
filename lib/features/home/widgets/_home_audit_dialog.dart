@@ -1478,15 +1478,16 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
   @override
   void didUpdateWidget(covariant _SessionAuditContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_titleFocusNode.hasFocus &&
-        _titleController.text != widget.session.title) {
-      _titleController.text = widget.session.title;
-    }
-    final metadataJson = _auditFormatJson(widget.session.metadata);
-    if (!_metadataFocusNode.hasFocus &&
-        _metadataController.text != metadataJson) {
-      _metadataController.text = metadataJson;
-    }
+    syncTextControllerText(
+      _titleController,
+      widget.session.title,
+      focusNode: _titleFocusNode,
+    );
+    syncTextControllerText(
+      _metadataController,
+      _auditFormatJson(widget.session.metadata),
+      focusNode: _metadataFocusNode,
+    );
   }
 
   @override

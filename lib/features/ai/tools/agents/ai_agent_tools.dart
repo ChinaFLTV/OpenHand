@@ -602,13 +602,10 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final includeDisabled = boolFromValue(args['include_disabled']);
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
+    final resolution = _resolveContextAgent(
       controller,
-      args,
-      includeDisabled: includeDisabled,
-      accessPolicy: accessPolicy,
+      context,
+      honorIncludeDisabled: true,
     );
     if (resolution.error != null) return resolution.error!;
     final includeTasks = boolFromValue(
@@ -657,12 +654,10 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
+    final resolution = _resolveContextAgent(
       controller,
-      args,
-      includeDisabled: includeDisabled,
-      accessPolicy: accessPolicy,
+      context,
+      honorIncludeDisabled: true,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -761,12 +756,10 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
+    final resolution = _resolveContextAgent(
       controller,
-      args,
-      includeDisabled: includeDisabled,
-      accessPolicy: accessPolicy,
+      context,
+      honorIncludeDisabled: true,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -875,12 +868,7 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
-      controller,
-      args,
-      accessPolicy: accessPolicy,
-    );
+    final resolution = _resolveContextAgent(controller, context);
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
     final previous = agent.scaleSettings;
@@ -982,12 +970,10 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
+    final resolution = _resolveContextAgent(
       controller,
-      args,
-      includeDisabled: includeDisabled,
-      accessPolicy: accessPolicy,
+      context,
+      honorIncludeDisabled: true,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -1112,12 +1098,7 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
-      controller,
-      args,
-      accessPolicy: accessPolicy,
-    );
+    final resolution = _resolveContextAgent(controller, context);
     if (resolution.error != null) return resolution.error!;
     final summary = _optionalText(args['summary']);
     if (summary == null) {
@@ -1176,12 +1157,7 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
-      controller,
-      args,
-      accessPolicy: accessPolicy,
-    );
+    final resolution = _resolveContextAgent(controller, context);
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
     final previous = agent.resourceUsage;
@@ -1422,12 +1398,10 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
-    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
-    final resolution = _resolveAgent(
+    final resolution = _resolveContextAgent(
       controller,
-      args,
-      includeDisabled: includeDisabled,
-      accessPolicy: accessPolicy,
+      context,
+      honorIncludeDisabled: true,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -2473,6 +2447,23 @@ class AiAgentTool extends AiTool {
       }
     }
     return null;
+  }
+
+  /// 从执行上下文解析目标数字员工：统一读取入参、会话可见性策略与
+  /// `include_disabled` 开关，避免各 action 重复拼装同一段样板。
+  _AgentResolution _resolveContextAgent(
+    AgentsController controller,
+    AiToolExecutionContext context, {
+    bool honorIncludeDisabled = false,
+  }) {
+    final args = context.decodedArguments;
+    return _resolveAgent(
+      controller,
+      args,
+      includeDisabled:
+          honorIncludeDisabled && boolFromValue(args['include_disabled']),
+      accessPolicy: _AgentToolAccessPolicy.fromMetadata(context.metadata),
+    );
   }
 
   _AgentResolution _resolveAgent(

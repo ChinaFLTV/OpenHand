@@ -952,22 +952,26 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
   @override
   void didUpdateWidget(covariant _WebSearchEngineCard old) {
     super.didUpdateWidget(old);
-    if (old.config.apiKey != widget.config.apiKey &&
-        _apiKeyController.text != (widget.config.apiKey ?? '')) {
-      _apiKeyController.text = widget.config.apiKey ?? '';
-    }
-    if (old.config.maxRetries != widget.config.maxRetries &&
-        _retryController.text != '${widget.config.maxRetries}') {
-      _retryController.text = '${widget.config.maxRetries}';
-    }
-    if (old.config.truncationChars != widget.config.truncationChars &&
-        _truncationController.text != '${widget.config.truncationChars}') {
-      _truncationController.text = '${widget.config.truncationChars}';
-    }
-    if (old.config.endpointOverride != widget.config.endpointOverride &&
-        _endpointController.text != (widget.config.endpointOverride ?? '')) {
-      _endpointController.text = widget.config.endpointOverride ?? '';
-    }
+    syncTextControllerText(
+      _apiKeyController,
+      widget.config.apiKey ?? '',
+      previous: old.config.apiKey ?? '',
+    );
+    syncTextControllerText(
+      _retryController,
+      '${widget.config.maxRetries}',
+      previous: '${old.config.maxRetries}',
+    );
+    syncTextControllerText(
+      _truncationController,
+      '${widget.config.truncationChars}',
+      previous: '${old.config.truncationChars}',
+    );
+    syncTextControllerText(
+      _endpointController,
+      widget.config.endpointOverride ?? '',
+      previous: old.config.endpointOverride ?? '',
+    );
   }
 
   @override

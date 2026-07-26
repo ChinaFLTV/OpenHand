@@ -1701,15 +1701,9 @@ class _AndroidReverseDashboardDialogState
     Offset position,
   ) async {
     if (!mounted) return;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-    final selected = await showAnimatedMenu<_LogcatLineAction>(
+    final selected = await showAnimatedPointerMenu<_LogcatLineAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 1, 1),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: position,
       items: [
         PopupMenuItem<_LogcatLineAction>(
           value: _LogcatLineAction.copy,
@@ -5089,17 +5083,9 @@ fi
   }
 
   Future<void> _showDeviceMenu(AdbDevice device, Offset? globalPosition) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-    final center = overlay.size.center(Offset.zero);
-    final position = globalPosition ?? overlay.localToGlobal(center);
-    final selected = await showAnimatedMenu<_DeviceMenuAction>(
+    final selected = await showAnimatedPointerMenu<_DeviceMenuAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 1, 1),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: globalPosition,
       items: [
         PopupMenuItem(
           value: _DeviceMenuAction.useForPanel,
@@ -5321,17 +5307,9 @@ fi
     String packageName,
     Offset? globalPosition,
   ) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-    final center = overlay.size.center(Offset.zero);
-    final position = globalPosition ?? overlay.localToGlobal(center);
-    final selected = await showAnimatedMenu<_PackageMenuAction>(
+    final selected = await showAnimatedPointerMenu<_PackageMenuAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 1, 1),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: globalPosition,
       items: [
         PopupMenuItem(
           value: _PackageMenuAction.analyze,
@@ -5594,18 +5572,10 @@ fi
     AndroidProcess process,
     Offset? globalPosition,
   ) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-    final center = overlay.size.center(Offset.zero);
-    final position = globalPosition ?? overlay.localToGlobal(center);
     final isPackageProcess = looksLikeAndroidPackageName(process.name);
-    final selected = await showAnimatedMenu<_ProcessMenuAction>(
+    final selected = await showAnimatedPointerMenu<_ProcessMenuAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(position.dx, position.dy, 1, 1),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: globalPosition,
       items: [
         PopupMenuItem(
           value: _ProcessMenuAction.copyPid,

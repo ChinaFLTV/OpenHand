@@ -13,6 +13,29 @@ Widget? openHandHiddenTextFieldCounter(
   required int? maxLength,
 }) => null;
 
+/// 把外部状态回填到文本控制器，用于 `build` / `didUpdateWidget` 中的受控输入。
+///
+/// 依次跳过三类无需回填的场景，避免打断输入或触发多余重建：
+/// - [previous] 与 [value] 相同：外部值未变化，保留用户正在编辑的内容；
+/// - [focusNode] 持有焦点：光标停留在该输入框上；
+/// - 控制器文本已与 [value] 一致。
+///
+/// 回填后光标落到文本末尾，规避直接赋值 `controller.text` 造成的光标丢失。
+void syncTextControllerText(
+  TextEditingController controller,
+  String value, {
+  String? previous,
+  FocusNode? focusNode,
+}) {
+  if (previous == value) return;
+  if (focusNode?.hasFocus ?? false) return;
+  if (controller.text == value) return;
+  controller.value = TextEditingValue(
+    text: value,
+    selection: TextSelection.collapsed(offset: value.length),
+  );
+}
+
 class OpenHandFormLabel extends StatelessWidget {
   const OpenHandFormLabel(this.text, {super.key});
 

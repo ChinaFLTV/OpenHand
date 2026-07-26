@@ -979,18 +979,12 @@ class _FileMutationCardRow extends StatelessWidget {
     BuildContext context, {
     Offset? position,
   }) async {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final box = context.findRenderObject() as RenderBox?;
-    final origin =
-        position ??
-        (box?.localToGlobal(box.size.center(Offset.zero)) ?? Offset.zero);
+    final origin = position ?? box?.localToGlobal(box.size.center(Offset.zero));
     final l10n = AppLocalizations.of(context)!;
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(origin.dx, origin.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: origin,
       items: [
         PopupMenuItem<String>(
           value: 'reveal',
@@ -2893,16 +2887,10 @@ class _InspectorEntryRow extends StatelessWidget {
   final FileMutationView view;
 
   Future<void> _showRecordMenu(BuildContext context, Offset globalPos) async {
-    final overlay =
-        Overlay.of(context, rootOverlay: true).context.findRenderObject()
-            as RenderBox?;
-    if (overlay == null) return;
-    final selected = await showAnimatedMenu<String>(
+    final selected = await showAnimatedPointerMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(globalPos.dx, globalPos.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: globalPos,
+      rootOverlay: true,
       useRootNavigator: true,
       items: <PopupMenuEntry<String>>[
         PopupMenuItem<String>(

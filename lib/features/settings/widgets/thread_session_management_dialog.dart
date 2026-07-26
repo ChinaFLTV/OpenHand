@@ -474,19 +474,13 @@ class _ThreadSessionManagementDialogState
     AiSession session,
     Offset globalPosition,
   ) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
     final flag = _flags[session.id];
     final isPinned = flag?.pinned ?? false;
     final isArchived = flag?.archived ?? false;
     final l10n = AppLocalizations.of(context)!;
-    final selected = await showAnimatedMenu<_SessionRowAction>(
+    final selected = await showAnimatedPointerMenu<_SessionRowAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: globalPosition,
       items: [
         PopupMenuItem(
           value: _SessionRowAction.preview,

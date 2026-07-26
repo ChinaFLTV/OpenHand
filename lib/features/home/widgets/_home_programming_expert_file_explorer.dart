@@ -4252,12 +4252,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         }
       }
     }
-    final selectedIndex = await showAnimatedMenu<int>(
+    final selectedIndex = await showAnimatedPointerMenu<int>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromCenter(center: anchorPosition, width: 1, height: 1),
-        Offset.zero & overlay.size,
-      ),
+      globalPosition: anchorPosition,
       items: menuItems,
     );
     if (selectedIndex == null || !mounted) {
@@ -4509,126 +4506,26 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     };
   }
 
-  void _showLspLoading(String title) {
-    _lspResultPreviewEpoch += 1;
-    setState(() {
-      _lspResultBarVisible = true;
-      _lspResultLoading = true;
-      _lspResultTitle = title;
-      _lspResultMessage = null;
-      _lspResultLocations = const <AiLspLocation>[];
-      _lspResultCodeActions = const <AiLspCodeAction>[];
-      _lspResultPreviewLoading = false;
-      _lspResultPreviews = const <String, _EditorLocationPreview>{};
-      _lspHoverResult = null;
-      _symbolBarVisible = false;
-      _projectToolchainBarVisible = false;
-      _diagnosticsBarVisible = false;
-      _findBarVisible = false;
-      _replaceBarVisible = false;
-      _goToLineVisible = false;
-      _completionVisible = false;
-      _signatureHelpVisible = false;
-      _signatureHelp = null;
-    });
-  }
-
-  void _showLspMessage({required String title, required String message}) {
-    _lspResultPreviewEpoch += 1;
-    setState(() {
-      _lspResultBarVisible = true;
-      _lspResultLoading = false;
-      _lspResultTitle = title;
-      _lspResultMessage = message;
-      _lspResultLocations = const <AiLspLocation>[];
-      _lspResultCodeActions = const <AiLspCodeAction>[];
-      _lspResultPreviewLoading = false;
-      _lspResultPreviews = const <String, _EditorLocationPreview>{};
-      _lspHoverResult = null;
-      _symbolBarVisible = false;
-      _projectToolchainBarVisible = false;
-      _diagnosticsBarVisible = false;
-      _findBarVisible = false;
-      _replaceBarVisible = false;
-      _goToLineVisible = false;
-      _completionVisible = false;
-      _signatureHelpVisible = false;
-      _signatureHelp = null;
-    });
-  }
-
-  void _showLspLocations({
+  /// 呈现 LSP 结果条：整体重置结果区状态并收起其余编辑器浮层，
+  /// 五个入口只描述各自差异，避免同一段状态机被反复抄写。
+  void _presentLspResult({
     required String title,
-    required List<AiLspLocation> locations,
+    bool loading = false,
     String? message,
+    List<AiLspLocation> locations = const <AiLspLocation>[],
+    List<AiLspCodeAction> codeActions = const <AiLspCodeAction>[],
+    AiLspHoverResult? hover,
+    bool previewLoading = false,
   }) {
-    final previewEpoch = ++_lspResultPreviewEpoch;
+    if (!mounted) return;
     setState(() {
       _lspResultBarVisible = true;
-      _lspResultLoading = false;
+      _lspResultLoading = loading;
       _lspResultTitle = title;
       _lspResultMessage = message;
       _lspResultLocations = locations;
-      _lspResultCodeActions = const <AiLspCodeAction>[];
-      _lspResultPreviewLoading = locations.isNotEmpty;
-      _lspResultPreviews = const <String, _EditorLocationPreview>{};
-      _lspHoverResult = null;
-      _symbolBarVisible = false;
-      _projectToolchainBarVisible = false;
-      _diagnosticsBarVisible = false;
-      _findBarVisible = false;
-      _replaceBarVisible = false;
-      _goToLineVisible = false;
-      _completionVisible = false;
-      _signatureHelpVisible = false;
-      _signatureHelp = null;
-    });
-    if (locations.isNotEmpty) {
-      unawaited(_loadLspLocationPreviews(locations, previewEpoch));
-    }
-  }
-
-  void _showLspCodeActions({
-    required String title,
-    required List<AiLspCodeAction> actions,
-    String? message,
-  }) {
-    _lspResultPreviewEpoch += 1;
-    setState(() {
-      _lspResultBarVisible = true;
-      _lspResultLoading = false;
-      _lspResultTitle = title;
-      _lspResultMessage = message;
-      _lspResultLocations = const <AiLspLocation>[];
-      _lspResultCodeActions = actions;
-      _lspResultPreviewLoading = false;
-      _lspResultPreviews = const <String, _EditorLocationPreview>{};
-      _lspHoverResult = null;
-      _symbolBarVisible = false;
-      _projectToolchainBarVisible = false;
-      _diagnosticsBarVisible = false;
-      _findBarVisible = false;
-      _replaceBarVisible = false;
-      _goToLineVisible = false;
-      _completionVisible = false;
-      _signatureHelpVisible = false;
-      _signatureHelp = null;
-    });
-  }
-
-  void _showLspHoverResult({
-    required String title,
-    required AiLspHoverResult hover,
-  }) {
-    _lspResultPreviewEpoch += 1;
-    setState(() {
-      _lspResultBarVisible = true;
-      _lspResultLoading = false;
-      _lspResultTitle = title;
-      _lspResultMessage = null;
-      _lspResultLocations = const <AiLspLocation>[];
-      _lspResultCodeActions = const <AiLspCodeAction>[];
-      _lspResultPreviewLoading = false;
+      _lspResultCodeActions = codeActions;
+      _lspResultPreviewLoading = previewLoading;
       _lspResultPreviews = const <String, _EditorLocationPreview>{};
       _lspHoverResult = hover;
       _symbolBarVisible = false;
@@ -4641,6 +4538,50 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _signatureHelpVisible = false;
       _signatureHelp = null;
     });
+  }
+
+  void _showLspLoading(String title) {
+    _lspResultPreviewEpoch += 1;
+    _presentLspResult(title: title, loading: true);
+  }
+
+  void _showLspMessage({required String title, required String message}) {
+    _lspResultPreviewEpoch += 1;
+    _presentLspResult(title: title, message: message);
+  }
+
+  void _showLspLocations({
+    required String title,
+    required List<AiLspLocation> locations,
+    String? message,
+  }) {
+    final previewEpoch = ++_lspResultPreviewEpoch;
+    _presentLspResult(
+      title: title,
+      message: message,
+      locations: locations,
+      previewLoading: locations.isNotEmpty,
+    );
+    if (locations.isNotEmpty) {
+      unawaited(_loadLspLocationPreviews(locations, previewEpoch));
+    }
+  }
+
+  void _showLspCodeActions({
+    required String title,
+    required List<AiLspCodeAction> actions,
+    String? message,
+  }) {
+    _lspResultPreviewEpoch += 1;
+    _presentLspResult(title: title, message: message, codeActions: actions);
+  }
+
+  void _showLspHoverResult({
+    required String title,
+    required AiLspHoverResult hover,
+  }) {
+    _lspResultPreviewEpoch += 1;
+    _presentLspResult(title: title, hover: hover);
   }
 
   void _hideLspResultBar() {

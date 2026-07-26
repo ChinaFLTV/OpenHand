@@ -1313,36 +1313,36 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
   @override
   void didUpdateWidget(covariant _WebFetchEngineCard old) {
     super.didUpdateWidget(old);
-    if (old.config.apiKey != widget.config.apiKey &&
-        _apiKeyController.text != (widget.config.apiKey ?? '')) {
-      _apiKeyController.text = widget.config.apiKey ?? '';
-    }
-    if (old.config.maxRetries != widget.config.maxRetries &&
-        _retryController.text != '${widget.config.maxRetries}') {
-      _retryController.text = '${widget.config.maxRetries}';
-    }
-    if (old.config.truncationChars != widget.config.truncationChars &&
-        _truncationController.text != '${widget.config.truncationChars}') {
-      _truncationController.text = '${widget.config.truncationChars}';
-    }
-    if (old.config.connectionTimeoutSeconds !=
-            widget.config.connectionTimeoutSeconds &&
-        _jinaConnectionTimeoutController.text !=
-            '${widget.config.connectionTimeoutSeconds}') {
-      _jinaConnectionTimeoutController.text =
-          '${widget.config.connectionTimeoutSeconds}';
-    }
-    if (old.config.responseTimeoutSeconds !=
-            widget.config.responseTimeoutSeconds &&
-        _jinaResponseTimeoutController.text !=
-            '${widget.config.responseTimeoutSeconds}') {
-      _jinaResponseTimeoutController.text =
-          '${widget.config.responseTimeoutSeconds}';
-    }
-    if (old.config.endpointOverride != widget.config.endpointOverride &&
-        _endpointController.text != (widget.config.endpointOverride ?? '')) {
-      _endpointController.text = widget.config.endpointOverride ?? '';
-    }
+    syncTextControllerText(
+      _apiKeyController,
+      widget.config.apiKey ?? '',
+      previous: old.config.apiKey ?? '',
+    );
+    syncTextControllerText(
+      _retryController,
+      '${widget.config.maxRetries}',
+      previous: '${old.config.maxRetries}',
+    );
+    syncTextControllerText(
+      _truncationController,
+      '${widget.config.truncationChars}',
+      previous: '${old.config.truncationChars}',
+    );
+    syncTextControllerText(
+      _jinaConnectionTimeoutController,
+      '${widget.config.connectionTimeoutSeconds}',
+      previous: '${old.config.connectionTimeoutSeconds}',
+    );
+    syncTextControllerText(
+      _jinaResponseTimeoutController,
+      '${widget.config.responseTimeoutSeconds}',
+      previous: '${old.config.responseTimeoutSeconds}',
+    );
+    syncTextControllerText(
+      _endpointController,
+      widget.config.endpointOverride ?? '',
+      previous: old.config.endpointOverride ?? '',
+    );
   }
 
   @override

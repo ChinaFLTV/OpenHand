@@ -2363,23 +2363,8 @@ class _ComposerFullAccessModeButton extends StatefulWidget {
 class _ComposerFullAccessModeButtonState
     extends State<_ComposerFullAccessModeButton> {
   void _showAccessMenu() {
-    final button = context.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    showAnimatedMenu<bool>(
+    showAnimatedAnchoredPopupMenu<bool>(
       context: context,
-      position: position,
       items: [
         PopupMenuItem<bool>(
           value: false,
@@ -2515,26 +2500,12 @@ class _ComposerModeButton extends StatefulWidget {
 
 class _ComposerModeButtonState extends State<_ComposerModeButton> {
   void _showModeMenu() {
-    final button = context.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
     final modes = widget.availableModes.isEmpty
         ? <AiSessionMode>[AiSessionMode.chat]
         : widget.availableModes;
 
-    showAnimatedMenu<AiSessionMode>(
+    showAnimatedAnchoredPopupMenu<AiSessionMode>(
       context: context,
-      position: position,
       items: [
         for (final mode in modes)
           PopupMenuItem<AiSessionMode>(
@@ -2782,24 +2753,9 @@ class _ComposerCreationModeButtonState
   }
 
   void _showCreationMenu() {
-    final button = context.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
     final colorScheme = Theme.of(context).colorScheme;
-    showAnimatedMenu<_CreationMode>(
+    showAnimatedAnchoredPopupMenu<_CreationMode>(
       context: context,
-      position: position,
       items: [
         PopupMenuItem<_CreationMode>(
           value: _CreationMode.image,
