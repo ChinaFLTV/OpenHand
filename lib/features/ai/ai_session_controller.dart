@@ -11572,16 +11572,7 @@ $tail''';
           modelLabel: model.displayName,
           metadata: <String, Object?>{
             'tool_call_index': index,
-            'tool_call_id': toolCall.id,
-            'tool_name': toolCall.name,
-            'tool_arguments': toolCall.arguments,
-            'tool_calls': <Map<String, Object?>>[
-              <String, Object?>{
-                'id': toolCall.id,
-                'name': toolCall.name,
-                'arguments': toolCall.arguments,
-              },
-            ],
+            ..._toolCallMessageMetadata(toolCall),
           },
         ),
         update: (message) => message.copyWith(
@@ -11592,16 +11583,7 @@ $tail''';
           metadata: <String, Object?>{
             ...message.metadata,
             'tool_call_index': index,
-            'tool_call_id': toolCall.id,
-            'tool_name': toolCall.name,
-            'tool_arguments': toolCall.arguments,
-            'tool_calls': <Map<String, Object?>>[
-              <String, Object?>{
-                'id': toolCall.id,
-                'name': toolCall.name,
-                'arguments': toolCall.arguments,
-              },
-            ],
+            ..._toolCallMessageMetadata(toolCall),
           },
           modelId: model.id,
           modelLabel: model.displayName,
@@ -13230,16 +13212,7 @@ $tail''';
         ),
         createdAt: _clock().toUtc(),
         metadata: <String, Object?>{
-          'tool_call_id': toolCall.id,
-          'tool_name': toolCall.name,
-          'tool_arguments': toolCall.arguments,
-          'tool_calls': <Map<String, Object?>>[
-            <String, Object?>{
-              'id': toolCall.id,
-              'name': toolCall.name,
-              'arguments': toolCall.arguments,
-            },
-          ],
+          ..._toolCallMessageMetadata(toolCall),
           'tool_execution_started_at':
               startedAtValue ?? _clock().toUtc().toIso8601String(),
           'tool_execution_status': status,
@@ -13263,16 +13236,7 @@ $tail''';
         metadata: <String, Object?>{
           ...message.metadata,
           ...additionalMetadata,
-          'tool_call_id': toolCall.id,
-          'tool_name': toolCall.name,
-          'tool_arguments': toolCall.arguments,
-          'tool_calls': <Map<String, Object?>>[
-            <String, Object?>{
-              'id': toolCall.id,
-              'name': toolCall.name,
-              'arguments': toolCall.arguments,
-            },
-          ],
+          ..._toolCallMessageMetadata(toolCall),
           'tool_execution_started_at':
               message.metadata['tool_execution_started_at'] ??
               startedAtValue ??

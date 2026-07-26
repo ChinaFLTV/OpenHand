@@ -567,3 +567,22 @@ String? _compactPersistenceRawDetail(String raw) {
   }
   return '${text.substring(0, maxRawCharacters)}...';
 }
+
+/// 工具调用消息的公共元数据：单条工具调用的标识、名称与入参。
+///
+/// `tool_*` 三个平铺键供旧版渲染与检索路径读取，`tool_calls` 数组是新版
+/// 结构；两者必须同源，否则同一条消息在不同读取路径下会出现不一致。
+Map<String, Object?> _toolCallMessageMetadata(AiToolCall toolCall) {
+  return <String, Object?>{
+    'tool_call_id': toolCall.id,
+    'tool_name': toolCall.name,
+    'tool_arguments': toolCall.arguments,
+    'tool_calls': <Map<String, Object?>>[
+      <String, Object?>{
+        'id': toolCall.id,
+        'name': toolCall.name,
+        'arguments': toolCall.arguments,
+      },
+    ],
+  };
+}

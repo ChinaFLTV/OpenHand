@@ -727,9 +727,7 @@ class AiChatService implements AiChatClient {
           tools: tools,
           responseModalities: responseModalities,
           request: creationRequest,
-          requestFallbacks: error is AiChatException
-              ? error.telemetry?.requestFallbacks ?? const <String>[]
-              : const <String>[],
+          requestFallbacks: _requestFallbacksFromError(error),
         ),
         startedAt: startedAt,
         endedAt: DateTime.now().toUtc(),
@@ -1139,9 +1137,7 @@ class AiChatService implements AiChatClient {
           tools: tools,
           responseModalities: responseModalities,
           request: creationRequest,
-          requestFallbacks: error is AiChatException
-              ? error.telemetry?.requestFallbacks ?? const <String>[]
-              : const <String>[],
+          requestFallbacks: _requestFallbacksFromError(error),
         ),
         startedAt: startedAt,
         endedAt: DateTime.now().toUtc(),
@@ -1231,9 +1227,7 @@ class AiChatService implements AiChatClient {
             tools: tools,
             responseModalities: responseModalities,
             request: creationRequest,
-            requestFallbacks: error is AiChatException
-                ? error.telemetry?.requestFallbacks ?? const <String>[]
-                : const <String>[],
+            requestFallbacks: _requestFallbacksFromError(error),
           ),
           startedAt: startedAt,
           endedAt: DateTime.now().toUtc(),
@@ -2603,6 +2597,15 @@ class AiChatService implements AiChatClient {
       throw const AiChatCancelledException();
     }
     return firstResult as T;
+  }
+
+  /// 失败路径的降级链：能拿到遥测就用遥测里的，拿不到按「未发生降级」计。
+  ///
+  /// 用量归因要按实际命中的 API family 记账，取不到降级链时不能凭空猜测，
+  /// 否则失败请求会被记到错误的渠道上。
+  List<String> _requestFallbacksFromError(Object error) {
+    if (error is! AiChatException) return const <String>[];
+    return error.telemetry?.requestFallbacks ?? const <String>[];
   }
 
   String _usageApiFamily({
