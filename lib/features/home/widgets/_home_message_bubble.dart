@@ -8728,12 +8728,11 @@ class _FullscreenChromeButton extends StatefulWidget {
       _FullscreenChromeButtonState();
 }
 
-class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
-  bool _hover = false;
-
+class _FullscreenChromeButtonState extends State<_FullscreenChromeButton>
+    with OpenHandHoverState {
   @override
   Widget build(BuildContext context) {
-    final bg = _hover
+    final bg = openHandHovered
         ? Colors.white.withValues(alpha: 0.22)
         : Colors.white.withValues(alpha: 0.12);
     return Tooltip(
@@ -8741,20 +8740,8 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
       waitDuration: kOpenHandTooltipWait,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          if (_hover) return;
-          _hover = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() {});
-          });
-        },
-        onExit: (_) {
-          if (!_hover) return;
-          _hover = false;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() {});
-          });
-        },
+        onEnter: (_) => setOpenHandHovered(true),
+        onExit: (_) => setOpenHandHovered(false),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onPressed,

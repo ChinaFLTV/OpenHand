@@ -3187,9 +3187,8 @@ class _HoverElevateBox extends StatefulWidget {
   State<_HoverElevateBox> createState() => _HoverElevateBoxState();
 }
 
-class _HoverElevateBoxState extends State<_HoverElevateBox> {
-  bool _hover = false;
-
+class _HoverElevateBoxState extends State<_HoverElevateBox>
+    with OpenHandHoverState {
   @override
   Widget build(BuildContext context) {
     final dur = openHandMotionDuration(
@@ -3197,20 +3196,8 @@ class _HoverElevateBoxState extends State<_HoverElevateBox> {
       const Duration(milliseconds: 200),
     );
     return MouseRegion(
-      onEnter: (_) {
-        if (_hover) return;
-        _hover = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hover) return;
-        _hover = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
+      onEnter: (_) => setOpenHandHovered(true),
+      onExit: (_) => setOpenHandHovered(false),
       cursor: SystemMouseCursors.basic,
       child: AnimatedContainer(
         duration: dur,
@@ -3219,10 +3206,10 @@ class _HoverElevateBoxState extends State<_HoverElevateBox> {
           color: widget.baseColor,
           borderRadius: BorderRadius.circular(widget.radius),
           border: Border.all(
-            color: _hover ? widget.hoverBorder : widget.baseBorder,
-            width: _hover ? 0.8 : 0.5,
+            color: openHandHovered ? widget.hoverBorder : widget.baseBorder,
+            width: openHandHovered ? 0.8 : 0.5,
           ),
-          boxShadow: _hover
+          boxShadow: openHandHovered
               ? [
                   BoxShadow(
                     color: widget.hoverShadow,

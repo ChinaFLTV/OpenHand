@@ -1188,28 +1188,15 @@ class _ProxyHoverableRow extends StatefulWidget {
   State<_ProxyHoverableRow> createState() => _ProxyHoverableRowState();
 }
 
-class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
-  bool _hover = false;
-
+class _ProxyHoverableRowState extends State<_ProxyHoverableRow>
+    with OpenHandHoverState {
   @override
   Widget build(BuildContext context) {
     final leftSide = BorderSide(color: widget.leftBarColor, width: 3);
     return MouseRegion(
       cursor: SystemMouseCursors.text,
-      onEnter: (_) {
-        if (_hover) return;
-        _hover = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hover) return;
-        _hover = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
+      onEnter: (_) => setOpenHandHovered(true),
+      onExit: (_) => setOpenHandHovered(false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onDoubleTap: widget.onDoubleTap,
@@ -1219,7 +1206,7 @@ class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
             const Duration(milliseconds: 120),
           ),
           decoration: BoxDecoration(
-            color: _hover
+            color: openHandHovered
                 ? Color.alphaBlend(widget.hoverColor, widget.baseColor)
                 : widget.baseColor,
             border: widget.isHead
