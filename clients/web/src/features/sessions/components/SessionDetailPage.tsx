@@ -150,6 +150,7 @@ import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import type { MessageContentFormat } from '../../../hooks/useMessageContentFormat';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { useBrowserFullscreen } from '../../../hooks/useBrowserFullscreen';
 import { useDelayedFalse } from '../../../hooks/useDelayedFalse';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
@@ -3540,7 +3541,7 @@ export function SessionDetailPage() {
   const [composerCollapsed, setComposerCollapsed] = useState(readPersistedComposerCollapsed);
   const [autoFollow, setAutoFollow] = useState(true);
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
-  const [fullscreenActive, setFullscreenActive] = useState(false);
+  const browserFullscreen = useBrowserFullscreen();
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
   const [reasoningEffortSaving, setReasoningEffortSaving] = useState(false);
   const [showCreationOptions, setShowCreationOptions] = useState<'image' | 'video' | 'audio' | null>(null);
@@ -4158,27 +4159,6 @@ export function SessionDetailPage() {
     });
   };
 
-  const toggleBrowserFullscreen = async () => {
-    if (typeof document === 'undefined') return;
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        // 见 OverlayPortal 注释：全屏挂到 <html> 而不是 <main>，
-        // 让 OverlayPortal 把 dialog/menu/snackbar 投射到 body，
-        // 避开 oh-page-fade transform 残留 containing block 带来的「点击无效」问题。
-        const target = document.documentElement;
-        if (!target.requestFullscreen) {
-          showSnackbar(t('topbar.fullscreen.unsupported', '当前浏览器不支持全屏'), { tone: 'error' });
-          return;
-        }
-        await target.requestFullscreen();
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      showSnackbar(`${t('topbar.fullscreen.failed', '切换全屏失败')}：${message}`, { tone: 'error' });
-    }
-  };
 
   function updateMessageInLocalWindow(
     messageId: string,
@@ -4584,14 +4564,6 @@ export function SessionDetailPage() {
   }, [sessionId]);
   const handleMessageActiveChange = useCallback((message: SessionMessage, active: boolean) => {
     setActiveMessageId(active ? message.id : null);
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const syncFullscreenState = () => setFullscreenActive(Boolean(document.fullscreenElement));
-    syncFullscreenState();
-    document.addEventListener('fullscreenchange', syncFullscreenState);
-    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
   }, []);
 
   useEffect(() => {
@@ -7548,8 +7520,8 @@ export function SessionDetailPage() {
             }
           }}
           onGenerateTitle={() => setShowTitleSummary(true)}
-          onToggleFullscreen={() => void toggleBrowserFullscreen()}
-          fullscreenActive={fullscreenActive}
+          onToggleFullscreen={() => void browserFullscreen.toggle()}
+          fullscreenActive={browserFullscreen.active}
           sessionId={sessionId}
           capsules={sessionCapsules}
           trailing={

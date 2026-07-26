@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { useBrowserFullscreen } from '../../../hooks/useBrowserFullscreen';
 import {
   createSession,
   deleteSession,
@@ -78,7 +79,7 @@ export function SessionsPage() {
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [deleteTarget, setDeleteTarget] = useState<SessionSummary | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [fullscreenActive, setFullscreenActive] = useState(false);
+  const browserFullscreen = useBrowserFullscreen();
 
   // 创建流程：先 picker（选模板），再 config（填参数）。
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -96,35 +97,6 @@ export function SessionsPage() {
     Boolean(auth.meta?.service?.plan_mode_enabled) && allowedModes.includes('plan');
   const sessionMgmtEnabled = auth.meta?.service?.session_management_enabled !== false;
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const syncFullscreenState = () => setFullscreenActive(Boolean(document.fullscreenElement));
-    syncFullscreenState();
-    document.addEventListener('fullscreenchange', syncFullscreenState);
-    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
-  }, []);
-
-  async function toggleBrowserFullscreen(): Promise<void> {
-    if (typeof document === 'undefined') return;
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-        return;
-      }
-      // 全屏目标固定挂到 <html>：让 OverlayPortal 可以把浮层放到 body 上，
-      // 避开 .oh-page-fade 进场动画残留的 transform 形成的 containing block，
-      // 修复全屏下点击按钮无法弹出 PopMenu / Dialog / Snackbar 的 BUG。
-      const target = document.documentElement;
-      if (!target.requestFullscreen) {
-        showSnackbar(t('topbar.fullscreen.unsupported', '当前浏览器不支持全屏'), { tone: 'error' });
-        return;
-      }
-      await target.requestFullscreen();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      showSnackbar(`${t('topbar.fullscreen.failed', '切换全屏失败')}：${message}`, { tone: 'error' });
-    }
-  }
 
   async function refresh(targetPage: number = page): Promise<void> {
     abortRef.current?.abort();
@@ -414,8 +386,8 @@ export function SessionsPage() {
           }
           actionSlot={(
             <BrowserFullscreenButton
-              active={fullscreenActive}
-              onClick={() => void toggleBrowserFullscreen()}
+              active={browserFullscreen.active}
+              onClick={() => void browserFullscreen.toggle()}
             />
           )}
         />
