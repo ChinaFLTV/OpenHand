@@ -95,15 +95,19 @@ class AiOutputFormatPrompts {
   }
 }
 
-const String _fallbackHtmlBalanced = '''
-<output_format mode="html">
+/// 三档 HTML 兜底提示词共用的硬性约束；仅在资源加载失败时使用。
+const String _fallbackHtmlHardRules = """
   <directive>本轮只输出一个自包含 HTML 片段。首字符必须是 &lt;div&gt;；禁止 Markdown；禁止任何前导或尾随解释文字。</directive>
   <hard-rules>
     <item>根容器必须是带内联 style 的单个 &lt;div&gt;；所有可见文本都必须包在 HTML 标签内</item>
     <item>禁止 ```、`、#、**、-、1.、&gt;、|---| 等 Markdown 格式语法；需要标题、列表、引用、表格时必须改用 HTML 标签</item>
     <item>禁止 &lt;style&gt;、&lt;script&gt;、class、外链 CSS/JS、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
     <item>只允许内联 style；禁止 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
-  </hard-rules>
+  </hard-rules>""";
+
+const String _fallbackHtmlBalanced =
+    '<output_format mode="html">$_fallbackHtmlHardRules'
+    """
   <layout>
     <item>对比/决策：优先表格或双列卡片</item>
     <item>流程/步骤：优先时间线或步骤卡片</item>
@@ -113,17 +117,11 @@ const String _fallbackHtmlBalanced = '''
   <visual>
     <item>balanced 档位保持浅色、克制、企业风格；主色 #3182ce，推荐 #38a169，风险 #e53e3e</item>
   </visual>
-</output_format>''';
+</output_format>""";
 
-const String _fallbackHtmlRich = '''
-<output_format mode="html">
-  <directive>本轮只输出一个自包含 HTML 片段。首字符必须是 &lt;div&gt;；禁止 Markdown；禁止任何前导或尾随解释文字。</directive>
-  <hard-rules>
-    <item>根容器必须是带内联 style 的单个 &lt;div&gt;；所有可见文本都必须包在 HTML 标签内</item>
-    <item>禁止 ```、`、#、**、-、1.、&gt;、|---| 等 Markdown 格式语法；需要标题、列表、引用、表格时必须改用 HTML 标签</item>
-    <item>禁止 &lt;style&gt;、&lt;script&gt;、class、外链 CSS/JS、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
-    <item>只允许内联 style；禁止 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
-  </hard-rules>
+const String _fallbackHtmlRich =
+    '<output_format mode="html">$_fallbackHtmlHardRules'
+    """
   <layout>
     <item>对比/决策：优先矩阵表格或对比卡片</item>
     <item>流程/步骤：优先时间线、步骤卡片或节点流</item>
@@ -133,17 +131,11 @@ const String _fallbackHtmlRich = '''
   <visual>
     <item>rich 档位允许更明显的色彩、卡片、徽章、轻渐变和流程节点，但仍以可读性和信息密度为先</item>
   </visual>
-</output_format>''';
+</output_format>""";
 
-const String _fallbackHtmlVivid = '''
-<output_format mode="html">
-  <directive>本轮只输出一个自包含 HTML 片段。首字符必须是 &lt;div&gt;；禁止 Markdown；禁止任何前导或尾随解释文字。</directive>
-  <hard-rules>
-    <item>根容器必须是带内联 style 的单个 &lt;div&gt;；所有可见文本都必须包在 HTML 标签内</item>
-    <item>禁止 ```、`、#、**、-、1.、&gt;、|---| 等 Markdown 格式语法；需要标题、列表、引用、表格时必须改用 HTML 标签</item>
-    <item>禁止 &lt;style&gt;、&lt;script&gt;、class、外链 CSS/JS、&lt;iframe&gt;、&lt;object&gt;、&lt;embed&gt;</item>
-    <item>只允许内联 style；禁止 &lt;!DOCTYPE&gt; / &lt;html&gt; / &lt;head&gt; / &lt;body&gt; 整页骨架</item>
-  </hard-rules>
+const String _fallbackHtmlVivid =
+    '<output_format mode="html">$_fallbackHtmlHardRules'
+    """
   <layout>
     <item>对比/决策：优先矩阵表格、对比卡片和节点流</item>
     <item>流程/步骤：优先节点流、时间线或步骤卡片</item>
@@ -153,7 +145,7 @@ const String _fallbackHtmlVivid = '''
   <visual>
     <item>vivid 档位允许大胆渐变、强对比、玻璃感、彩色徽章和节点式流程，但所有视觉块都必须服务于信息表达并保持可读性</item>
   </visual>
-</output_format>''';
+</output_format>""";
 
 const String _fallbackPlainText =
     '<output_format mode="plain-text">\n'

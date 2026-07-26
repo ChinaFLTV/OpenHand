@@ -357,6 +357,38 @@ class _PersistedToolOutput {
   final int originalChars;
 }
 
+/// 工具目录装配过程中的可变累积体。
+///
+/// 收敛「实时探测」与「运行时快照」两条装配路径的注册去重、提示汇总与
+/// MCP 服务端说明收集，保证两者产出的目录结构完全一致。
+class _ToolCatalogBuilder {
+  final List<AiToolDefinition> definitions = <AiToolDefinition>[];
+  final Map<String, AiResolvedTool> toolsByName = <String, AiResolvedTool>{};
+  final Set<String> reservedToolNames = <String>{};
+  final List<String> notices = <String>[];
+  final Map<String, String> mcpServerInstructionsByName = <String, String>{};
+
+  /// 同名工具先到先得：高优先级来源先注册即可占位。
+  void register(AiResolvedTool tool) {
+    if (!reservedToolNames.add(tool.name)) return;
+    toolsByName[tool.name] = tool;
+    definitions.add(tool.definition);
+  }
+
+  void addServerNotice(String serverName, String message) {
+    notices.add('MCP $serverName: $message');
+  }
+
+  AiResolvedToolCatalog build() {
+    return AiResolvedToolCatalog(
+      definitions: definitions,
+      toolsByName: toolsByName,
+      notices: notices,
+      mcpServerInstructionsByName: mcpServerInstructionsByName,
+    );
+  }
+}
+
 class AiToolRuntimeService {
   AiToolRuntimeService({
     required AiBashToolService bashToolService,
@@ -723,6 +755,12 @@ class AiToolRuntimeService {
     return result;
   }
 
+  /// 装配可调用工具目录：MCP 目录来自实时探测。
+  ///
+  /// 运行时快照已带目录时直接走 [resolveCatalogFromRuntimeSnapshot]，避免
+  /// 重复探测。能力调用优先级 Skill > MCP > Builtin：按优先级从高到低注册，
+  /// 同名时高优先级工具胜出；definitions 的呈现顺序同样遵循该优先级，
+  /// 让模型在工具列表中首先看到 Skill、其次 MCP、最后 Builtin。
   Future<AiResolvedToolCatalog> resolveCatalog({
     required AiSessionRuntimeContext runtimeContext,
     String? templateId,
@@ -734,175 +772,128 @@ class AiToolRuntimeService {
         templateId: templateId,
       );
     }
-    final definitions = <AiToolDefinition>[];
-    final toolsByName = <String, AiResolvedTool>{};
-    final reservedToolNames = <String>{};
-    final notices = <String>[];
-    final mcpServerInstructionsByName = <String, String>{};
+    final builder = _ToolCatalogBuilder();
     final effectiveTemplateId = (templateId ?? runtimeContext.templateId)
         .trim();
 
-    void register(AiResolvedTool tool) {
-      if (!reservedToolNames.add(tool.name)) {
-        return;
-      }
-      toolsByName[tool.name] = tool;
-      definitions.add(tool.definition);
-    }
+    _registerSkillTools(builder, runtimeContext);
 
-    // 能力调用优先级：Skill > MCP > Builtin
-    // 按优先级从高到低注册，同名时高优先级工具胜出。
-    // 工具目录（definitions 列表）的呈现顺序也遵循此优先级，
-    // 让模型在工具列表中首先看到 Skill、其次 MCP、最后 Builtin。
-
-    // ── 第一优先级：Skill 工具 ─────────────────────────────────────
-    for (final skill in _sortedSkills(runtimeContext.availableSkills)) {
-      final tool = _buildSkillTool(skill, reservedToolNames);
-      register(tool);
-    }
-
-    // ── 第二优先级：MCP 工具 ──────────────────────────────────────
-    final enabledServers = _sortedEnabledMcpServers(
+    for (final server in _sortedEnabledMcpServers(
       runtimeContext.availableMcpServers,
-    );
-    for (final server in enabledServers) {
+    )) {
       if (!server.isVisibleToTemplate(effectiveTemplateId)) continue;
       try {
         final catalog = await _mcpToolService.discoverTools(server);
         if (catalog.status != McpToolCatalogStatus.ready) {
           final errorMessage = nullIfBlank(catalog.errorMessage);
           if (errorMessage != null) {
-            notices.add('MCP ${server.name}: $errorMessage');
+            builder.addServerNotice(server.name, errorMessage);
           }
           continue;
         }
-        final warningMessage = nullIfBlank(catalog.warningMessage);
-        if (warningMessage != null) {
-          notices.add('MCP ${server.name}: $warningMessage');
-        }
-        final serverInstructions = nullIfBlank(catalog.serverInstructions);
-        if (serverInstructions != null) {
-          mcpServerInstructionsByName[server.name] = serverInstructions;
-        }
-        for (final mcpTool in _sortedMcpTools(catalog.tools)) {
-          final tool = _buildMcpTool(
-            server: server,
-            tool: mcpTool,
-            takenNames: reservedToolNames,
-          );
-          register(tool);
-        }
+        _absorbMcpCatalog(builder, server, catalog);
       } catch (error) {
-        notices.add('MCP ${server.name}: $error');
+        builder.addServerNotice(server.name, '$error');
       }
     }
 
-    // ── 第三优先级：Builtin 工具 ──────────────────────────────────
+    _registerBuiltinTools(builder, runtimeContext, effectiveTemplateId);
+    return builder.build();
+  }
+
+  /// Skill 工具优先级最高，最先注册以占位同名工具。
+  void _registerSkillTools(
+    _ToolCatalogBuilder builder,
+    AiSessionRuntimeContext runtimeContext,
+  ) {
+    for (final skill in _sortedSkills(runtimeContext.availableSkills)) {
+      builder.register(_buildSkillTool(skill, builder.reservedToolNames));
+    }
+  }
+
+  /// Builtin 工具优先级最低，最后注册；与模板不匹配的直接跳过。
+  void _registerBuiltinTools(
+    _ToolCatalogBuilder builder,
+    AiSessionRuntimeContext runtimeContext,
+    String effectiveTemplateId,
+  ) {
     for (final tool in _resolveConfiguredBuiltinTools(
       runtimeContext.builtinToolConfigs,
     )) {
-      if (!_isBuiltinAllowedForTemplate(tool, effectiveTemplateId)) {
-        continue;
-      }
-      register(tool);
+      if (!_isBuiltinAllowedForTemplate(tool, effectiveTemplateId)) continue;
+      builder.register(tool);
     }
-
-    return AiResolvedToolCatalog(
-      definitions: definitions,
-      toolsByName: toolsByName,
-      notices: notices,
-      mcpServerInstructionsByName: mcpServerInstructionsByName,
-    );
   }
 
+  /// 把已就绪的 MCP 目录并入装配结果：透传告警、记录服务端说明并注册工具。
+  void _absorbMcpCatalog(
+    _ToolCatalogBuilder builder,
+    McpServer server,
+    McpToolCatalog catalog,
+  ) {
+    final warningMessage = nullIfBlank(catalog.warningMessage);
+    if (warningMessage != null) {
+      builder.addServerNotice(server.name, warningMessage);
+    }
+    final serverInstructions = nullIfBlank(catalog.serverInstructions);
+    if (serverInstructions != null) {
+      builder.mcpServerInstructionsByName[server.name] = serverInstructions;
+    }
+    for (final mcpTool in _sortedMcpTools(catalog.tools)) {
+      builder.register(
+        _buildMcpTool(
+          server: server,
+          tool: mcpTool,
+          takenNames: builder.reservedToolNames,
+        ),
+      );
+    }
+  }
+
+  /// 装配可调用工具目录：MCP 目录取自已扫描的运行时快照，全程同步。
+  ///
+  /// 优先级与 [resolveCatalog] 一致；快照里尚未扫描或正在刷新的服务端
+  /// 只登记提示，不阻塞其余工具的装配。
   AiResolvedToolCatalog resolveCatalogFromRuntimeSnapshot({
     required AiSessionRuntimeContext runtimeContext,
     Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
         const <String, McpToolCatalog>{},
     String? templateId,
   }) {
-    final definitions = <AiToolDefinition>[];
-    final toolsByName = <String, AiResolvedTool>{};
-    final reservedToolNames = <String>{};
-    final notices = <String>[];
-    final mcpServerInstructionsByName = <String, String>{};
+    final builder = _ToolCatalogBuilder();
     final effectiveTemplateId = (templateId ?? runtimeContext.templateId)
         .trim();
 
-    void register(AiResolvedTool tool) {
-      if (!reservedToolNames.add(tool.name)) {
-        return;
-      }
-      toolsByName[tool.name] = tool;
-      definitions.add(tool.definition);
-    }
+    _registerSkillTools(builder, runtimeContext);
 
-    // 能力调用优先级：Skill > MCP > Builtin（与 resolveCatalog 保持一致）
-
-    // ── 第一优先级：Skill 工具 ─────────────────────────────────────
-    for (final skill in _sortedSkills(runtimeContext.availableSkills)) {
-      final tool = _buildSkillTool(skill, reservedToolNames);
-      register(tool);
-    }
-
-    // ── 第二优先级：MCP 工具 ──────────────────────────────────────
-    final enabledServers = _sortedEnabledMcpServers(
+    for (final server in _sortedEnabledMcpServers(
       runtimeContext.availableMcpServers,
-    );
-    for (final server in enabledServers) {
+    )) {
       if (!server.isVisibleToTemplate(effectiveTemplateId)) continue;
       final catalog = mcpToolCatalogsByServerName[server.name];
       if (catalog == null || catalog.status == McpToolCatalogStatus.idle) {
-        notices.add(
-          'MCP ${server.name}: Tool catalog has not been scanned yet.',
+        builder.addServerNotice(
+          server.name,
+          'Tool catalog has not been scanned yet.',
         );
         continue;
       }
       if (catalog.status == McpToolCatalogStatus.loading) {
-        notices.add('MCP ${server.name}: Tool catalog is refreshing.');
+        builder.addServerNotice(server.name, 'Tool catalog is refreshing.');
         continue;
       }
       if (catalog.status != McpToolCatalogStatus.ready) {
         final errorMessage = nullIfBlank(catalog.errorMessage);
         if (errorMessage != null) {
-          notices.add('MCP ${server.name}: $errorMessage');
+          builder.addServerNotice(server.name, errorMessage);
         }
         continue;
       }
-      final warningMessage = nullIfBlank(catalog.warningMessage);
-      if (warningMessage != null) {
-        notices.add('MCP ${server.name}: $warningMessage');
-      }
-      final serverInstructions = nullIfBlank(catalog.serverInstructions);
-      if (serverInstructions != null) {
-        mcpServerInstructionsByName[server.name] = serverInstructions;
-      }
-      for (final mcpTool in _sortedMcpTools(catalog.tools)) {
-        final tool = _buildMcpTool(
-          server: server,
-          tool: mcpTool,
-          takenNames: reservedToolNames,
-        );
-        register(tool);
-      }
+      _absorbMcpCatalog(builder, server, catalog);
     }
 
-    // ── 第三优先级：Builtin 工具 ──────────────────────────────────
-    for (final tool in _resolveConfiguredBuiltinTools(
-      runtimeContext.builtinToolConfigs,
-    )) {
-      if (!_isBuiltinAllowedForTemplate(tool, effectiveTemplateId)) {
-        continue;
-      }
-      register(tool);
-    }
-
-    return AiResolvedToolCatalog(
-      definitions: definitions,
-      toolsByName: toolsByName,
-      notices: notices,
-      mcpServerInstructionsByName: mcpServerInstructionsByName,
-    );
+    _registerBuiltinTools(builder, runtimeContext, effectiveTemplateId);
+    return builder.build();
   }
 
   Future<AiToolExecutionResult> execute({
