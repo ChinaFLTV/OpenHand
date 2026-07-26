@@ -192,12 +192,10 @@ class AgentsController extends ManagedChangeNotifier {
         ),
         auditEvents: _prependAudit(
           stopDrain.agent.auditEvents,
-          AgentAuditEvent(
-            id: _uuid.v4(),
+          _auditEvent(
             kind: kind,
             summary: kind,
             toolName: 'AgentsController',
-            requestCount: 1,
             createdAt: now,
             metadata: <String, Object?>{
               'enabled': enabled,
@@ -281,12 +279,10 @@ class AgentsController extends ManagedChangeNotifier {
         ),
         auditEvents: _prependAudit(
           agent.auditEvents,
-          AgentAuditEvent(
-            id: _uuid.v4(),
+          _auditEvent(
             kind: 'task_published',
             summary: 'task_published: ${task.title}',
             toolName: auditToolName,
-            requestCount: 1,
             createdAt: now,
             metadata: <String, Object?>{
               'task_id': task.id,
@@ -408,12 +404,10 @@ class AgentsController extends ManagedChangeNotifier {
         ),
         auditEvents: _prependAudit(
           agent.auditEvents,
-          AgentAuditEvent(
-            id: _uuid.v4(),
+          _auditEvent(
             kind: activityKind,
             summary: '$activityTitle: ${eventTask.title}',
             toolName: auditToolName,
-            requestCount: 1,
             createdAt: now,
             metadata: <String, Object?>{
               'task_id': eventTask.id,
@@ -511,12 +505,10 @@ class AgentsController extends ManagedChangeNotifier {
           ),
           auditEvents: _prependAudit(
             agent.auditEvents,
-            AgentAuditEvent(
-              id: _uuid.v4(),
+            _auditEvent(
               kind: 'approval_requested',
               summary: 'approval_requested: ${createdApproval!.title}',
               toolName: auditToolName,
-              requestCount: 1,
               createdAt: now,
               metadata: metadata,
             ),
@@ -600,12 +592,10 @@ class AgentsController extends ManagedChangeNotifier {
           ),
           auditEvents: _prependAudit(
             agent.auditEvents,
-            AgentAuditEvent(
-              id: _uuid.v4(),
+            _auditEvent(
               kind: kind,
               summary: '$kind: ${resolvedApproval!.title}',
               toolName: auditToolName,
-              requestCount: 1,
               createdAt: now,
               metadata: metadata,
             ),
@@ -677,12 +667,10 @@ class AgentsController extends ManagedChangeNotifier {
           ),
           auditEvents: _prependAudit(
             agent.auditEvents,
-            AgentAuditEvent(
-              id: _uuid.v4(),
+            _auditEvent(
               kind: kind,
               summary: '$kind: ${savedKpi!.name}',
               toolName: auditToolName,
-              requestCount: 1,
               createdAt: now,
               metadata: metadata,
             ),
@@ -742,12 +730,10 @@ class AgentsController extends ManagedChangeNotifier {
           ),
           auditEvents: _prependAudit(
             agent.auditEvents,
-            AgentAuditEvent(
-              id: _uuid.v4(),
+            _auditEvent(
               kind: 'kpi_deleted',
               summary: 'kpi_deleted: ${deletedKpi.name}',
               toolName: auditToolName,
-              requestCount: 1,
               createdAt: now,
               metadata: metadata,
             ),
@@ -807,12 +793,10 @@ class AgentsController extends ManagedChangeNotifier {
           ),
           auditEvents: _prependAudit(
             agent.auditEvents,
-            AgentAuditEvent(
-              id: _uuid.v4(),
+            _auditEvent(
               kind: 'resource_updated',
               summary: 'resource_updated: ${agent.name}',
               toolName: auditToolName,
-              requestCount: 1,
               createdAt: now,
               metadata: metadata,
             ),
@@ -959,12 +943,10 @@ class AgentsController extends ManagedChangeNotifier {
           ),
           auditEvents: _prependAudit(
             agent.auditEvents,
-            AgentAuditEvent(
-              id: _uuid.v4(),
+            _auditEvent(
               kind: 'cluster_updated',
               summary: 'cluster_updated: ${agent.name}',
               toolName: auditToolName,
-              requestCount: 1,
               createdAt: now,
               metadata: metadata,
             ),
@@ -1408,6 +1390,26 @@ class AgentsController extends ManagedChangeNotifier {
     ].take(_maxActivityEvents).toList();
   }
 
+  /// 审计事件的统一构造：标识符由控制器生成，一次操作默认计一次请求。
+  AgentAuditEvent _auditEvent({
+    required String kind,
+    required String summary,
+    required String toolName,
+    required DateTime createdAt,
+    required Map<String, Object?> metadata,
+    int requestCount = 1,
+  }) {
+    return AgentAuditEvent(
+      id: _uuid.v4(),
+      kind: kind,
+      summary: summary,
+      toolName: toolName,
+      requestCount: requestCount,
+      createdAt: createdAt,
+      metadata: metadata,
+    );
+  }
+
   List<AgentAuditEvent> _prependAudit(
     List<AgentAuditEvent> existing,
     AgentAuditEvent event,
@@ -1485,12 +1487,10 @@ class AgentsController extends ManagedChangeNotifier {
       );
       auditEvents.insert(
         0,
-        AgentAuditEvent(
-          id: _uuid.v4(),
+        _auditEvent(
           kind: 'task_assigned',
           summary: 'task_assigned: ${assigned.title}',
           toolName: auditToolName,
-          requestCount: 1,
           createdAt: now,
           metadata: <String, Object?>{
             'task_id': assigned.id,
@@ -1736,12 +1736,10 @@ class AgentsController extends ManagedChangeNotifier {
       ),
       auditEvents: _prependAudit(
         agent.auditEvents,
-        AgentAuditEvent(
-          id: _uuid.v4(),
+        _auditEvent(
           kind: kind,
           summary: summary,
           toolName: auditToolName,
-          requestCount: 1,
           createdAt: now,
           metadata: metadata,
         ),
@@ -1773,12 +1771,10 @@ class AgentsController extends ManagedChangeNotifier {
       ),
       auditEvents: _prependAudit(
         agent.auditEvents,
-        AgentAuditEvent(
-          id: _uuid.v4(),
+        _auditEvent(
           kind: 'task_retry_scheduled',
           summary: 'task_retry_scheduled: ${task.title}',
           toolName: auditToolName,
-          requestCount: 1,
           createdAt: now,
           metadata: <String, Object?>{
             'task_id': task.id,

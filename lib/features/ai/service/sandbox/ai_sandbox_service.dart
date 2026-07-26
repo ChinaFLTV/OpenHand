@@ -318,22 +318,27 @@ class AiSandboxService {
     final overrideMetadata = <String, Object?>{
       if (dangerouslyDisableSandbox) 'sandbox_override_requested': true,
     };
-    if (!settings.enabled || !shouldSandboxTool) {
+    // 所有「不进沙箱」的分支只在 metadata 上有差别，其余启动参数完全相同。
+    AiSandboxLaunchSpec unsandboxed(Map<String, Object?> metadata) {
       return AiSandboxLaunchSpec.unsandboxed(
         executable: shellExecutable,
         arguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
         environment: userProxyEnvironment,
-        metadata: <String, Object?>{
-          ...baseMetadata,
-          ...overrideMetadata,
-          if (dangerouslyDisableSandbox) 'sandbox_override_effective': false,
-          if (dangerouslyDisableSandbox)
-            'sandbox_override_reason': settings.enabled
-                ? 'tool_not_sandboxed'
-                : 'sandbox_disabled',
-        },
+        metadata: metadata,
       );
+    }
+
+    if (!settings.enabled || !shouldSandboxTool) {
+      return unsandboxed(<String, Object?>{
+        ...baseMetadata,
+        ...overrideMetadata,
+        if (dangerouslyDisableSandbox) 'sandbox_override_effective': false,
+        if (dangerouslyDisableSandbox)
+          'sandbox_override_reason': settings.enabled
+              ? 'tool_not_sandboxed'
+              : 'sandbox_disabled',
+      });
     }
     if (dangerouslyDisableSandbox) {
       if (!settings.allowUnsandboxedCommands) {
@@ -350,35 +355,23 @@ class AiSandboxService {
           },
         );
       }
-      return AiSandboxLaunchSpec.unsandboxed(
-        executable: shellExecutable,
-        arguments: shellArguments,
-        workingDirectory: normalizedWorkingDirectory,
-        environment: userProxyEnvironment,
-        metadata: <String, Object?>{
-          ...baseMetadata,
-          ...overrideMetadata,
-          'sandbox_override_effective': true,
-          'sandbox_override_reason': 'dangerouslyDisableSandbox',
-        },
-      );
+      return unsandboxed(<String, Object?>{
+        ...baseMetadata,
+        ...overrideMetadata,
+        'sandbox_override_effective': true,
+        'sandbox_override_reason': 'dangerouslyDisableSandbox',
+      });
     }
 
     final excluded = settings.matchingExcludedCommand(command);
     if (excluded != null) {
       if (settings.allowUnsandboxedCommands) {
-        return AiSandboxLaunchSpec.unsandboxed(
-          executable: shellExecutable,
-          arguments: shellArguments,
-          workingDirectory: normalizedWorkingDirectory,
-          environment: userProxyEnvironment,
-          metadata: <String, Object?>{
-            ...baseMetadata,
-            'sandbox_excluded': true,
-            'sandbox_excluded_rule_id': excluded.id,
-            'sandbox_excluded_rule_pattern': excluded.pattern,
-          },
-        );
+        return unsandboxed(<String, Object?>{
+          ...baseMetadata,
+          'sandbox_excluded': true,
+          'sandbox_excluded_rule_id': excluded.id,
+          'sandbox_excluded_rule_pattern': excluded.pattern,
+        });
       }
       return AiSandboxLaunchSpec.blocked(
         executable: shellExecutable,
@@ -405,16 +398,10 @@ class AiSandboxService {
           },
         );
       }
-      return AiSandboxLaunchSpec.unsandboxed(
-        executable: shellExecutable,
-        arguments: shellArguments,
-        workingDirectory: normalizedWorkingDirectory,
-        environment: userProxyEnvironment,
-        metadata: <String, Object?>{
-          ...baseMetadata,
-          'sandbox_unavailable_reason': status.unavailableReason,
-        },
-      );
+      return unsandboxed(<String, Object?>{
+        ...baseMetadata,
+        'sandbox_unavailable_reason': status.unavailableReason,
+      });
     }
 
     if (!await isDirectoryPath(normalizedWorkingDirectory, followLinks: true)) {
@@ -485,16 +472,10 @@ class AiSandboxService {
           },
         );
       }
-      return AiSandboxLaunchSpec.unsandboxed(
-        executable: shellExecutable,
-        arguments: shellArguments,
-        workingDirectory: normalizedWorkingDirectory,
-        environment: userProxyEnvironment,
-        metadata: <String, Object?>{
-          ...baseMetadata,
-          'sandbox_proxy_unavailable_reason': error.message,
-        },
-      );
+      return unsandboxed(<String, Object?>{
+        ...baseMetadata,
+        'sandbox_proxy_unavailable_reason': error.message,
+      });
     }
     Future<void> closeProxyAfterLaunchFailure(String reason) async {
       final lease = proxyLease;
