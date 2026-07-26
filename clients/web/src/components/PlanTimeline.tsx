@@ -16,7 +16,7 @@
 //   - 折叠/展开 (本地 state, 默认展开)
 
 import { useMemo, useState } from 'preact/hooks';
-import { SendMessageInput, SessionSummary, SessionTodoItem, sendMessage } from '../api/sessions';
+import { type SendMessageInput, type SessionSummary, type SessionTodoItem, sendMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { showSnackbar } from './Snackbar';
 import { svgIconProps } from '../shared/ui/svg_icon';

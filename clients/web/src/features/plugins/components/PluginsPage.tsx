@@ -9,8 +9,8 @@ import { Appear } from '../../../components/Appear';
 import { ErrorBanner } from '../../../components/ErrorBanner';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import {
-  PluginSummary,
-  PluginStatus,
+  type PluginSummary,
+  type PluginStatus,
   listPlugins,
   installPlugin,
   updatePlugin,

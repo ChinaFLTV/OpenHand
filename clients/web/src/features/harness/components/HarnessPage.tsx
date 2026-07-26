@@ -13,10 +13,10 @@ import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
 import { ErrorBanner } from '../../../components/ErrorBanner';
 import {
-  HarnessPhaseLogSnapshot,
-  HarnessPhaseStatus,
-  HarnessPhaseValue,
-  HarnessSessionRecord,
+  type HarnessPhaseLogSnapshot,
+  type HarnessPhaseStatus,
+  type HarnessPhaseValue,
+  type HarnessSessionRecord,
   fetchHarnessSession,
 } from '../../../api/harness';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';

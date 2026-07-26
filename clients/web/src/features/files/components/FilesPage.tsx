@@ -8,8 +8,8 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import {
-  WorkspaceItem,
-  WorkspaceListResponse,
+  type WorkspaceItem,
+  type WorkspaceListResponse,
   createWorkspaceDirectory,
   deleteWorkspaceFile,
   listWorkspaceFiles,

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
-import { LogEntry, exportLogsBundle, listLogs } from '../../../api/logs';
+import { type LogEntry, exportLogsBundle, listLogs } from '../../../api/logs';
 import { t, tTime } from '../../../i18n';
 import { MenuSelect } from '../../../components/MenuSelect';
 import { showSnackbar } from '../../../components/Snackbar';

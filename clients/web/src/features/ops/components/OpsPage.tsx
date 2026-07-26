@@ -7,8 +7,8 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import {
-  CleanupHistoryEntry,
-  OpsRuntimeSnapshot,
+  type CleanupHistoryEntry,
+  type OpsRuntimeSnapshot,
   getCleanupHistory,
   getOpsSnapshot,
   runCleanup,
