@@ -681,7 +681,11 @@ String _localizedMetadataField(BuildContext context, String field) {
     'session_id' => openHandLocalizedText(
       context,
       zh: '会话 ID',
+      zhHant: '會話 ID',
       en: 'Session ID',
+      fr: 'ID de session',
+      de: 'Sitzungs-ID',
+      ja: 'セッション ID',
     ),
     'template' => openHandTemplateLabel(context),
     'created_at' => _homeCreatedAtLabel(context),

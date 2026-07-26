@@ -5677,7 +5677,15 @@ class _WebOpsInsightDialog extends StatelessWidget {
     final stats = _WebOpsDashboardStats.from(snapshot);
     return switch (kind) {
       _WebOpsInsightKind.requestTrend => _WebOpsTrendPanel(
-        title: openHandLocalizedText(context, zh: '请求趋势', en: 'Request trend'),
+        title: openHandLocalizedText(
+          context,
+          zh: '请求趋势',
+          zhHant: '請求趨勢',
+          en: 'Request trend',
+          fr: 'Tendance des requêtes',
+          de: 'Anfragetrend',
+          ja: 'リクエスト傾向',
+        ),
         icon: Icons.show_chart_rounded,
         subtitle: openHandLocalizedText(
           context,
@@ -5688,29 +5696,57 @@ class _WebOpsInsightDialog extends StatelessWidget {
         emptyLabel: openHandLocalizedText(
           context,
           zh: '等待请求样本',
+          zhHant: '等待請求樣本',
           en: 'Waiting for traffic',
+          fr: 'En attente de trafic',
+          de: 'Warten auf Datenverkehr',
+          ja: 'トラフィック待機中',
         ),
       ),
       _WebOpsInsightKind.latency ||
       _WebOpsInsightKind.latencyTrend => _WebOpsTrendPanel(
-        title: openHandLocalizedText(context, zh: '耗时曲线', en: 'Latency curve'),
+        title: openHandLocalizedText(
+          context,
+          zh: '耗时曲线',
+          zhHant: '耗時曲線',
+          en: 'Latency curve',
+          fr: 'Courbe de latence',
+          de: 'Latenzkurve',
+          ja: 'レイテンシ曲線',
+        ),
         icon: Icons.timeline_rounded,
         subtitle: openHandLocalizedText(
           context,
           zh: '平均耗时与 P95 尾延迟',
+          zhHant: '平均耗時與 P95 尾延遲',
           en: 'Average and P95 tail latency',
+          fr: 'Latence moyenne et de queue P95',
+          de: 'Mittelwert und P95-Tail-Latenz',
+          ja: '平均および P95 テールレイテンシ',
         ),
         series: stats.latencyTrendSeries(context),
         emptyLabel: openHandLocalizedText(
           context,
           zh: '暂无耗时样本',
+          zhHant: '暫無耗時樣本',
           en: 'No latency samples',
+          fr: 'Aucun échantillon de latence',
+          de: 'Keine Latenzstichproben',
+          ja: 'レイテンシサンプルなし',
         ),
         valueSuffix: 'ms',
       ),
       _WebOpsInsightKind.statusMix ||
       _WebOpsInsightKind.outcomes => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(context, zh: '状态分布', en: 'Status mix'),
+        title: openHandLocalizedText(
+          context,
+          zh: '状态分布',
+          zhHant: '狀態分布',
+          en: 'Status mix',
+          fr: 'Répartition des statuts',
+          de: 'Statusverteilung',
+          ja: 'ステータス分布',
+        ),
         icon: Icons.donut_small_rounded,
         values: stats.statusDistribution(context, snapshot),
       ),
@@ -5728,7 +5764,11 @@ class _WebOpsInsightDialog extends StatelessWidget {
         title: openHandLocalizedText(
           context,
           zh: '客户端 UA 分布',
+          zhHant: '用戶端 UA 分布',
           en: 'Client UA mix',
+          fr: 'Répartition des UA clients',
+          de: 'Client-UA-Verteilung',
+          ja: 'クライアント UA 分布',
         ),
         icon: Icons.devices_other_rounded,
         values: snapshot.clientDistribution,
@@ -5736,13 +5776,29 @@ class _WebOpsInsightDialog extends StatelessWidget {
       _WebOpsInsightKind.requestMix ||
       _WebOpsInsightKind.requests ||
       _WebOpsInsightKind.mutations => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(context, zh: '请求分布', en: 'Request mix'),
+        title: openHandLocalizedText(
+          context,
+          zh: '请求分布',
+          zhHant: '請求分布',
+          en: 'Request mix',
+          fr: 'Répartition des requêtes',
+          de: 'Anfrageverteilung',
+          ja: 'リクエスト分布',
+        ),
         icon: Icons.account_tree_rounded,
         values: snapshot.requestDistribution,
       ),
       _WebOpsInsightKind.protocolMix ||
       _WebOpsInsightKind.traffic => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(context, zh: '协议分布', en: 'Protocol mix'),
+        title: openHandLocalizedText(
+          context,
+          zh: '协议分布',
+          zhHant: '協議分布',
+          en: 'Protocol mix',
+          fr: 'Répartition des protocoles',
+          de: 'Protokollverteilung',
+          ja: 'プロトコル分布',
+        ),
         icon: Icons.api_rounded,
         values: snapshot.protocolDistribution,
       ),
@@ -5761,7 +5817,11 @@ class _WebOpsInsightDialog extends StatelessWidget {
             title: openHandLocalizedText(
               context,
               zh: '协议分布',
+              zhHant: '協議分布',
               en: 'Protocol mix',
+              fr: 'Répartition des protocoles',
+              de: 'Protokollverteilung',
+              ja: 'プロトコル分布',
             ),
             icon: Icons.api_rounded,
             values: snapshot.protocolDistribution,

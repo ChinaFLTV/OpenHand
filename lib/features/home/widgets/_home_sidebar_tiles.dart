@@ -27,9 +27,7 @@ Future<void> _showSidebarThreadContextMenu(
           children: [
             const Icon(Icons.edit_outlined, size: 18),
             const SizedBox(width: 8),
-            Text(
-              _homeRenameThreadLabel(context),
-            ),
+            Text(_homeRenameThreadLabel(context)),
           ],
         ),
       ),
@@ -49,9 +47,7 @@ Future<void> _showSidebarThreadContextMenu(
           children: [
             const Icon(Icons.file_download_outlined, size: 18),
             const SizedBox(width: 8),
-            Text(
-              _homeExportSessionDataLabel(context),
-            ),
+            Text(_homeExportSessionDataLabel(context)),
           ],
         ),
       ),
@@ -66,7 +62,11 @@ Future<void> _showSidebarThreadContextMenu(
                 openHandLocalizedText(
                   context,
                   zh: '获取 AI 摘要标题',
+                  zhHant: '取得 AI 摘要標題',
                   en: 'Generate AI Title',
+                  fr: 'Générer le titre IA',
+                  de: 'KI-Titel erstellen',
+                  ja: 'AI 要約タイトルを生成',
                 ),
               ),
             ],
@@ -486,7 +486,11 @@ class _ActiveThreadBadge extends StatelessWidget {
       AiSendPhase.sendingMessage => openHandLocalizedText(
         context,
         zh: '发送中',
+        zhHant: '傳送中',
         en: 'Sending',
+        fr: 'Envoi',
+        de: 'Wird gesendet',
+        ja: '送信中',
       ),
       AiSendPhase.responding => openHandActiveLabel(context),
       AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),

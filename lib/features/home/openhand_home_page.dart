@@ -1659,7 +1659,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             zh: '当前会话「${notice.sessionTitle}」已被 $deletedBy 删除。',
             en: 'The current session "${notice.sessionTitle}" was deleted by $deletedBy.',
           ),
-          closeLabel: openHandLocalizedText(context, zh: '返回', en: 'Back'),
+          closeLabel: openHandLocalizedText(
+            context,
+            zh: '返回',
+            zhHant: '返回',
+            en: 'Back',
+            fr: 'Retour',
+            de: 'Zurück',
+            ja: '戻る',
+          ),
           barrierDismissible: false,
         ),
       );
@@ -9777,19 +9785,50 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 // ─────────────────────────────────────────────────────────────────────────────
 
 String _homeAgentsLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '智能体', en: 'Agents');
+  return openHandLocalizedText(
+    context,
+    zh: '智能体',
+    zhHant: '智能體',
+    en: 'Agents',
+    fr: 'Agents',
+    de: 'Agenten',
+    ja: 'エージェント',
+  );
 }
 
 String _homeAwaitingApprovalLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '等待批准', en: 'Awaiting Approval');
+  return openHandLocalizedText(
+    context,
+    zh: '等待批准',
+    zhHant: '等待批准',
+    en: 'Awaiting Approval',
+    fr: 'En attente',
+    de: 'Wartet auf Freigabe',
+    ja: '承認待ち',
+  );
 }
 
 String _homeCreatedAtLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '创建时间', en: 'Created At');
+  return openHandLocalizedText(
+    context,
+    zh: '创建时间',
+    zhHant: '建立時間',
+    en: 'Created At',
+    fr: 'Créé le',
+    de: 'Erstellt am',
+    ja: '作成日時',
+  );
 }
 
 String _homeEvidenceLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '证据', en: 'Evidence');
+  return openHandLocalizedText(
+    context,
+    zh: '证据',
+    en: 'Evidence',
+    fr: 'Preuve',
+    de: 'Nachweis',
+    ja: '根拠',
+  );
 }
 
 String _homeExportSessionDataLabel(BuildContext context) {
@@ -9817,7 +9856,15 @@ String _homeMissingLabel(BuildContext context) {
 }
 
 String _homeModeLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '模式', en: 'Mode');
+  return openHandLocalizedText(
+    context,
+    zh: '模式',
+    zhHant: '模式',
+    en: 'Mode',
+    fr: 'Mode',
+    de: 'Modus',
+    ja: 'モード',
+  );
 }
 
 String _homeNoTextualDiffAvailableLabel(BuildContext context) {
@@ -9837,7 +9884,15 @@ String _homePlatformLabel(BuildContext context) {
 }
 
 String _homePluginsLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '插件', en: 'Plugins');
+  return openHandLocalizedText(
+    context,
+    zh: '插件',
+    zhHant: '外掛',
+    en: 'Plugins',
+    fr: 'Plugins',
+    de: 'Plugins',
+    ja: 'プラグイン',
+  );
 }
 
 String _homeRenameThreadLabel(BuildContext context) {
@@ -9845,7 +9900,15 @@ String _homeRenameThreadLabel(BuildContext context) {
 }
 
 String _homeRunningLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '运行中', en: 'Running');
+  return openHandLocalizedText(
+    context,
+    zh: '运行中',
+    zhHant: '執行中',
+    en: 'Running',
+    fr: 'En cours',
+    de: 'Läuft',
+    ja: '実行中',
+  );
 }
 
 String _homeSessionsDirectoryLabel(BuildContext context) {
@@ -9853,11 +9916,27 @@ String _homeSessionsDirectoryLabel(BuildContext context) {
 }
 
 String _homeStartingLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '启动中', en: 'Starting');
+  return openHandLocalizedText(
+    context,
+    zh: '启动中',
+    zhHant: '啟動中',
+    en: 'Starting',
+    fr: 'Démarrage',
+    de: 'Startet',
+    ja: '起動中',
+  );
 }
 
 String _homeStoppedLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '已停止', en: 'Stopped');
+  return openHandLocalizedText(
+    context,
+    zh: '已停止',
+    zhHant: '已停止',
+    en: 'Stopped',
+    fr: 'Arrêté',
+    de: 'Gestoppt',
+    ja: '停止済み',
+  );
 }
 
 String _homeTerminalLabel(BuildContext context) {
@@ -9869,9 +9948,25 @@ String _homeTerminalsLabel(BuildContext context) {
 }
 
 String _homeUpdatedAtLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '更新时间', en: 'Updated At');
+  return openHandLocalizedText(
+    context,
+    zh: '更新时间',
+    zhHant: '更新時間',
+    en: 'Updated At',
+    fr: 'Mis à jour le',
+    de: 'Aktualisiert am',
+    ja: '更新日時',
+  );
 }
 
 String _homeWorkingDirectoryLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '工作目录', en: 'Working Directory');
+  return openHandLocalizedText(
+    context,
+    zh: '工作目录',
+    zhHant: '工作目錄',
+    en: 'Working Directory',
+    fr: 'Répertoire de travail',
+    de: 'Arbeitsverzeichnis',
+    ja: '作業ディレクトリ',
+  );
 }

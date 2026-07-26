@@ -4244,7 +4244,11 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
                 tooltip: openHandLocalizedText(
                   context,
                   zh: '关闭',
+                  zhHant: '關閉',
                   en: 'Dismiss',
+                  fr: 'Fermer',
+                  de: 'Schließen',
+                  ja: '閉じる',
                 ),
                 visualDensity: VisualDensity.compact,
                 icon: Icon(

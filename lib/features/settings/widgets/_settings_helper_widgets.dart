@@ -4828,7 +4828,6 @@ class _SettingsExpandIcon extends StatelessWidget {
   }
 }
 
-
 class _SettingsPersistenceIssueCard extends StatelessWidget {
   const _SettingsPersistenceIssueCard({
     required this.issue,
@@ -6012,7 +6011,11 @@ class _ToolEngineCardShell extends StatelessWidget {
                         : openHandLocalizedText(
                             context,
                             zh: '展开',
+                            zhHant: '展開',
                             en: 'Expand',
+                            fr: 'Déplier',
+                            de: 'Aufklappen',
+                            ja: '展開',
                           ),
                     icon: _SettingsExpandIcon(expanded: expanded),
                     onPressed: () => onExpandedChanged(!expanded),

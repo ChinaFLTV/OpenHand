@@ -315,7 +315,11 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                           label: openHandLocalizedText(
                             context,
                             zh: '保存',
+                            zhHant: '儲存',
                             en: 'Save',
+                            fr: 'Enregistrer',
+                            de: 'Speichern',
+                            ja: '保存',
                           ),
                         ),
                       ],

@@ -1083,7 +1083,15 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
     'not_checked' => (
       colorScheme.surfaceContainerHighest,
       colorScheme.onSurfaceVariant,
-      openHandLocalizedText(context, zh: '未检测', en: 'Not checked'),
+      openHandLocalizedText(
+        context,
+        zh: '未检测',
+        zhHant: '未檢測',
+        en: 'Not checked',
+        fr: 'Non vérifié',
+        de: 'Nicht geprüft',
+        ja: '未チェック',
+      ),
     ),
     _ => (
       colorScheme.surfaceContainerHighest,

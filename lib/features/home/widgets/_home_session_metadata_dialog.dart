@@ -1156,8 +1156,24 @@ class _SessionMetadataDialog extends StatelessWidget {
               'compact_memory_restored_from_sidecar',
             ),
             value: restoredFromSidecar
-                ? openHandLocalizedText(context, zh: '是', en: 'Yes')
-                : openHandLocalizedText(context, zh: '否', en: 'No'),
+                ? openHandLocalizedText(
+                    context,
+                    zh: '是',
+                    zhHant: '是',
+                    en: 'Yes',
+                    fr: 'Oui',
+                    de: 'Ja',
+                    ja: 'はい',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '否',
+                    zhHant: '否',
+                    en: 'No',
+                    fr: 'Non',
+                    de: 'Nein',
+                    ja: 'いいえ',
+                  ),
           ),
           OpenHandMetadataEntryRow(
             label: _localizedMetadataField(
@@ -1328,7 +1344,15 @@ Widget _buildMachineTerminalMetadataSection(
         children: [
           _MetadataInfoTile(
             icon: Icons.terminal_rounded,
-            label: openHandLocalizedText(context, zh: '运行状态', en: 'Status'),
+            label: openHandLocalizedText(
+              context,
+              zh: '运行状态',
+              zhHant: '執行狀態',
+              en: 'Status',
+              fr: 'État',
+              de: 'Status',
+              ja: '状態',
+            ),
             value: _machineTerminalStatusLabel(context, status),
             color: _machineTerminalStatusColor(colorScheme, status),
           ),

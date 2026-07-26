@@ -315,7 +315,15 @@ List<Widget> _buildToolTelemetryHeader({
           onPressed: exportEnabled ? onExportJson : null,
           icon: const Icon(Icons.code, size: 16),
           label: Text(
-            openHandLocalizedText(context, zh: '导出 JSON', en: 'Export JSON'),
+            openHandLocalizedText(
+              context,
+              zh: '导出 JSON',
+              zhHant: '匯出 JSON',
+              en: 'Export JSON',
+              fr: 'Exporter JSON',
+              de: 'JSON exportieren',
+              ja: 'JSON をエクスポート',
+            ),
           ),
         ),
         const SizedBox(width: 4),
@@ -329,7 +337,15 @@ List<Widget> _buildToolTelemetryHeader({
                 )
               : const Icon(Icons.table_chart, size: 16),
           label: Text(
-            openHandLocalizedText(context, zh: '导出 CSV', en: 'Export CSV'),
+            openHandLocalizedText(
+              context,
+              zh: '导出 CSV',
+              zhHant: '匯出 CSV',
+              en: 'Export CSV',
+              fr: 'Exporter CSV',
+              de: 'CSV exportieren',
+              ja: 'CSV をエクスポート',
+            ),
           ),
         ),
         const SizedBox(width: 4),
@@ -342,7 +358,17 @@ List<Widget> _buildToolTelemetryHeader({
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.refresh, size: 16),
-          label: Text(openHandLocalizedText(context, zh: '刷新', en: 'Refresh')),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: '刷新',
+              zhHant: '重新整理',
+              en: 'Refresh',
+              fr: 'Actualiser',
+              de: 'Aktualisieren',
+              ja: '更新',
+            ),
+          ),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
@@ -542,7 +568,17 @@ Widget _buildToolCacheActions({
       TextButton.icon(
         onPressed: clearing ? null : onRefresh,
         icon: const Icon(Icons.refresh, size: 16),
-        label: Text(openHandLocalizedText(context, zh: '刷新', en: 'Refresh')),
+        label: Text(
+          openHandLocalizedText(
+            context,
+            zh: '刷新',
+            zhHant: '重新整理',
+            en: 'Refresh',
+            fr: 'Actualiser',
+            de: 'Aktualisieren',
+            ja: '更新',
+          ),
+        ),
       ),
       const SizedBox(width: 4),
       FilledButton.tonalIcon(
@@ -4582,7 +4618,15 @@ class _SettingsViewState extends State<SettingsView> {
                     value: AiBuiltinToolLazyLoadingMode.disabled,
                     icon: const Icon(Icons.toggle_off_outlined),
                     label: Text(
-                      openHandLocalizedText(context, zh: '关闭', en: 'Off'),
+                      openHandLocalizedText(
+                        context,
+                        zh: '关闭',
+                        zhHant: '關閉',
+                        en: 'Off',
+                        fr: 'Inactif',
+                        de: 'Aus',
+                        ja: 'オフ',
+                      ),
                       softWrap: false,
                     ),
                   ),
@@ -4590,7 +4634,15 @@ class _SettingsViewState extends State<SettingsView> {
                     value: AiBuiltinToolLazyLoadingMode.auto,
                     icon: const Icon(Icons.auto_awesome_outlined),
                     label: Text(
-                      openHandLocalizedText(context, zh: '自动', en: 'Auto'),
+                      openHandLocalizedText(
+                        context,
+                        zh: '自动',
+                        zhHant: '自動',
+                        en: 'Auto',
+                        fr: 'Auto',
+                        de: 'Auto',
+                        ja: '自動',
+                      ),
                       softWrap: false,
                     ),
                   ),
@@ -4598,7 +4650,15 @@ class _SettingsViewState extends State<SettingsView> {
                     value: AiBuiltinToolLazyLoadingMode.enabled,
                     icon: const Icon(Icons.toggle_on_rounded),
                     label: Text(
-                      openHandLocalizedText(context, zh: '开启', en: 'On'),
+                      openHandLocalizedText(
+                        context,
+                        zh: '开启',
+                        zhHant: '開啟',
+                        en: 'On',
+                        fr: 'Actif',
+                        de: 'Ein',
+                        ja: 'オン',
+                      ),
                       softWrap: false,
                     ),
                   ),

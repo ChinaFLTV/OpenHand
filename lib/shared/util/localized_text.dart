@@ -509,7 +509,15 @@ String openHandInstructionsLabel(BuildContext context) {
 }
 
 String openHandKnowledgeBaseLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '知识库', en: 'Knowledge Base');
+  return openHandLocalizedText(
+    context,
+    zh: '知识库',
+    zhHant: '知識庫',
+    en: 'Knowledge Base',
+    fr: 'Base de connaissances',
+    de: 'Wissensdatenbank',
+    ja: 'ナレッジベース',
+  );
 }
 
 String openHandModelLabel(BuildContext context) {
@@ -525,7 +533,15 @@ String openHandModelLabel(BuildContext context) {
 }
 
 String openHandOutputLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '输出', en: 'Output');
+  return openHandLocalizedText(
+    context,
+    zh: '输出',
+    zhHant: '輸出',
+    en: 'Output',
+    fr: 'Sortie',
+    de: 'Ausgabe',
+    ja: '出力',
+  );
 }
 
 String openHandPreviewLabel(BuildContext context) {
@@ -617,7 +633,15 @@ String openHandStoppedLabel(BuildContext context) {
 }
 
 String openHandTemplateLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '模板', en: 'Template');
+  return openHandLocalizedText(
+    context,
+    zh: '模板',
+    zhHant: '範本',
+    en: 'Template',
+    fr: 'Modèle',
+    de: 'Vorlage',
+    ja: 'テンプレート',
+  );
 }
 
 String openHandUpdatedLabel(BuildContext context) {
@@ -629,11 +653,27 @@ String openHandActiveLabel(BuildContext context) {
 }
 
 String openHandAgentLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '智能体', en: 'Agent');
+  return openHandLocalizedText(
+    context,
+    zh: '智能体',
+    zhHant: '智能體',
+    en: 'Agent',
+    fr: 'Agent',
+    de: 'Agent',
+    ja: 'エージェント',
+  );
 }
 
 String openHandAllLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '全部', en: 'All');
+  return openHandLocalizedText(
+    context,
+    zh: '全部',
+    zhHant: '全部',
+    en: 'All',
+    fr: 'Tout',
+    de: 'Alle',
+    ja: 'すべて',
+  );
 }
 
 String openHandClearSearchLabel(BuildContext context) {
@@ -661,7 +701,15 @@ String openHandCodeBlockLabel(BuildContext context) {
 }
 
 String openHandCollapseLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '收起', en: 'Collapse');
+  return openHandLocalizedText(
+    context,
+    zh: '收起',
+    zhHant: '收起',
+    en: 'Collapse',
+    fr: 'Réduire',
+    de: 'Einklappen',
+    ja: '折りたたむ',
+  );
 }
 
 String openHandConfirmLabel(BuildContext context) {
@@ -809,7 +857,15 @@ String openHandKnowledgeLabel(BuildContext context) {
 }
 
 String openHandMemoryLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '记忆', en: 'Memory');
+  return openHandLocalizedText(
+    context,
+    zh: '记忆',
+    zhHant: '記憶',
+    en: 'Memory',
+    fr: 'Mémoire',
+    de: 'Speicher',
+    ja: 'メモリ',
+  );
 }
 
 String openHandModeLabel(BuildContext context) {
@@ -989,7 +1045,15 @@ String openHandSearchLabel(BuildContext context) {
 }
 
 String openHandSourceLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '来源', en: 'Source');
+  return openHandLocalizedText(
+    context,
+    zh: '来源',
+    zhHant: '來源',
+    en: 'Source',
+    fr: 'Source',
+    de: 'Quelle',
+    ja: 'ソース',
+  );
 }
 
 String openHandSpeedLabel(BuildContext context) {
@@ -1017,11 +1081,26 @@ String openHandTodayLabel(BuildContext context) {
 }
 
 String openHandTokenBudgetLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: 'Token 预算', en: 'Token budget');
+  return openHandLocalizedText(
+    context,
+    zh: 'Token 预算',
+    en: 'Token budget',
+    fr: 'Budget de tokens',
+    de: 'Token-Budget',
+    ja: 'トークン予算',
+  );
 }
 
 String openHandToolLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '工具', en: 'Tool');
+  return openHandLocalizedText(
+    context,
+    zh: '工具',
+    zhHant: '工具',
+    en: 'Tool',
+    fr: 'Outil',
+    de: 'Werkzeug',
+    ja: 'ツール',
+  );
 }
 
 String openHandTypeLabel(BuildContext context) {
@@ -1037,7 +1116,15 @@ String openHandTypeLabel(BuildContext context) {
 }
 
 String openHandUnknownLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '未知', en: 'Unknown');
+  return openHandLocalizedText(
+    context,
+    zh: '未知',
+    zhHant: '未知',
+    en: 'Unknown',
+    fr: 'Inconnu',
+    de: 'Unbekannt',
+    ja: '不明',
+  );
 }
 
 String openHandUpdateLabel(BuildContext context) {

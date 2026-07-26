@@ -419,7 +419,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   tooltip: openHandLocalizedText(
                     context,
                     zh: '清除',
+                    zhHant: '清除',
                     en: 'Clear',
+                    fr: 'Effacer',
+                    de: 'Löschen',
+                    ja: '消去',
                   ),
                   icon: const Icon(Icons.clear_rounded),
                   onPressed: () => _emit(v.copyWith(clearFixedModel: true)),

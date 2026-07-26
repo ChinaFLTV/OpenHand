@@ -237,9 +237,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
                 FilledButton.tonalIcon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: Text(
-                    openHandRetryLabel(context),
-                  ),
+                  label: Text(openHandRetryLabel(context)),
                 ),
               ],
             ),
@@ -895,7 +893,15 @@ class _AiUsageOverviewPanel extends StatelessWidget {
         color: colorScheme.secondary,
       ),
       _AiUsageOverviewMetricData(
-        label: openHandLocalizedText(context, zh: '请求数', en: 'Requests'),
+        label: openHandLocalizedText(
+          context,
+          zh: '请求数',
+          zhHant: '請求數',
+          en: 'Requests',
+          fr: 'Requêtes',
+          de: 'Anfragen',
+          ja: 'リクエスト数',
+        ),
         value: _usageCompactNumber(summary.requestCount),
         detail: openHandLocalizedText(
           context,
@@ -2820,17 +2826,13 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
               cell(
                 flex: 20,
                 child: header
-                    ? value(
-                        openHandModelLabel(context),
-                      )
+                    ? value(openHandModelLabel(context))
                     : details(record!.modelId, record.providerName),
               ),
               cell(
                 flex: 20,
                 child: header
-                    ? value(
-                        openHandSourceLabel(context),
-                      )
+                    ? value(openHandSourceLabel(context))
                     : details(
                         _usageSourceLabel(context, record!.source),
                         '${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
@@ -2843,7 +2845,11 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                         openHandLocalizedText(
                           context,
                           zh: '协议',
+                          zhHant: '通訊協定',
                           en: 'Protocol',
+                          fr: 'Protocole',
+                          de: 'Protokoll',
+                          ja: 'プロトコル',
                         ),
                       )
                     : Tooltip(
@@ -2925,7 +2931,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                     : Tooltip(
                         message:
                             '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record!.status)}'
-                            '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
+                            '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', zhHant: '錯誤', en: 'Error', fr: 'Erreur', de: 'Fehler', ja: 'エラー')}: ${record.errorType}'}'
                             '\n$traceLabel: ${record.traceId}',
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -2998,10 +3004,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
       Duration(milliseconds: record.durationMs),
     );
     final requestRows = <({String label, String value})>[
-      (
-        label: openHandModelLabel(context),
-        value: record.modelId,
-      ),
+      (label: openHandModelLabel(context), value: record.modelId),
       (
         label: openHandLocalizedText(context, zh: '供应商', en: 'Provider'),
         value: record.providerName,
@@ -3012,7 +3015,15 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
             '${_usageSourceLabel(context, record.source)} · ${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
       ),
       (
-        label: openHandLocalizedText(context, zh: '协议', en: 'Protocol'),
+        label: openHandLocalizedText(
+          context,
+          zh: '协议',
+          zhHant: '通訊協定',
+          en: 'Protocol',
+          fr: 'Protocole',
+          de: 'Protokoll',
+          ja: 'プロトコル',
+        ),
         value: record.apiFamily.replaceAll('_', ' '),
       ),
     ];
@@ -3128,7 +3139,11 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                   tooltip: openHandLocalizedText(
                     context,
                     zh: '关闭',
+                    zhHant: '關閉',
                     en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
                   ),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -3889,7 +3904,15 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '模型测试',
       en: 'Model Test',
     ),
-    _ => openHandLocalizedText(context, zh: '其他', en: 'Other'),
+    _ => openHandLocalizedText(
+      context,
+      zh: '其他',
+      zhHant: '其他',
+      en: 'Other',
+      fr: 'Autres',
+      de: 'Andere',
+      ja: 'その他',
+    ),
   };
 }
 
@@ -4017,12 +4040,20 @@ String _usageRequestStatusLabel(BuildContext context, String status) {
     AiUsageRequestStatus.success => openHandLocalizedText(
       context,
       zh: '成功',
+      zhHant: '成功',
       en: 'Success',
+      fr: 'Succès',
+      de: 'Erfolg',
+      ja: '成功',
     ),
     AiUsageRequestStatus.failed => openHandLocalizedText(
       context,
       zh: '失败',
+      zhHant: '失敗',
       en: 'Failed',
+      fr: 'Échec',
+      de: 'Fehlgeschlagen',
+      ja: '失敗',
     ),
     AiUsageRequestStatus.timeout => openHandLocalizedText(
       context,
@@ -4032,17 +4063,22 @@ String _usageRequestStatusLabel(BuildContext context, String status) {
     AiUsageRequestStatus.error => openHandLocalizedText(
       context,
       zh: '异常',
+      zhHant: '異常',
       en: 'Error',
+      fr: 'Erreur',
+      de: 'Fehler',
+      ja: 'エラー',
     ),
     AiUsageRequestStatus.cancelled => openHandLocalizedText(
       context,
       zh: '已取消',
+      zhHant: '已取消',
       en: 'Cancelled',
+      fr: 'Annulé',
+      de: 'Abgebrochen',
+      ja: 'キャンセル',
     ),
-    _ =>
-      status.isEmpty
-          ? openHandUnknownLabel(context)
-          : status,
+    _ => status.isEmpty ? openHandUnknownLabel(context) : status,
   };
 }
 

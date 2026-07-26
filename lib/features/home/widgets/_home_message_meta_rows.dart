@@ -225,7 +225,15 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelText = openHandLocalizedText(context, zh: '响应', en: 'Response');
+    final labelText = openHandLocalizedText(
+      context,
+      zh: '响应',
+      zhHant: '回應',
+      en: 'Response',
+      fr: 'Réponse',
+      de: 'Antwort',
+      ja: 'レスポンス',
+    );
     final elapsedText = widget.showSweep
         ? ' (${formatCompactDurationMs(_reasoningElapsedMs(widget.message))})'
         : '';

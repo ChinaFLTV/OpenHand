@@ -425,7 +425,11 @@ class _MachineTerminalHeader extends StatelessWidget {
               tooltip: openHandLocalizedText(
                 context,
                 zh: '复制 ID',
+                zhHant: '複製 ID',
                 en: 'Copy ID',
+                fr: 'Copier l’ID',
+                de: 'ID kopieren',
+                ja: 'ID をコピー',
               ),
               onPressed: onCopyId,
             ),
@@ -495,7 +499,15 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.play_arrow_rounded,
-              tooltip: openHandLocalizedText(context, zh: '启动', en: 'Start'),
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '启动',
+                zhHant: '啟動',
+                en: 'Start',
+                fr: 'Démarrer',
+                de: 'Starten',
+                ja: '起動',
+              ),
               onPressed: canStart ? onStart : null,
             ),
             _MachineTerminalIconButton(
@@ -509,7 +521,15 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.restart_alt_rounded,
-              tooltip: openHandLocalizedText(context, zh: '重启', en: 'Restart'),
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '重启',
+                zhHant: '重啟',
+                en: 'Restart',
+                fr: 'Redémarrer',
+                de: 'Neustarten',
+                ja: '再起動',
+              ),
               onPressed: onRestart,
             ),
             _MachineTerminalIconButton(
@@ -931,7 +951,11 @@ class _MachineTerminalHistoryDialogState
                   tooltip: openHandLocalizedText(
                     context,
                     zh: '删除',
+                    zhHant: '刪除',
                     en: 'Delete',
+                    fr: 'Supprimer',
+                    de: 'Löschen',
+                    ja: '削除',
                   ),
                   destructive: true,
                   onPressed: actionDisabled
@@ -1059,7 +1083,15 @@ class _MachineTerminalHistoryDialogState
         zh: '将删除 ${terminal.terminalId} 的会话、命令记录和历史输出，此操作不可恢复。',
         en: 'This will delete ${terminal.terminalId}, including command records and output history. This cannot be undone.',
       ),
-      confirmLabel: openHandLocalizedText(context, zh: '删除', en: 'Delete'),
+      confirmLabel: openHandLocalizedText(
+        context,
+        zh: '删除',
+        zhHant: '刪除',
+        en: 'Delete',
+        fr: 'Supprimer',
+        de: 'Löschen',
+        ja: '削除',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted || _deletingTerminalId != null) return;
@@ -1707,7 +1739,11 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
                   label: openHandLocalizedText(
                     context,
                     zh: '超时',
+                    zhHant: '逾時',
                     en: 'Timed out',
+                    fr: 'Expiré',
+                    de: 'Zeitüberschreitung',
+                    ja: 'タイムアウト',
                   ),
                 ),
               _MachineTerminalTinyBadge(

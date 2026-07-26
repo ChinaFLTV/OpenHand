@@ -1578,7 +1578,11 @@ String _goalStatusLabel(BuildContext context, AiSessionGoalStatus status) {
     AiSessionGoalStatus.failed => openHandLocalizedText(
       context,
       zh: '失败',
+      zhHant: '失敗',
       en: 'failed',
+      fr: 'échec',
+      de: 'fehlgeschlagen',
+      ja: '失敗',
     ),
     AiSessionGoalStatus.roundLimitReached => openHandLocalizedText(
       context,
@@ -2063,10 +2067,7 @@ class _GoalEnvironmentSection extends StatelessWidget {
           openHandLocalizedText(context, zh: '线程', en: 'Session'),
           session.id,
         ),
-        _GoalKeyValue(
-          openHandTemplateLabel(context),
-          session.templateName,
-        ),
+        _GoalKeyValue(openHandTemplateLabel(context), session.templateName),
         _GoalKeyValue(
           openHandLocalizedText(context, zh: '当前模式', en: 'Mode'),
           _runtimeModeLabel(context, null, explicitMode: session.mode),
@@ -2075,10 +2076,7 @@ class _GoalEnvironmentSection extends StatelessWidget {
           openHandLocalizedText(context, zh: '消息数', en: 'Messages'),
           '${session.messages.length}',
         ),
-        _GoalKeyValue(
-          _homePlatformLabel(context),
-          environment.platform,
-        ),
+        _GoalKeyValue(_homePlatformLabel(context), environment.platform),
         _GoalKeyValue(
           _homeWorkingDirectoryLabel(context),
           environment.applicationDirectory,

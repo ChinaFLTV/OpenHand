@@ -81,10 +81,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         const SizedBox(height: 24),
         Divider(color: colorScheme.outlineVariant),
         const SizedBox(height: 18),
-        Text(
-          openHandSandboxLabel(context),
-          style: theme.textTheme.titleMedium,
-        ),
+        Text(openHandSandboxLabel(context), style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
           openHandLocalizedText(
@@ -442,7 +439,15 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                       ),
                       icon: const Icon(Icons.download_rounded),
                       label: Text(
-                        openHandLocalizedText(context, zh: '安装', en: 'Install'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '安装',
+                          zhHant: '安裝',
+                          en: 'Install',
+                          fr: 'Installer',
+                          de: 'Installieren',
+                          ja: 'インストール',
+                        ),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -451,7 +456,15 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                       ),
                       icon: const Icon(Icons.upgrade_rounded),
                       label: Text(
-                        openHandLocalizedText(context, zh: '更新', en: 'Update'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '更新',
+                          zhHant: '更新',
+                          en: 'Update',
+                          fr: 'Mettre à jour',
+                          de: 'Aktualisieren',
+                          ja: '更新',
+                        ),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -463,7 +476,11 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                         openHandLocalizedText(
                           context,
                           zh: '卸载',
+                          zhHant: '解除安裝',
                           en: 'Uninstall',
+                          fr: 'Désinstaller',
+                          de: 'Deinstallieren',
+                          ja: 'アンインストール',
                         ),
                       ),
                     ),
@@ -856,7 +873,15 @@ Widget _buildSandboxMatchModeField(
   return AnimatedDropdownButtonFormField<AiCommandMatchMode>(
     initialValue: value,
     decoration: InputDecoration(
-      labelText: openHandLocalizedText(context, zh: '匹配模式', en: 'Match Mode'),
+      labelText: openHandLocalizedText(
+        context,
+        zh: '匹配模式',
+        zhHant: '匹配模式',
+        en: 'Match Mode',
+        fr: 'Mode de correspondance',
+        de: 'Übereinstimmungsmodus',
+        ja: '一致モード',
+      ),
     ),
     items: [
       DropdownMenuItem(
@@ -979,7 +1004,11 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                   labelText: openHandLocalizedText(
                     context,
                     zh: '备注',
+                    zhHant: '備註',
                     en: 'Note',
+                    fr: 'Note',
+                    de: 'Notiz',
+                    ja: 'メモ',
                   ),
                 ),
                 maxLines: 2,
@@ -1092,7 +1121,11 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                   labelText: openHandLocalizedText(
                     context,
                     zh: '备注',
+                    zhHant: '備註',
                     en: 'Note',
+                    fr: 'Note',
+                    de: 'Notiz',
+                    ja: 'メモ',
                   ),
                 ),
                 maxLines: 2,

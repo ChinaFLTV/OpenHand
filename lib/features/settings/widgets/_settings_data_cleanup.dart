@@ -1061,7 +1061,15 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
             'current file_history. Records with duplicate ids are '
             'skipped. This cannot be undone.',
       ),
-      confirmLabel: openHandLocalizedText(context, zh: '导入', en: 'Import'),
+      confirmLabel: openHandLocalizedText(
+        context,
+        zh: '导入',
+        zhHant: '匯入',
+        en: 'Import',
+        fr: 'Importer',
+        de: 'Importieren',
+        ja: 'インポート',
+      ),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
       maxWidth: 520,
       icon: Icon(

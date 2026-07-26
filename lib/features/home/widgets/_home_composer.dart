@@ -2020,7 +2020,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               : openHandLocalizedText(
                   context,
                   zh: '当前模型不支持附件',
+                  zhHant: '目前模型不支援附件',
                   en: 'The selected model does not support attachments',
+                  fr: 'Le modèle sélectionné ne prend pas en charge les pièces jointes',
+                  de: 'Das ausgewählte Modell unterstützt keine Anhänge',
+                  ja: '選択中のモデルは添付ファイルに対応していません',
                 ),
           child: SizedBox(
             width: _composerActionControlHeight,
@@ -2321,7 +2325,11 @@ class _ComposerFullAccessModeButtonState
                   openHandLocalizedText(
                     context,
                     zh: '默认权限',
+                    zhHant: '預設權限',
                     en: 'Default Access',
+                    fr: 'Accès par défaut',
+                    de: 'Standardzugriff',
+                    ja: 'デフォルト権限',
                   ),
                 ),
               ),
@@ -2343,7 +2351,11 @@ class _ComposerFullAccessModeButtonState
                   openHandLocalizedText(
                     context,
                     zh: '完全访问权限',
+                    zhHant: '完整存取權限',
                     en: 'Full Access',
+                    fr: 'Accès complet',
+                    de: 'Vollzugriff',
+                    ja: 'フルアクセス権限',
                   ),
                 ),
               ),
@@ -2366,8 +2378,24 @@ class _ComposerFullAccessModeButtonState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final modeLabel = widget.fullAccess
-        ? openHandLocalizedText(context, zh: '完全访问权限', en: 'Full Access')
-        : openHandLocalizedText(context, zh: '默认权限', en: 'Default Access');
+        ? openHandLocalizedText(
+            context,
+            zh: '完全访问权限',
+            zhHant: '完整存取權限',
+            en: 'Full Access',
+            fr: 'Accès complet',
+            de: 'Vollzugriff',
+            ja: 'フルアクセス権限',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '默认权限',
+            zhHant: '預設權限',
+            en: 'Default Access',
+            fr: 'Accès par défaut',
+            de: 'Standardzugriff',
+            ja: 'デフォルト権限',
+          );
     final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : widget.fullAccess

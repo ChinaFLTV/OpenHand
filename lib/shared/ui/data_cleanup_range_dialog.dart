@@ -371,7 +371,11 @@ String _presetLabel(BuildContext context, OpenHandCleanupRangePreset preset) {
     OpenHandCleanupRangePreset.custom => openHandLocalizedText(
       context,
       zh: '自定义',
+      zhHant: '自訂',
       en: 'Custom',
+      fr: 'Personnalisé',
+      de: 'Benutzerdefiniert',
+      ja: 'カスタム',
     ),
   };
 }
