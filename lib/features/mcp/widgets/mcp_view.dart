@@ -1406,19 +1406,18 @@ class _McpServerEditorDialog extends StatefulWidget {
   State<_McpServerEditorDialog> createState() => _McpServerEditorDialogState();
 }
 
-class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
+class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
+    with _McpHeaderRowsState<_McpServerEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _urlController;
   late final TextEditingController _commandController;
   late final TextEditingController _argsController;
-  late final List<_EditableHeaderRow> _headerRows;
   late final Set<String> _visibleTemplateIds;
   late McpServerType _type;
   late bool _enabled;
   bool _isSaving = false;
   String? _errorMessage;
-  String? _headerErrorMessage;
   String? _visibilityErrorMessage;
 
   @override
@@ -1452,9 +1451,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
     _urlController.dispose();
     _commandController.dispose();
     _argsController.dispose();
-    for (final row in _headerRows) {
-      row.dispose();
-    }
+    _disposeHeaderRows();
     super.dispose();
   }
 
@@ -2131,6 +2128,110 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       ],
     );
   }
+}
+
+extension on McpServerType {
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      McpServerType.streamableHttp => l10n.mcpTransportStreamableHttp,
+      McpServerType.sse => l10n.mcpTransportSse,
+      McpServerType.stdio => l10n.mcpTransportStdio,
+    };
+  }
+}
+
+/// 校验并汇总可编辑 Header 行。
+///
+/// 服务器编辑与工具调试弹窗共用：此前后者漏掉了名称 / 值的 ASCII 合法性校验，
+/// 非法头会一路传到 HTTP 客户端才失败。
+_HeaderParseResult _parseEditableHeaderRows(
+  BuildContext context,
+  List<_EditableHeaderRow> rows,
+) {
+  final headers = <String, String>{};
+  final seenNames = <String>{};
+  for (var index = 0; index < rows.length; index++) {
+    final row = rows[index];
+    final name = row.nameController.text.trim();
+    final value = row.valueController.text.trim();
+    if (name.isEmpty && value.isEmpty) {
+      continue;
+    }
+    if (name.isEmpty || value.isEmpty) {
+      return _HeaderParseResult(
+        headers: const <String, String>{},
+        errorMessage: _localizedText(
+          context,
+          zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
+          en: 'Header ${index + 1} must include both name and value',
+          zhHant: '第 ${index + 1} 個 Header 的名稱和值都不能為空',
+          fr: 'L’en-tête ${index + 1} doit inclure un nom et une valeur',
+          de: 'Header ${index + 1} muss sowohl Name als auch Wert enthalten',
+          ja: 'ヘッダー ${index + 1} には名前と値の両方が必要です',
+        ),
+      );
+    }
+    if (!isValidMcpHttpHeaderName(name)) {
+      return _HeaderParseResult(
+        headers: const <String, String>{},
+        errorMessage: _localizedText(
+          context,
+          zh: '第 ${index + 1} 个 Header 名称只能使用 ASCII 字母、数字和标准 HTTP 符号',
+          en: 'Header ${index + 1} name must use ASCII letters, digits and standard HTTP token symbols',
+          zhHant: '第 ${index + 1} 個 Header 名稱只能使用 ASCII 字母、數字和標準 HTTP 符號',
+          fr: 'Le nom de l’en-tête ${index + 1} doit utiliser des lettres ASCII, des chiffres et les symboles HTTP standard',
+          de: 'Header ${index + 1} muss ASCII-Buchstaben, Ziffern und standardmäßige HTTP-Token-Zeichen verwenden',
+          ja: 'ヘッダー ${index + 1} の名前は ASCII 英数字と標準 HTTP 記号のみ使用できます',
+        ),
+      );
+    }
+    if (!isValidMcpHttpHeaderValue(value)) {
+      return _HeaderParseResult(
+        headers: const <String, String>{},
+        errorMessage: _localizedText(
+          context,
+          zh: '第 ${index + 1} 个 Header 值不能包含中文、换行或控制字符；请使用 ASCII / Latin-1 安全值',
+          en: 'Header ${index + 1} value cannot contain Chinese characters, line breaks or control characters; use an ASCII / Latin-1 safe value',
+          zhHant:
+              '第 ${index + 1} 個 Header 值不能包含中文、換行或控制字元；請使用 ASCII / Latin-1 安全值',
+          fr: 'La valeur de l’en-tête ${index + 1} ne peut pas contenir de caractères chinois, de retours à la ligne ni de caractères de contrôle ; utilisez une valeur ASCII / Latin-1 sûre',
+          de: 'Header ${index + 1} darf keine chinesischen Zeichen, Zeilenumbrüche oder Steuerzeichen enthalten; verwenden Sie einen ASCII-/Latin-1-sicheren Wert',
+          ja: 'ヘッダー ${index + 1} の値には中国語、改行、制御文字を含められません。ASCII / Latin-1 で安全な値を使用してください',
+        ),
+      );
+    }
+    final normalizedName = name.toLowerCase();
+    if (!seenNames.add(normalizedName)) {
+      return _HeaderParseResult(
+        headers: const <String, String>{},
+        errorMessage: _localizedText(
+          context,
+          zh: '第 ${index + 1} 个 Header 名称重复',
+          en: 'Header ${index + 1} uses a duplicate name',
+          zhHant: '第 ${index + 1} 個 Header 名稱重複',
+          fr: 'L’en-tête ${index + 1} utilise un nom en double',
+          de: 'Header ${index + 1} verwendet einen doppelten Namen',
+          ja: 'ヘッダー ${index + 1} の名前が重複しています',
+        ),
+      );
+    }
+    headers[name] = value;
+  }
+  return _HeaderParseResult(headers: Map<String, String>.unmodifiable(headers));
+}
+
+/// 可编辑 Header 行的公共状态：增删行、错误清理与汇总校验。
+///
+/// 服务器编辑弹窗与工具调试弹窗共用同一套行为，避免两处 setState 逻辑分叉。
+mixin _McpHeaderRowsState<T extends StatefulWidget> on State<T> {
+  late final List<_EditableHeaderRow> _headerRows;
+  String? _headerErrorMessage;
+
+  void _disposeHeaderRows() {
+    for (final row in _headerRows) {
+      row.dispose();
+    }
+  }
 
   void _addHeaderRow() {
     setState(() {
@@ -2147,97 +2248,12 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
   }
 
   void _clearHeaderError() {
-    if (_headerErrorMessage == null) {
-      return;
-    }
-    setState(() {
-      _headerErrorMessage = null;
-    });
+    if (_headerErrorMessage == null) return;
+    setState(() => _headerErrorMessage = null);
   }
 
   _HeaderParseResult _collectHeadersFromRows() {
-    final headers = <String, String>{};
-    final seenNames = <String>{};
-    for (var index = 0; index < _headerRows.length; index++) {
-      final row = _headerRows[index];
-      final name = row.nameController.text.trim();
-      final value = row.valueController.text.trim();
-      if (name.isEmpty && value.isEmpty) {
-        continue;
-      }
-      if (name.isEmpty || value.isEmpty) {
-        return _HeaderParseResult(
-          headers: const <String, String>{},
-          errorMessage: _localizedText(
-            context,
-            zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
-            en: 'Header ${index + 1} must include both name and value',
-            zhHant: '第 ${index + 1} 個 Header 的名稱和值都不能為空',
-            fr: 'L’en-tête ${index + 1} doit inclure un nom et une valeur',
-            de: 'Header ${index + 1} muss sowohl Name als auch Wert enthalten',
-            ja: 'ヘッダー ${index + 1} には名前と値の両方が必要です',
-          ),
-        );
-      }
-      if (!isValidMcpHttpHeaderName(name)) {
-        return _HeaderParseResult(
-          headers: const <String, String>{},
-          errorMessage: _localizedText(
-            context,
-            zh: '第 ${index + 1} 个 Header 名称只能使用 ASCII 字母、数字和标准 HTTP 符号',
-            en: 'Header ${index + 1} name must use ASCII letters, digits and standard HTTP token symbols',
-            zhHant: '第 ${index + 1} 個 Header 名稱只能使用 ASCII 字母、數字和標準 HTTP 符號',
-            fr: 'Le nom de l’en-tête ${index + 1} doit utiliser des lettres ASCII, des chiffres et les symboles HTTP standard',
-            de: 'Header ${index + 1} muss ASCII-Buchstaben, Ziffern und standardmäßige HTTP-Token-Zeichen verwenden',
-            ja: 'ヘッダー ${index + 1} の名前は ASCII 英数字と標準 HTTP 記号のみ使用できます',
-          ),
-        );
-      }
-      if (!isValidMcpHttpHeaderValue(value)) {
-        return _HeaderParseResult(
-          headers: const <String, String>{},
-          errorMessage: _localizedText(
-            context,
-            zh: '第 ${index + 1} 个 Header 值不能包含中文、换行或控制字符；请使用 ASCII / Latin-1 安全值',
-            en: 'Header ${index + 1} value cannot contain Chinese characters, line breaks or control characters; use an ASCII / Latin-1 safe value',
-            zhHant:
-                '第 ${index + 1} 個 Header 值不能包含中文、換行或控制字元；請使用 ASCII / Latin-1 安全值',
-            fr: 'La valeur de l’en-tête ${index + 1} ne peut pas contenir de caractères chinois, de retours à la ligne ni de caractères de contrôle ; utilisez une valeur ASCII / Latin-1 sûre',
-            de: 'Header ${index + 1} darf keine chinesischen Zeichen, Zeilenumbrüche oder Steuerzeichen enthalten; verwenden Sie einen ASCII-/Latin-1-sicheren Wert',
-            ja: 'ヘッダー ${index + 1} の値には中国語、改行、制御文字を含められません。ASCII / Latin-1 で安全な値を使用してください',
-          ),
-        );
-      }
-      final normalizedName = name.toLowerCase();
-      if (!seenNames.add(normalizedName)) {
-        return _HeaderParseResult(
-          headers: const <String, String>{},
-          errorMessage: _localizedText(
-            context,
-            zh: '第 ${index + 1} 个 Header 名称重复',
-            en: 'Header ${index + 1} uses a duplicate name',
-            zhHant: '第 ${index + 1} 個 Header 名稱重複',
-            fr: 'L’en-tête ${index + 1} utilise un nom en double',
-            de: 'Header ${index + 1} verwendet einen doppelten Namen',
-            ja: 'ヘッダー ${index + 1} の名前が重複しています',
-          ),
-        );
-      }
-      headers[name] = value;
-    }
-    return _HeaderParseResult(
-      headers: Map<String, String>.unmodifiable(headers),
-    );
-  }
-}
-
-extension on McpServerType {
-  String label(AppLocalizations l10n) {
-    return switch (this) {
-      McpServerType.streamableHttp => l10n.mcpTransportStreamableHttp,
-      McpServerType.sse => l10n.mcpTransportSse,
-      McpServerType.stdio => l10n.mcpTransportStdio,
-    };
+    return _parseEditableHeaderRows(context, _headerRows);
   }
 }
 
@@ -13799,15 +13815,14 @@ class _McpToolDebugDialog extends StatefulWidget {
   State<_McpToolDebugDialog> createState() => _McpToolDebugDialogState();
 }
 
-class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
+class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
+    with _McpHeaderRowsState<_McpToolDebugDialog> {
   late McpTool? _selectedTool;
   late final TextEditingController _argumentsController;
-  late final List<_EditableHeaderRow> _headerRows;
   final GlobalKey _toolMenuAnchorKey = GlobalKey();
   bool _useServerHeaders = true;
   McpToolCallResult? _result;
   String? _errorMessage;
-  String? _headerErrorMessage;
   bool _isRunning = false;
   bool _toolMenuOpen = false;
 
@@ -13830,79 +13845,8 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
   @override
   void dispose() {
     _argumentsController.dispose();
-    for (final row in _headerRows) {
-      row.dispose();
-    }
+    _disposeHeaderRows();
     super.dispose();
-  }
-
-  void _addHeaderRow() {
-    setState(() {
-      _headerRows.add(_EditableHeaderRow());
-      _headerErrorMessage = null;
-    });
-  }
-
-  void _removeHeaderRow(int index) {
-    setState(() {
-      _headerErrorMessage = null;
-      _removeEditableHeaderRow(_headerRows, index);
-    });
-  }
-
-  void _clearHeaderError() {
-    if (_headerErrorMessage == null) {
-      return;
-    }
-    setState(() {
-      _headerErrorMessage = null;
-    });
-  }
-
-  _HeaderParseResult _collectHeadersFromRows() {
-    final headers = <String, String>{};
-    final seenNames = <String>{};
-    for (var index = 0; index < _headerRows.length; index++) {
-      final row = _headerRows[index];
-      final name = row.nameController.text.trim();
-      final value = row.valueController.text.trim();
-      if (name.isEmpty && value.isEmpty) {
-        continue;
-      }
-      if (name.isEmpty || value.isEmpty) {
-        return _HeaderParseResult(
-          headers: const <String, String>{},
-          errorMessage: _localizedText(
-            context,
-            zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
-            en: 'Header ${index + 1} must include both name and value',
-            zhHant: '第 ${index + 1} 個 Header 的名稱和值都不能為空',
-            fr: 'L’en-tête ${index + 1} doit inclure un nom et une valeur',
-            de: 'Header ${index + 1} muss sowohl Name als auch Wert enthalten',
-            ja: 'ヘッダー ${index + 1} には名前と値の両方が必要です',
-          ),
-        );
-      }
-      final normalizedName = name.toLowerCase();
-      if (!seenNames.add(normalizedName)) {
-        return _HeaderParseResult(
-          headers: const <String, String>{},
-          errorMessage: _localizedText(
-            context,
-            zh: '第 ${index + 1} 个 Header 名称重复',
-            en: 'Header ${index + 1} uses a duplicate name',
-            zhHant: '第 ${index + 1} 個 Header 名稱重複',
-            fr: 'L’en-tête ${index + 1} utilise un nom en double',
-            de: 'Header ${index + 1} verwendet einen doppelten Namen',
-            ja: 'ヘッダー ${index + 1} の名前が重複しています',
-          ),
-        );
-      }
-      headers[name] = value;
-    }
-    return _HeaderParseResult(
-      headers: Map<String, String>.unmodifiable(headers),
-    );
   }
 
   McpTool? _toolForId(String toolId) {
