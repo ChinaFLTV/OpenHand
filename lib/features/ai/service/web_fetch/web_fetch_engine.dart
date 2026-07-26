@@ -14,7 +14,7 @@ export '../web_engine/web_engine_http_exception.dart'
 export '../web_engine/web_engine_http_utils.dart'
     show decodeSuccessfulWebEngineJsonResponse;
 export '../web_engine/web_engine_json_utils.dart'
-    show decodeJsonObjectBytes, jsonObjectOf, stringOf, readJsonPath;
+    show decodeJsonObjectBytes, jsonObjectOf, readJsonPath, stringOf;
 export '../web_engine/web_engine_value_parsing.dart'
     show resolveWebEngineApiKey;
 

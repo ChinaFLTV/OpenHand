@@ -143,10 +143,8 @@ class InstructionsView extends StatelessWidget {
                   switch (action) {
                     case _InstructionCardAction.edit:
                       _openEditor(context, controller, entry);
-                      break;
                     case _InstructionCardAction.delete:
                       _confirmDelete(context, controller, entry);
-                      break;
                   }
                 },
               ),

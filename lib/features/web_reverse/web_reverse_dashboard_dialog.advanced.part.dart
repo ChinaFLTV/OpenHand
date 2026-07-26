@@ -4400,7 +4400,6 @@ class _IceTopologyGraph extends StatelessWidget {
               typ: typ,
             ),
           );
-          break;
         case 'track':
           tracks.add(
             _IceGraphNode(
@@ -4409,7 +4408,6 @@ class _IceTopologyGraph extends StatelessWidget {
               typ: '${p['kind'] ?? ''}',
             ),
           );
-          break;
         case 'datachannel':
           datachannels.add(
             _IceGraphNode(
@@ -4418,11 +4416,9 @@ class _IceTopologyGraph extends StatelessWidget {
               typ: '',
             ),
           );
-          break;
         case 'connectionstatechange':
         case 'iceconnectionstatechange':
           lastConnState = '${p['state'] ?? ''}';
-          break;
       }
     }
     // 取最近 12 条 candidate 防图爆炸。

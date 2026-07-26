@@ -3070,13 +3070,11 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         fg = colorScheme.onErrorContainer;
         icon = Icons.error_outline;
         label = l10n.cronsHermesStatusError;
-        break;
       case 'skipped':
         bg = colorScheme.surfaceContainerHighest;
         fg = colorScheme.onSurfaceVariant;
         icon = Icons.skip_next_rounded;
         label = l10n.cronsHermesStatusSkipped;
-        break;
       default:
         bg = colorScheme.primaryContainer;
         fg = colorScheme.onPrimaryContainer;

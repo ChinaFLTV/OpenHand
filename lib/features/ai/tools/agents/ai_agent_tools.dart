@@ -13,10 +13,10 @@ import '../../model/ai_builtin_tool_config.dart'
         AiBuiltinToolKindAgentMetadata,
         agentBuiltinToolCanonicalName,
         aiAgentBuiltinToolKinds,
-        kAiReadOnlyBuiltinToolKinds,
         aiAgentToolAccessEnabledMetadataKey,
         aiAgentToolAccessSourceMetadataKey,
-        aiAgentToolAllowedAgentIdsMetadataKey;
+        aiAgentToolAllowedAgentIdsMetadataKey,
+        kAiReadOnlyBuiltinToolKinds;
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -62,6 +62,7 @@ const Set<AiBuiltinToolKind> _agentWorkerBlockedBuiltinKinds =
       AiBuiltinToolKind.askUserChoice,
       ...aiAgentBuiltinToolKinds,
     };
+
 /// 数字员工 worker 的默认工具：只读集合再加上知识库检索。
 const Set<AiBuiltinToolKind> _agentWorkerDefaultBuiltinKinds =
     <AiBuiltinToolKind>{

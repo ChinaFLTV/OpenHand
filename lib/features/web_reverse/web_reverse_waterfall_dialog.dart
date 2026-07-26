@@ -75,16 +75,13 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     switch (_sort) {
       case _SortMode.time:
         list.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-        break;
       case _SortMode.duration:
         list.sort((a, b) => _duration(b).compareTo(_duration(a)));
-        break;
       case _SortMode.size:
         list.sort(
           (a, b) =>
               (b.encodedDataLength ?? 0).compareTo(a.encodedDataLength ?? 0),
         );
-        break;
     }
     return list;
   }

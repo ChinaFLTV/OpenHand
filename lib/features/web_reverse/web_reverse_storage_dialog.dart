@@ -89,7 +89,6 @@ class _StorageDialogState extends State<_StorageDialog>
       switch (activeTab) {
         case 0:
           cookies = await widget.controller.listCookies();
-          break;
         case 1:
           local = resolvedOrigin == null
               ? const []
@@ -97,7 +96,6 @@ class _StorageDialogState extends State<_StorageDialog>
                   origin: resolvedOrigin,
                   isLocalStorage: true,
                 );
-          break;
         case 2:
           session = resolvedOrigin == null
               ? const []
@@ -105,10 +103,8 @@ class _StorageDialogState extends State<_StorageDialog>
                   origin: resolvedOrigin,
                   isLocalStorage: false,
                 );
-          break;
         case 3:
           idbDbs = await widget.controller.listIndexedDbNames();
-          break;
       }
 
       if (!mounted || generation != _refreshGeneration) return;

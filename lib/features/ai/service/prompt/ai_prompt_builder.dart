@@ -1194,7 +1194,6 @@ class AiPromptBuilder {
             ),
           );
         }
-        break;
       case AiMessageContentFormat.html:
         final htmlPrompt = AiOutputFormatPrompts.htmlFor(
           runtimeContext.htmlContentRichness,
@@ -1216,7 +1215,6 @@ class AiPromptBuilder {
             ),
           );
         }
-        break;
     }
     return turns;
   }

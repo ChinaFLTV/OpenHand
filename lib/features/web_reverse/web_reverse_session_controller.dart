@@ -4157,16 +4157,12 @@ class WebReverseSessionController extends ChangeNotifier {
     switch (method) {
       case 'CSS.enable':
         _cssEnabled = true;
-        break;
       case 'CSS.disable':
         _cssEnabled = false;
-        break;
       case 'Performance.enable':
         _performanceEnabled = true;
-        break;
       case 'Performance.disable':
         _performanceEnabled = false;
-        break;
     }
   }
 
@@ -4180,14 +4176,12 @@ class WebReverseSessionController extends ChangeNotifier {
           _cacheDisabled = disabled;
           changed = true;
         }
-        break;
       case 'Network.emulateNetworkConditions':
         final next = WebReverseNetworkConditions.fromCdpParams(params);
         if (_networkConditions != next) {
           _networkConditions = next;
           changed = true;
         }
-        break;
       case 'Network.setExtraHTTPHeaders':
         final headers = params['headers'];
         if (headers is Map) {
@@ -4201,7 +4195,6 @@ class WebReverseSessionController extends ChangeNotifier {
             ..addAll(normalized);
           changed = true;
         }
-        break;
       case 'Network.setBlockedURLs':
         final urls = params['urls'];
         if (urls is List) {
@@ -4216,7 +4209,6 @@ class WebReverseSessionController extends ChangeNotifier {
             ..addAll(normalized);
           changed = true;
         }
-        break;
     }
     if (changed) _safeNotify();
   }
@@ -9143,13 +9135,11 @@ Map<String, Object?>? _normalizeRecorderStep(Map<String, Object?> step) {
       );
       if (text.isNotEmpty) normalized['text'] = text;
       if (step['doubleClick'] == true) normalized['doubleClick'] = true;
-      break;
     case 'input':
       normalized['value'] = _capPlainWebReverseText(
         '${step['value'] ?? ''}',
         WebReverseSessionController.maxRecorderStepTextChars,
       );
-      break;
     case 'change':
       final value = step['value'];
       normalized['value'] = value == null || value is bool || value is num
@@ -9158,13 +9148,11 @@ Map<String, Object?>? _normalizeRecorderStep(Map<String, Object?> step) {
               '$value',
               WebReverseSessionController.maxRecorderStepTextChars,
             );
-      break;
     case 'assertText':
       normalized['expected'] = _capPlainWebReverseText(
         '${step['expected'] ?? ''}',
         WebReverseSessionController.maxRecorderStepTextChars,
       );
-      break;
     case 'assertVisible':
       break;
     case 'navigate':

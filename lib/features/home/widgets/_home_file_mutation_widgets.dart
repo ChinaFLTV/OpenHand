@@ -1069,21 +1069,16 @@ class _FileMutationCardRow extends StatelessWidget {
         if (context.mounted) {
           unawaited(_revealFileMutationPath(context, view.record.filePath));
         }
-        break;
       case 'copyPath':
         if (context.mounted) {
           _copyPathToClipboard(context, view.record.filePath);
         }
-        break;
       case 'copyDiff':
         onCopyDiff();
-        break;
       case 'inspector':
         onOpenInspector();
-        break;
       case 'diff':
         onOpenLegacyDialog();
-        break;
     }
   }
 
@@ -3891,13 +3886,10 @@ class _RoundFileMutationSummaryCardState
       switch (r.view.record.kind) {
         case FileMutationKind.create:
           created += 1;
-          break;
         case FileMutationKind.modify:
           modified += 1;
-          break;
         case FileMutationKind.delete:
           deleted += 1;
-          break;
       }
     }
     final totalLineDelta = _sumFileMutationLineDeltas(

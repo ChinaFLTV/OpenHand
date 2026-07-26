@@ -445,17 +445,14 @@ extension on _SettingsViewState {
     switch (result.action) {
       case _EditorLspConfigAction.reset:
         await _resetEditorLspSettings(context, language);
-        break;
       case _EditorLspConfigAction.uninstall:
         await _uninstallEditorLsp(
           context,
           language,
           targetRoot: result.settings.rootPath,
         );
-        break;
       case _EditorLspConfigAction.save:
         await _saveEditorLspConfig(context, language, result.settings);
-        break;
       case _EditorLspConfigAction.install:
         await _saveEditorLspConfig(
           context,
@@ -464,7 +461,6 @@ extension on _SettingsViewState {
           installBackend: result.backend,
           startInstall: true,
         );
-        break;
     }
   }
 

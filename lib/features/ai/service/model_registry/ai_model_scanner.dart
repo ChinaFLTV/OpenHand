@@ -777,7 +777,6 @@ class _ScanErrorMessages {
               '· Confirm that the Base URL matches the protocol type (for example, Claude-compatible endpoints should usually point to /v1)\n'
               '· Check for invalid characters in custom headers',
         );
-        break;
       case 401:
         title = StructuredErrorText.pick(
           zh: '鉴权失败 (401)',
@@ -794,7 +793,6 @@ class _ScanErrorMessages {
               '· Regenerate the credential in the relay console\n'
               '· Confirm that the authentication scheme (Bearer / X-API-Key) matches the relay requirements',
         );
-        break;
       case 403:
         title = StructuredErrorText.pick(
           zh: '访问被拒 (403)',
@@ -819,7 +817,6 @@ class _ScanErrorMessages {
               '· Retry from another network or region\n'
               '· Ask the relay provider to verify the account status',
         );
-        break;
       case 404:
         title = StructuredErrorText.pick(
           zh: '端点不存在 (404)',
@@ -835,7 +832,6 @@ class _ScanErrorMessages {
               '· Enter the model ID manually in the model field\n'
               '· Check whether the Base URL should omit an extra /v1 suffix',
         );
-        break;
       case 405:
         title = StructuredErrorText.pick(
           zh: '方法不被允许 (405)',
@@ -849,7 +845,6 @@ class _ScanErrorMessages {
           zh: '· 在「手动添加模型 ID」处录入模型名继续配置',
           en: '· Enter the model ID manually and continue configuring the model',
         );
-        break;
       case 408:
         title = StructuredErrorText.pick(
           zh: '服务端超时 (408)',
@@ -863,7 +858,6 @@ class _ScanErrorMessages {
           zh: '· 稍后重试\n· 切换网络后再试',
           en: '· Retry later\n· Try again from another network',
         );
-        break;
       case 429:
         title = StructuredErrorText.pick(
           zh: '触发限流 (429)',
@@ -880,7 +874,6 @@ class _ScanErrorMessages {
               '· Check quota or balance in the relay console\n'
               '· Upgrade the plan or switch to another token',
         );
-        break;
       case 500:
         title = StructuredErrorText.pick(
           zh: '服务端内部错误 (500)',
@@ -896,7 +889,6 @@ class _ScanErrorMessages {
               '· Retry later\n'
               '· Ask the relay provider to check service status',
         );
-        break;
       case 502:
         title = StructuredErrorText.pick(
           zh: '网关异常 (502)',
@@ -912,7 +904,6 @@ class _ScanErrorMessages {
               '· Retry later\n'
               '· Ask the relay provider to verify the upstream connection',
         );
-        break;
       case 503:
         title = StructuredErrorText.pick(
           zh: '服务不可用 (503)',
@@ -928,7 +919,6 @@ class _ScanErrorMessages {
               '· Retry later\n'
               '· Check announcements from the relay provider',
         );
-        break;
       case 504:
         title = StructuredErrorText.pick(
           zh: '网关超时 (504)',
@@ -944,7 +934,6 @@ class _ScanErrorMessages {
               '· Retry later\n'
               '· Switch to another relay or network and try again',
         );
-        break;
       default:
         if (isAuth) {
           title = StructuredErrorText.pick(

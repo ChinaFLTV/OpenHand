@@ -3638,34 +3638,27 @@ String? _translationProviderReadinessError(
           missing.add(openHandLocalizedText(context, zh: '可用模型', en: 'models'));
         }
       }
-      break;
     case AiTranslationProvider.youdao:
       requireField(settings.apiKey, 'API Key');
       requireField(settings.apiSecret, 'API Secret');
-      break;
     case AiTranslationProvider.google:
       requireField(settings.apiKey, 'API Key');
-      break;
     case AiTranslationProvider.bing:
       requireField(settings.apiKey, 'Subscription Key');
-      break;
     case AiTranslationProvider.apple:
       requireField(
         settings.endpoint,
         openHandLocalizedText(context, zh: '桥接服务地址', en: 'bridge endpoint'),
       );
-      break;
     case AiTranslationProvider.baidu:
       requireField(settings.appId, 'App ID');
       requireField(settings.apiSecret, 'Secret Key');
-      break;
     case AiTranslationProvider.doubao:
       if (settings.apiKey.trim().isEmpty &&
           (settings.appId.trim().isEmpty ||
               settings.apiSecret.trim().isEmpty)) {
         missing.add('API Key / App ID + Access Key');
       }
-      break;
   }
   if (missing.isEmpty) return null;
   return openHandLocalizedText(
@@ -4141,7 +4134,6 @@ String? _ttsProviderReadinessError(
           openHandLocalizedText(context, zh: '有效语音模型', en: 'valid model'),
         );
       }
-      break;
     case AiTtsProvider.system:
     case AiTtsProvider.apple:
       break;
@@ -4149,29 +4141,23 @@ String? _ttsProviderReadinessError(
       requireField(settings.appId, 'App ID');
       requireField(settings.apiKey, 'API Key');
       requireField(settings.apiSecret, 'API Secret');
-      break;
     case AiTtsProvider.youdao:
       requireField(settings.apiKey, 'API Key');
       requireField(settings.apiSecret, 'API Secret');
-      break;
     case AiTtsProvider.bing:
       requireField(settings.apiKey, 'Subscription Key');
       if (settings.region.trim().isEmpty && settings.endpoint.trim().isEmpty) {
         missing.add(_settingsHelperRegionLabel(context));
       }
-      break;
     case AiTtsProvider.google:
       requireField(settings.apiKey, 'API Key');
-      break;
     case AiTtsProvider.baidu:
       if (settings.accessToken.trim().isEmpty) {
         requireField(settings.apiKey, 'API Key');
         requireField(settings.apiSecret, 'Secret Key');
       }
-      break;
     case AiTtsProvider.doubao:
       requireField(settings.apiKey, 'API Key');
-      break;
     case AiTtsProvider.mimo:
       requireField(settings.apiKey, 'API Key');
       if (_mimoUsesPresetVoice(settings) && settings.voice.trim().isEmpty) {
@@ -4181,7 +4167,6 @@ String? _ttsProviderReadinessError(
           '${settings.extra['voice_sample_path'] ?? ''}'.trim().isEmpty) {
         missing.add(_settingsHelperCloneSamplePathLabel(context));
       }
-      break;
   }
   if (missing.isEmpty) return null;
   return openHandLocalizedText(

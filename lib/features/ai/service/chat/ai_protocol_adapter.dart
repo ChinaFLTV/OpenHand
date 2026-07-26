@@ -3018,7 +3018,6 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
             seenUsers++;
           }
         }
-        break;
       case 'tokens':
         // 粗略以累计 char 长度模拟 token 累计，跨过 interval 即落点。
         var charAcc = 0;
@@ -3029,13 +3028,11 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
             charAcc = 0;
           }
         }
-        break;
       case 'allMessages':
       default:
         for (var i = requestMessages.length - 1; i >= 0; i -= interval) {
           candidates.add(i);
         }
-        break;
     }
     for (final index in candidates) {
       if (selected.length >= budget) break;

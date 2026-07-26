@@ -8621,13 +8621,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           duration: kOpenHandSnackBarLongReadDuration,
           maxLines: 2,
         );
-        break;
       case ExportResultKind.cancelled:
         showOpenHandInfoSnack(
           ctx,
           openHandLocalizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.'),
         );
-        break;
       case ExportResultKind.failure:
         final reason = result.error?.toString() ?? 'unknown error';
         showOpenHandErrorSnack(
@@ -8640,7 +8638,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           duration: kOpenHandSnackBarLongReadDuration,
           maxLines: 2,
         );
-        break;
     }
   }
 

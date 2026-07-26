@@ -364,7 +364,6 @@ class AiTransportDiagnosticMessages {
               '· Check that the Base URL matches the protocol\n'
               '· Reduce message length or attachment count and try again',
         );
-        break;
       case 401:
         title =
             '${_text(zh: '鉴权失败 (401)', en: 'Authentication failed (401)')}$hintSuffix$labelSuffix';
@@ -378,7 +377,6 @@ class AiTransportDiagnosticMessages {
               '· Make sure the API key or token was pasted correctly with no surrounding spaces\n'
               '· Regenerate the credential in the relay console',
         );
-        break;
       case 403:
         title =
             '${_text(zh: '访问被拒 (403)', en: 'Forbidden (403)')}$hintSuffix$labelSuffix';
@@ -392,7 +390,6 @@ class AiTransportDiagnosticMessages {
               '· Check account balance and permissions in the relay console\n'
               '· Retry from another network or through a VPN',
         );
-        break;
       case 404:
         title =
             '${_text(zh: '端点不存在 (404)', en: 'Endpoint not found (404)')}$hintSuffix$labelSuffix';
@@ -406,7 +403,6 @@ class AiTransportDiagnosticMessages {
               '· Recheck the Base URL and model ID\n'
               '· Open the relay console and inspect the list of available models',
         );
-        break;
       case 408:
         title =
             '${_text(zh: '服务端超时 (408)', en: 'Server timeout (408)')}$hintSuffix$labelSuffix';
@@ -418,7 +414,6 @@ class AiTransportDiagnosticMessages {
           zh: '· 稍后重试\n· 切换网络后再试',
           en: '· Retry later\n· Try again from another network',
         );
-        break;
       case 413:
         title =
             '${_text(zh: '请求体过大 (413)', en: 'Payload too large (413)')}$hintSuffix$labelSuffix';
@@ -432,7 +427,6 @@ class AiTransportDiagnosticMessages {
               '· Reduce attachment count or size\n'
               '· Shorten the context and summarize older messages first if needed',
         );
-        break;
       case 429:
         title =
             '${_text(zh: '触发限流 (429)', en: 'Rate limited (429)')}$hintSuffix$labelSuffix';
@@ -446,7 +440,6 @@ class AiTransportDiagnosticMessages {
               '· Wait a few minutes and try again\n'
               '· Check quota or balance in the relay console',
         );
-        break;
       case 500:
         title =
             '${_text(zh: '服务端内部错误 (500)', en: 'Server error (500)')}$hintSuffix$labelSuffix';
@@ -460,7 +453,6 @@ class AiTransportDiagnosticMessages {
               '· Retry later\n'
               '· Ask the relay provider to check service status',
         );
-        break;
       case 502:
         title =
             '${_text(zh: '网关异常 (502)', en: 'Bad gateway (502)')}$hintSuffix$labelSuffix';
@@ -474,7 +466,6 @@ class AiTransportDiagnosticMessages {
               '· Retry later\n'
               '· Ask the relay provider to verify the upstream connection',
         );
-        break;
       case 503:
         title =
             '${_text(zh: '服务不可用 (503)', en: 'Service unavailable (503)')}$hintSuffix$labelSuffix';
@@ -488,7 +479,6 @@ class AiTransportDiagnosticMessages {
               '· Retry later\n'
               '· Check announcements from the relay provider',
         );
-        break;
       case 504:
         title =
             '${_text(zh: '网关超时 (504)', en: 'Gateway timeout (504)')}$hintSuffix$labelSuffix';
@@ -502,7 +492,6 @@ class AiTransportDiagnosticMessages {
               '· Retry later\n'
               '· Switch to another relay or shorten the context before trying again',
         );
-        break;
       default:
         if (code >= 500) {
           title =

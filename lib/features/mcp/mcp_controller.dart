@@ -15,10 +15,10 @@ import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart'
     show
+        AiAuthScheme,
         AiBuiltinToolConfig,
         AiBuiltinToolKind,
         AiModelConfig,
-        AiAuthScheme,
         AiProtocolType,
         AiResolvedTool,
         AiResolvedToolCatalog,

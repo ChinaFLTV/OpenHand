@@ -192,7 +192,6 @@ class WebReverseHeadlessBatch {
         switch (ev.method) {
           case 'Page.loadEventFired':
             if (!loadCompleter.isCompleted) loadCompleter.complete();
-            break;
           case 'Network.responseReceived':
             final resp = ev.params['response'];
             if (resp is Map) {
@@ -218,7 +217,6 @@ class WebReverseHeadlessBatch {
                 'encoded_len': r['encodedDataLength'],
               });
             }
-            break;
           case 'Network.loadingFailed':
             if (networkResponses.length >=
                 kWebReverseHeadlessBatchMaxNetworkEventsPerUrl) {
@@ -231,7 +229,6 @@ class WebReverseHeadlessBatch {
               'error_text': ev.params['errorText'],
               'type': ev.params['type'],
             });
-            break;
           case 'Runtime.consoleAPICalled':
           case 'Log.entryAdded':
             if (consoleEntries.length >=
@@ -269,7 +266,6 @@ class WebReverseHeadlessBatch {
                   text.length > kWebReverseHeadlessBatchMaxConsoleTextChars,
               'ts': DateTime.now().toIso8601String(),
             });
-            break;
         }
       });
 

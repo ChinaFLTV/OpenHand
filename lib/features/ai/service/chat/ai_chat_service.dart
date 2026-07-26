@@ -581,14 +581,12 @@ class AiChatService implements AiChatClient {
             '当前模型 "${model.modelId}" 不具备视频生成能力，请切换到具备视频生成能力的模型后再试。',
           );
         }
-        break;
       case AiCreationMode.audio:
         if (!AiImageGenerationService.supportsAudioGenerationForModel(model)) {
           throw AiChatException(
             '当前模型 "${model.modelId}" 不具备音频生成能力，请切换到具备音频生成能力的模型后再试。',
           );
         }
-        break;
       case AiCreationMode.image:
       case AiCreationMode.none:
       case AiCreationMode.deepResearch:

@@ -298,7 +298,6 @@ class SystemProxyResolver {
           final trimmed = nullIfBlank(pattern);
           if (trimmed != null) exceptions.add(trimmed);
         }
-        break;
       case AppProxyMode.automatic:
         httpEndpoint = _normalizedProxyEndpoint(_httpProxy);
         httpsEndpoint = _normalizedProxyEndpoint(_httpsProxy);
@@ -311,7 +310,6 @@ class SystemProxyResolver {
         for (final pattern in _noProxyHosts) {
           if (pattern.isNotEmpty) exceptions.add(pattern);
         }
-        break;
     }
 
     final result = <String, String>{};

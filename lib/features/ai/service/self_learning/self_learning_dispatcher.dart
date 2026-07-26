@@ -293,7 +293,6 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
                 progress(aiResponse: responseBuffer.toString());
               }
             }
-            break;
           case AiChatStreamEventType.reasoningDelta:
             if (event.reasoningDelta != null) {
               roundReasoning.write(event.reasoningDelta);
@@ -302,7 +301,6 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
                 progress(aiReasoning: reasoningBuffer.toString());
               }
             }
-            break;
           case AiChatStreamEventType.toolCallDelta:
           case AiChatStreamEventType.usage:
             break;

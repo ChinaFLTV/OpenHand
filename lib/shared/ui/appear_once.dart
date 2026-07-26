@@ -264,10 +264,8 @@ class SettingsAwareAppearOnce extends StatelessWidget {
     switch (settings.entranceStyle) {
       case DialogAnimationStyle.slideUp:
         slide = 12.0;
-        break;
       case DialogAnimationStyle.slideDown:
         slide = -12.0;
-        break;
       case DialogAnimationStyle.fade:
       case DialogAnimationStyle.fadeScale:
       case DialogAnimationStyle.expand:
@@ -278,7 +276,6 @@ class SettingsAwareAppearOnce extends StatelessWidget {
       case DialogAnimationStyle.slideLeft:
       case DialogAnimationStyle.slideRight:
         slide = 0.0;
-        break;
       case DialogAnimationStyle.none:
         return child;
     }

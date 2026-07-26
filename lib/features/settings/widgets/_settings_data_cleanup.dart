@@ -247,52 +247,37 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       switch (category) {
         case DataCleanupCategory.multimedia:
           await _service.cleanMultimedia();
-          break;
         case DataCleanupCategory.sessions:
           await _service.cleanSessions();
-          break;
         case DataCleanupCategory.appCache:
           await _service.cleanAppCache();
-          break;
         case DataCleanupCategory.logs:
           await _service.cleanLogs();
-          break;
         case DataCleanupCategory.userMemory:
           await _service.cleanUserMemory();
-          break;
         case DataCleanupCategory.mcpConfig:
           await _service.cleanMcpConfig();
-          break;
         case DataCleanupCategory.mcpOpsCache:
           await _service.cleanMcpOpsCache();
-          break;
         case DataCleanupCategory.webGatewayOpsCache:
           await _service.cleanWebGatewayOpsCache();
-          break;
         case DataCleanupCategory.hooks:
           await _service.cleanHooks();
-          break;
         case DataCleanupCategory.crons:
           await _service.cleanCrons();
-          break;
         case DataCleanupCategory.instructions:
           await _service.cleanInstructions();
-          break;
         case DataCleanupCategory.skillsDirectory:
           await _service.cleanSkillsDirectory();
-          break;
         case DataCleanupCategory.lspDirectory:
           await _service.cleanLspDirectory();
-          break;
         case DataCleanupCategory.fileMutationLedger:
           await _service.cleanMutationLedger();
-          break;
         case DataCleanupCategory.wipeAll:
           final errors = await _service.cleanAll();
           if (errors > 0) {
             errorText = partialFailureTemplate.replaceAll('{count}', '$errors');
           }
-          break;
       }
     } catch (error, stack) {
       silentLog('data_cleanup', '清理/${category.name}', error, stack);

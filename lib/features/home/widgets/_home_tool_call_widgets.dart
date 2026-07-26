@@ -1864,17 +1864,14 @@ class _ToolCacheChip extends StatelessWidget {
         icon = Icons.flash_on_rounded;
         label = hitLabel;
         tint = cs.primary;
-        break;
       case 'miss-stored':
         icon = Icons.cloud_download_outlined;
         label = '已落盘';
         tint = cs.tertiary;
-        break;
       case 'disabled':
         icon = Icons.do_disturb_alt_outlined;
         label = '缓存关闭';
         tint = cs.onSurfaceVariant;
-        break;
       default:
         icon = Icons.help_outline;
         label = '$unknownLabelPrefix：$status';
