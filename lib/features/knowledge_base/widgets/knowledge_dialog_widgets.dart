@@ -757,15 +757,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '删除',
-              zhHant: '刪除',
-              en: 'Delete',
-              fr: 'Supprimer',
-              de: 'Löschen',
-              ja: '削除',
-            ),
+            tooltip: openHandDeleteLabel(context),
             onPressed: busy ? null : onDelete,
             icon: const Icon(Icons.delete_outline_rounded),
           ),

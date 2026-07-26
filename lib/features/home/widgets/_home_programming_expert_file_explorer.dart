@@ -750,15 +750,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ja: '"${node.name}" を削除しますか？この操作は元に戻せません。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '删除',
-        zhHant: '刪除',
-        en: 'Delete',
-        fr: 'Supprimer',
-        de: 'Löschen',
-        ja: '削除',
-      ),
+      confirmLabel: openHandDeleteLabel(context),
       destructive: true,
     );
     if (confirmed != true) return;

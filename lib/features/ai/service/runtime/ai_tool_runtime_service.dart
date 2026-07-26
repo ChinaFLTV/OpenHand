@@ -106,6 +106,29 @@ const List<Object?> _agentToolTaskSelectorAnyOf = <Object?>[
     'required': <String>['id'],
   },
 ];
+
+/// 任务选择器入参：二选一，与 [_agentToolTaskSelectorAnyOf] 配套。
+const Map<String, Object?> _agentToolTaskSelectorProperties = <String, Object?>{
+  'task_id': <String, Object?>{'type': 'string'},
+  'id': <String, Object?>{
+    'type': 'string',
+    'description': 'Alias for task_id.',
+  },
+};
+
+/// 任务级工具的完整定位入参：数字员工三选一 + 任务标识二选一。
+const Map<String, Object?> _agentToolAgentTaskSelectorProperties =
+    <String, Object?>{
+      ..._agentToolAgentSelectorProperties,
+      ..._agentToolTaskSelectorProperties,
+    };
+
+/// 任务进度：归一化到 0~1。
+const Map<String, Object?> _agentToolProgressSchema = <String, Object?>{
+  'type': 'number',
+  'minimum': 0,
+  'maximum': 1,
+};
 const List<Object?> _agentToolAgentTaskAllOf = <Object?>[
   <String, Object?>{'anyOf': _agentToolAgentSelectorAnyOf},
   <String, Object?>{'anyOf': _agentToolTaskSelectorAnyOf},
@@ -4436,11 +4459,7 @@ class AiToolRuntimeService {
             'type': 'string',
             'enum': <String>['tracking', 'at_risk', 'done', 'paused'],
           },
-          'progress': <String, Object?>{
-            'type': 'number',
-            'minimum': 0,
-            'maximum': 1,
-          },
+          'progress': _agentToolProgressSchema,
           ..._agentToolLabelProperties,
           'extra': _agentToolExtraSchema,
         },
@@ -4703,14 +4722,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{
-            'type': 'string',
-            'description': 'Alias for task_id.',
-          },
+          ..._agentToolAgentTaskSelectorProperties,
         },
         'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
@@ -4724,11 +4736,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
         },
         'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
@@ -4742,11 +4750,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
           'note': <String, Object?>{'type': 'string'},
           'result': <String, Object?>{'type': 'string'},
           'extra': _agentToolExtraSchema,
@@ -4763,17 +4767,9 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
           'note': <String, Object?>{'type': 'string'},
-          'progress': <String, Object?>{
-            'type': 'number',
-            'minimum': 0,
-            'maximum': 1,
-          },
+          'progress': _agentToolProgressSchema,
           'extra': _agentToolExtraSchema,
         },
         'allOf': _agentToolAgentTaskAllOf,
@@ -4788,18 +4784,10 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
           'note': <String, Object?>{'type': 'string'},
           'result': <String, Object?>{'type': 'string'},
-          'progress': <String, Object?>{
-            'type': 'number',
-            'minimum': 0,
-            'maximum': 1,
-          },
+          'progress': _agentToolProgressSchema,
           'extra': _agentToolExtraSchema,
         },
         'allOf': _agentToolAgentTaskAllOf,
@@ -4813,11 +4801,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
           'note': <String, Object?>{'type': 'string'},
           'extra': _agentToolExtraSchema,
         },
@@ -4833,11 +4817,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
           'result': <String, Object?>{
             'type': 'string',
             'description': 'Final task result or handoff summary.',
@@ -4858,11 +4838,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{'type': 'string'},
-          'task_id': <String, Object?>{'type': 'string'},
-          'id': <String, Object?>{'type': 'string'},
+          ..._agentToolAgentTaskSelectorProperties,
           'wait_ms': <String, Object?>{
             'type': 'integer',
             'minimum': 0,

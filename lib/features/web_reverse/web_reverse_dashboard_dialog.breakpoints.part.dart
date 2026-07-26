@@ -1355,15 +1355,7 @@ class _BpRow extends StatelessWidget {
               onPressed: onEditCondition,
             ),
           IconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '删除',
-              zhHant: '刪除',
-              en: 'Delete',
-              fr: 'Supprimer',
-              de: 'Löschen',
-              ja: '削除',
-            ),
+            tooltip: openHandDeleteLabel(context),
             icon: Icon(Icons.close_rounded, size: 16, color: cs.error),
             onPressed: onDelete,
           ),

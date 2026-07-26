@@ -922,15 +922,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                           PopupMenuItem<_KnowledgeCardAction>(
                                             value: _KnowledgeCardAction.delete,
                                             child: Text(
-                                              openHandLocalizedText(
-                                                context,
-                                                zh: '删除',
-                                                zhHant: '刪除',
-                                                en: 'Delete',
-                                                fr: 'Supprimer',
-                                                de: 'Löschen',
-                                                ja: '削除',
-                                              ),
+                                              openHandDeleteLabel(context),
                                               style: TextStyle(
                                                 color: colorScheme.error,
                                                 fontWeight: FontWeight.w700,
@@ -1007,15 +999,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
         de: 'Löscht SQLite-Metadaten und Chunks und versucht, die Vektoren dieser Quelle aus Qdrant zu entfernen. Die Originaldatei bleibt erhalten.',
         ja: 'SQLite メタデータとチャンクを削除し、Qdrant からこのソースのベクトル削除を試みます。元ファイルは削除されません。',
       ),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '删除',
-        zhHant: '刪除',
-        en: 'Delete',
-        fr: 'Supprimer',
-        de: 'Löschen',
-        ja: '削除',
-      ),
+      confirmLabel: openHandDeleteLabel(context),
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;

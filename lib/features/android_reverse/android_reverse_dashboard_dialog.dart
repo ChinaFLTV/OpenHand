@@ -3219,6 +3219,24 @@ fi
     );
   }
 
+  /// 各面板统一的「复制结果」按钮；[text] 为空白时自动置灰。
+  Widget _copyResultButton(String text) {
+    final payload = text.trim();
+    return _DashboardActionButton(
+      onPressed: payload.isEmpty ? null : () => _copyText(payload),
+      icon: const Icon(Icons.copy_rounded),
+      label: openHandLocalizedText(
+        context,
+        zh: '复制结果',
+        zhHant: '複製結果',
+        en: 'Copy result',
+        fr: 'Copier le résultat',
+        de: 'Ergebnis kopieren',
+        ja: '結果をコピー',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -5873,19 +5891,7 @@ fi
                 ),
               ),
               if (_evidenceBundleOutput?.trim().isNotEmpty ?? false)
-                _DashboardActionButton(
-                  onPressed: () => _copyText(_evidenceBundleOutput!.trim()),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '复制结果',
-                    zhHant: '複製結果',
-                    en: 'Copy result',
-                    fr: 'Copier le résultat',
-                    de: 'Ergebnis kopieren',
-                    ja: '結果をコピー',
-                  ),
-                ),
+                _copyResultButton(_evidenceBundleOutput!.trim()),
             ],
           ),
           if (_evidenceBundleOutput?.trim().isNotEmpty ?? false) ...[
@@ -7256,15 +7262,7 @@ fi
         ja: '${server.name} を OpenHand MCP 設定から削除します。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '删除',
-        zhHant: '刪除',
-        en: 'Delete',
-        fr: 'Supprimer',
-        de: 'Löschen',
-        ja: '削除',
-      ),
+      confirmLabel: openHandDeleteLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -8574,15 +8572,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.save_alt_rounded),
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '保存',
-                      zhHant: '儲存',
-                      en: 'Save',
-                      fr: 'Enregistrer',
-                      de: 'Speichern',
-                      ja: '保存',
-                    ),
+                    label: openHandSaveLabel(context),
                   ),
                   _DashboardActionButton(
                     onPressed: _logcatLines.isEmpty
@@ -9286,19 +9276,7 @@ fi
                 ),
               ),
               if (addonOutput != null && addonOutput.isNotEmpty)
-                _DashboardActionButton(
-                  onPressed: () => _copyText(addonOutput),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '复制结果',
-                    zhHant: '複製結果',
-                    en: 'Copy result',
-                    fr: 'Copier le résultat',
-                    de: 'Ergebnis kopieren',
-                    ja: '結果をコピー',
-                  ),
-                ),
+                _copyResultButton(addonOutput),
             ],
           ),
           const SizedBox(height: 12),
@@ -9586,19 +9564,7 @@ fi
                 ),
               ),
               if (scanOutput != null && scanOutput.isNotEmpty) ...[
-                _DashboardActionButton(
-                  onPressed: () => _copyText(scanOutput),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '复制结果',
-                    zhHant: '複製結果',
-                    en: 'Copy result',
-                    fr: 'Copier le résultat',
-                    de: 'Ergebnis kopieren',
-                    ja: '結果をコピー',
-                  ),
-                ),
+                _copyResultButton(scanOutput),
               ],
             ],
           ),
@@ -9741,19 +9707,7 @@ fi
                 ),
               ),
               if (artifactOutput != null && artifactOutput.isNotEmpty)
-                _DashboardActionButton(
-                  onPressed: () => _copyText(artifactOutput),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '复制结果',
-                    zhHant: '複製結果',
-                    en: 'Copy result',
-                    fr: 'Copier le résultat',
-                    de: 'Ergebnis kopieren',
-                    ja: '結果をコピー',
-                  ),
-                ),
+                _copyResultButton(artifactOutput),
             ],
           ),
           const SizedBox(height: 12),
@@ -9927,21 +9881,7 @@ fi
                   ja: 'JWT デコード',
                 ),
               ),
-              _DashboardActionButton(
-                onPressed: _cryptoCopyValue.isEmpty
-                    ? null
-                    : () => _copyText(_cryptoCopyValue),
-                icon: const Icon(Icons.copy_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '复制结果',
-                  zhHant: '複製結果',
-                  en: 'Copy result',
-                  fr: 'Copier le résultat',
-                  de: 'Ergebnis kopieren',
-                  ja: '結果をコピー',
-                ),
-              ),
+              _copyResultButton(_cryptoCopyValue),
             ],
             alignment: Alignment.centerLeft,
             wrapAlignment: WrapAlignment.start,

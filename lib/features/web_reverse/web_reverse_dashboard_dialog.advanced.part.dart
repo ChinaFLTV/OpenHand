@@ -176,7 +176,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '原始 CDP method + JSON params；power-user 逃生通道',
           en: 'Raw CDP method + JSON params; power-user escape hatch',
           fr: 'Method CDP brut + params JSON pour usages avances',
-          de: 'Rohe CDP-Method + JSON-Parameter fur Power-User',
+          de: 'Rohe CDP-Method + JSON-Parameter für Power-User',
           ja: 'Raw CDP method + JSON params の上級者向け入口',
         ),
         onTap: () async {
@@ -323,7 +323,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '注入 RTCPeerConnection hook，抓 SDP / ICE / Track 事件',
           en: 'Hook RTCPeerConnection to capture SDP / ICE / Track events',
           fr: 'Hook RTCPeerConnection pour capturer SDP / ICE / Track',
-          de: 'Hookt RTCPeerConnection fur SDP-, ICE- und Track-Events',
+          de: 'Hookt RTCPeerConnection für SDP-, ICE- und Track-Events',
           ja: 'RTCPeerConnection hook を注入し SDP / ICE / Track イベントを取得します',
         ),
         onTap: () async {
@@ -421,7 +421,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '儲存 cookies + storage → 一鍵在不同帳號間切換',
           en: 'Save cookies + storage → one-click switch between accounts',
           fr: 'Sauve cookies + storage pour changer de compte en un clic',
-          de: 'Speichert Cookies + Storage fur Account-Wechsel per Klick',
+          de: 'Speichert Cookies + Storage für Account-Wechsel per Klick',
           ja: 'cookies + storage を保存し、アカウントをワンクリックで切り替えます',
         ),
         onTap: () async {
@@ -496,7 +496,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '代理 window.WebSocket → 選中連線 → 注入任意文字影格',
           en: 'Proxy window.WebSocket → pick a socket → inject any text frame',
           fr: 'Proxy window.WebSocket → choisir une connexion → injecter du texte',
-          de: 'Proxy fur window.WebSocket → Socket wahlen → Text-Frame injizieren',
+          de: 'Proxy für window.WebSocket → Socket wählen → Text-Frame injizieren',
           ja: 'window.WebSocket をプロキシし、接続を選んで任意のテキストフレームを注入します',
         ),
         onTap: () async {
@@ -519,7 +519,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: 'URL 通配命中 → 自訂 status/headers/body 直接返回',
           en: 'URL match → return canned status/headers/body',
           fr: 'Match URL → renvoie status/headers/body definis',
-          de: 'URL-Treffer → gibt vordefinierte status/headers/body zuruck',
+          de: 'URL-Treffer → gibt vordefinierte status/headers/body zurück',
           ja: 'URL 一致でカスタム status/headers/body を直接返します',
         ),
         onTap: () async {
@@ -534,7 +534,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '變數監視器',
           en: 'Watch Expressions',
           fr: 'Expressions surveillees',
-          de: 'Watch-Ausdrucke',
+          de: 'Watch-Ausdrücke',
           ja: '監視式',
         ),
         subtitle: tr(
@@ -542,7 +542,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '定時 Runtime.evaluate 任意 JS 表達式，記錄歷史採樣',
           en: 'Periodic Runtime.evaluate on JS expressions, history tracked',
           fr: 'Runtime.evaluate periodique sur expressions JS avec historique',
-          de: 'Periodisches Runtime.evaluate fur JS-Ausdrucke mit Historie',
+          de: 'Periodisches Runtime.evaluate für JS-Ausdrücke mit Historie',
           ja: '任意の JS 式を定期的に Runtime.evaluate し、履歴を記録します',
         ),
         onTap: () async {
@@ -566,7 +566,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
               '注入 MutationObserver → attributes/characterData/childList 時間線',
           en: 'Inject MutationObserver → timeline of all DOM changes',
           fr: 'Injecte MutationObserver pour une timeline des changements DOM',
-          de: 'Injiziert MutationObserver fur eine DOM-Anderungs-Timeline',
+          de: 'Injiziert MutationObserver für eine DOM-Änderungs-Timeline',
           ja: 'MutationObserver を注入し DOM 変更のタイムラインを記録します',
         ),
         onTap: () async {
@@ -584,7 +584,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '地理 / 時區 / 語言覆寫',
           en: 'Geo / TZ / Locale Override',
           fr: 'Override geo / TZ / locale',
-          de: 'Geo-/TZ-/Locale-Uberschreibung',
+          de: 'Geo-/TZ-/Locale-Überschreibung',
           ja: '位置 / TZ / Locale 上書き',
         ),
         subtitle: tr(
@@ -618,7 +618,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '注入虛擬 FIDO2 裝置，無物理金鑰完成 navigator.credentials 流程',
           en: 'Inject virtual FIDO2 device, complete navigator.credentials without hardware',
           fr: 'Injecte un FIDO2 virtuel pour finir navigator.credentials sans cle physique',
-          de: 'Injiziert virtuelles FIDO2-Gerät fur navigator.credentials ohne Hardware',
+          de: 'Injiziert virtuelles FIDO2-Gerät für navigator.credentials ohne Hardware',
           ja: '仮想 FIDO2 デバイスを注入し、物理キーなしで navigator.credentials を完了します',
         ),
         onTap: () async {
@@ -1136,7 +1136,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: '尺寸 / DPR / mobile flag / UA 覆寫',
           en: 'metrics / DPR / mobile / UA override',
           fr: 'metrics / DPR / mobile / override UA',
-          de: 'Metriken / DPR / mobile / UA-Uberschreibung',
+          de: 'Metriken / DPR / mobile / UA-Überschreibung',
           ja: 'metrics / DPR / mobile / UA override',
         ),
         onTap: () async {
@@ -1257,7 +1257,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           zhHant: 'OPTIONS · Allow-Origin / Methods / Headers 診斷',
           en: 'OPTIONS · diagnose Allow-Origin / Methods / Headers',
           fr: 'OPTIONS · diagnostic Allow-Origin / Methods / Headers',
-          de: 'OPTIONS · Diagnose fur Allow-Origin / Methods / Headers',
+          de: 'OPTIONS · Diagnose für Allow-Origin / Methods / Headers',
           ja: 'OPTIONS · Allow-Origin / Methods / Headers 診断',
         ),
         onTap: () async {
@@ -1452,15 +1452,7 @@ Future<void> _showExtraHeadersDialog(
         de: 'Persistente Header',
         ja: '永続 Headers 注入',
       ),
-      submitLabel: openHandLocalizedText(
-        context,
-        zh: '保存',
-        zhHant: '儲存',
-        en: 'Save',
-        fr: 'Enregistrer',
-        de: 'Speichern',
-        ja: '保存',
-      ),
+      submitLabel: openHandSaveLabel(context),
       cancelLabel: openHandCancelLabel(context),
       maxWidth: 520,
       onSubmit: (_) => true,
@@ -1477,7 +1469,7 @@ Future<void> _showExtraHeadersDialog(
                 zhHant: '每行一個 Key: Value；儲存後所有請求自動附帶，留空則清空。',
                 en: 'One header per line in `Key: Value` form; empty to clear.',
                 fr: 'Un header par ligne au format `Key: Value`; vide pour effacer.',
-                de: 'Ein Header pro Zeile im Format `Key: Value`; leer lassen zum Loschen.',
+                de: 'Ein Header pro Zeile im Format `Key: Value`; leer lassen zum Löschen.',
                 ja: '`Key: Value` 形式で 1 行 1 Header。空にするとクリアします。',
               ),
               style: Theme.of(dialogContext).textTheme.bodySmall,
@@ -1678,7 +1670,7 @@ Future<void> _showCdpPaletteDialog(
                   zhHant: '執行失敗：$error',
                   en: 'Run failed: $error',
                   fr: 'Echec de l execution : $error',
-                  de: 'Ausfuhrung fehlgeschlagen: $error',
+                  de: 'Ausführung fehlgeschlagen: $error',
                   ja: '実行に失敗しました: $error',
                 );
               }
@@ -1689,7 +1681,7 @@ Future<void> _showCdpPaletteDialog(
               zhHant: '執行',
               en: 'Run',
               fr: 'Executer',
-              de: 'Ausfuhren',
+              de: 'Ausführen',
               ja: '実行',
             ),
           ),
@@ -2242,7 +2234,7 @@ Future<void> _toggleMitmproxyBridge(
             'puis configurez le proxy client sur 127.0.0.1:8080 et faites confiance au certificat via http://mitm.it.',
         de:
             'Installieren Sie mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
-            'setzen Sie danach den Client-Proxy auf 127.0.0.1:8080 und vertrauen Sie dem Zertifikat uber http://mitm.it.',
+            'setzen Sie danach den Client-Proxy auf 127.0.0.1:8080 und vertrauen Sie dem Zertifikat über http://mitm.it.',
         ja:
             'mitmproxy をインストールしてください（macOS: brew install mitmproxy、Linux: sudo apt install mitmproxy、Windows: https://mitmproxy.org）。'
             'その後、クライアントのプロキシを 127.0.0.1:8080 に設定し、http://mitm.it でルート証明書を信頼してください。',
@@ -2270,7 +2262,7 @@ Future<void> _toggleMitmproxyBridge(
           '將以 mitmdump -p 8080 啟動；啟動後請把目標客戶端代理指向 127.0.0.1:8080。\n\n首次使用須信任根憑證：訪問 http://mitm.it 按平台說明安裝。\n\n所有抓到的請求會以 mitmproxy 資源類型出現在 Network 清單。',
       en: 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\nFirst time? Trust the CA via http://mitm.it.\n\nCaptured traffic shows up under the mitmproxy resource type.',
       fr: 'Lance mitmdump -p 8080 ; pointez le proxy client vers 127.0.0.1:8080.\n\nPremiere utilisation ? Faites confiance a la CA via http://mitm.it.\n\nLe trafic capture apparaitra comme ressource mitmproxy dans Network.',
-      de: 'Startet mitmdump -p 8080; richten Sie den Client-Proxy auf 127.0.0.1:8080.\n\nZum ersten Mal? CA uber http://mitm.it vertrauen.\n\nErfasster Traffic erscheint als mitmproxy-Ressource in Network.',
+      de: 'Startet mitmdump -p 8080; richten Sie den Client-Proxy auf 127.0.0.1:8080.\n\nZum ersten Mal? CA über http://mitm.it vertrauen.\n\nErfasster Traffic erscheint als mitmproxy-Ressource in Network.',
       ja: 'mitmdump -p 8080 で起動します。起動後、対象クライアントのプロキシを 127.0.0.1:8080 に向けてください。\n\n初回は http://mitm.it で CA を信頼してください。\n\n取得した通信は Network リストに mitmproxy リソースとして表示されます。',
     ),
     cancelLabel: openHandCancelLabel(context),
@@ -3880,7 +3872,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                     zhHant: '新增規則',
                     en: 'Add rule',
                     fr: 'Ajouter une regle',
-                    de: 'Regel hinzufugen',
+                    de: 'Regel hinzufügen',
                     ja: '規則を追加',
                   ),
                 ),
@@ -3900,7 +3892,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                             '無規則。點「新增規則」開始：URL 通配 → block / 改寫。\n命中規則的請求會自動放行/改寫，不再走攔截佇列。',
                         en: 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
                         fr: 'Aucune regle. Ajoutez une regle : motif URL → block / rewrite.',
-                        de: 'Keine Regeln. Regel hinzufugen: URL-Muster → block / rewrite.',
+                        de: 'Keine Regeln. Regel hinzufügen: URL-Muster → block / rewrite.',
                         ja: '規則はありません。「規則を追加」から URL パターン → block / rewrite を設定します。',
                       ),
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -3999,15 +3991,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                             ),
                             const SizedBox(width: 4),
                             IconButton(
-                              tooltip: openHandLocalizedText(
-                                context,
-                                zh: '删除',
-                                zhHant: '刪除',
-                                en: 'Delete',
-                                fr: 'Supprimer',
-                                de: 'Loschen',
-                                ja: '削除',
-                              ),
+                              tooltip: openHandDeleteLabel(context),
                               visualDensity: VisualDensity.compact,
                               iconSize: 18,
                               padding: const EdgeInsets.all(6),
@@ -4042,15 +4026,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                 const SizedBox(width: 8),
                 OpenHandDialogActionButton.primary(
                   onPressed: _save,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '保存',
-                    zhHant: '儲存',
-                    en: 'Save',
-                    fr: 'Enregistrer',
-                    de: 'Speichern',
-                    ja: '保存',
-                  ),
+                  label: openHandSaveLabel(context),
                 ),
               ],
             ),
@@ -4191,7 +4167,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                     zhHant: 'Header 覆寫（每行 Key: Value）',
                     en: 'Header overrides (Key: Value per line)',
                     fr: 'Overrides headers (Key: Value par ligne)',
-                    de: 'Header-Uberschreibungen (Key: Value pro Zeile)',
+                    de: 'Header-Überschreibungen (Key: Value pro Zeile)',
                     ja: 'Header 上書き（1 行に Key: Value）',
                   ),
                   hintText: 'X-Debug: 1\nAuthorization: Bearer xxx',
@@ -4220,15 +4196,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               ),
             );
           },
-          label: openHandLocalizedText(
-            context,
-            zh: '保存',
-            zhHant: '儲存',
-            en: 'Save',
-            fr: 'Enregistrer',
-            de: 'Speichern',
-            ja: '保存',
-          ),
+          label: openHandSaveLabel(context),
         ),
       ],
     );

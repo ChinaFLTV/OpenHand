@@ -519,15 +519,7 @@ class _HePhaseActionBar extends StatelessWidget {
           style: buttonStyle,
           icon: const Icon(Icons.delete_outline_rounded, size: 16),
           label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '删除',
-              zhHant: '刪除',
-              en: 'Delete',
-              fr: 'Supprimer',
-              de: 'Löschen',
-              ja: '削除',
-            ),
+            openHandDeleteLabel(context),
           ),
         ),
       ],

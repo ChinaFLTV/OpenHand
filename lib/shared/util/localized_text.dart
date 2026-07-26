@@ -134,6 +134,32 @@ String openHandCloseLabel(BuildContext context) {
   );
 }
 
+/// 公共“删除”标签，避免各界面重复维护同一组多语言文本。
+String openHandDeleteLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '删除',
+    zhHant: '刪除',
+    en: 'Delete',
+    fr: 'Supprimer',
+    de: 'Löschen',
+    ja: '削除',
+  );
+}
+
+/// 公共“保存”标签，避免各界面重复维护同一组多语言文本。
+String openHandSaveLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '保存',
+    zhHant: '儲存',
+    en: 'Save',
+    fr: 'Enregistrer',
+    de: 'Speichern',
+    ja: '保存',
+  );
+}
+
 /// 界面实际提供文本的语言集合，与 [openHandLocalizedTextForLocale] 的分支一致。
 const Set<String> _openHandSupportedLanguageCodes = <String>{
   'zh',

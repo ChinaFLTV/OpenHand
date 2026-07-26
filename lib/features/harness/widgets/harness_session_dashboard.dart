@@ -2373,15 +2373,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         ja: 'このフェーズを削除しますか？実行ログも削除されます。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '删除',
-        zhHant: '刪除',
-        en: 'Delete',
-        fr: 'Supprimer',
-        de: 'Löschen',
-        ja: '削除',
-      ),
+      confirmLabel: openHandDeleteLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
