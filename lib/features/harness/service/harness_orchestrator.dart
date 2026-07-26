@@ -1592,7 +1592,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           '  → 请先在"设置 → CLI 登录"中完成 ${cliEntry.name} 的登录认证，再重试当前阶段。',
         );
         log.status = HarnessPhaseStatus.failed;
-      } else if (_looksLikeHollowCliSession(log.lines, cliEntry.executable)) {
+      } else if (_looksLikeHollowCliSession(log.lines)) {
         // Exit code 0 but the CLI produced no substantive output, indicating
         // it silently skipped execution (e.g. expired token, config error).
         _appendLine(log, '');
@@ -2311,7 +2311,7 @@ class HarnessOrchestrator extends ChangeNotifier {
   ///
   /// Ignores: blank lines, our own `▶ > ✓ ✗ ⚠ ℹ` decoration, and the
   /// leading command-echo line.
-  bool _looksLikeHollowCliSession(List<String> lines, String executable) {
+  bool _looksLikeHollowCliSession(List<String> lines) {
     var substantiveLineCount = 0;
     for (final line in lines) {
       final trimmed = line.trim();

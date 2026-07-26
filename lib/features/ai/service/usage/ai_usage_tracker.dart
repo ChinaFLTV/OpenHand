@@ -406,9 +406,11 @@ class AiUsageTracker {
   }
 
   bool _isProviderFailure(String message) {
+    // 子串匹配，因此被同表中更短项完全覆盖的条目一律不可达，写进来只是噪音：
+    // 'provider request failed' ⊃ 'request failed'，
+    // '返回失败' / '请求失败' / '生成失败' / '翻译失败' 均 ⊃ '失败'。
     return const <String>[
       'request failed',
-      'provider request failed',
       'response failed',
       'translation failed',
       'generation failed',
@@ -417,10 +419,6 @@ class AiUsageTracker {
       'rejected',
       'empty response',
       'invalid response',
-      '返回失败',
-      '请求失败',
-      '生成失败',
-      '翻译失败',
       '服务端拒绝',
       '返回空',
       '响应无效',

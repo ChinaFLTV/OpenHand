@@ -286,6 +286,10 @@ class AiEndpointRouter {
         .replaceAll('{model}', modelId);
   }
 
+  /// 已知的端点后缀，用于从完整 URL 反推 base。
+  ///
+  /// 顺序敏感：匹配到第一条就 break，因此共享同一末段的多段后缀必须排在
+  /// 单段版本之前，否则永远匹配不到。同一后缀也不要登记两次——重复项不可达。
   static const List<List<String>> _knownEndpointSuffixes = <List<String>>[
     <String>['chat', 'completions'],
     <String>['messages'],
@@ -306,8 +310,8 @@ class AiEndpointRouter {
     <String>['audio', 'translations'],
     <String>['videos', 'generations'],
     <String>['videos'],
-    <String>['video_generation'],
     <String>['query', 'video_generation'],
+    <String>['video_generation'],
     <String>['realtime', 'sessions'],
     <String>['realtime'],
     <String>['files', 'retrieve'],
@@ -324,7 +328,6 @@ class AiEndpointRouter {
     <String>['audio', 'asr', 'file', 'query'],
     <String>['audio', 'asr', 'sse'],
     <String>['messages', 'count_tokens'],
-    <String>['messages'],
   ];
 
   int _leadingPathOverlap(

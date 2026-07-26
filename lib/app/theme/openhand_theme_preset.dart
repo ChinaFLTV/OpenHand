@@ -30,9 +30,6 @@ enum OpenHandThemePreset {
   final String storageValue;
   final Color seedColor;
 
-  static bool isValidStorageValue(String? value) {
-    return OpenHandThemePreset.values.any((item) => item.storageValue == value);
-  }
 
   static OpenHandThemePreset fromStorage(String? value) {
     return enumByStorageValueOr(

@@ -394,10 +394,6 @@ class SettingsController extends ChangeNotifier {
       _mcpKeywordIndexScheduledTimeOfDay;
   String get displayMcpServersFilePath =>
       OpenHandPaths.shortenHomePath(_mcpServersFilePath);
-  String get defaultMcpServersFilePath =>
-      OpenHandPaths.defaultMcpServersFilePath();
-  String get defaultMcpServersFileLabel =>
-      OpenHandPaths.defaultMcpServersFileLabel;
   bool get memoryEnabled => _memoryEnabled;
   String get userMemoryFilePath => _userMemoryFilePath;
   bool get editorWordWrap => _editorWordWrap;

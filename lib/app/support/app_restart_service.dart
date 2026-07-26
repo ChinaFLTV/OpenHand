@@ -163,14 +163,6 @@ class AppRestartService {
     }
   }
 
-  Future<void> restart({Duration beforeExitDelay = Duration.zero}) async {
-    final ticket = await prepareRelaunch();
-    if (beforeExitDelay > Duration.zero) {
-      await Future<void>.delayed(beforeExitDelay);
-    }
-    await exitCurrentProcess(ticket: ticket);
-  }
-
   Future<void> _startDetachedHelper(String scriptPath) async {
     if (Platform.isWindows) {
       await Process.start('cmd.exe', <String>[

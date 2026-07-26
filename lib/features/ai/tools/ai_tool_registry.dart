@@ -258,10 +258,6 @@ class AiToolRegistry {
     if (_disposed) return null;
     final tool = _tools[kind] ?? _toolFromCallAlias(context.toolCall.name);
     if (tool == null) return null;
-    final permResult = await tool.checkPermissions(context);
-    if (permResult case final AiToolPermissionDenied denied) {
-      return _permissionDeniedResult(context.toolCall.name, denied.reason);
-    }
     return tool.execute(context);
   }
 
@@ -292,26 +288,6 @@ class AiToolRegistry {
 
     await _notifySubToolExecuted(observer, parentContext, subContext, result);
     return result;
-  }
-
-  /// 构造权限拒绝的 [AiToolExecutionResult]。
-  AiToolExecutionResult _permissionDeniedResult(
-    String toolName,
-    String reason,
-  ) {
-    return AiToolExecutionResult(
-      status: BashToolExecutionStatus.failed,
-      command: toolName,
-      workingDirectory: '',
-      stdout: '',
-      stderr: reason,
-      durationMs: 0,
-      resultText: 'status: permission_denied\nerror: $reason',
-      metadata: const <String, Object?>{
-        'tool_source': 'builtin',
-        'permission_denied': true,
-      },
-    );
   }
 
   /// 通过工具调用名称字符串查找工具实例（别名备用路径）。
