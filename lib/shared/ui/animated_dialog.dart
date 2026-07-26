@@ -141,7 +141,6 @@ class OpenHandDialogScrollBehavior extends OpenHandScrollBehaviorBase {
   ScrollPhysics getScrollPhysics(BuildContext context) {
     return kOpenHandDialogScrollPhysics;
   }
-
 }
 
 class _OpenHandDialogScrollScope extends InheritedWidget {
@@ -1759,7 +1758,7 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
     final clamped = _ViewportClamp(alignment: alignment, child: themed);
     final stableHitTest = _DialogInitialHitTestShield(child: clamped);
     if (!dismissOnEscape) return stableHitTest;
-    return _EscapeDismissDialogScope(child: stableHitTest);
+    return OpenHandEscapeDismissScope(child: stableHitTest);
   };
 }
 
@@ -1903,19 +1902,41 @@ class _ModalSheetDragHandle extends StatelessWidget {
 /// 无法输入、复制或粘贴。硬件键盘监听不请求焦点，并通过
 /// `ModalRoute.isCurrent` 防止嵌套弹窗重复出栈。[Shortcuts] 与 [Actions]
 /// 作为焦点控件主动分发 [DismissIntent] 时的备用路径。
-class _EscapeDismissDialogScope extends StatefulWidget {
-  const _EscapeDismissDialogScope({required this.child});
+/// 为当前 ModalRoute 接上 Escape 关闭。
+///
+/// 直接监听硬件按键而不是只挂 Shortcuts：弹窗里的输入框、WebView 会先吃掉
+/// 按键，只靠焦点树上的快捷键在这些场景下按 Esc 是没反应的。同时用
+/// `_dismissRequested` 挡住连按——maybePop 是异步的，重复触发会一次弹掉两层。
+///
+/// MCP 运维弹窗此前另写了一份完全相同的实现，只多一个 [enabled] 开关；
+/// 那个开关现在并入这里。
+class OpenHandEscapeDismissScope extends StatefulWidget {
+  const OpenHandEscapeDismissScope({
+    super.key,
+    required this.child,
+    this.enabled = true,
+  });
 
   final Widget child;
 
+  /// 为 false 时不响应 Escape（例如弹窗内已有更内层的可关闭浮层）。
+  final bool enabled;
+
   @override
-  State<_EscapeDismissDialogScope> createState() =>
-      _EscapeDismissDialogScopeState();
+  State<OpenHandEscapeDismissScope> createState() =>
+      _OpenHandEscapeDismissScopeState();
 }
 
-class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
+class _OpenHandEscapeDismissScopeState
+    extends State<OpenHandEscapeDismissScope> {
   ModalRoute<Object?>? _route;
   bool _dismissRequested = false;
+
+  @override
+  void didUpdateWidget(covariant OpenHandEscapeDismissScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) _dismissRequested = false;
+  }
 
   @override
   void initState() {
@@ -1936,6 +1957,7 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
   }
 
   bool _handleKey(KeyEvent event) {
+    if (!widget.enabled) return false;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     if (event.logicalKey != LogicalKeyboardKey.escape) return false;
     return _dismiss();
@@ -1981,7 +2003,7 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
         actions: <Type, Action<Intent>>{
           DismissIntent: CallbackAction<DismissIntent>(
             onInvoke: (_) {
-              _dismiss();
+              if (widget.enabled) _dismiss();
               return null;
             },
           ),

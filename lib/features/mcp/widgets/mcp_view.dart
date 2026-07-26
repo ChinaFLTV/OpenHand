@@ -6,7 +6,6 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -2354,116 +2353,6 @@ const List<String> _mcpOpsSchemaArrayItemTypes = <String>[
   'object',
 ];
 
-class _McpOpsRouteEscapeDismissScope extends StatefulWidget {
-  const _McpOpsRouteEscapeDismissScope({
-    required this.child,
-    this.enabled = true,
-  });
-
-  final Widget child;
-  final bool enabled;
-
-  @override
-  State<_McpOpsRouteEscapeDismissScope> createState() =>
-      _McpOpsRouteEscapeDismissScopeState();
-}
-
-class _McpOpsRouteEscapeDismissScopeState
-    extends State<_McpOpsRouteEscapeDismissScope> {
-  ModalRoute<Object?>? _route;
-  bool _dismissRequested = false;
-
-  @override
-  void initState() {
-    super.initState();
-    HardwareKeyboard.instance.addHandler(_handleKey);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _route = ModalRoute.of(context);
-  }
-
-  @override
-  void didUpdateWidget(covariant _McpOpsRouteEscapeDismissScope oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.enabled) {
-      _dismissRequested = false;
-    }
-  }
-
-  @override
-  void dispose() {
-    HardwareKeyboard.instance.removeHandler(_handleKey);
-    super.dispose();
-  }
-
-  bool _handleKey(KeyEvent event) {
-    if (!widget.enabled) return false;
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
-    if (event.logicalKey != LogicalKeyboardKey.escape) return false;
-    return _dismissCurrentRoute();
-  }
-
-  bool _dismissCurrentRoute() {
-    final route = _route ?? ModalRoute.of(context);
-    if (route == null || !route.isCurrent) return false;
-    if (_dismissRequested) return true;
-    final navigator =
-        route.navigator ??
-        Navigator.maybeOf(context, rootNavigator: true) ??
-        Navigator.maybeOf(context);
-    if (navigator == null) return false;
-    _dismissRequested = true;
-    unawaited(
-      navigator
-          .maybePop()
-          .then((popped) {
-            if (!popped && mounted) {
-              _dismissRequested = false;
-            }
-          })
-          .catchError((Object error, StackTrace stackTrace) {
-            if (mounted) {
-              _dismissRequested = false;
-            }
-            FlutterError.reportError(
-              FlutterErrorDetails(
-                exception: error,
-                stack: stackTrace,
-                library: 'mcp operations dialog',
-                context: ErrorDescription('while dismissing with Escape'),
-              ),
-            );
-          }),
-    );
-    return true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Shortcuts(
-      shortcuts: const <ShortcutActivator, Intent>{
-        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
-      },
-      child: Actions(
-        actions: <Type, Action<Intent>>{
-          DismissIntent: CallbackAction<DismissIntent>(
-            onInvoke: (_) {
-              if (widget.enabled) {
-                _dismissCurrentRoute();
-              }
-              return null;
-            },
-          ),
-        },
-        child: widget.child,
-      ),
-    );
-  }
-}
-
 class _McpOpsDialog extends StatefulWidget {
   const _McpOpsDialog();
 
@@ -2650,7 +2539,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final endpointUri = 'http://$endpoint/mcp';
     final localEndpointUri = 'http://$localEndpoint/mcp';
     final bindEndpointUri = 'http://$bindEndpoint/mcp';
-    return _McpOpsRouteEscapeDismissScope(
+    return OpenHandEscapeDismissScope(
       enabled: !_saving,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
@@ -7208,7 +7097,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
     final cs = theme.colorScheme;
     final currentSchema = _currentSchema;
     final fields = _schemaFields(currentSchema);
-    return _McpOpsRouteEscapeDismissScope(
+    return OpenHandEscapeDismissScope(
       enabled: !_saving,
       child: buildMcpOpsSubDialog(
         context: context,
@@ -8717,7 +8606,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
         ),
       ],
     );
-    return _McpOpsRouteEscapeDismissScope(child: content);
+    return OpenHandEscapeDismissScope(child: content);
   }
 
   Widget _buildHero(BuildContext context, Color statusColor) {
@@ -17621,7 +17510,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final accent = tone ?? cs.primary;
     final children = sections(context, data);
-    return _McpOpsRouteEscapeDismissScope(
+    return OpenHandEscapeDismissScope(
       child: buildMcpOpsSubDialog(
         context: context,
         maxWidth: 940,
