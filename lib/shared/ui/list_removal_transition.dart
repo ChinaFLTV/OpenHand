@@ -14,10 +14,17 @@ class OpenHandListRemovalTransition extends StatelessWidget {
     super.key,
     required this.collapsed,
     required this.child,
+    this.shrinkExtent = true,
   });
 
-  /// 为 true 时行高与不透明度收到 0。
+  /// 为 true 时开始退场。
   final bool collapsed;
+
+  /// 是否连同占位一起收起。
+  ///
+  /// 纵向列表传 true：行高收到 0，下方内容平滑跟上。定高网格传 false——格子
+  /// 的尺寸由 delegate 决定，收起高度只会在原位留一个洞，就地淡出缩小才对。
+  final bool shrinkExtent;
 
   final Widget child;
 
@@ -32,6 +39,19 @@ class OpenHandListRemovalTransition extends StatelessWidget {
       return collapsed ? const SizedBox.shrink() : child;
     }
     final curve = motion.curve.reverseCurve;
+    if (!shrinkExtent) {
+      return AnimatedScale(
+        duration: duration,
+        curve: curve,
+        scale: collapsed ? 0.94 : 1,
+        child: AnimatedOpacity(
+          duration: duration,
+          curve: curve,
+          opacity: collapsed ? 0 : 1,
+          child: IgnorePointer(ignoring: collapsed, child: child),
+        ),
+      );
+    }
     return AnimatedSize(
       duration: duration,
       curve: curve,

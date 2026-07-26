@@ -24,6 +24,7 @@ import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -416,26 +417,32 @@ class _AgentsBody extends StatelessWidget {
         child: _AgentsEmptyState(),
       );
     }
-    return ListView.separated(
-      key: const ValueKey<String>('agents-list'),
-      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      cacheExtent: 700,
-      itemCount: snapshot.agents.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 14),
-      itemBuilder: (context, index) {
-        final agent = snapshot.agents[index];
-        return SettingsAwareAppearOnce(
-          key: ValueKey<String>('agent-card-${agent.id}'),
-          child: RepaintBoundary(
-            child: _AgentCard(
-              agent: agent,
-              onToggleEnabled: (enabled) =>
-                  _handleToggleAgentEnabled(context, agent, enabled),
-              onAction: (action) => _handleAgentAction(context, agent, action),
+    return OpenHandRemovableListScope(
+      builder: (context, removal) => ListView.separated(
+        key: const ValueKey<String>('agents-list'),
+        padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
+        cacheExtent: 700,
+        itemCount: snapshot.agents.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 14),
+        itemBuilder: (context, index) {
+          final agent = snapshot.agents[index];
+          return SettingsAwareAppearOnce(
+            key: ValueKey<String>('agent-card-${agent.id}'),
+            child: RepaintBoundary(
+              child: OpenHandListRemovalTransition(
+                collapsed: removal.isRemoving(agent.id),
+                child: _AgentCard(
+                  agent: agent,
+                  onToggleEnabled: (enabled) =>
+                      _handleToggleAgentEnabled(context, agent, enabled),
+                  onAction: (action) =>
+                      _handleAgentAction(context, agent, action, removal),
+                ),
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -1052,8 +1059,9 @@ class _AgentDraftKpiTile extends StatelessWidget {
 Future<void> _handleAgentAction(
   BuildContext context,
   AgentProfile agent,
-  _AgentCardAction action,
-) async {
+  _AgentCardAction action, [
+  OpenHandListRemoval? removal,
+]) async {
   switch (action) {
     case _AgentCardAction.edit:
       await _showAgentEditor(context, initialAgent: agent);
@@ -1074,7 +1082,7 @@ Future<void> _handleAgentAction(
     case _AgentCardAction.resources:
       await _showAgentResourcesDialog(context, agent);
     case _AgentCardAction.delete:
-      await _confirmDeleteAgent(context, agent);
+      await _confirmDeleteAgent(context, agent, removal);
   }
 }
 
@@ -8199,8 +8207,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
 
 Future<void> _confirmDeleteAgent(
   BuildContext context,
-  AgentProfile agent,
-) async {
+  AgentProfile agent, [
+  OpenHandListRemoval? removal,
+]) async {
   final l10n = AppLocalizations.of(context)!;
   final confirmed = await showOpenHandConfirmDialog(
     context: context,
@@ -8210,7 +8219,10 @@ Future<void> _confirmDeleteAgent(
     destructive: true,
   );
   if (confirmed && context.mounted) {
-    await context.read<AgentsController>().deleteAgent(agent.id);
+    final controller = context.read<AgentsController>();
+    Future<void> delete() => controller.deleteAgent(agent.id);
+    // 从列表卡片触发时先播收起动效；从弹窗等入口触发时没有列表可收，直接删。
+    await (removal == null ? delete() : removal.run(agent.id, delete));
   }
 }
 

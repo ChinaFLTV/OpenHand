@@ -13,6 +13,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -279,32 +280,39 @@ class _SkillsViewState extends State<SkillsView> {
         final maxCrossAxisExtent = constraints.maxWidth < 820
             ? constraints.maxWidth
             : 380.0;
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: maxCrossAxisExtent,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            mainAxisExtent: 272,
+        return OpenHandRemovableListScope(
+          builder: (context, removal) => GridView.builder(
+            padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: maxCrossAxisExtent,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              mainAxisExtent: 272,
+            ),
+            itemCount: filteredSkills.length,
+            itemBuilder: (context, index) {
+              final skill = filteredSkills[index];
+              // 定高网格：退场走就地淡出缩小，收高度只会在原位留洞。
+              return OpenHandListRemovalTransition(
+                collapsed: removal.isRemoving(skill.directoryPath),
+                shrinkExtent: false,
+                child: _SkillCard(
+                  skill: skill,
+                  onOpen: () => _showSkillPreview(context, skill),
+                  onActionSelected: (action) {
+                    switch (action) {
+                      case _SkillCardAction.openDirectory:
+                        _openSkillDirectory(context, skill);
+                      case _SkillCardAction.edit:
+                        _showEditSkillDialog(context, skill);
+                      case _SkillCardAction.delete:
+                        _confirmDeleteSkill(context, removal, skill);
+                    }
+                  },
+                ),
+              );
+            },
           ),
-          itemCount: filteredSkills.length,
-          itemBuilder: (context, index) {
-            final skill = filteredSkills[index];
-            return _SkillCard(
-              skill: skill,
-              onOpen: () => _showSkillPreview(context, skill),
-              onActionSelected: (action) {
-                switch (action) {
-                  case _SkillCardAction.openDirectory:
-                    _openSkillDirectory(context, skill);
-                  case _SkillCardAction.edit:
-                    _showEditSkillDialog(context, skill);
-                  case _SkillCardAction.delete:
-                    _confirmDeleteSkill(context, skill);
-                }
-              },
-            );
-          },
         );
       },
     );
@@ -555,6 +563,7 @@ class _SkillsViewState extends State<SkillsView> {
 
   Future<void> _confirmDeleteSkill(
     BuildContext context,
+    OpenHandListRemoval removal,
     LocalSkill skill,
   ) async {
     final l10n = AppLocalizations.of(context)!;
@@ -571,7 +580,11 @@ class _SkillsViewState extends State<SkillsView> {
     }
 
     try {
-      await context.read<SkillsController>().deleteSkill(skill);
+      final skillsController = context.read<SkillsController>();
+      await removal.run(
+        skill.directoryPath,
+        () => skillsController.deleteSkill(skill),
+      );
       if (!context.mounted) {
         return;
       }
