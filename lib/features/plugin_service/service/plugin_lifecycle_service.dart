@@ -354,7 +354,118 @@ String? _localizedPluginLifecycleMessage(String? message) {
     );
   }
 
+  match = RegExp(r'^(.+?) 安装后验证失败：未找到可执行命令。$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    return text(
+      en: 'Verification after installing $item failed: executable not found.',
+      fr: "Échec de la vérification après l'installation de $item : exécutable introuvable.",
+      de: 'Prüfung nach der Installation von $item fehlgeschlagen: Programm nicht gefunden.',
+      ja: '$item のインストール後の検証に失敗しました：実行ファイルが見つかりません。',
+    );
+  }
+  match = RegExp(
+    r'^Playwright (安装|更新)后(未找到 npm 全局安装目标|版本校验失败|验证失败)$',
+  ).firstMatch(message);
+  if (match != null) {
+    final actionEn = match.group(1) == '安装' ? 'install' : 'update';
+    final reason = match.group(2)!;
+    final reasonEn = switch (reason) {
+      '未找到 npm 全局安装目标' => 'the npm global install target was not found',
+      '版本校验失败' => 'the version check failed',
+      _ => 'verification failed',
+    };
+    final reasonFr = switch (reason) {
+      '未找到 npm 全局安装目标' => "la cible d'installation globale npm est introuvable",
+      '版本校验失败' => 'la vérification de version a échoué',
+      _ => 'la vérification a échoué',
+    };
+    final reasonDe = switch (reason) {
+      '未找到 npm 全局安装目标' =>
+        'das globale npm-Installationsziel wurde nicht gefunden',
+      '版本校验失败' => 'die Versionsprüfung ist fehlgeschlagen',
+      _ => 'die Prüfung ist fehlgeschlagen',
+    };
+    final reasonJa = switch (reason) {
+      '未找到 npm 全局安装目标' => 'npm のグローバルインストール先が見つかりませんでした',
+      '版本校验失败' => 'バージョン検証に失敗しました',
+      _ => '検証に失敗しました',
+    };
+    return text(
+      en: 'After the Playwright $actionEn, $reasonEn.',
+      fr: "Après l'$actionEn de Playwright, $reasonFr.",
+      de: 'Nach dem Playwright-$actionEn: $reasonDe.',
+      ja: 'Playwright の$actionEn後、$reasonJa。',
+    );
+  }
+  match = RegExp(r'^Playwright (安装|更新)失败: (.+)$').firstMatch(message);
+  if (match != null) {
+    final actionEn = match.group(1) == '安装' ? 'install' : 'update';
+    final detail = match.group(2)!;
+    return text(
+      en: 'Playwright $actionEn failed: $detail',
+      fr: "Échec de l'$actionEn de Playwright : $detail",
+      de: 'Playwright-$actionEn fehlgeschlagen: $detail',
+      ja: 'Playwright の$actionEnに失敗しました: $detail',
+    );
+  }
+  match = RegExp(r'^Playwright 已(更新到|安装) (.+)$').firstMatch(message);
+  if (match != null) {
+    final updated = match.group(1) == '更新到';
+    final version = match.group(2)!;
+    return text(
+      en: updated
+          ? 'Playwright updated to $version'
+          : 'Playwright $version installed',
+      fr: updated
+          ? 'Playwright mis à jour vers $version'
+          : 'Playwright $version installé',
+      de: updated
+          ? 'Playwright auf $version aktualisiert'
+          : 'Playwright $version installiert',
+      ja: updated
+          ? 'Playwright を $version に更新しました'
+          : 'Playwright $version をインストールしました',
+    );
+  }
+  match = RegExp(r'^Python 已是最新版本 (.+)$').firstMatch(message);
+  if (match != null) {
+    final version = match.group(1)!;
+    return text(
+      en: 'Python is already up to date at $version',
+      fr: 'Python est déjà à jour en $version',
+      de: 'Python ist mit $version bereits aktuell',
+      ja: 'Python はすでに最新版 $version です',
+    );
+  }
+  match = RegExp(r'^(npm|pip) (安装|卸载) (.+?) 失败: (.+)$').firstMatch(message);
+  if (match != null) {
+    final manager = match.group(1)!;
+    final actionEn = match.group(2) == '安装' ? 'install' : 'uninstall';
+    final item = match.group(3)!;
+    final detail = match.group(4)!;
+    return text(
+      en: '$manager $actionEn of $item failed: $detail',
+      fr: 'Échec $actionEn de $item avec $manager : $detail',
+      de: '$manager $actionEn von $item fehlgeschlagen: $detail',
+      ja: '$manager による $item の $actionEn に失敗しました: $detail',
+    );
+  }
   switch (message) {
+    case 'Docker Desktop 已卸载。':
+      return text(
+        en: 'Docker Desktop was uninstalled.',
+        fr: 'Docker Desktop a été désinstallé.',
+        de: 'Docker Desktop wurde deinstalliert.',
+        ja: 'Docker Desktop をアンインストールしました。',
+      );
+    case 'Qdrant 依赖 Docker，请先安装 Docker。':
+      return text(
+        en: 'Qdrant needs Docker. Install Docker first.',
+        fr: "Qdrant nécessite Docker. Installez d'abord Docker.",
+        de: 'Qdrant benötigt Docker. Installiere zuerst Docker.',
+        ja: 'Qdrant には Docker が必要です。先に Docker をインストールしてください。',
+      );
     case '未检测到可用的 Python 运行时，请先安装 Python。':
     case '未检测到可用的 Python 运行时。':
       return text(
