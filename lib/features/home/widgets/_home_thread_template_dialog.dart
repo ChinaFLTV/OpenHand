@@ -205,7 +205,7 @@ Widget _buildProgrammingExpertConfigSection(
     'programming_expert_config',
   );
   if (configMap == null) {
-    return _MetadataSection(
+    return OpenHandMetadataSection(
       title: sectionTitle,
       children: [
         Text(
@@ -234,10 +234,10 @@ Widget _buildProgrammingExpertConfigSection(
   final lspPath = OpenHandPaths.normalizeOptionalPath(
     '${configMap['lsp_path'] ?? ''}',
   );
-  return _MetadataSection(
+  return OpenHandMetadataSection(
     title: sectionTitle,
     children: [
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '项目根目录',
@@ -249,7 +249,7 @@ Widget _buildProgrammingExpertConfigSection(
         ),
         value: projectRoot.isEmpty ? '-' : projectRoot,
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '项目语言',
@@ -261,7 +261,7 @@ Widget _buildProgrammingExpertConfigSection(
         ),
         value: _programmingLanguageLabel(context, language),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: 'SDK 路径',
@@ -273,7 +273,7 @@ Widget _buildProgrammingExpertConfigSection(
         ),
         value: sdkPath.isEmpty ? '-' : OpenHandPaths.shortenHomePath(sdkPath),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: 'LSP 路径',
@@ -303,7 +303,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
   );
   final configMap = _threadTemplateMetadataMap(session, 'harness_config');
   if (configMap == null) {
-    return _MetadataSection(
+    return OpenHandMetadataSection(
       title: sectionTitle,
       children: [
         Text(
@@ -402,11 +402,11 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
     ),
   ];
 
-  return _MetadataSection(
+  return OpenHandMetadataSection(
     title: sectionTitle,
     children: [
       if (task.isNotEmpty)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: openHandLocalizedText(
             context,
             zh: '任务描述',
@@ -418,7 +418,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
           ),
           value: task,
         ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '工作目录',
@@ -430,7 +430,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
         ),
         value: workingDirectory.isEmpty ? '-' : workingDirectory,
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '持久化目录',
@@ -443,7 +443,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
         value: persistenceDirectory.isEmpty ? '-' : persistenceDirectory,
       ),
       if (firstRunRaw != null)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: openHandLocalizedText(
             context,
             zh: '首次运行',
@@ -490,7 +490,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       ),
       const SizedBox(height: 10),
       for (final entry in roleConfigs)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: entry.$1,
           value: () {
             final rc = entry.$2;
@@ -536,7 +536,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
     session.metadata['web_reverse_config'],
   );
   if (config == null) {
-    return _MetadataSection(
+    return OpenHandMetadataSection(
       title: sectionTitle,
       children: [
         Text(
@@ -556,10 +556,10 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       ],
     );
   }
-  return _MetadataSection(
+  return OpenHandMetadataSection(
     title: sectionTitle,
     children: [
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '目标 URL',
@@ -571,7 +571,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
         value: config.targetUrl,
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '逆向目标',
@@ -583,7 +583,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
         value: config.objective,
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '浏览器',
@@ -595,8 +595,8 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
         value: config.browserKind.displayName,
       ),
-      _MetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: 'AI 侧 CDP MCP',
@@ -626,7 +626,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
                 ja: '無効',
               ),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: '登录态',
@@ -639,7 +639,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         value: webReverseLoginModeLabel(context, config.loginMode),
       ),
       if (config.proxy != null && config.proxy!.isNotEmpty)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: openHandLocalizedText(
             context,
             zh: '代理',
@@ -652,7 +652,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           value: config.proxy!,
         ),
       if (config.keywords.isNotEmpty)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: openHandLocalizedText(
             context,
             zh: '关键字',
@@ -665,7 +665,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           value: config.keywords.join(', '),
         ),
       if (config.triggerActions != null && config.triggerActions!.isNotEmpty)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: openHandLocalizedText(
             context,
             zh: '触发动作',
@@ -677,7 +677,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           ),
           value: config.triggerActions!,
         ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(
           context,
           zh: 'Profile 目录',

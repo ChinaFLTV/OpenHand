@@ -1226,54 +1226,23 @@ class _WebFetchEngineCard extends StatefulWidget {
 }
 
 class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
-  late TextEditingController _apiKeyController;
-  late TextEditingController _retryController;
-  late TextEditingController _truncationController;
   late TextEditingController _jinaConnectionTimeoutController;
   late TextEditingController _jinaResponseTimeoutController;
-  late TextEditingController _endpointController;
-  bool _expanded = false;
-  bool _apiKeyVisible = false;
 
   @override
   void initState() {
     super.initState();
-    _apiKeyController = TextEditingController(text: widget.config.apiKey ?? '');
-    _retryController = TextEditingController(
-      text: '${widget.config.maxRetries}',
-    );
-    _truncationController = TextEditingController(
-      text: '${widget.config.truncationChars}',
-    );
     _jinaConnectionTimeoutController = TextEditingController(
       text: '${widget.config.connectionTimeoutSeconds}',
     );
     _jinaResponseTimeoutController = TextEditingController(
       text: '${widget.config.responseTimeoutSeconds}',
     );
-    _endpointController = TextEditingController(
-      text: widget.config.endpointOverride ?? '',
-    );
   }
 
   @override
   void didUpdateWidget(covariant _WebFetchEngineCard old) {
     super.didUpdateWidget(old);
-    syncTextControllerText(
-      _apiKeyController,
-      widget.config.apiKey ?? '',
-      previous: old.config.apiKey ?? '',
-    );
-    syncTextControllerText(
-      _retryController,
-      '${widget.config.maxRetries}',
-      previous: '${old.config.maxRetries}',
-    );
-    syncTextControllerText(
-      _truncationController,
-      '${widget.config.truncationChars}',
-      previous: '${old.config.truncationChars}',
-    );
     syncTextControllerText(
       _jinaConnectionTimeoutController,
       '${widget.config.connectionTimeoutSeconds}',
@@ -1284,383 +1253,106 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
       '${widget.config.responseTimeoutSeconds}',
       previous: '${old.config.responseTimeoutSeconds}',
     );
-    syncTextControllerText(
-      _endpointController,
-      widget.config.endpointOverride ?? '',
-      previous: old.config.endpointOverride ?? '',
-    );
   }
 
   @override
   void dispose() {
-    _apiKeyController.dispose();
-    _retryController.dispose();
-    _truncationController.dispose();
     _jinaConnectionTimeoutController.dispose();
     _jinaResponseTimeoutController.dispose();
-    _endpointController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final cfg = widget.config;
-    final name = _fetchEngineDisplayName(cfg.kind);
-
-    return Padding(
+    return _ToolEngineCard(
       key: ValueKey('engine-${cfg.kind.name}-${widget.index}'),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: cfg.enabled
-              ? colorScheme.surfaceContainerLow
-              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cfg.enabled
-                ? colorScheme.primary.withValues(alpha: 0.4)
-                : colorScheme.outlineVariant.withValues(alpha: 0.45),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ReorderableDragStartListener(
-                    index: widget.index,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.drag_indicator_rounded, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name, style: theme.textTheme.titleSmall),
-                        Text(
-                          _fetchEngineSubtitle(context, cfg.kind),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: _expanded
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '收起',
-                            en: 'Collapse',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '展开',
-                            en: 'Expand',
-                          ),
-                    icon: _SettingsExpandIcon(expanded: _expanded),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  ),
-                  Switch(
-                    value: cfg.enabled,
-                    onChanged: (v) =>
-                        widget.onChanged(cfg.copyWith(enabled: v)),
-                  ),
-                ],
+      index: widget.index,
+      name: _fetchEngineDisplayName(cfg.kind),
+      subtitle: _fetchEngineSubtitle(context, cfg.kind),
+      enabled: cfg.enabled,
+      onEnabledChanged: (value) =>
+          widget.onChanged(cfg.copyWith(enabled: value)),
+      weight: cfg.weight,
+      minWeight: AiWebFetchEngineConfig.minWeight,
+      maxWeight: AiWebFetchEngineConfig.maxWeight,
+      onWeightChanged: (value) => widget.onChanged(cfg.copyWith(weight: value)),
+      maxRetries: cfg.maxRetries,
+      maxRetriesUpperBound: AiWebFetchEngineConfig.maxRetriesUpperBound,
+      onMaxRetriesChanged: (value) =>
+          widget.onChanged(cfg.copyWith(maxRetries: value)),
+      truncationChars: cfg.truncationChars,
+      defaultTruncationChars: AiWebFetchEngineConfig.defaultTruncationChars,
+      minTruncationChars: AiWebFetchEngineConfig.minTruncationChars,
+      maxTruncationChars: AiWebFetchEngineConfig.maxTruncationChars,
+      onTruncationCharsChanged: (value) =>
+          widget.onChanged(cfg.copyWith(truncationChars: value)),
+      requiresApiKey: cfg.kind.requiresApiKey,
+      apiKey: cfg.apiKey,
+      apiKeyHint: _fetchApiKeyHint(cfg.kind),
+      onApiKeyChanged: (value) => widget.onChanged(
+        cfg.copyWith(apiKey: value, clearApiKey: value == null),
+      ),
+      availableModels: widget.availableModels,
+      providerConfigId: cfg.providerConfigId,
+      onProviderConfigIdChanged: _fetchCanLinkProvider(cfg.kind)
+          ? (id) => widget.onChanged(
+              cfg.copyWith(
+                providerConfigId: id,
+                clearProviderConfigId: id == null,
               ),
-              _SettingsElasticExpansion(
-                expanded: _expanded,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
-                        en:
-                            'Weight ${cfg.weight} (higher = more emphasis in '
-                            'summary)',
-                      ),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    Slider(
-                      min: AiWebFetchEngineConfig.minWeight.toDouble(),
-                      max: AiWebFetchEngineConfig.maxWeight.toDouble(),
-                      divisions:
-                          AiWebFetchEngineConfig.maxWeight -
-                          AiWebFetchEngineConfig.minWeight,
-                      value: cfg.weight.toDouble().clamp(
-                        AiWebFetchEngineConfig.minWeight.toDouble(),
-                        AiWebFetchEngineConfig.maxWeight.toDouble(),
-                      ),
-                      label: '${cfg.weight}',
-                      onChanged: (v) =>
-                          widget.onChanged(cfg.copyWith(weight: v.round())),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _retryController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                context,
-                                zh: '重试次数',
-                                en: 'Max Retries',
-                              ),
-                            ),
-                            onChanged: (s) {
-                              widget.onChanged(
-                                cfg.copyWith(
-                                  maxRetries: clampedIntFromText(
-                                    s,
-                                    fallback: 0,
-                                    min: 0,
-                                    max: AiWebFetchEngineConfig
-                                        .maxRetriesUpperBound,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _truncationController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                context,
-                                zh: '截断阈值 (字符)',
-                                en: 'Truncation (chars)',
-                              ),
-                            ),
-                            onChanged: (s) {
-                              widget.onChanged(
-                                cfg.copyWith(
-                                  truncationChars: clampedIntFromText(
-                                    s,
-                                    fallback: AiWebFetchEngineConfig
-                                        .defaultTruncationChars,
-                                    min: AiWebFetchEngineConfig
-                                        .minTruncationChars,
-                                    max: AiWebFetchEngineConfig
-                                        .maxTruncationChars,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (cfg.kind == AiWebFetchEngineKind.jina) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _jinaConnectionTimeoutController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: InputDecoration(
-                                labelText: openHandLocalizedText(
-                                  context,
-                                  zh: '连接超时 (秒)',
-                                  en: 'Connect Timeout (s)',
-                                ),
-                                helperText:
-                                    '${AiWebFetchEngineConfig.minConnectionTimeoutSeconds}-'
-                                    '${AiWebFetchEngineConfig.maxConnectionTimeoutSeconds}',
-                              ),
-                              onChanged: (s) {
-                                widget.onChanged(
-                                  cfg.copyWith(
-                                    connectionTimeoutSeconds:
-                                        clampedIntFromText(
-                                          s,
-                                          fallback: AiWebFetchEngineConfig
-                                              .defaultConnectionTimeoutSeconds,
-                                          min: AiWebFetchEngineConfig
-                                              .minConnectionTimeoutSeconds,
-                                          max: AiWebFetchEngineConfig
-                                              .maxConnectionTimeoutSeconds,
-                                        ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _jinaResponseTimeoutController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: InputDecoration(
-                                labelText: openHandLocalizedText(
-                                  context,
-                                  zh: '响应超时 (秒)',
-                                  en: 'Response Timeout (s)',
-                                ),
-                                helperText:
-                                    '${AiWebFetchEngineConfig.minResponseTimeoutSeconds}-'
-                                    '${AiWebFetchEngineConfig.maxResponseTimeoutSeconds}',
-                              ),
-                              onChanged: (s) {
-                                widget.onChanged(
-                                  cfg.copyWith(
-                                    responseTimeoutSeconds: clampedIntFromText(
-                                      s,
-                                      fallback: AiWebFetchEngineConfig
-                                          .defaultResponseTimeoutSeconds,
-                                      min: AiWebFetchEngineConfig
-                                          .minResponseTimeoutSeconds,
-                                      max: AiWebFetchEngineConfig
-                                          .maxResponseTimeoutSeconds,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (cfg.kind.requiresApiKey) ...[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _apiKeyController,
-                        decoration: InputDecoration(
-                          labelText: openHandLocalizedText(
-                            context,
-                            zh: 'API Key',
-                            en: 'API Key',
-                          ),
-                          hintText: _fetchApiKeyHint(cfg.kind),
-                          suffixIconConstraints: const BoxConstraints(
-                            minWidth: 44,
-                            minHeight: 44,
-                          ),
-                          suffixIcon: Align(
-                            widthFactor: 1,
-                            heightFactor: 1,
-                            child: IconButton(
-                              tooltip: _apiKeyVisible
-                                  ? openHandLocalizedText(
-                                      context,
-                                      zh: '隐藏 API Key',
-                                      en: 'Hide API Key',
-                                    )
-                                  : openHandLocalizedText(
-                                      context,
-                                      zh: '显示 API Key',
-                                      en: 'Show API Key',
-                                    ),
-                              visualDensity: VisualDensity.compact,
-                              splashRadius: 18,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 36,
-                                height: 36,
-                              ),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                surfaceTintColor: Colors.transparent,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              icon: Icon(
-                                _apiKeyVisible
-                                    ? Icons.visibility_off_rounded
-                                    : Icons.visibility_rounded,
-                                size: 20,
-                              ),
-                              onPressed: () => setState(
-                                () => _apiKeyVisible = !_apiKeyVisible,
-                              ),
-                            ),
-                          ),
-                        ),
-                        obscureText: !_apiKeyVisible,
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        onChanged: (s) {
-                          final trimmed = s.trim();
-                          widget.onChanged(
-                            cfg.copyWith(
-                              apiKey: trimmed.isEmpty ? null : trimmed,
-                              clearApiKey: trimmed.isEmpty,
-                            ),
-                          );
-                        },
-                      ),
-                      if (_fetchCanLinkProvider(cfg.kind)) ...[
-                        const SizedBox(height: 8),
-                        AnimatedDropdownButtonFormField<String?>(
-                          initialValue: cfg.providerConfigId,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: openHandLocalizedText(
-                              context,
-                              zh: '复用 Provider 的 API Key (可选)',
-                              en: 'Reuse Provider API Key (optional)',
-                            ),
-                          ),
-                          items: [
-                            DropdownMenuItem<String?>(
-                              child: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '不复用',
-                                  en: 'None',
-                                ),
-                              ),
-                            ),
-                            for (final m in widget.availableModels)
-                              DropdownMenuItem<String?>(
-                                value: m.id,
-                                child: Text(
-                                  '${m.providerLabel} (${m.protocolType.storageValue})',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged: (id) => widget.onChanged(
-                            cfg.copyWith(
-                              providerConfigId: id,
-                              clearProviderConfigId: id == null,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ],
+            )
+          : null,
+      extrasBeforeApiKey: [
+        if (cfg.kind == AiWebFetchEngineKind.jina) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildEngineNumberField(
+                  controller: _jinaConnectionTimeoutController,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '连接超时 (秒)',
+                    en: 'Connect Timeout (s)',
+                  ),
+                  helperText:
+                      '${AiWebFetchEngineConfig.minConnectionTimeoutSeconds}-'
+                      '${AiWebFetchEngineConfig.maxConnectionTimeoutSeconds}',
+                  fallback:
+                      AiWebFetchEngineConfig.defaultConnectionTimeoutSeconds,
+                  min: AiWebFetchEngineConfig.minConnectionTimeoutSeconds,
+                  max: AiWebFetchEngineConfig.maxConnectionTimeoutSeconds,
+                  onChanged: (value) => widget.onChanged(
+                    cfg.copyWith(connectionTimeoutSeconds: value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildEngineNumberField(
+                  controller: _jinaResponseTimeoutController,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '响应超时 (秒)',
+                    en: 'Response Timeout (s)',
+                  ),
+                  helperText:
+                      '${AiWebFetchEngineConfig.minResponseTimeoutSeconds}-'
+                      '${AiWebFetchEngineConfig.maxResponseTimeoutSeconds}',
+                  fallback:
+                      AiWebFetchEngineConfig.defaultResponseTimeoutSeconds,
+                  min: AiWebFetchEngineConfig.minResponseTimeoutSeconds,
+                  max: AiWebFetchEngineConfig.maxResponseTimeoutSeconds,
+                  onChanged: (value) => widget.onChanged(
+                    cfg.copyWith(responseTimeoutSeconds: value),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 }

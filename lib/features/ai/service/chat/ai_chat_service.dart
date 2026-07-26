@@ -7,7 +7,6 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
-import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
@@ -3560,35 +3559,20 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
   String? body,
   required Duration timeout,
   Future<void>? cancelSignal,
-}) async {
-  var currentMethod = method;
-  var currentUri = uri;
-  var currentBody = body;
-  final currentHeaders = Map<String, String>.from(headers);
-
-  for (var redirectCount = 0; ; redirectCount++) {
-    final request = http.Request(currentMethod, currentUri)
-      ..followRedirects = false
-      ..headers.addAll(currentHeaders);
-    if (currentBody != null) {
-      request.body = currentBody;
-    }
-
-    final response = await sendAbortableHttpRequest(
-      client: client,
-      request: request,
-      connectionTimeout: timeout,
-      cancelSignal: cancelSignal,
-    );
-    if (!isRedirectStatusCode(response.statusCode)) {
-      return response;
-    }
-
-    final redirectLocation = readResponseHeader(response.headers, 'location');
-    if (redirectLocation.isEmpty) {
-      return response;
-    }
-    if (redirectCount >= _maxAiChatRedirects) {
+}) {
+  return sendHttpRequestFollowingRedirects(
+    client: client,
+    method: method,
+    uri: uri,
+    headers: headers,
+    body: body,
+    timeout: timeout,
+    maxRedirects: _maxAiChatRedirects,
+    additionalSensitiveHeaderNames: const <String>{'x-api-key', 'api-key'},
+    cancelSignal: cancelSignal,
+    drainResponse: (response) =>
+        _drainChatHttpResponse(response, timeout: timeout),
+    onTooManyRedirects: (response) async {
       final responseBody = await _readChatHttpErrorBody(
         response,
         timeout: timeout,
@@ -3596,26 +3580,11 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
       );
       final responseText = nullIfBlank(responseBody);
       throw AiChatException(
-        'Too many redirects (${_maxAiChatRedirects + 1})${responseText == null ? '' : ': $responseText'}',
+        'Too many redirects (${_maxAiChatRedirects + 1})'
+        '${responseText == null ? '' : ': $responseText'}',
       );
-    }
-
-    await _drainChatHttpResponse(response, timeout: timeout);
-    final redirectedUri = currentUri.resolve(redirectLocation);
-    if (isCrossOriginRedirect(currentUri, redirectedUri)) {
-      stripSensitiveRedirectHeaders(
-        currentHeaders,
-        additionalNames: const <String>{'x-api-key', 'api-key'},
-      );
-    }
-    currentUri = redirectedUri;
-    if (response.statusCode == 303 &&
-        currentMethod != 'GET' &&
-        currentMethod != 'HEAD') {
-      currentMethod = 'GET';
-      currentBody = null;
-    }
-  }
+    },
+  );
 }
 
 String _extractStreamText(Object? rawContent) {

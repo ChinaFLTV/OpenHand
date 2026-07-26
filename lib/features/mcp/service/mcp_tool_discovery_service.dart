@@ -10,7 +10,6 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
-import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
@@ -1632,35 +1631,23 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
   required int maxRedirects,
   Set<String> additionalSensitiveHeaderNames = const <String>{},
   Future<void>? cancelSignal,
-}) async {
-  var currentMethod = method;
-  var currentUri = uri;
-  var currentBody = body;
-  final currentHeaders = Map<String, String>.from(headers);
-
-  for (var redirectCount = 0; ; redirectCount++) {
-    final request = http.Request(currentMethod, currentUri)
-      ..followRedirects = false
-      ..headers.addAll(currentHeaders);
-    if (currentBody != null) {
-      request.body = currentBody;
-    }
-
-    final response = await sendAbortableHttpRequest(
-      client: client,
-      request: request,
-      connectionTimeout: requestTimeout,
-      cancelSignal: cancelSignal,
-    );
-    if (!isRedirectStatusCode(response.statusCode)) {
-      return response;
-    }
-
-    final redirectLocation = readResponseHeader(response.headers, 'location');
-    if (redirectLocation.isEmpty) {
-      return response;
-    }
-    if (redirectCount >= maxRedirects) {
+}) {
+  return sendHttpRequestFollowingRedirects(
+    client: client,
+    method: method,
+    uri: uri,
+    headers: headers,
+    body: body,
+    timeout: requestTimeout,
+    maxRedirects: maxRedirects,
+    additionalSensitiveHeaderNames: <String>{
+      'mcp-session-id',
+      ...additionalSensitiveHeaderNames,
+    },
+    cancelSignal: cancelSignal,
+    drainResponse: (response) =>
+        _drainMcpHttpResponse(response, timeout: requestTimeout),
+    onTooManyRedirects: (response) async {
       final responseBody = await _readMcpHttpErrorBodyBestEffort(
         response,
         timeout: requestTimeout,
@@ -1669,27 +1656,8 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
         'Tool scan request followed too many redirects (${maxRedirects + 1})'
         '${_mcpServerResponseDetail(responseBody)}',
       );
-    }
-
-    await _drainMcpHttpResponse(response, timeout: requestTimeout);
-    final redirectedUri = currentUri.resolve(redirectLocation);
-    if (isCrossOriginRedirect(currentUri, redirectedUri)) {
-      stripSensitiveRedirectHeaders(
-        currentHeaders,
-        additionalNames: <String>{
-          'mcp-session-id',
-          ...additionalSensitiveHeaderNames,
-        },
-      );
-    }
-    currentUri = redirectedUri;
-    if (response.statusCode == 303 &&
-        currentMethod != 'GET' &&
-        currentMethod != 'HEAD') {
-      currentMethod = 'GET';
-      currentBody = null;
-    }
-  }
+    },
+  );
 }
 
 String _mcpServerResponseDetail(Object? response) {

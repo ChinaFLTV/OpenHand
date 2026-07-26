@@ -89,38 +89,38 @@ class _SessionMetadataDialog extends StatelessWidget {
     );
     final extendedMetadataEntries = _visibleSessionMetadataEntries(session);
     final summaryBlocks = <Widget>[
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaMessages,
         value: '${statistics.totalMessageCount}',
       ),
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaPromptBuilds,
         value: '${statistics.promptBuildCount}',
       ),
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaCompressions,
         value: '${statistics.compressionRunCount}',
       ),
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaTotalTokens,
         value: '${statistics.totalTokens ?? 0}',
       ),
       if ((statistics.reasoningTokens ?? 0) > 0)
-        _MetadataSummaryTile(
+        OpenHandMetadataSummaryTile(
           label: AppLocalizations.of(context)!.tokenPopupReasoning,
           value: '${statistics.reasoningTokens}',
         ),
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaMode,
         value: _runtimeModeLabel(context, runtimeStatus, compact: true),
       ),
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.permissionLabel,
         value: runtimeStatus.fullAccessPermission
             ? AppLocalizations.of(context)!.mcpServerStatusEnabled
             : AppLocalizations.of(context)!.mcpServerStatusDisabled,
       ),
-      _MetadataSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaRuntimeTools,
         value: !runtimeStatus.supportsToolCalls
             ? '-'
@@ -181,36 +181,36 @@ class _SessionMetadataDialog extends StatelessWidget {
                     Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
                     ..._buildSessionCostSection(context, theme, colorScheme),
                     const SizedBox(height: 18),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
                       )!.sessMetaSessionOverview,
                       children: [
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'session_id'),
                           value: session.id,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'template'),
                           value:
                               '${session.templateName} · v${session.templateInternalVersion}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'created_at'),
                           value: _formatDateTime(session.createdAt),
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'updated_at'),
                           value: _formatDateTime(session.updatedAt),
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'last_model'),
                           value:
                               session.lastUsedModelLabel ??
                               session.lastUsedModelId ??
                               '-',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'auto_title_acquired',
@@ -219,14 +219,14 @@ class _SessionMetadataDialog extends StatelessWidget {
                               ? '✓ ${openHandLocalizedText(context, zh: '已获取', en: 'Acquired')}'
                               : '✗ ${openHandLocalizedText(context, zh: '未获取', en: 'Not acquired')}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'auto_title_retry_count',
                           ),
                           value: '${session.autoTitleRetryCount}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'compression_checkpoint',
@@ -235,7 +235,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                               session.latestCompressionCheckpointMessageId ??
                               '-',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'latest_compression_at',
@@ -267,7 +267,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                     ],
                     if (extendedMetadataEntries.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      _MetadataSection(
+                      OpenHandMetadataSection(
                         title: AppLocalizations.of(
                           context,
                         )!.sessMetaExtendedMetadata,
@@ -282,7 +282,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaStatistics,
                       children: [
                         Wrap(
@@ -315,35 +315,35 @@ class _SessionMetadataDialog extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'total_input_characters',
                           ),
                           value: '${statistics.totalInputCharacters}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'total_output_characters',
                           ),
                           value: '${statistics.totalOutputCharacters}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'total_prompt_characters',
                           ),
                           value: '${statistics.totalPromptCharacters}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'last_prompt_system_message_count',
                           ),
                           value: '${statistics.lastPromptSystemMessageCount}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'last_prompt_history_message_count',
@@ -364,18 +364,18 @@ class _SessionMetadataDialog extends StatelessWidget {
                     ),
                     ..._buildCompactMemorySection(context, lastPromptMetadata),
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaEnvironment,
                       children: [
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'locale_tag'),
                           value: environment.localeTag,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'platform'),
                           value: environment.platform,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'app_version',
@@ -383,70 +383,70 @@ class _SessionMetadataDialog extends StatelessWidget {
                           value:
                               '${environment.appVersion} (${environment.appBuildNumber})',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'compression_threshold_chars',
                           ),
                           value: '${environment.compressionThresholdChars}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'single_round_tool_call_limit',
                           ),
                           value: '${environment.singleRoundToolCallLimit}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'sequential_tool_round_limit',
                           ),
                           value: '${environment.sequentialToolRoundLimit}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'application_directory',
                           ),
                           value: environment.applicationDirectory,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'home_directory',
                           ),
                           value: environment.homeDirectory,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'settings_file',
                           ),
                           value: environment.settingsFilePath,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'skills_storage',
                           ),
                           value: environment.skillsStoragePath,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'mcp_servers_file',
                           ),
                           value: environment.mcpServersFilePath,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'user_memory_file',
                           ),
                           value: environment.userMemoryFilePath,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
                             'sessions_directory',
@@ -456,7 +456,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
                       )!.sessMetaCommandPolicy,
@@ -472,7 +472,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                               ),
                             ]
                           : [
-                              _MetadataEntryRow(
+                              OpenHandMetadataEntryRow(
                                 label: AppLocalizations.of(
                                   context,
                                 )!.sessMetaWriteConfirmation,
@@ -484,7 +484,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                         context,
                                       )!.sessMetaNotRequired,
                               ),
-                              _MetadataEntryRow(
+                              OpenHandMetadataEntryRow(
                                 label: AppLocalizations.of(
                                   context,
                                 )!.sessMetaAllowRules,
@@ -526,12 +526,12 @@ class _SessionMetadataDialog extends StatelessWidget {
                             ],
                     ),
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
                       )!.sessMetaRuntimeOrchestration,
                       children: [
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaStateSource,
@@ -543,11 +543,11 @@ class _SessionMetadataDialog extends StatelessWidget {
                                   context,
                                 )!.sessMetaTheLastPersistedRuntimeSnapshot,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(context)!.sessMetaMode,
                           value: _runtimeModeLabel(context, runtimeStatus),
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(context)!.permissionLabel,
                           value: runtimeStatus.fullAccessPermission
                               ? AppLocalizations.of(
@@ -557,7 +557,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                   context,
                                 )!.mcpServerStatusDisabled,
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaToolCatalogState,
@@ -566,7 +566,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                             runtimeStatus,
                           ),
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaGateReason,
@@ -575,7 +575,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                             runtimeStatus.gateReason,
                           ),
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaRuntimeToolCount,
@@ -628,22 +628,22 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaTaskTracking,
                       children: [
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaCurrentTodos,
                           value: '${currentTodos.length}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaPlanRecords,
                           value: '${planHistory.length}',
                         ),
-                        _MetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: AppLocalizations.of(
                             context,
                           )!.sessMetaTodowriteReminder,
@@ -660,7 +660,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 )!.sessMetaUnavailable,
                         ),
                         if (todoWriteReason.isNotEmpty)
-                          _MetadataEntryRow(
+                          OpenHandMetadataEntryRow(
                             label: AppLocalizations.of(
                               context,
                             )!.sessMetaReminderReason,
@@ -710,7 +710,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaRecentErrors,
                       children: recentErrors.isEmpty
                           ? [
@@ -730,7 +730,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 .toList(growable: false),
                     ),
                     const SizedBox(height: 16),
-                    _MetadataSection(
+                    OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
                       )!.sessMetaLastPromptMetadata,
@@ -1006,7 +1006,7 @@ class _SessionMetadataDialog extends StatelessWidget {
 
     return <Widget>[
       const SizedBox(height: 16),
-      _MetadataSection(
+      OpenHandMetadataSection(
         title: openHandLocalizedText(
           context,
           zh: '上下文预算',
@@ -1030,28 +1030,28 @@ class _SessionMetadataDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_estimated_prompt_tokens',
               ),
               value: '$estimatedTokens',
             ),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_model_max_tokens',
               ),
               value: maxTokens > 0 ? '$maxTokens' : '-',
             ),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_effective_window_tokens',
               ),
               value: effectiveWindowTokens > 0 ? '$effectiveWindowTokens' : '-',
             ),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_auto_compact_threshold_tokens',
@@ -1060,21 +1060,21 @@ class _SessionMetadataDialog extends StatelessWidget {
                   ? '$autoCompactThresholdTokens'
                   : '-',
             ),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_remaining_tokens',
               ),
               value: maxTokens > 0 ? '$remainingTokens' : '-',
             ),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_percent_left',
               ),
               value: maxTokens > 0 ? '$percentLeft%' : '-',
             ),
-            _MetadataEntryRow(
+            OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
                 'context_budget_usage_percent',
@@ -1122,35 +1122,35 @@ class _SessionMetadataDialog extends StatelessWidget {
 
     return <Widget>[
       const SizedBox(height: 16),
-      _MetadataSection(
+      OpenHandMetadataSection(
         title: openHandLocalizedText(
           context,
           zh: '压缩记忆 Sidecar',
           en: 'Compact Memory Sidecar',
         ),
         children: [
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(
               context,
               'compact_memory_sidecar_status',
             ),
             value: sidecarStatus,
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(
               context,
               'compact_memory_checkpoint_id',
             ),
             value: checkpoint?.id ?? '-',
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(
               context,
               'compact_memory_checkpoint_characters',
             ),
             value: checkpoint == null ? '-' : '${checkpoint.characterCount}',
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(
               context,
               'compact_memory_restored_from_sidecar',
@@ -1159,7 +1159,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                 ? openHandLocalizedText(context, zh: '是', en: 'Yes')
                 : openHandLocalizedText(context, zh: '否', en: 'No'),
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(
               context,
               'compact_memory_sidecar_path',
@@ -1208,33 +1208,33 @@ class _SessionMetadataDialog extends StatelessWidget {
 
     return <Widget>[
       const SizedBox(height: 16),
-      _MetadataSection(
+      OpenHandMetadataSection(
         title: openHandLocalizedText(
           context,
           zh: '压缩后上下文恢复',
           en: 'Post-Compact Rehydration',
         ),
         children: [
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(context, 'post_compact_active'),
             value: active
                 ? openHandLocalizedText(context, zh: '启用', en: 'Active')
                 : openHandLocalizedText(context, zh: '未启用', en: 'Inactive'),
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(context, 'checkpoint_message_id'),
             value: checkpointId.isEmpty ? '-' : checkpointId,
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(context, 'checkpoint_created_at'),
             value: checkpointCreatedAt.isEmpty ? '-' : checkpointCreatedAt,
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(context, 'runtime_tool_count'),
             value:
                 '$runtimeToolCount ($builtinToolCount builtin, $skillToolCount skill, $mcpToolCount MCP)',
           ),
-          _MetadataEntryRow(
+          OpenHandMetadataEntryRow(
             label: _localizedMetadataField(context, 'restored_signal_counts'),
             value:
                 'read_files=$recentReadFileCount, skills=$invokedSkillCount, mcp_instructions=$mcpServerInstructionCount, session_hooks=$sessionStartHookCount, agent_results=$agentResultCount, deferred_tools=$deferredBuiltinToolCount, agent_types=$agentTypeCount',
@@ -1314,7 +1314,7 @@ Widget _buildMachineTerminalMetadataSection(
   final terminalCount = _metadataInt(runtime['terminal_count']);
   final colorScheme = Theme.of(context).colorScheme;
 
-  return _MetadataSection(
+  return OpenHandMetadataSection(
     title: openHandLocalizedText(
       context,
       zh: '机器终端元数据',
@@ -1357,27 +1357,27 @@ Widget _buildMachineTerminalMetadataSection(
         ],
       ),
       const SizedBox(height: 14),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '工作流', en: 'Workflow'),
         value: _metadataDisplayValue(metadata['workflow']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '渲染面板', en: 'Surface'),
         value: _metadataDisplayValue(metadata['surface']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '工作区 ID', en: 'Workspace ID'),
         value: _metadataDisplayValue(metadata['terminal_workspace_id']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '默认工作目录', en: 'Default CWD'),
         value: _metadataDisplayValue(metadata['default_working_directory']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '创建时间', en: 'Created At'),
         value: _metadataDisplayValue(metadata['created_at']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '更新时间', en: 'Updated At'),
         value: _metadataDisplayValue(metadata['updated_at']),
       ),
@@ -1657,7 +1657,7 @@ Widget _buildMetadataStructuredNode(
                   ? entry.value as List
                   : null;
               if (childMap == null && childList == null) {
-                return _MetadataEntryRow(
+                return OpenHandMetadataEntryRow(
                   label: _metadataFieldTitle(entry.key),
                   value: _metadataDisplayValue(entry.value),
                 );
@@ -1768,109 +1768,6 @@ Widget _buildMetadataStructuredNode(
     _metadataDisplayValue(value),
     style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
   );
-}
-
-class _MetadataSection extends StatelessWidget {
-  const _MetadataSection({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _MetadataSummaryTile extends StatelessWidget {
-  const _MetadataSummaryTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 188,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: _borderRadius18,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetadataEntryRow extends StatelessWidget {
-  const _MetadataEntryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          SelectableText(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _MetadataChip extends StatelessWidget {
@@ -2094,34 +1991,34 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
     final size = _terminalSizeText(terminal);
     final outputCharacters = _metadataInt(terminal['output_characters']);
     final extraRows = <Widget>[
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: _metadataFieldTitle('shell'),
         value: _metadataDisplayValue(terminal['shell']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: _metadataFieldTitle('working_directory'),
         value: _metadataDisplayValue(terminal['working_directory']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: _metadataFieldTitle('started_at'),
         value: _metadataDisplayValue(terminal['started_at']),
       ),
-      _MetadataEntryRow(
+      OpenHandMetadataEntryRow(
         label: _metadataFieldTitle('updated_at'),
         value: _metadataDisplayValue(terminal['updated_at']),
       ),
       if (terminal.containsKey('pid'))
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: _metadataFieldTitle('pid'),
           value: _metadataDisplayValue(terminal['pid']),
         ),
       if (terminal.containsKey('exit_code'))
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: _metadataFieldTitle('exit_code'),
           value: _metadataDisplayValue(terminal['exit_code']),
         ),
       if (optionalStringFromValue(terminal['error_message']) != null)
-        _MetadataEntryRow(
+        OpenHandMetadataEntryRow(
           label: _metadataFieldTitle('error_message'),
           value: _metadataDisplayValue(terminal['error_message']),
         ),

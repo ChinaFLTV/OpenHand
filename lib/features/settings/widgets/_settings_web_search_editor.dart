@@ -873,23 +873,11 @@ class _WebSearchEngineCard extends StatefulWidget {
 }
 
 class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
-  late TextEditingController _apiKeyController;
-  late TextEditingController _retryController;
-  late TextEditingController _truncationController;
   late TextEditingController _endpointController;
-  bool _expanded = false;
-  bool _apiKeyVisible = false;
 
   @override
   void initState() {
     super.initState();
-    _apiKeyController = TextEditingController(text: widget.config.apiKey ?? '');
-    _retryController = TextEditingController(
-      text: '${widget.config.maxRetries}',
-    );
-    _truncationController = TextEditingController(
-      text: '${widget.config.truncationChars}',
-    );
     _endpointController = TextEditingController(
       text: widget.config.endpointOverride ?? '',
     );
@@ -899,21 +887,6 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
   void didUpdateWidget(covariant _WebSearchEngineCard old) {
     super.didUpdateWidget(old);
     syncTextControllerText(
-      _apiKeyController,
-      widget.config.apiKey ?? '',
-      previous: old.config.apiKey ?? '',
-    );
-    syncTextControllerText(
-      _retryController,
-      '${widget.config.maxRetries}',
-      previous: '${old.config.maxRetries}',
-    );
-    syncTextControllerText(
-      _truncationController,
-      '${widget.config.truncationChars}',
-      previous: '${old.config.truncationChars}',
-    );
-    syncTextControllerText(
       _endpointController,
       widget.config.endpointOverride ?? '',
       previous: old.config.endpointOverride ?? '',
@@ -922,298 +895,76 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
 
   @override
   void dispose() {
-    _apiKeyController.dispose();
-    _retryController.dispose();
-    _truncationController.dispose();
     _endpointController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final cfg = widget.config;
-    final name = _engineDisplayName(cfg.kind);
-
-    return Padding(
+    return _ToolEngineCard(
       key: ValueKey('engine-${cfg.kind.name}-${widget.index}'),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: cfg.enabled
-              ? colorScheme.surfaceContainerLow
-              : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cfg.enabled
-                ? colorScheme.primary.withValues(alpha: 0.4)
-                : colorScheme.outlineVariant.withValues(alpha: 0.45),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ReorderableDragStartListener(
-                    index: widget.index,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(Icons.drag_indicator_rounded, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name, style: theme.textTheme.titleSmall),
-                        Text(
-                          _engineSubtitle(context, cfg.kind),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: _expanded
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '收起',
-                            en: 'Collapse',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '展开',
-                            en: 'Expand',
-                          ),
-                    icon: _SettingsExpandIcon(expanded: _expanded),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  ),
-                  Switch(
-                    value: cfg.enabled,
-                    onChanged: (v) =>
-                        widget.onChanged(cfg.copyWith(enabled: v)),
-                  ),
-                ],
-              ),
-              _SettingsElasticExpansion(
-                expanded: _expanded,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
-                        en:
-                            'Weight ${cfg.weight} (higher = more emphasis in '
-                            'summary)',
-                      ),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    Slider(
-                      min: AiWebSearchEngineConfig.minWeight.toDouble(),
-                      max: AiWebSearchEngineConfig.maxWeight.toDouble(),
-                      divisions:
-                          AiWebSearchEngineConfig.maxWeight -
-                          AiWebSearchEngineConfig.minWeight,
-                      value: cfg.weight.toDouble().clamp(
-                        AiWebSearchEngineConfig.minWeight.toDouble(),
-                        AiWebSearchEngineConfig.maxWeight.toDouble(),
-                      ),
-                      label: '${cfg.weight}',
-                      onChanged: (v) =>
-                          widget.onChanged(cfg.copyWith(weight: v.round())),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _retryController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                context,
-                                zh: '重试次数',
-                                en: 'Max Retries',
-                              ),
-                            ),
-                            onChanged: (s) {
-                              widget.onChanged(
-                                cfg.copyWith(
-                                  maxRetries: clampedIntFromText(
-                                    s,
-                                    fallback: 0,
-                                    min: 0,
-                                    max: AiWebSearchEngineConfig
-                                        .maxRetriesUpperBound,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _truncationController,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                context,
-                                zh: '截断阈值 (字符)',
-                                en: 'Truncation (chars)',
-                              ),
-                            ),
-                            onChanged: (s) {
-                              widget.onChanged(
-                                cfg.copyWith(
-                                  truncationChars: clampedIntFromText(
-                                    s,
-                                    fallback: AiWebSearchEngineConfig
-                                        .defaultTruncationChars,
-                                    min: AiWebSearchEngineConfig
-                                        .minTruncationChars,
-                                    max: AiWebSearchEngineConfig
-                                        .maxTruncationChars,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (cfg.kind.requiresApiKey) ...[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _apiKeyController,
-                        decoration: InputDecoration(
-                          labelText: openHandLocalizedText(
-                            context,
-                            zh: 'API Key',
-                            en: 'API Key',
-                          ),
-                          hintText: _apiKeyHint(cfg.kind),
-                          suffixIcon: IconButton(
-                            tooltip: _apiKeyVisible
-                                ? openHandLocalizedText(
-                                    context,
-                                    zh: '隐藏 API Key',
-                                    en: 'Hide API Key',
-                                  )
-                                : openHandLocalizedText(
-                                    context,
-                                    zh: '显示 API Key',
-                                    en: 'Show API Key',
-                                  ),
-                            icon: Icon(
-                              _apiKeyVisible
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                            ),
-                            onPressed: () => setState(
-                              () => _apiKeyVisible = !_apiKeyVisible,
-                            ),
-                          ),
-                        ),
-                        obscureText: !_apiKeyVisible,
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        onChanged: (s) {
-                          final trimmed = s.trim();
-                          widget.onChanged(
-                            cfg.copyWith(
-                              apiKey: trimmed.isEmpty ? null : trimmed,
-                              clearApiKey: trimmed.isEmpty,
-                            ),
-                          );
-                        },
-                      ),
-                      if (_canLinkProvider(cfg.kind)) ...[
-                        const SizedBox(height: 8),
-                        AnimatedDropdownButtonFormField<String?>(
-                          initialValue: cfg.providerConfigId,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: openHandLocalizedText(
-                              context,
-                              zh: '复用 Provider 的 API Key (可选)',
-                              en: 'Reuse Provider API Key (optional)',
-                            ),
-                          ),
-                          items: [
-                            DropdownMenuItem<String?>(
-                              child: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '不复用',
-                                  en: 'None',
-                                ),
-                              ),
-                            ),
-                            for (final m in widget.availableModels)
-                              DropdownMenuItem<String?>(
-                                value: m.id,
-                                child: Text(
-                                  '${m.providerLabel} (${m.protocolType.storageValue})',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged: (id) => widget.onChanged(
-                            cfg.copyWith(
-                              providerConfigId: id,
-                              clearProviderConfigId: id == null,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                    if (cfg.kind == AiWebSearchEngineKind.searxng) ...[
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _endpointController,
-                        decoration: InputDecoration(
-                          labelText: openHandLocalizedText(
-                            context,
-                            zh: '实例 Endpoint',
-                            en: 'Instance Endpoint',
-                          ),
-                          hintText: 'https://searxng.example.com',
-                        ),
-                        onChanged: (s) {
-                          final trimmed = s.trim();
-                          widget.onChanged(
-                            cfg.copyWith(
-                              endpointOverride: trimmed.isEmpty
-                                  ? null
-                                  : trimmed,
-                              clearEndpointOverride: trimmed.isEmpty,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+      index: widget.index,
+      name: _engineDisplayName(cfg.kind),
+      subtitle: _engineSubtitle(context, cfg.kind),
+      enabled: cfg.enabled,
+      onEnabledChanged: (value) =>
+          widget.onChanged(cfg.copyWith(enabled: value)),
+      weight: cfg.weight,
+      minWeight: AiWebSearchEngineConfig.minWeight,
+      maxWeight: AiWebSearchEngineConfig.maxWeight,
+      onWeightChanged: (value) => widget.onChanged(cfg.copyWith(weight: value)),
+      maxRetries: cfg.maxRetries,
+      maxRetriesUpperBound: AiWebSearchEngineConfig.maxRetriesUpperBound,
+      onMaxRetriesChanged: (value) =>
+          widget.onChanged(cfg.copyWith(maxRetries: value)),
+      truncationChars: cfg.truncationChars,
+      defaultTruncationChars: AiWebSearchEngineConfig.defaultTruncationChars,
+      minTruncationChars: AiWebSearchEngineConfig.minTruncationChars,
+      maxTruncationChars: AiWebSearchEngineConfig.maxTruncationChars,
+      onTruncationCharsChanged: (value) =>
+          widget.onChanged(cfg.copyWith(truncationChars: value)),
+      requiresApiKey: cfg.kind.requiresApiKey,
+      apiKey: cfg.apiKey,
+      apiKeyHint: _apiKeyHint(cfg.kind),
+      onApiKeyChanged: (value) => widget.onChanged(
+        cfg.copyWith(apiKey: value, clearApiKey: value == null),
       ),
+      availableModels: widget.availableModels,
+      providerConfigId: cfg.providerConfigId,
+      onProviderConfigIdChanged: _canLinkProvider(cfg.kind)
+          ? (id) => widget.onChanged(
+              cfg.copyWith(
+                providerConfigId: id,
+                clearProviderConfigId: id == null,
+              ),
+            )
+          : null,
+      extrasAfterApiKey: [
+        if (cfg.kind == AiWebSearchEngineKind.searxng) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _endpointController,
+            decoration: InputDecoration(
+              labelText: openHandLocalizedText(
+                context,
+                zh: '实例 Endpoint',
+                en: 'Instance Endpoint',
+              ),
+              hintText: 'https://searxng.example.com',
+            ),
+            onChanged: (text) {
+              final endpoint = nullIfBlank(text);
+              widget.onChanged(
+                cfg.copyWith(
+                  endpointOverride: endpoint,
+                  clearEndpointOverride: endpoint == null,
+                ),
+              );
+            },
+          ),
+        ],
+      ],
     );
   }
 }

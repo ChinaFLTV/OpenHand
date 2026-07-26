@@ -626,7 +626,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
     final totalLogLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
 
     final summaryBlocks = <Widget>[
-      _HeSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: openHandLocalizedText(
           context,
           zh: '阶段总数',
@@ -638,7 +638,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         ),
         value: '$totalPhases',
       ),
-      _HeSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: openHandLocalizedText(
           context,
           zh: '已完成阶段',
@@ -650,7 +650,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         ),
         value: '$completedPhases',
       ),
-      _HeSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: openHandLocalizedText(
           context,
           zh: '失败阶段',
@@ -662,7 +662,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         ),
         value: '$failedPhases',
       ),
-      _HeSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: openHandLocalizedText(
           context,
           zh: '日志总行数',
@@ -674,7 +674,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         ),
         value: '$totalLogLines',
       ),
-      _HeSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: openHandLocalizedText(
           context,
           zh: '执行状态',
@@ -686,7 +686,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         ),
         value: _statusLabel(context, orchestrator.status),
       ),
-      _HeSummaryTile(
+      OpenHandMetadataSummaryTile(
         label: openHandLocalizedText(
           context,
           zh: '当前阶段',
@@ -827,7 +827,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // ── Session overview ──
-                    _HeMetadataSection(
+                    OpenHandMetadataSection(
                       title: openHandLocalizedText(
                         context,
                         zh: '会话概览',
@@ -838,7 +838,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                         ja: 'セッション概要',
                       ),
                       children: [
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '会话 ID',
@@ -850,7 +850,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                           value: sessionId ?? '--',
                         ),
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '模板',
@@ -862,7 +862,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                           value: 'Harness Engineering',
                         ),
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '创建时间',
@@ -874,7 +874,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                           value: createdAtLabel ?? '--',
                         ),
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '更新时间',
@@ -886,7 +886,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                           value: updatedAtLabel ?? '--',
                         ),
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '执行状态',
@@ -899,7 +899,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: _statusLabel(context, orchestrator.status),
                         ),
                         if (orchestrator.errorMessage?.isNotEmpty == true)
-                          _HeMetadataEntryRow(
+                          OpenHandMetadataEntryRow(
                             label: openHandLocalizedText(
                               context,
                               zh: '错误信息',
@@ -916,7 +916,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // ── Task config ──
-                    _HeMetadataSection(
+                    OpenHandMetadataSection(
                       title: openHandLocalizedText(
                         context,
                         zh: '任务配置',
@@ -927,7 +927,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                         ja: 'タスク設定',
                       ),
                       children: [
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '任务描述',
@@ -939,7 +939,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                           value: config.task.isEmpty ? '-' : config.task,
                         ),
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '工作目录',
@@ -953,7 +953,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                               ? '-'
                               : config.workingDirectory,
                         ),
-                        _HeMetadataEntryRow(
+                        OpenHandMetadataEntryRow(
                           label: openHandLocalizedText(
                             context,
                             zh: '持久化目录',
@@ -972,7 +972,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // ── Role configs ──
-                    _HeMetadataSection(
+                    OpenHandMetadataSection(
                       title: openHandLocalizedText(
                         context,
                         zh: '角色配置',
@@ -984,7 +984,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       ),
                       children: [
                         for (final entry in roleConfigs)
-                          _HeMetadataEntryRow(
+                          OpenHandMetadataEntryRow(
                             label: entry.$1,
                             value: entry.$2.isUrlMode
                                 ? 'URL/API · ${_heDescribeAiModelConfig(context, aiModels, entry.$2.aiModelConfigId, urlModeModelId: entry.$2.urlModeModelId)}'
@@ -997,7 +997,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // ── Phase status ──
-                    _HeMetadataSection(
+                    OpenHandMetadataSection(
                       title: openHandLocalizedText(
                         context,
                         zh: '阶段状态',
@@ -1009,7 +1009,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       ),
                       children: [
                         for (final log in logs)
-                          _HeMetadataEntryRow(
+                          OpenHandMetadataEntryRow(
                             label: _heHarnessPhaseLabel(context, log.phase),
                             value: () {
                               final parts = <String>[
@@ -1052,110 +1052,6 @@ class _HeSessionMetadataDialog extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// HE Metadata dialog sub-widgets (matching _SessionMetadataDialog style)
-class _HeSummaryTile extends StatelessWidget {
-  const _HeSummaryTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 188,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.all(Radius.circular(18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeMetadataSection extends StatelessWidget {
-  const _HeMetadataSection({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.all(Radius.circular(20)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _HeMetadataEntryRow extends StatelessWidget {
-  const _HeMetadataEntryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          SelectableText(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-          ),
-        ],
       ),
     );
   }
