@@ -18,6 +18,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../crons_controller.dart';
@@ -320,7 +321,7 @@ class _CronEntryCard extends StatelessWidget {
                       entry.cronExpression,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onTertiaryContainer,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 11,
                       ),
                     ),
@@ -844,7 +845,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   maxLines: 6,
                   minLines: 3,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 13,
                   ),
                   decoration: InputDecoration(
@@ -857,7 +858,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.5,
                       ),
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 13,
                     ),
                   ),
@@ -882,7 +883,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                         child: Text(
                           '0',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             color: colorScheme.onSurfaceVariant.withValues(
                               alpha: 0.4,
                             ),
@@ -1029,7 +1030,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 maxLines: 3,
                 minLines: 2,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontSize: 12,
                 ),
                 decoration: InputDecoration(
@@ -1038,7 +1039,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   contentPadding: const EdgeInsets.all(12),
                   hintStyle: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12,
                   ),
                 ),
@@ -1255,7 +1256,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               controller: controller,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
               ),
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
@@ -2232,7 +2233,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       '${record.elapsedMs}ms',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -2241,7 +2242,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         'exit: ${record.exitCode}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                     const SizedBox(width: 8),
@@ -2389,7 +2390,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 child: Text(
                   '${e.key}=${e.value}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11,
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -2440,7 +2441,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               record.errorMessage!,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.error,
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
               ),
             ),
@@ -2471,7 +2472,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                   record.stdout,
                   colorScheme: colorScheme,
                   base: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11,
                     color: colorScheme.onSurface,
                   ),
@@ -2505,7 +2506,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                   record.stderr,
                   colorScheme: colorScheme,
                   base: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11,
                     color: colorScheme.onErrorContainer,
                   ),
@@ -2542,7 +2543,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             child: Text(
               value,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 color: colorScheme.onSurface,
               ),
@@ -2619,7 +2620,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                   child: SelectableText(
                     '$k=${data[k] ?? ''}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                       color: colorScheme.onSurface,
                     ),
@@ -2996,7 +2997,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
             report.error!,
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.error,
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
             ),
           ),
         ),
@@ -3513,7 +3514,7 @@ MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
     fontStyle: subdued ? FontStyle.italic : FontStyle.normal,
   );
   final mono = base?.copyWith(
-    fontFamily: 'monospace',
+    fontFamily: kOpenHandMonospaceFontFamily,
     fontSize: 11,
     fontStyle: FontStyle.normal,
   );
@@ -3623,7 +3624,10 @@ MarkdownStyleSheet _buildHermesInlineMarkdownStyleSheet({
   required ColorScheme colorScheme,
   required TextStyle? base,
 }) {
-  final mono = base?.copyWith(fontFamily: 'monospace', fontSize: 11);
+  final mono = base?.copyWith(
+    fontFamily: kOpenHandMonospaceFontFamily,
+    fontSize: 11,
+  );
   final codeBg = colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
   return MarkdownStyleSheet.fromTheme(theme).copyWith(
     p: base,

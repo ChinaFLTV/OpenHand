@@ -571,7 +571,7 @@ class _NetworkRow extends StatelessWidget {
                 width: _kNetworkMethodColumnWidth,
                 text: entry.method,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   color: onColor,
                   fontWeight: FontWeight.w700,
                 ),
@@ -582,7 +582,7 @@ class _NetworkRow extends StatelessWidget {
                     entry.statusCode?.toString() ??
                     (entry.failed ? 'ERR' : '...'),
                 style: theme.textTheme.labelSmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   color: onColor,
                 ),
               ),
@@ -600,7 +600,7 @@ class _NetworkRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: onColor,
                   ),
                 ),
@@ -1009,7 +1009,10 @@ class _NetworkRow extends StatelessWidget {
           child: SingleChildScrollView(
             child: SelectableText(
               bodyText,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 12,
+              ),
             ),
           ),
         ),
@@ -1224,7 +1227,7 @@ class _PendingFetchBanner extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                     ),
@@ -1265,7 +1268,10 @@ class _PendingFetchBanner extends StatelessWidget {
               children: [
                 Text(
                   '${p.method} ${p.url}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -1371,14 +1377,20 @@ class _PendingFetchBanner extends StatelessWidget {
                   controller: urlCtrl,
                   maxLength: WebReverseSessionController.maxBreakpointTextChars,
                   decoration: const InputDecoration(labelText: 'URL'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: methodCtrl,
                   maxLength: WebReverseSessionController.maxRuleMethodChars,
                   decoration: const InputDecoration(labelText: 'Method'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1397,7 +1409,10 @@ class _PendingFetchBanner extends StatelessWidget {
                       ja: 'Headers（1 行 Key: Value、空なら維持）',
                     ),
                   ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1417,7 +1432,10 @@ class _PendingFetchBanner extends StatelessWidget {
                       ja: 'Body（空なら維持）',
                     ),
                   ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),

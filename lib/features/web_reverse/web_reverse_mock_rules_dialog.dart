@@ -12,6 +12,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -266,7 +267,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                                     ?.copyWith(
                                                       color:
                                                           cs.onSurfaceVariant,
-                                                      fontFamily: 'monospace',
+                                                      fontFamily:
+                                                          kOpenHandMonospaceFontFamily,
                                                     ),
                                               ),
                                             ],
@@ -364,7 +366,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                 '${h.status}  '
                                 '${h.ruleName}',
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11,
                                 ),
                               );
@@ -375,23 +377,18 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
               ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseMockRulesClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 8),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseMockRulesSaveApply ?? 'Save & Apply',
-                  onPressed: _commit,
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseMockRulesClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.webReverseMockRulesSaveApply ?? 'Save & Apply',
+                onPressed: _commit,
+              ),
+            ],
           ),
         ],
       ),
@@ -490,7 +487,7 @@ class _RuleEditorState extends State<_RuleEditor> {
             controller: _pattern,
             maxLength: WebReverseSessionController.maxBreakpointTextChars,
             onChanged: (_) => _push(),
-            style: const TextStyle(fontFamily: 'monospace'),
+            style: const TextStyle(fontFamily: kOpenHandMonospaceFontFamily),
             decoration: InputDecoration(
               labelText:
                   loc?.webReverseMockRulesUrlPattern ?? 'URL pattern (* / ?)',
@@ -553,7 +550,10 @@ class _RuleEditorState extends State<_RuleEditor> {
             onChanged: (_) => _push(),
             minLines: 2,
             maxLines: 4,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 12,
+            ),
             decoration: InputDecoration(
               labelText:
                   loc?.webReverseMockRulesExtraHeaders ??
@@ -569,7 +569,10 @@ class _RuleEditorState extends State<_RuleEditor> {
             onChanged: (_) => _push(),
             minLines: 8,
             maxLines: 18,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 12,
+            ),
             decoration: InputDecoration(
               labelText:
                   loc?.webReverseMockRulesResponseBody ?? 'Response body',

@@ -13,6 +13,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
@@ -658,7 +659,7 @@ class _LogLine extends StatelessWidget {
       child: SelectableText(
         line.isEmpty ? ' ' : line,
         style: TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12,
           color: color,
           height: 1.5,

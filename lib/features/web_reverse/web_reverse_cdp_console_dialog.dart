@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -286,7 +287,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                   isDense: true,
                                 ),
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 12,
                                 ),
                               ),
@@ -296,7 +297,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                 focusNode: _paramsFocus,
                                 maxLines: 6,
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11,
                                 ),
                                 decoration: const InputDecoration(
@@ -386,7 +387,8 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
-                                                  fontFamily: 'monospace',
+                                                  fontFamily:
+                                                      kOpenHandMonospaceFontFamily,
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w600,
                                                 ),
@@ -398,7 +400,8 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                                   .substring(11, 19),
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                fontFamily: 'monospace',
+                                                fontFamily:
+                                                    kOpenHandMonospaceFontFamily,
                                                 color: cs.onSurfaceVariant,
                                               ),
                                             ),
@@ -461,7 +464,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
               Text(
                 h.method,
                 style: const TextStyle(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -491,7 +494,10 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
               ),
               child: SelectableText(
                 h.paramsJson,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
@@ -516,7 +522,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                 child: SelectableText(
                   h.error ?? h.resultJson ?? '',
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11,
                     color: h.error == null ? null : cs.error,
                   ),

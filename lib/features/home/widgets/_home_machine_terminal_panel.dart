@@ -1690,7 +1690,7 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
           style: theme.textTheme.bodyMedium?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w800,
-            fontFamily: 'Menlo',
+            fontFamily: kOpenHandMonospaceFontFamily,
           ),
         ),
         subtitle: Padding(
@@ -1735,7 +1735,7 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 height: 1.35,
-                fontFamily: 'Menlo',
+                fontFamily: kOpenHandMonospaceFontFamily,
               ),
             ),
           ),

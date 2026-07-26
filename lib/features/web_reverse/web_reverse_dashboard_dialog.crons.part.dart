@@ -435,7 +435,7 @@ class _CronsBodyState extends State<_CronsBody>
                         keyboardType: TextInputType.number,
                         maxLength: 5,
                         maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                        buildCounter: _hideTextFieldCounter,
+                        buildCounter: openHandHiddenTextFieldCounter,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],

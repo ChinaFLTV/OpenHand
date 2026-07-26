@@ -6,6 +6,7 @@ import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_snack_bar.dart';
+import 'openhand_typography.dart';
 
 const Duration _kFriendlyErrorDetailsSnackDuration = Duration(seconds: 6);
 
@@ -264,7 +265,7 @@ class _ErrorDetailSectionBlock extends StatelessWidget {
           style: theme.textTheme.bodyMedium?.copyWith(
             height: 1.48,
             color: colorScheme.onSurfaceVariant,
-            fontFamily: section.monospace ? 'monospace' : null,
+            fontFamily: section.monospace ? kOpenHandMonospaceFontFamily : null,
           ),
         ),
       ],

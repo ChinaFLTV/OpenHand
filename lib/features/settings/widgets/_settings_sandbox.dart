@@ -477,7 +477,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                     SelectableText(
                       _actionCommand,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ],

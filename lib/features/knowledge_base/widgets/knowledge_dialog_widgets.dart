@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
@@ -357,7 +358,7 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
         child: SelectableText(
           text,
           style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.38,
           ),
         ),
@@ -586,7 +587,7 @@ class KnowledgeDialogTextBox extends StatelessWidget {
         child: SelectableText(
           value,
           style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.38,
             color: colorScheme.onSurface,
           ),

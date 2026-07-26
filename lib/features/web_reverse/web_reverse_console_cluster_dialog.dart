@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -199,11 +200,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                       final open = _expanded.contains(c.signature);
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
+                        decoration: webReverseSurfaceCardDecoration(cs),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -268,7 +265,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontFamily: 'monospace',
+                                          fontFamily:
+                                              kOpenHandMonospaceFontFamily,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -340,7 +338,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                                   .toIso8601String()
                                                   .substring(11, 23),
                                               style: TextStyle(
-                                                fontFamily: 'monospace',
+                                                fontFamily:
+                                                    kOpenHandMonospaceFontFamily,
                                                 fontSize: 10,
                                                 color: cs.onSurfaceVariant,
                                               ),
@@ -349,7 +348,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                             SelectableText(
                                               e.text,
                                               style: const TextStyle(
-                                                fontFamily: 'monospace',
+                                                fontFamily:
+                                                    kOpenHandMonospaceFontFamily,
                                                 fontSize: 11,
                                               ),
                                             ),

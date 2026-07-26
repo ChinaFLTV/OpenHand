@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -320,11 +321,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 6),
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
+                        decoration: webReverseSurfaceCardDecoration(cs),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -335,7 +332,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                                   SelectableText(
                                     h.label,
                                     style: const TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -345,7 +342,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                                       child: Text(
                                         h.detail,
                                         style: TextStyle(
-                                          fontFamily: 'monospace',
+                                          fontFamily:
+                                              kOpenHandMonospaceFontFamily,
                                           fontSize: 10,
                                           color: cs.onSurfaceVariant,
                                         ),
@@ -356,7 +354,8 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                                     child: Text(
                                       'nodeId=${h.nodeId}',
                                       style: TextStyle(
-                                        fontFamily: 'monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                         fontSize: 10,
                                         color: cs.onSurfaceVariant.withValues(
                                           alpha: 0.7,

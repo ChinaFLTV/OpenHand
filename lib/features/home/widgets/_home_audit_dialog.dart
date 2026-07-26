@@ -381,7 +381,9 @@ class _AuditKvRow extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final valueStyle =
         (mono
-                ? theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace')
+                ? theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                  )
                 : theme.textTheme.bodyMedium)
             ?.copyWith(color: colorScheme.onSurface);
     return Padding(
@@ -541,7 +543,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                           child: SelectableText(
                             rendered,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               color: colorScheme.onSurface,
                             ),
                           ),
@@ -1226,7 +1228,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       error,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.error,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ),
@@ -1267,7 +1269,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                                           ? '—'
                                           : message.content),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                 ),
                               ),
                       ),
@@ -1737,7 +1739,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
                 minLines: 6,
                 maxLines: 16,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
                 decoration: InputDecoration(
                   labelText: 'JSON',
@@ -1895,7 +1897,7 @@ class _AuditMessageRow extends StatelessWidget {
                   message.id,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
                 const SizedBox(height: 2),

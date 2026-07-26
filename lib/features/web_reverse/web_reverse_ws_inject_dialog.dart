@@ -18,7 +18,9 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -442,7 +444,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                   child: Text(
                                     '#${row.id}',
                                     style: const TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                     ),
                                   ),
                                 ),
@@ -452,7 +454,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                     ),
                                   ),
                                 ),
@@ -484,8 +486,11 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               maxLines: 8,
               maxLength: _kWsInjectMaxPayloadChars,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
-              buildCounter: _hideWsInjectCounter,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              buildCounter: openHandHiddenTextFieldCounter,
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 12,
+              ),
               decoration: InputDecoration(
                 labelText:
                     loc?.webReverseWsInjectPayloadLabel ?? 'Text frame / JSON',
@@ -590,7 +595,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                           ? '${e.payload.substring(0, 200)}…'
                                           : e.payload,
                                       style: const TextStyle(
-                                        fontFamily: 'monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -604,26 +610,21 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                     ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseWsInjectClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 8),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseWsInjectSend ?? 'Send',
-                  onPressed:
-                      _selectedId == null || _payloadCtrl.text.isEmpty || _busy
-                      ? null
-                      : _send,
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseWsInjectClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.webReverseWsInjectSend ?? 'Send',
+                onPressed:
+                    _selectedId == null || _payloadCtrl.text.isEmpty || _busy
+                    ? null
+                    : _send,
+              ),
+            ],
           ),
         ],
       ),
@@ -647,10 +648,3 @@ class _LogEntry {
 String _capWsInjectText(String text, int maxChars) {
   return clipText(text, maxChars, suffix: '');
 }
-
-Widget? _hideWsInjectCounter(
-  BuildContext context, {
-  required int currentLength,
-  required bool isFocused,
-  required int? maxLength,
-}) => null;

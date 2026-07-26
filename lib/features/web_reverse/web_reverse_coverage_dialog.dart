@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -282,7 +283,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   '${(globalRatio * 100).toStringAsFixed(1)}%  '
                   '${_humanBytes(coveredBytes)} / ${_humanBytes(totalBytes)}',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
                 if (_lastTakeAt != null) ...[
@@ -426,11 +427,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       barColor = cs.error;
     }
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
       child: Row(
         children: [
@@ -442,7 +439,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               style: TextStyle(
                 color: barColor,
                 fontWeight: FontWeight.w800,
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
               ),
             ),
           ),
@@ -466,7 +463,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
                 Text(

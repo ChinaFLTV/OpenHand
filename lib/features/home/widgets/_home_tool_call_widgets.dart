@@ -742,7 +742,7 @@ class _ExpandableToolSection extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               height: 1.35,
                             ),
                           ),
@@ -2261,7 +2261,7 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
                 text: TextSpan(
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurface,
-                    fontFamily: 'JetBrainsMono',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                   children: [
                     TextSpan(text: entry.key),
@@ -4208,7 +4208,7 @@ class _SelfLearningChangeTile extends StatelessWidget {
                     : item.id,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
               ),
               if (item.summary.isNotEmpty) ...[

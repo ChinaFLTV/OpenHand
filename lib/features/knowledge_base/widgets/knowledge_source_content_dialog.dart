@@ -15,6 +15,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1413,7 +1414,7 @@ class _KnowledgeMarkdownViewer extends StatelessWidget {
         styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
           p: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
           code: theme.textTheme.bodyMedium?.copyWith(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             color: colorScheme.onSurface,
           ),
           codeblockDecoration: BoxDecoration(
@@ -1467,7 +1468,7 @@ class _KnowledgeSourceTextViewer extends StatelessWidget {
                 contentPadding: EdgeInsets.all(14),
               ),
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 height: 1.42,
                 color: colorScheme.onSurface,
               ),
@@ -1481,7 +1482,7 @@ class _KnowledgeSourceTextViewer extends StatelessWidget {
                       ? emptyText
                       : _withLineNumbers(controller.text),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     height: 1.42,
                     color: colorScheme.onSurface,
                   ),

@@ -11,6 +11,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -260,18 +261,14 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                             _buildRow(theme, cs, loc, snaps[idx]),
                       ),
               ),
-              Divider(height: 1, color: cs.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      label: loc?.webReverseAccountSnapClose ?? 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
+              buildWebReverseDialogFooter(
+                context,
+                actions: [
+                  OpenHandDialogActionButton.secondary(
+                    label: loc?.webReverseAccountSnapClose ?? 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -327,11 +324,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   ) {
     final stamp = formatMonthDayHm(snap.capturedAt);
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs),
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
       child: Row(
         children: [
@@ -391,7 +384,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         color: cs.onSecondaryContainer,
         fontSize: 10,
         fontWeight: FontWeight.w700,
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
       ),
     ),
   );

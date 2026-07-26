@@ -511,11 +511,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
     const presets = [1.0, 2.0, 4.0, 6.0, 20.0];
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

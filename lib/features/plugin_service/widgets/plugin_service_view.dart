@@ -16,6 +16,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
 import '../../mcp/index.dart';
@@ -443,7 +444,7 @@ class _PluginCard extends StatelessWidget {
                               controller.clearPluginError(plugin.id),
                           messageStyle: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onErrorContainer,
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                           ),
                         ),
                       ),
@@ -843,7 +844,7 @@ class _PluginOperationProgressDialogState
             ),
             child: DefaultTextStyle(
               style: theme.textTheme.bodySmall!.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 10.5,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -883,7 +884,7 @@ class _PluginOperationProgressDialogState
                         l10n.pluginServiceWaitingForOutput,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: const Color(0xFF808080),
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                     )
@@ -903,7 +904,7 @@ class _PluginOperationProgressDialogState
                             child: Text(
                               line,
                               style: TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 11,
                                 height: 1.5,
                                 color: isError
@@ -1964,7 +1965,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                             return Text(
                               line,
                               style: TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 11,
                                 height: 1.5,
                                 color: isErr || isFail

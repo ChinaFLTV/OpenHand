@@ -145,11 +145,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           SizedBox(
             width: 320,
             child: Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs, radius: 16),
               child: Column(
                 children: [
                   Padding(
@@ -229,11 +225,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
             child: AnimatedContainer(
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,
               curve: _kSwitchInCurve,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs, radius: 16),
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: selected == null
                   ? Center(
@@ -327,7 +319,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   entry.url,
                   maxLines: 1,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -530,7 +522,10 @@ class _FrameTile extends StatelessWidget {
           const SizedBox(height: 4),
           SelectableText(
             preview,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 12,
+            ),
           ),
         ],
       ),

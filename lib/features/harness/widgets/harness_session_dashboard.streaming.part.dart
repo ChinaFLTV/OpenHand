@@ -213,7 +213,7 @@ class _HeStreamingSubConversationState
                                   ja: '以前のサブメッセージを表示 · $_lastHiddenAbove 行',
                                 ),
                           style: TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 11.5,
                             color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,

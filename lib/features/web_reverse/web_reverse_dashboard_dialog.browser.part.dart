@@ -1868,7 +1868,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 enabled: alive,
                 textAlignVertical: TextAlignVertical.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
                 onTap: () => _addressEditing = true,
                 onSubmitted: (s) async {
@@ -2300,7 +2300,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
               ],
@@ -3468,7 +3468,10 @@ class _HistoryDropdownIcon extends StatelessWidget {
               height: 32,
               child: Text(
                 u,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 12,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
@@ -469,16 +470,15 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
               padding: const EdgeInsets.all(12),
               child: SingleChildScrollView(
                 child: SelectableText(
                   preview,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),

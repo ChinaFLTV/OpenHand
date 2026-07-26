@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
 
+/// 隐藏 TextField 的 `maxLength` 计数器。
+///
+/// 用于既要靠 `maxLength` 做硬性截断、又不想让 "12/200" 计数占位撑高布局的
+/// 输入框：`TextField(buildCounter: openHandHiddenTextFieldCounter)`。
+Widget? openHandHiddenTextFieldCounter(
+  BuildContext context, {
+  required int currentLength,
+  required bool isFocused,
+  required int? maxLength,
+}) => null;
+
 class OpenHandFormLabel extends StatelessWidget {
   const OpenHandFormLabel(this.text, {super.key});
 

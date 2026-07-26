@@ -13,6 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_text_buffer.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -503,7 +504,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                           child: SelectableText(
                             _commandPreview,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               color: colorScheme.onSurface,
                               height: 1.4,
                             ),
@@ -577,7 +578,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                                     ? l10n.harnessCliLoginEmptyOutput
                                     : _output),
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 12.5,
                               height: 1.55,
                               color: _errorMessage != null

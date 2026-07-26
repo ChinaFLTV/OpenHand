@@ -12,6 +12,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart'
     show
@@ -466,7 +467,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   maxLines: 8,
                   minLines: 4,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 13,
                   ),
                   decoration: InputDecoration(
@@ -478,7 +479,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.5,
                       ),
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 13,
                     ),
                   ),

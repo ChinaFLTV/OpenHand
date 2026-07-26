@@ -309,7 +309,7 @@ class _WriteCommandConfirmationDialogState
                                 widget.request.command,
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       height: 1.45,
                                     ),
                               ),
@@ -335,7 +335,7 @@ class _WriteCommandConfirmationDialogState
                               maxLines: 3,
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurfaceVariant,
@@ -472,7 +472,7 @@ class _WriteCommandDirectoryPanel extends StatelessWidget {
                 SelectableText(
                   nonBlankStringOr(workingDirectory, '-'),
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     height: 1.35,
                   ),
                 ),

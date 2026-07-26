@@ -191,7 +191,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                     '${b.url}  ${_lineLabel(b.line)}',
                     style: Theme.of(dialogContext).textTheme.labelSmall
                         ?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           color: Theme.of(
                             dialogContext,
                           ).colorScheme.onSurfaceVariant,
@@ -204,7 +204,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                     maxLines: 4,
                     minLines: 2,
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 13,
                     ),
                     decoration: InputDecoration(
@@ -1245,11 +1245,7 @@ class _SectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 16),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1339,7 +1335,7 @@ class _BpRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.primary,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ),

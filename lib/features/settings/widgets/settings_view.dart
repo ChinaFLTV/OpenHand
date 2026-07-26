@@ -55,8 +55,10 @@ import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_deferred_slider.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -515,7 +517,7 @@ Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
               child: Text(
                 engineName,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -734,7 +736,7 @@ Widget _buildToolCallLogRow({
           child: Text(
             _settingsFormatMonthDayHmsFromEpochMs(timestampMs),
             style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
               color: colorScheme.onSurfaceVariant,
             ),
           ),
@@ -785,7 +787,7 @@ Widget _buildToolCallLogRow({
                           (result) => Text(
                             result.label,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 10,
                               color: result.success
                                   ? colorScheme.onSurfaceVariant
@@ -1731,29 +1733,8 @@ class _SettingsViewState extends State<SettingsView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AnimatedSwitcher(
-                duration: _settingsMotionDuration(
-                  context,
-                  _settingsRevealSwitcherDuration,
-                ),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  return SizeTransition(
-                    sizeFactor: animation,
-                    axisAlignment: -1.0,
-                    child: FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, -0.1),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    ),
-                  );
-                },
+              OpenHandVerticalRevealSwitcher(
+                slideBeginOffsetY: -0.1,
                 child: settingsController.persistenceIssue == null
                     ? const SizedBox.shrink(
                         key: ValueKey('settings-persistence-issue-empty'),
@@ -7520,7 +7501,8 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
         if (!mounted) return;
         setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
       },
-      onError: (error, stack) => silentLog('settings', '刷新自动模式帧率', error, stack),
+      onError: (error, stack) =>
+          silentLog('settings', '刷新自动模式帧率', error, stack),
     );
   }
 
@@ -7715,7 +7697,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
                       child: Text(
                         r.label,
                         style: theme.textTheme.labelMedium?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -7727,7 +7709,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.error,
                           decoration: TextDecoration.lineThrough,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                     ),
@@ -7744,7 +7726,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.primary,
                           fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                     ),

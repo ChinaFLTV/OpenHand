@@ -6,6 +6,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../ai/index.dart';
@@ -356,7 +357,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                     _selectedProbe.executablePath ?? '',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -538,7 +539,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
                     Text(
                       widget.userDataDir,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         color: cs.onSurface,
                       ),
                       maxLines: 2,

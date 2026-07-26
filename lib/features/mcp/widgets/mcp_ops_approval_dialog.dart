@@ -9,6 +9,7 @@ import '../../../shared/ui/openhand_approval_chip.dart';
 import '../../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -953,7 +954,7 @@ class _ApprovalPayloadScalar extends StatelessWidget {
             child: SelectableText(
               muted ? '-' : text,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: mono ? 'monospace' : null,
+                fontFamily: mono ? kOpenHandMonospaceFontFamily : null,
                 height: mono ? 1.50 : 1.42,
                 color: muted ? cs.onSurfaceVariant : null,
               ),

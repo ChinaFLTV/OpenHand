@@ -144,7 +144,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
         Text(
           source,
           style: TextStyle(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             fontSize: 13,
             color: widget.colorScheme.onSurface,
           ),
@@ -193,7 +193,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
             child: Text(
               '… $_lastHiddenAbove ${_lastHiddenAbove == 1 ? 'line' : 'lines'} above',
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                 fontStyle: FontStyle.italic,
@@ -447,7 +447,7 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
       child: Text(
         text,
         style: TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12,
           color: widget.textColor.withValues(alpha: 0.80),
         ),

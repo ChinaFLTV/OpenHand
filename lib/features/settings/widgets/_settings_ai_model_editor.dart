@@ -6020,7 +6020,7 @@ class _EndpointPreviewRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurface,
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   height: 1.25,
                 ),
               ),

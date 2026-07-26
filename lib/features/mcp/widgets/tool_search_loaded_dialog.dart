@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1089,7 +1090,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                       TextSpan(
                         text: queryLabel,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1122,7 +1123,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 height: 1.35,
                               ),
                             ),
@@ -1206,7 +1207,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1334,7 +1335,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 name,
                 maxLines: 2,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontSize: 12.5,
                   height: 1.35,
                 ),

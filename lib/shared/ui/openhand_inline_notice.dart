@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
 import 'openhand_notice_actions.dart';
+import 'openhand_reveal_switcher.dart';
 
 /// 内联通知卡片：用于在页面内展示错误、警告、提示等反馈。
 /// 支持 Q弹进场退场动画（size + fade + 轻微 slide），受全局 reduce-motion
@@ -210,49 +211,11 @@ class OpenHandInlineNoticeSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasChild = child != null;
-    if (!openHandTickerMotionEnabled(context)) {
-      return hasChild
-          ? KeyedSubtree(key: const ValueKey('notice-on'), child: child!)
-          : const SizedBox.shrink(key: ValueKey('notice-off'));
-    }
-    final inMs = openHandMotionDurationMs(context, 320).inMilliseconds;
-    final outMs = (openHandMotionDurationMs(
-      context,
-      240,
-    ).inMilliseconds).clamp(0, inMs);
-    return AnimatedSwitcher(
-      duration: Duration(milliseconds: hasChild ? inMs : outMs),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        return SizeTransition(
-          sizeFactor: animation,
-          axisAlignment: -1.0,
-          child: FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, -0.06),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          ),
-        );
-      },
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          alignment: Alignment.topCenter,
-          children: <Widget>[
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        );
-      },
-      child: hasChild
-          ? KeyedSubtree(key: const ValueKey('notice-on'), child: child!)
-          : const SizedBox.shrink(key: ValueKey('notice-off')),
+    return OpenHandVerticalRevealSwitcher(
+      reverseDuration: kOpenHandVerticalRevealReverseDuration,
+      slideBeginOffsetY: -0.06,
+      presentKey: const ValueKey<String>('notice-on'),
+      child: child,
     );
   }
 }

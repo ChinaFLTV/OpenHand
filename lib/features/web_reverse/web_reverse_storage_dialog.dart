@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -424,7 +425,7 @@ class _StorageDialogState extends State<_StorageDialog>
                       title: Text(
                         '${c['name']}',
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),
@@ -434,7 +435,7 @@ class _StorageDialogState extends State<_StorageDialog>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11,
                         ),
                       ),
@@ -510,7 +511,7 @@ class _StorageDialogState extends State<_StorageDialog>
                       title: Text(
                         e.key,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),
@@ -520,7 +521,7 @@ class _StorageDialogState extends State<_StorageDialog>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11,
                         ),
                       ),
@@ -640,7 +641,7 @@ class _StorageDialogState extends State<_StorageDialog>
                         title: Text(
                           'key: ${(e['key'] as Map?)?['value'] ?? e['key']}',
                           style: const TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
                           ),
@@ -650,7 +651,7 @@ class _StorageDialogState extends State<_StorageDialog>
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 11,
                           ),
                         ),
@@ -682,7 +683,7 @@ class _StorageDialogState extends State<_StorageDialog>
             Text(
               'origin: ${_origin!}',
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),

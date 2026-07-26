@@ -329,7 +329,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
             Text(
               'nodeId=${_selectedNodeId!}',
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 color: cs.onSurfaceVariant,
               ),
             ),
@@ -427,7 +427,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                 overflow: TextOverflow.ellipsis,
                 text: TextSpan(
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                   children: [
                     TextSpan(
@@ -582,7 +582,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
           padding: const EdgeInsets.symmetric(vertical: 3),
           child: SelectableText.rich(
             TextSpan(
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 12,
+              ),
               children: [
                 TextSpan(
                   text: e.key,
@@ -624,7 +627,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: SelectableText.rich(
             TextSpan(
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 11,
+              ),
               children: [
                 TextSpan(
                   text: '${e['name']}: ',
@@ -676,11 +682,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: cs.outlineVariant),
-          ),
+          decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -700,7 +702,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                       style: TextStyle(
                         color: cs.primary,
                         fontWeight: FontWeight.w700,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                     ),
@@ -713,7 +715,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                   SelectableText(
                     src,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       color: cs.onSurfaceVariant,
                       fontSize: 10,
                     ),
@@ -726,7 +728,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                   child: SelectableText(
                     desc,
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                     ),
                   ),

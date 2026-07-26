@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_source.dart';
@@ -1208,7 +1209,7 @@ class _MarkdownPreview extends StatelessWidget {
             styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
               p: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
               code: theme.textTheme.bodyMedium?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 color: colorScheme.onSurface,
               ),
               codeblockDecoration: BoxDecoration(

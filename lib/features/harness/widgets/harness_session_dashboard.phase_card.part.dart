@@ -435,7 +435,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             color: textColor.withValues(alpha: 0.60),
                           ),
                         ),

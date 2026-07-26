@@ -550,7 +550,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
                             ja: '$hiddenCount 件の前のサブメッセージを表示',
                           ),
                           style: TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 11.5,
                             color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,

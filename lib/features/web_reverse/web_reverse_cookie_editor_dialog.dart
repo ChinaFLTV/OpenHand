@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -267,7 +268,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                                 c.name,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -288,7 +289,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 11.5,
                             ),
                           ),
@@ -546,23 +547,18 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
               ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(context).pop(),
-                  label: loc?.webReverseCookieEditorCancel ?? 'Cancel',
-                ),
-                const SizedBox(width: 8),
-                OpenHandDialogActionButton.primary(
-                  onPressed: _submit,
-                  label: loc?.webReverseCookieEditorSave ?? 'Save',
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(context).pop(),
+                label: loc?.webReverseCookieEditorCancel ?? 'Cancel',
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: _submit,
+                label: loc?.webReverseCookieEditorSave ?? 'Save',
+              ),
+            ],
           ),
         ],
       ),
@@ -589,7 +585,10 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
           counterText: '',
           border: const OutlineInputBorder(),
         ),
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+        style: const TextStyle(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          fontSize: 12.5,
+        ),
       ),
     );
   }

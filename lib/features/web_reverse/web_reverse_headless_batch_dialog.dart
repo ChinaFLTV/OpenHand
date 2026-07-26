@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -241,7 +242,10 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 ),
                 border: const OutlineInputBorder(),
               ),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -260,7 +264,9 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                               '(not selected)'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontFamily: 'monospace'),
+                      style: const TextStyle(
+                        fontFamily: kOpenHandMonospaceFontFamily,
+                      ),
                     ),
                   ),
                 ),
@@ -334,11 +340,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
             const SizedBox(height: 12),
             Expanded(
               child: Container(
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
+                decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
                 child: _progress.isEmpty && _results == null
                     ? Center(
                         child: Text(
@@ -376,7 +378,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 12,
                                 ),
                               ),
@@ -401,7 +403,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                               ),
                             ),

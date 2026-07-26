@@ -17,6 +17,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -211,11 +212,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           Expanded(
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs),
               child: entries.isEmpty
                   ? Center(
                       child: Text(
@@ -279,18 +276,14 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseWaterfallClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseWaterfallClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),
@@ -316,7 +309,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
             '${ms}ms',
             style: theme.textTheme.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
               fontSize: 10,
             ),
           ),
@@ -404,7 +397,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     child: Text(
                       e.method,
                       style: TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: cs.onSurfaceVariant,
@@ -416,7 +409,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     child: Text(
                       status?.toString() ?? '—',
                       style: TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: statusColor,
@@ -428,7 +421,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     child: Text(
                       _shortUrl(e.url),
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 11,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -489,7 +482,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                           : '${total}ms${size != null ? '·${formatByteSize(size)}' : ''}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 10,
                       ),
                     ),
@@ -547,7 +540,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
             child: Text(
               letter,
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
                 color: color,
@@ -596,7 +589,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     Text(
                       '${loc?.webReverseWaterfallInitiatorTypeLabel ?? "Type"}: ${e.initiatorType ?? "—"}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                     const Spacer(),
@@ -626,7 +619,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                   child: Text(
                     '${e.initiatorUrl}:${(e.initiatorLineNumber ?? 0) + 1}:${(e.initiatorColumnNumber ?? 0) + 1}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       color: cs.onSurfaceVariant,
                     ),
                   ),
@@ -688,7 +681,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                   Text(
                                     fn.isEmpty ? '(anonymous)' : fn,
                                     style: TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                       color: cs.onSurface,
@@ -700,7 +693,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontFamily: 'monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                         fontSize: 10,
                                         color: cs.onSurfaceVariant,
                                       ),

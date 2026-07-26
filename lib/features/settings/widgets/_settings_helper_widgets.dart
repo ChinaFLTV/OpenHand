@@ -4456,7 +4456,10 @@ class _SettingsIntFieldState extends State<_SettingsIntField> {
       focusNode: _focusNode,
       keyboardType: TextInputType.number,
       textAlign: TextAlign.right,
-      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+      style: const TextStyle(
+        fontSize: 12,
+        fontFamily: kOpenHandMonospaceFontFamily,
+      ),
       decoration: const InputDecoration(
         isDense: true,
         contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),

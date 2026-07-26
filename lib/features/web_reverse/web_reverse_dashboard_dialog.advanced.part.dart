@@ -1488,7 +1488,10 @@ Future<void> _showExtraHeadersDialog(
               maxLength: WebReverseSessionController.maxRuleHeadersChars,
               maxLines: 10,
               minLines: 5,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 12.5,
+              ),
               decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
           ],
@@ -1571,7 +1574,7 @@ Future<void> _showCdpPaletteDialog(
                     border: OutlineInputBorder(),
                   ),
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12.5,
                   ),
                 ),
@@ -1585,7 +1588,7 @@ Future<void> _showCdpPaletteDialog(
                     border: OutlineInputBorder(),
                   ),
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12.5,
                   ),
                 ),
@@ -1633,7 +1636,7 @@ Future<void> _showCdpPaletteDialog(
                             child: SelectableText(
                               v,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                               ),
                             ),
@@ -1838,7 +1841,7 @@ Future<void> _showDiffPicker(
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                     ),
@@ -1915,11 +1918,7 @@ class _DiffViewerDialog extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     Widget col(String label, CdpNetworkEntry e) => Expanded(
       child: Container(
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: cs.outlineVariant),
-        ),
+        decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
         padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1927,7 +1926,7 @@ class _DiffViewerDialog extends StatelessWidget {
             Text(
               '$label: ${e.method} ${e.url}',
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontWeight: FontWeight.w800,
                 fontSize: 12,
               ),
@@ -1955,7 +1954,10 @@ class _DiffViewerDialog extends StatelessWidget {
                   e.requestHeaders.entries
                       .map((kv) => '${kv.key}: ${kv.value}')
                       .join('\n'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ),
@@ -2036,7 +2038,7 @@ Future<void> _showServiceWorkersDialog(
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 12,
                         ),
                       ),
@@ -3047,7 +3049,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                               child: SelectableText(
                                 summary,
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11.5,
                                 ),
                               ),
@@ -3234,7 +3236,10 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: SelectableText(
               '[${e['kind']}] ${jsonEncode(e)}',
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 11,
+              ),
             ),
           );
         },
@@ -3365,7 +3370,7 @@ class _RtcStatChip extends StatelessWidget {
             value,
             style: theme.textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
             ),
           ),
         ],
@@ -3521,7 +3526,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                     hintText: 'paste obfuscated js…',
                   ),
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11.5,
                   ),
                 ),
@@ -3556,7 +3561,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                               ja: '難読化解除の結果がここに表示されます。',
                             ),
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11.5,
                         ),
                       ),
@@ -3921,7 +3926,9 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                         ),
                         title: Text(
                           r.urlPattern,
-                          style: const TextStyle(fontFamily: 'monospace'),
+                          style: const TextStyle(
+                            fontFamily: kOpenHandMonospaceFontFamily,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -4271,11 +4278,7 @@ class _SdpDiffColumn extends StatelessWidget {
     if (current == null) {
       return Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cs.outlineVariant),
-        ),
+        decoration: webReverseSurfaceCardDecoration(cs),
         child: Text(
           title,
           style: theme.textTheme.bodySmall?.copyWith(
@@ -4309,11 +4312,7 @@ class _SdpDiffColumn extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -4361,7 +4360,7 @@ class _SdpDiffColumn extends StatelessWidget {
                   child: SelectableText(
                     '$prefix${r.line}',
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                       height: 1.4,
                     ),
@@ -4665,7 +4664,7 @@ class _IceTopologyPainter extends CustomPainter {
           color: onSurface,
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
         ),
       ),
       textAlign: TextAlign.center,
@@ -4703,7 +4702,7 @@ class _IceTopologyPainter extends CustomPainter {
           color: onSurface,
           fontSize: 9.5,
           fontWeight: FontWeight.w700,
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
         ),
       ),
       textAlign: TextAlign.center,

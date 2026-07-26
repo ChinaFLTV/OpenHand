@@ -1661,7 +1661,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
                 cursorColor: cs.primary,
                 cursorWidth: 1.4,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontSize: 12.5,
                 ),
                 decoration: InputDecoration(
@@ -2018,7 +2018,7 @@ class _HarDiffColumn extends StatelessWidget {
                         items[i],
                         maxLines: 2,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 12,
                         ),
                       ),
@@ -2178,7 +2178,7 @@ class _HarChangeRow extends StatelessWidget {
             style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: sizeDelta > 0 ? cs.error : Colors.green,
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
             ),
           ),
         ),
@@ -2199,7 +2199,10 @@ class _HarChangeRow extends StatelessWidget {
           subtitle: SelectableText(
             '${c.a.method} ${c.a.url}',
             maxLines: 1,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 11,
+            ),
           ),
           children: [
             // body 文本不同时走行级 unified diff（LCS-based），
@@ -2268,7 +2271,7 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         '$value',
         style: theme.textTheme.labelSmall?.copyWith(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontWeight: emphasised ? FontWeight.w900 : FontWeight.w700,
           color: color,
         ),
@@ -2320,7 +2323,7 @@ class _BodyPreview extends StatelessWidget {
               child: SelectableText(
                 preview.isEmpty ? '<empty>' : preview,
                 style: const TextStyle(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontSize: 11,
                   height: 1.45,
                 ),
@@ -2374,11 +2377,7 @@ class _UnifiedBodyDiff extends StatelessWidget {
     );
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2421,7 +2420,7 @@ class _UnifiedBodyDiff extends StatelessWidget {
               ? '… 折叠 ${row.foldedCount} 行 …'
               : '… ${row.foldedCount} hidden …',
           style: TextStyle(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             fontSize: 10.5,
             color: cs.onSurfaceVariant,
             fontStyle: FontStyle.italic,
@@ -2445,7 +2444,7 @@ class _UnifiedBodyDiff extends StatelessWidget {
       child: SelectableText(
         '$prefix${row.line}',
         style: const TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 11,
           height: 1.4,
         ),
@@ -2575,7 +2574,7 @@ class _HarUnifiedStat extends StatelessWidget {
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           color: color,
           fontWeight: FontWeight.w700,
         ),

@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -488,7 +489,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                         WebReverseSessionController.maxDebuggerExpressionChars,
                     maxLines: 3,
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 12,
                     ),
                     decoration: InputDecoration(
@@ -555,7 +556,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                             Text(
                               formatHourMinuteSecond(l.at),
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 11,
                               ),
                             ),
@@ -564,7 +565,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                               child: SelectableText(
                                 l.detail,
                                 style: TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11,
                                   color: l.ok
                                       ? cs.onSurface
@@ -640,7 +641,7 @@ class _SampleCard extends StatelessWidget {
                   child: Text(
                     sample.source,
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                     ),
                   ),
@@ -658,7 +659,7 @@ class _SampleCard extends StatelessWidget {
                 Text(
                   formatRemaining(rem),
                   style: theme.textTheme.labelMedium?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: urgent ? cs.error : cs.onSurface,
                     fontWeight: FontWeight.w700,
                   ),
@@ -670,7 +671,7 @@ class _SampleCard extends StatelessWidget {
               sample.value,
               maxLines: 2,
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 color: cs.onSurfaceVariant,
               ),
@@ -702,7 +703,7 @@ class _SampleCard extends StatelessWidget {
     return Text(
       '$k=$v',
       style: TextStyle(
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: 10,
         color: theme.colorScheme.onSurfaceVariant,
       ),

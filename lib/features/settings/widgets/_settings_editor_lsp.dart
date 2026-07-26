@@ -2532,7 +2532,7 @@ class _EditorLspInstallRunnerDialogState
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: terminalMuted,
-                                fontFamily: 'SF Mono, Menlo, monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                               ),
                             ),
                           ),
@@ -2558,7 +2558,7 @@ class _EditorLspInstallRunnerDialogState
                               child: SelectableText(
                                 line.isEmpty ? ' ' : line,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'SF Mono, Menlo, monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   color: _terminalLineColor(line),
                                   height: 1.45,
                                 ),

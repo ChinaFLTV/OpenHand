@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'highlight_pulse.dart';
 import 'motion_preference.dart';
+import 'openhand_reveal_switcher.dart';
+
+const Duration _bodyRevealDuration = Duration(milliseconds: 220);
+const Duration _noticesRevealDuration = Duration(milliseconds: 300);
 
 class FeaturePageShell extends StatelessWidget {
   const FeaturePageShell({
@@ -36,42 +40,16 @@ class FeaturePageShell extends StatelessWidget {
     final bodyWidget = Expanded(
       child: animateBody && motionEnabled
           ? AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 220),
-              ),
+              duration: openHandMotionDuration(context, _bodyRevealDuration),
               child: body,
             )
           : body,
     );
-    final noticeContent = _buildNoticeContent();
-    final noticesWidget = motionEnabled
-        ? AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 300),
-            ),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              return SizeTransition(
-                sizeFactor: animation,
-                axisAlignment: -1.0,
-                child: FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, -0.08),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                ),
-              );
-            },
-            child: noticeContent,
-          )
-        : noticeContent;
+    final noticesWidget = OpenHandVerticalRevealSwitcher(
+      duration: _noticesRevealDuration,
+      slideBeginOffsetY: -0.08,
+      child: _buildNoticeContent(),
+    );
 
     return Stack(
       children: [

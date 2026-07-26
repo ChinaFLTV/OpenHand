@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -271,7 +272,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                           ),
                         ),
                       ],
@@ -345,7 +346,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                         padding: const EdgeInsets.symmetric(vertical: 3),
                         child: DefaultTextStyle.merge(
                           style: theme.textTheme.labelSmall?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                           ),
                           child: Row(
                             children: [
@@ -544,7 +545,10 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             maxLength: WebReverseSessionController.maxDebuggerExpressionChars,
             minLines: 4,
             maxLines: 10,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 12,
+            ),
             decoration: InputDecoration(
               hintText:
                   loc?.webReverseReqBpEvalHint ??

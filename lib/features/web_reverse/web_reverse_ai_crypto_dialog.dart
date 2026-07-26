@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -556,7 +557,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                         Text(
                                           g.key,
                                           style: const TextStyle(
-                                            fontFamily: 'monospace',
+                                            fontFamily:
+                                                kOpenHandMonospaceFontFamily,
                                             fontSize: 11,
                                           ),
                                           maxLines: 2,
@@ -614,7 +616,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                 _status!,
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: cs.onSurfaceVariant,
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                 ),
                               ),
                           ],
@@ -645,7 +647,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                   child: Text(
                                     k,
                                     style: const TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 11,
                                     ),
                                   ),
@@ -656,10 +658,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                         const SizedBox(height: 10),
                         Expanded(
                           child: Container(
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: cs.outlineVariant),
+                            decoration: webReverseSurfaceCardDecoration(
+                              cs,
+                              radius: 8,
                             ),
                             child: SingleChildScrollView(
                               padding: const EdgeInsets.all(10),
@@ -669,7 +670,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                           'Click Analyze to generate the prompt.')
                                     : _prompt,
                                 style: TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11,
                                   color: _prompt.isEmpty
                                       ? cs.onSurfaceVariant
@@ -686,18 +687,14 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
               ],
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseAiCryptoClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseAiCryptoClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),

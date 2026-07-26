@@ -89,6 +89,7 @@ import '../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../shared/ui/openhand_token_usage_capsule.dart';
 import '../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/openhand_video_player_web_styles.dart';
 import '../../shared/ui/reasoning_effort_selector.dart';
 import '../../shared/ui/rolling_text.dart';

@@ -518,11 +518,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           // FPS 横幅卡片：单独一行展示，sparkline 占满宽度。
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outlineVariant),
-            ),
+            decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
             child: Row(
               children: [
                 SizedBox(
@@ -612,10 +608,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                                 horizontal: 12,
                                 vertical: 8,
                               ),
-                              decoration: BoxDecoration(
-                                color: cs.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: cs.outlineVariant),
+                              decoration: webReverseSurfaceCardDecoration(
+                                cs,
+                                radius: 12,
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1222,11 +1217,7 @@ class _LongTasksPane extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1268,7 +1259,7 @@ class _LongTasksPane extends StatelessWidget {
                   child: Text(
                     '${tasks.length}',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       color: cs.onSurfaceVariant,
                     ),
                   ),
@@ -1341,7 +1332,7 @@ class _LongTasksPane extends StatelessWidget {
                                   Text(
                                     '${dur.toStringAsFixed(0)} ms',
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontWeight: FontWeight.w800,
                                       color: color,
                                     ),
@@ -1352,7 +1343,8 @@ class _LongTasksPane extends StatelessWidget {
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                             color: cs.onSurfaceVariant,
-                                            fontFamily: 'monospace',
+                                            fontFamily:
+                                                kOpenHandMonospaceFontFamily,
                                           ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -1871,11 +1863,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           else if (_last != null)
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2068,7 +2056,7 @@ class _V8HeapLiveCard extends StatelessWidget {
                       Text(
                         '${thresholdMb.toStringAsFixed(0)} MB',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           color: breached ? cs.error : cs.onSurface,
                           fontWeight: FontWeight.w800,
                         ),
@@ -2525,11 +2513,7 @@ class _SamplingTopList extends StatelessWidget {
     final cs = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2595,7 +2579,7 @@ class _SamplingTopList extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 12,
                             ),
                           ),
@@ -2631,7 +2615,7 @@ class _SamplingTopList extends StatelessWidget {
                             formatByteSize(r.size),
                             textAlign: TextAlign.right,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                             ),
                           ),
                         ),
@@ -2710,7 +2694,7 @@ class _SamplingTopList extends StatelessWidget {
                               child: Text(
                                 '#$i',
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 12,
                                 ),
                               ),
@@ -2719,7 +2703,7 @@ class _SamplingTopList extends StatelessWidget {
                               child: SelectableText(
                                 entry,
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 12,
                                 ),
                               ),
@@ -2966,7 +2950,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                     _origin!,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                     ),
                   ),
                 ),
@@ -3388,8 +3372,13 @@ class _CookiesTableState extends State<_CookiesTable> {
     );
   }
 
-  Widget _mono(String s) =>
-      Text(s, style: const TextStyle(fontFamily: 'monospace', fontSize: 12));
+  Widget _mono(String s) => Text(
+    s,
+    style: const TextStyle(
+      fontFamily: kOpenHandMonospaceFontFamily,
+      fontSize: 12,
+    ),
+  );
 
   String _formatExpires(Object? raw) {
     if (raw == null) return '';
@@ -3741,7 +3730,7 @@ class _StorageTableState extends State<_StorageTable> {
                             child: SelectableText(
                               r.key,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -3752,7 +3741,7 @@ class _StorageTableState extends State<_StorageTable> {
                               r.value,
                               maxLines: 4,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                               ),
                             ),
@@ -4314,7 +4303,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             child: SelectableText(
                               name,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -4324,7 +4313,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             Text(
                               'v${info.version}',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
@@ -4386,7 +4375,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                   child: Text(
                                     s,
                                     style: const TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 11,
                                     ),
                                   ),
@@ -4432,7 +4421,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             child: Text(
                               '${selected.db} / ${selected.store}',
                               style: theme.textTheme.labelMedium?.copyWith(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -4441,7 +4430,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             '${_entries.length}${_hasMore || _entriesCapped ? "+" : ""}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: cs.onSurfaceVariant,
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -4586,7 +4575,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                     keyDesc,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -4598,7 +4587,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 12,
                     ),
                   ),
@@ -4630,7 +4619,10 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 0, 0),
                 child: SelectableText(
                   prettyPrintJson(entry),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 11,
+                  ),
                 ),
               ),
           ],
@@ -4688,7 +4680,10 @@ class _NameListPanel extends StatelessWidget {
             Expanded(
               child: SelectableText(
                 names[i],
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],
@@ -4815,7 +4810,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                                 child: Text(
                                   status.isEmpty ? '?' : status,
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -4826,7 +4821,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                                   url,
                                   maxLines: 1,
                                   style: const TextStyle(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -4896,7 +4891,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                               'scope: $scope',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: cs.onSurfaceVariant,
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                               ),
                             ),
                           ],
@@ -4978,7 +4973,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
                       ja: '（データなし）',
                     ),
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -4989,11 +4984,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
               child: SingleChildScrollView(
                 child: SelectableText(
                   widget.controller.securityExplanationsJson ??
@@ -5007,7 +4998,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
                         ja: 'explanations はまだありません。任意の https ページを開くと自動更新されます。',
                       ),
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12,
                     height: 1.55,
                   ),
@@ -5743,7 +5734,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                                   '#${idx + 1}',
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     color: cs.onSurfaceVariant,
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                   ),
                                 ),
                               ),
@@ -5753,7 +5744,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                                   '${s['type'] ?? ''}',
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     fontWeight: FontWeight.w800,
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                   ),
                                 ),
                               ),
@@ -5763,7 +5754,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                   ),
                                 ),
                               ),
@@ -5818,13 +5809,13 @@ class _DiffRow extends StatelessWidget {
           Expanded(
             child: Text(
               '$a  →  $b',
-              style: const TextStyle(fontFamily: 'monospace'),
+              style: const TextStyle(fontFamily: kOpenHandMonospaceFontFamily),
             ),
           ),
           Text(
             (delta == 0 ? '0' : (positive ? '+$delta' : '$delta')),
             style: TextStyle(
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -5945,7 +5936,10 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
           'ts: ${e.ts} (μs)\n'
           'dur: ${e.dur} μs (${(e.dur / 1000).toStringAsFixed(2)} ms)\n'
           '\nargs:\n${prettyPrintJson(e.args)}',
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 12,
+          ),
         ),
       ),
     );
@@ -6084,7 +6078,8 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                                                     .textTheme
                                                     .labelSmall
                                                     ?.copyWith(
-                                                      fontFamily: 'monospace',
+                                                      fontFamily:
+                                                          kOpenHandMonospaceFontFamily,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       color: ms > 50
@@ -6100,7 +6095,8 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                                                 overflow: TextOverflow.ellipsis,
                                                 style: theme.textTheme.bodySmall
                                                     ?.copyWith(
-                                                      fontFamily: 'monospace',
+                                                      fontFamily:
+                                                          kOpenHandMonospaceFontFamily,
                                                     ),
                                               ),
                                             ),
@@ -6235,7 +6231,7 @@ class _FlamePainter extends CustomPainter {
             style: TextStyle(
               color: onSurface,
               fontSize: 10,
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
             ),
           ),
           maxLines: 1,
@@ -6261,7 +6257,7 @@ class _FlamePainter extends CustomPainter {
           style: TextStyle(
             color: onSurface.withValues(alpha: 0.7),
             fontSize: 9,
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -6564,7 +6560,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                   '   →   '
                   'B: ${widget.whenB.toLocal().toIso8601String().split(".").first}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -6783,7 +6779,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                           SelectableText(
                                             g.label,
                                             style: const TextStyle(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -6792,7 +6789,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                           Text(
                                             formatSignedByteSize(g.bytesDelta),
                                             style: TextStyle(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               fontSize: 12,
                                               color: g.bytesDelta > 0
                                                   ? cs.error
@@ -6809,7 +6807,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                               g.countDelta,
                                             ),
                                             style: const TextStyle(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -6818,7 +6817,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                           Text(
                                             formatByteSize(g.bytesA),
                                             style: const TextStyle(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -6827,7 +6827,8 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                           Text(
                                             formatByteSize(g.bytesB),
                                             style: const TextStyle(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -7095,7 +7096,10 @@ class _RetainerSidePanel extends StatelessWidget {
           const SizedBox(height: 4),
           SelectableText(
             ctorLabel,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 11,
+            ),
           ),
           const SizedBox(height: 10),
           if (loading)
@@ -7171,10 +7175,9 @@ class _RetainerSidePanel extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: cs.outlineVariant),
+                      decoration: webReverseSurfaceCardDecoration(
+                        cs,
+                        radius: 8,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -7215,7 +7218,8 @@ class _RetainerSidePanel extends StatelessWidget {
                                       chain.path[i],
                                       maxLines: 1,
                                       style: const TextStyle(
-                                        fontFamily: 'monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -7403,11 +7407,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
     final total = widget.maxTs <= 0 ? 1.0 : widget.maxTs;
     const totalH = _kLaneH * _kLaneCount + _kAxisH;
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

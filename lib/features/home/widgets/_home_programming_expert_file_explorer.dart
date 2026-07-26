@@ -3088,7 +3088,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                                   ?.copyWith(
                                                     color: colorScheme.primary,
                                                     fontFamily:
-                                                        'SF Mono, Menlo, monospace',
+                                                        kOpenHandMonospaceFontFamily,
                                                   ),
                                             ),
                                           ],
@@ -8204,7 +8204,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: colorScheme.primary,
-                                        fontFamily: 'SF Mono, Menlo, monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                       ),
                                     ),
                                   Text(
@@ -8225,7 +8226,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                               style: TextStyle(
                                 fontSize: 11,
                                 color: colorScheme.onSurfaceVariant,
-                                fontFamily: 'SF Mono, Menlo, monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                               ),
                             ),
                           ],
@@ -8510,7 +8511,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: colorScheme.onSurfaceVariant,
-                                    fontFamily: 'SF Mono, Menlo, monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                   ),
                                 ),
                               ],
@@ -8710,7 +8711,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     fontSize: 12.5,
                     height: 1.45,
                     color: colorScheme.onSurface,
-                    fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
         ),
@@ -8845,7 +8846,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           style: TextStyle(
                             fontSize: 11,
                             color: colorScheme.onSurfaceVariant,
-                            fontFamily: 'SF Mono, Menlo, monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                           ),
                         ),
                         if (preview != null) ...[
@@ -8891,7 +8892,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                                   : colorScheme
                                                         .onSurfaceVariant,
                                               fontFamily:
-                                                  'SF Mono, Menlo, monospace',
+                                                  kOpenHandMonospaceFontFamily,
                                             ),
                                           ),
                                         ),
@@ -8909,7 +8910,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                                   : colorScheme
                                                         .onSurfaceVariant,
                                               fontFamily:
-                                                  'JetBrains Mono, Menlo, Consolas, monospace',
+                                                  kOpenHandMonospaceFontFamily,
                                             ),
                                           ),
                                         ),
@@ -8964,7 +8965,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         height: 1.55,
       ),
       code: TextStyle(
-        fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: 11.5,
         color: colorScheme.primary,
         backgroundColor: surface,
@@ -9341,7 +9342,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     style: TextStyle(
                       fontSize: 11,
                       color: colorScheme.onSurfaceVariant,
-                      fontFamily: 'SF Mono, Menlo, monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -11879,7 +11880,7 @@ class _CompletionOverlay extends StatelessWidget {
                         child: Text(
                           item.label,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'JetBrains Mono',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 12.5,
                             fontWeight: isSelected
                                 ? FontWeight.w600
@@ -12127,7 +12128,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
     required ColorScheme colorScheme,
   }) {
     final baseStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontFamily: 'JetBrains Mono',
+      fontFamily: kOpenHandMonospaceFontFamily,
       fontSize: 12.5,
       height: 1.4,
       color: colorScheme.onSurface,
@@ -12999,7 +13000,7 @@ class _WorkspaceEditDiffLine extends StatelessWidget {
           fontWeight: fontWeight,
           fontSize: 11.8,
           height: 1.4,
-          fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
         ),
       ),
     );
@@ -13389,7 +13390,7 @@ const double _editorLineHeight = 1.55;
 const double _editorMaxEstimatedContentWidth = 32000.0;
 
 TextStyle _editorBaseStyleForSize(double fontSize) => TextStyle(
-  fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+  fontFamily: kOpenHandMonospaceFontFamily,
   fontSize: fontSize,
   height: _editorLineHeight,
   letterSpacing: 0,
@@ -13404,7 +13405,7 @@ double _measureEditorLineNumberTextWidth({
     text: TextSpan(
       text: List<String>.filled(digits, '8').join(),
       style: TextStyle(
-        fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: fontSize,
         height: _editorLineHeight,
       ),
@@ -15026,7 +15027,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                 '${diagnostic.code}  •  $severityLabel  •  ${diagnostic.line}:${diagnostic.column}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
-                  fontFamily: 'SF Mono, Menlo, monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
               ),
             ],
@@ -15215,8 +15216,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                     softWrap: false,
                                     overflow: TextOverflow.visible,
                                     style: TextStyle(
-                                      fontFamily:
-                                          'JetBrains Mono, Menlo, Consolas, monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: widget.fontSize,
                                       height: _editorLineHeight,
                                       fontWeight: hasDiagnostics
@@ -15613,8 +15613,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                               softWrap: false,
                               overflow: TextOverflow.visible,
                               style: TextStyle(
-                                fontFamily:
-                                    'JetBrains Mono, Menlo, Consolas, monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: widget.fontSize,
                                 height: _editorLineHeight,
                                 color: colorScheme.onSurfaceVariant.withValues(

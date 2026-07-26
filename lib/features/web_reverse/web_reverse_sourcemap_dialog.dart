@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -406,7 +407,7 @@ class _SmDialogState extends State<_SmDialog> {
                               child: SelectableText(
                                 '${r.source}:${r.line + 1}:${r.column + 1}',
                                 style: TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   color: cs.primary,
@@ -433,15 +434,11 @@ class _SmDialogState extends State<_SmDialog> {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: cs.outlineVariant),
-                            ),
+                            decoration: webReverseSurfaceCardDecoration(cs),
                             child: SelectableText(
                               r.snippet,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                               ),
                             ),

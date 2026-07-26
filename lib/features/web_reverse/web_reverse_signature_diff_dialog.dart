@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -204,7 +205,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                             fontWeight: FontWeight.w800,
-                                            fontFamily: 'monospace',
+                                            fontFamily:
+                                                kOpenHandMonospaceFontFamily,
                                           ),
                                     ),
                                   ),
@@ -255,7 +257,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   color: active
                                       ? cs.onPrimaryContainer
                                       : cs.onSurface,
@@ -314,7 +316,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                   g.key,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
               ),
@@ -493,7 +495,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                 color: tagFg,
                 fontWeight: FontWeight.w800,
                 fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
               ),
             ),
           ),
@@ -505,7 +507,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                 Text(
                   f.name,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -516,7 +518,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
               ],

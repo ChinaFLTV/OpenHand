@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_session_config.dart';
@@ -19,6 +20,11 @@ const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,
   8,
 );
+
+const EdgeInsets kWebReverseSurfaceCardPadding = EdgeInsets.all(10);
+const double kWebReverseSurfaceCardRadius = 10;
+const EdgeInsets kWebReverseDialogFooterPadding = EdgeInsets.all(12);
+const double kWebReverseDialogFooterGap = 8;
 
 const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
     OpenHandAnimationTransitionProfile(
@@ -163,19 +169,78 @@ Widget buildWebReverseStatusBar(
 }
 
 Widget buildWebReverseStatusCard(BuildContext context, String status) {
-  final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
-  return Container(
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: colorScheme.outlineVariant),
-    ),
+  return buildWebReverseSurfaceCard(
+    context,
+    radius: 8,
     child: Text(
       status,
-      style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(fontFamily: kOpenHandMonospaceFontFamily),
     ),
+  );
+}
+
+/// Web 逆向面板统一的信息卡外观：高对比表面 + 圆角 + 描边。
+///
+/// 收敛模块内四十余处同形 [BoxDecoration]，主题色令牌改动只需改这一处；
+/// [radius] 保留在调用点，因为它承载的是卡片层级而非配色。
+BoxDecoration webReverseSurfaceCardDecoration(
+  ColorScheme colorScheme, {
+  double radius = kWebReverseSurfaceCardRadius,
+  Color? color,
+}) {
+  return BoxDecoration(
+    color: color ?? colorScheme.surfaceContainerHigh,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: colorScheme.outlineVariant),
+  );
+}
+
+Widget buildWebReverseSurfaceCard(
+  BuildContext context, {
+  required Widget child,
+  EdgeInsetsGeometry padding = kWebReverseSurfaceCardPadding,
+  double radius = kWebReverseSurfaceCardRadius,
+  Color? color,
+}) {
+  return Container(
+    padding: padding,
+    decoration: webReverseSurfaceCardDecoration(
+      Theme.of(context).colorScheme,
+      radius: radius,
+      color: color,
+    ),
+    child: child,
+  );
+}
+
+/// Web 逆向工具弹窗统一的底部操作条：分隔线 + 居中动作按钮组。
+///
+/// [actions] 之间自动插入 [kWebReverseDialogFooterGap] 间距，调用方只需给出
+/// 按钮本身，避免每个弹窗各自重复摆放 Divider / Padding / Row。
+Widget buildWebReverseDialogFooter(
+  BuildContext context, {
+  required List<Widget> actions,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Divider(height: 1, color: colorScheme.outlineVariant),
+      Padding(
+        padding: kWebReverseDialogFooterPadding,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < actions.length; i++) ...[
+              if (i > 0) const SizedBox(width: kWebReverseDialogFooterGap),
+              actions[i],
+            ],
+          ],
+        ),
+      ),
+    ],
   );
 }
 

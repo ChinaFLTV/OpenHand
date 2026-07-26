@@ -133,14 +133,14 @@ TextStyle _baseCodeStyleForTheme({
   final fontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
   return theme.textTheme.bodyMedium?.copyWith(
         color: baseColor,
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: fontSize * 0.94,
         height: 1.5,
         fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
       ) ??
       TextStyle(
         color: baseColor,
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: fontSize * 0.94,
         height: 1.5,
         fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
@@ -610,14 +610,14 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     final paletteSignature = palette.signature;
     final baseStyle =
         theme.textTheme.bodySmall?.copyWith(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12.5,
           height: 1.34,
           color: palette.text,
           fontFeatures: const [FontFeature.tabularFigures()],
         ) ??
         TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12.5,
           height: 1.34,
           color: palette.text,

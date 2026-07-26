@@ -492,7 +492,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                                 child: Text(
                                   e.level.toUpperCase(),
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     color: onColor.withValues(alpha: 0.75),
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -512,7 +512,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                                         displayText,
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               color: onColor,
                                             ),
                                       ),
@@ -641,7 +642,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                       controller: _replCtrl,
                       focusNode: _replFocus,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12.5,
                       ),
                       decoration: InputDecoration(

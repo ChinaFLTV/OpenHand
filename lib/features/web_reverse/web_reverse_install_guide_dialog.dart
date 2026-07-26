@@ -6,6 +6,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
 
@@ -90,10 +91,9 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                       horizontal: 12,
                       vertical: 10,
                     ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colorScheme.outlineVariant),
+                    decoration: webReverseSurfaceCardDecoration(
+                      colorScheme,
+                      radius: 12,
                     ),
                     child: Row(
                       children: [
@@ -107,7 +107,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                           child: SelectableText(
                             url,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),

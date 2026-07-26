@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -498,7 +499,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                 child: SelectableText(
                                   e.rawJson,
                                   style: tt.bodySmall?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     fontSize: 11.5,
                                   ),
                                 ),

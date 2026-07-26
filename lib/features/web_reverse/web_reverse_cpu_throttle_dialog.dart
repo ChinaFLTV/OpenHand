@@ -159,11 +159,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
+                    decoration: webReverseSurfaceCardDecoration(cs),
                     child: Text(
                       loc?.webReverseCpuThrottleNote ??
                           'Throttling stays active after dialog closes. Pick 1× (off) or Reset to clear.',

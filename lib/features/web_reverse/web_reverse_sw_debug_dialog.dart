@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -348,7 +349,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                       border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 12.5,
                     ),
                   ),
@@ -367,7 +368,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                       border: const OutlineInputBorder(),
                     ),
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 12.5,
                     ),
                   ),
@@ -434,7 +435,7 @@ class _RegTile extends StatelessWidget {
                 child: Text(
                   reg.scopeURL,
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontWeight: FontWeight.w700,
                   ),
                   overflow: TextOverflow.ellipsis,

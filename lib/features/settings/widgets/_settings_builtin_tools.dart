@@ -1094,7 +1094,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         maxLines: 6,
                         minLines: 3,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                       const SizedBox(height: 14),

@@ -1357,14 +1357,14 @@ class _MessageMarkdownThemeData {
     final codeStyle =
         theme.textTheme.bodyMedium?.copyWith(
           color: textColor,
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: bodyFontSize * 0.92,
           fontWeight: FontWeight.w500,
           height: 1.28,
         ) ??
         TextStyle(
           color: textColor,
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: bodyFontSize * 0.92,
           fontWeight: FontWeight.w500,
           height: 1.28,

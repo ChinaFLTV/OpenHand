@@ -462,7 +462,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     ),
                     border: const OutlineInputBorder(),
                   ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -480,7 +483,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     ),
                     border: const OutlineInputBorder(),
                   ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -665,7 +671,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   int _estimateColumn(double localX, String line) {
     final span = TextSpan(
       text: line,
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+      style: const TextStyle(
+        fontFamily: kOpenHandMonospaceFontFamily,
+        fontSize: 11.5,
+      ),
     );
     final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
       ..layout();
@@ -772,7 +781,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         width: 560,
         child: SelectableText(
           md,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 12,
+          ),
         ),
       ),
     );
@@ -899,7 +911,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             de: 'LSP gab ein Edit zurück: $summary\n\n(Nur-Lese-Vorschau.)\n\n${prettyPrintJson(edit)}',
             ja: 'LSP edit を受信: $summary\n\n（読み取り専用プレビューです。）\n\n${prettyPrintJson(edit)}',
           ),
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 11,
+          ),
         ),
       ),
     );
@@ -1145,7 +1160,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                             ),
                           ),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 12,
                           ),
                           onChanged: (v) => setState(() => _filter = v.trim()),
@@ -1232,7 +1247,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 11,
                                       color: selected
                                           ? cs.onPrimaryContainer
@@ -1335,7 +1350,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                     ),
@@ -1401,13 +1416,13 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         (value, line) => math.max(value, line.length),
       );
       final sourceTextStyle = theme.textTheme.bodySmall?.copyWith(
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: _kSourceEditorFontSize,
         height: 1.5,
         color: cs.onSurface,
       );
       final gutterTextStyle = theme.textTheme.labelSmall?.copyWith(
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         color: cs.onSurfaceVariant.withValues(alpha: 0.72),
       );
       const sourceScrollBehavior = OpenHandEditorScrollBehavior();
@@ -1678,7 +1693,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       : url,
                   maxLines: 1,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11,
                     color: _viewingOriginal ? cs.primary : cs.onSurfaceVariant,
                     fontWeight: _viewingOriginal
@@ -1935,7 +1950,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final tp = TextPainter(
       text: TextSpan(
         text: line,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5),
+        style: const TextStyle(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          fontSize: 11.5,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -2101,14 +2119,16 @@ class _SourcesGlobalSearchDialogState
                           h.url,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontFamily: 'monospace'),
+                          style: const TextStyle(
+                            fontFamily: kOpenHandMonospaceFontFamily,
+                          ),
                         ),
                         subtitle: Text(
                           'L${h.line + 1}: ${h.preview}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             color: cs.onSurfaceVariant,
                           ),
                         ),
@@ -2521,7 +2541,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                             ),
                           ),
                           style: const TextStyle(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 12,
                           ),
                           onSubmitted: (_) => _addWatch(),
@@ -2555,14 +2575,14 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                                 SelectableText(
                                   w,
                                   style: const TextStyle(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     fontSize: 11.5,
                                   ),
                                 ),
                                 SelectableText(
                                   _watchValues[w] ?? '...',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     color: cs.onSurfaceVariant,
                                   ),
                                 ),
@@ -2627,11 +2647,7 @@ class _RailCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
       padding: const EdgeInsets.fromLTRB(10, 8, 6, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2777,7 +2793,7 @@ class _ScopeSectionState extends State<_ScopeSection> {
                             child: RichText(
                               text: TextSpan(
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   color: cs.onSurface,
                                 ),
                                 children: [
@@ -2857,7 +2873,7 @@ class _SourceHoverBubble extends StatelessWidget {
               : SelectableText(
                   preview ?? '',
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11,
                     height: 1.45,
                   ),
@@ -3040,7 +3056,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                   ),
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontSize: 13,
                 ),
               ),
@@ -3124,7 +3140,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                                 Text(
                                   base.isEmpty ? '(anonymous)' : base,
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     color: active ? cs.primary : cs.onSurface,
@@ -3137,7 +3153,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 11,
                                       color: cs.onSurfaceVariant,
                                     ),

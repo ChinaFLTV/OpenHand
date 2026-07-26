@@ -10,6 +10,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -143,7 +144,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                             : l10n.mcpStdioDialogStopped,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11,
                         ),
                       ),
@@ -243,7 +244,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                       child: Text(
                         l10n.mcpStdioDialogNoLogOutput,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 12,
                           color: Color(0xFF808080),
                         ),
@@ -266,7 +267,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                             child: Text(
                               line,
                               style: TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: style.fontSize,
                                 height: 1.5,
                                 color: style.color,
@@ -527,7 +528,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                         widget.server.summary,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11,
                         ),
                         maxLines: 1,
@@ -633,7 +634,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                                 processInfo.errorMessage!,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.error,
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11,
                                 ),
                               ),
@@ -732,7 +733,7 @@ class _InfoRow extends StatelessWidget {
               value,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface,
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
               ),
             ),
@@ -1102,7 +1103,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                           cleanPkg,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontSize: 11,
                           ),
                         ),
@@ -1269,7 +1270,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                             return Text(
                               line,
                               style: TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 11,
                                 height: 1.5,
                                 color: _depsLogColor(line),

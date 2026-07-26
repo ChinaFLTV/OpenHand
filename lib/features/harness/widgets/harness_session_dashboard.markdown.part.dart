@@ -246,7 +246,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
     } catch (_) {
       _disposeRecognizers();
       final fallbackStyle = TextStyle(
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
         fontSize: 13,
         color: widget.textColor ?? widget.colorScheme.onSurface,
       );
@@ -339,10 +339,8 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
   @override
   void initState() {
     super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: kOpenHandMotion280,
-    )..value = 1.0;
+    _fadeCtrl = AnimationController(vsync: this, duration: kOpenHandMotion280)
+      ..value = 1.0;
     // 入场使用 easeOutCubic：开始快、收尾舒缓，符合全局丝滑节奏；
     // 与 easeIn（开始慢）相比能更早把首帧像素呈现给用户。
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
@@ -532,7 +530,7 @@ class _LogLine extends StatelessWidget {
       child: SelectableText(
         line.isEmpty ? '\u200B' : line,
         style: TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12.5,
           height: 1.55,
           color: color ?? colorScheme.onSurface.withValues(alpha: 0.87),
@@ -682,7 +680,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
     final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
     final isDark = widget.darkSurface;
     final baseStyle = TextStyle(
-      fontFamily: 'monospace',
+      fontFamily: kOpenHandMonospaceFontFamily,
       fontSize: 13,
       height: 1.5,
       color: isDark
@@ -1128,7 +1126,7 @@ class _DiffLine extends StatelessWidget {
       child: SelectableText(
         line.isEmpty ? '\u200B' : line,
         style: TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12,
           height: 1.6,
           color: fg,

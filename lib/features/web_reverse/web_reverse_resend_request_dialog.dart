@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -896,7 +897,7 @@ print(resp.text[:2000])''';
               labelText: 'URL',
               hintText: 'https://...',
             ),
-            style: const TextStyle(fontFamily: 'monospace'),
+            style: const TextStyle(fontFamily: kOpenHandMonospaceFontFamily),
           ),
         ),
       ],
@@ -909,11 +910,7 @@ print(resp.text[:2000])''';
     AppLocalizations? loc,
   ) {
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -961,7 +958,7 @@ print(resp.text[:2000])''';
                         hintText: 'name',
                       ),
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                     ),
@@ -977,7 +974,7 @@ print(resp.text[:2000])''';
                         hintText: 'value',
                       ),
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                     ),
@@ -1006,11 +1003,7 @@ print(resp.text[:2000])''';
   ) {
     final canBody = _method != 'GET' && _method != 'HEAD';
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1063,7 +1056,10 @@ print(resp.text[:2000])''';
             enabled: canBody,
             minLines: 4,
             maxLines: 10,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 12,
+            ),
             decoration: const InputDecoration(
               isDense: true,
               border: OutlineInputBorder(),
@@ -1146,7 +1142,10 @@ print(resp.text[:2000])''';
             Expanded(
               child: SelectableText(
                 _lastError!,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -1240,7 +1239,7 @@ print(resp.text[:2000])''';
                   child: SelectableText(
                     '${e.key}: ${e.value}',
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                     ),
                   ),
@@ -1279,7 +1278,10 @@ print(resp.text[:2000])''';
             child: SingleChildScrollView(
               child: SelectableText(
                 responseBodyPreview,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 11,
+                ),
               ),
             ),
           ),

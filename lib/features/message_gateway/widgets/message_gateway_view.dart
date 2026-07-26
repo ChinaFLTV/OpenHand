@@ -24,6 +24,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -3102,7 +3103,7 @@ class _ConnectivityResultView extends StatelessWidget {
                     )
                   : result.logs.join('\n'),
               style: const TextStyle(
-                fontFamily: 'Menlo',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 12,
                 height: 1.45,
                 color: Color(0xFFE5E7EB),
@@ -3286,7 +3287,7 @@ class _StructuredResponsePreview extends StatelessWidget {
               raw,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
-                fontFamily: 'Menlo',
+                fontFamily: kOpenHandMonospaceFontFamily,
               ),
             ),
         ],
@@ -3330,7 +3331,7 @@ class _ResponseFieldChip extends StatelessWidget {
             maxLines: 4,
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurface,
-              fontFamily: 'Menlo',
+              fontFamily: kOpenHandMonospaceFontFamily,
             ),
           ),
         ],
@@ -6593,7 +6594,7 @@ class _WebOpsRuntimeTerminal extends StatelessWidget {
             color: textColor,
             fontSize: 13,
             height: 1.45,
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             fontWeight: FontWeight.w700,
           ),
           child: Column(
@@ -11146,7 +11147,11 @@ class _LogLine extends StatelessWidget {
             ),
           ],
         ),
-        style: const TextStyle(fontFamily: 'Menlo', fontSize: 12, height: 1.45),
+        style: const TextStyle(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          fontSize: 12,
+          height: 1.45,
+        ),
       ),
     );
   }

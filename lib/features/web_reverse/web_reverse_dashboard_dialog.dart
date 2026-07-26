@@ -30,8 +30,10 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
@@ -148,13 +150,6 @@ int _pageTargetsTitleHash(List<CdpPageTargetSnapshot> targets) {
   return rollingHash30(targets, (target) => target.title.hashCode);
 }
 
-Widget? _hideTextFieldCounter(
-  BuildContext context, {
-  required int currentLength,
-  required bool isFocused,
-  required int? maxLength,
-}) => null;
-
 String _formatHeaderLines(Map<String, String> headers) {
   if (headers.isEmpty) return '';
   return headers.entries
@@ -206,9 +201,12 @@ class _DashboardScriptCodeEditor extends StatelessWidget {
           expands: true,
           maxLength: WebReverseSessionController.maxSavedScriptCodeChars,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
-          buildCounter: _hideTextFieldCounter,
+          buildCounter: openHandHiddenTextFieldCounter,
           textAlignVertical: TextAlignVertical.top,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 13,
+          ),
           decoration: const InputDecoration(
             border: InputBorder.none,
             isDense: true,
@@ -234,7 +232,7 @@ class _DashboardScriptNameField extends StatelessWidget {
       controller: controller,
       maxLength: WebReverseSessionController.maxSavedScriptNameChars,
       maxLengthEnforcement: MaxLengthEnforcement.enforced,
-      buildCounter: _hideTextFieldCounter,
+      buildCounter: openHandHiddenTextFieldCounter,
       decoration: InputDecoration(
         isDense: true,
         border: const OutlineInputBorder(),
@@ -424,7 +422,7 @@ class _DashboardScriptResultPreview extends StatelessWidget {
                         text!,
                         maxLines: 6,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 12,
                         ),
                       ),
@@ -2510,7 +2508,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                         antiBot.join(' · '),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onTertiaryContainer,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -2550,11 +2548,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   horizontal: 14,
                   vertical: 10,
                 ),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
+                decoration: webReverseSurfaceCardDecoration(cs, radius: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2580,11 +2574,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cs.outlineVariant),
-          ),
+          decoration: webReverseSurfaceCardDecoration(cs, radius: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3017,7 +3007,7 @@ class _CauseEntry extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onPrimaryContainer,
                     fontWeight: FontWeight.w800,
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
               ),
@@ -3357,7 +3347,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
                                 r.keys,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 12,
                                 ),

@@ -17,6 +17,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -388,15 +389,14 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: cs.outlineVariant),
+                      decoration: webReverseSurfaceCardDecoration(
+                        cs,
+                        radius: 8,
                       ),
                       child: Text(
                         _lastStatus!,
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 12,
                         ),
                       ),
@@ -420,25 +420,20 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
               ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseGeoClear ?? 'Clear',
-                  onPressed: _busy ? null : _clear,
-                ),
-                const SizedBox(width: 8),
-                OpenHandDialogActionButton.primary(
-                  label: _busy
-                      ? (loc?.webReverseGeoWorking ?? 'Working…')
-                      : (loc?.webReverseGeoApply ?? 'Apply Overrides'),
-                  onPressed: _busy ? null : _apply,
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseGeoClear ?? 'Clear',
+                onPressed: _busy ? null : _clear,
+              ),
+              OpenHandDialogActionButton.primary(
+                label: _busy
+                    ? (loc?.webReverseGeoWorking ?? 'Working…')
+                    : (loc?.webReverseGeoApply ?? 'Apply Overrides'),
+                onPressed: _busy ? null : _apply,
+              ),
+            ],
           ),
         ],
       ),

@@ -613,10 +613,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: kOpenHandMotion220,
-    );
+    _ctrl = AnimationController(vsync: this, duration: kOpenHandMotion220);
     _turn = Tween<double>(
       begin: 0,
       end: 0.5,
@@ -677,7 +674,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11.5,
                     color: colorScheme.onSurface.withValues(alpha: 0.68),
                   ),
@@ -685,7 +682,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
                 secondChild: SelectableText(
                   widget.command,
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 11.5,
                     color: colorScheme.onSurface.withValues(alpha: 0.68),
                   ),

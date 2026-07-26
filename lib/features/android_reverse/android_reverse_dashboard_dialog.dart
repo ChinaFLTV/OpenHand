@@ -17,6 +17,7 @@ import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -3542,7 +3543,7 @@ fi
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: cs.onSurfaceVariant,
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                           ),
                         ),
                       ),
@@ -3626,7 +3627,9 @@ fi
                             vertical: 12,
                           ),
                         ),
-                        style: const TextStyle(fontFamily: 'monospace'),
+                        style: const TextStyle(
+                          fontFamily: kOpenHandMonospaceFontFamily,
+                        ),
                         onSubmitted: (_) => _runShell(),
                       ),
                     ),
@@ -3701,7 +3704,10 @@ fi
                 command,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 11,
+                ),
               ),
             ),
             tooltip: command,
@@ -5939,7 +5945,9 @@ fi
                       child: Text(
                         value,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: value.contains('/') ? 'monospace' : null,
+                          fontFamily: value.contains('/')
+                              ? kOpenHandMonospaceFontFamily
+                              : null,
                         ),
                       ),
                     ),
@@ -6163,7 +6171,9 @@ fi
                                         row.probe,
                                       ),
                                 style: TextStyle(
-                                  fontFamily: ok ? 'monospace' : null,
+                                  fontFamily: ok
+                                      ? kOpenHandMonospaceFontFamily
+                                      : null,
                                   fontSize: 12,
                                   color: ok ? cs.onSurface : statusColor,
                                 ),
@@ -6602,7 +6612,7 @@ fi
                       maxLines: 1,
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -6614,7 +6624,7 @@ fi
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ],
@@ -6787,7 +6797,7 @@ fi
                   .map((tool) => _mcpResolvedToolName(server, tool))
                   .join('\n'),
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 color: cs.onSurface,
                 height: 1.45,
@@ -7378,7 +7388,9 @@ fi
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontFamily: path == null ? null : 'monospace',
+                    fontFamily: path == null
+                        ? null
+                        : kOpenHandMonospaceFontFamily,
                   ),
                 ),
               ],
@@ -7923,7 +7935,7 @@ fi
                 : _androidToolchainInstallHint(context, row.probe),
             maxLines: 2,
             style: TextStyle(
-              fontFamily: ok ? 'monospace' : null,
+              fontFamily: ok ? kOpenHandMonospaceFontFamily : null,
               fontSize: 12,
               color: ok ? cs.onSurface : color,
               height: 1.35,
@@ -8017,7 +8029,7 @@ fi
                           title: Text(
                             pkg,
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 12,
                             ),
                           ),
@@ -8243,7 +8255,7 @@ fi
                                   ja: 'APP 情報を読み込み中...',
                                 ),
                             style: TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 11,
                               height: 1.45,
                               color: cs.onSurface,
@@ -8338,7 +8350,7 @@ fi
                           leading: Text(
                             '${p.pid}',
                             style: TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 11,
                               color: cs.onSurfaceVariant,
                             ),
@@ -8346,7 +8358,7 @@ fi
                           title: Text(
                             p.name,
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 12,
                             ),
                           ),
@@ -9021,7 +9033,7 @@ fi
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.labelSmall?.copyWith(
         color: cs.onSurfaceVariant,
-        fontFamily: scriptAsset == null ? null : 'monospace',
+        fontFamily: scriptAsset == null ? null : kOpenHandMonospaceFontFamily,
       ),
     );
     final actions = <Widget>[
@@ -9169,7 +9181,10 @@ fi
             maxLines: null,
             expands: true,
             textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(
+              fontFamily: kOpenHandMonospaceFontFamily,
+              fontSize: 12,
+            ),
             decoration: InputDecoration(
               isDense: true,
               hintText: openHandLocalizedText(
@@ -10697,7 +10712,7 @@ fi
         ? null
         : structuredTextFormatLabel(formatted.format!);
     final base = TextStyle(
-      fontFamily: 'monospace',
+      fontFamily: kOpenHandMonospaceFontFamily,
       fontSize: 11,
       color: cs.onSurface,
       height: 1.5,
@@ -11054,7 +11069,10 @@ fi
             vertical: 12,
           ),
         ),
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        style: const TextStyle(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          fontSize: 12,
+        ),
       ),
     );
   }
@@ -11176,7 +11194,7 @@ class _LogcatLineTile extends StatelessWidget {
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
               ),
             ),
@@ -11192,7 +11210,7 @@ class _LogcatLineTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         height: 1.25,
                       ),
                     ),
@@ -11201,7 +11219,7 @@ class _LogcatLineTile extends StatelessWidget {
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                       color: level == 'E' || level == 'F'
                           ? color
@@ -11509,7 +11527,7 @@ class _DeviceInfoRow extends StatelessWidget {
               value,
               maxLines: label.length > 12 ? 2 : 3,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 color: colorScheme.onSurface,
                 height: 1.35,
               ),
@@ -11550,7 +11568,7 @@ class _ForwardRow extends StatelessWidget {
               row,
               maxLines: 2,
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 color: colorScheme.onSurface,
               ),
@@ -12515,7 +12533,7 @@ class _DashboardDetailRow extends StatelessWidget {
               display,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: valueColor ?? cs.onSurface,
-                fontFamily: monospace ? 'monospace' : null,
+                fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
                 height: 1.35,
               ),
             ),

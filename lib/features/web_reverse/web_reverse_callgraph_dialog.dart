@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -434,11 +435,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
           Expanded(
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs),
               child: _graphs.isEmpty
                   ? Center(
                       child: Text(
@@ -505,7 +502,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                               Text(
                                                 _shortUrl(g.url),
                                                 style: const TextStyle(
-                                                  fontFamily: 'monospace',
+                                                  fontFamily:
+                                                      kOpenHandMonospaceFontFamily,
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w600,
                                                 ),
@@ -551,18 +549,14 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                     ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseCallgraphClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseCallgraphClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),
@@ -584,7 +578,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               Expanded(
                 child: Text(
                   g.url,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 11,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -621,7 +618,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 title: Text(
                   fn.name,
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -654,7 +651,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                           label: Text(
                             c,
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 11,
                             ),
                           ),
@@ -710,7 +707,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 dense: true,
                 title: Text(
                   '${h.caller} → ${h.callee}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
                 subtitle: Text(
                   _shortUrl(h.url),

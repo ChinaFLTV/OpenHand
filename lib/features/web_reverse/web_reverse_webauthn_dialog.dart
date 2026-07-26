@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_select_button.dart';
@@ -380,18 +381,14 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                     ),
                   ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseWebauthnClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseWebauthnClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),
@@ -416,7 +413,10 @@ class _Flag extends StatelessWidget {
         Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
         Text(
           label,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -456,7 +456,7 @@ class _AuthCard extends StatelessWidget {
                   child: SelectableText(
                     auth.id,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -531,7 +531,7 @@ class _AuthCard extends StatelessWidget {
                   child: SelectableText(
                     prettyPrintJson(c),
                     style: const TextStyle(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       fontSize: 11,
                     ),
                   ),
@@ -553,7 +553,10 @@ class _AuthCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+        style: const TextStyle(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          fontSize: 11,
+        ),
       ),
     );
   }

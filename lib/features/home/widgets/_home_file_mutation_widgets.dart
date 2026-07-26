@@ -508,7 +508,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           color: cs.onSurface,
                         ),
                       ),
@@ -1211,7 +1211,7 @@ class _FileMutationCardRow extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   color: cs.onSurface,
                                   decoration: greyOut
                                       ? TextDecoration.lineThrough
@@ -1741,14 +1741,14 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     );
     final baseStyle =
         theme.textTheme.bodySmall?.copyWith(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12.5,
           height: 1.34,
           color: palette.text,
           fontFeatures: const [FontFeature.tabularFigures()],
         ) ??
         TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12.5,
           height: 1.34,
           color: palette.text,
@@ -2047,7 +2047,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
                 color: palette.mutedText,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
               ),
             ),
           ],
@@ -2416,7 +2416,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                         Text(
                           _FileMutationCard._shortenFilePath(widget.filePath),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             color: colorScheme.onSurfaceVariant,
                           ),
                           maxLines: 1,
@@ -2469,7 +2469,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       child: SelectableText.rich(
         TextSpan(
           style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.6,
           ),
           children: diff.map((line) {
@@ -2658,7 +2658,7 @@ class _FileMutationHistoryInspectorDialogState
                 label: Text(
                   _zoomedPath!,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
                 deleteIcon: const Icon(Icons.close_rounded, size: 14),
@@ -2826,7 +2826,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -4304,7 +4304,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   color: greyOut
                       ? cs.onSurfaceVariant.withValues(alpha: 0.6)
                       : cs.onSurface,

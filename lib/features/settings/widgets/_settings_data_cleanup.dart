@@ -1831,7 +1831,7 @@ class _PathHighlightText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = (textStyle ?? const TextStyle()).copyWith(
-      fontFamily: 'monospace',
+      fontFamily: kOpenHandMonospaceFontFamily,
       color: baseColor,
       decoration: decoration,
     );

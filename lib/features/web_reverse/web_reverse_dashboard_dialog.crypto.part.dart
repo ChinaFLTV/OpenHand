@@ -203,7 +203,10 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
                 hintText: loc?.webReverseCryptoInputHint ?? 'Paste here…',
                 labelText: loc?.webReverseCryptoInputLabel ?? 'Input',
               ),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 12,
+              ),
               onChanged: (_) => setState(() {}),
             ),
           ),
@@ -255,11 +258,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
       key: ValueKey('rc-$label'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -303,7 +302,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
           SelectableText(
             value.isEmpty ? '—' : value,
             style: TextStyle(
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
               fontSize: 12,
               color: value.startsWith('!') ? cs.error : cs.onSurface,
             ),
@@ -430,14 +429,13 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
             child: Container(
               margin: const EdgeInsets.only(bottom: 4),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
               child: Text(
                 s,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 13,
+                ),
               ),
             ),
           ),

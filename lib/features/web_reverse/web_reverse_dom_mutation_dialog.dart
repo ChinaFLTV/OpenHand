@@ -22,6 +22,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -540,21 +541,17 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                     ),
                   ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseDomMutClose ?? 'Close',
-                  onPressed: () async {
-                    if (_recording) await _stop();
-                    if (context.mounted) Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseDomMutClose ?? 'Close',
+                onPressed: () async {
+                  if (_recording) await _stop();
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -611,7 +608,10 @@ class _MutRow extends StatelessWidget {
             width: 86,
             child: Text(
               ts,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 11,
+              ),
             ),
           ),
           SizedBox(
@@ -619,7 +619,7 @@ class _MutRow extends StatelessWidget {
             child: Text(
               kind,
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 11,
                 color: color,
                 fontWeight: FontWeight.w600,
@@ -632,13 +632,19 @@ class _MutRow extends StatelessWidget {
               '${rec['target'] ?? ''}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 11,
+              ),
             ),
           ),
           Expanded(
             child: SelectableText(
               detail,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 11,
+              ),
               maxLines: 2,
             ),
           ),

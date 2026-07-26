@@ -37,6 +37,7 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/spring_entrance.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -590,7 +591,7 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
       fontWeight: FontWeight.w600,
     ),
     code: TextStyle(
-      fontFamily: 'monospace',
+      fontFamily: kOpenHandMonospaceFontFamily,
       fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
       color: accent,
       backgroundColor: Colors.transparent,
@@ -704,7 +705,7 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
       fontWeight: FontWeight.w600,
     ),
     code: TextStyle(
-      fontFamily: 'monospace',
+      fontFamily: kOpenHandMonospaceFontFamily,
       fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
       color: textColor,
       backgroundColor: Colors.transparent,

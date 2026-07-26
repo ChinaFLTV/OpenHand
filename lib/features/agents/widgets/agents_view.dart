@@ -29,6 +29,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -7704,7 +7705,7 @@ class _AgentTaskDetailBlock extends StatelessWidget {
         (compact ? theme.textTheme.bodyMedium : theme.textTheme.bodyLarge)
             ?.copyWith(
               color: cs.onSurface,
-              fontFamily: monospace ? 'monospace' : null,
+              fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
               height: compact ? 1.35 : 1.45,
             );
     final settings = _agentDialogAnimationSettings(context);

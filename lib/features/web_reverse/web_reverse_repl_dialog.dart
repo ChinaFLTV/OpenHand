@@ -13,7 +13,9 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -251,11 +253,7 @@ class _LogTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -267,7 +265,7 @@ class _LogTile extends StatelessWidget {
                 child: SelectableText(
                   entry.expr,
                   style: const TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -303,7 +301,7 @@ class _LogTile extends StatelessWidget {
                 child: SelectableText(
                   entry.result,
                   style: TextStyle(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     fontSize: 12,
                     color: entry.error ? cs.error : cs.onSurface,
                   ),
@@ -382,16 +380,13 @@ class _ReplInput extends StatelessWidget {
           maxLines: 8,
           maxLength: WebReverseSessionController.maxReplExpressionChars,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
-          buildCounter:
-              (
-                _, {
-                required currentLength,
-                required isFocused,
-                required maxLength,
-              }) => null,
+          buildCounter: openHandHiddenTextFieldCounter,
           enabled: !busy,
           autofocus: true,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 13,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             border: const OutlineInputBorder(),

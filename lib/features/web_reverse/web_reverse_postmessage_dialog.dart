@@ -19,6 +19,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -412,7 +413,7 @@ class _PmDialogState extends State<_PmDialog> {
                   _status!,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
               ),
@@ -421,11 +422,7 @@ class _PmDialogState extends State<_PmDialog> {
           Expanded(
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: cs.outlineVariant),
-              ),
+              decoration: webReverseSurfaceCardDecoration(cs),
               child: filtered.isEmpty
                   ? Center(
                       child: Text(
@@ -481,7 +478,7 @@ class _PmDialogState extends State<_PmDialog> {
                                   Text(
                                     formatHourMinuteSecondMillis(r.at),
                                     style: const TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 11,
                                     ),
                                   ),
@@ -492,7 +489,8 @@ class _PmDialogState extends State<_PmDialog> {
                                           ? '${r.origin}  →  ${r.target}'
                                           : '${r.origin}  →  (this)',
                                       style: TextStyle(
-                                        fontFamily: 'monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                         fontSize: 11,
                                         color: cs.onSurfaceVariant,
                                       ),
@@ -505,7 +503,7 @@ class _PmDialogState extends State<_PmDialog> {
                               SelectableText(
                                 r.data,
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 11,
                                 ),
                                 maxLines: 6,
@@ -517,18 +515,14 @@ class _PmDialogState extends State<_PmDialog> {
                     ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReversePmClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReversePmClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),

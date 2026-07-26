@@ -10,6 +10,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -262,11 +263,7 @@ class _FrameTile extends StatelessWidget {
     return Container(
       margin: EdgeInsets.only(bottom: 8, left: (row.depth * 16).toDouble()),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -326,7 +323,7 @@ class _FrameTile extends StatelessWidget {
               SelectableText(
                 row.id,
                 style: TextStyle(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   fontSize: 10,
                   color: cs.onSurfaceVariant,
                 ),
@@ -339,7 +336,10 @@ class _FrameTile extends StatelessWidget {
               Expanded(
                 child: SelectableText(
                   row.url.isEmpty ? '(empty url)' : row.url,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                 ),
               ),
               if (row.url.isNotEmpty)

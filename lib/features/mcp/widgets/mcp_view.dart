@@ -34,8 +34,10 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
@@ -1335,7 +1337,7 @@ class _TemplateMcpTinyChip extends StatelessWidget {
             style: theme.textTheme.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
               fontWeight: FontWeight.w700,
-              fontFamily: monospace ? 'monospace' : null,
+              fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
             ),
           ),
         ],
@@ -5755,7 +5757,7 @@ class _McpOpsRuntimeTerminal extends StatelessWidget {
             color: textColor,
             fontSize: 13,
             height: 1.45,
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             fontWeight: FontWeight.w700,
           ),
           child: Column(
@@ -8411,7 +8413,7 @@ class _McpOpsSchemaFieldCard extends StatelessWidget {
                 field.name,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
               ),
               _McpOpsStatusChip(
@@ -8464,7 +8466,7 @@ class _McpOpsSchemaCodeView extends StatelessWidget {
       child: SelectableText(
         text.trim().isEmpty ? '{}' : text,
         style: theme.textTheme.bodySmall?.copyWith(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           height: 1.5,
         ),
       ),
@@ -9133,7 +9135,7 @@ class _McpOpsDetailText extends StatelessWidget {
         child: SelectableText(
           trimmed.isEmpty ? '—' : trimmed,
           style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.5,
             color: trimmed.isEmpty ? cs.onSurfaceVariant : null,
           ),
@@ -9748,7 +9750,7 @@ class _McpOpsScalarPayload extends StatelessWidget {
             child: SelectableText(
               muted ? '—' : text,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: mono ? 'monospace' : null,
+                fontFamily: mono ? kOpenHandMonospaceFontFamily : null,
                 height: mono ? 1.50 : 1.42,
                 color: muted ? cs.onSurfaceVariant : null,
                 fontFeatures: mono
@@ -9937,7 +9939,7 @@ class _McpOpsStatusChip extends StatelessWidget {
               style: theme.textTheme.labelMedium?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w800,
-                fontFamily: monospace ? 'monospace' : null,
+                fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
               ),
             ),
           ),
@@ -12087,7 +12089,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
               SelectableText(
                 widget.tool.name,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                 ),
               ),
               if (description.isNotEmpty) ...[
@@ -12240,7 +12242,7 @@ class _ToolSchemaBlock extends StatelessWidget {
           SelectableText(
             pretty,
             style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
+              fontFamily: kOpenHandMonospaceFontFamily,
               color: colorScheme.onSurface,
               height: 1.4,
             ),
@@ -14236,17 +14238,8 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                 ),
               ],
             ),
-            AnimatedSwitcher(
+            OpenHandVerticalRevealSwitcher(
               duration: kOpenHandMotion280,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                return SizeTransition(
-                  sizeFactor: animation,
-                  axisAlignment: -1.0,
-                  child: FadeTransition(opacity: animation, child: child),
-                );
-              },
               child: !_useServerHeaders
                   ? Padding(
                       key: const ValueKey('custom-headers'),
@@ -14535,7 +14528,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                         minLines: 8,
                         maxLines: 16,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                         decoration: InputDecoration(
                           hintText: _localizedText(
@@ -14818,7 +14811,7 @@ class _ToolDescriptionPanel extends StatelessWidget {
       ),
       code: theme.textTheme.bodyMedium?.copyWith(
         color: colorScheme.onSurface,
-        fontFamily: 'monospace',
+        fontFamily: kOpenHandMonospaceFontFamily,
       ),
       codeblockDecoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -14998,7 +14991,7 @@ class _ToolSchemaPanel extends StatelessWidget {
           content,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Colors.white,
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.45,
           ),
         ),
@@ -15235,7 +15228,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onPrimaryContainer,
                           fontWeight: FontWeight.w600,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                     ),
@@ -15279,7 +15272,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
                 _displayText!,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.white,
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   height: 1.45,
                 ),
               ),
@@ -15315,7 +15308,7 @@ class _ToolConsolePanel extends StatelessWidget {
           content,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Colors.white,
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.45,
           ),
         ),

@@ -14,6 +14,8 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_reveal_switcher.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -343,7 +345,10 @@ class _CorsDialogState extends State<_CorsDialog> {
                 TextField(
                   controller: _headersCtl,
                   maxLines: 4,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontSize: 12,
+                  ),
                   decoration: InputDecoration(
                     labelText:
                         loc?.webReverseCorsCustomHeaders ??
@@ -392,17 +397,8 @@ class _CorsDialogState extends State<_CorsDialog> {
                   ),
                 if (res != null) ...[
                   const SizedBox(height: 16),
-                  AnimatedSwitcher(
+                  OpenHandVerticalRevealSwitcher(
                     duration: kOpenHandMotion280,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      return SizeTransition(
-                        sizeFactor: animation,
-                        axisAlignment: -1.0,
-                        child: FadeTransition(opacity: animation, child: child),
-                      );
-                    },
                     child: res['ok'] == true
                         ? const SizedBox.shrink(key: ValueKey('cors-result-ok'))
                         : Container(
@@ -482,7 +478,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                                 Text(
                                   d.label,
                                   style: const TextStyle(
-                                    fontFamily: 'monospace',
+                                    fontFamily: kOpenHandMonospaceFontFamily,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -493,7 +489,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                             SelectableText(
                               d.value.isEmpty ? '—' : d.value,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 11,
                               ),
                             ),
@@ -526,7 +522,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                             .map((e) => '${e.key}: ${e.value}')
                             .join('\n'),
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11,
                         ),
                       ),

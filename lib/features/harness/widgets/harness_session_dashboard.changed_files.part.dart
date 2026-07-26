@@ -86,7 +86,7 @@ class _HeChangedFilesList extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               color: colorScheme.onSurface,
                             ),
                           ),
@@ -203,7 +203,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                         file.relativePath,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

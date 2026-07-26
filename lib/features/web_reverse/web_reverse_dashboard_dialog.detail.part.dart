@@ -152,7 +152,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
                   widget.entry.url,
                   maxLines: 1,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: cs.onSurface,
                     height: 1.2,
                   ),
@@ -663,7 +663,7 @@ class _HeaderSection extends StatelessWidget {
                       k,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ),
@@ -671,7 +671,7 @@ class _HeaderSection extends StatelessWidget {
                     child: SelectableText(
                       v,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         color: cs.onSurface,
                       ),
                     ),
@@ -1102,7 +1102,7 @@ class _RedirectStepRow extends StatelessWidget {
                 SelectableText(
                   step.url,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: isFinal ? cs.primary : cs.onSurface,
                     fontWeight: isFinal ? FontWeight.w700 : FontWeight.w500,
                   ),
@@ -1197,7 +1197,7 @@ class _ClickableSourceRow extends StatelessWidget {
                   child: Text(
                     '$url$lineText$colText',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kOpenHandMonospaceFontFamily,
                       color: cs.primary,
                       decoration: TextDecoration.underline,
                       decorationColor: cs.primary.withValues(alpha: 0.45),
@@ -1240,7 +1240,7 @@ class _MetaRow extends StatelessWidget {
             child: SelectableText(
               value,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 color: cs.onSurface,
               ),
             ),
@@ -1292,7 +1292,7 @@ class _StackFrame extends StatelessWidget {
                 child: Text(
                   fn.isEmpty ? '(anonymous)' : fn,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: hasJump ? cs.primary : cs.onSurface,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1305,7 +1305,7 @@ class _StackFrame extends StatelessWidget {
               '$url$lineDisp$colDisp',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
-                fontFamily: 'monospace',
+                fontFamily: kOpenHandMonospaceFontFamily,
                 decoration: TextDecoration.underline,
                 decorationColor: cs.outlineVariant,
               ),
@@ -1859,11 +1859,7 @@ class _CodeBlockState extends State<_CodeBlock> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
-      ),
+      decoration: webReverseSurfaceCardDecoration(cs, radius: 8),
       padding: const EdgeInsets.all(12),
       child: OpenHandSafeScrollbar(
         controller: _vCtrl,
@@ -1879,7 +1875,7 @@ class _CodeBlockState extends State<_CodeBlock> {
               child: SelectableText(
                 widget.text,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kOpenHandMonospaceFontFamily,
                   color: cs.onSurface,
                   height: 1.5,
                 ),
@@ -2019,7 +2015,7 @@ class _MessagesTab extends StatelessWidget {
                     Text(
                       _opcodeLabel(f.opcode),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         color: onColor,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2029,7 +2025,7 @@ class _MessagesTab extends StatelessWidget {
                       ts,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: onColor.withValues(alpha: 0.7),
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                     const Spacer(),
@@ -2037,7 +2033,7 @@ class _MessagesTab extends StatelessWidget {
                       '${f.payload.length}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: onColor.withValues(alpha: 0.7),
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ],
@@ -2047,7 +2043,7 @@ class _MessagesTab extends StatelessWidget {
                   f.errorMessage ?? f.payload,
                   maxLines: 8,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: onColor,
                   ),
                 ),
@@ -2164,11 +2160,7 @@ class _ImageInlinePreview extends StatelessWidget {
                     );
                   },
                   child: Container(
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
+                    decoration: webReverseSurfaceCardDecoration(cs),
                     padding: const EdgeInsets.all(8),
                     child: image,
                   ),
@@ -2228,7 +2220,7 @@ class _MediaInlinePreview extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kOpenHandMonospaceFontFamily,
                     color: cs.onSurface,
                   ),
                 ),
@@ -2268,11 +2260,7 @@ class _MediaInlinePreview extends StatelessWidget {
           // 避免对外置 Chrome 网络鉴权（Referer/Cookie）做无意义的二次 fetch。
           Container(
             height: kind == MediaPreviewKind.audio ? 96 : 220,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: cs.outlineVariant),
-            ),
+            decoration: webReverseSurfaceCardDecoration(cs),
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(20),

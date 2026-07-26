@@ -20,6 +20,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_har_io.dart';
@@ -336,11 +337,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
+                    decoration: webReverseSurfaceCardDecoration(cs),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -364,7 +361,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                                       'Last HAR: ') +
                                   lastHar,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
@@ -479,7 +476,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                               (loc?.webReverseHarFolderNotChosen ??
                                   '(not chosen)'),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kOpenHandMonospaceFontFamily,
                             color: cs.onSurfaceVariant,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -535,7 +532,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                               (loc?.webReverseHarLastFilePrefix ?? 'Last: ') +
                                   _autoRotate.lastFile!,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
@@ -569,18 +566,14 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
               ),
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseHarClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseHarClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),

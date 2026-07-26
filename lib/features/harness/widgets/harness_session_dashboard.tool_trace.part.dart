@@ -704,7 +704,7 @@ class _HeStructuredToolSection extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               height: 1.35,
                             ),
                           ),
@@ -887,7 +887,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                     child: SelectableText(
                       displayText,
                       style: widget.theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         height: 1.45,
                         color: widget.isError
                             ? widget.colorScheme.onErrorContainer

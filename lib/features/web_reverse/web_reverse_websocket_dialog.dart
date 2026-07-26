@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
@@ -580,7 +581,7 @@ class _WsDialogState extends State<_WsDialog> {
                       expands: true,
                       textAlignVertical: TextAlignVertical.top,
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        fontFamily: kOpenHandMonospaceFontFamily,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
@@ -923,7 +924,8 @@ class _WsDialogState extends State<_WsDialog> {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontFamily: 'monospace',
+                                        fontFamily:
+                                            kOpenHandMonospaceFontFamily,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -966,7 +968,8 @@ class _WsDialogState extends State<_WsDialog> {
                                           child: SelectableText(
                                             cur.url,
                                             style: const TextStyle(
-                                              fontFamily: 'monospace',
+                                              fontFamily:
+                                                  kOpenHandMonospaceFontFamily,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -1066,7 +1069,8 @@ class _WsDialogState extends State<_WsDialog> {
                                                         .toIso8601String()
                                                         .substring(11, 23),
                                                     style: TextStyle(
-                                                      fontFamily: 'monospace',
+                                                      fontFamily:
+                                                          kOpenHandMonospaceFontFamily,
                                                       fontSize: 10,
                                                       color: cs.onSurfaceVariant
                                                           .withValues(
@@ -1082,7 +1086,8 @@ class _WsDialogState extends State<_WsDialog> {
                                                     ? '${f.payload.substring(0, 800)}…'
                                                     : f.payload,
                                                 style: const TextStyle(
-                                                  fontFamily: 'monospace',
+                                                  fontFamily:
+                                                      kOpenHandMonospaceFontFamily,
                                                   fontSize: 11,
                                                 ),
                                               ),

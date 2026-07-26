@@ -17,7 +17,9 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -389,7 +391,8 @@ class _WatchDialogState extends State<_WatchDialog> {
                                                       color: e.error
                                                           ? cs.error
                                                           : cs.onSurfaceVariant,
-                                                      fontFamily: 'monospace',
+                                                      fontFamily:
+                                                          kOpenHandMonospaceFontFamily,
                                                     ),
                                               ),
                                             ],
@@ -421,7 +424,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                               maxLength: _kWatchMaxNameChars,
                               maxLengthEnforcement:
                                   MaxLengthEnforcement.enforced,
-                              buildCounter: _hideWatchCounter,
+                              buildCounter: openHandHiddenTextFieldCounter,
                               decoration: InputDecoration(
                                 labelText:
                                     loc?.webReverseWatchNameLabel ??
@@ -438,9 +441,9 @@ class _WatchDialogState extends State<_WatchDialog> {
                               maxLength: _kWatchMaxExpressionChars,
                               maxLengthEnforcement:
                                   MaxLengthEnforcement.enforced,
-                              buildCounter: _hideWatchCounter,
+                              buildCounter: openHandHiddenTextFieldCounter,
                               style: const TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                               ),
                               decoration: InputDecoration(
@@ -564,7 +567,10 @@ class _HistoryPane extends StatelessWidget {
               const SizedBox(height: 2),
               SelectableText(
                 expr.code,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                style: const TextStyle(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -620,7 +626,7 @@ class _HistoryPane extends StatelessWidget {
                           Text(
                             formatHourMinuteSecondMillis(s.at),
                             style: const TextStyle(
-                              fontFamily: 'monospace',
+                              fontFamily: kOpenHandMonospaceFontFamily,
                               fontSize: 11,
                             ),
                           ),
@@ -629,7 +635,7 @@ class _HistoryPane extends StatelessWidget {
                             child: SelectableText(
                               s.value,
                               style: TextStyle(
-                                fontFamily: 'monospace',
+                                fontFamily: kOpenHandMonospaceFontFamily,
                                 fontSize: 12,
                                 color: s.isError ? cs.error : null,
                               ),
@@ -645,10 +651,3 @@ class _HistoryPane extends StatelessWidget {
     );
   }
 }
-
-Widget? _hideWatchCounter(
-  BuildContext context, {
-  required int currentLength,
-  required bool isFocused,
-  required int? maxLength,
-}) => null;

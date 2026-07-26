@@ -1326,7 +1326,7 @@ class _HeSteeringFileEditorDialogState
         expands: true,
         textAlignVertical: TextAlignVertical.top,
         style: theme.textTheme.bodyMedium?.copyWith(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           height: 1.55,
         ),
         decoration: InputDecoration(

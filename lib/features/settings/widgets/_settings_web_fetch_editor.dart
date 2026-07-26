@@ -970,7 +970,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                         ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
                     ],

@@ -2531,7 +2531,7 @@ class _MetadataJsonPanel extends StatelessWidget {
           content,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: Colors.white,
-            fontFamily: 'monospace',
+            fontFamily: kOpenHandMonospaceFontFamily,
             height: 1.45,
           ),
         ),

@@ -22,6 +22,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -451,7 +452,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                             ? (loc?.webReverseAnimationsPauseSymbol ?? 'Pause')
                             : '${preset}x',
                         style: const TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: kOpenHandMonospaceFontFamily,
                           fontSize: 11,
                         ),
                       ),
@@ -530,11 +531,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
+                        decoration: webReverseSurfaceCardDecoration(cs),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -556,7 +553,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                   child: Text(
                                     r.playState,
                                     style: TextStyle(
-                                      fontFamily: 'monospace',
+                                      fontFamily: kOpenHandMonospaceFontFamily,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
                                       color: r.playState == 'running'
@@ -645,7 +642,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                 r.targetSelector,
                                 maxLines: 1,
                                 style: TextStyle(
-                                  fontFamily: 'monospace',
+                                  fontFamily: kOpenHandMonospaceFontFamily,
                                   fontSize: 10.5,
                                   color: cs.onSurfaceVariant,
                                 ),

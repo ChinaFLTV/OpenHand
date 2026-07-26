@@ -359,7 +359,7 @@ class _ScraplingRuntimeLogLine extends StatelessWidget {
       child: SelectableText(
         entry.line.isEmpty ? ' ' : entry.line,
         style: TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontSize: 12,
           color: _colorForLevel(entry.level),
           height: 1.5,
