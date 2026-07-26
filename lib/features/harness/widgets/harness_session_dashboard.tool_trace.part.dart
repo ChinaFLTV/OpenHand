@@ -465,26 +465,29 @@ class _HeStructuredToolTraceCardState
               spacing: 8,
               runSpacing: 8,
               children: [
-                _HeChip(
+                OpenHandToolChip(
                   icon: data.presentation.icon,
                   label: data.presentation.label,
                 ),
                 if (data.workingDirectory.isNotEmpty)
-                  _HeChip(
+                  OpenHandToolChip(
                     icon: Icons.folder_outlined,
                     label:
                         '${openHandLocalizedText(context, zh: '目录', zhHant: '目錄', en: 'Dir', fr: 'Dossier', de: 'Verzeichnis', ja: 'ディレクトリ')}: ${data.workingDirectory}',
                   ),
                 if (data.outcomeLabel.isNotEmpty)
-                  _HeChip(icon: data.statusIcon, label: data.outcomeLabel),
+                  OpenHandToolChip(
+                    icon: data.statusIcon,
+                    label: data.outcomeLabel,
+                  ),
                 if (data.durationMs > 0 || data.status == 'running')
-                  _HeChip(
+                  OpenHandToolChip(
                     icon: Icons.timer_outlined,
                     label:
                         '${openHandLocalizedText(context, zh: '耗时', zhHant: '耗時', en: 'Elapsed', fr: 'Durée', de: 'Dauer', ja: '経過')}: ${_heFormatToolDuration(data.durationMs)}',
                   ),
                 if (data.exitCode != null)
-                  _HeChip(
+                  OpenHandToolChip(
                     icon: Icons.flag_outlined,
                     label:
                         '${openHandLocalizedText(context, zh: '退出码', zhHant: '退出碼', en: 'Exit', fr: 'Code de sortie', de: 'Exitcode', ja: '終了コード')}: ${data.exitCode}',

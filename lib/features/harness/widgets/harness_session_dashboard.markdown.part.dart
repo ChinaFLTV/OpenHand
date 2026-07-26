@@ -1172,33 +1172,6 @@ String _heSanitizeMarkdownSource(String source) {
   return _heCloseUnterminatedCodeBlock(escapedSetext);
 }
 
-class _HeChip extends StatelessWidget {
-  const _HeChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: kOpenHandPillBorderRadius,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14),
-          const SizedBox(width: 6),
-          Text(label, style: theme.textTheme.labelMedium),
-        ],
-      ),
-    );
-  }
-}
-
 class _HeReadyPlaceholder extends StatelessWidget {
   const _HeReadyPlaceholder({required this.isZh, required this.onStart});
 

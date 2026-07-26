@@ -258,7 +258,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _ToolExecutionChip(
+                  OpenHandToolChip(
                     icon: toolCall.presentation.icon,
                     label: toolCall.primaryChipLabel,
                   ),
@@ -301,13 +301,13 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       ),
                     ),
                   if (toolCall.workingDirectory.isNotEmpty)
-                    _ToolExecutionChip(
+                    OpenHandToolChip(
                       icon: Icons.folder_outlined,
                       label:
                           '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
                     ),
                   if (toolCall.status.isNotEmpty)
-                    _ToolExecutionChip(
+                    OpenHandToolChip(
                       icon: toolCall.statusIcon,
                       label: toolCall.outcomeLabel,
                     ),
@@ -319,7 +319,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                     Tooltip(
                       message:
                           '${message.metadata['sandbox_unavailable_reason'] ?? message.metadata['sandbox_backend'] ?? ''}',
-                      child: _ToolExecutionChip(
+                      child: OpenHandToolChip(
                         icon: message.metadata['sandbox_blocked'] == true
                             ? Icons.lock_outline_rounded
                             : Icons.security_rounded,
@@ -336,7 +336,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                     Tooltip(
                       message:
                           'HTTP ${message.metadata['sandbox_proxy_http_port'] ?? '-'}${message.metadata['sandbox_proxy_socks_port'] == null ? '' : ' · SOCKS ${message.metadata['sandbox_proxy_socks_port']}'}',
-                      child: _ToolExecutionChip(
+                      child: OpenHandToolChip(
                         icon: Icons.hub_outlined,
                         label: openHandLocalizedText(
                           context,
@@ -370,13 +370,13 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       unknownLabelPrefix: '抓取缓存',
                     ),
                   if (toolCall.durationMs > 0 || toolCall.status == 'running')
-                    _ToolExecutionChip(
+                    OpenHandToolChip(
                       icon: Icons.timer_outlined,
                       label:
                           '${AppLocalizations.of(context)!.tlCallElapsed}: ${formatCompactDurationMs(toolCall.durationMs)}',
                     ),
                   if (toolCall.exitCode != null)
-                    _ToolExecutionChip(
+                    OpenHandToolChip(
                       icon: Icons.flag_outlined,
                       label:
                           '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
@@ -394,7 +394,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       message:
                           message.metadata['tool_execution_stall_warning']
                               as String,
-                      child: _ToolExecutionChip(
+                      child: OpenHandToolChip(
                         icon: Icons.warning_amber_outlined,
                         label: openHandLocalizedText(
                           context,
@@ -1908,71 +1908,6 @@ class _ToolCacheChip extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ToolExecutionChip extends StatelessWidget {
-  const _ToolExecutionChip({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: kOpenHandPillBorderRadius,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 2026-05 — phase morph: cross-fade + 90° rotation between
-          // leading icons so preparing→constructing→submitting→running→
-          // done flows as a single morph instead of a hard cut. Keyed on
-          // the icon code-point so AnimatedSwitcher detects identity
-          // change. Honors global motion preferences via 0ms.
-          AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              _kToolCompactMotionDuration,
-            ),
-            switchInCurve: _kToolCardMotionCurve,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: RotationTransition(
-                  turns: Tween<double>(
-                    begin: -0.25,
-                    end: 0.0,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
-            },
-            layoutBuilder: (current, previous) => Stack(
-              alignment: Alignment.center,
-              children: [...previous, if (current != null) current],
-            ),
-            child: Icon(icon, size: 14, key: ValueKey<int>(icon.codePoint)),
-          ),
-          const SizedBox(width: 6),
-          // 2026-06 — label 用 Flexible + ellipsis 兜底：工作目录、耗时
-          // 等长文案在窄 Wrap 行内可能撑爆 chip，缩略展示并允许上层
-          // Wrap 换行，避免 RenderFlex 62px 溢出。
-          Flexible(
-            child: Text(
-              label,
-              style: theme.textTheme.labelMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -3743,29 +3678,26 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           runSpacing: 8,
           children: [
             if (profileItems.isNotEmpty)
-              _ToolExecutionChip(
+              OpenHandToolChip(
                 icon: Icons.account_circle_outlined,
                 label: AppLocalizations.of(
                   context,
                 )!.tlCallProfileitemsLengthProfileChanges(profileItems.length),
               ),
-            _ToolExecutionChip(
+            OpenHandToolChip(
               icon: Icons.memory_rounded,
               label: memoryCountLabel,
             ),
             if (skillItems.isNotEmpty)
-              _ToolExecutionChip(
+              OpenHandToolChip(
                 icon: Icons.extension_rounded,
                 label: AppLocalizations.of(
                   context,
                 )!.tlCallSkillitemsLengthSkillsUpdated(skillItems.length),
               ),
-            _ToolExecutionChip(
-              icon: Icons.schedule_rounded,
-              label: elapsedLabel,
-            ),
+            OpenHandToolChip(icon: Icons.schedule_rounded, label: elapsedLabel),
             if (metadata['nudge_recovered'] == true)
-              _ToolExecutionChip(
+              OpenHandToolChip(
                 icon: Icons.refresh_rounded,
                 label: AppLocalizations.of(context)!.tlCallNudgeRecovered,
               ),

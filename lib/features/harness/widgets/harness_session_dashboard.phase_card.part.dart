@@ -224,15 +224,18 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                 runSpacing: 8,
                 children: [
                   if (roleConfig.isUrlMode)
-                    const _HeChip(icon: Icons.cloud_rounded, label: 'URL/API'),
+                    const OpenHandToolChip(
+                      icon: Icons.cloud_rounded,
+                      label: 'URL/API',
+                    ),
                   if (!roleConfig.isUrlMode && roleConfig.cliName.isNotEmpty)
-                    _HeChip(
+                    OpenHandToolChip(
                       icon: Icons.terminal_rounded,
                       label: roleConfig.cliName,
                     ),
                   if (roleConfig.isUrlMode &&
                       (roleConfig.aiModelConfigId?.trim().isNotEmpty ?? false))
-                    _HeChip(
+                    OpenHandToolChip(
                       icon: Icons.layers_rounded,
                       label: _heDescribeAiModelConfig(
                         context,
@@ -242,7 +245,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                       ),
                     ),
                   if (!roleConfig.isUrlMode && roleConfig.modelId.isNotEmpty)
-                    _HeChip(
+                    OpenHandToolChip(
                       icon: Icons.layers_rounded,
                       label: describeHarnessCliModel(
                         roleConfig.modelId,
@@ -250,14 +253,14 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                       ),
                     ),
                   if (log.exitCode != null)
-                    _HeChip(
+                    OpenHandToolChip(
                       icon: log.exitCode == 0
                           ? Icons.check_circle_outline_rounded
                           : Icons.flag_outlined,
                       label: '$exitCodeLabel: ${log.exitCode}',
                     ),
                   if (log.savedLogPath != null)
-                    _HeChip(
+                    OpenHandToolChip(
                       icon: Icons.save_outlined,
                       label: openHandLocalizedText(
                         context,
@@ -270,7 +273,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                       ),
                     ),
                   if (log.changedFiles.isNotEmpty)
-                    _HeChip(
+                    OpenHandToolChip(
                       icon: Icons.difference_rounded,
                       label: openHandLocalizedText(
                         context,
