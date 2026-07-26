@@ -646,7 +646,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                                 strokeWidth: 1.6,
                                 value: _bulkUndoTotal == 0
                                     ? null
-                                    : _bulkUndoDone / _bulkUndoTotal,
+                                    : unitRatio(
+                                        _bulkUndoDone,
+                                        _bulkUndoTotal,
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -3265,7 +3268,9 @@ class _BulkUndoOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final ratio = total == 0 ? null : done / total;
+    // 批量撤销过程中 done 可能短暂超过 total（并发回执），除法结果越界会让
+    // 进度指示器断言失败，这里统一夹到 0..1。
+    final ratio = total == 0 ? null : unitRatio(done, total);
     return ClipRRect(
       borderRadius: const BorderRadius.all(Radius.circular(16)),
       child: BackdropFilter(
@@ -3942,7 +3947,7 @@ class _RoundFileMutationSummaryCardState
                 strokeWidth: 1.6,
                 value: _bulkUndoTotal == 0
                     ? null
-                    : _bulkUndoDone / _bulkUndoTotal,
+                    : unitRatio(_bulkUndoDone, _bulkUndoTotal),
               ),
             ),
             const SizedBox(width: 6),

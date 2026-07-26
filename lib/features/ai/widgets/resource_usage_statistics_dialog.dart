@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../ai_session_controller.dart';
 import '../service/runtime/ai_tool_usage_promotion_store.dart';
@@ -1121,7 +1122,7 @@ class _ResourceRanking extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(999),
                     child: LinearProgressIndicator(
-                      value: visible[index].value / maxValue,
+                      value: unitRatio(visible[index].value, maxValue),
                       minHeight: 9,
                       color: colorScheme.primary,
                       backgroundColor: colorScheme.surfaceContainerHigh,

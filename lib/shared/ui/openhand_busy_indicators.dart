@@ -25,9 +25,17 @@ class OpenHandBusyProgressBar extends StatelessWidget {
   final bool busy;
 
   /// 有确定进度时传 0..1；为 null 时走不确定的循环动画。
+  ///
+  /// 越界或 NaN 会触发 LinearProgressIndicator 的断言，这里统一夹紧后再传入。
   final double? value;
 
   final double minHeight;
+
+  double? get _clampedValue {
+    final raw = value;
+    if (raw == null || raw.isNaN) return null;
+    return raw.clamp(0.0, 1.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +44,10 @@ class OpenHandBusyProgressBar extends StatelessWidget {
       reverseDuration: kOpenHandBusyBarCollapseDuration,
       presentKey: const ValueKey<String>('busy'),
       child: busy
-          ? LinearProgressIndicator(value: value, minHeight: minHeight)
+          ? LinearProgressIndicator(
+              value: _clampedValue,
+              minHeight: minHeight,
+            )
           : null,
     );
   }

@@ -6177,17 +6177,25 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
                       ),
                       style: theme.textTheme.bodySmall,
                     ),
-                    Slider(
-                      min: widget.minWeight.toDouble(),
-                      max: widget.maxWeight.toDouble(),
-                      divisions: widget.maxWeight - widget.minWeight,
-                      value: widget.weight.toDouble().clamp(
-                        widget.minWeight.toDouble(),
-                        widget.maxWeight.toDouble(),
-                      ),
-                      label: '${widget.weight}',
-                      onChanged: (value) =>
-                          widget.onWeightChanged(value.round()),
+                    Builder(
+                      builder: (context) {
+                        // 权重区间退化（min == max）时 Slider 的 divisions
+                        // 为 0 会直接断言失败，这里降级为只读展示。
+                        final span = widget.maxWeight - widget.minWeight;
+                        if (span <= 0) return const SizedBox.shrink();
+                        return Slider(
+                          min: widget.minWeight.toDouble(),
+                          max: widget.maxWeight.toDouble(),
+                          divisions: span,
+                          value: widget.weight.toDouble().clamp(
+                            widget.minWeight.toDouble(),
+                            widget.maxWeight.toDouble(),
+                          ),
+                          label: '${widget.weight}',
+                          onChanged: (value) =>
+                              widget.onWeightChanged(value.round()),
+                        );
+                      },
                     ),
                     Row(
                       children: [
