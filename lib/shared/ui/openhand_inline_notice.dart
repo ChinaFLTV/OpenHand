@@ -219,3 +219,53 @@ class OpenHandInlineNoticeSlot extends StatelessWidget {
     );
   }
 }
+
+/// 行内错误文本的默认外边距。
+const EdgeInsets kOpenHandInlineErrorPadding = EdgeInsets.fromLTRB(
+  20,
+  0,
+  20,
+  8,
+);
+
+/// 面板内的一行错误文本：出现与消失走全局动效的纵向展开。
+///
+/// 插件服务与 MCP STDIO 的依赖弹窗各写了一份 `if (_error != null) Padding(...)`，
+/// 报错出现时整块内容会被硬生生顶下去一次；重试期间错误反复出现 / 消失，
+/// 观感就是列表在跳。
+class OpenHandInlineErrorText extends StatelessWidget {
+  const OpenHandInlineErrorText({
+    super.key,
+    required this.message,
+    this.padding = kOpenHandInlineErrorPadding,
+  });
+
+  /// 为 null 表示无错误，此时收起为零高度。
+  final String? message;
+
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = message;
+    return OpenHandVerticalRevealSwitcher(
+      duration: kOpenHandInlineErrorRevealDuration,
+      presentKey: ValueKey<String>(text ?? ''),
+      child: text == null
+          ? null
+          : Padding(
+              padding: padding,
+              child: Text(
+                text,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+/// 行内错误展开 / 收起的时长。
+const Duration kOpenHandInlineErrorRevealDuration = Duration(milliseconds: 180);

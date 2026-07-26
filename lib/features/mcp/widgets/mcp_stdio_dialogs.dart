@@ -11,6 +11,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
+import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1181,16 +1182,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                     ],
                   ),
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                _error!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
+          OpenHandInlineErrorText(message: _error),
           // 进度指示
           if (_operating)
             LinearProgressIndicator(

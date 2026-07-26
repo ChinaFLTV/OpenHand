@@ -177,15 +177,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: KnowledgeDialogNotice(
-                    icon: Icons.error_outline_rounded,
-                    error: true,
-                    message: _error!,
-                  ),
-                ),
+              KnowledgeDialogErrorNotice(message: _error),
               KnowledgeDialogSection(
                 title: openHandLocalizedText(
                   context,

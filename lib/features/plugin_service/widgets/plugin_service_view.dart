@@ -1899,16 +1899,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                     ],
                   ),
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                _error!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
+          OpenHandInlineErrorText(message: _error),
           // 终端输出区域
           if (_logs.isNotEmpty || _operating)
             Flexible(

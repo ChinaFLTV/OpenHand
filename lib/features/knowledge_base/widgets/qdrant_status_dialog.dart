@@ -374,15 +374,10 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: KnowledgeDialogNotice(
-                    icon: Icons.error_outline_rounded,
-                    error: true,
-                    message: _error!,
-                  ),
-                ),
+              KnowledgeDialogErrorNotice(
+                message: _error,
+                bottomSpacing: 10,
+              ),
               _QdrantOpsHeader(
                 snapshot: _snapshot,
                 refreshing: _refreshing,

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -210,6 +212,42 @@ String localizedKnowledgeSourceStatus(BuildContext context, String status) {
     ),
     _ => normalized.isEmpty ? '-' : status.trim(),
   };
+}
+
+/// 知识库弹窗顶部的错误提示：出现与消失走全局动效的纵向展开。
+///
+/// Qdrant 管理与状态两个弹窗此前各写了一份 `if (_error != null) Padding(...)`，
+/// 报错出现时下方内容会被硬生生顶下去一次。
+class KnowledgeDialogErrorNotice extends StatelessWidget {
+  const KnowledgeDialogErrorNotice({
+    super.key,
+    required this.message,
+    this.bottomSpacing = 12,
+  });
+
+  /// 为 null 表示无错误，此时收起为零高度。
+  final String? message;
+
+  final double bottomSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = message;
+    return OpenHandVerticalRevealSwitcher(
+      duration: kOpenHandInlineErrorRevealDuration,
+      presentKey: ValueKey<String>(text ?? ''),
+      child: text == null
+          ? null
+          : Padding(
+              padding: EdgeInsets.only(bottom: bottomSpacing),
+              child: KnowledgeDialogNotice(
+                icon: Icons.error_outline_rounded,
+                error: true,
+                message: text,
+              ),
+            ),
+    );
+  }
 }
 
 class KnowledgeDialogSection extends StatelessWidget {

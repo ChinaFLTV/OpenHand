@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_notice.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -32,6 +33,9 @@ Future<void> showWebReverseCorsPreflightDialog(
     builder: (_) => _CorsDialog(controller: controller),
   );
 }
+
+/// 错误详情的字号。
+const double _kCorsErrorFontSize = 12;
 
 class _CorsDialog extends StatefulWidget {
   const _CorsDialog({required this.controller});
@@ -376,21 +380,29 @@ class _CorsDialogState extends State<_CorsDialog> {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: OpenHandBusyProgressBar(busy: _busy),
                 ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.errorContainer.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(color: cs.error, fontSize: 12),
-                      ),
-                    ),
-                  ),
+                OpenHandVerticalRevealSwitcher(
+                  duration: kOpenHandInlineErrorRevealDuration,
+                  presentKey: ValueKey<String>(_error ?? ''),
+                  child: _error == null
+                      ? null
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: cs.errorContainer.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                color: cs.error,
+                                fontSize: _kCorsErrorFontSize,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
                 if (res != null) ...[
                   const SizedBox(height: 16),
                   OpenHandVerticalRevealSwitcher(
