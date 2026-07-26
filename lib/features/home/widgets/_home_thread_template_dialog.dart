@@ -544,15 +544,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
     title: sectionTitle,
     children: [
       OpenHandMetadataEntryRow(
-        label: openHandLocalizedText(
-          context,
-          zh: '目标 URL',
-          zhHant: '目標 URL',
-          en: 'Target URL',
-          fr: 'URL cible',
-          de: 'Ziel-URL',
-          ja: '対象 URL',
-        ),
+        label: openHandTargetUrlLabel(context),
         value: config.targetUrl,
       ),
       OpenHandMetadataEntryRow(
@@ -592,15 +584,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       ),
       if (config.proxy != null && config.proxy!.isNotEmpty)
         OpenHandMetadataEntryRow(
-          label: openHandLocalizedText(
-            context,
-            zh: '代理',
-            zhHant: '代理',
-            en: 'Proxy',
-            fr: 'Proxy',
-            de: 'Proxy',
-            ja: 'プロキシ',
-          ),
+          label: openHandProxyLabel(context),
           value: config.proxy!,
         ),
       if (config.keywords.isNotEmpty)
@@ -610,15 +594,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
       if (config.triggerActions != null && config.triggerActions!.isNotEmpty)
         OpenHandMetadataEntryRow(
-          label: openHandLocalizedText(
-            context,
-            zh: '触发动作',
-            zhHant: '觸發動作',
-            en: 'Trigger Actions',
-            fr: 'Actions déclencheuses',
-            de: 'Auslöseaktionen',
-            ja: 'トリガー操作',
-          ),
+          label: openHandTriggerActionsLabel(context),
           value: config.triggerActions!,
         ),
       OpenHandMetadataEntryRow(
@@ -678,15 +654,7 @@ Future<String?> _showEditQueuedMessageDialog(
 
 String _localizedMetadataField(BuildContext context, String field) {
   return switch (field) {
-    'session_id' => openHandLocalizedText(
-      context,
-      zh: '会话 ID',
-      zhHant: '會話 ID',
-      en: 'Session ID',
-      fr: 'ID de session',
-      de: 'Sitzungs-ID',
-      ja: 'セッション ID',
-    ),
+    'session_id' => openHandSessionIdLabel(context),
     'template' => openHandTemplateLabel(context),
     'created_at' => _homeCreatedAtLabel(context),
     'updated_at' => _homeUpdatedAtLabel(context),

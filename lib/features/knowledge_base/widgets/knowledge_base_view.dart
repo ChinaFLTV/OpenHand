@@ -49,15 +49,7 @@ class KnowledgeBaseView extends StatelessWidget {
     );
 
     return FeaturePageShell(
-      title: openHandLocalizedText(
-        context,
-        zh: '知识库',
-        zhHant: '知識庫',
-        en: 'Knowledge Base',
-        fr: 'Base de connaissances',
-        de: 'Wissensdatenbank',
-        ja: 'ナレッジベース',
-      ),
+      title: openHandKnowledgeBaseLabel(context),
       subtitle: openHandLocalizedText(
         context,
         zh: '本地文档、笔记与 Qdrant 向量检索。',
@@ -89,15 +81,7 @@ class KnowledgeBaseView extends StatelessWidget {
             ),
             body: controller.error!,
             trailing: Tooltip(
-              message: openHandLocalizedText(
-                context,
-                zh: '关闭',
-                zhHant: '關閉',
-                en: 'Dismiss',
-                fr: 'Fermer',
-                de: 'Schließen',
-                ja: '閉じる',
-              ),
+              message: openHandDismissLabel(context),
               child: IconButton(
                 onPressed: controller.clearError,
                 icon: const Icon(Icons.close_rounded),
@@ -271,17 +255,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
               aiModels: aiModels,
             ),
       icon: const Icon(Icons.upload_file_rounded),
-      label: Text(
-        openHandLocalizedText(
-          context,
-          zh: '导入',
-          zhHant: '匯入',
-          en: 'Import',
-          fr: 'Importer',
-          de: 'Importieren',
-          ja: 'インポート',
-        ),
-      ),
+      label: Text(openHandImportLabel(context)),
     );
     final configButton = FilledButton.tonalIcon(
       onPressed: () =>

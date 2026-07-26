@@ -542,15 +542,7 @@ extension _TabLabel on _Tab {
         ja: 'ツールチェーン',
       ),
       _Tab.mcp => 'MCP',
-      _Tab.plugins => openHandLocalizedText(
-        context,
-        zh: '插件',
-        zhHant: '外掛',
-        en: 'Plugins',
-        fr: 'Plugins',
-        de: 'Plugins',
-        ja: 'プラグイン',
-      ),
+      _Tab.plugins => openHandPluginsLabel(context),
       _Tab.packages => openHandLocalizedText(
         context,
         zh: 'APP 信息',
@@ -3872,18 +3864,7 @@ fi
         ),
         _deviceProps['ro.product.brand'] ?? '-',
       ),
-      (
-        openHandLocalizedText(
-          context,
-          zh: '设备',
-          zhHant: '裝置',
-          en: 'Device',
-          fr: 'Appareil',
-          de: 'Gerät',
-          ja: 'デバイス',
-        ),
-        _deviceProps['ro.product.device'] ?? '-',
-      ),
+      (openHandDeviceLabel(context), _deviceProps['ro.product.device'] ?? '-'),
       (
         openHandLocalizedText(
           context,
@@ -4557,15 +4538,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.arrow_back_rounded,
-                label: openHandLocalizedText(
-                  context,
-                  zh: '返回',
-                  zhHant: '返回',
-                  en: 'Back',
-                  fr: 'Retour',
-                  de: 'Zurück',
-                  ja: '戻る',
-                ),
+                label: openHandBackLabel(context),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('input keyevent KEYCODE_BACK'),
@@ -5632,18 +5605,7 @@ fi
       if (config.keywords.isNotEmpty)
         (openHandKeywordsLabel(context), config.keywords.join(', ')),
       if (config.notes != null && config.notes!.isNotEmpty)
-        (
-          openHandLocalizedText(
-            context,
-            zh: '备注',
-            zhHant: '備註',
-            en: 'Notes',
-            fr: 'Notes',
-            de: 'Notizen',
-            ja: 'メモ',
-          ),
-          config.notes!,
-        ),
+        (openHandNotesLabel(context), config.notes!),
     ];
     return OpenHandSafeScrollbar(
       child: ListView(
@@ -8335,15 +8297,7 @@ fi
                     initialValue: _logcatCacheLimit,
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: openHandLocalizedText(
-                        context,
-                        zh: '缓存',
-                        zhHant: '快取',
-                        en: 'Cache',
-                        fr: 'Cache',
-                        de: 'Cache',
-                        ja: 'キャッシュ',
-                      ),
+                      labelText: openHandCacheLabel(context),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -11236,15 +11190,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                             ? openHandInstalledLabel(context)
                             : installed == false
                             ? _androidReverseNotInstalledLabel(context)
-                            : openHandLocalizedText(
-                                context,
-                                zh: '未检测',
-                                zhHant: '未檢測',
-                                en: 'Not checked',
-                                fr: 'Non vérifié',
-                                de: 'Nicht geprüft',
-                                ja: '未チェック',
-                              ),
+                            : openHandNotCheckedLabel(context),
                         valueColor: statusColor,
                       ),
                     ],
@@ -11265,15 +11211,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       accentColor: statusColor,
                       children: [
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '输出',
-                            zhHant: '輸出',
-                            en: 'Output',
-                            fr: 'Sortie',
-                            de: 'Ausgabe',
-                            ja: '出力',
-                          ),
+                          label: openHandOutputLabel(context),
                           value: result!.displayValue,
                           monospace: true,
                           valueColor: result!.ok ? null : cs.error,
@@ -11292,15 +11230,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           monospace: true,
                         ),
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '耗时',
-                            zhHant: '耗時',
-                            en: 'Duration',
-                            fr: 'Durée',
-                            de: 'Dauer',
-                            ja: '所要時間',
-                          ),
+                          label: openHandDurationLabel(context),
                           value: '${result!.durationMs}ms',
                           monospace: true,
                         ),
@@ -11934,15 +11864,7 @@ String _androidReverseLaunchAppLabel(BuildContext context) {
 }
 
 String _androidReverseNameLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '名称',
-    zhHant: '名稱',
-    en: 'Name',
-    fr: 'Nom',
-    de: 'Name',
-    ja: '名前',
-  );
+  return openHandNameLabel(context);
 }
 
 String _androidReverseNoOutputLabel(BuildContext context) {
@@ -12030,13 +11952,5 @@ String _androidReverseStatusLabel(BuildContext context) {
 }
 
 String _androidReverseUninstallLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '卸载',
-    zhHant: '解除安裝',
-    en: 'Uninstall',
-    fr: 'Désinstaller',
-    de: 'Deinstallieren',
-    ja: 'アンインストール',
-  );
+  return openHandUninstallLabel(context);
 }

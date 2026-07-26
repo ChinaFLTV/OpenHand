@@ -368,15 +368,7 @@ String _presetLabel(BuildContext context, OpenHandCleanupRangePreset preset) {
       zh: '近 7 天',
       en: 'Last 7d',
     ),
-    OpenHandCleanupRangePreset.custom => openHandLocalizedText(
-      context,
-      zh: '自定义',
-      zhHant: '自訂',
-      en: 'Custom',
-      fr: 'Personnalisé',
-      de: 'Benutzerdefiniert',
-      ja: 'カスタム',
-    ),
+    OpenHandCleanupRangePreset.custom => openHandCustomLabel(context),
   };
 }
 

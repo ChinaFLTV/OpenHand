@@ -2354,15 +2354,7 @@ class _SearchableModelSelectorState extends State<_SearchableModelSelector> {
 // 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _harnessEngineeApiModelLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: 'API 模型',
-    zhHant: 'API 模型',
-    en: 'API Model',
-    fr: 'Modèle API',
-    de: 'API-Modell',
-    ja: 'API モデル',
-  );
+  return openHandApiModelLabel(context);
 }
 
 String _harnessEngineeBrowseFolderLabel(BuildContext context) {

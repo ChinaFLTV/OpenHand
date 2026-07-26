@@ -797,15 +797,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                     });
                   },
                   tooltip: _expanded
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '收起',
-                          zhHant: '收起',
-                          en: 'Collapse',
-                          fr: 'Réduire',
-                          de: 'Einklappen',
-                          ja: '折りたたむ',
-                        )
+                      ? openHandCollapseLabel(context)
                       : openHandLocalizedText(
                           context,
                           zh: '展开全部',
@@ -985,15 +977,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (segment.kind == _HeSegmentKind.toolResult || role == 'tool') {
     return _HeToolPresentation(
-      label: openHandLocalizedText(
-        context,
-        zh: '工具结果',
-        zhHant: '工具結果',
-        en: 'Tool Result',
-        fr: 'Résultat outil',
-        de: 'Tool-Ergebnis',
-        ja: 'ツール結果',
-      ),
+      label: openHandToolResultLabel(context),
       icon: Icons.output_rounded,
       isCommandLike: false,
     );

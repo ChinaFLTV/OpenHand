@@ -418,15 +418,7 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.copy_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '复制 ID',
-                zhHant: '複製 ID',
-                en: 'Copy ID',
-                fr: 'Copier l’ID',
-                de: 'ID kopieren',
-                ja: 'ID をコピー',
-              ),
+              tooltip: openHandCopyIdLabel(context),
               onPressed: onCopyId,
             ),
             if (onPanelClose != null) ...[
@@ -491,15 +483,7 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.play_arrow_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '启动',
-                zhHant: '啟動',
-                en: 'Start',
-                fr: 'Démarrer',
-                de: 'Starten',
-                ja: '起動',
-              ),
+              tooltip: openHandStartLabel(context),
               onPressed: canStart ? onStart : null,
             ),
             _MachineTerminalIconButton(
@@ -513,15 +497,7 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.restart_alt_rounded,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '重启',
-                zhHant: '重啟',
-                en: 'Restart',
-                fr: 'Redémarrer',
-                de: 'Neustarten',
-                ja: '再起動',
-              ),
+              tooltip: openHandRestartLabel(context),
               onPressed: onRestart,
             ),
             _MachineTerminalIconButton(
@@ -1712,15 +1688,7 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
               _MachineTerminalTinyBadge(label: '${record.durationMs}ms'),
               if (record.timedOut)
                 _MachineTerminalTinyBadge(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '超时',
-                    zhHant: '逾時',
-                    en: 'Timed out',
-                    fr: 'Expiré',
-                    de: 'Zeitüberschreitung',
-                    ja: 'タイムアウト',
-                  ),
+                  label: openHandTimedOutLabel(context),
                 ),
               _MachineTerminalTinyBadge(
                 label: _formatTerminalHistoryTime(record.completedAt),
@@ -2469,4 +2437,3 @@ String _replayAnsiOutput(MachineTerminalSnapshot snapshot) {
 String _homeMachineTerClosePanelLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '关闭面板', en: 'Close Panel');
 }
-

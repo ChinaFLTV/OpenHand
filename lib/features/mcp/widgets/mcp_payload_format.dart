@@ -119,15 +119,7 @@ String mcpPayloadTypeLabel(BuildContext context, Object? value) {
   if (value == null) {
     return openHandLocalizedText(context, zh: '空值', en: 'Null');
   }
-  return openHandLocalizedText(
-    context,
-    zh: '文本',
-    zhHant: '文字',
-    en: 'Text',
-    fr: 'Texte',
-    de: 'Text',
-    ja: 'テキスト',
-  );
+  return openHandTextLabel(context);
 }
 
 String mcpPayloadContentLabel(

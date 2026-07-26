@@ -62,24 +62,8 @@ class _HeComposer extends StatelessWidget {
     final disabledBg = colorScheme.surfaceContainerHighest.withValues(
       alpha: 0.78,
     );
-    final defaultAccessLabel = openHandLocalizedText(
-      context,
-      zh: '默认权限',
-      zhHant: '預設權限',
-      en: 'Default Access',
-      fr: 'Accès par défaut',
-      de: 'Standardzugriff',
-      ja: 'デフォルト権限',
-    );
-    final fullAccessLabel = openHandLocalizedText(
-      context,
-      zh: '完全访问权限',
-      zhHant: '完整存取權限',
-      en: 'Full Access',
-      fr: 'Accès complet',
-      de: 'Vollzugriff',
-      ja: 'フルアクセス権限',
-    );
+    final defaultAccessLabel = openHandDefaultAccessLabel(context);
+    final fullAccessLabel = openHandFullAccessLabel(context);
 
     Widget disabledOutlinedButton({
       required IconData icon,
@@ -822,17 +806,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onApprove,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '继续',
-                      zhHant: '繼續',
-                      en: 'Continue',
-                      fr: 'Continuer',
-                      de: 'Fortfahren',
-                      ja: '続行',
-                    ),
-                  ),
+                  label: Text(openHandContinueLabel(context)),
                   style: FilledButton.styleFrom(
                     backgroundColor: accent,
                     foregroundColor: Colors.white,

@@ -2806,15 +2806,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
                           de: 'Einklappen',
                           ja: '折りたたむ',
                         )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '展开',
-                          zhHant: '展開',
-                          en: 'Expand',
-                          fr: 'Déplier',
-                          de: 'Aufklappen',
-                          ja: '展開',
-                        ),
+                      : openHandExpandLabel(context),
                   visualDensity: VisualDensity.compact,
                   iconSize: 18,
                   padding: const EdgeInsets.all(6),
@@ -3349,15 +3341,7 @@ String _wrEditLabel(BuildContext context) {
 }
 
 String _wrExportCsvLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '导出 CSV',
-    zhHant: '匯出 CSV',
-    en: 'Export CSV',
-    fr: 'Exporter CSV',
-    de: 'CSV exportieren',
-    ja: 'CSV をエクスポート',
-  );
+  return openHandExportCsvLabel(context);
 }
 
 String _wrNewTabLabel(BuildContext context) {

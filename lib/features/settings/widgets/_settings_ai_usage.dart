@@ -893,15 +893,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
         color: colorScheme.secondary,
       ),
       _AiUsageOverviewMetricData(
-        label: openHandLocalizedText(
-          context,
-          zh: '请求数',
-          zhHant: '請求數',
-          en: 'Requests',
-          fr: 'Requêtes',
-          de: 'Anfragen',
-          ja: 'リクエスト数',
-        ),
+        label: openHandRequestsLabel(context),
         value: _usageCompactNumber(summary.requestCount),
         detail: openHandLocalizedText(
           context,
@@ -2921,7 +2913,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                     : Tooltip(
                         message:
                             '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record!.status)}'
-                            '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', zhHant: '錯誤', en: 'Error', fr: 'Erreur', de: 'Fehler', ja: 'エラー')}: ${record.errorType}'}'
+                            '${record.errorType == null ? '' : '\n${openHandErrorLabel(context)}: ${record.errorType}'}'
                             '\n$traceLabel: ${record.traceId}',
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -3118,15 +3110,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '关闭',
-                    zhHant: '關閉',
-                    en: 'Close',
-                    fr: 'Fermer',
-                    de: 'Schließen',
-                    ja: '閉じる',
-                  ),
+                  tooltip: openHandCloseLabel(context),
                   icon: const Icon(Icons.close_rounded),
                 ),
               ],
@@ -3882,15 +3866,7 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '模型测试',
       en: 'Model Test',
     ),
-    _ => openHandLocalizedText(
-      context,
-      zh: '其他',
-      zhHant: '其他',
-      en: 'Other',
-      fr: 'Autres',
-      de: 'Andere',
-      ja: 'その他',
-    ),
+    _ => openHandOtherLabel(context),
   };
 }
 
@@ -4015,24 +3991,8 @@ String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
 
 String _usageRequestStatusLabel(BuildContext context, String status) {
   return switch (status) {
-    AiUsageRequestStatus.success => openHandLocalizedText(
-      context,
-      zh: '成功',
-      zhHant: '成功',
-      en: 'Success',
-      fr: 'Succès',
-      de: 'Erfolg',
-      ja: '成功',
-    ),
-    AiUsageRequestStatus.failed => openHandLocalizedText(
-      context,
-      zh: '失败',
-      zhHant: '失敗',
-      en: 'Failed',
-      fr: 'Échec',
-      de: 'Fehlgeschlagen',
-      ja: '失敗',
-    ),
+    AiUsageRequestStatus.success => openHandSuccessLabel(context),
+    AiUsageRequestStatus.failed => openHandFailedLabel(context),
     AiUsageRequestStatus.timeout => openHandLocalizedText(
       context,
       zh: '超时',
@@ -4047,15 +4007,7 @@ String _usageRequestStatusLabel(BuildContext context, String status) {
       de: 'Fehler',
       ja: 'エラー',
     ),
-    AiUsageRequestStatus.cancelled => openHandLocalizedText(
-      context,
-      zh: '已取消',
-      zhHant: '已取消',
-      en: 'Cancelled',
-      fr: 'Annulé',
-      de: 'Abgebrochen',
-      ja: 'キャンセル',
-    ),
+    AiUsageRequestStatus.cancelled => openHandCancelledLabel(context),
     _ => status.isEmpty ? openHandUnknownLabel(context) : status,
   };
 }
@@ -4195,7 +4147,6 @@ String _settingsAiUsagInputLabel(BuildContext context) {
 String _settingsAiUsagOperationLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '操作', en: 'Operation');
 }
-
 
 String _settingsAiUsagProviderLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '供应商', en: 'Provider');

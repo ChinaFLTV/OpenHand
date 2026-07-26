@@ -152,15 +152,7 @@ class _HeUrlModelField extends StatelessWidget {
             },
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: openHandLocalizedText(
-            context,
-            zh: 'API 模型',
-            zhHant: 'API 模型',
-            en: 'API Model',
-            fr: 'Modèle API',
-            de: 'API-Modell',
-            ja: 'API モデル',
-          ),
+          labelText: openHandApiModelLabel(context),
           helperText: settingsModels.isEmpty
               ? openHandLocalizedText(
                   context,

@@ -4438,27 +4438,11 @@ class _ComposerShortcutsHost extends StatelessWidget {
 // 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _homeComposerDefaultAccessLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '默认权限',
-    zhHant: '預設權限',
-    en: 'Default Access',
-    fr: 'Accès par défaut',
-    de: 'Standardzugriff',
-    ja: 'デフォルト権限',
-  );
+  return openHandDefaultAccessLabel(context);
 }
 
 String _homeComposerFullAccessLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '完全访问权限',
-    zhHant: '完整存取權限',
-    en: 'Full Access',
-    fr: 'Accès complet',
-    de: 'Vollzugriff',
-    ja: 'フルアクセス権限',
-  );
+  return openHandFullAccessLabel(context);
 }
 
 String _homeComposerStopResponseLabel(BuildContext context) {

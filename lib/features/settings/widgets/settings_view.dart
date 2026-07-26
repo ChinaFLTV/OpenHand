@@ -314,17 +314,7 @@ List<Widget> _buildToolTelemetryHeader({
         TextButton.icon(
           onPressed: exportEnabled ? onExportJson : null,
           icon: const Icon(Icons.code, size: 16),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '导出 JSON',
-              zhHant: '匯出 JSON',
-              en: 'Export JSON',
-              fr: 'Exporter JSON',
-              de: 'JSON exportieren',
-              ja: 'JSON をエクスポート',
-            ),
-          ),
+          label: Text(openHandExportJsonLabel(context)),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
@@ -336,17 +326,7 @@ List<Widget> _buildToolTelemetryHeader({
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.table_chart, size: 16),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '导出 CSV',
-              zhHant: '匯出 CSV',
-              en: 'Export CSV',
-              fr: 'Exporter CSV',
-              de: 'CSV exportieren',
-              ja: 'CSV をエクスポート',
-            ),
-          ),
+          label: Text(openHandExportCsvLabel(context)),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
@@ -4549,50 +4529,17 @@ class _SettingsViewState extends State<SettingsView> {
                   ButtonSegment<AiBuiltinToolLazyLoadingMode>(
                     value: AiBuiltinToolLazyLoadingMode.disabled,
                     icon: const Icon(Icons.toggle_off_outlined),
-                    label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '关闭',
-                        zhHant: '關閉',
-                        en: 'Off',
-                        fr: 'Inactif',
-                        de: 'Aus',
-                        ja: 'オフ',
-                      ),
-                      softWrap: false,
-                    ),
+                    label: Text(openHandOffLabel(context), softWrap: false),
                   ),
                   ButtonSegment<AiBuiltinToolLazyLoadingMode>(
                     value: AiBuiltinToolLazyLoadingMode.auto,
                     icon: const Icon(Icons.auto_awesome_outlined),
-                    label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '自动',
-                        zhHant: '自動',
-                        en: 'Auto',
-                        fr: 'Auto',
-                        de: 'Auto',
-                        ja: '自動',
-                      ),
-                      softWrap: false,
-                    ),
+                    label: Text(openHandAutoLabel(context), softWrap: false),
                   ),
                   ButtonSegment<AiBuiltinToolLazyLoadingMode>(
                     value: AiBuiltinToolLazyLoadingMode.enabled,
                     icon: const Icon(Icons.toggle_on_rounded),
-                    label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '开启',
-                        zhHant: '開啟',
-                        en: 'On',
-                        fr: 'Actif',
-                        de: 'Ein',
-                        ja: 'オン',
-                      ),
-                      softWrap: false,
-                    ),
+                    label: Text(openHandOnLabel(context), softWrap: false),
                   ),
                 ],
                 selected: <AiBuiltinToolLazyLoadingMode>{
@@ -8277,7 +8224,6 @@ String _settingsViewNoChangesDetectedLabel(BuildContext context) {
     ja: '変更はありません。',
   );
 }
-
 
 String _settingsViewThrottleDurationSLabel(BuildContext context) {
   return openHandLocalizedText(

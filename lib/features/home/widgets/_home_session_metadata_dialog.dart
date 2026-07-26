@@ -1129,24 +1129,8 @@ class _SessionMetadataDialog extends StatelessWidget {
               'compact_memory_restored_from_sidecar',
             ),
             value: restoredFromSidecar
-                ? openHandLocalizedText(
-                    context,
-                    zh: '是',
-                    zhHant: '是',
-                    en: 'Yes',
-                    fr: 'Oui',
-                    de: 'Ja',
-                    ja: 'はい',
-                  )
-                : openHandLocalizedText(
-                    context,
-                    zh: '否',
-                    zhHant: '否',
-                    en: 'No',
-                    fr: 'Non',
-                    de: 'Nein',
-                    ja: 'いいえ',
-                  ),
+                ? openHandYesLabel(context)
+                : openHandNoLabel(context),
           ),
           OpenHandMetadataEntryRow(
             label: _localizedMetadataField(

@@ -211,15 +211,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
         de: 'Schwaches WLAN (10/5 Mbps, 40ms)',
         ja: '弱い Wi-Fi (10/5 Mbps, 40ms)',
       ),
-      WebReverseThrottlePreset.custom => openHandLocalizedText(
-        context,
-        zh: '自定义',
-        zhHant: '自訂',
-        en: 'Custom',
-        fr: 'Personnalisé',
-        de: 'Benutzerdefiniert',
-        ja: 'カスタム',
-      ),
+      WebReverseThrottlePreset.custom => openHandCustomLabel(context),
     };
   }
 

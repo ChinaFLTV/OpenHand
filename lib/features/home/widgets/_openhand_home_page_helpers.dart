@@ -1661,13 +1661,5 @@ String _openhandHomePaAutoLabel(BuildContext context) {
 }
 
 String _openhandHomePaGenerateAiTitleLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '获取 AI 摘要标题',
-    zhHant: '取得 AI 摘要標題',
-    en: 'Generate AI Title',
-    fr: 'Générer le titre IA',
-    de: 'KI-Titel erstellen',
-    ja: 'AI 要約タイトルを生成',
-  );
+  return openHandGenerateAiTitleLabel(context);
 }

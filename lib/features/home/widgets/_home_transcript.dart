@@ -4225,15 +4225,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
                   'creation-failure-dismiss-${widget.error.id}',
                 ),
                 onPressed: _handleDismiss,
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '关闭',
-                  zhHant: '關閉',
-                  en: 'Dismiss',
-                  fr: 'Fermer',
-                  de: 'Schließen',
-                  ja: '閉じる',
-                ),
+                tooltip: openHandDismissLabel(context),
                 visualDensity: VisualDensity.compact,
                 icon: Icon(
                   Icons.close_rounded,

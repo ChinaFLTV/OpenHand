@@ -58,17 +58,7 @@ Future<void> _showSidebarThreadContextMenu(
             children: [
               const Icon(Icons.auto_awesome_outlined, size: 18),
               const SizedBox(width: 8),
-              Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '获取 AI 摘要标题',
-                  zhHant: '取得 AI 摘要標題',
-                  en: 'Generate AI Title',
-                  fr: 'Générer le titre IA',
-                  de: 'KI-Titel erstellen',
-                  ja: 'AI 要約タイトルを生成',
-                ),
-              ),
+              Text(openHandGenerateAiTitleLabel(context)),
             ],
           ),
         ),
@@ -228,15 +218,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
             const _PulsingDot(color: foregroundColor, size: 8),
             const SizedBox(width: 8),
             Text(
-              openHandLocalizedText(
-                context,
-                zh: '等待批准',
-                zhHant: '等待批准',
-                en: 'Awaiting Approval',
-                fr: 'En attente',
-                de: 'Wartet auf Freigabe',
-                ja: '承認待ち',
-              ),
+              openHandAwaitingApprovalLabel(context),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: foregroundColor,
                 fontWeight: FontWeight.w700,
@@ -254,15 +236,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
       ),
       HarnessOrchestratorStatus.completed => (
         const Color(0xFF5F7C53),
-        openHandLocalizedText(
-          context,
-          zh: '已完成',
-          zhHant: '已完成',
-          en: 'Done',
-          fr: 'Terminé',
-          de: 'Fertig',
-          ja: '完了',
-        ),
+        openHandDoneLabel(context),
       ),
       HarnessOrchestratorStatus.failed => (
         const Color(0xFFC84B4B),
@@ -483,15 +457,7 @@ class _ActiveThreadBadge extends StatelessWidget {
         zh: '压缩中',
         en: 'Compressing',
       ),
-      AiSendPhase.sendingMessage => openHandLocalizedText(
-        context,
-        zh: '发送中',
-        zhHant: '傳送中',
-        en: 'Sending',
-        fr: 'Envoi',
-        de: 'Wird gesendet',
-        ja: '送信中',
-      ),
+      AiSendPhase.sendingMessage => openHandSendingLabel(context),
       AiSendPhase.responding => openHandActiveLabel(context),
       AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),
       AiSendPhase.idle => '',

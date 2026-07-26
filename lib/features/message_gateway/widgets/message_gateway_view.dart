@@ -411,15 +411,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     IconButton.filled(
                       tooltip: isRunning
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '停止',
-                              zhHant: '停止',
-                              en: 'Stop',
-                              fr: 'Arrêter',
-                              de: 'Stoppen',
-                              ja: '停止',
-                            )
+                          ? openHandStopLabel(context)
                           : openHandStartLabel(context),
                       onPressed: controller.isOperating
                           ? null
@@ -2956,15 +2948,7 @@ class _ConnectivityResultView extends StatelessWidget {
                     value: '${result.failureCount}',
                   ),
                   _MetricTile(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '总耗时',
-                      zhHant: '總耗時',
-                      en: 'Total time',
-                      fr: 'Temps total',
-                      de: 'Gesamtzeit',
-                      ja: '合計時間',
-                    ),
+                    label: openHandTotalTimeLabel(context),
                     value: '${result.durationMs}ms',
                   ),
                 ],
@@ -3895,15 +3879,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Stoppen',
       ja: '停止',
     );
-    final restartLabel = openHandLocalizedText(
-      context,
-      zh: '重启',
-      zhHant: '重啟',
-      en: 'Restart',
-      fr: 'Redémarrer',
-      de: 'Neustarten',
-      ja: '再起動',
-    );
+    final restartLabel = openHandRestartLabel(context);
     final reloadLabel = openHandLocalizedText(
       context,
       zh: '配置重载',
@@ -6738,15 +6714,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final otherLabel = openHandLocalizedText(
-      context,
-      zh: '其他',
-      zhHant: '其他',
-      en: 'Other',
-      fr: 'Autres',
-      de: 'Andere',
-      ja: 'その他',
-    );
+    final otherLabel = openHandOtherLabel(context);
     final top = webGatewayCompactDistribution(values, otherLabel: otherLabel);
     final total = values.values.fold<int>(0, (sum, value) => sum + value);
     final palette = <Color>[
@@ -7261,15 +7229,7 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
               ),
               _webOpsFlagChip(
                 context,
-                label: openHandLocalizedText(
-                  context,
-                  zh: '智能体',
-                  zhHant: '智能體',
-                  en: 'Agents',
-                  fr: 'Agents',
-                  de: 'Agenten',
-                  ja: 'エージェント',
-                ),
+                label: openHandAgentsLabel(context),
                 enabled: config.agentsEnabled,
               ),
               _webOpsFlagChip(
@@ -7292,15 +7252,7 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
               ),
               _webOpsFlagChip(
                 context,
-                label: openHandLocalizedText(
-                  context,
-                  zh: '翻译',
-                  zhHant: '翻譯',
-                  en: 'Translate',
-                  fr: 'Traduire',
-                  de: 'Übersetzen',
-                  ja: '翻訳',
-                ),
+                label: openHandTranslateLabel(context),
                 enabled: config.translationEnabled,
               ),
               _webOpsFlagChip(
@@ -7318,15 +7270,7 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
               ),
               _webOpsFlagChip(
                 context,
-                label: openHandLocalizedText(
-                  context,
-                  zh: '重新生成',
-                  zhHant: '重新生成',
-                  en: 'Regenerate',
-                  fr: 'Régénérer',
-                  de: 'Neu generieren',
-                  ja: '再生成',
-                ),
+                label: openHandRegenerateLabel(context),
                 enabled: config.regenerationEnabled,
               ),
               _webOpsFlagChip(
@@ -9023,15 +8967,7 @@ class _ResourceInventoryCard extends StatelessWidget {
                 '${snapshot.cronEnabledCount}/${snapshot.cronTotalCount}',
               ),
               _OpsPill(
-                openHandLocalizedText(
-                  context,
-                  zh: '记忆',
-                  zhHant: '記憶',
-                  en: 'Memory',
-                  fr: 'Mémoire',
-                  de: 'Speicher',
-                  ja: 'メモリ',
-                ),
+                openHandMemoryLabel(context),
                 '${snapshot.memoryEntryCount}',
               ),
               _OpsPill(
@@ -10852,15 +10788,7 @@ class _TrendLinePainter extends CustomPainter {
 
 String _messageTypeLabel(BuildContext context, WebGatewayMessageType type) {
   return switch (type) {
-    WebGatewayMessageType.text => openHandLocalizedText(
-      context,
-      zh: '纯文本',
-      zhHant: '純文字',
-      en: 'Plain text',
-      fr: 'Texte brut',
-      de: 'Nur Text',
-      ja: 'プレーンテキスト',
-    ),
+    WebGatewayMessageType.text => openHandPlainTextLabel(context),
     WebGatewayMessageType.attachment => openHandLocalizedText(
       context,
       zh: '带附件',
@@ -10982,15 +10910,7 @@ String _modelSummary(
 String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
   return switch (state) {
     WebGatewayRuntimeState.stopped => openHandStoppedLabel(context),
-    WebGatewayRuntimeState.starting => openHandLocalizedText(
-      context,
-      zh: '启动中',
-      zhHant: '啟動中',
-      en: 'Starting',
-      fr: 'Démarrage',
-      de: 'Startet',
-      ja: '起動中',
-    ),
+    WebGatewayRuntimeState.starting => openHandStartingLabel(context),
     WebGatewayRuntimeState.running => openHandRunningLabel(context),
     WebGatewayRuntimeState.stopping => openHandLocalizedText(
       context,
@@ -11259,27 +11179,11 @@ String _messageGatewayNoLatencySamplesLabel(BuildContext context) {
 }
 
 String _messageGatewayOffLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '关闭',
-    zhHant: '關閉',
-    en: 'Off',
-    fr: 'Inactif',
-    de: 'Aus',
-    ja: 'オフ',
-  );
+  return openHandOffLabel(context);
 }
 
 String _messageGatewayOnLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '开启',
-    zhHant: '開啟',
-    en: 'On',
-    fr: 'Actif',
-    de: 'Ein',
-    ja: 'オン',
-  );
+  return openHandOnLabel(context);
 }
 
 String _messageGatewayP95LatencyLabel(BuildContext context) {
@@ -11375,15 +11279,7 @@ String _messageGatewayStatusMixLabel(BuildContext context) {
 }
 
 String _messageGatewaySuccessLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '成功',
-    zhHant: '成功',
-    en: 'Success',
-    fr: 'Succès',
-    de: 'Erfolg',
-    ja: '成功',
-  );
+  return openHandSuccessLabel(context);
 }
 
 String _messageGatewayThreadsLabel(BuildContext context) {

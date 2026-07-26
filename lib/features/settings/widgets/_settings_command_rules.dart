@@ -427,15 +427,7 @@ class _CommandRuleEditorDialogState<T>
                   AnimatedDropdownButtonFormField<AiCommandMatchMode>(
                     initialValue: _matchMode,
                     decoration: InputDecoration(
-                      labelText: openHandLocalizedText(
-                        context,
-                        zh: '匹配模式',
-                        zhHant: '匹配模式',
-                        en: 'Match Mode',
-                        fr: 'Mode de correspondance',
-                        de: 'Übereinstimmungsmodus',
-                        ja: '一致モード',
-                      ),
+                      labelText: openHandMatchModeLabel(context),
                     ),
                     items: [
                       DropdownMenuItem(
@@ -470,15 +462,7 @@ class _CommandRuleEditorDialogState<T>
                   TextFormField(
                     controller: _noteController,
                     decoration: InputDecoration(
-                      labelText: openHandLocalizedText(
-                        context,
-                        zh: '备注',
-                        zhHant: '備註',
-                        en: 'Note',
-                        fr: 'Note',
-                        de: 'Notiz',
-                        ja: 'メモ',
-                      ),
+                      labelText: openHandNoteLabel(context),
                       hintText: widget.copy.noteHint.resolve(context),
                     ),
                     maxLines: 2,

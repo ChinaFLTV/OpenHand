@@ -190,15 +190,7 @@ class _SkillsViewState extends State<SkillsView> {
           ),
         ),
         FeaturePageToolbarIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '技能市场',
-            zhHant: '技能市場',
-            en: 'Skill Market',
-            fr: 'Marché des compétences',
-            de: 'Skill-Markt',
-            ja: 'スキルマーケット',
-          ),
+          tooltip: openHandSkillMarketLabel(context),
           icon: Icons.storefront_rounded,
           onPressed: () => _showSkillMarket(context),
         ),

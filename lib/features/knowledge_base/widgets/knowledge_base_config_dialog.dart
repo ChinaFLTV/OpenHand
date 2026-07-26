@@ -2303,15 +2303,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return switch (value) {
       true => openHandYesLabel(context),
       false => openHandNoLabel(context),
-      null => openHandLocalizedText(
-        context,
-        zh: '未知',
-        zhHant: '未知',
-        en: 'Unknown',
-        fr: 'Inconnu',
-        de: 'Unbekannt',
-        ja: '不明',
-      ),
+      null => openHandUnknownLabel(context),
     };
   }
 

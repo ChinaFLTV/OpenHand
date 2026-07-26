@@ -209,15 +209,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '技能市场',
-                  zhHant: '技能市場',
-                  en: 'Skill Market',
-                  fr: 'Marché des compétences',
-                  de: 'Skill-Markt',
-                  ja: 'スキルマーケット',
-                ),
+                openHandSkillMarketLabel(context),
                 style: theme.textTheme.headlineSmall,
               ),
               const SizedBox(height: 4),
@@ -1797,4 +1789,3 @@ String _skillMarketDiaRetryLabel(BuildContext context) {
     ja: '再試行',
   );
 }
-

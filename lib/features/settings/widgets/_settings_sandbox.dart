@@ -438,51 +438,21 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                         _sandboxService.installEnvironment,
                       ),
                       icon: const Icon(Icons.download_rounded),
-                      label: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '安装',
-                          zhHant: '安裝',
-                          en: 'Install',
-                          fr: 'Installer',
-                          de: 'Installieren',
-                          ja: 'インストール',
-                        ),
-                      ),
+                      label: Text(openHandInstallLabel(context)),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _runEnvironmentAction(
                         _sandboxService.updateEnvironment,
                       ),
                       icon: const Icon(Icons.upgrade_rounded),
-                      label: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '更新',
-                          zhHant: '更新',
-                          en: 'Update',
-                          fr: 'Mettre à jour',
-                          de: 'Aktualisieren',
-                          ja: '更新',
-                        ),
-                      ),
+                      label: Text(openHandUpdateLabel(context)),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _runEnvironmentAction(
                         _sandboxService.uninstallEnvironment,
                       ),
                       icon: const Icon(Icons.delete_outline_rounded),
-                      label: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '卸载',
-                          zhHant: '解除安裝',
-                          en: 'Uninstall',
-                          fr: 'Désinstaller',
-                          de: 'Deinstallieren',
-                          ja: 'アンインストール',
-                        ),
-                      ),
+                      label: Text(openHandUninstallLabel(context)),
                     ),
                   ],
                 ),
@@ -872,17 +842,7 @@ Widget _buildSandboxMatchModeField(
 }) {
   return AnimatedDropdownButtonFormField<AiCommandMatchMode>(
     initialValue: value,
-    decoration: InputDecoration(
-      labelText: openHandLocalizedText(
-        context,
-        zh: '匹配模式',
-        zhHant: '匹配模式',
-        en: 'Match Mode',
-        fr: 'Mode de correspondance',
-        de: 'Übereinstimmungsmodus',
-        ja: '一致モード',
-      ),
-    ),
+    decoration: InputDecoration(labelText: openHandMatchModeLabel(context)),
     items: [
       DropdownMenuItem(
         value: AiCommandMatchMode.simple,
@@ -1149,13 +1109,5 @@ String _newSandboxRuleId() =>
 // 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _settingsSandboNoteLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '备注',
-    zhHant: '備註',
-    en: 'Note',
-    fr: 'Note',
-    de: 'Notiz',
-    ja: 'メモ',
-  );
+  return openHandNoteLabel(context);
 }

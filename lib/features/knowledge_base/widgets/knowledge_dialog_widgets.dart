@@ -77,15 +77,7 @@ String localizedKnowledgeSourceKind(BuildContext context, String kind) {
       de: 'Markdown',
       ja: 'Markdown',
     ),
-    'text' => openHandLocalizedText(
-      context,
-      zh: '文本',
-      zhHant: '文字',
-      en: 'Text',
-      fr: 'Texte',
-      de: 'Text',
-      ja: 'テキスト',
-    ),
+    'text' => openHandTextLabel(context),
     'code' => knowledgeCodeLabel(context),
     'pdf' => 'PDF',
     'html' => openHandLocalizedText(
@@ -936,15 +928,7 @@ String knowledgeOverviewLabel(BuildContext context) {
 }
 
 String knowledgeCopyIdLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '复制 ID',
-    zhHant: '複製 ID',
-    en: 'Copy ID',
-    fr: 'Copier l’ID',
-    de: 'ID kopieren',
-    ja: 'ID をコピー',
-  );
+  return openHandCopyIdLabel(context);
 }
 
 String knowledgeCopyContentLabel(BuildContext context) {
@@ -1112,15 +1096,7 @@ String knowledgeTagsLabel(BuildContext context) {
 }
 
 String knowledgeTitleLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '标题',
-    zhHant: '標題',
-    en: 'Title',
-    fr: 'Titre',
-    de: 'Titel',
-    ja: 'タイトル',
-  );
+  return openHandTitleLabel(context);
 }
 
 String knowledgeStatusLabel(BuildContext context) {

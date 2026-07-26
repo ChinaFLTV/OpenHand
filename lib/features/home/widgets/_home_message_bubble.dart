@@ -947,15 +947,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   _MessageMetaRow(
                     key: _metaCapsuleKey,
                     icon: Icons.inventory_2_outlined,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '工具结果',
-                      zhHant: '工具結果',
-                      en: 'Tool Result',
-                      fr: 'Résultat outil',
-                      de: 'Tool-Ergebnis',
-                      ja: 'ツール結果',
-                    ),
+                    label: openHandToolResultLabel(context),
                     color: textColor,
                   )
                 else if (showAssistantResponseMetaRow)
@@ -1318,15 +1310,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ? Icons.stop_circle_outlined
                 : Icons.record_voice_over_outlined,
             label: widget.speechPlaying
-                ? openHandLocalizedText(
-                    context,
-                    zh: '停止',
-                    zhHant: '停止',
-                    en: 'Stop',
-                    fr: 'Arrêter',
-                    de: 'Stoppen',
-                    ja: '停止',
-                  )
+                ? openHandStopLabel(context)
                 : openHandLocalizedText(context, zh: '朗读', en: 'Read'),
           ),
         if (!isGoalRuntimeMessage &&
@@ -1346,15 +1330,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ? openHandLocalizedText(context, zh: '翻译中', en: 'Translating')
                 : widget.translationVisible
                 ? openHandLocalizedText(context, zh: '查看原始', en: 'Original')
-                : openHandLocalizedText(
-                    context,
-                    zh: '翻译',
-                    zhHant: '翻譯',
-                    en: 'Translate',
-                    fr: 'Traduire',
-                    de: 'Übersetzen',
-                    ja: '翻訳',
-                  ),
+                : openHandTranslateLabel(context),
           ),
         if (isAiSideMessage && widget.onSetFeedback != null)
           _MessageActionSpec(
@@ -1393,15 +1369,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             id: 'regenerate',
             onPressed: widget.onRegenerateResponse,
             icon: Icons.refresh_rounded,
-            label: openHandLocalizedText(
-              context,
-              zh: '重新生成',
-              zhHant: '重新生成',
-              en: 'Regenerate',
-              fr: 'Régénérer',
-              de: 'Neu generieren',
-              ja: '再生成',
-            ),
+            label: openHandRegenerateLabel(context),
           ),
         if (widget.onEdit != null)
           _MessageActionSpec(
@@ -3314,15 +3282,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
-        fallback: openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        fallback: openHandSaveFailedLabel(context),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -6209,15 +6169,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
       fields: [
         if (data.targetUrl.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '目标 URL',
-              zhHant: '目標 URL',
-              en: 'Target URL',
-              fr: 'URL cible',
-              de: 'Ziel-URL',
-              ja: '対象 URL',
-            ),
+            label: openHandTargetUrlLabel(context),
             value: data.targetUrl.trim(),
           ),
         if (data.reverseTarget.trim().isNotEmpty)
@@ -6227,28 +6179,12 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.triggerActions ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '触发动作',
-              zhHant: '觸發動作',
-              en: 'Trigger Actions',
-              fr: 'Actions déclencheuses',
-              de: 'Auslöseaktionen',
-              ja: 'トリガー操作',
-            ),
+            label: openHandTriggerActionsLabel(context),
             value: data.triggerActions!.trim(),
           ),
         if (data.browser.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '浏览器',
-              zhHant: '瀏覽器',
-              en: 'Browser',
-              fr: 'Navigateur',
-              de: 'Browser',
-              ja: 'ブラウザ',
-            ),
+            label: openHandBrowserLabel(context),
             value: data.browser.trim(),
           ),
         if (data.cdpMcp.trim().isNotEmpty)
@@ -6262,15 +6198,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.proxy ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '代理',
-              zhHant: '代理',
-              en: 'Proxy',
-              fr: 'Proxy',
-              de: 'Proxy',
-              ja: 'プロキシ',
-            ),
+            label: openHandProxyLabel(context),
             value: data.proxy!.trim(),
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
@@ -6365,15 +6293,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.deviceDisplay.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '设备',
-              zhHant: '裝置',
-              en: 'Device',
-              fr: 'Appareil',
-              de: 'Gerät',
-              ja: 'デバイス',
-            ),
+            label: openHandDeviceLabel(context),
             value: data.deviceDisplay.trim(),
           ),
         if (data.analysisMode.trim().isNotEmpty)
@@ -6415,15 +6335,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.notes ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '备注',
-              zhHant: '備註',
-              en: 'Notes',
-              fr: 'Notes',
-              de: 'Notizen',
-              ja: 'メモ',
-            ),
+            label: openHandNotesLabel(context),
             value: data.notes!.trim(),
           ),
         if (data.evidenceDiscipline.trim().isNotEmpty)
@@ -6749,7 +6661,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
     if (data.passed == true && data.elapsedMs != null) {
       add(
         Icons.timer_outlined,
-        '${openHandLocalizedText(context, zh: '总耗时', zhHant: '總耗時', en: 'Total time', fr: 'Temps total', de: 'Gesamtzeit', ja: '合計時間')} ${formatCompactDurationMs(data.elapsedMs!)}',
+        '${openHandTotalTimeLabel(context)} ${formatCompactDurationMs(data.elapsedMs!)}',
       );
     }
     if (data.passed == true && data.totalTokens != null) {
@@ -7365,7 +7277,7 @@ class _GoalMessageContextCapsules {
         ? data.chipLabel(context)
         : data.passed == true
         ? '${data.chipLabel(context)} · ${openHandLocalizedText(context, zh: '通过', en: 'Passed')}'
-        : '${data.chipLabel(context)} · ${openHandLocalizedText(context, zh: '继续', zhHant: '繼續', en: 'Continue', fr: 'Continuer', de: 'Fortfahren', ja: '続行')}';
+        : '${data.chipLabel(context)} · ${openHandContinueLabel(context)}';
     return <Widget>[
       _MessageContextCapsule(
         icon: data.icon,
@@ -8952,7 +8864,6 @@ String _homeMessageBubAndroidReverseRequestLabel(BuildContext context) {
   );
 }
 
-
 String _homeMessageBubCopyMediaLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '复制媒体', en: 'Copy Media');
 }
@@ -8964,8 +8875,6 @@ String _homeMessageBubEvidenceRulesLabel(BuildContext context) {
 String _homeMessageBubGoalLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '目标', en: 'Goal');
 }
-
-
 
 String _homeMessageBubOpenWithSystemAppLabel(BuildContext context) {
   return openHandLocalizedText(

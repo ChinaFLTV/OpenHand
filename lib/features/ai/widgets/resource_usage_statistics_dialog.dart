@@ -56,15 +56,7 @@ String resourceUsageStatisticsLabel(BuildContext context) {
 
 String resourceUsageKindLabel(BuildContext context, AiResourceUsageKind kind) {
   return switch (kind) {
-    AiResourceUsageKind.tool => openHandLocalizedText(
-      context,
-      zh: '工具',
-      zhHant: '工具',
-      en: 'Tool',
-      fr: 'Outil',
-      de: 'Werkzeug',
-      ja: 'ツール',
-    ),
+    AiResourceUsageKind.tool => openHandToolLabel(context),
     AiResourceUsageKind.skill => openHandLocalizedText(
       context,
       zh: '技能',
@@ -76,15 +68,7 @@ String resourceUsageKindLabel(BuildContext context, AiResourceUsageKind kind) {
     ),
     AiResourceUsageKind.hook => 'Hook',
     AiResourceUsageKind.knowledge => openHandKnowledgeLabel(context),
-    AiResourceUsageKind.agent => openHandLocalizedText(
-      context,
-      zh: '智能体',
-      zhHant: '智能體',
-      en: 'Agent',
-      fr: 'Agent',
-      de: 'Agent',
-      ja: 'エージェント',
-    ),
+    AiResourceUsageKind.agent => openHandAgentLabel(context),
     AiResourceUsageKind.memory => openHandLocalizedText(
       context,
       zh: '记忆',
@@ -1675,15 +1659,7 @@ IconData _periodIcon(AiResourceUsagePeriod period) => switch (period) {
 
 String _periodLabel(BuildContext context, AiResourceUsagePeriod period) {
   return switch (period) {
-    AiResourceUsagePeriod.session => openHandLocalizedText(
-      context,
-      zh: '会话',
-      zhHant: '會話',
-      en: 'Session',
-      fr: 'Session',
-      de: 'Sitzung',
-      ja: 'セッション',
-    ),
+    AiResourceUsagePeriod.session => openHandSessionLabel(context),
     AiResourceUsagePeriod.day => openHandLocalizedText(
       context,
       zh: '天',
@@ -1779,24 +1755,8 @@ String _statusLabel(BuildContext context, String status) {
     );
   }
   return switch (status) {
-    'cancelled' => openHandLocalizedText(
-      context,
-      zh: '已取消',
-      zhHant: '已取消',
-      en: 'Cancelled',
-      fr: 'Annulé',
-      de: 'Abgebrochen',
-      ja: 'キャンセル',
-    ),
-    'timed_out' => openHandLocalizedText(
-      context,
-      zh: '超时',
-      zhHant: '逾時',
-      en: 'Timed out',
-      fr: 'Expiré',
-      de: 'Zeitüberschreitung',
-      ja: 'タイムアウト',
-    ),
+    'cancelled' => openHandCancelledLabel(context),
+    'timed_out' => openHandTimedOutLabel(context),
     'denied' || 'rejected' => openHandLocalizedText(
       context,
       zh: '已拒绝',

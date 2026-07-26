@@ -1659,15 +1659,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             zh: '当前会话「${notice.sessionTitle}」已被 $deletedBy 删除。',
             en: 'The current session "${notice.sessionTitle}" was deleted by $deletedBy.',
           ),
-          closeLabel: openHandLocalizedText(
-            context,
-            zh: '返回',
-            zhHant: '返回',
-            en: 'Back',
-            fr: 'Retour',
-            de: 'Zurück',
-            ja: '戻る',
-          ),
+          closeLabel: openHandBackLabel(context),
           barrierDismissible: false,
         ),
       );
@@ -9781,50 +9773,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 // ─────────────────────────────────────────────────────────────────────────────
 
 String _homeAgentsLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '智能体',
-    zhHant: '智能體',
-    en: 'Agents',
-    fr: 'Agents',
-    de: 'Agenten',
-    ja: 'エージェント',
-  );
+  return openHandAgentsLabel(context);
 }
 
 String _homeAwaitingApprovalLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '等待批准',
-    zhHant: '等待批准',
-    en: 'Awaiting Approval',
-    fr: 'En attente',
-    de: 'Wartet auf Freigabe',
-    ja: '承認待ち',
-  );
+  return openHandAwaitingApprovalLabel(context);
 }
 
 String _homeCreatedAtLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '创建时间',
-    zhHant: '建立時間',
-    en: 'Created At',
-    fr: 'Créé le',
-    de: 'Erstellt am',
-    ja: '作成日時',
-  );
+  return openHandCreatedAtLabel(context);
 }
 
 String _homeEvidenceLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '证据',
-    en: 'Evidence',
-    fr: 'Preuve',
-    de: 'Nachweis',
-    ja: '根拠',
-  );
+  return openHandEvidenceLabel(context);
 }
 
 String _homeExportSessionDataLabel(BuildContext context) {
@@ -9851,7 +9812,6 @@ String _homeMissingLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '缺口', en: 'Missing');
 }
 
-
 String _homeNoTextualDiffAvailableLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -9869,38 +9829,20 @@ String _homePlatformLabel(BuildContext context) {
 }
 
 String _homePluginsLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '插件',
-    zhHant: '外掛',
-    en: 'Plugins',
-    fr: 'Plugins',
-    de: 'Plugins',
-    ja: 'プラグイン',
-  );
+  return openHandPluginsLabel(context);
 }
 
 String _homeRenameThreadLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread');
 }
 
-
 String _homeSessionsDirectoryLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '会话目录', en: 'Sessions Directory');
 }
 
 String _homeStartingLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '启动中',
-    zhHant: '啟動中',
-    en: 'Starting',
-    fr: 'Démarrage',
-    de: 'Startet',
-    ja: '起動中',
-  );
+  return openHandStartingLabel(context);
 }
-
 
 String _homeTerminalLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '终端', en: 'Terminal');
@@ -9911,27 +9853,11 @@ String _homeTerminalsLabel(BuildContext context) {
 }
 
 String _homeUpdatedAtLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '更新时间',
-    zhHant: '更新時間',
-    en: 'Updated At',
-    fr: 'Mis à jour le',
-    de: 'Aktualisiert am',
-    ja: '更新日時',
-  );
+  return openHandUpdatedAtLabel(context);
 }
 
 String _homeWorkingDirectoryLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '工作目录',
-    zhHant: '工作目錄',
-    en: 'Working Directory',
-    fr: 'Répertoire de travail',
-    de: 'Arbeitsverzeichnis',
-    ja: '作業ディレクトリ',
-  );
+  return openHandWorkingDirectoryLabel(context);
 }
 
 // ── 本文件内复用的文案 ──

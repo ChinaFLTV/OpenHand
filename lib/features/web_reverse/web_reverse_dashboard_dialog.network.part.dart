@@ -47,15 +47,7 @@ enum _ResourceFilter {
   other;
 
   String label(BuildContext context) => switch (this) {
-    _ResourceFilter.all => openHandLocalizedText(
-      context,
-      zh: '全部',
-      zhHant: '全部',
-      en: 'All',
-      fr: 'Tout',
-      de: 'Alle',
-      ja: 'すべて',
-    ),
+    _ResourceFilter.all => openHandAllLabel(context),
     _ResourceFilter.fetchXhr => 'Fetch/XHR',
     _ResourceFilter.doc => openHandLocalizedText(
       context,

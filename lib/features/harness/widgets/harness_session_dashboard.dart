@@ -2021,15 +2021,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     final manualPhaseCopy = _manualPhaseCopy(context, _effectiveManualPhase);
     final primaryActionLabel = _isAwaitingManualPhaseInput
         ? (_manualPhaseSubmitting
-              ? openHandLocalizedText(
-                  context,
-                  zh: '发送中',
-                  zhHant: '傳送中',
-                  en: 'Sending',
-                  fr: 'Envoi',
-                  de: 'Wird gesendet',
-                  ja: '送信中',
-                )
+              ? openHandSendingLabel(context)
               : openHandLocalizedText(
                   context,
                   zh: '发送',

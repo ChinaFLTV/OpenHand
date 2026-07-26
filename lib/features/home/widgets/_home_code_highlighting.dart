@@ -1042,15 +1042,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
     final displayLanguage =
         effectiveLanguage == null || effectiveLanguage == 'plaintext'
-        ? openHandLocalizedText(
-            context,
-            zh: '纯文本',
-            zhHant: '純文字',
-            en: 'Plain text',
-            fr: 'Texte brut',
-            de: 'Nur Text',
-            ja: 'プレーンテキスト',
-          )
+        ? openHandPlainTextLabel(context)
         : effectiveLanguage;
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;

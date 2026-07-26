@@ -534,9 +534,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         HarnessOrchestratorStatus.running => _harnessSessionRunningLabel(
           context,
         ),
-        HarnessOrchestratorStatus.completed => openHandCompletedLabel(
-          context,
-        ),
+        HarnessOrchestratorStatus.completed => openHandCompletedLabel(context),
         HarnessOrchestratorStatus.failed => openHandFailedLabel(context),
         HarnessOrchestratorStatus.cancelled => _harnessSessionCancelledLabel(
           context,
@@ -739,51 +737,19 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       ),
                       children: [
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '会话 ID',
-                            zhHant: '會話 ID',
-                            en: 'Session ID',
-                            fr: 'ID de session',
-                            de: 'Sitzungs-ID',
-                            ja: 'セッション ID',
-                          ),
+                          label: openHandSessionIdLabel(context),
                           value: sessionId ?? '--',
                         ),
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '模板',
-                            zhHant: '範本',
-                            en: 'Template',
-                            fr: 'Modèle',
-                            de: 'Vorlage',
-                            ja: 'テンプレート',
-                          ),
+                          label: openHandTemplateLabel(context),
                           value: 'Harness Engineering',
                         ),
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '创建时间',
-                            zhHant: '建立時間',
-                            en: 'Created At',
-                            fr: 'Créé le',
-                            de: 'Erstellt am',
-                            ja: '作成日時',
-                          ),
+                          label: openHandCreatedAtLabel(context),
                           value: createdAtLabel ?? '--',
                         ),
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '更新时间',
-                            zhHant: '更新時間',
-                            en: 'Updated At',
-                            fr: 'Mis à jour le',
-                            de: 'Aktualisiert am',
-                            ja: '更新日時',
-                          ),
+                          label: openHandUpdatedAtLabel(context),
                           value: updatedAtLabel ?? '--',
                         ),
                         OpenHandMetadataEntryRow(
@@ -824,15 +790,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: config.task.isEmpty ? '-' : config.task,
                         ),
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '工作目录',
-                            zhHant: '工作目錄',
-                            en: 'Working Directory',
-                            fr: 'Répertoire de travail',
-                            de: 'Arbeitsverzeichnis',
-                            ja: '作業ディレクトリ',
-                          ),
+                          label: openHandWorkingDirectoryLabel(context),
                           value: config.workingDirectory.isEmpty
                               ? '-'
                               : config.workingDirectory,
@@ -992,7 +950,6 @@ String _harnessSessionCancelledLabel(BuildContext context) {
     ja: '中止済み',
   );
 }
-
 
 String _harnessSessionRunningLabel(BuildContext context) {
   return openHandLocalizedText(

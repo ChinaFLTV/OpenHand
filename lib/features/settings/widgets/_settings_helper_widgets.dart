@@ -6010,15 +6010,7 @@ class _ToolEngineCardShell extends StatelessWidget {
                   IconButton(
                     tooltip: expanded
                         ? openHandCollapseLabel(context)
-                        : openHandLocalizedText(
-                            context,
-                            zh: '展开',
-                            zhHant: '展開',
-                            en: 'Expand',
-                            fr: 'Déplier',
-                            de: 'Aufklappen',
-                            ja: '展開',
-                          ),
+                        : openHandExpandLabel(context),
                     icon: _SettingsExpandIcon(expanded: expanded),
                     onPressed: () => onExpandedChanged(!expanded),
                   ),

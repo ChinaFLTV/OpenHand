@@ -2231,15 +2231,6 @@ String _webReverseDashOpenInSourcesLabel(BuildContext context) {
   );
 }
 
-
 String _webReverseDashResponseLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '响应',
-    zhHant: '回應',
-    en: 'Response',
-    fr: 'Réponse',
-    de: 'Antwort',
-    ja: 'レスポンス',
-  );
+  return openHandResponseLabel(context);
 }

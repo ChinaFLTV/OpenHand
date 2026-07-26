@@ -3081,17 +3081,7 @@ class _ResolutionMenu extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final cur = value;
-    final label = cur == null
-        ? openHandLocalizedText(
-            context,
-            zh: '自动',
-            zhHant: '自動',
-            en: 'Auto',
-            fr: 'Auto',
-            de: 'Auto',
-            ja: '自動',
-          )
-        : '${cur.h}p';
+    final label = cur == null ? openHandAutoLabel(context) : '${cur.h}p';
     return Tooltip(
       message: openHandLocalizedText(
         context,

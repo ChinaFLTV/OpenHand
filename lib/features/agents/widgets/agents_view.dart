@@ -1823,15 +1823,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
         ),
         _AgentTaskDetailBlock(
           icon: Icons.title_rounded,
-          title: openHandLocalizedText(
-            context,
-            zh: '标题',
-            zhHant: '標題',
-            en: 'Title',
-            fr: 'Titre',
-            de: 'Titel',
-            ja: 'タイトル',
-          ),
+          title: openHandTitleLabel(context),
           body: task.title,
         ),
         _AgentTaskDetailBlock(
@@ -1906,15 +1898,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.badge_outlined,
-              title: openHandLocalizedText(
-                context,
-                zh: '名称',
-                zhHant: '名稱',
-                en: 'Name',
-                fr: 'Nom',
-                de: 'Name',
-                ja: '名前',
-              ),
+              title: openHandNameLabel(context),
               body: worker.name,
               compact: true,
             ),
@@ -4473,15 +4457,7 @@ Future<void> _deleteAgentKpi(
       zh: '确认删除「${item.name}」吗？',
       en: 'Delete "${item.name}"?',
     ),
-    confirmLabel: openHandLocalizedText(
-      context,
-      zh: '删除',
-      zhHant: '刪除',
-      en: 'Delete',
-      fr: 'Supprimer',
-      de: 'Löschen',
-      ja: '削除',
-    ),
+    confirmLabel: openHandDeleteLabel(context),
     destructive: true,
   );
   if (confirmed && context.mounted) {
@@ -13940,15 +13916,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Frist',
       ja: '期限',
     ),
-    'source' => openHandLocalizedText(
-      context,
-      zh: '来源',
-      zhHant: '來源',
-      en: 'Source',
-      fr: 'Source',
-      de: 'Quelle',
-      ja: 'ソース',
-    ),
+    'source' => openHandSourceLabel(context),
     'owner' => openHandLocalizedText(
       context,
       zh: '负责人',
@@ -13965,23 +13933,8 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Rhythmus',
       ja: '周期',
     ),
-    'evidence' => openHandLocalizedText(
-      context,
-      zh: '证据',
-      en: 'Evidence',
-      fr: 'Preuve',
-      de: 'Nachweis',
-      ja: '根拠',
-    ),
-    'workspace_path' || 'resource_path' => openHandLocalizedText(
-      context,
-      zh: '路径',
-      zhHant: '路徑',
-      en: 'Path',
-      fr: 'Chemin',
-      de: 'Pfad',
-      ja: 'パス',
-    ),
+    'evidence' => openHandEvidenceLabel(context),
+    'workspace_path' || 'resource_path' => openHandPathLabel(context),
     'artifact_count' => openHandLocalizedText(
       context,
       zh: '产物数',
@@ -13990,15 +13943,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Artefakte',
       ja: '成果物',
     ),
-    'cache_bytes' => openHandLocalizedText(
-      context,
-      zh: '缓存',
-      zhHant: '快取',
-      en: 'Cache',
-      fr: 'Cache',
-      de: 'Cache',
-      ja: 'キャッシュ',
-    ),
+    'cache_bytes' => openHandCacheLabel(context),
     'last_gc_at' => openHandLocalizedText(
       context,
       zh: '上次清理',
@@ -14032,15 +13977,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       ja: '範囲',
     ),
     'resource' => _agentsViewResourceLabel(context),
-    'tool_name' || 'tool' => openHandLocalizedText(
-      context,
-      zh: '工具',
-      zhHant: '工具',
-      en: 'Tool',
-      fr: 'Outil',
-      de: 'Werkzeug',
-      ja: 'ツール',
-    ),
+    'tool_name' || 'tool' => openHandToolLabel(context),
     'mcp_server' => 'MCP',
     'skill_name' => 'Skill',
     'memory_id' => openHandLocalizedText(
@@ -14063,15 +14000,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
     'status' ||
     'task_status' ||
     'kpi_status' ||
-    'worker_execution_status' => openHandLocalizedText(
-      context,
-      zh: '状态',
-      zhHant: '狀態',
-      en: 'Status',
-      fr: 'État',
-      de: 'Status',
-      ja: 'ステータス',
-    ),
+    'worker_execution_status' => openHandStatusLabel(context),
     'enabled' => _agentsViewEnabledLabel(context),
     'lifecycle_state' => _agentsViewLifecycleLabel(context),
     'paused_task_count' => openHandLocalizedText(
@@ -14132,15 +14061,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Läuft ab',
       ja: '有効期限',
     ),
-    'duration_ms' => openHandLocalizedText(
-      context,
-      zh: '耗时',
-      zhHant: '耗時',
-      en: 'Duration',
-      fr: 'Durée',
-      de: 'Dauer',
-      ja: '所要時間',
-    ),
+    'duration_ms' => openHandDurationLabel(context),
     'rounds' => openHandLocalizedText(
       context,
       zh: '轮次',
@@ -14158,34 +14079,10 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       ja: 'ツール呼び出し',
     ),
     'model_config_id' => _agentsViewModelConfigLabel(context),
-    'model_id' => openHandLocalizedText(
-      context,
-      zh: '模型',
-      zhHant: '模型',
-      en: 'Model',
-      fr: 'Modèle',
-      de: 'Modell',
-      ja: 'モデル',
-    ),
-    'error' => openHandLocalizedText(
-      context,
-      zh: '错误',
-      zhHant: '錯誤',
-      en: 'Error',
-      fr: 'Erreur',
-      de: 'Fehler',
-      ja: 'エラー',
-    ),
+    'model_id' => openHandModelLabel(context),
+    'error' => openHandErrorLabel(context),
     'task_progress' || 'kpi_progress' => _agentsViewProgressLabel(context),
-    'updated_by_session_id' => openHandLocalizedText(
-      context,
-      zh: '会话',
-      zhHant: '會話',
-      en: 'Session',
-      fr: 'Session',
-      de: 'Sitzung',
-      ja: 'セッション',
-    ),
+    'updated_by_session_id' => openHandSessionLabel(context),
     _ => _agentHumanizedMachineLabel(key),
   };
 }
@@ -14268,15 +14165,7 @@ String _agentBooleanLabel(BuildContext context, String key, bool value) {
   }
   if (normalizedKey == 'enabled') {
     return value
-        ? openHandLocalizedText(
-            context,
-            zh: '已启用',
-            zhHant: '已啟用',
-            en: 'Enabled',
-            fr: 'Activé',
-            de: 'Aktiviert',
-            ja: '有効',
-          )
+        ? openHandEnabledLabel(context)
         : openHandLocalizedText(
             context,
             zh: '已停用',
@@ -14286,25 +14175,7 @@ String _agentBooleanLabel(BuildContext context, String key, bool value) {
             ja: '無効',
           );
   }
-  return value
-      ? openHandLocalizedText(
-          context,
-          zh: '是',
-          zhHant: '是',
-          en: 'Yes',
-          fr: 'Oui',
-          de: 'Ja',
-          ja: 'はい',
-        )
-      : openHandLocalizedText(
-          context,
-          zh: '否',
-          zhHant: '否',
-          en: 'No',
-          fr: 'Non',
-          de: 'Nein',
-          ja: 'いいえ',
-        );
+  return value ? openHandYesLabel(context) : openHandNoLabel(context);
 }
 
 bool _agentMetadataBooleanKey(String key) {
@@ -14431,7 +14302,6 @@ String _agentsViewAddKpiLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI');
 }
 
-
 String _agentsViewAssignedWorkerLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -14484,21 +14354,12 @@ String _agentsViewCapabilityLabel(BuildContext context) {
   );
 }
 
-
 String _agentsViewDeleteKpiLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '删除 KPI', en: 'Delete KPI');
 }
 
 String _agentsViewDoneLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '已完成',
-    zhHant: '已完成',
-    en: 'Done',
-    fr: 'Terminé',
-    de: 'Fertig',
-    ja: '完了',
-  );
+  return openHandDoneLabel(context);
 }
 
 String _agentsViewEditKpiLabel(BuildContext context) {
@@ -14550,7 +14411,6 @@ String _agentsViewKeyLabel(BuildContext context) {
     ja: 'キー',
   );
 }
-
 
 String _agentsViewLifecycleLabel(BuildContext context) {
   return openHandLocalizedText(
@@ -14702,7 +14562,6 @@ String _agentsViewScaleOutThresholdLabel(BuildContext context) {
 String _agentsViewTaskResultLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '任务结果', en: 'Task result');
 }
-
 
 String _agentsViewTrackingLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '跟进中', en: 'Tracking');
