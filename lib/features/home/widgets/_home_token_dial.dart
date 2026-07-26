@@ -1142,17 +1142,10 @@ class _TokenStatsPanel extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final accent = colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: emphasized
-            ? accent.withValues(alpha: 0.08)
-            : colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: emphasized
-              ? accent.withValues(alpha: 0.28)
-              : colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
+      padding: kOpenHandTokenPanelCardPadding,
+      decoration: openHandTokenPanelCardDecoration(
+        colorScheme,
+        emphasized: emphasized,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1269,14 +1262,8 @@ class _ContextUsageOverview extends StatelessWidget {
         .where((item) => item.tokenCount > 0)
         .toList(growable: false);
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
-      ),
+      padding: kOpenHandTokenPanelCardPadding,
+      decoration: openHandTokenPanelCardDecoration(colorScheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1888,14 +1875,8 @@ class _CompactCacheHitSparkline extends StatelessWidget {
     final writeColor = _cacheWriteThemeColor(colorScheme);
     final missColor = colorScheme.outlineVariant.withValues(alpha: 0.62);
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
-      ),
+      padding: kOpenHandTokenPanelCardPadding,
+      decoration: openHandTokenPanelCardDecoration(colorScheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

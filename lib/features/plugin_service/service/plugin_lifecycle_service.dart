@@ -16,6 +16,7 @@ const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
 const Duration _pluginLifecycleProbeTimeout = Duration(seconds: 5);
 const Duration _pluginLifecycleTlsProbeTimeout = Duration(milliseconds: 500);
 const Duration _pluginLifecycleVerifyTimeout = Duration(seconds: 8);
+const Duration _fnmSetDefaultTimeout = Duration(seconds: 10);
 const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
 const int _pluginLifecycleMaxCapturedLines = 500;
 const int _pluginLifecycleMaxErrorMessageChars = 20000;
@@ -631,6 +632,37 @@ class PluginLifecycleService {
     );
   }
 
+  /// fnm 安装 LTS 后需要显式设为默认版本，否则新开的 shell 仍指向旧版本。
+  Future<void> _promoteFnmLtsDefault() {
+    return _runManagedToolchainCommand('fnm', const [
+      'default',
+      'lts-latest',
+    ], timeout: _fnmSetDefaultTimeout);
+  }
+
+  /// 用 `node --version` 校验工具链命令是否真的换上了新版本。
+  ///
+  /// 命令失败或版本号为空都视为未生效，返回 null 交由调用方走失败分支，
+  /// 避免把 "Node.js  安装成功" 这种缺版本号的文案报给用户。
+  Future<PluginOperationResult?> _verifyInstalledNodeVersion({
+    required String Function(String version) progressMessage,
+    required String Function(String version) resultMessage,
+    void Function(String line)? onProgress,
+  }) async {
+    final verify = await _runManagedToolchainCommand('node', const [
+      '--version',
+    ]);
+    if (verify.exitCode != 0) return null;
+    final version = verify.stdout.toString().trim();
+    if (version.isEmpty) return null;
+    onProgress?.call(progressMessage(version));
+    return PluginOperationResult(
+      success: true,
+      message: resultMessage(version),
+      newVersion: version,
+    );
+  }
+
   Future<_SimpleProcessResult> _runManagedToolchainCommandWithProgress(
     String executable,
     List<String> arguments, {
@@ -1022,20 +1054,13 @@ fi
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await _runManagedToolchainCommand('fnm', [
-          'default',
-          'lts-latest',
-        ], timeout: const Duration(seconds: 10));
-        final verify = await _runManagedToolchainCommand('node', ['--version']);
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          onProgress?.call('Node.js $version 安装成功');
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js $version 已通过 fnm 安装',
-            newVersion: version,
-          );
-        }
+        await _promoteFnmLtsDefault();
+        final verified = await _verifyInstalledNodeVersion(
+          progressMessage: (version) => 'Node.js $version 安装成功',
+          resultMessage: (version) => 'Node.js $version 已通过 fnm 安装',
+          onProgress: onProgress,
+        );
+        if (verified != null) return verified;
       }
       return PluginOperationResult(
         success: false,
@@ -1052,16 +1077,12 @@ fi
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await _runManagedToolchainCommand('node', ['--version']);
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          onProgress?.call('Node.js $version 安装成功');
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js $version 已通过 Homebrew 安装',
-            newVersion: version,
-          );
-        }
+        final verified = await _verifyInstalledNodeVersion(
+          progressMessage: (version) => 'Node.js $version 安装成功',
+          resultMessage: (version) => 'Node.js $version 已通过 Homebrew 安装',
+          onProgress: onProgress,
+        );
+        if (verified != null) return verified;
       }
       return PluginOperationResult(
         success: false,
@@ -2247,20 +2268,13 @@ exit 4
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await _runManagedToolchainCommand('fnm', [
-          'default',
-          'lts-latest',
-        ], timeout: const Duration(seconds: 10));
-        final verify = await _runManagedToolchainCommand('node', ['--version']);
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          onProgress?.call('Node.js 已更新到 $version');
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js 已通过 fnm 更新到 $version',
-            newVersion: version,
-          );
-        }
+        await _promoteFnmLtsDefault();
+        final verified = await _verifyInstalledNodeVersion(
+          progressMessage: (version) => 'Node.js 已更新到 $version',
+          resultMessage: (version) => 'Node.js 已通过 fnm 更新到 $version',
+          onProgress: onProgress,
+        );
+        if (verified != null) return verified;
       }
       return PluginOperationResult(
         success: false,
@@ -2277,16 +2291,12 @@ exit 4
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await _runManagedToolchainCommand('node', ['--version']);
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          onProgress?.call('Node.js 已更新到 $version');
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js 已通过 volta 更新到 $version',
-            newVersion: version,
-          );
-        }
+        final verified = await _verifyInstalledNodeVersion(
+          progressMessage: (version) => 'Node.js 已更新到 $version',
+          resultMessage: (version) => 'Node.js 已通过 volta 更新到 $version',
+          onProgress: onProgress,
+        );
+        if (verified != null) return verified;
       }
       return PluginOperationResult(
         success: false,
@@ -2303,16 +2313,12 @@ exit 4
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        final verify = await _runManagedToolchainCommand('node', ['--version']);
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          onProgress?.call('Node.js 已更新到 $version');
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js 已通过 Homebrew 更新到 $version',
-            newVersion: version,
-          );
-        }
+        final verified = await _verifyInstalledNodeVersion(
+          progressMessage: (version) => 'Node.js 已更新到 $version',
+          resultMessage: (version) => 'Node.js 已通过 Homebrew 更新到 $version',
+          onProgress: onProgress,
+        );
+        if (verified != null) return verified;
       }
       return PluginOperationResult(
         success: false,
@@ -2329,19 +2335,13 @@ exit 4
         timeout: const Duration(minutes: 5),
       );
       if (result.exitCode == 0) {
-        await _runManagedToolchainCommand('fnm', [
-          'default',
-          'lts-latest',
-        ], timeout: const Duration(seconds: 10));
-        final verify = await _runManagedToolchainCommand('node', ['--version']);
-        if (verify.exitCode == 0) {
-          final version = verify.stdout.toString().trim();
-          return PluginOperationResult(
-            success: true,
-            message: 'Node.js 已更新到 $version',
-            newVersion: version,
-          );
-        }
+        await _promoteFnmLtsDefault();
+        final verified = await _verifyInstalledNodeVersion(
+          progressMessage: (version) => 'Node.js 已更新到 $version',
+          resultMessage: (version) => 'Node.js 已更新到 $version',
+          onProgress: onProgress,
+        );
+        if (verified != null) return verified;
       }
     }
     return const PluginOperationResult(

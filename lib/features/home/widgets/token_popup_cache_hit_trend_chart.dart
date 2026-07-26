@@ -7,6 +7,7 @@ import '../../../app/model/dialog_animation_settings.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_token_usage_capsule.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/session_cache_hit_trend.dart';
 
@@ -418,14 +419,8 @@ class _TokenPopupCacheHitTrendChartState
     );
 
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
-      ),
+      padding: kOpenHandTokenPanelCardPadding,
+      decoration: openHandTokenPanelCardDecoration(colorScheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

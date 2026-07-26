@@ -127,17 +127,17 @@ class SkillsRepository {
     required String shortDescription,
     required String manifestContent,
   }) async {
-    final normalizedName = _sanitizeDisplayValue(name);
-    if (normalizedName == null) {
-      throw const FileSystemException('Skill name is empty.');
-    }
-    final normalizedShortDescription = _sanitizeDisplayValue(shortDescription);
-    if (normalizedShortDescription == null) {
-      throw const FileSystemException('Skill description is empty.');
-    }
-    if (nullIfBlank(manifestContent) == null) {
-      throw const FileSystemException('Skill manifest is empty.');
-    }
+    final input = _normalizeSkillInput(
+      name: name,
+      shortDescription: shortDescription,
+      manifestContent: manifestContent,
+      emojiIcon: emojiIcon,
+      imageIconBytes: imageIconBytes,
+    );
+    final normalizedName = input.name;
+    final normalizedShortDescription = input.description;
+    final normalizedEmojiIcon = input.emojiIcon;
+    final normalizedImageIconBytes = input.imageIconBytes;
 
     final directory = await ensureStorageDirectory(storagePath);
     final targetDirectory = await _createUniqueSkillDirectory(
@@ -145,14 +145,6 @@ class SkillsRepository {
       preferredSlug: _slugify(normalizedName),
     );
     final manifestFile = File(p.join(targetDirectory.path, _manifestFileName));
-    final normalizedEmojiIcon = _sanitizeEmojiIcon(emojiIcon);
-    final normalizedImageIconBytes =
-        imageIconBytes != null && imageIconBytes.isNotEmpty
-        ? Uint8List.fromList(imageIconBytes)
-        : null;
-    if (normalizedEmojiIcon == null && normalizedImageIconBytes == null) {
-      throw const FileSystemException('Skill icon is empty.');
-    }
     final defaultPrompt = _deriveDefaultPrompt(
       manifestContent,
       fallback: normalizedShortDescription,
@@ -332,28 +324,18 @@ class SkillsRepository {
     required String manifestContent,
     bool preserveExistingIcon = false,
   }) async {
-    final normalizedName = _sanitizeDisplayValue(name);
-    if (normalizedName == null) {
-      throw const FileSystemException('Skill name is empty.');
-    }
-    final normalizedShortDescription = _sanitizeDisplayValue(shortDescription);
-    if (normalizedShortDescription == null) {
-      throw const FileSystemException('Skill description is empty.');
-    }
-    if (nullIfBlank(manifestContent) == null) {
-      throw const FileSystemException('Skill manifest is empty.');
-    }
-
-    final normalizedEmojiIcon = _sanitizeEmojiIcon(emojiIcon);
-    final normalizedImageIconBytes =
-        imageIconBytes != null && imageIconBytes.isNotEmpty
-        ? Uint8List.fromList(imageIconBytes)
-        : null;
-    if (!preserveExistingIcon &&
-        normalizedEmojiIcon == null &&
-        normalizedImageIconBytes == null) {
-      throw const FileSystemException('Skill icon is empty.');
-    }
+    final input = _normalizeSkillInput(
+      name: name,
+      shortDescription: shortDescription,
+      manifestContent: manifestContent,
+      emojiIcon: emojiIcon,
+      imageIconBytes: imageIconBytes,
+      allowMissingIcon: preserveExistingIcon,
+    );
+    final normalizedName = input.name;
+    final normalizedShortDescription = input.description;
+    final normalizedEmojiIcon = input.emojiIcon;
+    final normalizedImageIconBytes = input.imageIconBytes;
 
     final rebuiltContent = _buildSkillDocument(
       skillName: normalizedName,
@@ -711,6 +693,53 @@ class SkillsRepository {
       return trimmedValue.substring(1, trimmedValue.length - 1).trim();
     }
     return trimmedValue;
+  }
+
+  /// 创建与更新共用的技能入参校验与规整。
+  ///
+  /// 任一必填项缺失即抛出，避免落盘半成品；[allowMissingIcon] 用于「沿用已有
+  /// 图标」的更新路径，此时允许两个图标入参同时为空。
+  ({
+    String name,
+    String description,
+    String? emojiIcon,
+    Uint8List? imageIconBytes,
+  })
+  _normalizeSkillInput({
+    required String name,
+    required String shortDescription,
+    required String manifestContent,
+    String? emojiIcon,
+    Uint8List? imageIconBytes,
+    bool allowMissingIcon = false,
+  }) {
+    final normalizedName = _sanitizeDisplayValue(name);
+    if (normalizedName == null) {
+      throw const FileSystemException('Skill name is empty.');
+    }
+    final normalizedShortDescription = _sanitizeDisplayValue(shortDescription);
+    if (normalizedShortDescription == null) {
+      throw const FileSystemException('Skill description is empty.');
+    }
+    if (nullIfBlank(manifestContent) == null) {
+      throw const FileSystemException('Skill manifest is empty.');
+    }
+    final normalizedEmojiIcon = _sanitizeEmojiIcon(emojiIcon);
+    final normalizedImageIconBytes =
+        imageIconBytes != null && imageIconBytes.isNotEmpty
+        ? Uint8List.fromList(imageIconBytes)
+        : null;
+    if (!allowMissingIcon &&
+        normalizedEmojiIcon == null &&
+        normalizedImageIconBytes == null) {
+      throw const FileSystemException('Skill icon is empty.');
+    }
+    return (
+      name: normalizedName,
+      description: normalizedShortDescription,
+      emojiIcon: normalizedEmojiIcon,
+      imageIconBytes: normalizedImageIconBytes,
+    );
   }
 
   String? _sanitizeDisplayValue(String? value) {

@@ -3077,54 +3077,44 @@ class _CookiesTableState extends State<_CookiesTable> {
     super.dispose();
   }
 
-  Future<void> _addCookie() async {
-    final saved = await _showCookieEditor(
-      context,
-      initial: const <String, Object?>{},
-    );
+  Future<void> _addCookie() =>
+      _upsertCookie(initial: const <String, Object?>{});
+
+  Future<void> _editCookie(Map<String, Object?> cookie) =>
+      _upsertCookie(initial: cookie);
+
+  /// 新增与编辑共用同一条落库路径：弹编辑器 → 写入 → 回调刷新。
+  Future<void> _upsertCookie({required Map<String, Object?> initial}) async {
+    final saved = await _showCookieEditor(context, initial: initial);
     if (saved == null || !mounted) return;
     final ok = await widget.controller.setCookie(
       name: '${saved['name'] ?? ''}',
       value: '${saved['value'] ?? ''}',
-      domain: '${saved['domain'] ?? ''}'.trim().isEmpty
-          ? null
-          : '${saved['domain']}',
-      path: '${saved['path'] ?? ''}'.trim().isEmpty ? null : '${saved['path']}',
-      partitionKey: saved['partitionKey'] is Map
-          ? stringKeyedMapFromValue(saved['partitionKey'])
-          : null,
+      domain: _cookieScopeValue(saved['domain']),
+      path: _cookieScopeValue(saved['path']),
+      partitionKey: _cookiePartitionKey(saved['partitionKey']),
     );
     if (ok && mounted) await widget.onChanged();
   }
 
-  Future<void> _editCookie(Map<String, Object?> c) async {
-    final saved = await _showCookieEditor(context, initial: c);
-    if (saved == null || !mounted) return;
-    final ok = await widget.controller.setCookie(
-      name: '${saved['name'] ?? ''}',
-      value: '${saved['value'] ?? ''}',
-      domain: '${saved['domain'] ?? ''}'.trim().isEmpty
-          ? null
-          : '${saved['domain']}',
-      path: '${saved['path'] ?? ''}'.trim().isEmpty ? null : '${saved['path']}',
-      partitionKey: saved['partitionKey'] is Map
-          ? stringKeyedMapFromValue(saved['partitionKey'])
-          : null,
-    );
-    if (ok && mounted) await widget.onChanged();
-  }
-
-  Future<void> _deleteCookie(Map<String, Object?> c) async {
+  Future<void> _deleteCookie(Map<String, Object?> cookie) async {
     await widget.controller.deleteCookie(
-      name: '${c['name'] ?? ''}',
-      domain: '${c['domain'] ?? ''}'.trim().isEmpty ? null : '${c['domain']}',
-      path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
-      partitionKey: c['partitionKey'] is Map
-          ? stringKeyedMapFromValue(c['partitionKey'])
-          : null,
+      name: '${cookie['name'] ?? ''}',
+      domain: _cookieScopeValue(cookie['domain']),
+      path: _cookieScopeValue(cookie['path']),
+      partitionKey: _cookiePartitionKey(cookie['partitionKey']),
     );
     if (mounted) await widget.onChanged();
   }
+
+  /// domain / path 留空表示「不限定」，统一折叠为 null 交给 CDP。
+  static String? _cookieScopeValue(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static Map<String, Object?>? _cookiePartitionKey(Object? value) =>
+      value is Map ? stringKeyedMapFromValue(value) : null;
 
   Future<void> _clearAll() async {
     if (widget.cookies.isEmpty) return;

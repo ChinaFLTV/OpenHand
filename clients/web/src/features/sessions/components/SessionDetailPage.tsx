@@ -3844,22 +3844,11 @@ export function SessionDetailPage() {
     [],
   );
 
+  // 卸载时收回全部跟随动画帧；复用同名取消函数，避免两处清理口径漂移。
   useEffect(
     () => () => {
-      if (followFrameRef.current != null) {
-        window.cancelAnimationFrame(followFrameRef.current);
-        followFrameRef.current = null;
-      }
-      if (followSettleFrameRef.current != null) {
-        window.cancelAnimationFrame(followSettleFrameRef.current);
-        followSettleFrameRef.current = null;
-      }
-      followSettleRemainingRef.current = 0;
-      followSettleStableFramesRef.current = 0;
-      if (resizeFollowFrameRef.current != null) {
-        window.cancelAnimationFrame(resizeFollowFrameRef.current);
-        resizeFollowFrameRef.current = null;
-      }
+      cancelFollowSettle();
+      cancelResizeFollowFrame();
       cancelPostRenderFrames();
     },
     [],

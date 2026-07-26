@@ -8,6 +8,31 @@ import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'rolling_text.dart';
 
+/// Token 用量弹层内各分区卡片的统一外观。
+///
+/// [emphasized] 用于需要突出的主卡片：底色与描边改用主色淡染，其余保持一致，
+/// 避免各处重复拼装同一份圆角与描边。
+BoxDecoration openHandTokenPanelCardDecoration(
+  ColorScheme colorScheme, {
+  bool emphasized = false,
+}) {
+  final accent = colorScheme.primary;
+  return BoxDecoration(
+    color: emphasized
+        ? accent.withValues(alpha: 0.08)
+        : colorScheme.surfaceContainerLow,
+    borderRadius: BorderRadius.circular(kOpenHandTokenPanelCardRadius),
+    border: Border.all(
+      color: emphasized
+          ? accent.withValues(alpha: 0.28)
+          : colorScheme.outlineVariant.withValues(alpha: 0.72),
+    ),
+  );
+}
+
+const double kOpenHandTokenPanelCardRadius = 14;
+const EdgeInsets kOpenHandTokenPanelCardPadding = EdgeInsets.all(12);
+
 class OpenHandTokenUsageCapsule extends StatelessWidget {
   const OpenHandTokenUsageCapsule({
     super.key,

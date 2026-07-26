@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useRef, useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import { clampNumber } from '../../../shared/util/number';
 import {
@@ -138,6 +139,56 @@ function compactTokenCount(value: number): string {
   if (safe < 1000) return String(safe);
   if (safe < 1000000) return `${(safe / 1000).toFixed(1)}k`;
   return `${(safe / 1000000).toFixed(1)}m`;
+}
+
+/** 缓存命中率图表的标题栏：标题 + 平均命中率 + 前缀复用率，空态与常态共用。 */
+function CacheHitTrendHeading({
+  averageRatio,
+  prefixReuseRatio,
+  t,
+  children,
+}: {
+  averageRatio: number;
+  prefixReuseRatio: number | null | undefined;
+  t: (key: string, fallback: string) => string;
+  children?: ComponentChildren;
+}) {
+  return (
+    <div class="flex items-center" style={{ gap: 8, marginBottom: 8 }}>
+      <span
+        class="text-xs font-extrabold"
+        style={{ color: 'var(--m3-on-surface)', flex: 1 }}
+      >
+        {t('sessMeta.cacheHitTrend', '缓存命中率趋势')}
+      </span>
+      <span
+        class="shrink-0 rounded-full px-2 py-1 text-[11px] font-extrabold tabular-nums"
+        style={{
+          color: 'var(--m3-primary)',
+          background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--m3-primary) 20%, transparent)',
+          fontFeatureSettings: '"tnum" 1',
+        }}
+      >
+        {t('sessMeta.cacheHitAvg', '平均')}: {Math.round(averageRatio * 100)}%
+      </span>
+      {prefixReuseRatio != null ? (
+        <span
+          class="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold tabular-nums"
+          style={{
+            color: 'var(--m3-on-surface-variant)',
+            background: 'color-mix(in srgb, var(--m3-surface-container-highest) 62%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 48%, transparent)',
+            fontFeatureSettings: '"tnum" 1',
+          }}
+        >
+          {t('tokenPopup.prefixReuse', '前缀复用')}:{' '}
+          {Math.round(prefixReuseRatio * 100)}%
+        </span>
+      ) : null}
+      {children}
+    </div>
+  );
 }
 
 function CacheHitCompositionSummary({
@@ -528,44 +579,11 @@ export default function CacheHitTrendChart({
           padding: 12,
         }}
       >
-        <div
-          class="flex items-center"
-          style={{ gap: 8, marginBottom: 8 }}
-        >
-          <span
-            class="text-xs font-extrabold"
-            style={{
-              color: 'var(--m3-on-surface)',
-              flex: 1,
-            }}
-          >
-            {t2('sessMeta.cacheHitTrend', '缓存命中率趋势')}
-          </span>
-          <span
-            class="shrink-0 rounded-full px-2 py-1 text-[11px] font-extrabold tabular-nums"
-            style={{
-              color: 'var(--m3-primary)',
-              background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--m3-primary) 20%, transparent)',
-            }}
-          >
-            {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
-            {Math.round(displayedAverageRatio * 100)}%
-          </span>
-          {averagePrefixReuseRatio != null ? (
-            <span
-              class="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold tabular-nums"
-              style={{
-                color: 'var(--m3-on-surface-variant)',
-                background: 'color-mix(in srgb, var(--m3-surface-container-highest) 62%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 48%, transparent)',
-              }}
-            >
-              {t2('tokenPopup.prefixReuse', '前缀复用')}:{' '}
-              {Math.round(averagePrefixReuseRatio * 100)}%
-            </span>
-          ) : null}
-        </div>
+        <CacheHitTrendHeading
+          averageRatio={displayedAverageRatio}
+          prefixReuseRatio={averagePrefixReuseRatio}
+          t={t2}
+        />
         <CacheHitCompositionSummary
           composition={composition}
           averageRatio={displayedAverageRatio}
@@ -630,45 +648,11 @@ export default function CacheHitTrendChart({
       }}
     >
       {/* 标题栏。 */}
-      <div
-        class="flex items-center"
-        style={{ gap: 8, marginBottom: 8 }}
+      <CacheHitTrendHeading
+        averageRatio={displayedAverageRatio}
+        prefixReuseRatio={averagePrefixReuseRatio}
+        t={t2}
       >
-        <span
-          class="text-xs font-extrabold"
-          style={{
-            color: 'var(--m3-on-surface)',
-            flex: 1,
-          }}
-        >
-          {t2('sessMeta.cacheHitTrend', '缓存命中率趋势')}
-        </span>
-        <span
-          class="shrink-0 rounded-full px-2 py-1 text-[11px] font-extrabold tabular-nums"
-          style={{
-            color: 'var(--m3-primary)',
-            background: 'color-mix(in srgb, var(--m3-primary) 10%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--m3-primary) 20%, transparent)',
-            fontFeatureSettings: '"tnum" 1',
-          }}
-        >
-          {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
-          {Math.round(displayedAverageRatio * 100)}%
-        </span>
-        {averagePrefixReuseRatio != null ? (
-          <span
-            class="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold tabular-nums"
-            style={{
-              color: 'var(--m3-on-surface-variant)',
-              background: 'color-mix(in srgb, var(--m3-surface-container-highest) 62%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 48%, transparent)',
-              fontFeatureSettings: '"tnum" 1',
-            }}
-          >
-            {t2('tokenPopup.prefixReuse', '前缀复用')}:{' '}
-            {Math.round(averagePrefixReuseRatio * 100)}%
-          </span>
-        ) : null}
         <button
           type="button"
           class="oh-tap-press"
@@ -708,7 +692,7 @@ export default function CacheHitTrendChart({
             {t2('settings.reset', '重置')}
           </button>
         ) : null}
-      </div>
+      </CacheHitTrendHeading>
 
       <CacheHitCompositionSummary
         composition={composition}

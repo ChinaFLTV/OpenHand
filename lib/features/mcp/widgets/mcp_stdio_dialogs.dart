@@ -19,6 +19,124 @@ import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// STDIO 弹窗公共标题栏
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// STDIO 弹窗统一标题栏：图标 + 标题 + 等宽副标题 + 右侧操作区（含关闭）。
+class _StdioDialogHeader extends StatelessWidget {
+  const _StdioDialogHeader({
+    required this.icon,
+    required this.title,
+    this.iconColor,
+    this.subtitle,
+    this.actions = const <Widget>[],
+  });
+
+  static const double actionSize = 36;
+
+  final IconData icon;
+  final String title;
+
+  /// 缺省取 `colorScheme.primary`；用于表达运行中 / 已停止之类的状态。
+  final Color? iconColor;
+
+  /// 为空时不占位；始终单行省略，避免长命令撑破标题栏。
+  final String? subtitle;
+
+  /// 关闭按钮由本组件补齐，调用方只传业务动作。
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleText = subtitle?.trim() ?? '';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitleText.isNotEmpty)
+                  Text(
+                    subtitleText,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 4,
+            children: [
+              ...actions,
+              _StdioDialogHeaderAction(
+                icon: Icons.close,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 标题栏中的方形图标按钮；[tooltip] 为空时不包 Tooltip。
+class _StdioDialogHeaderAction extends StatelessWidget {
+  const _StdioDialogHeaderAction({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+    this.selected,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final bool? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = SizedBox(
+      width: _StdioDialogHeader.actionSize,
+      height: _StdioDialogHeader.actionSize,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        isSelected: selected,
+      ),
+    );
+    final message = tooltip?.trim() ?? '';
+    return message.isEmpty ? button : Tooltip(message: message, child: button);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STDIO MCP 服务日志查看弹窗
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -105,126 +223,47 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 标题栏
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                ),
+          _StdioDialogHeader(
+            icon: Icons.terminal_rounded,
+            iconColor: info.isRunning
+                ? OpenHandStatusColors.success
+                : theme.colorScheme.onSurfaceVariant,
+            title: l10n.mcpStdioDialogLogsTitle(widget.server.name),
+            subtitle: info.isRunning
+                ? l10n.mcpStdioDialogRunningPid('${info.pid}')
+                : l10n.mcpStdioDialogStopped,
+            actions: [
+              _StdioDialogHeaderAction(
+                tooltip: l10n.mcpStdioDialogAutoScroll,
+                icon: _autoScroll ? Icons.vertical_align_bottom : Icons.pause,
+                selected: _autoScroll,
+                onPressed: () => setState(() => _autoScroll = !_autoScroll),
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.terminal_rounded,
-                  size: 20,
-                  color: info.isRunning
-                      ? OpenHandStatusColors.success
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.mcpStdioDialogLogsTitle(widget.server.name),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+              _StdioDialogHeaderAction(
+                tooltip: l10n.mcpStdioDialogCopyLogs,
+                icon: Icons.copy_rounded,
+                onPressed: logs.isEmpty
+                    ? null
+                    : () async {
+                        await copyOpenHandTextToClipboard(
+                          logTag: 'mcp',
+                          context: context,
+                          text: logs.join('\n'),
+                          successMessage: l10n.mcpStdioDialogCopiedToClipboard,
+                          logAction: '复制 STDIO 日志',
+                        );
+                      },
+              ),
+              _StdioDialogHeaderAction(
+                tooltip: l10n.mcpStdioDialogClearLogs,
+                icon: Icons.delete_sweep_rounded,
+                onPressed: logs.isEmpty
+                    ? null
+                    : () => McpStdioProcessManager.instance.clearLogs(
+                        widget.server.name,
                       ),
-                      Text(
-                        info.isRunning
-                            ? l10n.mcpStdioDialogRunningPid('${info.pid}')
-                            : l10n.mcpStdioDialogStopped,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // 操作按钮组
-                Wrap(
-                  spacing: 4,
-                  children: [
-                    Tooltip(
-                      message: l10n.mcpStdioDialogAutoScroll,
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: IconButton(
-                          onPressed: () =>
-                              setState(() => _autoScroll = !_autoScroll),
-                          icon: Icon(
-                            _autoScroll
-                                ? Icons.vertical_align_bottom
-                                : Icons.pause,
-                            size: 18,
-                          ),
-                          isSelected: _autoScroll,
-                        ),
-                      ),
-                    ),
-                    Tooltip(
-                      message: l10n.mcpStdioDialogCopyLogs,
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: IconButton(
-                          onPressed: logs.isEmpty
-                              ? null
-                              : () async {
-                                  await copyOpenHandTextToClipboard(
-                                    logTag: 'mcp',
-                                    context: context,
-                                    text: logs.join('\n'),
-                                    successMessage:
-                                        l10n.mcpStdioDialogCopiedToClipboard,
-                                    logAction: '复制 STDIO 日志',
-                                  );
-                                },
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                        ),
-                      ),
-                    ),
-                    Tooltip(
-                      message: l10n.mcpStdioDialogClearLogs,
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: IconButton(
-                          onPressed: logs.isEmpty
-                              ? null
-                              : () => McpStdioProcessManager.instance.clearLogs(
-                                  widget.server.name,
-                                ),
-                          icon: const Icon(
-                            Icons.delete_sweep_rounded,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, size: 18),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           // 状态指示条
           Container(
@@ -491,79 +530,17 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 标题栏
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                ),
+          _StdioDialogHeader(
+            icon: Icons.analytics_outlined,
+            title: l10n.mcpStdioDialogRuntimeDetailsTitle(widget.server.name),
+            subtitle: widget.server.summary,
+            actions: [
+              _StdioDialogHeaderAction(
+                tooltip: l10n.mcpStdioDialogRefresh,
+                icon: Icons.refresh_rounded,
+                onPressed: _loading ? null : _loadInfo,
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.analytics_outlined,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.mcpStdioDialogRuntimeDetailsTitle(
-                          widget.server.name,
-                        ),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        widget.server.summary,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontFamily: kOpenHandMonospaceFontFamily,
-                          fontSize: 11,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                // 操作按钮组
-                Wrap(
-                  spacing: 4,
-                  children: [
-                    Tooltip(
-                      message: l10n.mcpStdioDialogRefresh,
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: IconButton(
-                          onPressed: _loading ? null : _loadInfo,
-                          icon: const Icon(Icons.refresh_rounded, size: 18),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, size: 18),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            ],
           ),
           // 内容
           Flexible(
@@ -1067,59 +1044,10 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 标题栏
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.inventory_2_outlined,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.mcpStdioDialogDepsTitle,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (cleanPkg.isNotEmpty)
-                        Text(
-                          cleanPkg,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontFamily: kOpenHandMonospaceFontFamily,
-                            fontSize: 11,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 18),
-                  ),
-                ),
-              ],
-            ),
+          _StdioDialogHeader(
+            icon: Icons.inventory_2_outlined,
+            title: l10n.mcpStdioDialogDepsTitle,
+            subtitle: cleanPkg,
           ),
           // 状态 + 操作按钮
           Padding(
