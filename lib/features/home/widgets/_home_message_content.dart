@@ -550,7 +550,12 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
 
   String get _effectiveData {
     final data = widget.data.isEmpty ? ' ' : widget.data;
-    return data.substring(0, _previewDataLength);
+    // 与 markdown 预览体共用同一截断口径：裸 substring 会从中间切断
+    // UTF-16 代理对（emoji / CJK 扩展 B），预览尾部渲染成替换字形。
+    return TranscriptListWindowing.boundedContentPreview(
+      data,
+      maxCharacters: _previewDataLength,
+    );
   }
 
   @override
@@ -2278,7 +2283,24 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     }
   }
 
+  /// 解析入口：负责手势识别器的所有权交接。
+  ///
+  /// 上一帧的识别器仍被当前 widget 树引用，只能在新一轮 children 真正提交
+  /// 之后再销毁；流式解析失败保留旧树时，反过来要丢弃本轮登记的半成品并把
+  /// 旧识别器交还——否则旧树里全是已 dispose 的识别器，点击行内链接/文件
+  /// 路径立刻触发 “used after being disposed”。
   void _parseMarkdownInner() {
+    final previousRecognizers = _detachRecognizers();
+    if (_rebuildMarkdownChildren()) {
+      _disposeRecognizers();
+      _recognizers.addAll(previousRecognizers);
+      return;
+    }
+    _disposeAllRecognizers(previousRecognizers);
+  }
+
+  /// 重建 [_children]；返回 true 表示沿用上一帧的 children（流式解析失败兜底）。
+  bool _rebuildMarkdownChildren() {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
@@ -2291,14 +2313,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     _lastStreaming = widget.streaming;
     _lastBuilderSignature = _builderSignature();
     _lastParseKey = widget.parseKey;
-    _disposeRecognizers();
     if (_canRenderMarkdownAsPlainText(widget.data)) {
       _children = <Widget>[
         widget.selectable
             ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
             : Text(normalizedSource, style: effectiveStyleSheet.p),
       ];
-      return;
+      return false;
     }
     // Hard size ceiling: very large messages (long log dumps, generated
     // payloads pasted into the chat) blow up the markdown parser + builder
@@ -2313,7 +2334,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
             : Text(normalizedSource, style: effectiveStyleSheet.p),
       ];
-      return;
+      return false;
     }
     try {
       // 先查 AST 缓存。命中则直接复用，跳过昂贵的
@@ -2366,7 +2387,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     } catch (_) {
       if (widget.streaming) {
         if (_children != null && _children!.isNotEmpty) {
-          return;
+          return true;
         }
         _children = <Widget>[
           _MarkdownStabilizingPlaceholder(
@@ -2377,7 +2398,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             maxHeight: _markdownStreamingPlaceholderMaxHeight,
           ),
         ];
-        return;
+        return false;
       }
       _children = <Widget>[
         widget.selectable
@@ -2385,6 +2406,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             : Text(widget.data, style: effectiveStyleSheet.p),
       ];
     }
+    return false;
   }
 
   int _computeThemeSignature() {
@@ -2405,16 +2427,23 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     return '$openHandMarkdownMathSyntaxVersion|${keys.join('|')}';
   }
 
-  void _disposeRecognizers() {
+  /// 摘走当前已登记的识别器并交出所有权，调用方负责销毁。
+  List<GestureRecognizer> _detachRecognizers() {
     if (_recognizers.isEmpty) {
-      return;
+      return const <GestureRecognizer>[];
     }
-    final localRecognizers = List<GestureRecognizer>.from(_recognizers);
+    final detached = List<GestureRecognizer>.from(_recognizers);
     _recognizers.clear();
-    for (final recognizer in localRecognizers) {
+    return detached;
+  }
+
+  static void _disposeAllRecognizers(List<GestureRecognizer> recognizers) {
+    for (final recognizer in recognizers) {
       recognizer.dispose();
     }
   }
+
+  void _disposeRecognizers() => _disposeAllRecognizers(_detachRecognizers());
 
   Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
     final label = (alt ?? title ?? uri.toString()).trim();
@@ -3941,8 +3970,16 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
     final autoFit = _autoFitMinmaxPattern.firstMatch(template);
     if (autoFit != null) {
       final minWidth = optionalDoubleFromValue(autoFit.group(1)) ?? maxWidth;
-      final columns = ((maxWidth + gap) / (minWidth + gap)).floor();
-      return columns.clamp(1, childCount).toInt();
+      // `minmax(0px, …)` 且未声明 gap 时分母为 0，除法得到 Infinity/NaN，
+      // `.floor()` 会抛 UnsupportedError 并把整个消息体换成错误占位。
+      // 先在浮点域按 [1, childCount] 夹紧再取整，取整永远落在合法区间。
+      final track = minWidth + gap;
+      final rawColumns = track > 0
+          ? (maxWidth + gap) / track
+          : childCount.toDouble();
+      return rawColumns.isFinite
+          ? rawColumns.clamp(1.0, childCount.toDouble()).floor()
+          : childCount;
     }
     final repeat = _repeatColumnPattern.firstMatch(template);
     if (repeat != null) {
@@ -4774,11 +4811,14 @@ class _DeferredHtmlBubbleWebViewState
   }
 
   void _releaseHtmlWebViewPermits() {
+    // 等待计时器必须无条件取消：permit 可能已被 `onRevoked` 置空，
+    // 此时若跟着 `_activePermit == null` 提前返回，计时器会越过 dispose
+    // 继续持有已销毁的 State 直到超时。
+    _cancelPermitWaitTimer();
     _releaseBootstrapPermit();
     final permit = _activePermit;
     if (permit == null) return;
     _activePermit = null;
-    _cancelPermitWaitTimer();
     permit.release();
   }
 

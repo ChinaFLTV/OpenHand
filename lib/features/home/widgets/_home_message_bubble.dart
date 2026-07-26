@@ -187,8 +187,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   List<String>? _cachedFilePathRoots;
   String? _lastCacheMessageId;
   String? _lastCacheEnvironmentKey;
-  int? _lastCacheThemeBrightness;
-  bool? _lastCacheDarkCodeSurface;
+  int? _lastCacheThemeSignature;
 
   @override
   void initState() {
@@ -321,10 +320,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _cachedFilePathRoots = null;
     _lastCacheMessageId = null;
     _lastCacheEnvironmentKey = null;
-    _lastCacheThemeBrightness = null;
-    _lastCacheDarkCodeSurface = null;
+    _lastCacheThemeSignature = null;
   }
 
+  /// 解析单条消息的渲染格式：消息自带格式优先，缺失时回落到全局设置。
+  ///
+  /// 只允许在 [build] 同步链路内调用——回落分支用 `select` 订阅全局格式，
+  /// 让历史消息（无 metadata 格式）在用户切换设置后立即重渲染；带格式的消息
+  /// 不进入该分支，也就不会被无关设置变更牵连重建。
   AiMessageContentFormat _resolveMessageContentFormat(
     BuildContext context,
     AiSessionMessage message,
@@ -333,7 +336,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     if (storedKey is String && storedKey.isNotEmpty) {
       return AiMessageContentFormat.fromStorageKey(storedKey);
     }
-    return context.read<SettingsController>().aiMessageContentFormat;
+    return context.select<SettingsController, AiMessageContentFormat>(
+      (settings) => settings.aiMessageContentFormat,
+    );
   }
 
   /// 判断全局坐标是否落在左上方折叠胶囊的范围内。
@@ -485,6 +490,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
       context,
       message,
     );
+    // provider 的 `select`/`watch` 断言「调用点必须处于本元素的 build 阶段」。
+    // 消息体由下方 `Builder` 闭包延迟构建，闭包捕获的是外层 context——真正执行
+    // 时外层元素早已结束 build，在闭包里直接 select 必然命中断言并红屏。
+    // 因此在此处一次性取值：既保留「只订阅真正用到的设置项」的窄依赖
+    //（避免主题/TTS/模型等无关设置把窗口内所有气泡全量重建），
+    // 又保证订阅动作发生在合法的 build 阶段。
+    final htmlRenderFallback = context
+        .select<SettingsController, AiHtmlRenderFallback>(
+          (settings) => settings.aiHtmlRenderFallback,
+        );
     final reasoningExpanded =
         _reasoningExpandedOverride ?? _shouldDefaultExpandReasoning(message);
 
@@ -523,17 +538,30 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final useDarkCodeSurface = isReasoning || isToolCall;
     final environmentKey =
         '${widget.sessionEnvironment.applicationDirectory}|${_toolExecutionWorkingDirectory(message)}';
-    final themeBrightness = theme.brightness.index;
+    // 缓存签名必须覆盖整套调色板：只比对 brightness 时，同亮度切换主题预设
+    //（seed 变了、brightness 没变）不会触发刷新，markdown 样式表与代码块高亮
+    // 会停留在旧配色，与已按新配色重算的气泡底色/文字色对不上（低对比度）。
+    // 口径与 `_MessageMarkdownThemeData.fromMessageBubble` 的进程级缓存键一致。
+    final themeSignature = Object.hash(
+      theme.brightness.index,
+      colorScheme.primary.toARGB32(),
+      colorScheme.primaryContainer.toARGB32(),
+      colorScheme.surface.toARGB32(),
+      colorScheme.onSurface.toARGB32(),
+      theme.textTheme.bodyLarge?.fontSize,
+      theme.textTheme.bodyMedium?.fontSize,
+      backgroundColor.toARGB32(),
+      textColor.toARGB32(),
+      useDarkCodeSurface,
+    );
     final needsCacheRefresh =
         _lastCacheMessageId != message.id ||
         _lastCacheEnvironmentKey != environmentKey ||
-        _lastCacheThemeBrightness != themeBrightness ||
-        _lastCacheDarkCodeSurface != useDarkCodeSurface;
+        _lastCacheThemeSignature != themeSignature;
     if (needsCacheRefresh) {
       _lastCacheMessageId = message.id;
       _lastCacheEnvironmentKey = environmentKey;
-      _lastCacheThemeBrightness = themeBrightness;
-      _lastCacheDarkCodeSurface = useDarkCodeSurface;
+      _lastCacheThemeSignature = themeSignature;
       _cachedMarkdownThemeData = _MessageMarkdownThemeData.fromMessageBubble(
         theme: theme,
         backgroundColor: backgroundColor,
@@ -698,8 +726,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         return;
       }
       if (resolvedMessageContentFormat == AiMessageContentFormat.html &&
-          context.read<SettingsController>().aiHtmlRenderFallback ==
-              AiHtmlRenderFallback.plainText) {
+          htmlRenderFallback == AiHtmlRenderFallback.plainText) {
         return;
       }
       if (resolvedMessageContentFormat == AiMessageContentFormat.markdown &&
@@ -770,11 +797,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
       return _AssistantMessageBodyDispatcher(
         data: data.isEmpty ? ' ' : data,
         format: format,
-        // 只订阅真正用到的设置项：watch 整个 SettingsController 会让任意
-        // 无关设置变更（主题、TTS、模型…）把窗口内所有气泡全量重建。
-        htmlFallback: context.select<SettingsController, AiHtmlRenderFallback>(
-          (settings) => settings.aiHtmlRenderFallback,
-        ),
+        // 取 build 阶段已订阅好的值，闭包内不再触碰 provider（见上方说明）。
+        htmlFallback: htmlRenderFallback,
         textColor: textColor,
         backgroundColor: backgroundColor,
         markdownBuilders: markdownBuilders,
@@ -2800,7 +2824,11 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   Size? _naturalSize;
   final GlobalKey _headerKey = GlobalKey();
   double? _measuredHeaderHeight;
+  // 三个互不相干的忙位：与媒体预览弹窗保持同一套并发口径，避免连点在同一
+  // 目标路径上并发写入（后一次的清理会删掉前一次已写好的文件）。
   bool _isCopying = false;
+  bool _isSaving = false;
+  bool _isOpeningExternal = false;
 
   @override
   void initState() {
@@ -2942,7 +2970,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                               zh: '使用系统应用打开',
                               en: 'Open with System App',
                             ),
-                            onPressed: () => _openInSystemApp(context),
+                            onPressed: _isOpeningExternal
+                                ? null
+                                : () => _openInSystemApp(context),
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -2974,7 +3004,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                               zh: '保存到本地',
                               en: 'Save to disk',
                             ),
-                            onPressed: () => _saveImageAs(context),
+                            onPressed: _isSaving
+                                ? null
+                                : () => _saveImageAs(context),
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -3283,19 +3315,27 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   }
 
   Future<void> _openInSystemApp(BuildContext context) async {
-    final sourceFilePath = widget.filePath;
-    if (sourceFilePath != null) {
-      await _openLocalPathWithSystemApp(context, sourceFilePath);
-      return;
+    if (_isOpeningExternal) return;
+    _isOpeningExternal = true;
+    try {
+      final sourceFilePath = widget.filePath;
+      if (sourceFilePath != null) {
+        await _openLocalPathWithSystemApp(context, sourceFilePath);
+        return;
+      }
+      final sourceUri = widget.imageUri;
+      if (sourceUri == null) {
+        return;
+      }
+      await _openMessageLinkUri(context, sourceUri);
+    } finally {
+      if (mounted) setState(() => _isOpeningExternal = false);
     }
-    final sourceUri = widget.imageUri;
-    if (sourceUri == null) {
-      return;
-    }
-    await _openMessageLinkUri(context, sourceUri);
   }
 
   Future<void> _saveImageAs(BuildContext context) async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
     final basename = _suggestedSaveName();
     final ext = _normalizeSaveExtension(p.extension(basename).toLowerCase());
     // Map common image extensions to MIME types for the save dialog.
@@ -3345,6 +3385,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         message: '$e',
         fallback: openHandLocalizedText(context, zh: '保存失败', en: 'Save failed'),
       );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -8263,9 +8305,19 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
   }
 
   Future<void> _start() async {
-    final acquired = await _VideoThumbnailManager._acquireSlot(
-      _captureCancellation.future,
-    );
+    // 取号本身也会抛（信号量等待队列满 → StateError）。若让它逃逸，宿主既
+    // 拿不到结果回调也不会武装看门狗，卡片会永远停在占位态；统一按“抓取
+    // 失败”收口，让上层走既有的降级路径。
+    var acquired = false;
+    try {
+      acquired = await _VideoThumbnailManager._acquireSlot(
+        _captureCancellation.future,
+      );
+    } catch (error, stack) {
+      silentLog('home_message_bubble', '视频封面取号失败', error, stack);
+      _finish(null);
+      return;
+    }
     if (!acquired) return;
     if (_done || !mounted) {
       _VideoThumbnailManager._releaseSlot();
