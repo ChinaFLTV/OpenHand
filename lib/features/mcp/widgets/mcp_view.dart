@@ -38,6 +38,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
@@ -12970,7 +12971,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                 : _mcpChipStripHeight,
             width: double.infinity,
             child: _expanded
-                ? Scrollbar(
+                ? OpenHandSafeScrollbar(
                     controller: _expandedScrollController,
                     child: SingleChildScrollView(
                       controller: _expandedScrollController,

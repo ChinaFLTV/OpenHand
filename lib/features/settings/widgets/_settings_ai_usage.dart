@@ -2009,7 +2009,9 @@ class _AiUsageHeatmap extends StatelessWidget {
               constraints.maxWidth,
               _kAiUsageHeatmapMinWidth,
             );
-            return Scrollbar(
+            // 走安全包装：横向滚动视图默认不接管 PrimaryScrollController，
+            // 裸 Scrollbar 在拿不到 ScrollPosition 时会直接抛 FlutterError。
+            return OpenHandSafeScrollbar(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(bottom: 14),
