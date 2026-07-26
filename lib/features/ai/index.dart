@@ -69,6 +69,7 @@ export 'service/prompt/ai_prompt_template_assembly.dart';
 export 'service/prompt/ai_prompt_template_repository.dart';
 export 'service/runtime/ai_builtin_tool_lazy_loading_applier.dart';
 export 'service/runtime/ai_endpoint_router.dart';
+export 'service/runtime/ai_session_runtime_context_builder.dart';
 export 'service/runtime/ai_tool_execution_registry.dart';
 export 'service/runtime/ai_tool_runtime_service.dart';
 export 'service/runtime/ai_tool_usage_promotion_store.dart';

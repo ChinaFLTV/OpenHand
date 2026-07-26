@@ -8022,43 +8022,21 @@ class WebMessagePlatformService {
         ? await _memoryController.trustedEntriesSnapshot() ??
               const <UserMemoryEntry>[]
         : const <UserMemoryEntry>[];
-    final now = DateTime.now().toLocal();
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
       for (final server in _mcpController.runtimeServers)
         server.name: _mcpController.toolCatalogFor(server.name),
     };
-    return AiSessionRuntimeContext(
-      localeTag: _settingsController.locale.toLanguageTag(),
-      appVersion: _appInfo.version,
-      appBuildNumber: _appInfo.buildNumber,
-      settingsFilePath: _settingsController.settingsFilePath,
-      skillsStoragePath: _settingsController.skillsStoragePath,
-      mcpServersFilePath: _settingsController.mcpServersFilePath,
-      userMemoryFilePath: _settingsController.userMemoryFilePath,
-      compressionThresholdChars:
-          _settingsController.aiMessageCompressionThresholdChars,
-      messageContentFormat: _settingsController.aiMessageContentFormat,
-      htmlRenderFallback: _settingsController.aiHtmlRenderFallback,
-      htmlContentRichness: _settingsController.aiHtmlContentRichness,
+    // 走与桌面端同一份设置映射：此前这里自己列了 40 项、漏掉 45 项，同一个
+    // 会话从手机端发起时超时、工具轮次上限、允许命令规则、沙箱设置、附件上限
+    // 全都退回默认值。技能 / MCP / 指令三项仍按网关的放行清单过滤后传入。
+    return buildAiSessionRuntimeContext(
+      settingsController: _settingsController,
+      appInfo: _appInfo,
       appThemeBrightness: _resolveEffectiveBrightness(),
-      appThemePresetName: _settingsController.themePreset.storageValue,
-      appThemePrimaryColor:
-          '#${_settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
-      fallbackTitleMaxCharacters:
-          _settingsController.aiFallbackTitleMaxCharacters,
-      generatedTitleMaxCharacters:
-          _settingsController.aiGeneratedTitleMaxCharacters,
-      minimumMeaningfulTitleCharacters:
-          _settingsController.aiMinimumMeaningfulTitleCharacters,
-      minimumMeaningfulLatinTitleWords:
-          _settingsController.aiMinimumMeaningfulLatinTitleWords,
-      memoryEnabled: memoryEnabled,
-      memoryEntries: memoryEntries,
-      templateId: templateId,
-      platformName: Platform.operatingSystem,
+      localNow: DateTime.now().toLocal(),
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-      todayLocalDate: formatYearMonthDay(now),
-      timeZoneName: now.timeZoneName,
+      memoryEntries: memoryEntries,
+      allowCommandRules: _settingsController.aiAllowCommandRules,
       availableSkills: webGatewayIsDenyAllSelection(_config.allowedSkillNames)
           ? const []
           : _config.allowedSkillNames.isEmpty
@@ -8081,17 +8059,6 @@ class WebMessagePlatformService {
                 .toList(growable: false),
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
       builtinToolConfigs: _effectiveBuiltinToolConfigsForWeb(),
-      autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
-      autoTitleFetchMode: _settingsController.aiAutoTitleFetchMode,
-      autoTitleMaxRetryCount: _settingsController.aiAutoTitleMaxRetryCount,
-      streamMaxCharsPerSecond: _settingsController.aiStreamMaxCharsPerSecond,
-      streamMaxMessageCardsPerSecond:
-          _settingsController.aiStreamMaxMessageCardsPerSecond,
-      streamThrottleEnabled: _settingsController.aiStreamThrottleEnabled,
-      streamThrottleAutoMode: _settingsController.aiStreamThrottleAutoMode,
-      streamThrottleDurationSeconds:
-          _settingsController.aiStreamThrottleDurationSeconds,
-      skippedInstructionIds: skippedInstructionIds,
       userInstructions:
           webGatewayIsDenyAllSelection(_config.allowedInstructionIds)
           ? const []
@@ -8102,6 +8069,8 @@ class WebMessagePlatformService {
                   (entry) => _config.allowedInstructionIds.contains(entry.id),
                 )
                 .toList(growable: false),
+      skippedInstructionIds: skippedInstructionIds,
+      templateId: templateId,
       toolExecutionMetadata: _webAgentToolExecutionMetadata(),
     );
   }

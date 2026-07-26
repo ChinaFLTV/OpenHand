@@ -220,127 +220,6 @@ class OpenHandHomePage extends StatefulWidget {
   State<OpenHandHomePage> createState() => _OpenHandHomePageState();
 }
 
-/// 设置项到 [AiSessionRuntimeContext] 的唯一映射。
-///
-/// 真实会话上下文与「工具目录预览」上下文此前各写一份完整构造：新增一项设置
-/// 只改其中一处，预览里看到的工具目录就会和实际下发的不一致。此处只保留一份
-/// 设置映射，随会话变化的字段由调用方传入。
-AiSessionRuntimeContext _buildAiSessionRuntimeContext({
-  required SettingsController settingsController,
-  required AppInfo appInfo,
-  required String appThemeBrightness,
-  required DateTime localNow,
-  required String workingDirectory,
-  required List<UserMemoryEntry> memoryEntries,
-  required List<AiAllowCommandRule> allowCommandRules,
-  required List<LocalSkill> availableSkills,
-  required List<McpServer> availableMcpServers,
-  required Map<String, McpToolCatalog> mcpToolCatalogsByServerName,
-  required List<AiBuiltinToolConfig> builtinToolConfigs,
-  AiRepositorySnapshot? repositorySnapshot,
-  List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments =
-      const <AiWorkspaceInstructionDocument>[],
-  List<UserInstructionEntry> userInstructions = const <UserInstructionEntry>[],
-  Set<String> skippedInstructionIds = const <String>{},
-}) {
-  return AiSessionRuntimeContext(
-    localeTag: settingsController.locale.toLanguageTag(),
-    appVersion: appInfo.version,
-    appBuildNumber: appInfo.buildNumber,
-    settingsFilePath: settingsController.settingsFilePath,
-    skillsStoragePath: settingsController.skillsStoragePath,
-    mcpServersFilePath: settingsController.mcpServersFilePath,
-    userMemoryFilePath: settingsController.userMemoryFilePath,
-    compressionThresholdChars:
-        settingsController.aiMessageCompressionThresholdChars,
-    toolResultCompressionThresholdChars:
-        settingsController.aiToolResultCompressionThresholdChars,
-    toolResultCompressionEnabled:
-        settingsController.aiToolResultCompressionEnabled,
-    toolResultCompressionHeadTailWindowChars:
-        settingsController.aiToolResultCompressionHeadTailWindowChars,
-    toolResultCompressionMaxPathHits:
-        settingsController.aiToolResultCompressionMaxPathHits,
-    microCompressionEnabled: settingsController.aiMicroCompressionEnabled,
-    messageContentFormat: settingsController.aiMessageContentFormat,
-    htmlRenderFallback: settingsController.aiHtmlRenderFallback,
-    htmlContentRichness: settingsController.aiHtmlContentRichness,
-    appThemeBrightness: appThemeBrightness,
-    appThemePresetName: settingsController.themePreset.storageValue,
-    appThemePrimaryColor:
-        '#${settingsController.themePreset.seedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
-    writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
-    aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
-    aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
-    aiInputCacheUpdateInterval: settingsController.aiInputCacheUpdateInterval,
-    aiInputCacheBreakpointCount: settingsController.aiInputCacheBreakpointCount,
-    aiInputCacheBreakpointPositions:
-        settingsController.aiInputCacheBreakpointPositions,
-    singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
-    sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
-    maxRecentErrors: settingsController.aiMaxRecentErrors,
-    maxPlanHistoryEntries: settingsController.aiMaxPlanHistoryEntries,
-    maxTruncationContinuations: settingsController.aiMaxTruncationContinuations,
-    estimatedCharactersPerToken:
-        settingsController.aiEstimatedCharactersPerToken,
-    maxToolOutputChars: settingsController.aiMaxToolOutputChars,
-    writeConfirmationTimeoutMs: settingsController.aiWriteConfirmationTimeoutMs,
-    fastPathWriteAnalysisThreshold:
-        settingsController.aiFastPathWriteAnalysisThreshold,
-    maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
-    subprocessGracefulShutdownMs:
-        settingsController.subprocessGracefulShutdownMs,
-    bashOutputMaxBytes: settingsController.bashOutputMaxBytes,
-    maxConcurrentTools: settingsController.maxConcurrentTools,
-    attachmentMaxInlineImageDimension:
-        settingsController.aiAttachmentMaxInlineImageDimension,
-    attachmentMaxTextRawBytes: settingsController.aiAttachmentMaxTextRawBytes,
-    attachmentMaxPdfRawBytes: settingsController.aiAttachmentMaxPdfRawBytes,
-    attachmentMaxImageRawBytes: settingsController.aiAttachmentMaxImageRawBytes,
-    chatMaxStreamLineBufferBytes:
-        settingsController.aiChatMaxStreamLineBufferBytes,
-    imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
-    memoryEnabled: settingsController.memoryEnabled,
-    mcpLazyLoadingMode: settingsController.mcpLazyLoadingMode,
-    mcpLazyLoadingThresholdTokens:
-        settingsController.mcpLazyLoadingThresholdTokens,
-    builtinToolLazyLoadingMode: settingsController.builtinToolLazyLoadingMode,
-    writeCommandConfirmationEnabled:
-        settingsController.aiWriteCommandConfirmationEnabled,
-    connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
-    responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
-    streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
-    streamMaxCharsPerSecond: settingsController.aiStreamMaxCharsPerSecond,
-    streamThrottleEnabled: settingsController.aiStreamThrottleEnabled,
-    streamThrottleAutoMode: settingsController.aiStreamThrottleAutoMode,
-    streamThrottleDurationSeconds:
-        settingsController.aiStreamThrottleDurationSeconds,
-    streamMaxMessageCardsPerSecond:
-        settingsController.aiStreamMaxMessageCardsPerSecond,
-    autoTitleEnabled: settingsController.aiAutoTitleEnabled,
-    autoTitleFetchMode: settingsController.aiAutoTitleFetchMode,
-    autoTitleMaxRetryCount: settingsController.aiAutoTitleMaxRetryCount,
-    telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
-    telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,
-    telemetryCaptureEnvironment: settingsController.telemetryCaptureEnvironment,
-    telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
-    platformName: Platform.operatingSystem,
-    workingDirectory: workingDirectory,
-    todayLocalDate: formatYearMonthDay(localNow),
-    timeZoneName: localNow.timeZoneName,
-    repositorySnapshot: repositorySnapshot,
-    memoryEntries: memoryEntries,
-    allowCommandRules: allowCommandRules,
-    sandboxSettings: settingsController.aiSandboxSettings,
-    availableSkills: availableSkills,
-    availableMcpServers: availableMcpServers,
-    mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
-    builtinToolConfigs: builtinToolConfigs,
-    workspaceInstructionDocuments: workspaceInstructionDocuments,
-    userInstructions: userInstructions,
-    skippedInstructionIds: skippedInstructionIds,
-  );
-}
 
 class _OpenHandHomePageState extends State<OpenHandHomePage>
     with WidgetsBindingObserver {
@@ -5499,7 +5378,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               const <UserMemoryEntry>[]
         : const <UserMemoryEntry>[];
     final now = DateTime.now().toLocal();
-    return _buildAiSessionRuntimeContext(
+    return buildAiSessionRuntimeContext(
       settingsController: settingsController,
       appInfo: appInfo,
       appThemeBrightness: effectiveBrightness.name,
@@ -5687,7 +5566,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) {
     final localNow = now.toLocal();
     final servers = availableMcpServers ?? mcpController.runtimeServers;
-    return _buildAiSessionRuntimeContext(
+    return buildAiSessionRuntimeContext(
       settingsController: settingsController,
       appInfo: appInfo,
       appThemeBrightness: _resolveEffectiveBrightness(context).name,
