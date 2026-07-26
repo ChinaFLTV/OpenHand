@@ -383,8 +383,16 @@ _KnowledgeSearchScore _scoreSearchRow(
   final chunkTitle = _stringValue(row['chunk_title']);
   final headingPath = _stringValue(row['heading_path']);
   final sourceTitle = _stringValue(row['source_title']);
-  final strongText = '$chunkTitle\n$headingPath\n$content';
-  final normalizedStrongText = _normalizeForMatch(strongText);
+  // 每个字段只归一化一次。此前是在词循环里对整段正文重复归一化，单次检索
+  // 最坏要跑 500 候选 × 8 词 × 4 字段 = 16000 次全文 lowercase + 全量替换，
+  // 且全部同步执行在 UI isolate 上。
+  final normalizedContent = _normalizeForMatch(content);
+  final normalizedHeadingPath = _normalizeForMatch(headingPath);
+  final normalizedChunkTitle = _normalizeForMatch(chunkTitle);
+  final normalizedSourceTitle = _normalizeForMatch(sourceTitle);
+  // 归一化会剥掉全部空白，因此拼接后再归一化与先归一化再拼接等价。
+  final normalizedStrongText =
+      '$normalizedChunkTitle$normalizedHeadingPath$normalizedContent';
   final normalizedQuery = _normalizeForMatch(query);
   var score = 0.0;
   final matchedTerms = <String>{};
@@ -397,19 +405,19 @@ _KnowledgeSearchScore _scoreSearchRow(
     final normalizedTerm = _normalizeForMatch(term);
     if (normalizedTerm.isEmpty) continue;
     var strongMatched = false;
-    if (_containsNormalized(content, normalizedTerm)) {
+    if (normalizedContent.contains(normalizedTerm)) {
       score += 2.4;
       strongMatched = true;
     }
-    if (_containsNormalized(headingPath, normalizedTerm)) {
+    if (normalizedHeadingPath.contains(normalizedTerm)) {
       score += 3.2;
       strongMatched = true;
     }
-    if (_containsNormalized(chunkTitle, normalizedTerm)) {
+    if (normalizedChunkTitle.contains(normalizedTerm)) {
       score += 2.6;
       strongMatched = true;
     }
-    if (_containsNormalized(sourceTitle, normalizedTerm)) {
+    if (normalizedSourceTitle.contains(normalizedTerm)) {
       score += 0.35;
     }
     if (strongMatched) {
@@ -610,12 +618,11 @@ Map<String, Object?> _knowledgeToolMetadata({
 List<String> _knowledgeQueryTerms(String query) {
   final terms = <String>[];
   final seen = <String>{};
-  final pattern = RegExp(r'[A-Za-z0-9_]+|[\u4e00-\u9fff]+');
-  for (final match in pattern.allMatches(query)) {
+  for (final match in _queryTokenPattern.allMatches(query)) {
     final raw = match.group(0)?.trim() ?? '';
     if (raw.isEmpty) continue;
     final normalized = _normalizeForMatch(raw);
-    final hasCjk = RegExp(r'[\u4e00-\u9fff]').hasMatch(raw);
+    final hasCjk = _cjkCharPattern.hasMatch(raw);
     if (!hasCjk && normalized.length < 2) continue;
     if (hasCjk && normalized.length < 2) continue;
     if (!_isWorthwhileTerm(normalized)) continue;
@@ -684,13 +691,13 @@ String _likePattern(String value) {
   return '%$escaped%';
 }
 
-bool _containsNormalized(String value, String normalizedTerm) {
-  if (value.trim().isEmpty || normalizedTerm.isEmpty) return false;
-  return _normalizeForMatch(value).contains(normalizedTerm);
-}
+/// 归一化匹配用的模式常量。提到顶层复用，避免在打分热路径上反复编译。
+final RegExp _whitespaceRunPattern = RegExp(r'\s+');
+final RegExp _queryTokenPattern = RegExp(r'[A-Za-z0-9_]+|[一-鿿]+');
+final RegExp _cjkCharPattern = RegExp(r'[一-鿿]');
 
 String _normalizeForMatch(String value) {
-  return value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  return value.toLowerCase().replaceAll(_whitespaceRunPattern, '');
 }
 
 String _stringValue(Object? value) => stringFromValue(value);

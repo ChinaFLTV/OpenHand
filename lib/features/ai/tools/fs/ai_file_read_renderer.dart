@@ -83,16 +83,22 @@ class AiFileReadRenderer {
       );
       return _renderPdf(bytes, filePath, pageRange: pdfPages);
     }
-    final bytes = await AiToolUtils.readFilePrefix(file, fileLength);
-    final truncated = fileLength > bytes.length;
-    if (AiToolUtils.looksBinary(bytes) &&
+    // 这段前缀只用于二进制判别与十六进制预览；文本分支随后会用
+    // _renderTextRange 从头流式重读，所以这里读满整个文件毫无意义。
+    final sniffBytes = await AiToolUtils.readFilePrefix(
+      file,
+      fileLength < AiToolUtils.binarySniffBytes
+          ? fileLength
+          : AiToolUtils.binarySniffBytes,
+    );
+    if (AiToolUtils.looksBinary(sniffBytes) &&
         !AiToolUtils.isKnownTextExtension(extension)) {
       return _renderBinary(
-        bytes,
+        sniffBytes,
         filePath,
         extension,
         totalByteSize: fileLength,
-        truncated: truncated,
+        truncated: fileLength > sniffBytes.length,
       );
     }
     return _renderTextRange(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../agents/index.dart';
@@ -1852,10 +1853,23 @@ class AiAgentTool extends AiTool {
     var waitedMs = 0;
     while (!_taskResultTerminalEnough(resolved.task!) &&
         waitedMs < wait.maxMs) {
-      await _delayWithCancellation(
+      // 必须区分「轮询间隔到期」与「用户取消」：取消信号会让等待立即返回，
+      // 若继续循环就会退化成无间隔空转，一直烧到墙钟走满 maxMs（最长 90s）。
+      final cancelled = await delayUntilCancelled(
         Duration(milliseconds: wait.pollMs),
-        context.cancelSignal,
+        cancelSignal: context.cancelSignal,
       );
+      if (cancelled) {
+        return AiToolUtils.cancelledResult(
+          command: _name,
+          durationMs: stopwatch.elapsedMilliseconds,
+          metadata: <String, Object?>{
+            'tool': _name,
+            'agent_id': resolved.agent!.id,
+            'task_id': resolved.task!.id,
+          },
+        );
+      }
       waitedMs = DateTime.now()
           .toUtc()
           .difference(waitStartedAt)
@@ -2392,16 +2406,6 @@ class AiAgentTool extends AiTool {
         task.status == AgentTaskStatus.canceled ||
         task.status == AgentTaskStatus.waitingApproval ||
         task.status == AgentTaskStatus.paused;
-  }
-
-  Future<void> _delayWithCancellation(
-    Duration duration,
-    Future<void>? cancelSignal,
-  ) async {
-    await AiToolUtils.awaitWithCancellation<void>(
-      Future<void>.delayed(duration),
-      cancelSignal: cancelSignal,
-    );
   }
 
   String _workerTaskPrompt(AgentTask task) {

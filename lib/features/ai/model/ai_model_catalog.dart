@@ -62,6 +62,9 @@ class AiModelCatalog {
     if (gatewayOperationProfile != null) return gatewayOperationProfile;
 
     // 跨协议匹配已知模型 ID，兼容通过其他服务商网关接入的模型。
+    // 顺序敏感：先匹配者胜出，因此必须把 ID 前缀更专一的匹配器排在前面。
+    // 上面的协议 switch 由编译器保证枚举穷尽，本链条不会；新增协议匹配器时
+    // 两处都要补，否则该协议的模型经网关接入时会静默丢失全部档案。
     return _openai(id) ??
         _gemini(id) ??
         _mistral(id) ??
@@ -83,6 +86,7 @@ class AiModelCatalog {
         _meta(id) ??
         _grok(id) ??
         _hunyuan(id) ??
+        _mimo(id) ??
         _genericRerank(id) ??
         _openSourceEmbedding(id);
   }

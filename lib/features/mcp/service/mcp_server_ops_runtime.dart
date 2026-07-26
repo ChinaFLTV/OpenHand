@@ -231,6 +231,10 @@ class McpServerOpsRuntime {
   static const Duration _sseKeepAliveInterval = Duration(seconds: 15);
   static const int _sseKeepAliveTicks = 480;
   static const int _maxSseStreams = 32;
+
+  /// SSE 槽位「已占位但生成器未启动」的宽限期。超过即视为客户端在订阅响应体
+  /// 前就断开，回收槽位。
+  static const Duration _sseReservationGrace = Duration(seconds: 30);
   static const int _maxSessionIds = 1024;
   static const int _maxMetricDistributionKeys = 256;
   static const int _maxMetricKeyChars = 160;
@@ -262,6 +266,13 @@ class McpServerOpsRuntime {
   final List<int> _latencies = <int>[];
   final Set<Object> _activeRequestTokens = <Object>{};
   final Set<Object> _activeSseTokens = <Object>{};
+
+  /// 已占用 SSE 槽位但生成器尚未开始执行的 token → 占位时刻。
+  ///
+  /// `async*` 的函数体只有被 listen 时才开始执行，客户端若在订阅响应体之前
+  /// 断开（或响应头写失败），生成器的 finally 永远不会运行。若只依赖 finally
+  /// 释放，槽位就会永久泄漏——累计 [_maxSseStreams] 次之后再也建不起事件流。
+  final Map<Object, DateTime> _reservedSseTokens = <Object, DateTime>{};
   int _requestTotal = 0;
   int _blockedTotal = 0;
   int _failedTotal = 0;
@@ -449,6 +460,7 @@ class McpServerOpsRuntime {
     } finally {
       _activeRequestTokens.clear();
       _activeSseTokens.clear();
+      _reservedSseTokens.clear();
       _setSnapshot(
         _snapshot.copyWith(
           lifecycle: McpOpsLifecycleState.stopped,
@@ -783,6 +795,7 @@ class McpServerOpsRuntime {
       );
     }
     // 成功计数前先执行流上限，避免拒绝请求被重复计为成功和阻止。
+    _reapStaleSseReservations();
     if (_activeSseStreams >= _maxSseStreams) {
       _recordBlocked(
         request,
@@ -808,6 +821,7 @@ class McpServerOpsRuntime {
     );
     final streamToken = Object();
     _activeSseTokens.add(streamToken);
+    _reservedSseTokens[streamToken] = DateTime.now().toUtc();
     _publishConnectionSnapshot();
     return shelf.Response.ok(
       _sseKeepAliveStream(streamToken),
@@ -823,6 +837,9 @@ class McpServerOpsRuntime {
   }
 
   Stream<List<int>> _sseKeepAliveStream(Object streamToken) async* {
+    // 生成器真正开始执行，说明客户端已订阅响应体，finally 一定会跑到，
+    // 槽位交由 finally 释放，不再需要占位回收。
+    _reservedSseTokens.remove(streamToken);
     try {
       yield utf8.encode(': OpenHand MCP stream ready\n\n');
       for (var index = 0; index < _sseKeepAliveTicks; index++) {
@@ -832,9 +849,24 @@ class McpServerOpsRuntime {
         );
       }
     } finally {
+      _reservedSseTokens.remove(streamToken);
       _activeSseTokens.remove(streamToken);
       _publishConnectionSnapshot();
     }
+  }
+
+  /// 回收占位后迟迟没有开始推流的 SSE 槽位。
+  void _reapStaleSseReservations() {
+    if (_reservedSseTokens.isEmpty) return;
+    final cutoff = DateTime.now().toUtc().subtract(_sseReservationGrace);
+    var reaped = false;
+    _reservedSseTokens.removeWhere((token, reservedAt) {
+      if (reservedAt.isAfter(cutoff)) return false;
+      _activeSseTokens.remove(token);
+      reaped = true;
+      return true;
+    });
+    if (reaped) _publishConnectionSnapshot();
   }
 
   Future<shelf.Response> _jsonRpc(shelf.Request request) async {

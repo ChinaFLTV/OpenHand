@@ -314,7 +314,13 @@ class InstructionsController extends ManagedChangeNotifier {
       _saveSuccessPulse.emit();
       return true;
     } catch (error) {
-      _errorMessage = '$error';
+      // 落盘失败后内存快照与磁盘可能已不一致，_hasTrustedSnapshot 保持 false
+      // 是对的；但若就此停下，enabledEntries 会一直返回空列表——Composer 的
+      // 指令条会凭空消失，直到用户下一次改动才由 _ensureTrustedSnapshotLocked
+      // 触发重载。这里立刻回读磁盘做一次自愈，把「不可信」窗口压到最短。
+      final saveError = '$error';
+      await _loadLocked();
+      _errorMessage = saveError;
       notifyListeners();
       return false;
     }

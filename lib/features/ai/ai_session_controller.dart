@@ -560,6 +560,10 @@ class AiSessionController extends ChangeNotifier {
     milliseconds: 160,
   );
   static const Duration _toolExecutionHeartbeatInterval = Duration(seconds: 1);
+
+  /// 流式收尾兜底排空的硬上限。排空发生在会话操作队列内部，超时不返回会把
+  /// 该会话的发送/删除/重命名全部挂住，因此必须有与速率无关的绝对止损。
+  static const Duration _streamDrainHardDeadline = Duration(seconds: 30);
   static const Duration _sessionDeletionCancellationTimeout = Duration(
     seconds: 2,
   );
@@ -567,17 +571,6 @@ class AiSessionController extends ChangeNotifier {
     definitions: <AiToolDefinition>[],
     toolsByName: <String, AiResolvedTool>{},
   );
-
-  /// Maximum number of consecutive auto-continuations when the model keeps
-  /// hitting its output token limit (finish_reason: "length" / "max_tokens").
-  /// This prevents infinite loops when the model is stuck in a truncation cycle.
-  /// 该上限现在由 [_effectiveMaxTruncationContinuations] 在
-  /// 运行时读取 runtimeContext。
-
-  /// Tracks how many consecutive times the current conversation loop has
-  /// auto-continued due to model output truncation.  Reset to zero once the
-  /// model completes normally or produces tool calls.
-  var _truncationContinuationCount = 0;
 
   /// ToolSearch 会话状态。键为 sessionId，记录已匹配且可经固定网关调用的
   /// runtime tool 名称；同时承载向 UI 广播匹配事件的 [ValueListenable]。
@@ -1593,6 +1586,9 @@ class AiSessionController extends ChangeNotifier {
       (sessionId) => !liveSessionIds.contains(sessionId),
     );
     _sessionsInitiallyThrottled.removeWhere(
+      (sessionId) => !liveSessionIds.contains(sessionId),
+    );
+    _sessionStatisticsHydratedIds.removeWhere(
       (sessionId) => !liveSessionIds.contains(sessionId),
     );
     _lastErrorMessagesBySession.removeWhere(
@@ -6796,6 +6792,7 @@ class AiSessionController extends ChangeNotifier {
     _sessionMessageWindowHydrationGenerations.clear();
     _sessionMessageContentLoadTasks.clear();
     _sessionMessageContentLoadGenerations.clear();
+    _sessionStatisticsHydratedIds.clear();
     _machineTerminalService?.configureMetadataPersister(null);
     _hookService.configureUsageRecorder(null);
     _userHooksExecutor?.configureUsageRecorder(null);
@@ -6933,7 +6930,11 @@ class AiSessionController extends ChangeNotifier {
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
   }) async {
-    _truncationContinuationCount = 0;
+    // 连续自动续接次数：必须是本次会话轮次的局部状态。发送链路按会话串行
+    // （_enqueueSessionOperation 是 per-session 队列），多个会话可同时流式，
+    // 用实例字段会互相污染——另一个会话开始时把计数清零，本会话的截断续接
+    // 上限就永远触发不了，退化成无限续接。
+    var truncationContinuationCount = 0;
     final effectiveCreationRequest = _resolveCreationRequestForRound(
       session: session,
       latestUserMessageId: latestUserMessageId,
@@ -8152,7 +8153,12 @@ class AiSessionController extends ChangeNotifier {
         ).characters.length;
         final pendingChars =
             assistantPendingGraphemes + reasoningPendingGraphemes;
-        final effectiveCharsPerSec = effChars;
+        // 读实时速率而非流式开始时捕获的 effChars：用户可以在流式过程中通过
+        // setSessionStreamCharsOverride 改档，用陈旧速率估算会让 maxWait 过短。
+        final effectiveCharsPerSec = math.max(
+          charThrottle.maxCharsPerSecond,
+          reasoningCharThrottle.maxCharsPerSecond,
+        );
         // throttleDuration 只影响 UI 提示；正常完成路径仍等积压内容按
         // `pending / rate * 1.2 + 1s` 铺完后再 release。
         final maxWaitMs = effectiveCharsPerSec <= 0
@@ -8179,16 +8185,20 @@ class AiSessionController extends ChangeNotifier {
             (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
           // 兜底节奏：按 effChars 估一个 step interval，最少 16ms（避免
           // 把主线程卡死），最多 200ms（避免低速率下显得卡顿）。
-          final fallbackStep = effChars <= 0
+          final fallbackStep = effectiveCharsPerSec <= 0
               ? const Duration(milliseconds: 32)
               : Duration(
                   milliseconds: math.max(
                     16,
-                    math.min(200, (1000 / effChars).ceil()),
+                    math.min(200, (1000 / effectiveCharsPerSec).ceil()),
                   ),
                 );
+          // 硬止损：低速率 + 大积压时按速率排空可能要数万秒，而这里仍占着
+          // 该会话的操作队列。超时就直接放行，剩余内容由后续渲染补齐。
+          final drainDeadline = Stopwatch()..start();
           while (!_isDisposed &&
               !_isStopRequestedForSession(workingSession.id) &&
+              drainDeadline.elapsed < _streamDrainHardDeadline &&
               (charThrottle.hasPending || reasoningCharThrottle.hasPending)) {
             await Future<void>.delayed(fallbackStep);
             if (charThrottle.hasPending) renderAssistantBuffered();
@@ -8483,8 +8493,8 @@ class AiSessionController extends ChangeNotifier {
         if (result.wasTruncated &&
             !didCancelStream &&
             !workingSession.awaitingPlanApproval) {
-          _truncationContinuationCount += 1;
-          if (_truncationContinuationCount <=
+          truncationContinuationCount += 1;
+          if (truncationContinuationCount <=
               _effectiveMaxTruncationContinuations) {
             // Add a status message so the user can see that auto-
             // continuation happened, then loop back to the stream.
@@ -8520,7 +8530,7 @@ class AiSessionController extends ChangeNotifier {
           }
         }
         // 模型正常结束后重置截断续传计数。
-        _truncationContinuationCount = 0;
+        truncationContinuationCount = 0;
 
         // 未取消却没有正文、推理和工具调用时，按异常空响应处理。
         final hasReply = sanitizedReply.trim().isNotEmpty;
@@ -8629,7 +8639,7 @@ class AiSessionController extends ChangeNotifier {
       }
       // Model produced tool calls — reset the truncation counter since
       // the model is making normal progress.
-      _truncationContinuationCount = 0;
+      truncationContinuationCount = 0;
       toolCallCount += result.toolCalls.length;
       if (toolCallCount > singleRoundToolCallLimit) {
         final limitedToolSession = _markPendingToolCallsFailed(
