@@ -10356,11 +10356,17 @@ class _AgentAvatarContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (_agentAvatarLooksLikeImagePath(avatar)) {
+      // 限定解码尺寸：头像最大只渲染到 size 逻辑像素，不加这一层就会把原图
+      // 按全分辨率解进内存——一张手机照片够占几十 MB，而这里只画几十像素。
+      final decodeExtent = (size * MediaQuery.devicePixelRatioOf(context))
+          .round();
       return Image.file(
         File(avatar),
         width: size,
         height: size,
         fit: BoxFit.cover,
+        cacheWidth: decodeExtent,
+        cacheHeight: decodeExtent,
         errorBuilder: (context, error, stackTrace) => _fallbackText(),
       );
     }

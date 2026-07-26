@@ -28,6 +28,8 @@ import 'skill_market_dialog.dart';
 
 enum _SkillCardAction { openDirectory, edit, delete }
 
+/// 技能图标预览框的边长（逻辑像素）。
+const double _kSkillIconPreviewExtent = 48;
 const double _kSkillEditDialogMaxWidth = 960;
 const double _kSkillCreateDialogMaxWidth = 920;
 const double _kSkillDialogMaxHeight = 760;
@@ -667,8 +669,8 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        width: 48,
-                        height: 48,
+                        width: _kSkillIconPreviewExtent,
+                        height: _kSkillIconPreviewExtent,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHigh,
@@ -791,7 +793,16 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
   Widget _buildSelectedIconPreview() {
     final selectedImageBytes = _selectedImageBytes;
     if (selectedImageBytes != null) {
-      return Image.memory(selectedImageBytes, fit: BoxFit.cover);
+      // 图标预览框固定 48 逻辑像素；限定解码尺寸避免整张原图进内存。
+      final decodeExtent =
+          (_kSkillIconPreviewExtent * MediaQuery.devicePixelRatioOf(context))
+              .round();
+      return Image.memory(
+        selectedImageBytes,
+        fit: BoxFit.cover,
+        cacheWidth: decodeExtent,
+        cacheHeight: decodeExtent,
+      );
     }
     final selectedEmoji = _selectedEmoji;
     if (selectedEmoji != null) {
