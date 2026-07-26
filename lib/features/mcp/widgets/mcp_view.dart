@@ -2297,6 +2297,16 @@ const double _mcpOpsDialogMaxWidth = 1180;
 const double _mcpOpsDialogMaxHeight = 860;
 const double _mcpOpsOuterRadius = 28;
 const double _mcpOpsShellRadius = 20;
+
+/// MCP 运维面板内的信息块（schema 字段卡、JSON 预览等）统一底色与描边。
+BoxDecoration _mcpOpsPanelDecoration(ColorScheme cs) {
+  return BoxDecoration(
+    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+    borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+    border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+  );
+}
+
 const double _mcpOpsSubDialogWidthFraction = 0.94;
 const double _mcpOpsSubDialogHeightFraction = 0.92;
 const double _mcpOpsPanelRadius = 14;
@@ -8399,11 +8409,7 @@ class _McpOpsSchemaFieldCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
+      decoration: _mcpOpsPanelDecoration(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -8461,11 +8467,7 @@ class _McpOpsSchemaCodeView extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
+      decoration: _mcpOpsPanelDecoration(cs),
       child: SelectableText(
         text.trim().isEmpty ? '{}' : text,
         style: theme.textTheme.bodySmall?.copyWith(

@@ -7464,7 +7464,7 @@ class _WebOpsPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final panel = Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -8609,7 +8609,7 @@ class _OpsHealthCard extends StatelessWidget {
       _OpsDiagnosisTone.error => theme.colorScheme.error,
     };
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(
         theme,
       ).copyWith(border: Border.all(color: color.withValues(alpha: 0.42))),
@@ -9099,7 +9099,7 @@ class _OpsSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final slow = snapshot.slowestRecent;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9305,7 +9305,7 @@ class _OpsBreakdownCard extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = entries.fold<int>(0, (sum, entry) => sum + entry.value);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9406,7 +9406,7 @@ class _TopRoutesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9471,7 +9471,7 @@ class _RecentErrorsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9527,7 +9527,7 @@ class _ResourceInventoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: _kOpsCardPadding,
       decoration: _opsCardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9711,6 +9711,9 @@ class _OpsKeyValue extends StatelessWidget {
     );
   }
 }
+
+/// 运维面板卡片的统一内边距，与 [_opsCardDecoration] 配套使用。
+const EdgeInsets _kOpsCardPadding = EdgeInsets.all(14);
 
 BoxDecoration _opsCardDecoration(ThemeData theme) => BoxDecoration(
   color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.58),

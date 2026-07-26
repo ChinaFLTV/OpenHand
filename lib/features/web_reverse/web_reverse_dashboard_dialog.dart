@@ -128,6 +128,20 @@ part 'web_reverse_dashboard_dialog.realtime.part.dart';
 // 略大一点的视觉，保证 macOS 上点击命中区充足。
 const double _kToolbarHeight = 36;
 const double _kToolbarRadius = 999;
+const double _kToolbarDisabledOutlineAlpha = 0.4;
+
+/// 浏览器工具条上「胶囊按钮 / 下拉锚点」的统一描边；禁用态描边淡化。
+BoxDecoration _toolbarChipDecoration(ColorScheme cs, {required bool enabled}) {
+  return BoxDecoration(
+    borderRadius: BorderRadius.circular(_kToolbarRadius),
+    border: Border.all(
+      color: enabled
+          ? cs.outlineVariant
+          : cs.outlineVariant.withValues(alpha: _kToolbarDisabledOutlineAlpha),
+    ),
+  );
+}
+
 const double _kDashboardDialogMaxWidth = 1180;
 const double _kDashboardDialogMaxHeight = 760;
 const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);

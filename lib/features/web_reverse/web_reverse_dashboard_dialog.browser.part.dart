@@ -2534,14 +2534,7 @@ class _ZoomMenu extends StatelessWidget {
               .toList(growable: false),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_kToolbarRadius),
-              border: Border.all(
-                color: enabled
-                    ? cs.outlineVariant
-                    : cs.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
+            decoration: _toolbarChipDecoration(cs, enabled: enabled),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -3239,14 +3232,7 @@ class _ResolutionMenu extends StatelessWidget {
               .toList(growable: false),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_kToolbarRadius),
-              border: Border.all(
-                color: enabled
-                    ? cs.outlineVariant
-                    : cs.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
+            decoration: _toolbarChipDecoration(cs, enabled: enabled),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -3397,14 +3383,7 @@ class _DevicePresetMenu extends StatelessWidget {
               .toList(growable: false),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_kToolbarRadius),
-              border: Border.all(
-                color: enabled
-                    ? cs.outlineVariant
-                    : cs.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
+            decoration: _toolbarChipDecoration(cs, enabled: enabled),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
