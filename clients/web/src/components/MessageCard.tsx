@@ -82,6 +82,7 @@ import {
 } from '../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
 import { messageBubbleMaxWidth } from '../shared/ui/layout';
+import { MediaKindIcon } from './MediaKindIcon';
 import { svgIconProps } from '../shared/ui/svg_icon';
 import { formatLocalDateTimeMinute } from '../shared/util/date_time';
 
@@ -239,12 +240,11 @@ const MESSAGE_REASONING_SHADOW =
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
   const common = svgIconProps({ size, strokeWidth: 1.9 });
   switch (name) {
+    // 媒体类别图标与消息里的媒体块共用一份，避免同一种附件在两处长得不一样。
     case 'image':
-      return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="m7 16 4-4 3 3 2-2 3 3" /><circle cx="9" cy="9" r="1.2" /></svg>;
     case 'video':
-      return <svg {...common}><rect x="4" y="7" width="12" height="10" rx="2" /><path d="m16 11 4-2.5v7L16 13" /></svg>;
     case 'audio':
-      return <svg {...common}><path d="M9 18V6l10-2v12" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="16" r="2" /></svg>;
+      return <MediaKindIcon kind={name} size={size} />;
     case 'deepResearch':
       return <svg {...common}><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /><path d="M8.5 11h5M11 8.5v5" /></svg>;
     case 'attachmentFile':
