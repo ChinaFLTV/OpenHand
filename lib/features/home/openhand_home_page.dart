@@ -1177,7 +1177,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 _observedMessageGatewayController,
                 messageGatewayController,
               )) {
-                silentLog('home', '写入审批响应流', error, stack);
+                silentLog('openhand_home_page', '写入审批响应流', error, stack);
               }
             },
           );
@@ -1268,7 +1268,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     unawaited(
       cancelStreamSubscriptionBounded<List<WebWriteApprovalRequest>>(
         subscription,
-        onError: (error, stack) => silentLog('home', action, error, stack),
+        onError: (error, stack) => silentLog('openhand_home_page', action, error, stack),
       ),
     );
   }
@@ -1583,7 +1583,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         decision: decision ?? BashCommandApprovalDecision.dismissed,
       );
     } catch (error, stack) {
-      silentLog('home', '显示共享写入审批', error, stack);
+      silentLog('openhand_home_page', '显示共享写入审批', error, stack);
       if (!responseAttempted &&
           mounted &&
           !_suppressWriteApprovalDialogResponse &&
@@ -1596,7 +1596,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             decision: BashCommandApprovalDecision.dismissed,
           );
         } catch (fallbackError, fallbackStack) {
-          silentLog('home', '关闭共享写入审批失败', fallbackError, fallbackStack);
+          silentLog('openhand_home_page', '关闭共享写入审批失败', fallbackError, fallbackStack);
         }
       }
     } finally {
@@ -6694,7 +6694,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _composerClipboardReadTimeout,
         );
       } catch (error, stack) {
-        silentLog('home', '读取剪贴板文件', error, stack);
+        silentLog('openhand_home_page', '读取剪贴板文件', error, stack);
       }
       if (!mounted) {
         return;
@@ -6717,7 +6717,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       try {
         bytes = await Pasteboard.image.timeout(_composerClipboardReadTimeout);
       } catch (error, stack) {
-        silentLog('home', '读取剪贴板图片', error, stack);
+        silentLog('openhand_home_page', '读取剪贴板图片', error, stack);
         return;
       }
       if (bytes == null || bytes.isEmpty) {
@@ -6739,7 +6739,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         await tempFile.writeAsBytes(bytes, flush: true);
         tempPath = tempFile.path;
       } catch (error, stack) {
-        silentLog('home', '写入剪贴板临时文件', error, stack);
+        silentLog('openhand_home_page', '写入剪贴板临时文件', error, stack);
         return;
       }
       if (!mounted) {
@@ -6894,7 +6894,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           await tempFile.writeAsBytes(editorResult.bytes, flush: true);
           resolvedPath = tempFile.path;
         } on BoundedFileReadException catch (error, stack) {
-          silentLog('home', '有界读取图片附件', error, stack);
+          silentLog('openhand_home_page', '有界读取图片附件', error, stack);
           if (error.failure == BoundedFileReadFailure.tooLarge) {
             oversizedCount += 1;
           } else {
@@ -6902,15 +6902,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           }
           continue;
         } on FileSystemException catch (error, stack) {
-          silentLog('home', '读取图片附件文件', error, stack);
+          silentLog('openhand_home_page', '读取图片附件文件', error, stack);
           unreadableCount += 1;
           continue;
         } on TimeoutException catch (error, stack) {
-          silentLog('home', '读取图片附件超时', error, stack);
+          silentLog('openhand_home_page', '读取图片附件超时', error, stack);
           unreadableCount += 1;
           continue;
         } catch (error, stack) {
-          silentLog('home', '编辑图片附件', error, stack);
+          silentLog('openhand_home_page', '编辑图片附件', error, stack);
           resolvedPath = path;
         }
       }
@@ -6926,7 +6926,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         nextAttachments.add(draft);
       } catch (error, stack) {
-        silentLog('home', '创建附件草稿', error, stack);
+        silentLog('openhand_home_page', '创建附件草稿', error, stack);
         unreadableCount += 1;
         continue;
       }

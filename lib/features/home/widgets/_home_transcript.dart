@@ -1633,7 +1633,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         fallbackModel: _translationFallbackModel(settingsController),
       );
     } catch (error, stack) {
-      silentLog('tts', '切换消息播放状态', error, stack);
+      silentLog('home_transcript', '切换消息播放状态', error, stack);
       if (!mounted) return;
       flashOpenHandSnack(
         context,

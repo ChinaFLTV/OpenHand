@@ -2256,7 +2256,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
         setState(() {});
       }
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard', '刷新调试器 Watch', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '刷新调试器 Watch', error, stack);
     } finally {
       _watchEvaluationRunning = false;
       if (mounted && _watchEvaluationQueued) {

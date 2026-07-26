@@ -61,7 +61,7 @@ Future<Map<String, String>> mcpStdioIsolatedCacheEnv() async {
     }
     return environment;
   } catch (error, stack) {
-    silentLog('mcp.stdio', '构建隔离软件包缓存环境变量', error, stack);
+    silentLog('mcp_stdio', '构建隔离软件包缓存环境变量', error, stack);
     return const <String, String>{};
   }
 }

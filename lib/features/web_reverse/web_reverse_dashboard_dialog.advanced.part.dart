@@ -2384,7 +2384,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       const Duration(seconds: 1),
       (_) => _poll(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '轮询 WebRTC 日志', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '轮询 WebRTC 日志', error, stack),
     );
     _poll();
   }
@@ -2575,7 +2575,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         acceptedTypeGroups: const [typeGroup],
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard', '选择 RTC CSV 保存位置', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '选择 RTC CSV 保存位置', error, stack);
     }
     if (loc == null) return;
     try {
@@ -2594,7 +2594,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         ),
       );
     } catch (error, stack) {
-      silentLog('web_reverse_dashboard', '写入 RTC CSV', error, stack);
+      silentLog('web_reverse_dashboard_dialog', '写入 RTC CSV', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,

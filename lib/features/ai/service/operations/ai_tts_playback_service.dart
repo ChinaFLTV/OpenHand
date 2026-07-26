@@ -227,7 +227,7 @@ class AiTtsPlaybackService {
         lastError = error;
         lastStack = stack;
         if (!isAiTtsConfigurationError(error)) {
-          silentLog('tts', '调用供应商 ${provider.storageKey}', error, stack);
+          silentLog('ai_tts_playback_service', '调用供应商 ${provider.storageKey}', error, stack);
         }
       }
     }
@@ -375,7 +375,7 @@ class AiTtsPlaybackService {
       _finishDispose(operation).then<void>(
         (_) => completer.complete(),
         onError: (Object error, StackTrace stack) {
-          silentLog('tts', '关闭播放服务', error, stack);
+          silentLog('ai_tts_playback_service', '关闭播放服务', error, stack);
           completer.complete();
         },
       ),
@@ -388,18 +388,18 @@ class AiTtsPlaybackService {
       await runAsyncCleanupBounded(
         () => _releaseOperation(operation),
         timeout: const Duration(seconds: 8),
-        onError: (error, stack) => silentLog('tts', '关闭当前播放任务', error, stack),
+        onError: (error, stack) => silentLog('ai_tts_playback_service', '关闭当前播放任务', error, stack),
       );
     }
     if (_ownsMediaGenerationService) {
       await runAsyncCleanupBounded(
         _mediaGenerationService.dispose,
-        onError: (error, stack) => silentLog('tts', '关闭媒体生成服务', error, stack),
+        onError: (error, stack) => silentLog('ai_tts_playback_service', '关闭媒体生成服务', error, stack),
       );
     }
     await runAsyncCleanupBounded(
       state.dispose,
-      onError: (error, stack) => silentLog('tts', '关闭播放状态', error, stack),
+      onError: (error, stack) => silentLog('ai_tts_playback_service', '关闭播放状态', error, stack),
     );
   }
 

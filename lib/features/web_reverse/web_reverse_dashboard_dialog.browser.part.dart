@@ -231,7 +231,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       },
       callbackTimeout: const Duration(seconds: 5),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '轮询当前链接', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '轮询当前链接', error, stack),
     );
   }
 
@@ -400,7 +400,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         }
       },
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '浏览器占位计时器', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '浏览器占位计时器', error, stack),
     );
   }
 

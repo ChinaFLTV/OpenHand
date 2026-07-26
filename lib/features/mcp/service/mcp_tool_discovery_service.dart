@@ -2135,11 +2135,11 @@ Future<String> _probeLoginShellPath() {
             break;
           }
         } catch (error, stack) {
-          silentLog('mcp.stdio', '探测登录 Shell 路径/$candidate', error, stack);
+          silentLog('mcp_stdio', '探测登录 Shell 路径/$candidate', error, stack);
         }
       }
     } catch (error, stack) {
-      silentLog('mcp.stdio', '探测登录 Shell 路径', error, stack);
+      silentLog('mcp_stdio', '探测登录 Shell 路径', error, stack);
     }
     _cachedLoginShellPath = result;
     completer.complete(result);
@@ -2492,7 +2492,7 @@ class _StdioSession {
           try {
             cb(line);
           } catch (error, stack) {
-            silentLog('mcp.stdio', '处理标准错误输出行', error, stack);
+            silentLog('mcp_stdio', '处理标准错误输出行', error, stack);
           }
         }
       }
@@ -2501,7 +2501,7 @@ class _StdioSession {
       _process.exitCode.then<void>(
         (code) => _appendTrace('process:exit:$code'),
         onError: (Object error, StackTrace stack) {
-          silentLog('mcp.stdio', '监听进程退出', error, stack);
+          silentLog('mcp_stdio', '监听进程退出', error, stack);
         },
       ),
     );
@@ -2866,7 +2866,7 @@ class _StdioSession {
         await writeMcpJsonLineToStdin(_process.stdin, payload);
       } on StateError catch (error, stack) {
         if (!isExpectedMcpStdioSinkStateError(error)) {
-          silentLog('mcp.stdio', '写入进程标准输入', error, stack);
+          silentLog('mcp_stdio', '写入进程标准输入', error, stack);
           throw McpToolDiscoveryException(
             'Tool scan failed because stdin became unavailable: $error',
           );
@@ -2920,7 +2920,7 @@ class _StdioSession {
     } on TimeoutException {
       return false;
     } catch (error, stack) {
-      silentLog('mcp.stdio', '关闭时读取进程退出码', error, stack);
+      silentLog('mcp_stdio', '关闭时读取进程退出码', error, stack);
       return true;
     }
   }
@@ -2932,7 +2932,7 @@ class _StdioSession {
     await cancelStreamSubscriptionBounded<T>(
       subscription,
       timeout: _mcpStreamCleanupTimeout,
-      onError: (error, stack) => silentLog('mcp.stdio', where, error, stack),
+      onError: (error, stack) => silentLog('mcp_stdio', where, error, stack),
     );
   }
 }

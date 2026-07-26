@@ -520,7 +520,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           ? l10n.proxyTestSuccess(_totalStopwatch.elapsedMilliseconds, viaLabel)
           : l10n.proxyTestFailure('HTTP ${response.statusCode}');
     } catch (error, stack) {
-      silentLog('settings_proxy', '执行连通性测试', error, stack);
+      silentLog('settings_proxy_test_dialog', '执行连通性测试', error, stack);
       ok = false;
       if (mounted) {
         summary = AppLocalizations.of(

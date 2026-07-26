@@ -65,19 +65,19 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       const Duration(seconds: 2),
       (_) => _refresh(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '刷新性能指标', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '刷新性能指标', error, stack),
     );
     _fpsTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _sampleFps(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '采样 FPS', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '采样 FPS', error, stack),
     );
     _longTaskTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _sampleLongTasks(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '采样长任务', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '采样长任务', error, stack),
     );
   }
 
@@ -1482,7 +1482,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       const Duration(milliseconds: 1500),
       (_) => _sampleHeap(),
       onError: (error, stack) =>
-          silentLog('web_reverse_dashboard', '采样堆内存', error, stack),
+          silentLog('web_reverse_dashboard_dialog', '采样堆内存', error, stack),
     );
     unawaited(_sampleHeap());
     // 读回 session metadata 中保存的最近两次堆快照，让用户

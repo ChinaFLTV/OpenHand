@@ -488,7 +488,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
       (_) => _loadInfo(),
       callbackTimeout: const Duration(seconds: 10),
       onError: (error, stack) =>
-          silentLog('mcp_stdio_dialog', '刷新运行时信息', error, stack),
+          silentLog('mcp_stdio_dialogs', '刷新运行时信息', error, stack),
     );
   }
 
@@ -510,7 +510,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
         });
       }
     } catch (error, stack) {
-      silentLog('mcp_stdio_dialog', '加载运行时信息', error, stack);
+      silentLog('mcp_stdio_dialogs', '加载运行时信息', error, stack);
       if (mounted) {
         setState(() => _loading = false);
       }

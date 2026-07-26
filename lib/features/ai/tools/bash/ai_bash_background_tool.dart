@@ -1034,7 +1034,7 @@ class _BgSession {
         runAsyncCleanupBounded(
           () => terminateTrackedProcessTree(process),
           onError: (error, stack) =>
-              silentLog('ai_bash_background_tool', '终止后台进程', error, stack),
+              silentLog('ai_bash_background', '终止后台进程', error, stack),
         ),
       );
     }
@@ -1046,14 +1046,14 @@ class _BgSession {
       cancelStreamSubscriptionBounded<String>(
         stdout,
         onError: (error, stack) =>
-            silentLog('ai_bash_background_tool', '取消后台标准输出订阅', error, stack),
+            silentLog('ai_bash_background', '取消后台标准输出订阅', error, stack),
       ),
     );
     cleanup.add(
       cancelStreamSubscriptionBounded<String>(
         stderr,
         onError: (error, stack) =>
-            silentLog('ai_bash_background_tool', '取消后台标准错误订阅', error, stack),
+            silentLog('ai_bash_background', '取消后台标准错误订阅', error, stack),
       ),
     );
     markStdoutDone();
@@ -1070,7 +1070,7 @@ class _BgSession {
     return _proxyCloseFuture = runAsyncCleanupBounded(
       lease.close,
       onError: (error, stack) =>
-          silentLog('ai_bash_background_tool', '关闭后台代理', error, stack),
+          silentLog('ai_bash_background', '关闭后台代理', error, stack),
     ).then<void>((_) {});
   }
 

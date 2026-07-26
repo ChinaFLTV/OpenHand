@@ -85,7 +85,7 @@ class _MachineExpertTerminalPanelState
       if (!mounted || widget.sessionId != sessionId) return;
       await terminalService.startTerminal(sessionId: sessionId);
     } catch (error, stack) {
-      silentLog('openhand_home', '初始化机器终端', error, stack);
+      silentLog('home_machine_terminal_panel', '初始化机器终端', error, stack);
       if (!mounted || widget.sessionId != sessionId) return;
       _initializedSessionId = null;
       showFriendlyErrorSnackBar(
@@ -232,7 +232,7 @@ class _MachineExpertTerminalPanelState
         _terminalFocusNode.requestFocus();
       }
     } catch (error, stack) {
-      silentLog('openhand_home', '控制机器终端', error, stack);
+      silentLog('home_machine_terminal_panel', '控制机器终端', error, stack);
       if (!mounted) return;
       showFriendlyErrorSnackBar(
         context,
@@ -966,7 +966,7 @@ class _MachineTerminalHistoryDialogState
         ),
       );
     } catch (error, stack) {
-      silentLog('openhand_home', '恢复机器终端历史', error, stack);
+      silentLog('home_machine_terminal_panel', '恢复机器终端历史', error, stack);
       if (!mounted) return;
       showFriendlyErrorSnackBar(
         context,
@@ -1076,7 +1076,7 @@ class _MachineTerminalHistoryDialogState
         openHandLocalizedText(context, zh: '终端会话已删除。', en: 'Terminal deleted.'),
       );
     } catch (error, stack) {
-      silentLog('openhand_home', '删除机器终端历史', error, stack);
+      silentLog('home_machine_terminal_panel', '删除机器终端历史', error, stack);
       if (!mounted) return;
       showFriendlyErrorSnackBar(
         context,

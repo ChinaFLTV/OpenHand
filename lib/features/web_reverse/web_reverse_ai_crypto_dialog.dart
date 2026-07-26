@@ -101,7 +101,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         final key = '${e.method.toUpperCase()} ${uri.host}$path';
         (map[key] ??= <CdpNetworkEntry>[]).add(e);
       } catch (err, st) {
-        silentLog('web_reverse_ai_crypto', '归组请求数据', err, st);
+        silentLog('web_reverse_ai_crypto_dialog', '归组请求数据', err, st);
       }
     }
     final list =
@@ -343,7 +343,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
             }
           }
         } catch (e, st) {
-          silentLog('web_reverse_ai_crypto', '在资源中搜索', e, st);
+          silentLog('web_reverse_ai_crypto_dialog', '在资源中搜索', e, st);
         }
       }
       if (list.isNotEmpty) out[key] = list;
@@ -463,7 +463,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         });
       }
     } catch (e, st) {
-      silentLog('web_reverse_ai_crypto', '分析加密调用', e, st);
+      silentLog('web_reverse_ai_crypto_dialog', '分析加密调用', e, st);
       if (mounted) setState(() => _status = '$e');
     }
     if (mounted) setState(() => _busy = false);

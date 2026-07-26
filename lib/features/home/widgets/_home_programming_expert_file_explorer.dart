@@ -110,7 +110,7 @@ Future<void> _setProgrammingExplorerClipboardText(
   try {
     await setOpenHandClipboardText(text);
   } catch (error, stack) {
-    silentLog('programming_expert_file_explorer', logAction, error, stack);
+    silentLog('file_explorer', logAction, error, stack);
   }
 }
 

@@ -109,9 +109,9 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
 
-  // 超过 12 条 view 时，先只展开前 _kInitialReveal 条，
-  // 后续点「展开剩余 N 条」按需渲染。避免构造 200+ 个 _FileMutationCardRow
-  // （每个含可能巨大的 _InlineDiffPanel build closure）。
+  // view 超过 _kInitialReveal 条时先只渲染前 _kInitialReveal 条，后续点
+  // 「展开剩余 N 条」再按 _kRevealStep 递增。避免一次构造上百个
+  // _FileMutationCardRow（每个都含可能巨大的 _InlineDiffPanel build closure）。
   static const int _kInitialReveal = 10;
   static const int _kRevealStep = 30;
   int _revealedCount = _kInitialReveal;

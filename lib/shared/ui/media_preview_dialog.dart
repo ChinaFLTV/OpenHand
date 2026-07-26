@@ -829,7 +829,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       setState(() => _controller = controller);
     } catch (error, stack) {
       await _cleanupTempFiles();
-      silentLog('media_preview', '初始化视频预览 WebView', error, stack);
+      silentLog('media_preview_dialog', '初始化视频预览 WebView', error, stack);
       if (!mounted) return;
       setState(() => _error = '$error');
     } finally {
