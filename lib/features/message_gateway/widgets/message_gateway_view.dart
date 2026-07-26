@@ -10124,25 +10124,10 @@ class _MultiSelectDropdownMenuState<T>
                   ),
                   const SizedBox(width: 8),
                   _GatewayRoundIconActionButton(
-                    tooltip: query.isEmpty
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '全选',
-                            zhHant: '全選',
-                            en: 'Select all',
-                            fr: 'Tout sélectionner',
-                            de: 'Alle auswählen',
-                            ja: 'すべて選択',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '当前筛选全选',
-                            zhHant: '目前篩選全選',
-                            en: 'Select filtered',
-                            fr: 'Sélectionner le filtre',
-                            de: 'Gefilterte auswählen',
-                            ja: '絞り込み結果を全選択',
-                          ),
+                    tooltip: _gatewaySelectAllTooltip(
+                      context,
+                      filtered: query.isNotEmpty,
+                    ),
                     icon: Icons.done_all_rounded,
                     onPressed: filteredValues.isEmpty
                         ? null
@@ -10150,25 +10135,10 @@ class _MultiSelectDropdownMenuState<T>
                   ),
                   const SizedBox(width: 8),
                   _GatewayRoundIconActionButton(
-                    tooltip: query.isEmpty
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '全不选',
-                            zhHant: '全不選',
-                            en: 'Deselect all',
-                            fr: 'Tout désélectionner',
-                            de: 'Alle abwählen',
-                            ja: 'すべて解除',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '当前筛选全不选',
-                            zhHant: '目前篩選全不選',
-                            en: 'Deselect filtered',
-                            fr: 'Désélectionner le filtre',
-                            de: 'Gefilterte abwählen',
-                            ja: '絞り込み結果を全解除',
-                          ),
+                    tooltip: _gatewayDeselectAllTooltip(
+                      context,
+                      filtered: query.isNotEmpty,
+                    ),
                     icon: Icons.remove_done_rounded,
                     onPressed: filteredValues.isEmpty
                         ? null
@@ -10181,13 +10151,9 @@ class _MultiSelectDropdownMenuState<T>
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: TextField(
                 controller: _searchController,
-                decoration: InputDecoration(
-                  isDense: true,
-                  filled: true,
-                  fillColor: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.58,
-                  ),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                decoration: _gatewaySelectionSearchDecoration(
+                  context,
+                  dense: true,
                   hintText: openHandLocalizedText(
                     context,
                     zh: '搜索',
@@ -10197,31 +10163,8 @@ class _MultiSelectDropdownMenuState<T>
                     de: 'Suchen',
                     ja: '検索',
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-                    ),
-                  ),
-                  suffixIcon: _searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: openHandLocalizedText(
-                            context,
-                            zh: '清空搜索',
-                            zhHant: '清空搜尋',
-                            en: 'Clear search',
-                            fr: 'Effacer la recherche',
-                            de: 'Suche leeren',
-                            ja: '検索をクリア',
-                          ),
-                          onPressed: _searchController.clear,
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                        ),
+                  showClear: _searchController.text.isNotEmpty,
+                  onClear: _searchController.clear,
                 ),
               ),
             ),
@@ -10408,6 +10351,104 @@ class _MultiSelectDropdownMenuState<T>
 
 bool _isExplicitNone<T>(Set<T> selected, T? noneValue) {
   return noneValue != null && selected.contains(noneValue);
+}
+
+/// 「全选 / 全不选」按钮的提示文案。[filtered] 为真时说明当前有搜索筛选，
+/// 操作只作用于筛选结果，文案需要点明范围。
+String _gatewaySelectAllTooltip(
+  BuildContext context, {
+  required bool filtered,
+}) {
+  return filtered
+      ? openHandLocalizedText(
+          context,
+          zh: '当前筛选全选',
+          zhHant: '目前篩選全選',
+          en: 'Select filtered',
+          fr: 'Sélectionner le filtre',
+          de: 'Gefilterte auswählen',
+          ja: '絞り込み結果を全選択',
+        )
+      : openHandLocalizedText(
+          context,
+          zh: '全选',
+          zhHant: '全選',
+          en: 'Select all',
+          fr: 'Tout sélectionner',
+          de: 'Alle auswählen',
+          ja: 'すべて選択',
+        );
+}
+
+String _gatewayDeselectAllTooltip(
+  BuildContext context, {
+  required bool filtered,
+}) {
+  return filtered
+      ? openHandLocalizedText(
+          context,
+          zh: '当前筛选全不选',
+          zhHant: '目前篩選全不選',
+          en: 'Deselect filtered',
+          fr: 'Désélectionner le filtre',
+          de: 'Gefilterte abwählen',
+          ja: '絞り込み結果を全解除',
+        )
+      : openHandLocalizedText(
+          context,
+          zh: '全不选',
+          zhHant: '全不選',
+          en: 'Deselect all',
+          fr: 'Tout désélectionner',
+          de: 'Alle abwählen',
+          ja: 'すべて解除',
+        );
+}
+
+/// 选择弹窗搜索框的统一装饰。[hintText] 由调用方给出（「搜索」/「搜索模型」）。
+InputDecoration _gatewaySelectionSearchDecoration(
+  BuildContext context, {
+  required String hintText,
+  required bool showClear,
+  required VoidCallback onClear,
+  bool dense = false,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final iconSize = dense ? 18.0 : null;
+  return InputDecoration(
+    isDense: dense,
+    filled: true,
+    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+    prefixIcon: Icon(Icons.search_rounded, size: iconSize),
+    hintText: hintText,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: dense
+          ? BorderSide(color: colorScheme.outlineVariant)
+          : const BorderSide(),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(
+        color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+      ),
+    ),
+    suffixIcon: !showClear
+        ? null
+        : IconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '清空搜索',
+              zhHant: '清空搜尋',
+              en: 'Clear search',
+              fr: 'Effacer la recherche',
+              de: 'Suche leeren',
+              ja: '検索をクリア',
+            ),
+            onPressed: onClear,
+            icon: Icon(Icons.clear_rounded, size: iconSize),
+          ),
+  );
 }
 
 class _GatewayRoundIconActionButton extends StatelessWidget {
@@ -10708,25 +10749,10 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 _GatewayRoundIconActionButton(
-                  tooltip: query.isEmpty
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '全选',
-                          zhHant: '全選',
-                          en: 'Select all',
-                          fr: 'Tout sélectionner',
-                          de: 'Alle auswählen',
-                          ja: 'すべて選択',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '当前筛选全选',
-                          zhHant: '目前篩選全選',
-                          en: 'Select filtered',
-                          fr: 'Sélectionner le filtre',
-                          de: 'Gefilterte auswählen',
-                          ja: '絞り込み結果を全選択',
-                        ),
+                  tooltip: _gatewaySelectAllTooltip(
+                    context,
+                    filtered: query.isNotEmpty,
+                  ),
                   icon: Icons.done_all_rounded,
                   onPressed: visibleKeys.isEmpty
                       ? null
@@ -10734,25 +10760,10 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 _GatewayRoundIconActionButton(
-                  tooltip: query.isEmpty
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '全不选',
-                          zhHant: '全不選',
-                          en: 'Deselect all',
-                          fr: 'Tout désélectionner',
-                          de: 'Alle abwählen',
-                          ja: 'すべて解除',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '当前筛选全不选',
-                          zhHant: '目前篩選全不選',
-                          en: 'Deselect filtered',
-                          fr: 'Désélectionner le filtre',
-                          de: 'Gefilterte abwählen',
-                          ja: '絞り込み結果を全解除',
-                        ),
+                  tooltip: _gatewayDeselectAllTooltip(
+                    context,
+                    filtered: query.isNotEmpty,
+                  ),
                   icon: Icons.remove_done_rounded,
                   onPressed: visibleKeys.isEmpty
                       ? null
@@ -10772,12 +10783,8 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.58,
-                ),
-                prefixIcon: const Icon(Icons.search_rounded),
+              decoration: _gatewaySelectionSearchDecoration(
+                context,
                 hintText: openHandLocalizedText(
                   context,
                   zh: '搜索模型',
@@ -10787,30 +10794,8 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                   de: 'Modelle suchen',
                   ja: 'モデルを検索',
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-                  ),
-                ),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '清空搜索',
-                          zhHant: '清空搜尋',
-                          en: 'Clear search',
-                          fr: 'Effacer la recherche',
-                          de: 'Suche leeren',
-                          ja: '検索をクリア',
-                        ),
-                        onPressed: _searchController.clear,
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
+                showClear: _searchController.text.isNotEmpty,
+                onClear: _searchController.clear,
               ),
             ),
           ),
