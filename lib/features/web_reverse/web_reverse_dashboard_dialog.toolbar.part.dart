@@ -1334,9 +1334,7 @@ class _ToolbarTabPill extends StatelessWidget {
     return SizedBox(
       height: _kToolbarHeight,
       child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: active ? cs.primaryContainer : Colors.transparent,
@@ -1375,7 +1373,7 @@ class _ToolbarTabPill extends StatelessWidget {
                     AnimatedSwitcher(
                       duration: reduceMotion
                           ? Duration.zero
-                          : const Duration(milliseconds: 200),
+                          : kOpenHandMotion200,
                       transitionBuilder: (c, a) =>
                           ScaleTransition(scale: a, child: c),
                       child: Container(
@@ -1507,9 +1505,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
           ),
       ],
       child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
         curve: Curves.easeOutCubic,
         height: _kToolbarHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1616,9 +1612,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
       width: 260,
       height: _kToolbarHeight,
       child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: _focused
@@ -1642,9 +1636,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
         child: Row(
           children: [
             AnimatedContainer(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
+              duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
               curve: Curves.easeOutCubic,
               child: Icon(
                 Icons.search_rounded,
@@ -1685,9 +1677,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
               ),
             ),
             AnimatedSwitcher(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 200),
+              duration: reduceMotion ? Duration.zero : kOpenHandMotion200,
               transitionBuilder: (c, a) => FadeTransition(
                 opacity: a,
                 child: ScaleTransition(scale: a, child: c),
@@ -1744,9 +1734,7 @@ class _ToolbarTogglePill extends StatelessWidget {
     return SizedBox(
       height: _kToolbarHeight,
       child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           // 与全局主色保持一致：选中态用 primaryContainer

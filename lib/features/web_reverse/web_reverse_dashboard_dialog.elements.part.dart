@@ -397,9 +397,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     return InkWell(
       onTap: () => _select(id),
       child: AnimatedContainer(
-        duration: widget.reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 140),
+        duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion140,
         curve: Curves.easeOutCubic,
         color: selected ? cs.primary.withValues(alpha: 0.12) : null,
         padding: EdgeInsets.fromLTRB(8.0 + row.depth * 14, 2, 8, 2),
@@ -529,9 +527,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
         const Divider(height: 1),
         Expanded(
           child: AnimatedSwitcher(
-            duration: widget.reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
+            duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion180,
             switchInCurve: Curves.easeOutCubic,
             child: switch (_detailsTab) {
               0 => _attrsView(theme, cs, loc),

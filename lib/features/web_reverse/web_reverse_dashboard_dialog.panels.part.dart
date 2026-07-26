@@ -603,7 +603,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                             return AnimatedContainer(
                               duration: widget.reduceMotion
                                   ? Duration.zero
-                                  : const Duration(milliseconds: 220),
+                                  : kOpenHandMotion220,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 8,

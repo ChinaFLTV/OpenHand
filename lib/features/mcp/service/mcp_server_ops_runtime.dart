@@ -8,6 +8,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
@@ -217,6 +218,12 @@ class McpServerOpsRuntime {
   static const Map<String, String> _responseHeaders = <String, String>{
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+  };
+
+  /// 纯文本响应头：错误与状态回执统一走这一份，避免 charset 在各分支漂移。
+  static const Map<String, String> _plainTextResponseHeaders = <String, String>{
+    ..._responseHeaders,
+    kContentTypeHeaderName: 'text/plain; charset=utf-8',
   };
 
   final McpOpsToolListProvider _toolListProvider;
@@ -600,8 +607,7 @@ class McpServerOpsRuntime {
             HttpStatus.tooManyRequests,
             body: 'Too many concurrent OpenHand MCP requests.',
             headers: const <String, String>{
-              ..._responseHeaders,
-              'content-type': 'text/plain; charset=utf-8',
+              ..._plainTextResponseHeaders,
               'connection': 'close',
             },
           );
@@ -672,8 +678,7 @@ class McpServerOpsRuntime {
         HttpStatus.forbidden,
         body: 'Browser-originated MCP requests are not accepted.',
         headers: const <String, String>{
-          ..._responseHeaders,
-          'content-type': 'text/plain; charset=utf-8',
+          ..._plainTextResponseHeaders,
           'connection': 'close',
         },
       );
@@ -702,7 +707,7 @@ class McpServerOpsRuntime {
           headers: const <String, String>{
             ..._responseHeaders,
             'allow': 'GET, POST, DELETE, OPTIONS, HEAD',
-            'content-type': 'text/plain; charset=utf-8',
+            kContentTypeHeaderName: 'text/plain; charset=utf-8',
           },
         );
     }
@@ -720,10 +725,7 @@ class McpServerOpsRuntime {
       return shelf.Response(
         HttpStatus.forbidden,
         body: 'Request blocked by OpenHand policy',
-        headers: const <String, String>{
-          ..._responseHeaders,
-          'content-type': 'text/plain; charset=utf-8',
-        },
+        headers: const <String, String>{..._plainTextResponseHeaders},
       );
     }
     _recordLifecycle(
@@ -760,10 +762,7 @@ class McpServerOpsRuntime {
       return shelf.Response(
         HttpStatus.forbidden,
         body: 'Request blocked by OpenHand policy',
-        headers: const <String, String>{
-          ..._responseHeaders,
-          'content-type': 'text/plain; charset=utf-8',
-        },
+        headers: const <String, String>{..._plainTextResponseHeaders},
       );
     }
     // 成功计数前先执行流上限，避免拒绝请求被重复计为成功和阻止。
@@ -778,10 +777,7 @@ class McpServerOpsRuntime {
       return shelf.Response(
         HttpStatus.tooManyRequests,
         body: 'Too many OpenHand MCP streams',
-        headers: const <String, String>{
-          ..._responseHeaders,
-          'content-type': 'text/plain; charset=utf-8',
-        },
+        headers: const <String, String>{..._plainTextResponseHeaders},
       );
     }
     _recordLifecycle(
@@ -800,7 +796,7 @@ class McpServerOpsRuntime {
       headers: <String, String>{
         ..._responseHeaders,
         ..._sessionHeaders(request),
-        'content-type': 'text/event-stream; charset=utf-8',
+        kContentTypeHeaderName: 'text/event-stream; charset=utf-8',
         'cache-control': 'no-cache, no-transform',
         'connection': 'keep-alive',
         'x-accel-buffering': 'no',
@@ -847,8 +843,7 @@ class McpServerOpsRuntime {
         HttpStatus.forbidden,
         body: 'Request blocked by OpenHand policy',
         headers: const <String, String>{
-          ..._responseHeaders,
-          'content-type': 'text/plain; charset=utf-8',
+          ..._plainTextResponseHeaders,
           'connection': 'close',
         },
       );
@@ -981,8 +976,7 @@ class McpServerOpsRuntime {
       statusCode,
       body: message,
       headers: const <String, String>{
-        ..._responseHeaders,
-        'content-type': 'text/plain; charset=utf-8',
+        ..._plainTextResponseHeaders,
         'connection': 'close',
       },
     );
@@ -1771,7 +1765,7 @@ class McpServerOpsRuntime {
       body: body,
       headers: <String, String>{
         ..._responseHeaders,
-        'content-type': 'application/json; charset=utf-8',
+        kContentTypeHeaderName: 'application/json; charset=utf-8',
         ...headers,
       },
     );

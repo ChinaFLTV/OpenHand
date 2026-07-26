@@ -19,7 +19,6 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/duration_bounds.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
-const String _contentTypeHeaderName = 'content-type';
 const Duration _fallbackRequestTimeout = Duration(seconds: 60);
 const Duration _responseIdleTimeout = Duration(seconds: 30);
 const Duration _fileCleanupTimeout = Duration(seconds: 2);
@@ -312,7 +311,7 @@ class AiTransportClient {
           abortTrigger: abort.future,
         );
         headers.forEach((key, value) {
-          if (lowercaseStringFromValue(key) == _contentTypeHeaderName) return;
+          if (lowercaseStringFromValue(key) == kContentTypeHeaderName) return;
           request.headers[key] = value;
         });
         var totalFileBytes = 0;
@@ -703,7 +702,7 @@ class AiTransportClient {
             streamed.headers,
             'content-type',
           );
-          final responseLimit = _isJsonContentType(contentType)
+          final responseLimit = isJsonMimeType(contentType)
               ? math.min(maxBytes, maxJsonBytes)
               : maxBytes;
           _rejectOversizedDeclaredResponse(
@@ -1007,15 +1006,6 @@ class AiTransportClient {
       throw TimeoutException('HTTP response exceeded the request time limit.');
     }
     return remaining;
-  }
-
-  bool _isJsonContentType(String? contentType) {
-    final mimeType = lowercaseStringFromValue(
-      (contentType ?? '').split(';').first,
-    );
-    return mimeType == 'application/json' ||
-        mimeType == 'text/json' ||
-        mimeType.endsWith('+json');
   }
 
   Future<T> _runAbortable<T>(

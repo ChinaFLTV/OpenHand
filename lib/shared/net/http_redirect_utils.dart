@@ -81,6 +81,39 @@ String? readResponseHeaderOrNull(Map<String, String> headers, String name) {
   return nullIfBlank(readResponseHeader(headers, name));
 }
 
+/// `Content-Type` 头名，避免各处重复书写字面量后大小写不一致。
+const String kContentTypeHeaderName = 'content-type';
+
+/// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
+/// 缺失时返回空字符串。
+String responseMimeType(Map<String, String> headers) {
+  return mimeTypeFromContentType(
+    readResponseHeader(headers, kContentTypeHeaderName),
+  );
+}
+
+/// 从完整的 `Content-Type` 取值里提取 MIME 部分，统一转小写。
+String mimeTypeFromContentType(String? contentType) {
+  return lowercaseStringFromValue((contentType ?? '').split(';').first);
+}
+
+/// MIME 是否为 JSON 载荷。
+///
+/// 覆盖 `application/json`、历史遗留的 `text/json` / `application/x-json`，
+/// 以及 `application/problem+json` 一类的 `+json` 结构化后缀。此前传输层与
+/// 媒体生成各维护一份名单，收录范围并不一致。
+bool isJsonMimeType(String? contentType) {
+  final mimeType = mimeTypeFromContentType(contentType);
+  if (mimeType.isEmpty) return false;
+  return _jsonMimeTypes.contains(mimeType) || mimeType.endsWith('+json');
+}
+
+const Set<String> _jsonMimeTypes = <String>{
+  'application/json',
+  'application/x-json',
+  'text/json',
+};
+
 /// 删除跨域重定向时不得透传的敏感请求头。
 void stripSensitiveRedirectHeaders(
   Map<String, String> headers, {

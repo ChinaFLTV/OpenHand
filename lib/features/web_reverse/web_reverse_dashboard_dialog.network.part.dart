@@ -194,9 +194,7 @@ class _NetworkBody extends StatelessWidget {
           // 详情侧从右滑入并淡入；关闭时反向滑出。同时面板宽度由
           // AnimatedSize 缓动，避免直接 size jump 导致的视觉硬切。
           child: AnimatedSwitcher(
-            duration: reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 280),
+            duration: reduceMotion ? Duration.zero : kOpenHandMotion280,
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) {

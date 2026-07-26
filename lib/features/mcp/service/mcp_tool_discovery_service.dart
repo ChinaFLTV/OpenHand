@@ -1045,13 +1045,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }) async {
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
-        'content-type': 'application/json',
+        kContentTypeHeaderName: 'application/json',
         'accept': 'application/json, text/event-stream',
         ..._mcpFreshRequestHeaders,
       },
       extraHeaders: customHeaders ?? server.headers,
       protectedHeaderNames: const <String>{
-        'content-type',
+        kContentTypeHeaderName,
         'accept',
         'mcp-protocol-version',
         'mcp-session-id',
@@ -1105,7 +1105,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       );
     }
 
-    final contentType = readResponseHeader(response.headers, 'content-type');
+    final contentType = readResponseHeader(
+      response.headers,
+      kContentTypeHeaderName,
+    );
     final body = await _readMcpHttpResponseBody(
       response,
       timeout: effectiveRequestTimeout,
@@ -1851,7 +1854,10 @@ class _LegacySseSession {
         '${_mcpServerResponseDetail(body)}',
       );
     }
-    final contentType = readResponseHeader(response.headers, 'content-type');
+    final contentType = readResponseHeader(
+      response.headers,
+      kContentTypeHeaderName,
+    );
     if (!contentType.toLowerCase().contains('text/event-stream')) {
       final body = await _readMcpHttpErrorBodyBestEffort(
         response,
@@ -2026,12 +2032,12 @@ class _LegacySseSession {
       uri: _endpointUri,
       headers: _mergeRequestHeaders(
         baseHeaders: const <String, String>{
-          'content-type': 'application/json',
+          kContentTypeHeaderName: 'application/json',
           ..._mcpFreshRequestHeaders,
         },
         extraHeaders: _headers,
         protectedHeaderNames: const <String>{
-          'content-type',
+          kContentTypeHeaderName,
           'cache-control',
           'pragma',
         },

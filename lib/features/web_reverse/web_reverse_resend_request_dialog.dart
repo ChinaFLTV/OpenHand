@@ -18,6 +18,7 @@ import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -708,9 +709,7 @@ print(resp.text[:2000])''';
                   _buildExportBlock(theme, cs, loc),
                   const SizedBox(height: 14),
                   AnimatedSwitcher(
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 220),
+                    duration: reduceMotion ? Duration.zero : kOpenHandMotion220,
                     switchInCurve: Curves.easeOutCubic,
                     child: _buildResultBlock(theme, cs, loc),
                   ),

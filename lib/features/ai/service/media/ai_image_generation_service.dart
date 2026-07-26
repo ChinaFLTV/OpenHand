@@ -43,11 +43,6 @@ enum _GeneratedMediaKind {
   bool get isAudio => this == _GeneratedMediaKind.audio;
 }
 
-const Set<String> _jsonContentTypes = <String>{
-  'application/json',
-  'application/x-json',
-  'text/json',
-};
 const Duration _pollMinimumRequestBudget = Duration(seconds: 1);
 const Duration _pollRequestTimeoutCap = Duration(seconds: 15);
 const Duration _retryAfterDelayCap = Duration(seconds: 30);
@@ -667,7 +662,7 @@ class AiImageGenerationService {
       );
     }
 
-    final contentType = _responseContentType(response.headers);
+    final contentType = responseMimeType(response.headers);
     if (_isBinaryMediaContentType(contentType, kind)) {
       final markdown = await _saveBinaryMediaBytes(
         kind: kind,
@@ -2236,8 +2231,8 @@ class AiImageGenerationService {
       await _deleteFileIfPresent(destination);
       return '';
     }
-    final mimeType = _responseContentType(response.headers);
-    if (_jsonContentTypes.contains(mimeType)) {
+    final mimeType = responseMimeType(response.headers);
+    if (isJsonMimeType(mimeType)) {
       try {
         final body = await readBoundedFileString(
           File(filePath),
@@ -2629,13 +2624,8 @@ class AiImageGenerationService {
     }
   }
 
-  String _responseContentType(Map<String, String> headers) {
-    final raw = readResponseHeaderOrNull(headers, 'content-type') ?? '';
-    return lowercaseStringFromValue(raw.split(';').first);
-  }
-
   bool _isBinaryMediaContentType(String contentType, _GeneratedMediaKind kind) {
-    if (contentType.isEmpty || _jsonContentTypes.contains(contentType)) {
+    if (contentType.isEmpty || isJsonMimeType(contentType)) {
       return false;
     }
     if (kind.isVideo) return contentType.startsWith('video/');

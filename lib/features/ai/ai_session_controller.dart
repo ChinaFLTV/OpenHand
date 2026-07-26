@@ -669,7 +669,7 @@ class AiSessionController extends ChangeNotifier {
   /// 把 settings 层维护的所有 provider 配置注入到 [AiWebSearchTool]，
   /// 用于（1）按 modelMode=fixed 的 (configId, modelId) 解析最终 sub-agent
   /// 模型；（2）以 providerConfigId 的 token 复用 kimi/grok/gemini 的 API key。
-  /// 由 [openhand_home_page] 在重建 runtime context 前调用以保持同步。
+  /// 由 `openhand_home_page` 在重建 runtime context 前调用以保持同步。
   void updateAvailableModelsForWebSearch(List<AiModelConfig> models) {
     _cachedAvailableModels = models;
     final ws = _toolRuntimeService.toolRegistry.getTool(
@@ -682,7 +682,7 @@ class AiSessionController extends ChangeNotifier {
 
   /// 把 settings 层维护的所有 provider 配置注入到 [AiWebFetchTool]，
   /// 让 orchestrator 可以按 providerConfigId 复用 kimi/grok/gemini 的 API key。
-  /// 由 [openhand_home_page] 在重建 runtime context 前调用以保持同步。
+  /// 由 `openhand_home_page` 在重建 runtime context 前调用以保持同步。
   void updateAvailableModelsForWebFetch(List<AiModelConfig> models) {
     final wf = _toolRuntimeService.toolRegistry.getTool(
       AiBuiltinToolKind.webFetch,

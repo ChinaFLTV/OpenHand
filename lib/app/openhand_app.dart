@@ -12,6 +12,7 @@ import '../features/mcp/widgets/mcp_ops_approval_dialog.dart';
 import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import '../shared/ui/animated_dialog.dart';
+import '../shared/ui/motion_durations.dart';
 import '../shared/ui/openhand_safe_scrollbar.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import '../shared/ui/openhand_tooltip_dismissal.dart';
@@ -114,9 +115,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
       supportedLocales: supportedAppLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       themeAnimationCurve: Curves.easeOutCubic,
-      themeAnimationDuration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
+      themeAnimationDuration: reduceMotion ? Duration.zero : kOpenHandMotion220,
       scrollBehavior: const _SafeScrollBehavior(),
       // 用户层 reduceMotion 通过 MediaQuery.disableAnimations 向会读取该
       // 信号的框架能力和自研动画组件统一传播；系统级偏好仍由 Flutter

@@ -276,9 +276,7 @@ class _SnippetTileState extends State<_SnippetTile>
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 140),
+          duration: reduceMotion ? Duration.zero : kOpenHandMotion140,
           curve: Curves.easeOutCubic,
           margin: const EdgeInsets.symmetric(horizontal: 6),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

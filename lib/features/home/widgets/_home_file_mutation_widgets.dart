@@ -4127,9 +4127,7 @@ class _RoundFileMutationSummaryCardState
     }
 
     return AnimatedSize(
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
+      duration: reduceMotion ? Duration.zero : kOpenHandMotion220,
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: Column(

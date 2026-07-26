@@ -2802,9 +2802,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
       locale: Localizations.localeOf(context),
     );
     return AnimatedSize(
-      duration: widget.reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 240),
+      duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion240,
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: Container(

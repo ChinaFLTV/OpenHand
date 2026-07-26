@@ -53,7 +53,7 @@ String _auditFormatOrDash(Object? value) {
 }
 
 /// 返回单条消息维度的 prefix cache 命中率（0..1）。
-/// 与 [_TokenDial.cacheHitRatio] 同步的协议公式：
+/// 与 Token 仪表盘共用 [computeCacheHitRatio] 的协议公式：
 /// - Claude / Anthropic：prompt 不含 cache_read/cache_write → 分母 = prompt + read + write。
 /// - OpenAI 兼容系 / Gemini：prompt 通常已含 cache_read/cache_write → 分母 = prompt。
 /// 返回 null 表示无足够数据（usage 缺失 / 分母为 0）。

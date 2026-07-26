@@ -213,9 +213,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
         const Divider(height: 1),
         Expanded(
           child: AnimatedSwitcher(
-            duration: widget.reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
+            duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion200,
             switchInCurve: Curves.easeOutCubic,
             child: switch (_section) {
               0 => _encodingPanel(theme, cs, loc),
