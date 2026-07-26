@@ -563,8 +563,6 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final logs = orchestrator.phaseLogs;
     // `context.select` so the header only rebuilds when the cached aiModels
     // reference changes, not on every unrelated SettingsController notify.
@@ -732,45 +730,17 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Title row ──
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '当前会话元数据',
-                          zhHant: '目前會話中繼資料',
-                          en: 'Current Session Metadata',
-                          fr: 'Métadonnées de la session',
-                          de: 'Aktuelle Sitzungsmetadaten',
-                          ja: '現在のセッションメタデータ',
-                        ),
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        sessionTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+            OpenHandMetadataDialogHeader(
+              title: openHandLocalizedText(
+                context,
+                zh: '当前会话元数据',
+                zhHant: '目前會話中繼資料',
+                en: 'Current Session Metadata',
+                fr: 'Métadonnées de la session',
+                de: 'Aktuelle Sitzungsmetadaten',
+                ja: '現在のセッションメタデータ',
+              ),
+              subtitle: sessionTitle,
             ),
             const SizedBox(height: 18),
             Expanded(
