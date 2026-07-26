@@ -62,6 +62,31 @@ const String _toolOutputRecoveryHintReadPersisted = 'read_persisted_output';
 const String _toolOutputPersistenceFormatText = 'text';
 const String _filePathResolvedAgainstCwdDescription =
     'The absolute or relative file path. Relative paths are resolved against the working directory.';
+
+/// 数字员工选择器入参：三选一，与 [_agentToolAgentSelectorAnyOf] 配套。
+const Map<String, Object?> _agentToolAgentSelectorProperties =
+    <String, Object?>{
+      'agent_id': <String, Object?>{'type': 'string'},
+      'agent_name': <String, Object?>{'type': 'string'},
+      'agent': <String, Object?>{
+        'type': 'string',
+        'description': 'Agent id or exact display name.',
+      },
+    };
+
+/// 标签入参：labels 为正名，tags 为兼容别名。
+const Map<String, Object?> _agentToolLabelProperties = <String, Object?>{
+  'labels': <String, Object?>{
+    'type': 'array',
+    'items': <String, Object?>{'type': 'string'},
+  },
+  'tags': <String, Object?>{
+    'type': 'array',
+    'items': <String, Object?>{'type': 'string'},
+    'description': 'Alias for labels.',
+  },
+};
+
 const List<Object?> _agentToolAgentSelectorAnyOf = <Object?>[
   <String, Object?>{
     'required': <String>['agent_id'],
@@ -4133,12 +4158,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'include_disabled': <String, Object?>{'type': 'boolean'},
           'include_tasks': <String, Object?>{
             'type': 'boolean',
@@ -4169,12 +4189,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'include_disabled': <String, Object?>{
             'type': 'boolean',
             'description':
@@ -4251,12 +4266,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'include_disabled': <String, Object?>{
             'type': 'boolean',
             'description':
@@ -4326,12 +4336,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'kind': <String, Object?>{
             'type': 'string',
             'description':
@@ -4390,15 +4395,7 @@ class AiToolRuntimeService {
             'description':
                 'The exact action, permission, tool use, path, or external operation being requested.',
           },
-          'labels': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-          },
-          'tags': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-            'description': 'Alias for labels.',
-          },
+          ..._agentToolLabelProperties,
           'extra': _agentToolExtraSchema,
         },
         'required': <String>['title'],
@@ -4453,15 +4450,7 @@ class AiToolRuntimeService {
             'minimum': 0,
             'maximum': 1,
           },
-          'labels': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-          },
-          'tags': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-            'description': 'Alias for labels.',
-          },
+          ..._agentToolLabelProperties,
           'extra': _agentToolExtraSchema,
         },
         'anyOf': <Object?>[
@@ -4489,12 +4478,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'cpu_percent': <String, Object?>{
             'type': 'number',
             'minimum': 0,
@@ -4521,12 +4505,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'min_workers': <String, Object?>{
             'type': 'integer',
             'minimum': 0,
@@ -4587,12 +4566,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'include_disabled': <String, Object?>{
             'type': 'boolean',
             'description':
@@ -4631,12 +4605,7 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'agent_id': <String, Object?>{'type': 'string'},
-          'agent_name': <String, Object?>{'type': 'string'},
-          'agent': <String, Object?>{
-            'type': 'string',
-            'description': 'Agent id or exact display name.',
-          },
+          ..._agentToolAgentSelectorProperties,
           'include_disabled': <String, Object?>{
             'type': 'boolean',
             'description':
@@ -4656,15 +4625,7 @@ class AiToolRuntimeService {
             ],
           },
           'worker_id': <String, Object?>{'type': 'string'},
-          'labels': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-          },
-          'tags': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-            'description': 'Alias for labels.',
-          },
+          ..._agentToolLabelProperties,
           'label': <String, Object?>{
             'type': 'string',
             'description': 'Single-label filter alias.',
@@ -4713,15 +4674,7 @@ class AiToolRuntimeService {
                 'Detailed task payload, inputs, constraints, and acceptance criteria.',
           },
           'note': <String, Object?>{'type': 'string'},
-          'labels': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-          },
-          'tags': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-            'description': 'Alias for labels.',
-          },
+          ..._agentToolLabelProperties,
           'extra': _agentToolExtraSchema,
           'wait_for_result': <String, Object?>{
             'type': 'boolean',
