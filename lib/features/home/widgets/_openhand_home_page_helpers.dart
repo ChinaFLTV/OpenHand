@@ -1192,7 +1192,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<String>(
                         context: context,
-                        title: _homeModeLabel(context),
+                        title: openHandModeLabel(context),
                         values: _videoModes,
                         selected: _mode,
                         labelFor: (value) => value,

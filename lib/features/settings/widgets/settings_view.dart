@@ -358,7 +358,7 @@ List<Widget> _buildToolTelemetryHeader({
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.refresh, size: 16),
-          label: Text(_settingsViewRefreshLabel(context)),
+          label: Text(openHandRefreshLabel(context)),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
@@ -558,7 +558,7 @@ Widget _buildToolCacheActions({
       TextButton.icon(
         onPressed: clearing ? null : onRefresh,
         icon: const Icon(Icons.refresh, size: 16),
-        label: Text(_settingsViewRefreshLabel(context)),
+        label: Text(openHandRefreshLabel(context)),
       ),
       const SizedBox(width: 4),
       FilledButton.tonalIcon(
@@ -8278,17 +8278,6 @@ String _settingsViewNoChangesDetectedLabel(BuildContext context) {
   );
 }
 
-String _settingsViewRefreshLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '刷新',
-    zhHant: '重新整理',
-    en: 'Refresh',
-    fr: 'Actualiser',
-    de: 'Aktualisieren',
-    ja: '更新',
-  );
-}
 
 String _settingsViewThrottleDurationSLabel(BuildContext context) {
   return openHandLocalizedText(

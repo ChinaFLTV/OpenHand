@@ -940,7 +940,7 @@ class _MachineTerminalHistoryDialogState
                   icon: deleting
                       ? Icons.hourglass_top_rounded
                       : Icons.delete_outline_rounded,
-                  tooltip: _homeMachineTerDeleteLabel(context),
+                  tooltip: openHandDeleteLabel(context),
                   destructive: true,
                   onPressed: actionDisabled
                       ? null
@@ -1067,7 +1067,7 @@ class _MachineTerminalHistoryDialogState
         zh: '将删除 ${terminal.terminalId} 的会话、命令记录和历史输出，此操作不可恢复。',
         en: 'This will delete ${terminal.terminalId}, including command records and output history. This cannot be undone.',
       ),
-      confirmLabel: _homeMachineTerDeleteLabel(context),
+      confirmLabel: openHandDeleteLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted || _deletingTerminalId != null) return;
@@ -2322,9 +2322,9 @@ Color _terminalStatusColor(ColorScheme cs, MachineTerminalStatus status) {
 
 String _statusLabel(BuildContext context, MachineTerminalStatus status) {
   return switch (status) {
-    MachineTerminalStatus.running => _homeRunningLabel(context),
+    MachineTerminalStatus.running => openHandRunningLabel(context),
     MachineTerminalStatus.starting => _homeStartingLabel(context),
-    MachineTerminalStatus.stopped => _homeStoppedLabel(context),
+    MachineTerminalStatus.stopped => openHandStoppedLabel(context),
     MachineTerminalStatus.failed => _homeFailedLabel(context),
     MachineTerminalStatus.idle => openHandLocalizedText(
       context,
@@ -2470,14 +2470,3 @@ String _homeMachineTerClosePanelLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '关闭面板', en: 'Close Panel');
 }
 
-String _homeMachineTerDeleteLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '删除',
-    zhHant: '刪除',
-    en: 'Delete',
-    fr: 'Supprimer',
-    de: 'Löschen',
-    ja: '削除',
-  );
-}

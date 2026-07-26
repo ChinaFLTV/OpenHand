@@ -2604,7 +2604,7 @@ class _ComposerCreationModeButtonState
     final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.creationMode != _CreationMode.none;
     return Tooltip(
-      message: _homeModeLabel(context),
+      message: openHandModeLabel(context),
       child: SizedBox(
         width: 52,
         height: 52,

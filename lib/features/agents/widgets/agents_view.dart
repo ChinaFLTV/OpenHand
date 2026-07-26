@@ -2082,7 +2082,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.library_books_rounded,
-              title: _agentsViewKnowledgeLabel(context),
+              title: openHandKnowledgeLabel(context),
               body: _agentJoinedText(agent.knowledgeSourceIds),
               compact: true,
             ),
@@ -3157,7 +3157,7 @@ class _AgentClusterSettingsEditorState
                 key: const ValueKey<String>('agent-cluster-tag-add'),
                 onPressed: _addClusterTag,
                 icon: const Icon(Icons.add_rounded),
-                label: Text(_agentsViewAddLabel(context)),
+                label: Text(openHandAddLabel(context)),
               ),
             ],
           ),
@@ -3258,7 +3258,7 @@ class _AgentTasksBody extends StatelessWidget {
             ),
             _MetricTile(label: openHandActiveLabel(context), value: '$active'),
             _MetricTile(
-              label: _agentsViewCompletedLabel(context),
+              label: openHandCompletedLabel(context),
               value: '$completed',
             ),
             _MetricTile(
@@ -6251,7 +6251,7 @@ class _AgentResourceEditorDialogState
                 ja: '使用済みトークン',
               ),
             ),
-            _resourceField(_tokenBudget, _agentsViewTokenBudgetLabel(context)),
+            _resourceField(_tokenBudget, openHandTokenBudgetLabel(context)),
             _resourceField(_openHandles, l10n.agentsMetricHandles),
             _FormGridItem(
               fullWidth: true,
@@ -6563,7 +6563,7 @@ class _AgentAuditReportBody extends StatelessWidget {
                   value: report.cpuPressure,
                 ),
                 _AgentAuditPressureRow(
-                  label: _agentsViewTokenBudgetLabel(context),
+                  label: openHandTokenBudgetLabel(context),
                   value: report.tokenPressure,
                 ),
                 _AgentAuditPressureRow(
@@ -8146,7 +8146,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               const SizedBox(width: 10),
               IconButton.filledTonal(
                 key: const ValueKey<String>('agent-publish-task-label-add'),
-                tooltip: _agentsViewAddLabel(context),
+                tooltip: openHandAddLabel(context),
                 onPressed: _addLabel,
                 icon: const Icon(Icons.add_rounded),
               ),
@@ -9653,7 +9653,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
               const SizedBox(width: 10),
               IconButton.filledTonal(
-                tooltip: _agentsViewAddLabel(context),
+                tooltip: openHandAddLabel(context),
                 onPressed: onAdd,
                 icon: Icon(addIcon),
               ),
@@ -12710,7 +12710,7 @@ List<_AgentAuditTaskStat> _agentAuditTaskStats(List<AgentTask> tasks) {
 
 String _agentAuditTaskBucketLabel(BuildContext context, String bucket) {
   return switch (bucket) {
-    'completed' => _agentsViewCompletedLabel(context),
+    'completed' => openHandCompletedLabel(context),
     'running' => _agentsViewRunningLabel(context),
     'queued' => _agentsViewQueuedLabel(context),
     'blocked' => _agentsViewBlockedLabel(context),
@@ -13139,7 +13139,7 @@ String _agentCapabilityTypeLabel(BuildContext context, String type) {
       de: 'Speicher',
       ja: 'メモリ',
     ),
-    'knowledge' => _agentsViewKnowledgeLabel(context),
+    'knowledge' => openHandKnowledgeLabel(context),
     'builtin_tool' => openHandLocalizedText(
       context,
       zh: '内建工具',
@@ -14431,17 +14431,6 @@ String _agentsViewAddKpiLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI');
 }
 
-String _agentsViewAddLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '添加',
-    zhHant: '新增',
-    en: 'Add',
-    fr: 'Ajouter',
-    de: 'Hinzufügen',
-    ja: '追加',
-  );
-}
 
 String _agentsViewAssignedWorkerLabel(BuildContext context) {
   return openHandLocalizedText(
@@ -14495,17 +14484,6 @@ String _agentsViewCapabilityLabel(BuildContext context) {
   );
 }
 
-String _agentsViewCompletedLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '已完成',
-    zhHant: '已完成',
-    en: 'Completed',
-    fr: 'Terminé',
-    de: 'Abgeschlossen',
-    ja: '完了',
-  );
-}
 
 String _agentsViewDeleteKpiLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '删除 KPI', en: 'Delete KPI');
@@ -14573,17 +14551,6 @@ String _agentsViewKeyLabel(BuildContext context) {
   );
 }
 
-String _agentsViewKnowledgeLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '知识库',
-    zhHant: '知識庫',
-    en: 'Knowledge',
-    fr: 'Connaissance',
-    de: 'Wissen',
-    ja: 'ナレッジ',
-  );
-}
 
 String _agentsViewLifecycleLabel(BuildContext context) {
   return openHandLocalizedText(
@@ -14736,16 +14703,6 @@ String _agentsViewTaskResultLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '任务结果', en: 'Task result');
 }
 
-String _agentsViewTokenBudgetLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: 'Token 预算',
-    en: 'Token budget',
-    fr: 'Budget de tokens',
-    de: 'Token-Budget',
-    ja: 'トークン予算',
-  );
-}
 
 String _agentsViewTrackingLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '跟进中', en: 'Tracking');

@@ -1174,3 +1174,27 @@ String openHandYesLabel(BuildContext context) {
     ja: 'はい',
   );
 }
+
+String openHandProtocolLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '协议',
+    zhHant: '通訊協定',
+    en: 'Protocol',
+    fr: 'Protocole',
+    de: 'Protokoll',
+    ja: 'プロトコル',
+  );
+}
+
+String openHandCompletedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已完成',
+    zhHant: '已完成',
+    en: 'Completed',
+    fr: 'Terminé',
+    de: 'Abgeschlossen',
+    ja: '完了',
+  );
+}

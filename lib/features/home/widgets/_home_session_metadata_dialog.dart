@@ -1585,9 +1585,9 @@ String _terminalSizeText(Map<String, Object?> terminal) {
 
 String _machineTerminalStatusLabel(BuildContext context, String? status) {
   return switch (status) {
-    'running' => _homeRunningLabel(context),
+    'running' => openHandRunningLabel(context),
     'starting' => _homeStartingLabel(context),
-    'stopped' => _homeStoppedLabel(context),
+    'stopped' => openHandStoppedLabel(context),
     'failed' => _homeFailedLabel(context),
     'idle' => openHandLocalizedText(context, zh: '空闲', en: 'Idle'),
     _ => openHandUnknownLabel(context),

@@ -1306,7 +1306,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           id: 'copy',
           onPressed: widget.onCopy,
           icon: Icons.content_copy_outlined,
-          label: _homeMessageBubCopyLabel(context),
+          label: openHandCopyLabel(context),
         ),
         if (!isGoalRuntimeMessage &&
             widget.speechEnabled &&
@@ -2533,7 +2533,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                                     zh: '复制中…',
                                     en: 'Copying…',
                                   )
-                                : _homeMessageBubCopyLabel(context),
+                                : openHandCopyLabel(context),
                           ),
                         ),
                         FilledButton.icon(
@@ -6222,7 +6222,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.reverseTarget.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _homeMessageBubObjectiveLabel(context),
+            label: openHandObjectiveLabel(context),
             value: data.reverseTarget.trim(),
           ),
         if ((data.triggerActions ?? '').trim().isNotEmpty)
@@ -6275,7 +6275,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _homeMessageBubKeywordsLabel(context),
+            label: openHandKeywordsLabel(context),
             value: data.keywords!.trim(),
           ),
         if (data.evidenceDiscipline.trim().isNotEmpty)
@@ -6350,7 +6350,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
       fields: [
         if (data.reverseTarget.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _homeMessageBubObjectiveLabel(context),
+            label: openHandObjectiveLabel(context),
             value: data.reverseTarget.trim(),
           ),
         if ((data.packageName ?? '').trim().isNotEmpty)
@@ -6410,7 +6410,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _homeMessageBubKeywordsLabel(context),
+            label: openHandKeywordsLabel(context),
             value: data.keywords!.trim(),
           ),
         if ((data.notes ?? '').trim().isNotEmpty)
@@ -8952,17 +8952,6 @@ String _homeMessageBubAndroidReverseRequestLabel(BuildContext context) {
   );
 }
 
-String _homeMessageBubCopyLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '复制',
-    zhHant: '複製',
-    en: 'Copy',
-    fr: 'Copier',
-    de: 'Kopieren',
-    ja: 'コピー',
-  );
-}
 
 String _homeMessageBubCopyMediaLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '复制媒体', en: 'Copy Media');
@@ -8976,29 +8965,7 @@ String _homeMessageBubGoalLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '目标', en: 'Goal');
 }
 
-String _homeMessageBubKeywordsLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '关键字',
-    zhHant: '關鍵字',
-    en: 'Keywords',
-    fr: 'Mots-clés',
-    de: 'Schlüsselwörter',
-    ja: 'キーワード',
-  );
-}
 
-String _homeMessageBubObjectiveLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '逆向目标',
-    zhHant: '逆向目標',
-    en: 'Objective',
-    fr: 'Objectif',
-    de: 'Ziel',
-    ja: '目的',
-  );
-}
 
 String _homeMessageBubOpenWithSystemAppLabel(BuildContext context) {
   return openHandLocalizedText(

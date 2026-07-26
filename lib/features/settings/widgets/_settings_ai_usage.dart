@@ -2841,7 +2841,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
               cell(
                 flex: 18,
                 child: header
-                    ? value(_settingsAiUsagProtocolLabel(context))
+                    ? value(openHandProtocolLabel(context))
                     : Tooltip(
                         message: protocolLabel,
                         child: value(protocolLabel),
@@ -3005,7 +3005,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
             '${_usageSourceLabel(context, record.source)} · ${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
       ),
       (
-        label: _settingsAiUsagProtocolLabel(context),
+        label: openHandProtocolLabel(context),
         value: record.apiFamily.replaceAll('_', ' '),
       ),
     ];
@@ -4196,17 +4196,6 @@ String _settingsAiUsagOperationLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '操作', en: 'Operation');
 }
 
-String _settingsAiUsagProtocolLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '协议',
-    zhHant: '通訊協定',
-    en: 'Protocol',
-    fr: 'Protocole',
-    de: 'Protokoll',
-    ja: 'プロトコル',
-  );
-}
 
 String _settingsAiUsagProviderLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '供应商', en: 'Provider');

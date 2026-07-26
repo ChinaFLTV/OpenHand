@@ -9851,17 +9851,6 @@ String _homeMissingLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '缺口', en: 'Missing');
 }
 
-String _homeModeLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '模式',
-    zhHant: '模式',
-    en: 'Mode',
-    fr: 'Mode',
-    de: 'Modus',
-    ja: 'モード',
-  );
-}
 
 String _homeNoTextualDiffAvailableLabel(BuildContext context) {
   return openHandLocalizedText(
@@ -9895,17 +9884,6 @@ String _homeRenameThreadLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread');
 }
 
-String _homeRunningLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '运行中',
-    zhHant: '執行中',
-    en: 'Running',
-    fr: 'En cours',
-    de: 'Läuft',
-    ja: '実行中',
-  );
-}
 
 String _homeSessionsDirectoryLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '会话目录', en: 'Sessions Directory');
@@ -9923,17 +9901,6 @@ String _homeStartingLabel(BuildContext context) {
   );
 }
 
-String _homeStoppedLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '已停止',
-    zhHant: '已停止',
-    en: 'Stopped',
-    fr: 'Arrêté',
-    de: 'Gestoppt',
-    ja: '停止済み',
-  );
-}
 
 String _homeTerminalLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '终端', en: 'Terminal');

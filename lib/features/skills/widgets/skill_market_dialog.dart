@@ -942,7 +942,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 if (skill.source.isNotEmpty)
                   _InfoChip(
                     icon: Icons.hub_outlined,
-                    label: _skillMarketDiaSourceLabel(context),
+                    label: openHandSourceLabel(context),
                     value: skill.source,
                   ),
                 _InfoChip(
@@ -1309,7 +1309,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                 if (skill.source.isNotEmpty)
                   _InfoChip(
                     icon: Icons.hub_outlined,
-                    label: _skillMarketDiaSourceLabel(context),
+                    label: openHandSourceLabel(context),
                     value: skill.source,
                   ),
                 _InfoChip(
@@ -1798,14 +1798,3 @@ String _skillMarketDiaRetryLabel(BuildContext context) {
   );
 }
 
-String _skillMarketDiaSourceLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '来源',
-    zhHant: '來源',
-    en: 'Source',
-    fr: 'Source',
-    de: 'Quelle',
-    ja: 'ソース',
-  );
-}

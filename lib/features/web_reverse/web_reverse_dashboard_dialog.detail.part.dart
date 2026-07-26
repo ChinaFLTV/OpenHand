@@ -465,7 +465,7 @@ class _HeadersTab extends StatelessWidget {
           entry.remoteAddress!,
         ),
       if (entry.protocol != null)
-        (_webReverseDashProtocolLabel(context), entry.protocol!),
+        (openHandProtocolLabel(context), entry.protocol!),
       (
         openHandLocalizedText(
           context,
@@ -1400,7 +1400,7 @@ class _TimingTab extends StatelessWidget {
           ),
         if (entry.protocol != null && entry.protocol!.isNotEmpty)
           _MetaRow(
-            label: _webReverseDashProtocolLabel(context),
+            label: openHandProtocolLabel(context),
             value: entry.protocol!,
           ),
         if (entry.remoteAddress != null && entry.remoteAddress!.isNotEmpty)
@@ -2231,17 +2231,6 @@ String _webReverseDashOpenInSourcesLabel(BuildContext context) {
   );
 }
 
-String _webReverseDashProtocolLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '协议',
-    zhHant: '通訊協定',
-    en: 'Protocol',
-    fr: 'Protocole',
-    de: 'Protokoll',
-    ja: 'プロトコル',
-  );
-}
 
 String _webReverseDashResponseLabel(BuildContext context) {
   return openHandLocalizedText(
