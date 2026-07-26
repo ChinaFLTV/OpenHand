@@ -261,14 +261,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onLayoutChanged,
     required this.onRevealOlderMessages,
     required this.onProgrammaticScrollCorrection,
-    required this.onEditMessage,
-    required this.onCopyMessage,
-    required this.onDeleteMessage,
-    required this.onDeleteMessageFromHere,
-    required this.onForkMessage,
-    required this.onSetMessageFeedback,
-    required this.onRegenerateMessage,
-    required this.onSelectMessageResponseVariant,
+    required this.messageActions,
     required this.ttsPlaybackService,
     required this.translationService,
     required this.onDismissError,
@@ -291,19 +284,7 @@ class _SessionTranscript extends StatefulWidget {
   final VoidCallback onLayoutChanged;
   final VoidCallback onRevealOlderMessages;
   final void Function(VoidCallback correction) onProgrammaticScrollCorrection;
-  final Future<void> Function(AiSessionMessage message) onEditMessage;
-  final Future<void> Function(AiSessionMessage message) onCopyMessage;
-  final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
-  final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
-  final Future<void> Function(AiSessionMessage message) onForkMessage;
-  final Future<void> Function(
-    AiSessionMessage message,
-    AiSessionMessageFeedback? feedback,
-  )
-  onSetMessageFeedback;
-  final Future<void> Function(AiSessionMessage message) onRegenerateMessage;
-  final Future<void> Function(AiSessionMessage message, int index)
-  onSelectMessageResponseVariant;
+  final _MessageActions messageActions;
   final AiTtsPlaybackService ttsPlaybackService;
   final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
@@ -1750,7 +1731,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessageFeedback? feedback,
   ) async {
     final anchor = _captureMessageAnchor(message.id);
-    await widget.onSetMessageFeedback(message, feedback);
+    await widget.messageActions.onSetFeedback(message, feedback);
     await _restoreMessageAnchorAfterLayout(anchor);
   }
 
@@ -1759,7 +1740,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     int index,
   ) async {
     final anchor = _captureMessageAnchor(message.id);
-    await widget.onSelectMessageResponseVariant(message, index);
+    await widget.messageActions.onSelectResponseVariant(message, index);
     await _restoreMessageAnchorAfterLayout(
       anchor,
       stabilizeAlways: true,
@@ -2805,10 +2786,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           });
         },
         onEdit: !entry.exiting && message.kind == AiSessionMessageKind.user
-            ? () => widget.onEditMessage(message)
+            ? () => widget.messageActions.onEdit(message)
             : null,
-        onCopy: () => widget.onCopyMessage(message),
-        onFork: () => widget.onForkMessage(message),
+        onCopy: () => widget.messageActions.onCopy(message),
+        onFork: () => widget.messageActions.onFork(message),
         associatedKnowledgeBaseMetadata:
             _associatedKnowledgeBaseMetadataForMessage(
               visibleMessages: visibleMessages,
@@ -2817,7 +2798,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             ),
         onSetFeedback: (feedback) =>
             _setMessageFeedbackAnchored(message, feedback),
-        onRegenerateResponse: () => widget.onRegenerateMessage(message),
+        onRegenerateResponse: () => widget.messageActions.onRegenerate(message),
         onSelectResponseVariant: (index) =>
             _selectMessageResponseVariantAnchored(message, index),
         speechEnabled: speechEnabled,
@@ -2836,10 +2817,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           if (entry.exiting) {
             return;
           }
-          await _runDeleteAction(message, widget.onDeleteMessage);
+          await _runDeleteAction(message, widget.messageActions.onDelete);
         },
         onDeleteFromHere: !entry.exiting && hasLaterDisplayMessages
-            ? () => _runDeleteAction(message, widget.onDeleteMessageFromHere)
+            ? () => _runDeleteAction(
+                message,
+                widget.messageActions.onDeleteFromHere,
+              )
             : null,
         onAudit: telemetryDebugEnabled
             ? () {

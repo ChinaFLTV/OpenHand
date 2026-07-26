@@ -1,5 +1,39 @@
 part of '../openhand_home_page.dart';
 
+/// 单条消息上的操作回调集合。
+///
+/// 这八个回调此前在会话区与转录列表两层各声明一遍再逐个转发：新增一个操作要
+/// 改两处签名加一处转发，而签名相同的两个删除回调一旦传反了编译期发现不了。
+class _MessageActions {
+  const _MessageActions({
+    required this.onEdit,
+    required this.onCopy,
+    required this.onDelete,
+    required this.onDeleteFromHere,
+    required this.onFork,
+    required this.onSetFeedback,
+    required this.onRegenerate,
+    required this.onSelectResponseVariant,
+  });
+
+  final Future<void> Function(AiSessionMessage message) onEdit;
+  final Future<void> Function(AiSessionMessage message) onCopy;
+
+  /// 返回是否真的删除了（用户可能在确认弹窗里取消）。
+  final Future<bool> Function(AiSessionMessage message) onDelete;
+  final Future<bool> Function(AiSessionMessage message) onDeleteFromHere;
+
+  final Future<void> Function(AiSessionMessage message) onFork;
+  final Future<void> Function(
+    AiSessionMessage message,
+    AiSessionMessageFeedback? feedback,
+  )
+  onSetFeedback;
+  final Future<void> Function(AiSessionMessage message) onRegenerate;
+  final Future<void> Function(AiSessionMessage message, int index)
+  onSelectResponseVariant;
+}
+
 class _WorkspaceView extends StatelessWidget {
   const _WorkspaceView({
     required this.draftController,
@@ -53,14 +87,7 @@ class _WorkspaceView extends StatelessWidget {
     this.onEditOptionsRequested,
     required this.editingMessageId,
     required this.onCancelEditing,
-    required this.onEditMessage,
-    required this.onCopyMessage,
-    required this.onDeleteMessage,
-    required this.onDeleteMessageFromHere,
-    required this.onForkMessage,
-    required this.onSetMessageFeedback,
-    required this.onRegenerateMessage,
-    required this.onSelectMessageResponseVariant,
+    required this.messageActions,
     required this.ttsPlaybackService,
     required this.translationService,
     required this.onDismissError,
@@ -136,19 +163,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function()? onEditOptionsRequested;
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
-  final Future<void> Function(AiSessionMessage message) onEditMessage;
-  final Future<void> Function(AiSessionMessage message) onCopyMessage;
-  final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
-  final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
-  final Future<void> Function(AiSessionMessage message) onForkMessage;
-  final Future<void> Function(
-    AiSessionMessage message,
-    AiSessionMessageFeedback? feedback,
-  )
-  onSetMessageFeedback;
-  final Future<void> Function(AiSessionMessage message) onRegenerateMessage;
-  final Future<void> Function(AiSessionMessage message, int index)
-  onSelectMessageResponseVariant;
+  final _MessageActions messageActions;
   final AiTtsPlaybackService ttsPlaybackService;
   final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
@@ -272,16 +287,7 @@ class _WorkspaceView extends StatelessWidget {
                                   onRevealOlderMessages: onRevealOlderMessages,
                                   onProgrammaticScrollCorrection:
                                       onProgrammaticScrollCorrection,
-                                  onEditMessage: onEditMessage,
-                                  onCopyMessage: onCopyMessage,
-                                  onDeleteMessage: onDeleteMessage,
-                                  onDeleteMessageFromHere:
-                                      onDeleteMessageFromHere,
-                                  onForkMessage: onForkMessage,
-                                  onSetMessageFeedback: onSetMessageFeedback,
-                                  onRegenerateMessage: onRegenerateMessage,
-                                  onSelectMessageResponseVariant:
-                                      onSelectMessageResponseVariant,
+                                  messageActions: messageActions,
                                   ttsPlaybackService: ttsPlaybackService,
                                   translationService: translationService,
                                   onDismissError: onDismissError,
@@ -435,9 +441,7 @@ class _TranscriptLoadFailure extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => unawaited(onRetry()),
                   icon: const Icon(Icons.refresh_rounded),
-                  label: Text(
-                    openHandRetryLabel(context),
-                  ),
+                  label: Text(openHandRetryLabel(context)),
                 ),
               ],
             ),
