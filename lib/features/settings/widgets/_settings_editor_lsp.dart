@@ -2226,17 +2226,16 @@ class _EditorLspInstallRunnerDialog extends StatefulWidget {
 }
 
 class _EditorLspInstallRunnerDialogState
-    extends State<_EditorLspInstallRunnerDialog> {
+    extends State<_EditorLspInstallRunnerDialog>
+    with BufferedConsoleLogHost<_EditorLspInstallRunnerDialog> {
+  @override
+  String get consoleLogTag => 'settings_editor_lsp';
+
   static const Duration _installTimeout = Duration(minutes: 10);
   static const Duration _processStartTimeout = Duration(seconds: 10);
-  final BoundedLogBuffer _logLines = BoundedLogBuffer();
-  final BoundedLogBuffer _pendingLogLines = BoundedLogBuffer();
-  final ScrollController _scrollController = ScrollController();
-  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final TrackedProcessSlot _processSlot = TrackedProcessSlot(
     logTag: 'settings_editor_lsp',
   );
-  Timer? _logFlushTimer;
   bool _disposed = false;
   bool _running = true;
   bool _success = false;
@@ -2252,47 +2251,13 @@ class _EditorLspInstallRunnerDialogState
   @override
   void dispose() {
     _disposed = true;
-    _logFlushTimer?.cancel();
-    _logFlushTimer = null;
-    _pendingLogLines.clear();
     _processSlot.abort('释放安装进程');
-    _scrollController.dispose();
     super.dispose();
   }
 
   void _appendLine(String value) {
-    if (!mounted || _disposed) return;
-    _pendingLogLines.add(value);
-    _logFlushTimer ??= startSafeTimer(
-      kOpenHandFramePeriodicTimerInterval,
-      _flushPendingLogLines,
-      onError: (error, stack) =>
-          silentLog('settings_editor_lsp', '刷新安装日志', error, stack),
-    );
-  }
-
-  void _flushPendingLogLines() {
-    _logFlushTimer = null;
-    if (!mounted || _disposed || _pendingLogLines.isEmpty) {
-      _pendingLogLines.clear();
-      return;
-    }
-    final pending = _pendingLogLines.snapshot();
-    _pendingLogLines.clear();
-    setState(() {
-      _logLines.addAll(pending);
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _scrollGuard.followToBottom(
-        _scrollController,
-        animated: true,
-        animationDuration: _settingsMotionDuration(
-          context,
-          const Duration(milliseconds: 120),
-        ),
-      );
-    });
+    if (_disposed) return;
+    appendConsoleLine(value);
   }
 
   bool _isRunActive(int generation) {
@@ -2519,13 +2484,13 @@ class _EditorLspInstallRunnerDialogState
                     ),
                     Expanded(
                       child: NotificationListener<ScrollNotification>(
-                        onNotification: _scrollGuard.handleNotification,
+                        onNotification: logScrollGuard.handleNotification,
                         child: ListView.builder(
-                          controller: _scrollController,
+                          controller: logScrollController,
                           padding: const EdgeInsets.all(12),
-                          itemCount: _logLines.length,
+                          itemCount: logLines.length,
                           itemBuilder: (context, index) {
-                            final line = _logLines[index];
+                            final line = logLines[index];
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: SelectableText(

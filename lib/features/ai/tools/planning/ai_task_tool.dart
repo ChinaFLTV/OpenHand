@@ -4,6 +4,8 @@ import 'dart:convert';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
+import '../../model/ai_builtin_tool_config.dart'
+    show kAiReadOnlyBuiltinToolKinds;
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
@@ -59,22 +61,8 @@ class AiTaskTool extends AiTool {
     'advice',
   };
 
-  static const Set<AiBuiltinToolKind> _readOnlyBuiltinKinds =
-      <AiBuiltinToolKind>{
-        AiBuiltinToolKind.glob,
-        AiBuiltinToolKind.grep,
-        AiBuiltinToolKind.ls,
-        AiBuiltinToolKind.read,
-        AiBuiltinToolKind.webFetch,
-        AiBuiltinToolKind.webSearch,
-        AiBuiltinToolKind.lsp,
-        AiBuiltinToolKind.codebaseSearch,
-        AiBuiltinToolKind.git,
-        AiBuiltinToolKind.readLints,
-      };
-
   static const Set<AiBuiltinToolKind> _verifyBuiltinKinds = <AiBuiltinToolKind>{
-    ..._readOnlyBuiltinKinds,
+    ...kAiReadOnlyBuiltinToolKinds,
     AiBuiltinToolKind.bash,
   };
 
@@ -509,7 +497,7 @@ class AiTaskTool extends AiTool {
     final allowedKinds = switch (subagentType) {
       'verify' => _verifyBuiltinKinds,
       'general-purpose' => _generalPurposeBuiltinKinds,
-      _ => _readOnlyBuiltinKinds,
+      _ => kAiReadOnlyBuiltinToolKinds,
     };
     return allowedKinds.contains(kind);
   }

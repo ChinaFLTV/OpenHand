@@ -8,16 +8,13 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
-import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/buffered_console_log.dart';
 import '../../../shared/ui/highlight_pulse.dart';
-import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_typography.dart';
-import '../../../shared/util/bounded_log_buffer.dart';
-import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 
 /// 执行 CLI 安装命令并实时展示输出；安装成功时返回 `true`。
@@ -31,10 +28,15 @@ class HarnessCliInstallDialog extends StatefulWidget {
       _HarnessCliInstallDialogState();
 }
 
-class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
+class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
+    with BufferedConsoleLogHost<HarnessCliInstallDialog> {
+  @override
+  String get consoleLogTag => 'harness_cli_install_dialog';
+
+  @override
+  Duration get consoleFollowDuration => const Duration(milliseconds: 100);
+
   static const Duration _installTimeout = Duration(minutes: 5);
-  final BoundedLogBuffer _logLines = BoundedLogBuffer();
-  final BoundedLogBuffer _pendingLogLines = BoundedLogBuffer();
   bool _running = true;
   bool _success = false;
   bool _cancelled = false;
@@ -43,10 +45,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   final TrackedProcessSlot _processSlot = TrackedProcessSlot(
     logTag: 'harness_cli_install_dialog',
   );
-  Timer? _logFlushTimer;
   bool _disposed = false;
-  final ScrollController _scrollController = ScrollController();
-  final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
 
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
@@ -77,18 +76,14 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   @override
   void dispose() {
     _disposed = true;
-    _logFlushTimer?.cancel();
-    _logFlushTimer = null;
-    _pendingLogLines.clear();
     _processSlot.abort('释放安装进程');
-    _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
     super.dispose();
   }
 
   void _appendLine(String line) {
-    if (!mounted || _disposed) return;
+    if (_disposed) return;
     if (!_isPermissionError) {
       final lower = line.toLowerCase();
       if (lower.contains('eacces') ||
@@ -98,38 +93,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         _isPermissionError = true;
       }
     }
-    _pendingLogLines.add(line);
-    _logFlushTimer ??= startSafeTimer(
-      kOpenHandFramePeriodicTimerInterval,
-      _flushPendingLogLines,
-      onError: (error, stack) =>
-          silentLog('harness_cli_install_dialog', '刷新安装日志', error, stack),
-    );
-  }
-
-  void _flushPendingLogLines() {
-    _logFlushTimer = null;
-    if (!mounted || _disposed || _pendingLogLines.isEmpty) {
-      _pendingLogLines.clear();
-      return;
-    }
-    final pending = _pendingLogLines.snapshot();
-    _pendingLogLines.clear();
-    setState(() {
-      _logLines.addAll(pending);
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _scrollGuard.followToBottom(
-        _scrollController,
-        animated: true,
-        animationDuration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 100),
-        ),
-        curve: Curves.easeOut,
-      );
-    });
+    appendConsoleLine(line);
   }
 
   bool _isRunActive(int generation) {
@@ -278,17 +242,14 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
   Future<void> _retryWithAdminPrivileges() async {
     final generation = _processSlot.beginRun();
-    _logFlushTimer?.cancel();
-    _logFlushTimer = null;
-    _pendingLogLines.clear();
     setState(() {
+      resetConsoleLog();
       _running = true;
       _success = false;
       _cancelled = false;
       _isPermissionError = false;
       _elevatedRetryAttempted = true;
       _pulsedOutcome = false;
-      _logLines.clear();
     });
 
     final cmd = widget.cli.installCommand!;
@@ -573,10 +534,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
                 const SizedBox(height: 10),
                 Expanded(
                   child: OpenHandConsoleLogView(
-                    controller: _scrollController,
-                    onNotification: _scrollGuard.handleNotification,
-                    itemCount: _logLines.length,
-                    itemBuilder: (_, index) => _LogLine(line: _logLines[index]),
+                    controller: logScrollController,
+                    onNotification: logScrollGuard.handleNotification,
+                    itemCount: logLines.length,
+                    itemBuilder: (_, index) => _LogLine(line: logLines[index]),
                   ),
                 ),
               ],
