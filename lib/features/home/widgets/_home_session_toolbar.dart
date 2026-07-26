@@ -1330,69 +1330,16 @@ bool _shouldReflectCurrentPlanStepFailure(
     return false;
   }
   final latestRecoveryMessage = _latestPlanRecoveryTimelineMessage(session);
-  if (_shouldReflectPlanTimelineFailureAfter(
-    _latestPlanErrorFailureAt(session),
+  if (shouldReflectAiPlanFailureAfter(
+    latestAiPlanErrorFailureAt(session),
     latestRecoveryMessage,
   )) {
     return true;
   }
-  return _shouldReflectPlanTimelineFailureAfter(
-    _latestPlanToolFailureAt(session),
+  return shouldReflectAiPlanFailureAfter(
+    latestAiPlanToolFailureAt(session),
     latestRecoveryMessage,
   );
-}
-
-bool _shouldReflectPlanTimelineFailureAfter(
-  DateTime? latestFailureAt,
-  AiSessionMessage? latestRecoveryMessage,
-) {
-  if (latestFailureAt == null) {
-    return false;
-  }
-  if (latestRecoveryMessage == null) {
-    return true;
-  }
-  return !latestRecoveryMessage.createdAt.isAfter(latestFailureAt);
-}
-
-DateTime? _latestPlanToolFailureAt(AiSession session) {
-  for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-    final message = session.messages[index];
-    if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
-      continue;
-    }
-    final status = _toolExecutionStatus(message);
-    if (status.isEmpty || status == 'running') {
-      continue;
-    }
-    if (!isAiPlanFailureToolStatus(status)) {
-      return null;
-    }
-    return _readToolExecutionFinishedAt(message) ?? message.createdAt;
-  }
-  return null;
-}
-
-DateTime? _latestPlanErrorFailureAt(AiSession session) {
-  for (final error in session.recentErrors) {
-    if (isAiPlanRelevantErrorStage(error.stage)) {
-      return error.createdAt;
-    }
-  }
-  return null;
-}
-
-DateTime? _readToolExecutionFinishedAt(AiSessionMessage message) {
-  final rawValue = '${message.metadata['tool_execution_finished_at'] ?? ''}'
-      .trim();
-  if (rawValue.isEmpty) {
-    return null;
-  }
-  try {
-    return DateTime.parse(rawValue).toUtc();
-  } catch (_) {
-    return null;
-  }
 }
 
 AiSessionMessage? _latestPlanRecoveryTimelineMessage(AiSession session) {

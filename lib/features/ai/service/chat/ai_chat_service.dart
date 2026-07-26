@@ -2859,16 +2859,7 @@ String? _mimoWebSearchWarningFromPayload(Map<String, Object?> payload) {
     final choice = choices.first as Map;
     candidates.add(choice['delta'] ?? choice['message']);
   }
-  for (final candidate in candidates) {
-    if (candidate is! Map) continue;
-    final values = stringKeyedMapFromValue(candidate);
-    final message =
-        optionalStringFromValue(values['error_message']) ??
-        optionalStringFromValue(values['errorMessage']) ??
-        optionalStringFromValue(values['message']);
-    if (message != null) return message;
-  }
-  return null;
+  return firstErrorMessageFromPayloads(candidates);
 }
 
 /// Processes a single SSE event block in OpenAI-compatible format.

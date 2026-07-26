@@ -2796,27 +2796,35 @@ class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
     try {
       final decoded = jsonDecode(rawResponse);
       if (decoded is! Map) return null;
-      for (final candidate in <Object?>[
+      return firstErrorMessageFromPayloads(<Object?>[
         if (decoded['choices'] is List &&
             (decoded['choices'] as List).isNotEmpty &&
             (decoded['choices'] as List).first is Map)
           ((decoded['choices'] as List).first as Map)['message'],
         decoded['web_search'],
         decoded['webSearch'],
-      ]) {
-        if (candidate is! Map) continue;
-        final values = stringKeyedMapFromValue(candidate);
-        final message =
-            optionalStringFromValue(values['error_message']) ??
-            optionalStringFromValue(values['errorMessage']) ??
-            optionalStringFromValue(values['message']);
-        if (message != null) return message;
-      }
+      ]);
     } catch (_) {
       return null;
     }
-    return null;
   }
+}
+
+/// 从若干候选载荷里取出第一条错误文案。
+///
+/// 同一份告警在流式与非流式两条路径上各写了一遍这三种键名的兜底：少认一种
+/// 拼法就会静默丢掉服务端的报错，用户只看到一条空回复。
+String? firstErrorMessageFromPayloads(Iterable<Object?> candidates) {
+  for (final candidate in candidates) {
+    if (candidate is! Map) continue;
+    final values = stringKeyedMapFromValue(candidate);
+    final message =
+        optionalStringFromValue(values['error_message']) ??
+        optionalStringFromValue(values['errorMessage']) ??
+        optionalStringFromValue(values['message']);
+    if (message != null) return message;
+  }
+  return null;
 }
 
 class ClaudeProtocolAdapter extends AiProtocolAdapter {

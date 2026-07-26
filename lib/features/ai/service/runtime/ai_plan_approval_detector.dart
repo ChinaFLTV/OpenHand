@@ -1,6 +1,5 @@
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_session.dart';
-import '../../model/ai_session_message.dart';
 
 /// 集中管理 Plan 模式的批准、继续、恢复与失败状态判定。
 ///
@@ -58,18 +57,9 @@ abstract final class AiPlanApprovalDetector {
 
   /// 判断最近一个已结束的工具调用是否为计划恢复所关注的失败状态。
   static bool hasRecentToolFailure(AiSession session) {
-    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-      final message = session.messages[index];
-      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
-        continue;
-      }
-      final status = '${message.metadata['tool_execution_status'] ?? ''}'
-          .trim()
-          .toLowerCase();
-      if (status.isEmpty || status == 'running') continue;
-      return _failedToolStatuses.contains(status);
-    }
-    return false;
+    final message = latestSettledAiToolCall(session);
+    if (message == null) return false;
+    return isAiPlanFailureToolStatus(aiToolExecutionStatusOf(message));
   }
 
   /// 判断助手或工具文本是否绕过 ExitPlanMode 审批入口请求用户批准计划。
@@ -87,14 +77,6 @@ abstract final class AiPlanApprovalDetector {
   }
 
   static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
-  static const Set<String> _failedToolStatuses = <String>{
-    'failed',
-    'cancelled',
-    'denied',
-    'rejected',
-    'timed_out',
-    'invalid_arguments',
-  };
 
   static bool _containsNegativePlanAction(
     String normalized,

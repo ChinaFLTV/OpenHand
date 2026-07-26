@@ -10284,8 +10284,8 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     final latestRecoveryMessage = _latestTrackedPlanRecoveryMessage(session);
-    final latestErrorFailureAt = _latestTrackedPlanErrorFailureAt(session);
-    if (_shouldReflectTrackedPlanFailureAfter(
+    final latestErrorFailureAt = latestAiPlanErrorFailureAt(session);
+    if (shouldReflectAiPlanFailureAfter(
       latestErrorFailureAt,
       latestRecoveryMessage,
     )) {
@@ -10294,60 +10294,10 @@ class AiSessionController extends ChangeNotifier {
     if (_hasFailedTodoItems(session.todoItems)) {
       return true;
     }
-    return _shouldReflectTrackedPlanFailureAfter(
-      _latestTrackedPlanToolFailureAt(session),
+    return shouldReflectAiPlanFailureAfter(
+      latestAiPlanToolFailureAt(session),
       latestRecoveryMessage,
     );
-  }
-
-  bool _shouldReflectTrackedPlanFailureAfter(
-    DateTime? latestFailureAt,
-    AiSessionMessage? latestRecoveryMessage,
-  ) {
-    if (latestFailureAt == null) {
-      return false;
-    }
-    if (latestRecoveryMessage == null) {
-      return true;
-    }
-    return !latestRecoveryMessage.createdAt.isAfter(latestFailureAt);
-  }
-
-  DateTime? _latestTrackedPlanToolFailureAt(AiSession session) {
-    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
-      final message = session.messages[index];
-      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
-        continue;
-      }
-      final status = '${message.metadata['tool_execution_status'] ?? ''}'
-          .trim()
-          .toLowerCase();
-      if (status.isEmpty || status == 'running') {
-        continue;
-      }
-      if (!isAiPlanFailureToolStatus(status)) {
-        return null;
-      }
-      final finishedAt =
-          '${message.metadata['tool_execution_finished_at'] ?? ''}'.trim();
-      if (finishedAt.isNotEmpty) {
-        final parsed = utcDateTimeFromValue(finishedAt);
-        if (parsed != null) {
-          return parsed;
-        }
-      }
-      return message.createdAt;
-    }
-    return null;
-  }
-
-  DateTime? _latestTrackedPlanErrorFailureAt(AiSession session) {
-    for (final error in session.recentErrors) {
-      if (isAiPlanRelevantErrorStage(error.stage)) {
-        return error.createdAt;
-      }
-    }
-    return null;
   }
 
   AiSessionMessage? _latestTrackedPlanRecoveryMessage(AiSession session) {

@@ -26,6 +26,65 @@ bool isAiPlanRelevantErrorStage(String stage) {
   }.contains(stage.trim().toLowerCase());
 }
 
+/// 工具调用消息上归一化后的执行状态；非工具消息或未记录时为空串。
+String aiToolExecutionStatusOf(AiSessionMessage message) {
+  return '${message.metadata['tool_execution_status'] ?? ''}'
+      .trim()
+      .toLowerCase();
+}
+
+/// 工具调用的结束时刻；未记录或无法解析时为 null。
+DateTime? aiToolExecutionFinishedAtOf(AiSessionMessage message) {
+  final rawValue = '${message.metadata['tool_execution_finished_at'] ?? ''}'
+      .trim();
+  if (rawValue.isEmpty) return null;
+  return utcDateTimeFromValue(rawValue);
+}
+
+/// 会话里最近一条「已结束」的工具调用消息：跳过已删除、非工具、以及状态为空
+/// 或仍在 running 的消息。
+///
+/// 计划失败判定的三处入口此前各写了一遍这段倒序扫描；漏掉 running 那一条会把
+/// 正在执行的调用当成已失败，计划面板会无端翻红。
+AiSessionMessage? latestSettledAiToolCall(AiSession session) {
+  for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+    final message = session.messages[index];
+    if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+      continue;
+    }
+    final status = aiToolExecutionStatusOf(message);
+    if (status.isEmpty || status == 'running') continue;
+    return message;
+  }
+  return null;
+}
+
+/// 最近一次工具失败的时刻；最近一条已结束的调用不是失败时为 null。
+DateTime? latestAiPlanToolFailureAt(AiSession session) {
+  final message = latestSettledAiToolCall(session);
+  if (message == null) return null;
+  if (!isAiPlanFailureToolStatus(aiToolExecutionStatusOf(message))) return null;
+  return aiToolExecutionFinishedAtOf(message) ?? message.createdAt;
+}
+
+/// 最近一次与计划相关的会话级错误时刻。
+DateTime? latestAiPlanErrorFailureAt(AiSession session) {
+  for (final error in session.recentErrors) {
+    if (isAiPlanRelevantErrorStage(error.stage)) return error.createdAt;
+  }
+  return null;
+}
+
+/// 该失败是否仍应体现在计划状态上：用户在失败之后发出的恢复指令会把它盖掉。
+bool shouldReflectAiPlanFailureAfter(
+  DateTime? latestFailureAt,
+  AiSessionMessage? latestRecoveryMessage,
+) {
+  if (latestFailureAt == null) return false;
+  if (latestRecoveryMessage == null) return true;
+  return !latestRecoveryMessage.createdAt.isAfter(latestFailureAt);
+}
+
 int _max3(int a, int b, int c) {
   var result = a > b ? a : b;
   if (c > result) {
