@@ -1733,21 +1733,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
       borderRadius: const BorderRadius.all(Radius.circular(12)),
       border: Border.all(color: palette.border, width: 0.8),
     );
-    final baseStyle =
-        theme.textTheme.bodySmall?.copyWith(
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontSize: 12.5,
-          height: 1.34,
-          color: palette.text,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ) ??
-        TextStyle(
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontSize: 12.5,
-          height: 1.34,
-          color: palette.text,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        );
+    final baseStyle = openHandCodeBodyTextStyle(theme, color: palette.text);
     final highlighter = _CodeSyntaxHighlighter(
       baseStyle: baseStyle,
       darkSurface: brightness == Brightness.dark,

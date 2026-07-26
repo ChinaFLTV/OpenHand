@@ -589,21 +589,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     final codeTheme = context.watch<SettingsController>().editorCodeTheme;
     final brightness = theme.brightness;
     final paletteSignature = palette.signature;
-    final baseStyle =
-        theme.textTheme.bodySmall?.copyWith(
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontSize: 12.5,
-          height: 1.34,
-          color: palette.text,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ) ??
-        TextStyle(
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontSize: 12.5,
-          height: 1.34,
-          color: palette.text,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        );
+    final baseStyle = openHandCodeBodyTextStyle(theme, color: palette.text);
     final highlighter = _CodeSyntaxHighlighter(
       baseStyle: baseStyle,
       darkSurface: brightness == Brightness.dark,
