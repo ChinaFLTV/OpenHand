@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -303,16 +304,12 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
           OpenHandBusyProgressBar(busy: _busy),
           Expanded(
             child: _hits.isEmpty
-                ? Center(
-                    child: Text(
-                      _status.isEmpty
-                          ? (loc?.webReverseDomSearchExample ??
-                                'e.g. button[data-action] · #login · //a[contains(@href,"docs")]')
-                          : _status,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message: _status.isEmpty
+                        ? (loc?.webReverseDomSearchExample ??
+                              'e.g. button[data-action] · #login · //a[contains(@href,"docs")]')
+                        : _status,
+                    dense: true,
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),

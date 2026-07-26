@@ -220,37 +220,16 @@ class _CronEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    // 不能是 Expanded：本 widget 挂在 AnimatedSwitcher 下，其默认 layoutBuilder
-    // 会把 child 放进 Stack 并包一层 FadeTransition，Expanded.applyParentData
-    // 会把 RenderAnimatedOpacity 的 parentData 强转成 FlexParentData 而断言失败。
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.schedule_outlined,
-            size: 64,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.cronsEmptyTitle,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.cronsEmptyBody,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
+    // 与 Hooks / 智能体 / 记忆几页统一走页面级空态卡；不能是 Expanded：本 widget
+    // 挂在 AnimatedSwitcher 下，其默认 layoutBuilder 会把 child 放进 Stack 并包
+    // 一层 FadeTransition，Expanded.applyParentData 会把 RenderAnimatedOpacity
+    // 的 parentData 强转成 FlexParentData 而断言失败。
+    return FeatureStateCard.centered(
+      icon: Icons.schedule_outlined,
+      tone: FeatureStateTone.neutral,
+      title: l10n.cronsEmptyTitle,
+      body: l10n.cronsEmptyBody,
     );
   }
 }

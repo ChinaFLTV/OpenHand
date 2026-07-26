@@ -12,6 +12,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -225,14 +226,11 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           buildWebReverseStatusBar(context, status: _status),
           Expanded(
             child: _results.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseCssCovEmpty ??
-                          'No results yet. Start tracking then interact.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseCssCovEmpty ??
+                        'No results yet. Start tracking then interact.',
+                    dense: true,
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),

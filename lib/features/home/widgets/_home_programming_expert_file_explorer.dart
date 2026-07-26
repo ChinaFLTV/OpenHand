@@ -3054,19 +3054,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 const SizedBox(height: 14),
                 Expanded(
                   child: preparedEdit.files.isEmpty
-                      ? Center(
-                          child: Text(
-                            text(
-                              zh: '当前没有可预览的文本修改。',
-                              zhHant: '目前沒有可預覽的文字修改。',
-                              en: 'There are no previewable text edits for this operation.',
-                              fr: 'Aucune modification de texte prévisualisable pour cette opération.',
-                              de: 'Für diesen Vorgang gibt es keine anzeigbaren Textänderungen.',
-                              ja: 'この操作でプレビュー可能なテキスト編集はありません。',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                      ? OpenHandInlineEmptyState(
+                          message: text(
+                            zh: '当前没有可预览的文本修改。',
+                            zhHant: '目前沒有可預覽的文字修改。',
+                            en: 'There are no previewable text edits for this operation.',
+                            fr: 'Aucune modification de texte prévisualisable pour cette opération.',
+                            de: 'Für diesen Vorgang gibt es keine anzeigbaren Textänderungen.',
+                            ja: 'この操作でプレビュー可能なテキスト編集はありません。',
                           ),
                         )
                       : ListView.separated(

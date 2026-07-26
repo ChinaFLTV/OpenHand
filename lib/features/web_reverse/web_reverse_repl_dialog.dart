@@ -15,6 +15,7 @@ import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_clipboard.dart';
@@ -186,14 +187,11 @@ class _ReplDialogState extends State<_ReplDialog> {
           Divider(height: 1, color: cs.outlineVariant),
           Expanded(
             child: _log.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseReplEmpty ??
-                          'Type JS below → Ctrl/⌘+Enter to run',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseReplEmpty ??
+                        'Type JS below → Ctrl/⌘+Enter to run',
+                    dense: true,
                   )
                 : NotificationListener<ScrollNotification>(
                     onNotification: _scrollGuard.handleNotification,

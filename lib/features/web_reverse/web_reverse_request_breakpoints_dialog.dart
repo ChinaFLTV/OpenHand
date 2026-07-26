@@ -198,29 +198,12 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
   Widget _buildList(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final list = widget.controller.requestBreakpoints;
     if (list.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.bookmark_add_rounded,
-                size: 40,
-                color: cs.onSurfaceVariant,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                loc?.webReverseReqBpEmptyHint ??
-                    'Click + to add your first breakpoint',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+      return OpenHandInlineEmptyState(
+        icon: Icons.bookmark_add_rounded,
+        dense: true,
+        message:
+            loc?.webReverseReqBpEmptyHint ??
+            'Click + to add your first breakpoint',
       );
     }
     return ListView.separated(

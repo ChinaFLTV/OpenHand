@@ -23,6 +23,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -496,14 +497,11 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
           buildWebReverseStatusBar(context, status: _status),
           Expanded(
             child: _rows.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseAnimationsEmptyState ??
-                          'No active animations. Trigger one and refresh.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseAnimationsEmptyState ??
+                        'No active animations. Trigger one and refresh.',
+                    dense: true,
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),

@@ -16,6 +16,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -1434,7 +1435,9 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
         width: 520,
         height: 420,
         child: entries.isEmpty
-            ? Center(child: Text(l10n.toolSearchLoadedHistoryImportDialogEmpty))
+            ? OpenHandInlineEmptyState(
+                message: l10n.toolSearchLoadedHistoryImportDialogEmpty,
+              )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

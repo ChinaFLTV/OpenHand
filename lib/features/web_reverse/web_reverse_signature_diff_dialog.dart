@@ -25,6 +25,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/oh_pill.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -160,14 +161,11 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
         ),
         Expanded(
           child: filtered.isEmpty
-              ? Center(
-                  child: Text(
-                    loc?.webReverseSignatureDiffNoGroups ??
-                        'No analyzable groups (need ≥2 samples)',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
+              ? OpenHandInlineEmptyState(
+                  message:
+                      loc?.webReverseSignatureDiffNoGroups ??
+                      'No analyzable groups (need ≥2 samples)',
+                  dense: true,
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -277,25 +275,12 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
   }
 
   Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.insights_rounded, size: 48, color: cs.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(
-              loc?.webReverseSignatureDiffEmptyHint ??
-                  'Hit the same API multiple times in Network panel, then return to analyze.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return OpenHandInlineEmptyState(
+      icon: Icons.insights_rounded,
+      dense: true,
+      message:
+          loc?.webReverseSignatureDiffEmptyHint ??
+          'Hit the same API multiple times in Network panel, then return to analyze.',
     );
   }
 

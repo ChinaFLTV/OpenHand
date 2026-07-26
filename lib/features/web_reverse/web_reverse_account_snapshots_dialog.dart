@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
@@ -288,29 +289,12 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   }
 
   Widget _buildEmpty(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.account_circle_outlined,
-              size: 48,
-              color: cs.onSurfaceVariant,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              loc?.webReverseAccountSnapEmptyHint ??
-                  'No snapshots yet. Type a name above → click "Capture".',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return OpenHandInlineEmptyState(
+      icon: Icons.account_circle_outlined,
+      dense: true,
+      message:
+          loc?.webReverseAccountSnapEmptyHint ??
+          'No snapshots yet. Type a name above → click "Capture".',
     );
   }
 

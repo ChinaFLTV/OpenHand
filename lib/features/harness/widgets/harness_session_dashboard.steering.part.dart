@@ -252,21 +252,16 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                         child: CircularProgressIndicator(),
                       )
                     : _entries.isEmpty
-                    ? Center(
+                    ? OpenHandInlineEmptyState(
                         key: const ValueKey<String>('empty'),
-                        child: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '此目录为空',
-                            zhHant: '此目錄為空',
-                            en: 'This directory is empty',
-                            fr: 'Ce dossier est vide',
-                            de: 'Dieser Ordner ist leer',
-                            ja: 'このディレクトリは空です',
-                          ),
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        message: openHandLocalizedText(
+                          context,
+                          zh: '此目录为空',
+                          zhHant: '此目錄為空',
+                          en: 'This directory is empty',
+                          fr: 'Ce dossier est vide',
+                          de: 'Dieser Ordner ist leer',
+                          ja: 'このディレクトリは空です',
                         ),
                       )
                     : ListView.separated(

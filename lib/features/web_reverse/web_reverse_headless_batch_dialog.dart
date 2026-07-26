@@ -7,6 +7,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -340,14 +341,11 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
               child: Container(
                 decoration: webReverseSurfaceCardDecoration(cs, radius: 12),
                 child: _progress.isEmpty && _results == null
-                    ? Center(
-                        child: Text(
-                          loc?.webReverseHeadlessBatchNoProgress ??
-                              'No progress yet',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
+                    ? OpenHandInlineEmptyState(
+                        message:
+                            loc?.webReverseHeadlessBatchNoProgress ??
+                            'No progress yet',
+                        dense: true,
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(

@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -375,32 +376,18 @@ class _IssuesDialogState extends State<_IssuesDialog> {
             ),
           Expanded(
             child: visible.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.verified_rounded,
-                          size: 36,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _issueBuffer.isEmpty
-                              ? (AppLocalizations.of(
-                                      context,
-                                    )?.webReverseIssuesEmptyBuffer ??
-                                    'No issues reported yet. Interact with the page.')
-                              : (AppLocalizations.of(
-                                      context,
-                                    )?.webReverseIssuesNoMatch ??
-                                    'No matching issue.'),
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                ? OpenHandInlineEmptyState(
+                    icon: Icons.verified_rounded,
+                    dense: true,
+                    message: _issueBuffer.isEmpty
+                        ? (AppLocalizations.of(
+                                context,
+                              )?.webReverseIssuesEmptyBuffer ??
+                              'No issues reported yet. Interact with the page.')
+                        : (AppLocalizations.of(
+                                context,
+                              )?.webReverseIssuesNoMatch ??
+                              'No matching issue.'),
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),

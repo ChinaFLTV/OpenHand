@@ -572,14 +572,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
 
   Widget _attrsView(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_attrs.isEmpty) {
-      return Center(
+      return OpenHandInlineEmptyState(
         key: const ValueKey('attrs-empty'),
-        child: Text(
-          loc?.webReverseElementsNoAttrs ?? 'No attributes',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-        ),
+        message: loc?.webReverseElementsNoAttrs ?? 'No attributes',
+        dense: true,
       );
     }
     final entries = _attrs.entries.toList();
@@ -618,14 +614,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
 
   Widget _computedView(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_computed.isEmpty) {
-      return Center(
+      return OpenHandInlineEmptyState(
         key: const ValueKey('comp-empty'),
-        child: Text(
-          loc?.webReverseElementsNoComputed ?? 'No computed style',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-        ),
+        message: loc?.webReverseElementsNoComputed ?? 'No computed style',
+        dense: true,
       );
     }
     return ListView.builder(
@@ -665,14 +657,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
     AppLocalizations? loc,
   ) {
     if (_listeners.isEmpty) {
-      return Center(
+      return OpenHandInlineEmptyState(
         key: const ValueKey('listen-empty'),
-        child: Text(
-          loc?.webReverseElementsNoListeners ?? 'No event listeners',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-        ),
+        message: loc?.webReverseElementsNoListeners ?? 'No event listeners',
+        dense: true,
       );
     }
     return ListView.builder(

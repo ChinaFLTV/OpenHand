@@ -320,27 +320,16 @@ class _NetworkList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无网络请求。在浏览器中操作页面后此处会实时刷新。',
-              zhHant: '暫無網路請求。在瀏覽器中操作頁面後此處會即時更新。',
-              en: 'No network requests yet. Interact with the page to populate this view.',
-              fr: 'Aucune requête réseau. Interagissez avec la page pour remplir cette vue.',
-              de: 'Noch keine Netzwerkanfragen. Interagieren Sie mit der Seite, um diese Ansicht zu füllen.',
-              ja: 'ネットワークリクエストはまだありません。ページを操作するとここに表示されます。',
-            ),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
+      return OpenHandInlineEmptyState(
+        message: openHandLocalizedText(
+          context,
+          zh: '暂无网络请求。在浏览器中操作页面后此处会实时刷新。',
+          zhHant: '暫無網路請求。在瀏覽器中操作頁面後此處會即時更新。',
+          en: 'No network requests yet. Interact with the page to populate this view.',
+          fr: 'Aucune requête réseau. Interagissez avec la page pour remplir cette vue.',
+          de: 'Noch keine Netzwerkanfragen. Interagieren Sie mit der Seite, um diese Ansicht zu füllen.',
+          ja: 'ネットワークリクエストはまだありません。ページを操作するとここに表示されます。',
         ),
       );
     }

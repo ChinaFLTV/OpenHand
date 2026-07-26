@@ -175,18 +175,11 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   const Divider(height: 1),
                   Expanded(
                     child: entries.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
+                        ? OpenHandInlineEmptyState(
+                            message:
                                 loc?.webReverseRealtimeEmpty ??
-                                    'No WebSocket / EventSource yet.',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
+                                'No WebSocket / EventSource yet.',
+                            dense: true,
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 4),

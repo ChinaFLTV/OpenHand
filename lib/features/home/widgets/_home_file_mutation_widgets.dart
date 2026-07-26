@@ -2764,17 +2764,9 @@ class _FileMutationHistoryInspectorDialogState
                           .where((v) => v.record.filePath == _zoomedPath)
                           .toList(growable: false);
                 if (visible.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        l10n.fileMutationHistoryInspectorEmpty,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
+                  return OpenHandInlineEmptyState(
+                    message: l10n.fileMutationHistoryInspectorEmpty,
+                    dense: true,
                   );
                 }
                 // 按文件路径分组（保持原 createdAt 倒序）

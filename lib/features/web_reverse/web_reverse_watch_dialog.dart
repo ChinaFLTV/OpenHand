@@ -332,14 +332,11 @@ class _WatchDialogState extends State<_WatchDialog> {
                     children: [
                       Expanded(
                         child: _exprs.isEmpty
-                            ? Center(
-                                child: Text(
-                                  loc?.webReverseWatchNoExpressions ??
-                                      'No expressions',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
+                            ? OpenHandInlineEmptyState(
+                                message:
+                                    loc?.webReverseWatchNoExpressions ??
+                                    'No expressions',
+                                dense: true,
                               )
                             : ListView.separated(
                                 padding: const EdgeInsets.all(8),

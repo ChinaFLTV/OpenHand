@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -182,15 +183,10 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
           ),
           Expanded(
             child: clusters.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseConsoleClusterNoMatch ??
-                          'No matching entries',
-                      style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseConsoleClusterNoMatch ??
+                        'No matching entries',
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),

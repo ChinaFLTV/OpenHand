@@ -1158,16 +1158,8 @@ class _ThreadSessionManagementDialogState
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          AppLocalizations.of(context)!.tsmEmptyState,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
+    return OpenHandInlineEmptyState(
+      message: AppLocalizations.of(context)!.tsmEmptyState,
     );
   }
 

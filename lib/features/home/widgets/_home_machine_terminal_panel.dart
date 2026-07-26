@@ -628,17 +628,11 @@ class _MachineTerminalHistoryDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     if (terminals.isEmpty) {
-      return Center(
-        child: Text(
-          openHandLocalizedText(
-            context,
-            zh: '暂无终端会话历史。',
-            en: 'No terminal history yet.',
-          ),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: cs.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-          ),
+      return OpenHandInlineEmptyState(
+        message: openHandLocalizedText(
+          context,
+          zh: '暂无终端会话历史。',
+          en: 'No terminal history yet.',
         ),
       );
     }
@@ -1589,18 +1583,11 @@ class _MachineTerminalCommandHistoryList extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.48)),
         ),
-        child: Center(
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无结构化命令记录。',
-              en: 'No structured command records.',
-            ),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '暂无结构化命令记录。',
+            en: 'No structured command records.',
           ),
         ),
       );

@@ -1239,26 +1239,17 @@ class _LongTasksPane extends StatelessWidget {
           Divider(height: 1, color: cs.outlineVariant),
           Expanded(
             child: tasks.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '暂无长任务。\n刷新页面或交互后此处会实时刷新。',
-                          zhHant: '暫無長任務。\n重新整理頁面或互動後此處會即時更新。',
-                          en: 'No long tasks yet.',
-                          fr: 'Aucune tâche longue pour le moment.',
-                          de: 'Noch keine Long Tasks.',
-                          ja: 'Long Task はまだありません。',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.55,
-                        ),
-                      ),
+                ? OpenHandInlineEmptyState(
+                    message: openHandLocalizedText(
+                      context,
+                      zh: '暂无长任务。\n刷新页面或交互后此处会实时刷新。',
+                      zhHant: '暫無長任務。\n重新整理頁面或互動後此處會即時更新。',
+                      en: 'No long tasks yet.',
+                      fr: 'Aucune tâche longue pour le moment.',
+                      de: 'Noch keine Long Tasks.',
+                      ja: 'Long Task はまだありません。',
                     ),
+                    dense: true,
                   )
                 : ListView.builder(
                     reverse: true,

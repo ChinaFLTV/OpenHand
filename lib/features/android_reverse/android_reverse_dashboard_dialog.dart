@@ -19,6 +19,7 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_clipboard.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -3732,21 +3733,15 @@ fi
     bool isZh,
   ) {
     if (devices.isEmpty) {
-      return Center(
-        child: Text(
-          openHandLocalizedText(
-            context,
-            zh: '未找到设备。请连接 Android 设备或启动模拟器后刷新。',
-            zhHant: '找不到裝置。請連接 Android 裝置或啟動模擬器後重新整理。',
-            en: 'No devices found. Connect a device or start an emulator, then refresh.',
-            fr: 'Aucun appareil trouvé. Connectez un appareil ou démarrez un émulateur, puis actualisez.',
-            de: 'Keine Geräte gefunden. Gerät verbinden oder Emulator starten und aktualisieren.',
-            ja: 'デバイスが見つかりません。Android デバイスを接続するかエミュレーターを起動して更新してください。',
-          ),
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
+      return OpenHandInlineEmptyState(
+        message: openHandLocalizedText(
+          context,
+          zh: '未找到设备。请连接 Android 设备或启动模拟器后刷新。',
+          zhHant: '找不到裝置。請連接 Android 裝置或啟動模擬器後重新整理。',
+          en: 'No devices found. Connect a device or start an emulator, then refresh.',
+          fr: 'Aucun appareil trouvé. Connectez un appareil ou démarrez un émulateur, puis actualisez.',
+          de: 'Keine Geräte gefunden. Gerät verbinden oder Emulator starten und aktualisieren.',
+          ja: 'デバイスが見つかりません。Android デバイスを接続するかエミュレーターを起動して更新してください。',
         ),
       );
     }

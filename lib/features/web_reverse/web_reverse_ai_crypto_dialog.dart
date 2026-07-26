@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -517,18 +518,11 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                   child: Container(
                     color: cs.surfaceContainerLow,
                     child: _groups.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
+                        ? OpenHandInlineEmptyState(
+                            message:
                                 loc?.webReverseAiCryptoEmpty ??
-                                    'No analyzable endpoint (need ≥2 hits per endpoint)',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
+                                'No analyzable endpoint (need ≥2 hits per endpoint)',
+                            dense: true,
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.all(8),

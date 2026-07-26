@@ -19,6 +19,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
@@ -382,15 +383,11 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
           SizedBox(
             height: 160,
             child: _rows.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseWsInjectNoLive ??
-                          'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseWsInjectNoLive ??
+                        'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
+                    dense: true,
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -530,14 +527,11 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 border: Border.all(color: cs.outlineVariant),
               ),
               child: _log.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseWsInjectLogEmpty ??
-                            'Inject log appears here',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
+                  ? OpenHandInlineEmptyState(
+                      message:
+                          loc?.webReverseWsInjectLogEmpty ??
+                          'Inject log appears here',
+                      dense: true,
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(8),

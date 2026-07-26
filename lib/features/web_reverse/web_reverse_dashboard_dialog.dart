@@ -519,17 +519,9 @@ class _DashboardScriptWorkspace extends StatelessWidget {
                   const Divider(height: 1),
                   Expanded(
                     child: itemCount == 0
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                emptyLibraryLabel,
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
+                        ? OpenHandInlineEmptyState(
+                            message: emptyLibraryLabel,
+                            dense: true,
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 4),

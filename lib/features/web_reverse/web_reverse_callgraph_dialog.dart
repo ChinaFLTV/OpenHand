@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -438,14 +439,11 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               decoration: webReverseSurfaceCardDecoration(cs),
               child: _graphs.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseCallgraphEmptyHint ??
-                            'Click Scan to parse current page JS',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
+                  ? OpenHandInlineEmptyState(
+                      message:
+                          loc?.webReverseCallgraphEmptyHint ??
+                          'Click Scan to parse current page JS',
+                      dense: true,
                     )
                   : Row(
                       children: [

@@ -699,24 +699,15 @@ class _BodyTab extends StatelessWidget {
       }
     }
     if (text == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '响应体不可用（可能已被回收，或服务端返回了空 body）。',
-              zhHant: '回應本文不可用（可能已被回收，或伺服器回傳了空 body）。',
-              en: 'Response body unavailable (already evicted or empty).',
-              fr: 'Corps de réponse indisponible (déjà évincé ou vide).',
-              de: 'Antwortinhalt nicht verfügbar (bereits verworfen oder leer).',
-              ja: 'レスポンス本文は利用できません（回収済み、または空の body の可能性があります）。',
-            ),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
+      return OpenHandInlineEmptyState(
+        message: openHandLocalizedText(
+          context,
+          zh: '响应体不可用（可能已被回收，或服务端返回了空 body）。',
+          zhHant: '回應本文不可用（可能已被回收，或伺服器回傳了空 body）。',
+          en: 'Response body unavailable (already evicted or empty).',
+          fr: 'Corps de réponse indisponible (déjà évincé ou vide).',
+          de: 'Antwortinhalt nicht verfügbar (bereits verworfen oder leer).',
+          ja: 'レスポンス本文は利用できません（回収済み、または空の body の可能性があります）。',
         ),
       );
     }

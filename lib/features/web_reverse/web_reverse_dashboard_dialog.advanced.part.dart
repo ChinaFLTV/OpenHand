@@ -2760,22 +2760,17 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       return Padding(
         key: const ValueKey('empty-charts'),
         padding: const EdgeInsets.all(36),
-        child: Center(
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。',
-              zhHant: '目前頁面尚未發起 WebRTC。\n觸發音視訊通話或 datachannel 後會自動出現採樣曲線。',
-              en: 'No WebRTC yet. Trigger a call/datachannel; samples will appear automatically.',
-              fr: 'Aucun WebRTC pour l’instant. Lancez un appel ou datachannel pour voir les échantillons.',
-              de: 'Noch kein WebRTC. Starten Sie einen Call oder datachannel, dann erscheinen Samples automatisch.',
-              ja: 'まだ WebRTC はありません。通話または datachannel を開始するとサンプル曲線が表示されます。',
-            ),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。',
+            zhHant: '目前頁面尚未發起 WebRTC。\n觸發音視訊通話或 datachannel 後會自動出現採樣曲線。',
+            en: 'No WebRTC yet. Trigger a call/datachannel; samples will appear automatically.',
+            fr: 'Aucun WebRTC pour l’instant. Lancez un appel ou datachannel pour voir les échantillons.',
+            de: 'Noch kein WebRTC. Starten Sie einen Call oder datachannel, dann erscheinen Samples automatisch.',
+            ja: 'まだ WebRTC はありません。通話または datachannel を開始するとサンプル曲線が表示されます。',
           ),
+          dense: true,
         ),
       );
     }
@@ -3065,29 +3060,23 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// 头部还显示 type（offer/answer），下方按"上一份 vs 当前"做行级 diff
   /// （绿 = 新增，红 = 删除，灰 = 不变）。第一次接到 SDP 时只渲染单列。
   Widget _buildSdpDiffTab(ThemeData theme) {
-    final cs = theme.colorScheme;
     final ids = _sdps.keys.toList()..sort();
     if (ids.isEmpty) {
       return Padding(
         key: const ValueKey('empty-sdp'),
         padding: const EdgeInsets.all(36),
-        child: Center(
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。',
-              zhHant:
-                  '暫無 SDP。\n觸發 setLocalDescription / setRemoteDescription 後會出現。',
-              en: 'No SDP yet.',
-              fr: 'Aucun SDP pour l’instant.',
-              de: 'Noch kein SDP.',
-              ja: 'SDP はまだありません。',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
+        child: OpenHandInlineEmptyState(
+          message: openHandLocalizedText(
+            context,
+            zh: '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。',
+            zhHant:
+                '暫無 SDP。\n觸發 setLocalDescription / setRemoteDescription 後會出現。',
+            en: 'No SDP yet.',
+            fr: 'Aucun SDP pour l’instant.',
+            de: 'Noch kein SDP.',
+            ja: 'SDP はまだありません。',
           ),
+          dense: true,
         ),
       );
     }

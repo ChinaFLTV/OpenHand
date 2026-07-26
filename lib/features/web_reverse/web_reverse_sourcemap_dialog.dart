@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -382,16 +383,12 @@ class _SmDialogState extends State<_SmDialog> {
           OpenHandBusyProgressBar(busy: _busy),
           Expanded(
             child: r == null
-                ? Center(
-                    child: Text(
-                      _status.isEmpty
-                          ? (loc?.webReverseSmEmptyHint ??
-                                'Enter URL + position, then resolve')
-                          : _status,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message: _status.isEmpty
+                        ? (loc?.webReverseSmEmptyHint ??
+                              'Enter URL + position, then resolve')
+                        : _status,
+                    dense: true,
                   )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(14),

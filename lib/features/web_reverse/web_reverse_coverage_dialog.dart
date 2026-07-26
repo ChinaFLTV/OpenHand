@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
@@ -301,14 +302,11 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           const SizedBox(height: 8),
           Expanded(
             child: rows.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseCoverageNoData ??
-                          'No data. Start → use the page → Take.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseCoverageNoData ??
+                        'No data. Start → use the page → Take.',
+                    dense: true,
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),

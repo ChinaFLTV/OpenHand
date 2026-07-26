@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
@@ -206,14 +207,11 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                       ),
                       Expanded(
                         child: _draft.isEmpty
-                            ? Center(
-                                child: Text(
-                                  loc?.webReverseMockRulesEmptyRules ??
-                                      'No rules',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
+                            ? OpenHandInlineEmptyState(
+                                message:
+                                    loc?.webReverseMockRulesEmptyRules ??
+                                    'No rules',
+                                dense: true,
                               )
                             : ListView.separated(
                                 padding: const EdgeInsets.symmetric(
@@ -346,13 +344,10 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                   ),
                   Expanded(
                     child: hits.isEmpty
-                        ? Center(
-                            child: Text(
-                              loc?.webReverseMockRulesNoHits ?? 'No hits yet',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
+                        ? OpenHandInlineEmptyState(
+                            message:
+                                loc?.webReverseMockRulesNoHits ?? 'No hits yet',
+                            dense: true,
                           )
                         : ListView.builder(
                             itemCount: hits.length,

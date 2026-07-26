@@ -3570,33 +3570,28 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                       else if (widget.items.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Center(
-                            child: Text(
-                              isLocalFileMode && !widget.attachmentsEnabled
-                                  ? openHandLocalizedText(
-                                      context,
-                                      zh: '当前模型不支持附件',
-                                      zhHant: '目前模型不支援附件',
-                                      en: 'The selected model does not support attachments',
-                                      fr: 'Le modèle sélectionné ne prend pas en charge les pièces jointes',
-                                      de: 'Das ausgewählte Modell unterstützt keine Anhänge',
-                                      ja: '選択中のモデルは添付ファイルに対応していません',
-                                    )
-                                  : openHandLocalizedText(
-                                      context,
-                                      zh: '未找到匹配文件或目录',
-                                      zhHant: '找不到相符的檔案或目錄',
-                                      en: 'No matching files or directories',
-                                      fr: 'Aucun fichier ou dossier correspondant',
-                                      de: 'Keine passenden Dateien oder Ordner gefunden',
-                                      ja: '一致するファイルまたはディレクトリがありません',
-                                    ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.6,
-                                ),
-                              ),
-                            ),
+                          child: OpenHandInlineEmptyState(
+                            message:
+                                isLocalFileMode && !widget.attachmentsEnabled
+                                ? openHandLocalizedText(
+                                    context,
+                                    zh: '当前模型不支持附件',
+                                    zhHant: '目前模型不支援附件',
+                                    en: 'The selected model does not support attachments',
+                                    fr: 'Le modèle sélectionné ne prend pas en charge les pièces jointes',
+                                    de: 'Das ausgewählte Modell unterstützt keine Anhänge',
+                                    ja: '選択中のモデルは添付ファイルに対応していません',
+                                  )
+                                : openHandLocalizedText(
+                                    context,
+                                    zh: '未找到匹配文件或目录',
+                                    zhHant: '找不到相符的檔案或目錄',
+                                    en: 'No matching files or directories',
+                                    fr: 'Aucun fichier ou dossier correspondant',
+                                    de: 'Keine passenden Dateien oder Ordner gefunden',
+                                    ja: '一致するファイルまたはディレクトリがありません',
+                                  ),
+                            dense: true,
                           ),
                         )
                       else
@@ -3938,21 +3933,17 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
           else if (widget.items.isEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '未找到匹配技能',
-                    zhHant: '找不到相符技能',
-                    en: 'No matching skills',
-                    fr: 'Aucune compétence correspondante',
-                    de: 'Keine passenden Skills',
-                    ja: '一致するスキルがありません',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
+              child: OpenHandInlineEmptyState(
+                message: openHandLocalizedText(
+                  context,
+                  zh: '未找到匹配技能',
+                  zhHant: '找不到相符技能',
+                  en: 'No matching skills',
+                  fr: 'Aucune compétence correspondante',
+                  de: 'Keine passenden Skills',
+                  ja: '一致するスキルがありません',
                 ),
+                dense: true,
               ),
             )
           else

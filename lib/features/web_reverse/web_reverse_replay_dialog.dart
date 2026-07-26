@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -227,14 +228,11 @@ class _ReplayDialogState extends State<_ReplayDialog> {
           ),
           Expanded(
             child: entries.isEmpty
-                ? Center(
-                    child: Text(
-                      loc?.webReverseReplayEmpty ??
-                          'No HTTP requests in session',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                ? OpenHandInlineEmptyState(
+                    message:
+                        loc?.webReverseReplayEmpty ??
+                        'No HTTP requests in session',
+                    dense: true,
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),

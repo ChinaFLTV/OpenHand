@@ -35,6 +35,7 @@ import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -13889,17 +13890,11 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
             const SizedBox(height: 18),
             if (tool == null)
               Expanded(
-                child: Center(
-                  child: Text(
-                    _localizedText(
-                      context,
-                      zh: '当前服务还没有可调试的 Tool，请先刷新 Tool 列表。',
-                      en: 'No tools are available for debugging yet. Refresh the tool list first.',
-                    ),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                child: OpenHandInlineEmptyState(
+                  message: _localizedText(
+                    context,
+                    zh: '当前服务还没有可调试的 Tool，请先刷新 Tool 列表。',
+                    en: 'No tools are available for debugging yet. Refresh the tool list first.',
                   ),
                 ),
               )
