@@ -273,7 +273,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       final astNodes = document.parseLines(
         const LineSplitter().convert(source),
       );
-      _heSanitizeMarkdownAst(astNodes);
+      sanitizeOpenHandMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: true,
@@ -1184,29 +1184,6 @@ String _heSanitizeMarkdownSource(String source) {
     (m) => '${m[1]}${m[2]}\\${m[3]}',
   );
   return _heCloseUnterminatedCodeBlock(escapedSetext);
-}
-
-/// 规范化 Markdown 有序列表的 start 属性，避免格式错误影响首帧渲染。
-void _heSanitizeMarkdownAst(List<md.Node> nodes) {
-  for (final node in nodes) {
-    if (node is! md.Element) {
-      continue;
-    }
-    final attributes = node.attributes;
-    if (node.tag == 'ol') {
-      final start = attributes['start'];
-      final startValue = optionalIntFromValue(start);
-      if (startValue == null) {
-        attributes.remove('start');
-      } else {
-        attributes['start'] = startValue.toString();
-      }
-    }
-    final children = node.children;
-    if (children != null && children.isNotEmpty) {
-      _heSanitizeMarkdownAst(children);
-    }
-  }
 }
 
 class _HeChip extends StatelessWidget {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +14,7 @@ import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_reveal_switcher.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_scroll_behaviors.dart';
 import 'openhand_tooltip_dismissal.dart';
 import 'safe_edge_insets.dart';
 
@@ -121,7 +121,7 @@ DialogAnimationSettings _resolveDialogMotionSettings(
 
 const ScrollPhysics kOpenHandDialogScrollPhysics = ClampingScrollPhysics();
 
-class OpenHandDialogScrollBehavior extends MaterialScrollBehavior {
+class OpenHandDialogScrollBehavior extends OpenHandScrollBehaviorBase {
   const OpenHandDialogScrollBehavior();
 
   @override
@@ -142,19 +142,6 @@ class OpenHandDialogScrollBehavior extends MaterialScrollBehavior {
     return kOpenHandDialogScrollPhysics;
   }
 
-  @override
-  Widget buildOverscrollIndicator(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) {
-    return child;
-  }
-
-  @override
-  GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
-    return (PointerEvent event) => VelocityTracker.withKind(event.kind);
-  }
 }
 
 class _OpenHandDialogScrollScope extends InheritedWidget {

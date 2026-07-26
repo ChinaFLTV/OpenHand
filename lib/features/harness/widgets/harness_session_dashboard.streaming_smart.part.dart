@@ -132,7 +132,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       final astNodes = document.parseLines(
         const LineSplitter().convert(source),
       );
-      _heSanitizeMarkdownAst(astNodes);
+      sanitizeOpenHandMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: false,

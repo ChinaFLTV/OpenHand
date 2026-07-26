@@ -1683,28 +1683,6 @@ String _stripToolScaffoldingFromMarkdown(String source) {
   return buffer.toString();
 }
 
-void _sanitizeMarkdownAst(List<md.Node> nodes) {
-  for (final node in nodes) {
-    if (node is! md.Element) {
-      continue;
-    }
-    final attributes = node.attributes;
-    if (node.tag == 'ol') {
-      final start = attributes['start'];
-      final startValue = optionalIntFromValue(start);
-      if (startValue == null) {
-        attributes.remove('start');
-      } else {
-        attributes['start'] = startValue.toString();
-      }
-    }
-    final children = node.children;
-    if (children != null && children.isNotEmpty) {
-      _sanitizeMarkdownAst(children);
-    }
-  }
-}
-
 void _warmMarkdownAst({
   required String data,
   required String parseKey,
@@ -1743,7 +1721,7 @@ void _warmMarkdownAst({
       final astNodes = document.parseLines(
         const LineSplitter().convert(normalizedSource),
       );
-      _sanitizeMarkdownAst(astNodes);
+      sanitizeOpenHandMarkdownAst(astNodes);
       _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
       onReady?.call(astNodes);
     } finally {
@@ -2270,7 +2248,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         astNodes = document.parseLines(
           const LineSplitter().convert(normalizedSource),
         );
-        _sanitizeMarkdownAst(astNodes);
+        sanitizeOpenHandMarkdownAst(astNodes);
         if (shouldCacheAst) {
           _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
         }
