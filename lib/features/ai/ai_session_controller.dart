@@ -8928,51 +8928,10 @@ class AiSessionController extends ChangeNotifier {
         writeAnalysisReason: result.writeAnalysisReason,
         additionalMetadata: result.metadata,
       );
-      final toolMessageMetadata = <String, Object?>{
-        'tool_call_id': toolCall.id,
-        'tool_name': toolCall.name,
-        'tool_arguments': toolCall.arguments,
-        'command': result.command,
-        'working_directory': result.workingDirectory,
-        'status': result.status.storageValue,
-        'exit_code': result.exitCode,
-        'duration_ms': result.durationMs,
-        'stdout': result.stdout,
-        'stderr': result.stderr,
-        'result_text': result.toToolOutput(),
-        'matched_rule_id': result.matchedRuleId,
-        'matched_rule_pattern': result.matchedRulePattern,
-        'is_write_command': result.isWriteCommand,
-        'write_analysis_reason': result.writeAnalysisReason,
-        ...result.metadata,
-      };
-      final toolMessage = _buildToolResultMessage(
+      workingSession = _appendToolResultMessage(
+        session: workingSession,
         toolCall: toolCall,
         result: result,
-        metadata: toolMessageMetadata,
-      );
-      final updatedTodoItems = _applyTodoState(
-        currentTodoItems: workingSession.todoItems,
-        toolResultMetadata: toolMessageMetadata,
-      );
-      workingSession = _rebuildSession(
-        workingSession.copyWith(
-          updatedAt: toolMessage.createdAt,
-          todoItems: updatedTodoItems,
-          awaitingPlanApproval:
-              toolMessageMetadata['plan_mode_awaiting_approval'] == true
-              ? true
-              : workingSession.awaitingPlanApproval,
-          pendingPlan:
-              toolMessageMetadata['plan_mode_awaiting_approval'] == true
-              ? '${toolMessageMetadata['pending_plan'] ?? ''}'.trim()
-              : workingSession.pendingPlan,
-          pendingPlanAllowedPrompts:
-              toolMessageMetadata['plan_mode_awaiting_approval'] == true
-              ? _planAllowedPromptsFromToolMetadata(toolMessageMetadata)
-              : workingSession.pendingPlanAllowedPrompts,
-          messages: <AiSessionMessage>[...workingSession.messages, toolMessage],
-        ),
       );
       final committed = await _commitSessionLocked(workingSession);
       if (!committed) {
@@ -9155,51 +9114,10 @@ class AiSessionController extends ChangeNotifier {
         writeAnalysisReason: result.writeAnalysisReason,
         additionalMetadata: result.metadata,
       );
-      final toolMessageMetadata = <String, Object?>{
-        'tool_call_id': state.toolCall.id,
-        'tool_name': state.toolCall.name,
-        'tool_arguments': state.toolCall.arguments,
-        'command': result.command,
-        'working_directory': result.workingDirectory,
-        'status': result.status.storageValue,
-        'exit_code': result.exitCode,
-        'duration_ms': result.durationMs,
-        'stdout': result.stdout,
-        'stderr': result.stderr,
-        'result_text': result.toToolOutput(),
-        'matched_rule_id': result.matchedRuleId,
-        'matched_rule_pattern': result.matchedRulePattern,
-        'is_write_command': result.isWriteCommand,
-        'write_analysis_reason': result.writeAnalysisReason,
-        ...result.metadata,
-      };
-      final toolMessage = _buildToolResultMessage(
+      workingSession = _appendToolResultMessage(
+        session: workingSession,
         toolCall: state.toolCall,
         result: result,
-        metadata: toolMessageMetadata,
-      );
-      final updatedTodoItems = _applyTodoState(
-        currentTodoItems: workingSession.todoItems,
-        toolResultMetadata: toolMessageMetadata,
-      );
-      workingSession = _rebuildSession(
-        workingSession.copyWith(
-          updatedAt: toolMessage.createdAt,
-          todoItems: updatedTodoItems,
-          awaitingPlanApproval:
-              toolMessageMetadata['plan_mode_awaiting_approval'] == true
-              ? true
-              : workingSession.awaitingPlanApproval,
-          pendingPlan:
-              toolMessageMetadata['plan_mode_awaiting_approval'] == true
-              ? '${toolMessageMetadata['pending_plan'] ?? ''}'.trim()
-              : workingSession.pendingPlan,
-          pendingPlanAllowedPrompts:
-              toolMessageMetadata['plan_mode_awaiting_approval'] == true
-              ? _planAllowedPromptsFromToolMetadata(toolMessageMetadata)
-              : workingSession.pendingPlanAllowedPrompts,
-          messages: <AiSessionMessage>[...workingSession.messages, toolMessage],
-        ),
       );
     }
     final committed = await _commitSessionLocked(workingSession);
@@ -9224,6 +9142,59 @@ class AiSessionController extends ChangeNotifier {
       );
     }
     return workingSession;
+  }
+
+  /// 把一次工具执行结果落成消息并合入会话：统一构造消息元数据、同步 TODO 状态
+  /// 与计划审批位。串行与并行两条执行路径共用，避免元数据字段在两处分叉。
+  AiSession _appendToolResultMessage({
+    required AiSession session,
+    required AiToolCall toolCall,
+    required AiToolExecutionResult result,
+  }) {
+    final metadata = <String, Object?>{
+      'tool_call_id': toolCall.id,
+      'tool_name': toolCall.name,
+      'tool_arguments': toolCall.arguments,
+      'command': result.command,
+      'working_directory': result.workingDirectory,
+      'status': result.status.storageValue,
+      'exit_code': result.exitCode,
+      'duration_ms': result.durationMs,
+      'stdout': result.stdout,
+      'stderr': result.stderr,
+      'result_text': result.toToolOutput(),
+      'matched_rule_id': result.matchedRuleId,
+      'matched_rule_pattern': result.matchedRulePattern,
+      'is_write_command': result.isWriteCommand,
+      'write_analysis_reason': result.writeAnalysisReason,
+      ...result.metadata,
+    };
+    final toolMessage = _buildToolResultMessage(
+      toolCall: toolCall,
+      result: result,
+      metadata: metadata,
+    );
+    final awaitingPlanApproval =
+        metadata['plan_mode_awaiting_approval'] == true;
+    return _rebuildSession(
+      session.copyWith(
+        updatedAt: toolMessage.createdAt,
+        todoItems: _applyTodoState(
+          currentTodoItems: session.todoItems,
+          toolResultMetadata: metadata,
+        ),
+        awaitingPlanApproval: awaitingPlanApproval
+            ? true
+            : session.awaitingPlanApproval,
+        pendingPlan: awaitingPlanApproval
+            ? '${metadata['pending_plan'] ?? ''}'.trim()
+            : session.pendingPlan,
+        pendingPlanAllowedPrompts: awaitingPlanApproval
+            ? _planAllowedPromptsFromToolMetadata(metadata)
+            : session.pendingPlanAllowedPrompts,
+        messages: <AiSessionMessage>[...session.messages, toolMessage],
+      ),
+    );
   }
 
   Future<AiSession> _runUserPreToolUseHook({

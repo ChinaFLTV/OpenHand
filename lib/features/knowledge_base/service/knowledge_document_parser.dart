@@ -114,6 +114,42 @@ abstract class KnowledgeDocumentParser {
   );
 }
 
+/// 代码类文档的后缀名单。
+///
+/// 解析器与「支持的文件类型」列表共用同一份：此前两处各写一遍，新增语言时
+/// 只改解析器会让文件选择器直接把它过滤掉。
+const Set<String> kCodeKnowledgeDocumentExtensions = <String>{
+  'dart',
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'py',
+  'java',
+  'kt',
+  'kts',
+  'swift',
+  'go',
+  'rs',
+  'c',
+  'cc',
+  'cpp',
+  'h',
+  'hpp',
+  'cs',
+  'php',
+  'rb',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'sql',
+  'xml',
+  'css',
+  'scss',
+  'less',
+};
+
 class KnowledgeDocumentParserRegistry {
   const KnowledgeDocumentParserRegistry({
     this.parsers = const <KnowledgeDocumentParser>[
@@ -155,35 +191,7 @@ class KnowledgeDocumentParserRegistry {
     'xlsx',
     'pptx',
     'pdf',
-    'dart',
-    'js',
-    'jsx',
-    'ts',
-    'tsx',
-    'py',
-    'java',
-    'kt',
-    'kts',
-    'swift',
-    'go',
-    'rs',
-    'c',
-    'cc',
-    'cpp',
-    'h',
-    'hpp',
-    'cs',
-    'php',
-    'rb',
-    'sh',
-    'bash',
-    'zsh',
-    'fish',
-    'sql',
-    'xml',
-    'css',
-    'scss',
-    'less',
+    ...kCodeKnowledgeDocumentExtensions,
   ];
 
   static const String supportedFilesLabelZh =
@@ -333,37 +341,7 @@ class CodeKnowledgeDocumentParser extends KnowledgeDocumentParser {
   String get id => 'code_text';
 
   @override
-  Set<String> get extensions => const <String>{
-    'dart',
-    'js',
-    'jsx',
-    'ts',
-    'tsx',
-    'py',
-    'java',
-    'kt',
-    'kts',
-    'swift',
-    'go',
-    'rs',
-    'c',
-    'cc',
-    'cpp',
-    'h',
-    'hpp',
-    'cs',
-    'php',
-    'rb',
-    'sh',
-    'bash',
-    'zsh',
-    'fish',
-    'sql',
-    'xml',
-    'css',
-    'scss',
-    'less',
-  };
+  Set<String> get extensions => kCodeKnowledgeDocumentExtensions;
 
   @override
   Future<KnowledgeDocumentParseResult> parse(
