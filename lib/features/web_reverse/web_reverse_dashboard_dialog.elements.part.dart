@@ -523,15 +523,19 @@ class _ElementsBodyState extends State<_ElementsBody> {
                     'Listeners (${_listeners.length})',
               ),
               const Spacer(),
-              if (_loadingDetails)
-                const Padding(
-                  padding: EdgeInsets.only(right: 12),
-                  child: SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
-                ),
+              OpenHandInlineRevealSwitcher(
+                presentKey: const ValueKey<String>('elements-loading'),
+                child: _loadingDetails
+                    ? const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
+                      )
+                    : null,
+              ),
             ],
           ),
         ),

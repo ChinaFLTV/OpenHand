@@ -1543,15 +1543,19 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
                 ),
               ),
             ),
-            if (_busy)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2.2),
-                ),
-              ),
+            OpenHandInlineRevealSwitcher(
+              presentKey: const ValueKey<String>('audit-busy'),
+              child: _busy
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      ),
+                    )
+                  : null,
+            ),
           ],
         ),
         const SizedBox(height: 16),

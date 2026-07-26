@@ -2627,14 +2627,24 @@ class _OverviewBodyState extends State<_OverviewBody> {
                       ),
                     ),
                   ),
-                  if (_busy) ...[
-                    const SizedBox(width: 12),
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ],
+                  OpenHandInlineRevealSwitcher(
+                    presentKey: const ValueKey<String>('snapshot-busy'),
+                    child: _busy
+                        ? const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(width: 12),
+                              SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ],
+                          )
+                        : null,
+                  ),
                 ],
               ),
             ],

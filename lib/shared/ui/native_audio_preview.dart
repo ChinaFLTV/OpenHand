@@ -1100,18 +1100,34 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                     ),
                   ),
                 ),
-                if (_loading)
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: colorScheme.surface.withValues(alpha: 0.60),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: colorScheme.primary,
-                          strokeWidth: 2.6,
+                // 加载遮罩淡入淡出：直接挂上/摘掉会让整块封面区闪一下。
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: !_loading,
+                    // 不加载时停掉子树 ticker：遮罩仍留在树上以便淡出，但
+                    // 转圈不该在看不见的时候一直烧帧。
+                    child: TickerMode(
+                      enabled: _loading,
+                      child: AnimatedOpacity(
+                        opacity: _loading ? 1 : 0,
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion200,
+                        ),
+                        curve: Curves.easeOutCubic,
+                        child: ColoredBox(
+                          color: colorScheme.surface.withValues(alpha: 0.60),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: colorScheme.primary,
+                              strokeWidth: 2.6,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
+                ),
                 if (_loadError != null)
                   Positioned.fill(child: _buildError(context)),
               ],
