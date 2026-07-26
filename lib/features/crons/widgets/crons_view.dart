@@ -16,6 +16,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -135,31 +136,39 @@ class CronsView extends StatelessWidget {
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(scrollbars: false),
-                    child: ListView.separated(
-                      // 顶部 2px 缓冲，避免滚动到顶时第一张卡的描边被视口剪掉。
-                      padding: const EdgeInsets.only(top: 2),
-                      itemCount: entries.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        return AppearOnce(
-                          key: ValueKey<String>('cron-entry-${entry.id}'),
-                          child: _CronEntryCard(
-                            entry: entry,
-                            onEdit: () => _showCronEditorDialog(context, entry),
-                            onToggle: (enabled) {
-                              controller.toggleCronEnabled(
-                                entry.id,
-                                enabled: enabled,
-                              );
-                            },
-                            onDelete: () => _confirmDelete(context, entry),
-                            onHistory: () => _showHistoryDialog(context, entry),
-                            onRunNow: () => controller.runNow(entry.id),
-                          ),
-                        );
-                      },
+                    child: OpenHandRemovableListScope(
+                      builder: (context, removal) => ListView.separated(
+                        // 顶部 2px 缓冲，避免滚动到顶时第一张卡的描边被剪掉。
+                        padding: const EdgeInsets.only(top: 2),
+                        itemCount: entries.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          return AppearOnce(
+                            key: ValueKey<String>('cron-entry-${entry.id}'),
+                            child: OpenHandListRemovalTransition(
+                              collapsed: removal.isRemoving(entry.id),
+                              child: _CronEntryCard(
+                                entry: entry,
+                                onEdit: () =>
+                                    _showCronEditorDialog(context, entry),
+                                onToggle: (enabled) {
+                                  controller.toggleCronEnabled(
+                                    entry.id,
+                                    enabled: enabled,
+                                  );
+                                },
+                                onDelete: () =>
+                                    _confirmDelete(context, removal, entry),
+                                onHistory: () =>
+                                    _showHistoryDialog(context, entry),
+                                onRunNow: () => controller.runNow(entry.id),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
           ),
@@ -184,7 +193,11 @@ class CronsView extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, CronEntry entry) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    OpenHandListRemoval removal,
+    CronEntry entry,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
@@ -197,7 +210,8 @@ class CronsView extends StatelessWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    await context.read<CronsController>().deleteCron(entry.id);
+    final cronsController = context.read<CronsController>();
+    await removal.run(entry.id, () => cronsController.deleteCron(entry.id));
   }
 }
 

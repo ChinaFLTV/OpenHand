@@ -13,6 +13,7 @@ import '../../../shared/ui/export_config_dialog.dart';
 import '../../../shared/ui/export_progress_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -235,10 +236,6 @@ class _ThreadSessionManagementDialogState
 
   Future<void> _deleteIds(Set<String> ids) async {
     if (!mounted || ids.isEmpty) return;
-    final collapseDuration = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.listItem,
-    ).exitDuration;
     // 先播放行收起动画，再删除实际数据。
     setState(() {
       _animatingOutIds.addAll(ids);
@@ -249,9 +246,7 @@ class _ThreadSessionManagementDialogState
         _previewLoading = false;
       }
     });
-    if (collapseDuration > Duration.zero) {
-      await Future<void>.delayed(collapseDuration);
-    }
+    await awaitOpenHandListRemoval(context);
     if (!mounted) return;
     final controller = context.read<AiSessionController>();
     var failed = 0;
@@ -1190,10 +1185,6 @@ class _ThreadSessionManagementDialogState
         _sortMode == _SortMode.manual &&
         _searchQuery.trim().isEmpty &&
         _templateFilter.isEmpty;
-    final exitMotion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.listItem,
-    );
 
     Widget rowFor(int index) {
       final session = sessions[index];
@@ -1233,18 +1224,9 @@ class _ThreadSessionManagementDialogState
       // survives upstream rebuilds.
       return KeyedSubtree(
         key: ValueKey<String>('row-wrapper-${session.id}'),
-        child: AnimatedSize(
-          duration: exitMotion.exitDuration,
-          curve: exitMotion.curve.reverseCurve,
-          alignment: Alignment.topCenter,
-          child: AnimatedOpacity(
-            duration: exitMotion.exitDuration,
-            curve: exitMotion.curve.reverseCurve,
-            opacity: isAnimatingOut ? 0.0 : 1.0,
-            child: isAnimatingOut
-                ? const SizedBox(width: double.infinity, height: 0)
-                : row,
-          ),
+        child: OpenHandListRemovalTransition(
+          collapsed: isAnimatingOut,
+          child: row,
         ),
       );
     }

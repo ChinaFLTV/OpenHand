@@ -15,6 +15,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -114,44 +115,49 @@ class InstructionsView extends StatelessWidget {
         body: l10n.instructionEmptyBody,
       );
     }
-    return ReorderableListView.builder(
-      key: const ValueKey('list'),
-      buildDefaultDragHandles: false,
-      proxyDecorator: (child, index, animation) =>
-          buildOpenHandReorderProxy(context, child, animation),
-      itemCount: snapshot.entries.length,
-      onReorder: (oldIndex, newIndex) async {
-        if (newIndex > oldIndex) newIndex -= 1;
-        final ids = snapshot.entries.map((e) => e.id).toList();
-        final moved = ids.removeAt(oldIndex);
-        ids.insert(newIndex, moved);
-        await controller.reorder(ids);
-      },
-      itemBuilder: (context, index) {
-        final entry = snapshot.entries[index];
-        return Padding(
-          key: ValueKey(entry.id),
-          padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-          child: SettingsAwareAppearOnce(
-            child: RepaintBoundary(
-              child: _InstructionCard(
-                entry: entry,
-                dragIndex: index,
-                onToggle: (value) => controller.setEnabled(entry.id, value),
-                onTap: () => _openEditor(context, controller, entry),
-                onActionSelected: (action) {
-                  switch (action) {
-                    case _InstructionCardAction.edit:
-                      _openEditor(context, controller, entry);
-                    case _InstructionCardAction.delete:
-                      _confirmDelete(context, controller, entry);
-                  }
-                },
+    return OpenHandRemovableListScope(
+      builder: (context, removal) => ReorderableListView.builder(
+        key: const ValueKey('list'),
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, index, animation) =>
+            buildOpenHandReorderProxy(context, child, animation),
+        itemCount: snapshot.entries.length,
+        onReorder: (oldIndex, newIndex) async {
+          if (newIndex > oldIndex) newIndex -= 1;
+          final ids = snapshot.entries.map((e) => e.id).toList();
+          final moved = ids.removeAt(oldIndex);
+          ids.insert(newIndex, moved);
+          await controller.reorder(ids);
+        },
+        itemBuilder: (context, index) {
+          final entry = snapshot.entries[index];
+          return Padding(
+            key: ValueKey(entry.id),
+            padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
+            child: SettingsAwareAppearOnce(
+              child: RepaintBoundary(
+                child: OpenHandListRemovalTransition(
+                  collapsed: removal.isRemoving(entry.id),
+                  child: _InstructionCard(
+                    entry: entry,
+                    dragIndex: index,
+                    onToggle: (value) => controller.setEnabled(entry.id, value),
+                    onTap: () => _openEditor(context, controller, entry),
+                    onActionSelected: (action) {
+                      switch (action) {
+                        case _InstructionCardAction.edit:
+                          _openEditor(context, controller, entry);
+                        case _InstructionCardAction.delete:
+                          _confirmDelete(context, controller, removal, entry);
+                      }
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -171,6 +177,7 @@ class InstructionsView extends StatelessWidget {
   Future<void> _confirmDelete(
     BuildContext context,
     InstructionsController controller,
+    OpenHandListRemoval removal,
     UserInstructionEntry entry,
   ) async {
     final l10n = AppLocalizations.of(context)!;
@@ -183,7 +190,7 @@ class InstructionsView extends StatelessWidget {
       destructive: true,
     );
     if (confirmed) {
-      await controller.deleteEntry(entry.id);
+      await removal.run(entry.id, () => controller.deleteEntry(entry.id));
     }
   }
 }

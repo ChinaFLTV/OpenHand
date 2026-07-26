@@ -11,6 +11,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
@@ -214,57 +215,67 @@ class MemoryView extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      key: const ValueKey<String>('memory-list'),
-      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      itemCount: items.length,
-      cacheExtent: 600,
-      separatorBuilder: (context, index) => const SizedBox(height: 14),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        switch (item.kind) {
-          case _MemoryDisplayItemKind.autoLearned:
-            final entry = item.entry!;
-            return SettingsAwareAppearOnce(
-              key: ValueKey<String>('memory-auto-learned-appear-${entry.id}'),
-              child: RepaintBoundary(
-                child: _MemoryEntryCard(
-                  key: ValueKey<String>('memory-auto-learned-${entry.id}'),
-                  entry: entry,
-                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
-                  onActionSelected: (action) {
-                    switch (action) {
-                      case _MemoryCardAction.edit:
-                        _showMemoryDialog(context, initialEntry: entry);
-                      case _MemoryCardAction.delete:
-                        _confirmDeleteMemory(context, entry);
-                    }
-                  },
+    return OpenHandRemovableListScope(
+      builder: (context, removal) => ListView.separated(
+        key: const ValueKey<String>('memory-list'),
+        padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
+        itemCount: items.length,
+        cacheExtent: 600,
+        separatorBuilder: (context, index) => const SizedBox(height: 14),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          switch (item.kind) {
+            case _MemoryDisplayItemKind.autoLearned:
+              final entry = item.entry!;
+              return SettingsAwareAppearOnce(
+                key: ValueKey<String>('memory-auto-learned-appear-${entry.id}'),
+                child: RepaintBoundary(
+                  child: OpenHandListRemovalTransition(
+                    collapsed: removal.isRemoving(entry.id),
+                    child: _MemoryEntryCard(
+                      key: ValueKey<String>('memory-auto-learned-${entry.id}'),
+                      entry: entry,
+                      onTap: () =>
+                          _showMemoryDialog(context, initialEntry: entry),
+                      onActionSelected: (action) {
+                        switch (action) {
+                          case _MemoryCardAction.edit:
+                            _showMemoryDialog(context, initialEntry: entry);
+                          case _MemoryCardAction.delete:
+                            _confirmDeleteMemory(context, removal, entry);
+                        }
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            );
-          case _MemoryDisplayItemKind.regular:
-            final entry = item.entry!;
-            return SettingsAwareAppearOnce(
-              key: ValueKey<String>('memory-entry-appear-${entry.id}'),
-              child: RepaintBoundary(
-                child: _MemoryEntryCard(
-                  key: ValueKey<String>('memory-entry-${entry.id}'),
-                  entry: entry,
-                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
-                  onActionSelected: (action) {
-                    switch (action) {
-                      case _MemoryCardAction.edit:
-                        _showMemoryDialog(context, initialEntry: entry);
-                      case _MemoryCardAction.delete:
-                        _confirmDeleteMemory(context, entry);
-                    }
-                  },
+              );
+            case _MemoryDisplayItemKind.regular:
+              final entry = item.entry!;
+              return SettingsAwareAppearOnce(
+                key: ValueKey<String>('memory-entry-appear-${entry.id}'),
+                child: RepaintBoundary(
+                  child: OpenHandListRemovalTransition(
+                    collapsed: removal.isRemoving(entry.id),
+                    child: _MemoryEntryCard(
+                      key: ValueKey<String>('memory-entry-${entry.id}'),
+                      entry: entry,
+                      onTap: () =>
+                          _showMemoryDialog(context, initialEntry: entry),
+                      onActionSelected: (action) {
+                        switch (action) {
+                          case _MemoryCardAction.edit:
+                            _showMemoryDialog(context, initialEntry: entry);
+                          case _MemoryCardAction.delete:
+                            _confirmDeleteMemory(context, removal, entry);
+                        }
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            );
-        }
-      },
+              );
+          }
+        },
+      ),
     );
   }
 
@@ -308,6 +319,7 @@ class MemoryView extends StatelessWidget {
 
   Future<void> _confirmDeleteMemory(
     BuildContext context,
+    OpenHandListRemoval removal,
     UserMemoryEntry entry,
   ) async {
     final l10n = AppLocalizations.of(context)!;
@@ -323,7 +335,11 @@ class MemoryView extends StatelessWidget {
       return;
     }
 
-    final deleted = await context.read<MemoryController>().deleteMemory(entry);
+    final memoryController = context.read<MemoryController>();
+    var deleted = false;
+    await removal.run(entry.id, () async {
+      deleted = await memoryController.deleteMemory(entry);
+    });
     if (!context.mounted) {
       return;
     }

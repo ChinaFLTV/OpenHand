@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -109,27 +110,33 @@ class HooksView extends StatelessWidget {
               behavior: ScrollConfiguration.of(
                 context,
               ).copyWith(scrollbars: false),
-              child: ListView.separated(
-                padding: const EdgeInsets.only(top: 2),
-                itemCount: snapshot.entries.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final entry = snapshot.entries[index];
-                  return AppearOnce(
-                    key: ValueKey<String>('hook-entry-${entry.id}'),
-                    child: _HookEntryCard(
-                      entry: entry,
-                      onEdit: () => _showHookEditorDialog(context, entry),
-                      onToggle: (enabled) {
-                        hooksController.toggleHookEnabled(
-                          entry.id,
-                          enabled: enabled,
-                        );
-                      },
-                      onDelete: () => _confirmDelete(context, entry),
-                    ),
-                  );
-                },
+              child: OpenHandRemovableListScope(
+                builder: (context, removal) => ListView.separated(
+                  padding: const EdgeInsets.only(top: 2),
+                  itemCount: snapshot.entries.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final entry = snapshot.entries[index];
+                    return AppearOnce(
+                      key: ValueKey<String>('hook-entry-${entry.id}'),
+                      child: OpenHandListRemovalTransition(
+                        collapsed: removal.isRemoving(entry.id),
+                        child: _HookEntryCard(
+                          entry: entry,
+                          onEdit: () => _showHookEditorDialog(context, entry),
+                          onToggle: (enabled) {
+                            hooksController.toggleHookEnabled(
+                              entry.id,
+                              enabled: enabled,
+                            );
+                          },
+                          onDelete: () =>
+                              _confirmDelete(context, removal, entry),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
     );
@@ -142,7 +149,11 @@ class HooksView extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, HookEntry entry) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    OpenHandListRemoval removal,
+    HookEntry entry,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
@@ -155,7 +166,8 @@ class HooksView extends StatelessWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    await context.read<HooksController>().deleteHook(entry.id);
+    final controller = context.read<HooksController>();
+    await removal.run(entry.id, () => controller.deleteHook(entry.id));
   }
 }
 
