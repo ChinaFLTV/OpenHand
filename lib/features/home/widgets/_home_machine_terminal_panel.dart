@@ -147,11 +147,7 @@ class _MachineExpertTerminalPanelState
                 right: 0,
                 child: _MachineTerminalIconButton(
                   icon: Icons.close_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '关闭面板',
-                    en: 'Close Panel',
-                  ),
+                  tooltip: _homeMachineTerClosePanelLabel(context),
                   onPressed: widget.onPanelClose,
                 ),
               ),
@@ -437,11 +433,7 @@ class _MachineTerminalHeader extends StatelessWidget {
               const SizedBox(width: 7),
               _MachineTerminalIconButton(
                 icon: Icons.close_rounded,
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '关闭面板',
-                  en: 'Close Panel',
-                ),
+                tooltip: _homeMachineTerClosePanelLabel(context),
                 onPressed: onPanelClose,
               ),
             ],
@@ -948,15 +940,7 @@ class _MachineTerminalHistoryDialogState
                   icon: deleting
                       ? Icons.hourglass_top_rounded
                       : Icons.delete_outline_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '删除',
-                    zhHant: '刪除',
-                    en: 'Delete',
-                    fr: 'Supprimer',
-                    de: 'Löschen',
-                    ja: '削除',
-                  ),
+                  tooltip: _homeMachineTerDeleteLabel(context),
                   destructive: true,
                   onPressed: actionDisabled
                       ? null
@@ -1083,15 +1067,7 @@ class _MachineTerminalHistoryDialogState
         zh: '将删除 ${terminal.terminalId} 的会话、命令记录和历史输出，此操作不可恢复。',
         en: 'This will delete ${terminal.terminalId}, including command records and output history. This cannot be undone.',
       ),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '删除',
-        zhHant: '刪除',
-        en: 'Delete',
-        fr: 'Supprimer',
-        de: 'Löschen',
-        ja: '削除',
-      ),
+      confirmLabel: _homeMachineTerDeleteLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted || _deletingTerminalId != null) return;
@@ -2485,4 +2461,23 @@ String _replayAnsiOutput(MachineTerminalSnapshot snapshot) {
     return buffer.toString();
   }
   return '\x1b[38;5;245mNo terminal history recorded.\x1b[0m\r\n';
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeMachineTerClosePanelLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '关闭面板', en: 'Close Panel');
+}
+
+String _homeMachineTerDeleteLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '删除',
+    zhHant: '刪除',
+    en: 'Delete',
+    fr: 'Supprimer',
+    de: 'Löschen',
+    ja: '削除',
+  );
 }

@@ -531,33 +531,15 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Bereit',
           ja: '待機中',
         ),
-        HarnessOrchestratorStatus.running => openHandLocalizedText(
+        HarnessOrchestratorStatus.running => _harnessSessionRunningLabel(
           context,
-          zh: '运行中',
-          zhHant: '執行中',
-          en: 'Running',
-          fr: 'En cours',
-          de: 'Wird ausgeführt',
-          ja: '実行中',
         ),
-        HarnessOrchestratorStatus.completed => openHandLocalizedText(
+        HarnessOrchestratorStatus.completed => _harnessSessionCompletedLabel(
           context,
-          zh: '已完成',
-          zhHant: '已完成',
-          en: 'Completed',
-          fr: 'Terminé',
-          de: 'Abgeschlossen',
-          ja: '完了',
         ),
         HarnessOrchestratorStatus.failed => openHandFailedLabel(context),
-        HarnessOrchestratorStatus.cancelled => openHandLocalizedText(
+        HarnessOrchestratorStatus.cancelled => _harnessSessionCancelledLabel(
           context,
-          zh: '已中止',
-          zhHant: '已中止',
-          en: 'Cancelled',
-          fr: 'Annulé',
-          de: 'Abgebrochen',
-          ja: '中止済み',
         ),
       };
 
@@ -629,15 +611,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$totalLogLines',
       ),
       OpenHandMetadataSummaryTile(
-        label: openHandLocalizedText(
-          context,
-          zh: '执行状态',
-          zhHant: '執行狀態',
-          en: 'Status',
-          fr: 'État',
-          de: 'Status',
-          ja: '状態',
-        ),
+        label: _harnessSessionStatusLabel(context),
         value: _statusLabel(context, orchestrator.status),
       ),
       OpenHandMetadataSummaryTile(
@@ -813,15 +787,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: updatedAtLabel ?? '--',
                         ),
                         OpenHandMetadataEntryRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '执行状态',
-                            zhHant: '執行狀態',
-                            en: 'Status',
-                            fr: 'État',
-                            de: 'Status',
-                            ja: '状態',
-                          ),
+                          label: _harnessSessionStatusLabel(context),
                           value: _statusLabel(context, orchestrator.status),
                         ),
                         if (orchestrator.errorMessage?.isNotEmpty == true)
@@ -997,34 +963,10 @@ String harnessPhaseStatusLabel(BuildContext context, HarnessPhaseStatus s) =>
         de: 'Pausiert',
         ja: '一時停止中',
       ),
-      HarnessPhaseStatus.running => openHandLocalizedText(
-        context,
-        zh: '运行中',
-        zhHant: '執行中',
-        en: 'Running',
-        fr: 'En cours',
-        de: 'Wird ausgeführt',
-        ja: '実行中',
-      ),
-      HarnessPhaseStatus.completed => openHandLocalizedText(
-        context,
-        zh: '已完成',
-        zhHant: '已完成',
-        en: 'Completed',
-        fr: 'Terminé',
-        de: 'Abgeschlossen',
-        ja: '完了',
-      ),
+      HarnessPhaseStatus.running => _harnessSessionRunningLabel(context),
+      HarnessPhaseStatus.completed => _harnessSessionCompletedLabel(context),
       HarnessPhaseStatus.failed => openHandFailedLabel(context),
-      HarnessPhaseStatus.cancelled => openHandLocalizedText(
-        context,
-        zh: '已中止',
-        zhHant: '已中止',
-        en: 'Cancelled',
-        fr: 'Annulé',
-        de: 'Abgebrochen',
-        ja: '中止済み',
-      ),
+      HarnessPhaseStatus.cancelled => _harnessSessionCancelledLabel(context),
       HarnessPhaseStatus.skipped => openHandLocalizedText(
         context,
         zh: '已跳过',
@@ -1035,3 +977,54 @@ String harnessPhaseStatusLabel(BuildContext context, HarnessPhaseStatus s) =>
         ja: 'スキップ済み',
       ),
     };
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _harnessSessionCancelledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已中止',
+    zhHant: '已中止',
+    en: 'Cancelled',
+    fr: 'Annulé',
+    de: 'Abgebrochen',
+    ja: '中止済み',
+  );
+}
+
+String _harnessSessionCompletedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已完成',
+    zhHant: '已完成',
+    en: 'Completed',
+    fr: 'Terminé',
+    de: 'Abgeschlossen',
+    ja: '完了',
+  );
+}
+
+String _harnessSessionRunningLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '运行中',
+    zhHant: '執行中',
+    en: 'Running',
+    fr: 'En cours',
+    de: 'Wird ausgeführt',
+    ja: '実行中',
+  );
+}
+
+String _harnessSessionStatusLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '执行状态',
+    zhHant: '執行狀態',
+    en: 'Status',
+    fr: 'État',
+    de: 'Status',
+    ja: '状態',
+  );
+}

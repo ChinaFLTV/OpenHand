@@ -1000,15 +1000,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (role == 'function') {
     return _HeToolPresentation(
-      label: openHandLocalizedText(
-        context,
-        zh: '工具',
-        zhHant: '工具',
-        en: 'Tool',
-        fr: 'Outil',
-        de: 'Tool',
-        ja: 'ツール',
-      ),
+      label: _harnessSessionToolLabel(context),
       icon: Icons.build_circle_outlined,
       isCommandLike: false,
     );
@@ -1022,15 +1014,7 @@ _HeToolPresentation _heToolPresentationForSegment(
     );
   }
   return _HeToolPresentation(
-    label: openHandLocalizedText(
-      context,
-      zh: '工具',
-      zhHant: '工具',
-      en: 'Tool',
-      fr: 'Outil',
-      de: 'Tool',
-      ja: 'ツール',
-    ),
+    label: _harnessSessionToolLabel(context),
     icon: Icons.build_circle_outlined,
     isCommandLike: segment.kind == _HeSegmentKind.toolCall,
   );
@@ -1519,3 +1503,18 @@ class _HeStructuredLogLines extends StatelessWidget {
 }
 
 // _HeReviewVerdictInfo — parsed review verdict from a userInput segment
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _harnessSessionToolLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '工具',
+    zhHant: '工具',
+    en: 'Tool',
+    fr: 'Outil',
+    de: 'Tool',
+    ja: 'ツール',
+  );
+}

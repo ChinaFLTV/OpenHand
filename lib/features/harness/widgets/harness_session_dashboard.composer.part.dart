@@ -461,15 +461,7 @@ class _HeComposer extends StatelessWidget {
               ),
               label: Text(
                 reviewSubmitting
-                    ? openHandLocalizedText(
-                        context,
-                        zh: '提交中',
-                        zhHant: '提交中',
-                        en: 'Submitting',
-                        fr: 'Envoi',
-                        de: 'Wird gesendet',
-                        ja: '送信中',
-                      )
+                    ? _harnessSessionSubmittingLabel(context)
                     : openHandLocalizedText(
                         context,
                         zh: '验收不通过',
@@ -507,15 +499,7 @@ class _HeComposer extends StatelessWidget {
               ),
               label: Text(
                 reviewSubmitting
-                    ? openHandLocalizedText(
-                        context,
-                        zh: '提交中',
-                        zhHant: '提交中',
-                        en: 'Submitting',
-                        fr: 'Envoi',
-                        de: 'Wird gesendet',
-                        ja: '送信中',
-                      )
+                    ? _harnessSessionSubmittingLabel(context)
                     : openHandLocalizedText(
                         context,
                         zh: '验收通过',
@@ -1024,4 +1008,19 @@ class _HePendingPhaseEditor extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _harnessSessionSubmittingLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '提交中',
+    zhHant: '提交中',
+    en: 'Submitting',
+    fr: 'Envoi',
+    de: 'Wird gesendet',
+    ja: '送信中',
+  );
 }

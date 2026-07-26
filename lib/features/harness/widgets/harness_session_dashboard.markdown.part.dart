@@ -1240,9 +1240,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
           FilledButton.icon(
             onPressed: onStart,
             icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(
-              _heStartLabel(context),
-            ),
+            label: Text(_heStartLabel(context)),
           ),
         ],
       ),
@@ -1306,15 +1304,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
     final (icon, title) = switch (status) {
       HarnessOrchestratorStatus.completed => (
         Icons.check_circle_rounded,
-        openHandLocalizedText(
-          context,
-          zh: '历史会话已恢复',
-          zhHant: '歷史會話已恢復',
-          en: 'Historical session restored',
-          fr: 'Session historique restaurée',
-          de: 'Historische Sitzung wiederhergestellt',
-          ja: '履歴セッションを復元しました',
-        ),
+        _harnessSessionHistoricalSessionRestoredLabel(context),
       ),
       HarnessOrchestratorStatus.failed => (
         Icons.error_rounded,
@@ -1342,15 +1332,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
       ),
       _ => (
         Icons.history_rounded,
-        openHandLocalizedText(
-          context,
-          zh: '历史会话已恢复',
-          zhHant: '歷史會話已恢復',
-          en: 'Historical session restored',
-          fr: 'Session historique restaurée',
-          de: 'Historische Sitzung wiederhergestellt',
-          ja: '履歴セッションを復元しました',
-        ),
+        _harnessSessionHistoricalSessionRestoredLabel(context),
       ),
     };
 
@@ -1394,13 +1376,26 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRestart,
               icon: const Icon(Icons.restart_alt_rounded),
-              label: Text(
-                _heRunAgainLabel(context),
-              ),
+              label: Text(_heRunAgainLabel(context)),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _harnessSessionHistoricalSessionRestoredLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '历史会话已恢复',
+    zhHant: '歷史會話已恢復',
+    en: 'Historical session restored',
+    fr: 'Session historique restaurée',
+    de: 'Historische Sitzung wiederhergestellt',
+    ja: '履歴セッションを復元しました',
+  );
 }

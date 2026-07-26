@@ -2044,15 +2044,7 @@ class _SourcesGlobalSearchDialogState
                   ),
                   label: Text(
                     _searching
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '搜索中…',
-                            zhHant: '搜尋中…',
-                            en: 'Searching…',
-                            fr: 'Recherche…',
-                            de: 'Suche…',
-                            ja: '検索中…',
-                          )
+                        ? _webReverseDashSearchingLabel(context)
                         : openHandSearchLabel(context),
                   ),
                 ),
@@ -2066,15 +2058,7 @@ class _SourcesGlobalSearchDialogState
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       _searching
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '搜索中…',
-                              zhHant: '搜尋中…',
-                              en: 'Searching…',
-                              fr: 'Recherche…',
-                              de: 'Suche…',
-                              ja: '検索中…',
-                            )
+                          ? _webReverseDashSearchingLabel(context)
                           : openHandLocalizedText(
                               context,
                               zh: '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。',
@@ -3183,4 +3167,19 @@ class _QuickEntry {
   const _QuickEntry({required this.scriptId, required this.url});
   final String scriptId;
   final String url;
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _webReverseDashSearchingLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '搜索中…',
+    zhHant: '搜尋中…',
+    en: 'Searching…',
+    fr: 'Recherche…',
+    de: 'Suche…',
+    ja: '検索中…',
+  );
 }

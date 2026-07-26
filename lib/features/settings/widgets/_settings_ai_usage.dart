@@ -465,7 +465,7 @@ class _AiUsageHero extends StatelessWidget {
             runSpacing: 10,
             children: [
               _AiUsageHeroPill(
-                label: openHandLocalizedText(context, zh: '请求', en: 'Requests'),
+                label: _settingsAiUsagRequestsLabel(context),
                 value: _usageInteger(summary.requestCount),
                 icon: Icons.monitor_heart_outlined,
                 color: colorScheme.primary,
@@ -485,7 +485,7 @@ class _AiUsageHero extends StatelessWidget {
                 color: colorScheme.tertiary,
               ),
               _AiUsageHeroPill(
-                label: openHandLocalizedText(context, zh: '成功率', en: 'Success'),
+                label: _settingsAiUsagSuccessLabel(context),
                 value: _usagePercent(summary.successRate),
                 icon: Icons.verified_outlined,
                 color: OpenHandStatusColors.success,
@@ -1593,7 +1593,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
           children: [
             _AiUsageLegendDot(
               color: theme.colorScheme.primary,
-              label: openHandLocalizedText(context, zh: '输入', en: 'Input'),
+              label: _settingsAiUsagInputLabel(context),
             ),
             _AiUsageLegendDot(
               color: theme.colorScheme.tertiary,
@@ -1733,11 +1733,11 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                         const SizedBox(height: 5),
                         Text('Token  ${_usageInteger(bucket.totalTokens)}'),
                         Text(
-                          '${openHandLocalizedText(context, zh: '输入', en: 'Input')}  ${_usageInteger(bucket.promptTokens)}  ·  '
+                          '${_settingsAiUsagInputLabel(context)}  ${_usageInteger(bucket.promptTokens)}  ·  '
                           '${openHandOutputLabel(context)}  ${_usageInteger(bucket.completionTokens)}',
                         ),
                         Text(
-                          '${openHandLocalizedText(context, zh: '成本', en: 'Cost')}  ${bucket.pricedRequestCount == 0
+                          '${_settingsAiUsagCostLabel(context)}  ${bucket.pricedRequestCount == 0
                               ? '—'
                               : bucket.pricedRequestCount < bucket.requestCount
                               ? '≥${_usageMoney(bucket.totalCostUsd)}'
@@ -2218,7 +2218,7 @@ class _AiUsageHeatmapCell extends StatelessWidget {
           '${formatYearMonthDay(date)}\n'
           '${_usageInteger(tokens)} Token · ${bucket?.requestCount ?? 0} '
           '${openHandLocalizedText(context, zh: '次请求', en: 'requests')}\n'
-          '${openHandLocalizedText(context, zh: '成本', en: 'Cost')} ${bucket == null || bucket!.pricedRequestCount == 0
+          '${_settingsAiUsagCostLabel(context)} ${bucket == null || bucket!.pricedRequestCount == 0
               ? '—'
               : bucket!.pricedRequestCount < bucket!.requestCount
               ? '≥${_usageMoney(bucket!.totalCostUsd)}'
@@ -2244,11 +2244,11 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
   Widget build(BuildContext context) {
     final options = <(String, String)>[
       ('source', openHandSourceLabel(context)),
-      ('provider', openHandLocalizedText(context, zh: '供应商', en: 'Provider')),
+      ('provider', _settingsAiUsagProviderLabel(context)),
       ('model', openHandModelLabel(context)),
-      ('surface', openHandLocalizedText(context, zh: '端侧', en: 'Surface')),
+      ('surface', _settingsAiUsagSurfaceLabel(context)),
       ('template', openHandTemplateLabel(context)),
-      ('operation', openHandLocalizedText(context, zh: '操作', en: 'Operation')),
+      ('operation', _settingsAiUsagOperationLabel(context)),
     ];
     final items = switch (_dimension) {
       'provider' => widget.snapshot.providers,
@@ -2533,7 +2533,7 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
             flex: 11,
             child: value(
               header
-                  ? openHandLocalizedText(context, zh: '请求', en: 'Requests')
+                  ? _settingsAiUsagRequestsLabel(context)
                   : '${item?.requestCount ?? 0}',
             ),
           ),
@@ -2541,7 +2541,7 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
             flex: 13,
             child: value(
               header
-                  ? openHandLocalizedText(context, zh: '成功率', en: 'Success')
+                  ? _settingsAiUsagSuccessLabel(context)
                   : _usagePercent(successRate),
             ),
           ),
@@ -2549,7 +2549,7 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
             flex: 16,
             child: value(
               header
-                  ? openHandLocalizedText(context, zh: '成本', en: 'Cost')
+                  ? _settingsAiUsagCostLabel(context)
                   : item!.pricedRequestCount == 0
                   ? '—'
                   : item.pricedRequestCount < item.requestCount
@@ -2841,17 +2841,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
               cell(
                 flex: 18,
                 child: header
-                    ? value(
-                        openHandLocalizedText(
-                          context,
-                          zh: '协议',
-                          zhHant: '通訊協定',
-                          en: 'Protocol',
-                          fr: 'Protocole',
-                          de: 'Protokoll',
-                          ja: 'プロトコル',
-                        ),
-                      )
+                    ? value(_settingsAiUsagProtocolLabel(context))
                     : Tooltip(
                         message: protocolLabel,
                         child: value(protocolLabel),
@@ -2898,7 +2888,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                 alignment: Alignment.centerRight,
                 child: value(
                   header
-                      ? openHandLocalizedText(context, zh: '成本', en: 'Cost')
+                      ? _settingsAiUsagCostLabel(context)
                       : record!.totalCostUsd == null
                       ? '—'
                       : _usageMoney(record.totalCostUsd!),
@@ -3006,7 +2996,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
     final requestRows = <({String label, String value})>[
       (label: openHandModelLabel(context), value: record.modelId),
       (
-        label: openHandLocalizedText(context, zh: '供应商', en: 'Provider'),
+        label: _settingsAiUsagProviderLabel(context),
         value: record.providerName,
       ),
       (
@@ -3015,15 +3005,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
             '${_usageSourceLabel(context, record.source)} · ${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
       ),
       (
-        label: openHandLocalizedText(
-          context,
-          zh: '协议',
-          zhHant: '通訊協定',
-          en: 'Protocol',
-          fr: 'Protocole',
-          de: 'Protokoll',
-          ja: 'プロトコル',
-        ),
+        label: _settingsAiUsagProtocolLabel(context),
         value: record.apiFamily.replaceAll('_', ' '),
       ),
     ];
@@ -3549,11 +3531,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                 children: [
                   _buildFacet(
                     context,
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '供应商',
-                      en: 'Provider',
-                    ),
+                    title: _settingsAiUsagProviderLabel(context),
                     facets: widget.providerFacets,
                     selected: _filter.providerConfigId,
                     onSelected: (value) => setState(
@@ -4026,11 +4004,11 @@ IconData _usageDimensionIcon(String dimension) {
 
 String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
   return switch (dimension) {
-    'provider' => openHandLocalizedText(context, zh: '供应商', en: 'Provider'),
+    'provider' => _settingsAiUsagProviderLabel(context),
     'model' => openHandModelLabel(context),
     'template' => openHandTemplateLabel(context),
-    'surface' => openHandLocalizedText(context, zh: '端侧', en: 'Surface'),
-    'operation' => openHandLocalizedText(context, zh: '操作', en: 'Operation'),
+    'surface' => _settingsAiUsagSurfaceLabel(context),
+    'operation' => _settingsAiUsagOperationLabel(context),
     _ => openHandSourceLabel(context),
   };
 }
@@ -4201,4 +4179,47 @@ String _usageMonthLabel(BuildContext context, DateTime date) {
     'Nov',
     'Dec',
   ][date.month - 1];
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _settingsAiUsagCostLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '成本', en: 'Cost');
+}
+
+String _settingsAiUsagInputLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '输入', en: 'Input');
+}
+
+String _settingsAiUsagOperationLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '操作', en: 'Operation');
+}
+
+String _settingsAiUsagProtocolLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '协议',
+    zhHant: '通訊協定',
+    en: 'Protocol',
+    fr: 'Protocole',
+    de: 'Protokoll',
+    ja: 'プロトコル',
+  );
+}
+
+String _settingsAiUsagProviderLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '供应商', en: 'Provider');
+}
+
+String _settingsAiUsagRequestsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '请求', en: 'Requests');
+}
+
+String _settingsAiUsagSuccessLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '成功率', en: 'Success');
+}
+
+String _settingsAiUsagSurfaceLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '端侧', en: 'Surface');
 }

@@ -741,15 +741,7 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
           onPressed: controls.canRedo ? controls.onRedo : null,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '查找',
-            zhHant: '尋找',
-            en: 'Find',
-            fr: 'Rechercher',
-            de: 'Suchen',
-            ja: '検索',
-          ),
+          tooltip: _knowledgeSourcFindLabel(context),
           icon: Icons.search_rounded,
           onPressed: controls.onShowFind,
         ),
@@ -859,15 +851,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               child: _KnowledgeFindTextField(
                 controller: controls.findController,
                 focusNode: controls.findFocusNode,
-                hintText: openHandLocalizedText(
-                  context,
-                  zh: '查找',
-                  zhHant: '尋找',
-                  en: 'Find',
-                  fr: 'Rechercher',
-                  de: 'Suchen',
-                  ja: '検索',
-                ),
+                hintText: _knowledgeSourcFindLabel(context),
                 onChanged: controls.onFindChanged,
                 onSubmitted: (_) => controls.onFindNext(),
               ),
@@ -1668,4 +1652,19 @@ String _localizedNotice(
 int _lineCount(String text) {
   if (text.isEmpty) return 0;
   return '\n'.allMatches(text).length + 1;
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _knowledgeSourcFindLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '查找',
+    zhHant: '尋找',
+    en: 'Find',
+    fr: 'Rechercher',
+    de: 'Suchen',
+    ja: '検索',
+  );
 }

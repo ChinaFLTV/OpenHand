@@ -1421,7 +1421,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             livePreview: widget.liveRuntimeToolPreview,
           );
     final sendButtonLabel = canStopSending
-        ? openHandLocalizedText(context, zh: '停止回答', en: 'Stop Response')
+        ? _homeComposerStopResponseLabel(context)
         : switch (widget.sendPhase) {
             AiSendPhase.compressing => openHandLocalizedText(
               context,
@@ -1429,11 +1429,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               en: 'Compressing Messages',
             ),
             AiSendPhase.sendingMessage => l10n.chatSending,
-            AiSendPhase.responding => openHandLocalizedText(
-              context,
-              zh: '停止回答',
-              en: 'Stop Response',
-            ),
+            AiSendPhase.responding => _homeComposerStopResponseLabel(context),
             AiSendPhase.awaitingApproval => _homeAwaitingApprovalLabel(context),
             AiSendPhase.idle => l10n.composerSend,
           };
@@ -2294,19 +2290,7 @@ class _ComposerFullAccessModeButtonState
             children: [
               const Icon(Icons.admin_panel_settings_outlined, size: 20),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '默认权限',
-                    zhHant: '預設權限',
-                    en: 'Default Access',
-                    fr: 'Accès par défaut',
-                    de: 'Standardzugriff',
-                    ja: 'デフォルト権限',
-                  ),
-                ),
-              ),
+              Expanded(child: Text(_homeComposerDefaultAccessLabel(context))),
               if (!widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
               else
@@ -2320,19 +2304,7 @@ class _ComposerFullAccessModeButtonState
             children: [
               const Icon(Icons.gpp_maybe_outlined, size: 20),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '完全访问权限',
-                    zhHant: '完整存取權限',
-                    en: 'Full Access',
-                    fr: 'Accès complet',
-                    de: 'Vollzugriff',
-                    ja: 'フルアクセス権限',
-                  ),
-                ),
-              ),
+              Expanded(child: Text(_homeComposerFullAccessLabel(context))),
               if (widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
               else
@@ -2352,24 +2324,8 @@ class _ComposerFullAccessModeButtonState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final modeLabel = widget.fullAccess
-        ? openHandLocalizedText(
-            context,
-            zh: '完全访问权限',
-            zhHant: '完整存取權限',
-            en: 'Full Access',
-            fr: 'Accès complet',
-            de: 'Vollzugriff',
-            ja: 'フルアクセス権限',
-          )
-        : openHandLocalizedText(
-            context,
-            zh: '默认权限',
-            zhHant: '預設權限',
-            en: 'Default Access',
-            fr: 'Accès par défaut',
-            de: 'Standardzugriff',
-            ja: 'デフォルト権限',
-          );
+        ? _homeComposerFullAccessLabel(context)
+        : _homeComposerDefaultAccessLabel(context);
     final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : widget.fullAccess
@@ -4476,4 +4432,35 @@ class _ComposerShortcutsHost extends StatelessWidget {
       ),
     ];
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeComposerDefaultAccessLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '默认权限',
+    zhHant: '預設權限',
+    en: 'Default Access',
+    fr: 'Accès par défaut',
+    de: 'Standardzugriff',
+    ja: 'デフォルト権限',
+  );
+}
+
+String _homeComposerFullAccessLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '完全访问权限',
+    zhHant: '完整存取權限',
+    en: 'Full Access',
+    fr: 'Accès complet',
+    de: 'Vollzugriff',
+    ja: 'フルアクセス権限',
+  );
+}
+
+String _homeComposerStopResponseLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '停止回答', en: 'Stop Response');
 }

@@ -299,24 +299,8 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           ja: 'ヘッダー',
         ),
         _DetailTab.preview => openHandPreviewLabel(context),
-        _DetailTab.response => openHandLocalizedText(
-          context,
-          zh: '响应',
-          zhHant: '回應',
-          en: 'Response',
-          fr: 'Réponse',
-          de: 'Antwort',
-          ja: 'レスポンス',
-        ),
-        _DetailTab.initiator => openHandLocalizedText(
-          context,
-          zh: '发起方',
-          zhHant: '發起方',
-          en: 'Initiator',
-          fr: 'Initiateur',
-          de: 'Auslöser',
-          ja: 'イニシエーター',
-        ),
+        _DetailTab.response => _webReverseDashResponseLabel(context),
+        _DetailTab.initiator => _webReverseDashInitiatorLabel(context),
         _DetailTab.timing => openHandLocalizedText(
           context,
           zh: '耗时',
@@ -481,18 +465,7 @@ class _HeadersTab extends StatelessWidget {
           entry.remoteAddress!,
         ),
       if (entry.protocol != null)
-        (
-          openHandLocalizedText(
-            context,
-            zh: '协议',
-            zhHant: '通訊協定',
-            en: 'Protocol',
-            fr: 'Protocole',
-            de: 'Protokoll',
-            ja: 'プロトコル',
-          ),
-          entry.protocol!,
-        ),
+        (_webReverseDashProtocolLabel(context), entry.protocol!),
       (
         openHandLocalizedText(
           context,
@@ -878,25 +851,14 @@ class _InitiatorTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          openHandLocalizedText(
-            context,
-            zh: '发起方',
-            zhHant: '發起方',
-            en: 'Initiator',
-            fr: 'Initiateur',
-            de: 'Auslöser',
-            ja: 'イニシエーター',
-          ),
+          _webReverseDashInitiatorLabel(context),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
           ),
         ),
         const SizedBox(height: 6),
-        _MetaRow(
-          label: openHandTypeLabel(context),
-          value: type,
-        ),
+        _MetaRow(label: openHandTypeLabel(context), value: type),
         if (initUrl.isNotEmpty)
           _ClickableSourceRow(
             label: 'URL',
@@ -1161,15 +1123,7 @@ class _ClickableSourceRow extends StatelessWidget {
           ),
           Expanded(
             child: Tooltip(
-              message: openHandLocalizedText(
-                context,
-                zh: '在 Sources 中打开',
-                zhHant: '在 Sources 中開啟',
-                en: 'Open in Sources',
-                fr: 'Ouvrir dans Sources',
-                de: 'In Sources öffnen',
-                ja: 'Sources で開く',
-              ),
+              message: _webReverseDashOpenInSourcesLabel(context),
               child: InkWell(
                 onTap: onTap,
                 borderRadius: BorderRadius.circular(4),
@@ -1299,15 +1253,7 @@ class _StackFrame extends StatelessWidget {
     );
     if (!hasJump) return body;
     return Tooltip(
-      message: openHandLocalizedText(
-        context,
-        zh: '在 Sources 中打开',
-        zhHant: '在 Sources 中開啟',
-        en: 'Open in Sources',
-        fr: 'Ouvrir dans Sources',
-        de: 'In Sources öffnen',
-        ja: 'Sources で開く',
-      ),
+      message: _webReverseDashOpenInSourcesLabel(context),
       child: InkWell(
         onTap: () => onJump(url, line, col),
         borderRadius: BorderRadius.circular(6),
@@ -1399,15 +1345,7 @@ class _TimingTab extends StatelessWidget {
           value: _fmt(start),
         ),
         _MetaRow(
-          label: openHandLocalizedText(
-            context,
-            zh: '响应',
-            zhHant: '回應',
-            en: 'Response',
-            fr: 'Réponse',
-            de: 'Antwort',
-            ja: 'レスポンス',
-          ),
+          label: _webReverseDashResponseLabel(context),
           value: responseAt == null ? '-' : _fmt(responseAt),
         ),
         _MetaRow(
@@ -1462,15 +1400,7 @@ class _TimingTab extends StatelessWidget {
           ),
         if (entry.protocol != null && entry.protocol!.isNotEmpty)
           _MetaRow(
-            label: openHandLocalizedText(
-              context,
-              zh: '协议',
-              zhHant: '通訊協定',
-              en: 'Protocol',
-              fr: 'Protocole',
-              de: 'Protokoll',
-              ja: 'プロトコル',
-            ),
+            label: _webReverseDashProtocolLabel(context),
             value: entry.protocol!,
           ),
         if (entry.remoteAddress != null && entry.remoteAddress!.isNotEmpty)
@@ -2272,4 +2202,55 @@ class _MediaInlinePreview extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _webReverseDashInitiatorLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '发起方',
+    zhHant: '發起方',
+    en: 'Initiator',
+    fr: 'Initiateur',
+    de: 'Auslöser',
+    ja: 'イニシエーター',
+  );
+}
+
+String _webReverseDashOpenInSourcesLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '在 Sources 中打开',
+    zhHant: '在 Sources 中開啟',
+    en: 'Open in Sources',
+    fr: 'Ouvrir dans Sources',
+    de: 'In Sources öffnen',
+    ja: 'Sources で開く',
+  );
+}
+
+String _webReverseDashProtocolLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '协议',
+    zhHant: '通訊協定',
+    en: 'Protocol',
+    fr: 'Protocole',
+    de: 'Protokoll',
+    ja: 'プロトコル',
+  );
+}
+
+String _webReverseDashResponseLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '响应',
+    zhHant: '回應',
+    en: 'Response',
+    fr: 'Réponse',
+    de: 'Antwort',
+    ja: 'レスポンス',
+  );
 }

@@ -462,15 +462,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 
     return buildOpenHandAlertDialog(
       title: Text(
-        openHandLocalizedText(
-          context,
-          zh: '获取 AI 摘要标题',
-          zhHant: '取得 AI 摘要標題',
-          en: 'Generate AI Title',
-          fr: 'Générer le titre IA',
-          de: 'KI-Titel erstellen',
-          ja: 'AI 要約タイトルを生成',
-        ),
+        _openhandHomePaGenerateAiTitleLabel(context),
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
@@ -482,10 +474,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              openHandModelLabel(context),
-              style: sectionStyle,
-            ),
+            Text(openHandModelLabel(context), style: sectionStyle),
             const SizedBox(height: 8),
             OpenHandModelSelectorField(
               models: widget.availableModels,
@@ -684,15 +673,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
       canPop: false,
       child: buildOpenHandAlertDialog(
         title: Text(
-          openHandLocalizedText(
-            context,
-            zh: '获取 AI 摘要标题',
-            zhHant: '取得 AI 摘要標題',
-            en: 'Generate AI Title',
-            fr: 'Générer le titre IA',
-            de: 'KI-Titel erstellen',
-            ja: 'AI 要約タイトルを生成',
-          ),
+          _openhandHomePaGenerateAiTitleLabel(context),
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
             letterSpacing: 0,
@@ -1380,9 +1361,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             runSpacing: 8,
             children: [
               ChoiceChip(
-                label: Text(
-                  openHandLocalizedText(context, zh: '默认', en: 'Auto'),
-                ),
+                label: Text(_openhandHomePaAutoLabel(context)),
                 selected: selected == null,
                 onSelected: (_) => onSelected(null),
               ),
@@ -1418,9 +1397,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             runSpacing: 8,
             children: [
               ChoiceChip(
-                label: Text(
-                  openHandLocalizedText(context, zh: '默认', en: 'Auto'),
-                ),
+                label: Text(_openhandHomePaAutoLabel(context)),
                 selected: value == null,
                 onSelected: (_) => onChanged(null),
               ),
@@ -1462,11 +1439,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionLabel(
-            context,
-            openHandVoiceLabel(context),
-            sectionStyle,
-          ),
+          _sectionLabel(context, openHandVoiceLabel(context), sectionStyle),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -1678,4 +1651,23 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     final trimmed = raw.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _openhandHomePaAutoLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '默认', en: 'Auto');
+}
+
+String _openhandHomePaGenerateAiTitleLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '获取 AI 摘要标题',
+    zhHant: '取得 AI 摘要標題',
+    en: 'Generate AI Title',
+    fr: 'Générer le titre IA',
+    de: 'KI-Titel erstellen',
+    ja: 'AI 要約タイトルを生成',
+  );
 }

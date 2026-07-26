@@ -278,15 +278,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: 'HAR 对比',
-                        zhHant: 'HAR 對比',
-                        en: 'HAR diff',
-                        fr: 'Diff HAR',
-                        de: 'HAR-Diff',
-                        ja: 'HAR 差分',
-                      ),
+                      tooltip: _webReverseDashHarDiffLabel(context),
                       icon: Icons.difference_rounded,
                       onPressed: () => _showHarDiff(context, isZh),
                     ),
@@ -771,15 +763,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: 'HAR 解析失败',
-          zhHant: 'HAR 解析失敗',
-          en: 'HAR parse failed',
-          fr: 'Échec de l’analyse HAR',
-          de: 'HAR konnte nicht geparst werden',
-          ja: 'HAR の解析に失敗しました',
-        ),
+        _webReverseDashHarParseFailedLabel(context),
         duration: const Duration(seconds: 2),
       );
     }
@@ -891,15 +875,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     if (setA == null || setB == null) {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: 'HAR 解析失败',
-          zhHant: 'HAR 解析失敗',
-          en: 'HAR parse failed',
-          fr: 'Échec de l’analyse HAR',
-          de: 'HAR konnte nicht geparst werden',
-          ja: 'HAR の解析に失敗しました',
-        ),
+        _webReverseDashHarParseFailedLabel(context),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -938,15 +914,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     final capped = setA.parsed < setA.total || setB.parsed < setB.total;
     await showOpenHandInfoDialog(
       context: context,
-      title: openHandLocalizedText(
-        context,
-        zh: 'HAR 对比',
-        zhHant: 'HAR 對比',
-        en: 'HAR diff',
-        fr: 'Diff HAR',
-        de: 'HAR-Diff',
-        ja: 'HAR 差分',
-      ),
+      title: _webReverseDashHarDiffLabel(context),
       closeLabel: openHandCloseLabel(context),
       content: SizedBox(
         width: 880,
@@ -2573,4 +2541,31 @@ class _HarUnifiedStat extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _webReverseDashHarDiffLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'HAR 对比',
+    zhHant: 'HAR 對比',
+    en: 'HAR diff',
+    fr: 'Diff HAR',
+    de: 'HAR-Diff',
+    ja: 'HAR 差分',
+  );
+}
+
+String _webReverseDashHarParseFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'HAR 解析失败',
+    zhHant: 'HAR 解析失敗',
+    en: 'HAR parse failed',
+    fr: 'Échec de l’analyse HAR',
+    de: 'HAR konnte nicht geparst werden',
+    ja: 'HAR の解析に失敗しました',
+  );
 }

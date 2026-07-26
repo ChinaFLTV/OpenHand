@@ -1850,15 +1850,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'Speichert den Ort des SDKs dieser Sprache und nutzt ihn als Projektstandard.',
                   ja: 'この言語の SDK の場所を記録し、プロジェクト単位の既定値として使います。',
                 ),
-                browseTooltip: openHandLocalizedText(
-                  context,
-                  zh: '浏览文件夹',
-                  zhHant: '瀏覽資料夾',
-                  en: 'Browse folder',
-                  fr: 'Parcourir le dossier',
-                  de: 'Ordner auswählen',
-                  ja: 'フォルダを参照',
-                ),
+                browseTooltip: _settingsEditorBrowseFolderLabel(context),
                 onBrowse: _browseSdkDirectory,
               ),
               if (sdkVersionNoticeText != null) ...[
@@ -1917,15 +1909,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'Leer lassen, um die PATH-Erkennung beizubehalten. Herunterladen und installieren nutzt automatisch die Standardwurzel.',
                   ja: '空欄にすると PATH ベースの自動検出を続けます。「ダウンロードしてインストール」は既定のインストール先に自動で戻ります。',
                 ),
-                browseTooltip: openHandLocalizedText(
-                  context,
-                  zh: '浏览文件夹',
-                  zhHant: '瀏覽資料夾',
-                  en: 'Browse folder',
-                  fr: 'Parcourir le dossier',
-                  de: 'Ordner auswählen',
-                  ja: 'フォルダを参照',
-                ),
+                browseTooltip: _settingsEditorBrowseFolderLabel(context),
                 onBrowse: _browseLspDirectory,
               ),
               const SizedBox(height: 8),
@@ -2527,4 +2511,19 @@ class _EditorLspInstallRunnerDialogState
       ],
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _settingsEditorBrowseFolderLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '浏览文件夹',
+    zhHant: '瀏覽資料夾',
+    en: 'Browse folder',
+    fr: 'Parcourir le dossier',
+    de: 'Ordner auswählen',
+    ja: 'フォルダを参照',
+  );
 }

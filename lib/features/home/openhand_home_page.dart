@@ -8088,11 +8088,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted) return;
       showFriendlyErrorDetailsDialog(
         context,
-        title: openHandLocalizedText(
-          context,
-          zh: '标题生成失败',
-          en: 'Title Generation Failed',
-        ),
+        title: _openhandHomePaTitleGenerationFailedLabel(context),
         fullText: openHandLocalizedText(
           context,
           zh: '现象：读取线程消息失败。\n原因：$error',
@@ -8112,11 +8108,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           );
       showFriendlyErrorDetailsDialog(
         context,
-        title: openHandLocalizedText(
-          context,
-          zh: '标题生成失败',
-          en: 'Title Generation Failed',
-        ),
+        title: _openhandHomePaTitleGenerationFailedLabel(context),
         fullText: errorMessage,
       );
       return;
@@ -8267,11 +8259,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || userCancelled) return;
       showFriendlyErrorDetailsDialog(
         context,
-        title: openHandLocalizedText(
-          context,
-          zh: '标题生成失败',
-          en: 'Title Generation Failed',
-        ),
+        title: _openhandHomePaTitleGenerationFailedLabel(context),
         fullText: openHandLocalizedText(
           context,
           zh: '原因：$error',
@@ -9976,5 +9964,16 @@ String _homeWorkingDirectoryLabel(BuildContext context) {
     fr: 'Répertoire de travail',
     de: 'Arbeitsverzeichnis',
     ja: '作業ディレクトリ',
+  );
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _openhandHomePaTitleGenerationFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '标题生成失败',
+    en: 'Title Generation Failed',
   );
 }

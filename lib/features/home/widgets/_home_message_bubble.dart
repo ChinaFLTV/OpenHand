@@ -1306,15 +1306,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           id: 'copy',
           onPressed: widget.onCopy,
           icon: Icons.content_copy_outlined,
-          label: openHandLocalizedText(
-            context,
-            zh: '复制',
-            zhHant: '複製',
-            en: 'Copy',
-            fr: 'Copier',
-            de: 'Kopieren',
-            ja: 'コピー',
-          ),
+          label: _homeMessageBubCopyLabel(context),
         ),
         if (!isGoalRuntimeMessage &&
             widget.speechEnabled &&
@@ -2436,11 +2428,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         Icons.open_in_new_rounded,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      tooltip: openHandLocalizedText(
-                        context,
-                        zh: '使用系统应用打开',
-                        en: 'Open with System App',
-                      ),
+                      tooltip: _homeMessageBubOpenWithSystemAppLabel(context),
                       onPressed: _opening ? null : () => _openFile(context),
                     ),
                   ),
@@ -2545,15 +2533,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                                     zh: '复制中…',
                                     en: 'Copying…',
                                   )
-                                : openHandLocalizedText(
-                                    context,
-                                    zh: '复制',
-                                    zhHant: '複製',
-                                    en: 'Copy',
-                                    fr: 'Copier',
-                                    de: 'Kopieren',
-                                    ja: 'コピー',
-                                  ),
+                                : _homeMessageBubCopyLabel(context),
                           ),
                         ),
                         FilledButton.icon(
@@ -2935,10 +2915,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                               Icons.open_in_new_rounded,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: openHandLocalizedText(
+                            tooltip: _homeMessageBubOpenWithSystemAppLabel(
                               context,
-                              zh: '使用系统应用打开',
-                              en: 'Open with System App',
                             ),
                             onPressed: _isOpeningExternal
                                 ? null
@@ -2969,11 +2947,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                               Icons.download_rounded,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: openHandLocalizedText(
-                              context,
-                              zh: '保存到本地',
-                              en: 'Save to disk',
-                            ),
+                            tooltip: _homeMessageBubSaveToDiskLabel(context),
                             onPressed: _isSaving
                                 ? null
                                 : () => _saveImageAs(context),
@@ -5127,10 +5101,8 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                           Icons.open_in_new_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: openHandLocalizedText(
+                        tooltip: _homeMessageBubOpenWithSystemPlayerLabel(
                           context,
-                          zh: '使用系统播放器打开',
-                          en: 'Open with System Player',
                         ),
                         onPressed: () => _openInSystemPlayer(context),
                       ),
@@ -5142,11 +5114,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                           Icons.content_copy_outlined,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '复制媒体',
-                          en: 'Copy Media',
-                        ),
+                        tooltip: _homeMessageBubCopyMediaLabel(context),
                         onPressed: _isCopyingMedia
                             ? null
                             : () => _copyMediaToClipboard(context),
@@ -5174,11 +5142,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                           Icons.download_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '保存到本地',
-                          en: 'Save to disk',
-                        ),
+                        tooltip: _homeMessageBubSaveToDiskLabel(context),
                         onPressed: () => _saveMediaAs(context),
                       ),
                     ),
@@ -5290,21 +5254,13 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
           const Spacer(),
           _AudioOverlayIconButton(
             icon: Icons.open_in_new_rounded,
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '使用系统播放器打开',
-              en: 'Open with System Player',
-            ),
+            tooltip: _homeMessageBubOpenWithSystemPlayerLabel(context),
             onPressed: () => _openInSystemPlayer(context),
           ),
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.content_copy_outlined,
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '复制媒体',
-              en: 'Copy Media',
-            ),
+            tooltip: _homeMessageBubCopyMediaLabel(context),
             onPressed: _isCopyingMedia
                 ? null
                 : () => _copyMediaToClipboard(context),
@@ -5312,11 +5268,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.download_rounded,
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '保存到本地',
-              en: 'Save to disk',
-            ),
+            tooltip: _homeMessageBubSaveToDiskLabel(context),
             onPressed: () => _saveMediaAs(context),
           ),
           const SizedBox(width: 10),
@@ -6180,11 +6132,7 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
         if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
           _ExpertRequestChipData(
             icon: Icons.my_location_rounded,
-            label: openHandLocalizedText(
-              context,
-              zh: '精确定位',
-              en: 'Precise Target',
-            ),
+            label: _homeMessageBubPreciseTargetLabel(context),
           ),
       ],
       fields: [
@@ -6200,11 +6148,7 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '精确定位',
-              en: 'Precise Target',
-            ),
+            label: _homeMessageBubPreciseTargetLabel(context),
             value: data.appleScriptTarget!.trim(),
           ),
         if (data.taskRequirement.trim().isNotEmpty)
@@ -6231,11 +6175,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExpertRequestStructuredBody(
       icon: Icons.language_rounded,
-      title: openHandLocalizedText(
-        context,
-        zh: 'Web 逆向请求',
-        en: 'Web Reverse Request',
-      ),
+      title: _homeMessageBubWebReverseRequestLabel(context),
       description: openHandLocalizedText(
         context,
         zh: '已绑定目标页面与 CDP 环境，按浏览器取证流程推进。',
@@ -6282,15 +6222,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.reverseTarget.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '逆向目标',
-              zhHant: '逆向目標',
-              en: 'Objective',
-              fr: 'Objectif',
-              de: 'Ziel',
-              ja: '目的',
-            ),
+            label: _homeMessageBubObjectiveLabel(context),
             value: data.reverseTarget.trim(),
           ),
         if ((data.triggerActions ?? '').trim().isNotEmpty)
@@ -6343,24 +6275,12 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '关键字',
-              zhHant: '關鍵字',
-              en: 'Keywords',
-              fr: 'Mots-clés',
-              de: 'Schlüsselwörter',
-              ja: 'キーワード',
-            ),
+            label: _homeMessageBubKeywordsLabel(context),
             value: data.keywords!.trim(),
           ),
         if (data.evidenceDiscipline.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '取证纪律',
-              en: 'Evidence Rules',
-            ),
+            label: _homeMessageBubEvidenceRulesLabel(context),
             value: data.evidenceDiscipline.trim(),
           ),
         if (data.deliverables.trim().isNotEmpty)
@@ -6374,7 +6294,7 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.acceptanceCriteria.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: '验收标准', en: 'Acceptance'),
+            label: _homeMessageBubAcceptanceLabel(context),
             value: data.acceptanceCriteria.trim(),
           ),
       ],
@@ -6396,11 +6316,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExpertRequestStructuredBody(
       icon: Icons.android_rounded,
-      title: openHandLocalizedText(
-        context,
-        zh: 'Android 逆向请求',
-        en: 'Android Reverse Request',
-      ),
+      title: _homeMessageBubAndroidReverseRequestLabel(context),
       description: openHandLocalizedText(
         context,
         zh: '已绑定目标应用与分析边界，按静态优先取证流程推进。',
@@ -6434,15 +6350,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
       fields: [
         if (data.reverseTarget.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '逆向目标',
-              zhHant: '逆向目標',
-              en: 'Objective',
-              fr: 'Objectif',
-              de: 'Ziel',
-              ja: '目的',
-            ),
+            label: _homeMessageBubObjectiveLabel(context),
             value: data.reverseTarget.trim(),
           ),
         if ((data.packageName ?? '').trim().isNotEmpty)
@@ -6502,15 +6410,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '关键字',
-              zhHant: '關鍵字',
-              en: 'Keywords',
-              fr: 'Mots-clés',
-              de: 'Schlüsselwörter',
-              ja: 'キーワード',
-            ),
+            label: _homeMessageBubKeywordsLabel(context),
             value: data.keywords!.trim(),
           ),
         if ((data.notes ?? '').trim().isNotEmpty)
@@ -6528,16 +6428,12 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.evidenceDiscipline.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(
-              context,
-              zh: '取证纪律',
-              en: 'Evidence Rules',
-            ),
+            label: _homeMessageBubEvidenceRulesLabel(context),
             value: data.evidenceDiscipline.trim(),
           ),
         if (data.acceptanceCriteria.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: openHandLocalizedText(context, zh: '验收标准', en: 'Acceptance'),
+            label: _homeMessageBubAcceptanceLabel(context),
             value: data.acceptanceCriteria.trim(),
           ),
       ],
@@ -6759,7 +6655,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if ((data.objective ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageField(
-            label: openHandLocalizedText(context, zh: '目标', en: 'Goal'),
+            label: _homeMessageBubGoalLabel(context),
             value: data.objective!.trim(),
             textColor: textColor,
           ),
@@ -7512,8 +7408,7 @@ class _GoalObjectiveContextCapsules {
     return <Widget>[
       _MessageContextCapsule(
         icon: Icons.flag_rounded,
-        label:
-            '${openHandLocalizedText(context, zh: '目标', en: 'Goal')} · ${_shortGoalId(goalId)}',
+        label: '${_homeMessageBubGoalLabel(context)} · ${_shortGoalId(goalId)}',
         textColor: textColor,
         maxLabelWidth: 180,
       ),
@@ -7561,11 +7456,7 @@ class _MachineExpertRequestContextCapsules {
       if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
         _MessageContextCapsule(
           icon: Icons.my_location_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '精确定位',
-            en: 'Precise Target',
-          ),
+          label: _homeMessageBubPreciseTargetLabel(context),
           textColor: textColor,
         ),
     ];
@@ -7592,11 +7483,7 @@ class _ReverseExpertRequestContextCapsules {
       return <Widget>[
         _MessageContextCapsule(
           icon: Icons.travel_explore_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: 'Web 逆向请求',
-            en: 'Web Reverse Request',
-          ),
+          label: _homeMessageBubWebReverseRequestLabel(context),
           textColor: textColor,
         ),
         if (webData.cdpPort.trim().isNotEmpty)
@@ -7618,11 +7505,7 @@ class _ReverseExpertRequestContextCapsules {
     return <Widget>[
       _MessageContextCapsule(
         icon: Icons.android_rounded,
-        label: openHandLocalizedText(
-          context,
-          zh: 'Android 逆向请求',
-          en: 'Android Reverse Request',
-        ),
+        label: _homeMessageBubAndroidReverseRequestLabel(context),
         textColor: textColor,
       ),
       if ((androidData.packageName ?? '').trim().isNotEmpty)
@@ -9052,4 +8935,99 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeMessageBubAcceptanceLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '验收标准', en: 'Acceptance');
+}
+
+String _homeMessageBubAndroidReverseRequestLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Android 逆向请求',
+    en: 'Android Reverse Request',
+  );
+}
+
+String _homeMessageBubCopyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制',
+    zhHant: '複製',
+    en: 'Copy',
+    fr: 'Copier',
+    de: 'Kopieren',
+    ja: 'コピー',
+  );
+}
+
+String _homeMessageBubCopyMediaLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '复制媒体', en: 'Copy Media');
+}
+
+String _homeMessageBubEvidenceRulesLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '取证纪律', en: 'Evidence Rules');
+}
+
+String _homeMessageBubGoalLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '目标', en: 'Goal');
+}
+
+String _homeMessageBubKeywordsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '关键字',
+    zhHant: '關鍵字',
+    en: 'Keywords',
+    fr: 'Mots-clés',
+    de: 'Schlüsselwörter',
+    ja: 'キーワード',
+  );
+}
+
+String _homeMessageBubObjectiveLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '逆向目标',
+    zhHant: '逆向目標',
+    en: 'Objective',
+    fr: 'Objectif',
+    de: 'Ziel',
+    ja: '目的',
+  );
+}
+
+String _homeMessageBubOpenWithSystemAppLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '使用系统应用打开',
+    en: 'Open with System App',
+  );
+}
+
+String _homeMessageBubOpenWithSystemPlayerLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '使用系统播放器打开',
+    en: 'Open with System Player',
+  );
+}
+
+String _homeMessageBubPreciseTargetLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '精确定位', en: 'Precise Target');
+}
+
+String _homeMessageBubSaveToDiskLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '保存到本地', en: 'Save to disk');
+}
+
+String _homeMessageBubWebReverseRequestLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Web 逆向请求',
+    en: 'Web Reverse Request',
+  );
 }

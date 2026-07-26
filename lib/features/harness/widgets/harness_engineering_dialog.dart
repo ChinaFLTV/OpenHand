@@ -792,14 +792,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Projektwurzel eingeben oder auswählen',
                             ja: 'プロジェクトルートのパスを入力または選択',
                           ),
-                          browseTooltip: openHandLocalizedText(
+                          browseTooltip: _harnessEngineeBrowseFolderLabel(
                             context,
-                            zh: '浏览文件夹',
-                            zhHant: '瀏覽資料夾',
-                            en: 'Browse folder',
-                            fr: 'Parcourir le dossier',
-                            de: 'Ordner durchsuchen',
-                            ja: 'フォルダーを参照',
                           ),
                           onBrowse: () => _pickDirectory(_workingDirController),
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -826,14 +820,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Persistenzpfad eingeben oder auswählen',
                             ja: '永続化ルートのパスを入力または選択',
                           ),
-                          browseTooltip: openHandLocalizedText(
+                          browseTooltip: _harnessEngineeBrowseFolderLabel(
                             context,
-                            zh: '浏览文件夹',
-                            zhHant: '瀏覽資料夾',
-                            en: 'Browse folder',
-                            fr: 'Parcourir le dossier',
-                            de: 'Ordner durchsuchen',
-                            ja: 'フォルダーを参照',
                           ),
                           onBrowse: () =>
                               _pickDirectory(_persistenceDirController),
@@ -1577,15 +1565,7 @@ class _RoleConfigRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _SearchableModelSelector(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: 'API 模型',
-                      zhHant: 'API 模型',
-                      en: 'API Model',
-                      fr: 'Modèle API',
-                      de: 'API-Modell',
-                      ja: 'API モデル',
-                    ),
+                    label: _harnessEngineeApiModelLabel(context),
                     settingsModels: settingsModels,
                     selectedAiModelConfigId: selectedAiModelConfigId,
                     selectedUrlModeModelId: selectedUrlModeModelId,
@@ -1617,15 +1597,7 @@ class _RoleConfigRow extends StatelessWidget {
               ] else ...[
                 Expanded(
                   child: _CompactDropdown<String>(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: 'CLI 客户端',
-                      zhHant: 'CLI 用戶端',
-                      en: 'CLI Client',
-                      fr: 'Client CLI',
-                      de: 'CLI-Client',
-                      ja: 'CLI クライアント',
-                    ),
+                    label: _harnessEngineeCliClientLabel(context),
                     value: selectedCli,
                     items: _buildCliItems(context),
                     onChanged: onCliChanged,
@@ -2096,15 +2068,7 @@ class _QuickApplyBar extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: _SearchableModelSelector(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: 'API 模型',
-                    zhHant: 'API 模型',
-                    en: 'API Model',
-                    fr: 'Modèle API',
-                    de: 'API-Modell',
-                    ja: 'API モデル',
-                  ),
+                  label: _harnessEngineeApiModelLabel(context),
                   settingsModels: settingsModels,
                   selectedAiModelConfigId: selectedAiModelConfigId,
                   selectedUrlModeModelId: selectedUrlModeModelId,
@@ -2115,15 +2079,7 @@ class _QuickApplyBar extends StatelessWidget {
             ] else ...[
               Expanded(
                 child: _CompactDropdown<String>(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: 'CLI 客户端',
-                    zhHant: 'CLI 用戶端',
-                    en: 'CLI Client',
-                    fr: 'Client CLI',
-                    de: 'CLI-Client',
-                    ja: 'CLI クライアント',
-                  ),
+                  label: _harnessEngineeCliClientLabel(context),
                   value: selectedCli,
                   items: cliItems,
                   onChanged: isScanning ? null : onCliChanged,
@@ -2392,4 +2348,43 @@ class _SearchableModelSelectorState extends State<_SearchableModelSelector> {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _harnessEngineeApiModelLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'API 模型',
+    zhHant: 'API 模型',
+    en: 'API Model',
+    fr: 'Modèle API',
+    de: 'API-Modell',
+    ja: 'API モデル',
+  );
+}
+
+String _harnessEngineeBrowseFolderLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '浏览文件夹',
+    zhHant: '瀏覽資料夾',
+    en: 'Browse folder',
+    fr: 'Parcourir le dossier',
+    de: 'Ordner durchsuchen',
+    ja: 'フォルダーを参照',
+  );
+}
+
+String _harnessEngineeCliClientLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'CLI 客户端',
+    zhHant: 'CLI 用戶端',
+    en: 'CLI Client',
+    fr: 'Client CLI',
+    de: 'CLI-Client',
+    ja: 'CLI クライアント',
+  );
 }

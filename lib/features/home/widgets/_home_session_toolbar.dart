@@ -2994,25 +2994,9 @@ class _StreamThrottlePill extends StatelessWidget {
             ? scheme.outline
             : scheme.onTertiaryContainer;
         final label = !effEnabled
-            ? openHandLocalizedText(
-                context,
-                zh: '节流·关',
-                zhHant: '節流·關',
-                en: 'Throttle·off',
-                fr: 'Limite·off',
-                de: 'Drossel·aus',
-                ja: 'スロットル·オフ',
-              )
+            ? _homeSessionTooThrottleOffLabel(context)
             : disabled
-            ? openHandLocalizedText(
-                context,
-                zh: '节流·关',
-                zhHant: '節流·關',
-                en: 'Throttle·off',
-                fr: 'Limite·off',
-                de: 'Drossel·aus',
-                ja: 'スロットル·オフ',
-              )
+            ? _homeSessionTooThrottleOffLabel(context)
             : durationExpired
             ? openHandLocalizedText(
                 context,
@@ -4736,4 +4720,19 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
       maxLabelWidth: 168,
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeSessionTooThrottleOffLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '节流·关',
+    zhHant: '節流·關',
+    en: 'Throttle·off',
+    fr: 'Limite·off',
+    de: 'Drossel·aus',
+    ja: 'スロットル·オフ',
+  );
 }

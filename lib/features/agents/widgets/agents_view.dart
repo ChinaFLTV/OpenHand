@@ -1376,7 +1376,7 @@ class _AgentCapabilityLogBody extends StatelessWidget {
               value: '${events.length}',
             ),
             _MetricTile(
-              label: openHandLocalizedText(context, zh: '请求量', en: 'Requests'),
+              label: _agentsViewRequestsLabel(context),
               value: '$requests',
             ),
             _MetricTile(label: 'Token', value: '$tokens'),
@@ -1602,14 +1602,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             _AgentDialogMetricTile(
               icon: _agentCapabilityLogIcon(type),
               color: color,
-              label: openHandLocalizedText(
-                context,
-                zh: '能力类型',
-                en: 'Capability',
-                fr: 'Capacité',
-                de: 'Fähigkeit',
-                ja: '能力',
-              ),
+              label: _agentsViewCapabilityLabel(context),
               value: _agentCapabilityTypeLabel(context, type),
             ),
             _AgentDialogMetricTile(
@@ -1619,7 +1612,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentDialogMetricTile(
               icon: Icons.cloud_sync_rounded,
-              label: openHandLocalizedText(context, zh: '请求量', en: 'Requests'),
+              label: _agentsViewRequestsLabel(context),
               value: '${event.requestCount}',
             ),
             _AgentDialogMetricTile(
@@ -1804,27 +1797,13 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.trending_up_rounded,
-              title: openHandLocalizedText(
-                context,
-                zh: '进度',
-                en: 'Progress',
-                fr: 'Progression',
-                de: 'Fortschritt',
-                ja: '進捗',
-              ),
+              title: _agentsViewProgressLabel(context),
               body: '${(clampUnitInterval(task.progress) * 100).round()}%',
               compact: true,
             ),
             _AgentTaskDetailBlock(
               icon: Icons.engineering_outlined,
-              title: openHandLocalizedText(
-                context,
-                zh: '分配 Worker',
-                en: 'Assigned worker',
-                fr: 'Worker attribué',
-                de: 'Zugewiesener Worker',
-                ja: '割り当て Worker',
-              ),
+              title: _agentsViewAssignedWorkerLabel(context),
               body: workerLabel,
               compact: true,
             ),
@@ -1867,7 +1846,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
         ),
         _AgentTaskDetailBlock(
           icon: Icons.fact_check_outlined,
-          title: openHandLocalizedText(context, zh: '任务结果', en: 'Task result'),
+          title: _agentsViewTaskResultLabel(context),
           body: task.result,
         ),
         _AgentTaskDetailBlock(
@@ -1979,14 +1958,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.low_priority_rounded,
-              title: openHandLocalizedText(
-                context,
-                zh: '优先级',
-                en: 'Priority',
-                fr: 'Priorité',
-                de: 'Priorität',
-                ja: '優先度',
-              ),
+              title: _agentsViewPriorityLabel(context),
               body: '${worker.priority}',
               compact: true,
             ),
@@ -2031,14 +2003,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.power_settings_new_rounded,
-              title: openHandLocalizedText(
-                context,
-                zh: '生命周期',
-                en: 'Lifecycle',
-                fr: 'Cycle de vie',
-                de: 'Lebenszyklus',
-                ja: 'ライフサイクル',
-              ),
+              title: _agentsViewLifecycleLabel(context),
               body: _agentLifecycleStateValueLabel(
                 l10n,
                 agent.lifecycleState.storageValue,
@@ -2047,14 +2012,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.verified_outlined,
-              title: openHandLocalizedText(
-                context,
-                zh: '启用状态',
-                en: 'Enabled',
-                fr: 'Activé',
-                de: 'Aktiviert',
-                ja: '有効',
-              ),
+              title: _agentsViewEnabledLabel(context),
               body: _agentBooleanLabel(context, 'enabled', agent.enabled),
               compact: true,
             ),
@@ -2086,14 +2044,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.settings_applications_outlined,
-              title: openHandLocalizedText(
-                context,
-                zh: '模型配置',
-                en: 'Model config',
-                fr: 'Config modèle',
-                de: 'Modellkonfiguration',
-                ja: 'モデル設定',
-              ),
+              title: _agentsViewModelConfigLabel(context),
               body: nullIfBlank(agent.modelProviderConfigId) ?? '-',
               compact: true,
             ),
@@ -2131,15 +2082,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.library_books_rounded,
-              title: openHandLocalizedText(
-                context,
-                zh: '知识库',
-                zhHant: '知識庫',
-                en: 'Knowledge',
-                fr: 'Connaissance',
-                de: 'Wissen',
-                ja: 'ナレッジ',
-              ),
+              title: _agentsViewKnowledgeLabel(context),
               body: _agentJoinedText(agent.knowledgeSourceIds),
               compact: true,
             ),
@@ -2383,11 +2326,7 @@ Future<void> _showAgentApprovalsDialog(
           icon: Icons.add_moderator_outlined,
           onPressed: () =>
               _showAgentApprovalRequestDialog(context, currentAgent),
-          label: openHandLocalizedText(
-            context,
-            zh: '发起审批',
-            en: 'Request approval',
-          ),
+          label: _agentsViewRequestApprovalLabel(context),
         ),
         child: currentAgent.approvals.isEmpty
             ? FeatureStateCard.inline(
@@ -2452,7 +2391,7 @@ class _AgentApprovalsBody extends StatelessWidget {
               value: '$resolved',
             ),
             _MetricTile(
-              label: openHandLocalizedText(context, zh: '高风险', en: 'High risk'),
+              label: _agentsViewHighRiskLabel(context),
               value: '$highRisk',
             ),
           ],
@@ -2762,37 +2701,15 @@ class _AgentClusterDialogContentState
               value: '$idleWorkers / $busyWorkers',
             ),
             _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '待执行',
-                en: 'Queued',
-                fr: 'En attente',
-                de: 'In Warteschlange',
-                ja: '待機中',
-              ),
+              label: _agentsViewQueuedLabel(context),
               value: '$queuedTasks',
             ),
             _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '执行中',
-                zhHant: '執行中',
-                en: 'Running',
-                fr: 'Exécution',
-                de: 'Wird ausgeführt',
-                ja: '実行中',
-              ),
+              label: _agentsViewRunningLabel(context),
               value: '${currentAgent.runningTaskCount}',
             ),
             _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '待处理',
-                en: 'Blocked',
-                fr: 'Bloquées',
-                de: 'Blockiert',
-                ja: '保留中',
-              ),
+              label: _agentsViewBlockedLabel(context),
               value: '$blockedTasks',
             ),
             _MetricTile(
@@ -3087,34 +3004,16 @@ class _AgentClusterSettingsEditorState
             _FormGridItem(
               fullWidth: true,
               child: _clusterTagEditor(
-                label: openHandLocalizedText(
-                  context,
-                  zh: 'Worker 标签',
-                  en: 'Worker tags',
-                ),
+                label: _agentsViewWorkerTagsLabel(context),
               ),
             ),
             _clusterRatioSlider(
-              openHandLocalizedText(
-                context,
-                zh: '扩容阈值',
-                en: 'Scale-out threshold',
-                fr: 'Seuil de montée',
-                de: 'Skalierungsschwelle',
-                ja: 'スケールアウトしきい値',
-              ),
+              _agentsViewScaleOutThresholdLabel(context),
               _scaleOutThreshold,
               (value) => setState(() => _scaleOutThreshold = value),
             ),
             _clusterRatioSlider(
-              openHandLocalizedText(
-                context,
-                zh: '缩容阈值',
-                en: 'Scale-in threshold',
-                fr: 'Seuil de réduction',
-                de: 'Herunterskalierungsschwelle',
-                ja: 'スケールインしきい値',
-              ),
+              _agentsViewScaleInThresholdLabel(context),
               _scaleInThreshold,
               (value) => setState(() => _scaleInThreshold = value),
             ),
@@ -3125,22 +3024,14 @@ class _AgentClusterSettingsEditorState
               onChanged: (value) => setState(() => _schedulerPolicy = value),
             ),
             _clusterPolicyDropdown(
-              label: openHandLocalizedText(
-                context,
-                zh: 'Worker 移出策略',
-                en: 'Worker removal policy',
-              ),
+              label: _agentsViewWorkerRemovalPolicyLabel(context),
               value: _workerRemovalPolicy,
               values: agentWorkerRemovalPolicyOptions,
               onChanged: (value) =>
                   setState(() => _workerRemovalPolicy = value),
             ),
             _clusterPolicyDropdown(
-              label: openHandLocalizedText(
-                context,
-                zh: '重试策略',
-                en: 'Retry policy',
-              ),
+              label: _agentsViewRetryPolicyLabel(context),
               value: _retryPolicy,
               values: agentRetryPolicyOptions,
               onChanged: (value) => setState(() => _retryPolicy = value),
@@ -3256,11 +3147,7 @@ class _AgentClusterSettingsEditorState
                 child: TextField(
                   controller: _tagInput,
                   decoration: InputDecoration(
-                    hintText: openHandLocalizedText(
-                      context,
-                      zh: '输入后点击添加',
-                      en: 'Enter text, then add',
-                    ),
+                    hintText: _agentsViewEnterTextThenAddLabel(context),
                   ),
                   onSubmitted: (_) => _addClusterTag(),
                 ),
@@ -3270,28 +3157,14 @@ class _AgentClusterSettingsEditorState
                 key: const ValueKey<String>('agent-cluster-tag-add'),
                 onPressed: _addClusterTag,
                 icon: const Icon(Icons.add_rounded),
-                label: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '添加',
-                    zhHant: '新增',
-                    en: 'Add',
-                    fr: 'Ajouter',
-                    de: 'Hinzufügen',
-                    ja: '追加',
-                  ),
-                ),
+                label: Text(_agentsViewAddLabel(context)),
               ),
             ],
           ),
           const SizedBox(height: 10),
           _AnimatedReorderableChipStrip(
             values: _tags,
-            emptyText: openHandLocalizedText(
-              context,
-              zh: '暂无 Worker 标签。',
-              en: 'No worker tags yet.',
-            ),
+            emptyText: _agentsViewNoWorkerTagsYetLabel(context),
             keyPrefix: 'cluster-tag',
             onRemove: (tag) => setState(() => _tags.remove(tag)),
             onReorder: (oldIndex, newIndex) =>
@@ -3385,23 +3258,11 @@ class _AgentTasksBody extends StatelessWidget {
             ),
             _MetricTile(label: openHandActiveLabel(context), value: '$active'),
             _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '已完成',
-                zhHant: '已完成',
-                en: 'Completed',
-                fr: 'Terminé',
-                de: 'Abgeschlossen',
-                ja: '完了',
-              ),
+              label: _agentsViewCompletedLabel(context),
               value: '$completed',
             ),
             _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '平均进度',
-                en: 'Avg. progress',
-              ),
+              label: _agentsViewAvgProgressLabel(context),
               value: '$averageProgress%',
             ),
           ],
@@ -3666,14 +3527,7 @@ Future<void> _showAgentTaskDetailDialog(
                 ),
                 _AgentTaskDetailFact(
                   icon: Icons.engineering_outlined,
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '分配 Worker',
-                    en: 'Assigned worker',
-                    fr: 'Worker attribué',
-                    de: 'Zugewiesener Worker',
-                    ja: '割り当て Worker',
-                  ),
+                  title: _agentsViewAssignedWorkerLabel(context),
                   value: assignedWorker,
                 ),
               ],
@@ -3690,11 +3544,7 @@ Future<void> _showAgentTaskDetailDialog(
             ),
             _AgentTaskDetailBlock(
               icon: Icons.fact_check_outlined,
-              title: openHandLocalizedText(
-                context,
-                zh: '任务结果',
-                en: 'Task result',
-              ),
+              title: _agentsViewTaskResultLabel(context),
               body: task.result,
             ),
             _AgentTaskDetailBlock(
@@ -3937,7 +3787,7 @@ List<String> _agentTaskTrackingChips(
   } else if (task.status == AgentTaskStatus.waitingApproval) {
     chips.add(openHandLocalizedText(context, zh: '需审批', en: 'Approval'));
   } else if (task.status == AgentTaskStatus.paused) {
-    chips.add(openHandLocalizedText(context, zh: '已暂停', en: 'Paused'));
+    chips.add(_agentsViewPausedLabel(context));
   }
   final retryCount = nonNegativeIntFromValue(
     task.extra['retry_count'],
@@ -4085,19 +3935,11 @@ String _agentTaskRecommendedTool(
     AgentTaskStatus.completed =>
       _agentTaskToolAvailable(agent, agentTaskTrackToolName)
           ? agentTaskTrackToolName
-          : openHandLocalizedText(
-              context,
-              zh: '需开启 AgentTaskTrack',
-              en: 'Enable AgentTaskTrack',
-            ),
+          : _agentsViewEnableAgenttasktrackLabel(context),
     AgentTaskStatus.failed || AgentTaskStatus.canceled =>
       _agentTaskToolAvailable(agent, agentTaskTrackToolName)
           ? agentTaskTrackToolName
-          : openHandLocalizedText(
-              context,
-              zh: '需开启 AgentTaskTrack',
-              en: 'Enable AgentTaskTrack',
-            ),
+          : _agentsViewEnableAgenttasktrackLabel(context),
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
     AgentTaskStatus.running =>
@@ -4265,11 +4107,7 @@ Future<void> _showCompleteTaskDialog(
                 minLines: 4,
                 maxLines: 8,
                 decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '任务结果',
-                    en: 'Task result',
-                  ),
+                  labelText: _agentsViewTaskResultLabel(context),
                 ),
               ),
               const SizedBox(height: 12),
@@ -4362,7 +4200,7 @@ Future<void> _showAgentKpiDialog(BuildContext context, AgentProfile agent) {
               draft,
             );
           },
-          label: openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI'),
+          label: _agentsViewAddKpiLabel(context),
         ),
         child: currentAgent.kpis.isEmpty
             ? FeatureStateCard.inline(
@@ -4416,31 +4254,16 @@ class _AgentKpiBody extends StatelessWidget {
               value: '${kpis.length}',
             ),
             _MetricTile(
-              label: openHandLocalizedText(context, zh: '跟进中', en: 'Tracking'),
+              label: _agentsViewTrackingLabel(context),
               value: '$tracking',
             ),
             _MetricTile(
-              label: openHandLocalizedText(context, zh: '有风险', en: 'At risk'),
+              label: _agentsViewAtRiskLabel(context),
               value: '$atRisk',
             ),
+            _MetricTile(label: _agentsViewDoneLabel(context), value: '$done'),
             _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '已完成',
-                zhHant: '已完成',
-                en: 'Done',
-                fr: 'Terminé',
-                de: 'Fertig',
-                ja: '完了',
-              ),
-              value: '$done',
-            ),
-            _MetricTile(
-              label: openHandLocalizedText(
-                context,
-                zh: '平均进度',
-                en: 'Avg. progress',
-              ),
+              label: _agentsViewAvgProgressLabel(context),
               value: '$averageProgress%',
             ),
           ],
@@ -4599,21 +4422,13 @@ class _AgentKpiCard extends StatelessWidget {
               children: [
                 _AgentSmallIconButton(
                   icon: Icons.edit_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '编辑 KPI',
-                    en: 'Edit KPI',
-                  ),
+                  tooltip: _agentsViewEditKpiLabel(context),
                   onPressed: () => _editAgentKpi(context, agent, item),
                 ),
                 const SizedBox(width: 6),
                 _AgentSmallIconButton(
                   icon: Icons.delete_outline_rounded,
-                  tooltip: openHandLocalizedText(
-                    context,
-                    zh: '删除 KPI',
-                    en: 'Delete KPI',
-                  ),
+                  tooltip: _agentsViewDeleteKpiLabel(context),
                   onPressed: () => _deleteAgentKpi(context, agent, item),
                 ),
               ],
@@ -4652,7 +4467,7 @@ Future<void> _deleteAgentKpi(
 ) async {
   final confirmed = await showOpenHandConfirmDialog(
     context: context,
-    title: openHandLocalizedText(context, zh: '删除 KPI', en: 'Delete KPI'),
+    title: _agentsViewDeleteKpiLabel(context),
     message: openHandLocalizedText(
       context,
       zh: '确认删除「${item.name}」吗？',
@@ -4724,8 +4539,8 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
       child: _AgentDialogScaffold(
         icon: Icons.flag_rounded,
         title: widget.initial == null
-            ? openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI')
-            : openHandLocalizedText(context, zh: '编辑 KPI', en: 'Edit KPI'),
+            ? _agentsViewAddKpiLabel(context)
+            : _agentsViewEditKpiLabel(context),
         footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
@@ -4783,14 +4598,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
             const SizedBox(height: 12),
             InputDecorator(
               decoration: InputDecoration(
-                labelText: openHandLocalizedText(
-                  context,
-                  zh: '进度',
-                  en: 'Progress',
-                  fr: 'Progression',
-                  de: 'Fortschritt',
-                  ja: '進捗',
-                ),
+                labelText: _agentsViewProgressLabel(context),
               ),
               child: Row(
                 children: [
@@ -4820,22 +4628,8 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
                 en: 'KPI metadata',
               ),
               entries: _extraEntries,
-              keyLabel: openHandLocalizedText(
-                context,
-                zh: '键',
-                en: 'Key',
-                fr: 'Clé',
-                de: 'Schlüssel',
-                ja: 'キー',
-              ),
-              valueLabel: openHandLocalizedText(
-                context,
-                zh: '值',
-                en: 'Value',
-                fr: 'Valeur',
-                de: 'Wert',
-                ja: '値',
-              ),
+              keyLabel: _agentsViewKeyLabel(context),
+              valueLabel: _agentsViewValueLabel(context),
               emptyText: openHandLocalizedText(
                 context,
                 zh: '暂无 KPI 元数据。可补充负责人、周期、截止日期、证据来源等字段。',
@@ -4891,26 +4685,10 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
 
 String _agentKpiStatusLabel(BuildContext context, String status) {
   return switch (status.trim().toLowerCase()) {
-    agentKpiStatusDone => openHandLocalizedText(
-      context,
-      zh: '已完成',
-      zhHant: '已完成',
-      en: 'Done',
-      fr: 'Terminé',
-      de: 'Fertig',
-      ja: '完了',
-    ),
-    agentKpiStatusAtRisk => openHandLocalizedText(
-      context,
-      zh: '有风险',
-      en: 'At risk',
-    ),
-    agentKpiStatusPaused => openHandLocalizedText(
-      context,
-      zh: '已暂停',
-      en: 'Paused',
-    ),
-    _ => openHandLocalizedText(context, zh: '跟进中', en: 'Tracking'),
+    agentKpiStatusDone => _agentsViewDoneLabel(context),
+    agentKpiStatusAtRisk => _agentsViewAtRiskLabel(context),
+    agentKpiStatusPaused => _agentsViewPausedLabel(context),
+    _ => _agentsViewTrackingLabel(context),
   };
 }
 
@@ -5006,11 +4784,7 @@ Future<void> _showAgentResourcesDialog(
                       updated,
                     );
                   },
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '校准资源',
-                    en: 'Edit resources',
-                  ),
+                  label: _agentsViewEditResourcesLabel(context),
                 ),
               ],
             ),
@@ -5584,7 +5358,7 @@ class _AgentResourceCharts extends StatelessWidget {
                     en: 'Storage pressure',
                   ),
                   value: data.resource.diskBytes <= 0
-                      ? openHandLocalizedText(context, zh: '未设置', en: 'unset')
+                      ? _agentsViewUnsetLabel(context)
                       : '${formatByteSize(data.resource.persistedBytes)} / ${formatByteSize(data.resource.diskBytes)}',
                   color: storageColor,
                   progress: data.persistedPressure,
@@ -5612,14 +5386,7 @@ class _AgentResourceCharts extends StatelessWidget {
                 ),
                 _AgentDialogMetricTile(
                   icon: Icons.precision_manufacturing_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '忙碌 Worker',
-                    en: 'Busy workers',
-                    fr: 'Workers occupés',
-                    de: 'Beschäftigte Worker',
-                    ja: '稼働中の Worker',
-                  ),
+                  label: _agentsViewBusyWorkersLabel(context),
                   value: '${data.busyWorkers}/${data.workerCount}',
                 ),
                 _AgentDialogMetricTile(
@@ -5793,7 +5560,7 @@ class _AgentResourceBody extends StatelessWidget {
       resource.persistedBytes,
     );
     final persistedCapacityLabel = resource.diskBytes <= 0
-        ? openHandLocalizedText(context, zh: '未设置', en: 'unset')
+        ? _agentsViewUnsetLabel(context)
         : formatByteSize(resource.diskBytes);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5860,14 +5627,7 @@ class _AgentResourceBody extends StatelessWidget {
         const SizedBox(height: 10),
         _AgentResourcePressureCard(
           icon: Icons.inventory_2_rounded,
-          label: openHandLocalizedText(
-            context,
-            zh: '持久化占用',
-            en: 'Persisted storage',
-            fr: 'Stockage persistant',
-            de: 'Persistenter Speicher',
-            ja: '永続化ストレージ',
-          ),
+          label: _agentsViewPersistedStorageLabel(context),
           valueLabel:
               '${formatByteSize(resource.persistedBytes)} / $persistedCapacityLabel',
           pressure: persistedPressure,
@@ -6436,7 +6196,7 @@ class _AgentResourceEditorDialogState
       maxWidth: 720,
       child: _AgentDialogScaffold(
         icon: Icons.storage_rounded,
-        title: openHandLocalizedText(context, zh: '校准资源', en: 'Edit resources'),
+        title: _agentsViewEditResourcesLabel(context),
         footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
@@ -6491,17 +6251,7 @@ class _AgentResourceEditorDialogState
                 ja: '使用済みトークン',
               ),
             ),
-            _resourceField(
-              _tokenBudget,
-              openHandLocalizedText(
-                context,
-                zh: 'Token 预算',
-                en: 'Token budget',
-                fr: 'Budget de tokens',
-                de: 'Token-Budget',
-                ja: 'トークン予算',
-              ),
-            ),
+            _resourceField(_tokenBudget, _agentsViewTokenBudgetLabel(context)),
             _resourceField(_openHandles, l10n.agentsMetricHandles),
             _FormGridItem(
               fullWidth: true,
@@ -6512,22 +6262,8 @@ class _AgentResourceEditorDialogState
                   en: 'Resource metadata',
                 ),
                 entries: _extraEntries,
-                keyLabel: openHandLocalizedText(
-                  context,
-                  zh: '键',
-                  en: 'Key',
-                  fr: 'Clé',
-                  de: 'Schlüssel',
-                  ja: 'キー',
-                ),
-                valueLabel: openHandLocalizedText(
-                  context,
-                  zh: '值',
-                  en: 'Value',
-                  fr: 'Valeur',
-                  de: 'Wert',
-                  ja: '値',
-                ),
+                keyLabel: _agentsViewKeyLabel(context),
+                valueLabel: _agentsViewValueLabel(context),
                 emptyText: openHandLocalizedText(
                   context,
                   zh: '暂无资源元数据。可补充工作目录、产物数量、缓存占用、配额等字段。',
@@ -6713,14 +6449,7 @@ class _AgentAuditReportBody extends StatelessWidget {
             _AgentDialogMetricTile(
               icon: Icons.memory_rounded,
               color: workerTotal == 0 ? cs.outline : cs.secondary,
-              label: openHandLocalizedText(
-                context,
-                zh: '忙碌 Worker',
-                en: 'Busy workers',
-                fr: 'Workers occupés',
-                de: 'Beschäftigte Worker',
-                ja: '稼働中の Worker',
-              ),
+              label: _agentsViewBusyWorkersLabel(context),
               value: '${report.busyWorkers}/$workerTotal',
             ),
           ],
@@ -6834,25 +6563,11 @@ class _AgentAuditReportBody extends StatelessWidget {
                   value: report.cpuPressure,
                 ),
                 _AgentAuditPressureRow(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: 'Token 预算',
-                    en: 'Token budget',
-                    fr: 'Budget de tokens',
-                    de: 'Token-Budget',
-                    ja: 'トークン予算',
-                  ),
+                  label: _agentsViewTokenBudgetLabel(context),
                   value: report.tokenPressure,
                 ),
                 _AgentAuditPressureRow(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '持久化占用',
-                    en: 'Persisted storage',
-                    fr: 'Stockage persistant',
-                    de: 'Persistenter Speicher',
-                    ja: '永続化ストレージ',
-                  ),
+                  label: _agentsViewPersistedStorageLabel(context),
                   value: report.persistedPressure,
                 ),
               ],
@@ -8024,11 +7739,7 @@ class _AgentApprovalRequestDialogState
       maxWidth: 680,
       child: _AgentDialogScaffold(
         icon: Icons.add_moderator_outlined,
-        title: openHandLocalizedText(
-          context,
-          zh: '发起审批',
-          en: 'Request approval',
-        ),
+        title: _agentsViewRequestApprovalLabel(context),
         footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
@@ -8079,22 +7790,8 @@ class _AgentApprovalRequestDialogState
                 en: 'Approval metadata',
               ),
               entries: _extraEntries,
-              keyLabel: openHandLocalizedText(
-                context,
-                zh: '键',
-                en: 'Key',
-                fr: 'Clé',
-                de: 'Schlüssel',
-                ja: 'キー',
-              ),
-              valueLabel: openHandLocalizedText(
-                context,
-                zh: '值',
-                en: 'Value',
-                fr: 'Valeur',
-                de: 'Wert',
-                ja: '値',
-              ),
+              keyLabel: _agentsViewKeyLabel(context),
+              valueLabel: _agentsViewValueLabel(context),
               emptyText: openHandLocalizedText(
                 context,
                 zh: '暂无审批元数据。可补充风险等级、权限、范围、任务 ID 等字段。',
@@ -8225,7 +7922,7 @@ String _agentApprovalRiskLabel(BuildContext context, String riskLevel) {
   return switch (riskLevel) {
     'critical' ||
     'destructive' => openHandLocalizedText(context, zh: '高危', en: 'Critical'),
-    'high' => openHandLocalizedText(context, zh: '高风险', en: 'High risk'),
+    'high' => _agentsViewHighRiskLabel(context),
     'medium' => openHandLocalizedText(context, zh: '中风险', en: 'Medium risk'),
     'low' => openHandLocalizedText(context, zh: '低风险', en: 'Low risk'),
     _ => openHandLocalizedText(context, zh: '常规', en: 'Standard'),
@@ -8406,22 +8103,8 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
                 ja: '追加フィールド',
               ),
               entries: _extraEntries,
-              keyLabel: openHandLocalizedText(
-                context,
-                zh: '键',
-                en: 'Key',
-                fr: 'Clé',
-                de: 'Schlüssel',
-                ja: 'キー',
-              ),
-              valueLabel: openHandLocalizedText(
-                context,
-                zh: '值',
-                en: 'Value',
-                fr: 'Valeur',
-                de: 'Wert',
-                ja: '値',
-              ),
+              keyLabel: _agentsViewKeyLabel(context),
+              valueLabel: _agentsViewValueLabel(context),
               emptyText: openHandLocalizedText(
                 context,
                 zh: '暂无扩展字段。数值、布尔值、数组和对象会自动结构化保存。',
@@ -8463,15 +8146,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               const SizedBox(width: 10),
               IconButton.filledTonal(
                 key: const ValueKey<String>('agent-publish-task-label-add'),
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '添加',
-                  zhHant: '新增',
-                  en: 'Add',
-                  fr: 'Ajouter',
-                  de: 'Hinzufügen',
-                  ja: '追加',
-                ),
+                tooltip: _agentsViewAddLabel(context),
                 onPressed: _addLabel,
                 icon: const Icon(Icons.add_rounded),
               ),
@@ -8480,11 +8155,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
           const SizedBox(height: 10),
           _AnimatedReorderableChipStrip(
             values: _labels,
-            emptyText: openHandLocalizedText(
-              context,
-              zh: '暂无任务标签。',
-              en: 'No task labels yet.',
-            ),
+            emptyText: _agentsViewNoTaskLabelsYetLabel(context),
             onRemove: (value) => setState(() => _labels.remove(value)),
             onReorder: (oldIndex, newIndex) =>
                 setState(() => _reorderLabels(oldIndex, newIndex)),
@@ -9522,14 +9193,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           children: [
             Expanded(
               child: _ratioSlider(
-                openHandLocalizedText(
-                  context,
-                  zh: '扩容阈值',
-                  en: 'Scale-out threshold',
-                  fr: 'Seuil de montée',
-                  de: 'Skalierungsschwelle',
-                  ja: 'スケールアウトしきい値',
-                ),
+                _agentsViewScaleOutThresholdLabel(context),
                 _scaleOutThreshold,
                 (value) => setState(() => _scaleOutThreshold = value),
               ),
@@ -9537,14 +9201,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             const SizedBox(width: 12),
             Expanded(
               child: _ratioSlider(
-                openHandLocalizedText(
-                  context,
-                  zh: '缩容阈值',
-                  en: 'Scale-in threshold',
-                  fr: 'Seuil de réduction',
-                  de: 'Herunterskalierungsschwelle',
-                  ja: 'スケールインしきい値',
-                ),
+                _agentsViewScaleInThresholdLabel(context),
                 _scaleInThreshold,
                 (value) => setState(() => _scaleInThreshold = value),
               ),
@@ -9565,11 +9222,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             const SizedBox(width: 12),
             Expanded(
               child: _policyDropdown(
-                label: openHandLocalizedText(
-                  context,
-                  zh: 'Worker 移出策略',
-                  en: 'Worker removal policy',
-                ),
+                label: _agentsViewWorkerRemovalPolicyLabel(context),
                 value: _workerRemovalPolicy,
                 values: agentWorkerRemovalPolicyOptions,
                 onChanged: (value) =>
@@ -9579,11 +9232,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             const SizedBox(width: 12),
             Expanded(
               child: _policyDropdown(
-                label: openHandLocalizedText(
-                  context,
-                  zh: '重试策略',
-                  en: 'Retry policy',
-                ),
+                label: _agentsViewRetryPolicyLabel(context),
                 value: _retryPolicy,
                 values: agentRetryPolicyOptions,
                 onChanged: (value) => setState(() => _retryPolicy = value),
@@ -9593,18 +9242,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         ),
         const SizedBox(height: 14),
         _editableStringChips(
-          label: openHandLocalizedText(
-            context,
-            zh: 'Worker 标签',
-            en: 'Worker tags',
-          ),
+          label: _agentsViewWorkerTagsLabel(context),
           inputController: _workerTagInput,
           values: _workerTagValues,
-          emptyText: openHandLocalizedText(
-            context,
-            zh: '暂无 Worker 标签。',
-            en: 'No worker tags yet.',
-          ),
+          emptyText: _agentsViewNoWorkerTagsYetLabel(context),
           onAdd: _addWorkerTag,
           onSubmitted: (_) => _addWorkerTag(),
           onRemove: (value) => setState(() => _workerTagValues.remove(value)),
@@ -9618,11 +9259,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           label: l10n.agentsTaskLabelsLabel,
           inputController: _taskLabelInput,
           values: _taskLabelValues,
-          emptyText: openHandLocalizedText(
-            context,
-            zh: '暂无任务标签。',
-            en: 'No task labels yet.',
-          ),
+          emptyText: _agentsViewNoTaskLabelsYetLabel(context),
           onAdd: _addTaskLabel,
           onSubmitted: (_) => _addTaskLabel(),
           onRemove: (value) => setState(() => _taskLabelValues.remove(value)),
@@ -9676,22 +9313,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             en: 'Metadata fields',
           ),
           entries: _metadataEntries,
-          keyLabel: openHandLocalizedText(
-            context,
-            zh: '键',
-            en: 'Key',
-            fr: 'Clé',
-            de: 'Schlüssel',
-            ja: 'キー',
-          ),
-          valueLabel: openHandLocalizedText(
-            context,
-            zh: '值',
-            en: 'Value',
-            fr: 'Valeur',
-            de: 'Wert',
-            ja: '値',
-          ),
+          keyLabel: _agentsViewKeyLabel(context),
+          valueLabel: _agentsViewValueLabel(context),
           emptyText: openHandLocalizedText(
             context,
             zh: '暂无元数据。添加键值后会随智能体档案保存。',
@@ -9805,14 +9428,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
               _field(
                 _routePriority,
-                openHandLocalizedText(
-                  context,
-                  zh: '优先级',
-                  en: 'Priority',
-                  fr: 'Priorité',
-                  de: 'Priorität',
-                  ja: '優先度',
-                ),
+                _agentsViewPriorityLabel(context),
                 onChanged: (_) => setState(() {}),
               ),
               _field(
@@ -9895,14 +9511,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
             entries: _routeExtraFields,
             keyLabel: openHandLocalizedText(context, zh: '字段', en: 'Field'),
-            valueLabel: openHandLocalizedText(
-              context,
-              zh: '值',
-              en: 'Value',
-              fr: 'Valeur',
-              de: 'Wert',
-              ja: '値',
-            ),
+            valueLabel: _agentsViewValueLabel(context),
             emptyText: openHandLocalizedText(
               context,
               zh: '无需扩展字段时可留空。',
@@ -9997,13 +9606,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             child: FilledButton.tonalIcon(
               onPressed: onAdd,
               icon: const Icon(Icons.create_new_folder_rounded),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '选择目录',
-                  en: 'Pick directory',
-                ),
-              ),
+              label: Text(_agentsViewPickDirectoryLabel(context)),
             ),
           ),
           const SizedBox(height: 10),
@@ -10043,26 +9646,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 child: TextField(
                   controller: inputController,
                   decoration: InputDecoration(
-                    hintText: openHandLocalizedText(
-                      context,
-                      zh: '输入后点击添加',
-                      en: 'Enter text, then add',
-                    ),
+                    hintText: _agentsViewEnterTextThenAddLabel(context),
                   ),
                   onSubmitted: onSubmitted,
                 ),
               ),
               const SizedBox(width: 10),
               IconButton.filledTonal(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '添加',
-                  zhHant: '新增',
-                  en: 'Add',
-                  fr: 'Ajouter',
-                  de: 'Hinzufügen',
-                  ja: '追加',
-                ),
+                tooltip: _agentsViewAddLabel(context),
                 onPressed: onAdd,
                 icon: Icon(addIcon),
               ),
@@ -10294,11 +9885,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   Future<String?> _pickDirectory() {
     return getDirectoryPath(
-      confirmButtonText: openHandLocalizedText(
-        context,
-        zh: '选择目录',
-        en: 'Pick directory',
-      ),
+      confirmButtonText: _agentsViewPickDirectoryLabel(context),
     );
   }
 
@@ -13123,40 +12710,10 @@ List<_AgentAuditTaskStat> _agentAuditTaskStats(List<AgentTask> tasks) {
 
 String _agentAuditTaskBucketLabel(BuildContext context, String bucket) {
   return switch (bucket) {
-    'completed' => openHandLocalizedText(
-      context,
-      zh: '已完成',
-      zhHant: '已完成',
-      en: 'Completed',
-      fr: 'Terminé',
-      de: 'Abgeschlossen',
-      ja: '完了',
-    ),
-    'running' => openHandLocalizedText(
-      context,
-      zh: '执行中',
-      zhHant: '執行中',
-      en: 'Running',
-      fr: 'Exécution',
-      de: 'Wird ausgeführt',
-      ja: '実行中',
-    ),
-    'queued' => openHandLocalizedText(
-      context,
-      zh: '待执行',
-      en: 'Queued',
-      fr: 'En attente',
-      de: 'In Warteschlange',
-      ja: '待機中',
-    ),
-    'blocked' => openHandLocalizedText(
-      context,
-      zh: '待处理',
-      en: 'Blocked',
-      fr: 'Bloquées',
-      de: 'Blockiert',
-      ja: '保留中',
-    ),
+    'completed' => _agentsViewCompletedLabel(context),
+    'running' => _agentsViewRunningLabel(context),
+    'queued' => _agentsViewQueuedLabel(context),
+    'blocked' => _agentsViewBlockedLabel(context),
     'terminal' => openHandLocalizedText(
       context,
       zh: '异常终止',
@@ -13509,15 +13066,7 @@ String _agentAuditSourceLabel(BuildContext context, String value) {
       de: 'Agent-Controller',
       ja: 'エージェント制御',
     ),
-    'agentworker' => openHandLocalizedText(
-      context,
-      zh: 'Worker 执行',
-      en: 'Worker execution',
-      zhHant: 'Worker 執行',
-      fr: 'Exécution worker',
-      de: 'Worker-Ausführung',
-      ja: 'Worker 実行',
-    ),
+    'agentworker' => _agentsViewWorkerExecutionLabel(context),
     'workerexecution' || 'workerexecutionstatus' => _agentActivityKindLabel(
       l10n,
       'worker_execution',
@@ -13590,15 +13139,7 @@ String _agentCapabilityTypeLabel(BuildContext context, String type) {
       de: 'Speicher',
       ja: 'メモリ',
     ),
-    'knowledge' => openHandLocalizedText(
-      context,
-      zh: '知识库',
-      zhHant: '知識庫',
-      en: 'Knowledge',
-      fr: 'Connaissance',
-      de: 'Wissen',
-      ja: 'ナレッジ',
-    ),
+    'knowledge' => _agentsViewKnowledgeLabel(context),
     'builtin_tool' => openHandLocalizedText(
       context,
       zh: '内建工具',
@@ -13617,14 +13158,7 @@ String _agentCapabilityTypeLabel(BuildContext context, String type) {
       de: 'Modellanfrage',
       ja: 'モデルリクエスト',
     ),
-    'resource' => openHandLocalizedText(
-      context,
-      zh: '资源',
-      en: 'Resource',
-      fr: 'Ressource',
-      de: 'Ressource',
-      ja: 'リソース',
-    ),
+    'resource' => _agentsViewResourceLabel(context),
     'approval' => openHandLocalizedText(
       context,
       zh: '审批',
@@ -13635,15 +13169,7 @@ String _agentCapabilityTypeLabel(BuildContext context, String type) {
       ja: '承認',
     ),
     'kpi' => 'KPI',
-    'worker_execution' => openHandLocalizedText(
-      context,
-      zh: 'Worker 执行',
-      en: 'Worker execution',
-      zhHant: 'Worker 執行',
-      fr: 'Exécution worker',
-      de: 'Worker-Ausführung',
-      ja: 'Worker 実行',
-    ),
+    'worker_execution' => _agentsViewWorkerExecutionLabel(context),
     _ => openHandLocalizedText(
       context,
       zh: '其他',
@@ -14347,14 +13873,7 @@ String _agentMetadataValueText(
 
 String _agentMetadataKeyLabel(BuildContext context, String key) {
   return switch (_agentMetadataKey(key)) {
-    'assigned_worker_id' => openHandLocalizedText(
-      context,
-      zh: '分配 Worker',
-      en: 'Assigned worker',
-      fr: 'Worker attribué',
-      de: 'Zugewiesener Worker',
-      ja: '割り当て Worker',
-    ),
+    'assigned_worker_id' => _agentsViewAssignedWorkerLabel(context),
     'worker_id' || 'removed_worker_ids' => openHandLocalizedText(
       context,
       zh: 'Worker ID',
@@ -14387,14 +13906,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'KPI-ID',
       ja: 'KPI ID',
     ),
-    'priority' => openHandLocalizedText(
-      context,
-      zh: '优先级',
-      en: 'Priority',
-      fr: 'Priorité',
-      de: 'Priorität',
-      ja: '優先度',
-    ),
+    'priority' => _agentsViewPriorityLabel(context),
     'schedule' => openHandLocalizedText(
       context,
       zh: '调度',
@@ -14519,14 +14031,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Umfang',
       ja: '範囲',
     ),
-    'resource' => openHandLocalizedText(
-      context,
-      zh: '资源',
-      en: 'Resource',
-      fr: 'Ressource',
-      de: 'Ressource',
-      ja: 'リソース',
-    ),
+    'resource' => _agentsViewResourceLabel(context),
     'tool_name' || 'tool' => openHandLocalizedText(
       context,
       zh: '工具',
@@ -14546,14 +14051,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Speicher-ID',
       ja: 'メモリ ID',
     ),
-    'capability_type' => openHandLocalizedText(
-      context,
-      zh: '能力类型',
-      en: 'Capability',
-      fr: 'Capacité',
-      de: 'Fähigkeit',
-      ja: '能力',
-    ),
+    'capability_type' => _agentsViewCapabilityLabel(context),
     'audit_kind' => openHandLocalizedText(
       context,
       zh: '审计类型',
@@ -14574,22 +14072,8 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Status',
       ja: 'ステータス',
     ),
-    'enabled' => openHandLocalizedText(
-      context,
-      zh: '启用状态',
-      en: 'Enabled',
-      fr: 'Activé',
-      de: 'Aktiviert',
-      ja: '有効',
-    ),
-    'lifecycle_state' => openHandLocalizedText(
-      context,
-      zh: '生命周期',
-      en: 'Lifecycle',
-      fr: 'Cycle de vie',
-      de: 'Lebenszyklus',
-      ja: 'ライフサイクル',
-    ),
+    'enabled' => _agentsViewEnabledLabel(context),
+    'lifecycle_state' => _agentsViewLifecycleLabel(context),
     'paused_task_count' => openHandLocalizedText(
       context,
       zh: '暂停任务',
@@ -14630,22 +14114,8 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Bereite Aufgaben',
       ja: '準備済みタスク',
     ),
-    'scale_out_threshold' => openHandLocalizedText(
-      context,
-      zh: '扩容阈值',
-      en: 'Scale-out threshold',
-      fr: 'Seuil de montée',
-      de: 'Skalierungsschwelle',
-      ja: 'スケールアウトしきい値',
-    ),
-    'scale_in_threshold' => openHandLocalizedText(
-      context,
-      zh: '缩容阈值',
-      en: 'Scale-in threshold',
-      fr: 'Seuil de réduction',
-      de: 'Herunterskalierungsschwelle',
-      ja: 'スケールインしきい値',
-    ),
+    'scale_out_threshold' => _agentsViewScaleOutThresholdLabel(context),
+    'scale_in_threshold' => _agentsViewScaleInThresholdLabel(context),
     'worker_removal_policy' => openHandLocalizedText(
       context,
       zh: '缩容策略',
@@ -14687,14 +14157,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Tool-Aufrufe',
       ja: 'ツール呼び出し',
     ),
-    'model_config_id' => openHandLocalizedText(
-      context,
-      zh: '模型配置',
-      en: 'Model config',
-      fr: 'Config modèle',
-      de: 'Modellkonfiguration',
-      ja: 'モデル設定',
-    ),
+    'model_config_id' => _agentsViewModelConfigLabel(context),
     'model_id' => openHandLocalizedText(
       context,
       zh: '模型',
@@ -14713,14 +14176,7 @@ String _agentMetadataKeyLabel(BuildContext context, String key) {
       de: 'Fehler',
       ja: 'エラー',
     ),
-    'task_progress' || 'kpi_progress' => openHandLocalizedText(
-      context,
-      zh: '进度',
-      en: 'Progress',
-      fr: 'Progression',
-      de: 'Fortschritt',
-      ja: '進捗',
-    ),
+    'task_progress' || 'kpi_progress' => _agentsViewProgressLabel(context),
     'updated_by_session_id' => openHandLocalizedText(
       context,
       zh: '会话',
@@ -14966,4 +14422,370 @@ String _agentWorkerStatusLabel(
     AgentWorkerStatus.draining => l10n.agentWorkerStatusDraining,
     AgentWorkerStatus.offline => l10n.agentWorkerStatusOffline,
   };
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _agentsViewAddKpiLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI');
+}
+
+String _agentsViewAddLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '添加',
+    zhHant: '新增',
+    en: 'Add',
+    fr: 'Ajouter',
+    de: 'Hinzufügen',
+    ja: '追加',
+  );
+}
+
+String _agentsViewAssignedWorkerLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '分配 Worker',
+    en: 'Assigned worker',
+    fr: 'Worker attribué',
+    de: 'Zugewiesener Worker',
+    ja: '割り当て Worker',
+  );
+}
+
+String _agentsViewAtRiskLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '有风险', en: 'At risk');
+}
+
+String _agentsViewAvgProgressLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '平均进度', en: 'Avg. progress');
+}
+
+String _agentsViewBlockedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '待处理',
+    en: 'Blocked',
+    fr: 'Bloquées',
+    de: 'Blockiert',
+    ja: '保留中',
+  );
+}
+
+String _agentsViewBusyWorkersLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '忙碌 Worker',
+    en: 'Busy workers',
+    fr: 'Workers occupés',
+    de: 'Beschäftigte Worker',
+    ja: '稼働中の Worker',
+  );
+}
+
+String _agentsViewCapabilityLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '能力类型',
+    en: 'Capability',
+    fr: 'Capacité',
+    de: 'Fähigkeit',
+    ja: '能力',
+  );
+}
+
+String _agentsViewCompletedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已完成',
+    zhHant: '已完成',
+    en: 'Completed',
+    fr: 'Terminé',
+    de: 'Abgeschlossen',
+    ja: '完了',
+  );
+}
+
+String _agentsViewDeleteKpiLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '删除 KPI', en: 'Delete KPI');
+}
+
+String _agentsViewDoneLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已完成',
+    zhHant: '已完成',
+    en: 'Done',
+    fr: 'Terminé',
+    de: 'Fertig',
+    ja: '完了',
+  );
+}
+
+String _agentsViewEditKpiLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '编辑 KPI', en: 'Edit KPI');
+}
+
+String _agentsViewEditResourcesLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '校准资源', en: 'Edit resources');
+}
+
+String _agentsViewEnableAgenttasktrackLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '需开启 AgentTaskTrack',
+    en: 'Enable AgentTaskTrack',
+  );
+}
+
+String _agentsViewEnabledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '启用状态',
+    en: 'Enabled',
+    fr: 'Activé',
+    de: 'Aktiviert',
+    ja: '有効',
+  );
+}
+
+String _agentsViewEnterTextThenAddLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '输入后点击添加',
+    en: 'Enter text, then add',
+  );
+}
+
+String _agentsViewHighRiskLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '高风险', en: 'High risk');
+}
+
+String _agentsViewKeyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '键',
+    en: 'Key',
+    fr: 'Clé',
+    de: 'Schlüssel',
+    ja: 'キー',
+  );
+}
+
+String _agentsViewKnowledgeLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '知识库',
+    zhHant: '知識庫',
+    en: 'Knowledge',
+    fr: 'Connaissance',
+    de: 'Wissen',
+    ja: 'ナレッジ',
+  );
+}
+
+String _agentsViewLifecycleLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '生命周期',
+    en: 'Lifecycle',
+    fr: 'Cycle de vie',
+    de: 'Lebenszyklus',
+    ja: 'ライフサイクル',
+  );
+}
+
+String _agentsViewModelConfigLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '模型配置',
+    en: 'Model config',
+    fr: 'Config modèle',
+    de: 'Modellkonfiguration',
+    ja: 'モデル設定',
+  );
+}
+
+String _agentsViewNoTaskLabelsYetLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '暂无任务标签。',
+    en: 'No task labels yet.',
+  );
+}
+
+String _agentsViewNoWorkerTagsYetLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '暂无 Worker 标签。',
+    en: 'No worker tags yet.',
+  );
+}
+
+String _agentsViewPausedLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '已暂停', en: 'Paused');
+}
+
+String _agentsViewPersistedStorageLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '持久化占用',
+    en: 'Persisted storage',
+    fr: 'Stockage persistant',
+    de: 'Persistenter Speicher',
+    ja: '永続化ストレージ',
+  );
+}
+
+String _agentsViewPickDirectoryLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '选择目录', en: 'Pick directory');
+}
+
+String _agentsViewPriorityLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '优先级',
+    en: 'Priority',
+    fr: 'Priorité',
+    de: 'Priorität',
+    ja: '優先度',
+  );
+}
+
+String _agentsViewProgressLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '进度',
+    en: 'Progress',
+    fr: 'Progression',
+    de: 'Fortschritt',
+    ja: '進捗',
+  );
+}
+
+String _agentsViewQueuedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '待执行',
+    en: 'Queued',
+    fr: 'En attente',
+    de: 'In Warteschlange',
+    ja: '待機中',
+  );
+}
+
+String _agentsViewRequestApprovalLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '发起审批', en: 'Request approval');
+}
+
+String _agentsViewRequestsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '请求量', en: 'Requests');
+}
+
+String _agentsViewResourceLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '资源',
+    en: 'Resource',
+    fr: 'Ressource',
+    de: 'Ressource',
+    ja: 'リソース',
+  );
+}
+
+String _agentsViewRetryPolicyLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '重试策略', en: 'Retry policy');
+}
+
+String _agentsViewRunningLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '执行中',
+    zhHant: '執行中',
+    en: 'Running',
+    fr: 'Exécution',
+    de: 'Wird ausgeführt',
+    ja: '実行中',
+  );
+}
+
+String _agentsViewScaleInThresholdLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '缩容阈值',
+    en: 'Scale-in threshold',
+    fr: 'Seuil de réduction',
+    de: 'Herunterskalierungsschwelle',
+    ja: 'スケールインしきい値',
+  );
+}
+
+String _agentsViewScaleOutThresholdLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '扩容阈值',
+    en: 'Scale-out threshold',
+    fr: 'Seuil de montée',
+    de: 'Skalierungsschwelle',
+    ja: 'スケールアウトしきい値',
+  );
+}
+
+String _agentsViewTaskResultLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '任务结果', en: 'Task result');
+}
+
+String _agentsViewTokenBudgetLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Token 预算',
+    en: 'Token budget',
+    fr: 'Budget de tokens',
+    de: 'Token-Budget',
+    ja: 'トークン予算',
+  );
+}
+
+String _agentsViewTrackingLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '跟进中', en: 'Tracking');
+}
+
+String _agentsViewUnsetLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '未设置', en: 'unset');
+}
+
+String _agentsViewValueLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '值',
+    en: 'Value',
+    fr: 'Valeur',
+    de: 'Wert',
+    ja: '値',
+  );
+}
+
+String _agentsViewWorkerExecutionLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Worker 执行',
+    en: 'Worker execution',
+    zhHant: 'Worker 執行',
+    fr: 'Exécution worker',
+    de: 'Worker-Ausführung',
+    ja: 'Worker 実行',
+  );
+}
+
+String _agentsViewWorkerRemovalPolicyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Worker 移出策略',
+    en: 'Worker removal policy',
+  );
+}
+
+String _agentsViewWorkerTagsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: 'Worker 标签', en: 'Worker tags');
 }

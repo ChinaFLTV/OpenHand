@@ -320,58 +320,26 @@ class _KnowledgeToolbarActions extends StatelessWidget {
         ],
         secondaryActions: [
           FeaturePageToolbarIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '新建笔记',
-              zhHant: '新增筆記',
-              en: 'New Note',
-              fr: 'Nouvelle note',
-              de: 'Neue Notiz',
-              ja: '新規ノート',
-            ),
+            tooltip: _knowledgeBaseVNewNoteLabel(context),
             icon: Icons.note_add_outlined,
             onPressed: controller.busy
                 ? null
                 : () => showKnowledgeImportDialog(context),
           ),
           FeaturePageToolbarIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '向量分布',
-              zhHant: '向量分布',
-              en: 'Vector Map',
-              fr: 'Carte vectorielle',
-              de: 'Vektorkarte',
-              ja: 'ベクトルマップ',
-            ),
+            tooltip: _knowledgeBaseVVectorMapLabel(context),
             icon: Icons.scatter_plot_rounded,
             onPressed: controller.loading || controller.busy
                 ? null
                 : () => showKnowledgeVectorDistributionDialog(context),
           ),
           FeaturePageToolbarIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '重建索引',
-              zhHant: '重建索引',
-              en: 'Reindex',
-              fr: 'Réindexer',
-              de: 'Neu indexieren',
-              ja: '再インデックス',
-            ),
+            tooltip: _knowledgeBaseVReindexLabel(context),
             icon: Icons.manage_search_rounded,
             onPressed: () => KnowledgeBaseView._showReindexNotice(context),
           ),
           FeaturePageToolbarIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: 'Qdrant 运维',
-              zhHant: 'Qdrant 維運',
-              en: 'Qdrant Ops',
-              fr: 'Ops Qdrant',
-              de: 'Qdrant-Betrieb',
-              ja: 'Qdrant 運用',
-            ),
+            tooltip: _knowledgeBaseVQdrantOpsLabel(context),
             icon: Icons.monitor_heart_outlined,
             onPressed: () => showQdrantStatusDialog(context),
           ),
@@ -390,17 +358,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => showQdrantStatusDialog(context),
           icon: const Icon(Icons.monitor_heart_outlined),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: 'Qdrant 运维',
-              zhHant: 'Qdrant 維運',
-              en: 'Qdrant Ops',
-              fr: 'Ops Qdrant',
-              de: 'Qdrant-Betrieb',
-              ja: 'Qdrant 運用',
-            ),
-          ),
+          label: Text(_knowledgeBaseVQdrantOpsLabel(context)),
         ),
         OutlinedButton.icon(
           onPressed: () => showQdrantAdminDialog(context),
@@ -412,51 +370,21 @@ class _KnowledgeToolbarActions extends StatelessWidget {
               ? null
               : () => showKnowledgeVectorDistributionDialog(context),
           icon: const Icon(Icons.scatter_plot_rounded),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '向量分布',
-              zhHant: '向量分布',
-              en: 'Vector Map',
-              fr: 'Carte vectorielle',
-              de: 'Vektorkarte',
-              ja: 'ベクトルマップ',
-            ),
-          ),
+          label: Text(_knowledgeBaseVVectorMapLabel(context)),
         ),
       ],
       secondaryActions: [
         OutlinedButton.icon(
           onPressed: () => KnowledgeBaseView._showReindexNotice(context),
           icon: const Icon(Icons.manage_search_rounded),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '重建索引',
-              zhHant: '重建索引',
-              en: 'Reindex',
-              fr: 'Réindexer',
-              de: 'Neu indexieren',
-              ja: '再インデックス',
-            ),
-          ),
+          label: Text(_knowledgeBaseVReindexLabel(context)),
         ),
         FilledButton.tonalIcon(
           onPressed: controller.busy
               ? null
               : () => showKnowledgeImportDialog(context),
           icon: const Icon(Icons.note_add_outlined),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '新建笔记',
-              zhHant: '新增筆記',
-              en: 'New Note',
-              fr: 'Nouvelle note',
-              de: 'Neue Notiz',
-              ja: '新規ノート',
-            ),
-          ),
+          label: Text(_knowledgeBaseVNewNoteLabel(context)),
         ),
         importButton,
         configButton,
@@ -824,7 +752,9 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                       AnimatedPopupMenuButton<
                                         _KnowledgeCardAction
                                       >(
-                                        tooltip: openHandMoreActionsLabel(context),
+                                        tooltip: openHandMoreActionsLabel(
+                                          context,
+                                        ),
                                         onSelected: (action) {
                                           switch (action) {
                                             case _KnowledgeCardAction.delete:
@@ -1041,4 +971,55 @@ class _SmallPill extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _knowledgeBaseVNewNoteLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '新建笔记',
+    zhHant: '新增筆記',
+    en: 'New Note',
+    fr: 'Nouvelle note',
+    de: 'Neue Notiz',
+    ja: '新規ノート',
+  );
+}
+
+String _knowledgeBaseVQdrantOpsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'Qdrant 运维',
+    zhHant: 'Qdrant 維運',
+    en: 'Qdrant Ops',
+    fr: 'Ops Qdrant',
+    de: 'Qdrant-Betrieb',
+    ja: 'Qdrant 運用',
+  );
+}
+
+String _knowledgeBaseVReindexLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重建索引',
+    zhHant: '重建索引',
+    en: 'Reindex',
+    fr: 'Réindexer',
+    de: 'Neu indexieren',
+    ja: '再インデックス',
+  );
+}
+
+String _knowledgeBaseVVectorMapLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '向量分布',
+    zhHant: '向量分布',
+    en: 'Vector Map',
+    fr: 'Carte vectorielle',
+    de: 'Vektorkarte',
+    ja: 'ベクトルマップ',
+  );
 }

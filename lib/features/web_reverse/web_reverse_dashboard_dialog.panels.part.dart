@@ -457,9 +457,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     ? null
                     : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
-                label: Text(
-                  _wrExportCsvLabel(context),
-                ),
+                label: Text(_wrExportCsvLabel(context)),
               ),
               const SizedBox(width: 10),
               OutlinedButton.icon(
@@ -3073,42 +3071,20 @@ class _CookiesTableState extends State<_CookiesTable> {
             TextButton.icon(
               onPressed: _addCookie,
               icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '新增 cookie',
-                  zhHant: '新增 cookie',
-                  en: 'Add cookie',
-                  fr: 'Ajouter un cookie',
-                  de: 'Cookie hinzufügen',
-                  ja: 'cookie を追加',
-                ),
-              ),
+              label: Text(_webReverseDashAddCookieLabel(context)),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               onPressed: cookies.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
-              label: Text(
-                openHandExportJsonLabel(context),
-              ),
+              label: Text(openHandExportJsonLabel(context)),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: cs.error),
               onPressed: cookies.isEmpty ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '清空',
-                  zhHant: '清空',
-                  en: 'Clear all',
-                  fr: 'Tout effacer',
-                  de: 'Alle leeren',
-                  ja: 'すべてクリア',
-                ),
-              ),
+              label: Text(_webReverseDashClearAllLabel(context)),
             ),
           ],
         ),
@@ -3116,15 +3092,7 @@ class _CookiesTableState extends State<_CookiesTable> {
           child: cookies.isEmpty
               ? Center(
                   child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '（空）',
-                      zhHant: '（空）',
-                      en: '(empty)',
-                      fr: '(vide)',
-                      de: '(leer)',
-                      ja: '（空）',
-                    ),
+                    _webReverseDashEmptyLabel(context),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -3255,15 +3223,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
     return await showOpenHandFormDialog<Map<String, Object?>>(
       context: context,
       title: initial.isEmpty
-          ? openHandLocalizedText(
-              context,
-              zh: '新增 cookie',
-              zhHant: '新增 cookie',
-              en: 'Add cookie',
-              fr: 'Ajouter un cookie',
-              de: 'Cookie hinzufügen',
-              ja: 'cookie を追加',
-            )
+          ? _webReverseDashAddCookieLabel(context)
           : openHandLocalizedText(
               context,
               zh: '编辑 cookie',
@@ -3499,26 +3459,14 @@ class _StorageTableState extends State<_StorageTable> {
             TextButton.icon(
               onPressed: rows.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
-              label: Text(
-                openHandExportJsonLabel(context),
-              ),
+              label: Text(openHandExportJsonLabel(context)),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: cs.error),
               onPressed: rows.isEmpty || !originOk ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '清空',
-                  zhHant: '清空',
-                  en: 'Clear all',
-                  fr: 'Tout effacer',
-                  de: 'Alle leeren',
-                  ja: 'すべてクリア',
-                ),
-              ),
+              label: Text(_webReverseDashClearAllLabel(context)),
             ),
           ],
         ),
@@ -3526,15 +3474,7 @@ class _StorageTableState extends State<_StorageTable> {
           child: rows.isEmpty
               ? Center(
                   child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '（空）',
-                      zhHant: '（空）',
-                      en: '(empty)',
-                      fr: '(vide)',
-                      de: '(leer)',
-                      ja: '（空）',
-                    ),
+                    _webReverseDashEmptyLabel(context),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -3874,15 +3814,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     } else {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '删除失败',
-          zhHant: '刪除失敗',
-          en: 'Delete failed',
-          fr: 'Échec de la suppression',
-          de: 'Löschen fehlgeschlagen',
-          ja: '削除に失敗しました',
-        ),
+        _webReverseDashDeleteFailedLabel(context),
       );
     }
   }
@@ -4019,15 +3951,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     } else {
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '删除失败',
-          zhHant: '刪除失敗',
-          en: 'Delete failed',
-          fr: 'Échec de la suppression',
-          de: 'Löschen fehlgeschlagen',
-          ja: '削除に失敗しました',
-        ),
+        _webReverseDashDeleteFailedLabel(context),
       );
     }
   }
@@ -4059,15 +3983,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (widget.names.isEmpty) {
       return Center(
         child: Text(
-          openHandLocalizedText(
-            context,
-            zh: '（空）',
-            zhHant: '（空）',
-            en: '(empty)',
-            fr: '(vide)',
-            de: '(leer)',
-            ja: '（空）',
-          ),
+          _webReverseDashEmptyLabel(context),
           style: theme.textTheme.bodySmall?.copyWith(
             color: cs.onSurfaceVariant,
           ),
@@ -4283,15 +4199,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                       child: _entries.isEmpty && !_loading
                           ? Center(
                               child: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '（空）',
-                                  zhHant: '（空）',
-                                  en: '(empty)',
-                                  fr: '(vide)',
-                                  de: '(leer)',
-                                  ja: '（空）',
-                                ),
+                                _webReverseDashEmptyLabel(context),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: cs.onSurfaceVariant,
                                 ),
@@ -4459,15 +4367,7 @@ class _NameListPanel extends StatelessWidget {
     if (names.isEmpty) {
       return Center(
         child: Text(
-          openHandLocalizedText(
-            context,
-            zh: '（空）',
-            zhHant: '（空）',
-            en: '(empty)',
-            fr: '(vide)',
-            de: '(leer)',
-            ja: '（空）',
-          ),
+          _webReverseDashEmptyLabel(context),
           style: theme.textTheme.bodySmall?.copyWith(
             color: cs.onSurfaceVariant,
           ),
@@ -4566,15 +4466,7 @@ class _ServiceWorkersTable extends StatelessWidget {
           child: versions.isEmpty
               ? Center(
                   child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '（空）',
-                      zhHant: '（空）',
-                      en: '(empty)',
-                      fr: '(vide)',
-                      de: '(leer)',
-                      ja: '（空）',
-                    ),
+                    _webReverseDashEmptyLabel(context),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -5307,9 +5199,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               OutlinedButton.icon(
                 onPressed: steps.isEmpty ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
-                label: Text(
-                  openHandExportJsonLabel(context),
-                ),
+                label: Text(openHandExportJsonLabel(context)),
               ),
               const SizedBox(width: 8),
               AnimatedPopupMenuButton<String>(
@@ -7476,4 +7366,55 @@ class _TraceLanesPainter extends CustomPainter {
       old.totalMs != totalMs ||
       old.highlight != highlight ||
       old.outline != outline;
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _webReverseDashAddCookieLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '新增 cookie',
+    zhHant: '新增 cookie',
+    en: 'Add cookie',
+    fr: 'Ajouter un cookie',
+    de: 'Cookie hinzufügen',
+    ja: 'cookie を追加',
+  );
+}
+
+String _webReverseDashClearAllLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '清空',
+    zhHant: '清空',
+    en: 'Clear all',
+    fr: 'Tout effacer',
+    de: 'Alle leeren',
+    ja: 'すべてクリア',
+  );
+}
+
+String _webReverseDashDeleteFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '删除失败',
+    zhHant: '刪除失敗',
+    en: 'Delete failed',
+    fr: 'Échec de la suppression',
+    de: 'Löschen fehlgeschlagen',
+    ja: '削除に失敗しました',
+  );
+}
+
+String _webReverseDashEmptyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '（空）',
+    zhHant: '（空）',
+    en: '(empty)',
+    fr: '(vide)',
+    de: '(leer)',
+    ja: '（空）',
+  );
 }

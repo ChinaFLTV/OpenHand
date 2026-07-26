@@ -703,17 +703,7 @@ class _KnowledgeRetrievalHitDetailDialogState
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return buildOpenHandAlertDialog(
-            title: Text(
-              openHandLocalizedText(
-                context,
-                zh: '命中分块详情',
-                zhHant: '命中分塊詳情',
-                en: 'Hit Chunk Detail',
-                fr: 'Détail du fragment trouvé',
-                de: 'Trefferabschnitt-Details',
-                ja: 'ヒットチャンク詳細',
-              ),
-            ),
+            title: Text(_knowledgeRetriHitChunkDetailLabel(context)),
             content: buildOpenHandDialogConstrainedContent(
               width: 520,
               maxHeight: MediaQuery.sizeOf(context).height * 0.64,
@@ -1011,17 +1001,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
     final title = _hasValue(hit['title']) ? hit['title'] : hit['source_title'];
     final tags = stringListFromValue(hit['tags']);
     return buildOpenHandAlertDialog(
-      title: Text(
-        openHandLocalizedText(
-          context,
-          zh: '命中分块详情',
-          zhHant: '命中分塊詳情',
-          en: 'Hit Chunk Detail',
-          fr: 'Détail du fragment trouvé',
-          de: 'Trefferabschnitt-Details',
-          ja: 'ヒットチャンク詳細',
-        ),
-      ),
+      title: Text(_knowledgeRetriHitChunkDetailLabel(context)),
       content: buildOpenHandDialogConstrainedContent(
         width: 820,
         maxHeight: MediaQuery.sizeOf(context).height * 0.80,
@@ -1242,5 +1222,20 @@ Future<void> _copyText(
     text: text,
     successMessage: message,
     logAction: '复制检索详情文本',
+  );
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _knowledgeRetriHitChunkDetailLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '命中分块详情',
+    zhHant: '命中分塊詳情',
+    en: 'Hit Chunk Detail',
+    fr: 'Détail du fragment trouvé',
+    de: 'Trefferabschnitt-Details',
+    ja: 'ヒットチャンク詳細',
   );
 }

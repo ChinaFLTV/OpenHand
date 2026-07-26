@@ -3100,17 +3100,7 @@ fi
     if (stdout.isEmpty && stderr.isEmpty) {
       buffer
         ..writeln()
-        ..write(
-          openHandLocalizedText(
-            context,
-            zh: '(命令无输出)',
-            zhHant: '（指令無輸出）',
-            en: '(no output)',
-            fr: '(aucune sortie)',
-            de: '(keine Ausgabe)',
-            ja: '（出力なし）',
-          ),
-        );
+        ..write(_androidReverseNoOutputLabel(context));
     }
     return buffer.toString().trimRight();
   }
@@ -3123,15 +3113,7 @@ fi
     setState(() {
       _runningDeviceAction = true;
       _lastDeviceActionResult = null;
-      _lastDeviceActionOutput = openHandLocalizedText(
-        context,
-        zh: '执行中...',
-        zhHant: '執行中...',
-        en: 'Running...',
-        fr: 'Exécution...',
-        de: 'Wird ausgeführt...',
-        ja: '実行中...',
-      );
+      _lastDeviceActionOutput = _androidReverseRunningLabel(context);
     });
     try {
       final result = await action();
@@ -4488,15 +4470,7 @@ fi
               ja: 'ローカルパス',
             ),
             secondaryController: _pushRemoteCtrl,
-            secondaryHint: openHandLocalizedText(
-              context,
-              zh: '设备路径',
-              zhHant: '裝置路徑',
-              en: 'remote path',
-              fr: 'chemin distant',
-              de: 'Remote-Pfad',
-              ja: 'リモートパス',
-            ),
+            secondaryHint: _androidReverseRemotePathLabel(context),
             icon: Icons.upload_file_rounded,
             label: openHandLocalizedText(
               context,
@@ -4514,15 +4488,7 @@ fi
           const SizedBox(height: 8),
           _buildPathActionRow(
             primaryController: _pullRemoteCtrl,
-            primaryHint: openHandLocalizedText(
-              context,
-              zh: '设备路径',
-              zhHant: '裝置路徑',
-              en: 'remote path',
-              fr: 'chemin distant',
-              de: 'Remote-Pfad',
-              ja: 'リモートパス',
-            ),
+            primaryHint: _androidReverseRemotePathLabel(context),
             secondaryController: _pullLocalCtrl,
             secondaryHint: openHandLocalizedText(
               context,
@@ -5240,31 +5206,11 @@ fi
         ),
         PopupMenuItem(
           value: _PackageMenuAction.report,
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '生成 APP 信息报告',
-              zhHant: '產生 APP 資訊報告',
-              en: 'Generate app report',
-              fr: 'Générer le rapport APP',
-              de: 'APP-Bericht erstellen',
-              ja: 'APP レポートを生成',
-            ),
-          ),
+          child: Text(_androidReverseGenerateAppReportLabel(context)),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.copyPackage,
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '复制包名',
-              zhHant: '複製套件名稱',
-              en: 'Copy package name',
-              fr: 'Copier le nom du package',
-              de: 'Paketnamen kopieren',
-              ja: 'パッケージ名をコピー',
-            ),
-          ),
+          child: Text(_androidReverseCopyPackageNameLabel(context)),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.logcat,
@@ -5297,31 +5243,11 @@ fi
         const PopupMenuDivider(),
         PopupMenuItem(
           value: _PackageMenuAction.launch,
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '启动 APP',
-              zhHant: '啟動 APP',
-              en: 'Launch app',
-              fr: 'Lancer l’APP',
-              de: 'APP starten',
-              ja: 'APP を起動',
-            ),
-          ),
+          child: Text(_androidReverseLaunchAppLabel(context)),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.forceStop,
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '强制停止',
-              zhHant: '強制停止',
-              en: 'Force stop',
-              fr: 'Forcer l’arrêt',
-              de: 'Stopp erzwingen',
-              ja: '強制停止',
-            ),
-          ),
+          child: Text(_androidReverseForceStopLabel(context)),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.clearData,
@@ -5446,15 +5372,7 @@ fi
             de: 'Deinstalliert $packageName vom aktuellen Gerät.',
             ja: '現在のデバイスから $packageName をアンインストールします。',
           ),
-          confirmLabel: openHandLocalizedText(
-            context,
-            zh: '卸载',
-            zhHant: '解除安裝',
-            en: 'Uninstall',
-            fr: 'Désinstaller',
-            de: 'Deinstallieren',
-            ja: 'アンインストール',
-          ),
+          confirmLabel: _androidReverseUninstallLabel(context),
         );
         if (!confirmed) return;
         await _runDeviceAction(
@@ -5492,17 +5410,7 @@ fi
       items: [
         PopupMenuItem(
           value: _ProcessMenuAction.copyPid,
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '复制 PID',
-              zhHant: '複製 PID',
-              en: 'Copy PID',
-              fr: 'Copier le PID',
-              de: 'PID kopieren',
-              ja: 'PID をコピー',
-            ),
-          ),
+          child: Text(_androidReverseCopyPidLabel(context)),
         ),
         PopupMenuItem(
           value: _ProcessMenuAction.copyName,
@@ -5626,10 +5534,7 @@ fi
     final config = _ctrl.config;
     final device = _ctrl.connectedDevice;
     final items = <(String, String)>[
-      (
-        openHandObjectiveLabel(context),
-        config.objective,
-      ),
+      (openHandObjectiveLabel(context), config.objective),
       if (config.packageName != null)
         (
           openHandLocalizedText(
@@ -5725,10 +5630,7 @@ fi
         ),
       ],
       if (config.keywords.isNotEmpty)
-        (
-          openHandKeywordsLabel(context),
-          config.keywords.join(', '),
-        ),
+        (openHandKeywordsLabel(context), config.keywords.join(', ')),
       if (config.notes != null && config.notes!.isNotEmpty)
         (
           openHandLocalizedText(
@@ -6842,15 +6744,7 @@ fi
                         _uninstallAndroidMcpCapability(capability, matches),
                       ),
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '卸载',
-                  zhHant: '解除安裝',
-                  en: 'Uninstall',
-                  fr: 'Désinstaller',
-                  de: 'Deinstallieren',
-                  ja: 'アンインストール',
-                ),
+                label: _androidReverseUninstallLabel(context),
               ),
             ],
           ),
@@ -7023,15 +6917,7 @@ fi
         ja: '$capabilityLabel の server を OpenHand MCP 設定から削除します: $names。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '卸载',
-        zhHant: '解除安裝',
-        en: 'Uninstall',
-        fr: 'Désinstaller',
-        de: 'Deinstallieren',
-        ja: 'アンインストール',
-      ),
+      confirmLabel: _androidReverseUninstallLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -7381,15 +7267,7 @@ fi
         de: 'Deaktivieren',
         ja: '無効化',
       ),
-      _RuntimePluginAction.uninstall => openHandLocalizedText(
-        context,
-        zh: '卸载',
-        zhHant: '解除安裝',
-        en: 'Uninstall',
-        fr: 'Désinstaller',
-        de: 'Deinstallieren',
-        ja: 'アンインストール',
-      ),
+      _RuntimePluginAction.uninstall => _androidReverseUninstallLabel(context),
     };
   }
 
@@ -7846,14 +7724,8 @@ fi
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 14),
-                                tooltip: openHandLocalizedText(
+                                tooltip: _androidReverseCopyPackageNameLabel(
                                   context,
-                                  zh: '复制包名',
-                                  zhHant: '複製套件名稱',
-                                  en: 'Copy package name',
-                                  fr: 'Copier le nom du package',
-                                  de: 'Paketnamen kopieren',
-                                  ja: 'パッケージ名をコピー',
                                 ),
                                 onPressed: () => _copyText(pkg),
                                 visualDensity: VisualDensity.compact,
@@ -7864,15 +7736,7 @@ fi
                                   Icons.play_arrow_rounded,
                                   size: 15,
                                 ),
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '启动 APP',
-                                  zhHant: '啟動 APP',
-                                  en: 'Launch app',
-                                  fr: 'Lancer l’APP',
-                                  de: 'APP starten',
-                                  ja: 'APP を起動',
-                                ),
+                                tooltip: _androidReverseLaunchAppLabel(context),
                                 onPressed: _runningDeviceAction
                                     ? null
                                     : () => _runDeviceAction(
@@ -7890,15 +7754,7 @@ fi
                                   size: 14,
                                   color: Colors.redAccent,
                                 ),
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '强制停止',
-                                  zhHant: '強制停止',
-                                  en: 'Force stop',
-                                  fr: 'Forcer l’arrêt',
-                                  de: 'Stopp erzwingen',
-                                  ja: '強制停止',
-                                ),
+                                tooltip: _androidReverseForceStopLabel(context),
                                 onPressed: _runningDeviceAction
                                     ? null
                                     : () async {
@@ -8001,15 +7857,7 @@ fi
                           Icons.snippet_folder_rounded,
                           size: 16,
                         ),
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '生成 APP 信息报告',
-                          zhHant: '產生 APP 資訊報告',
-                          en: 'Generate app report',
-                          fr: 'Générer le rapport APP',
-                          de: 'APP-Bericht erstellen',
-                          ja: 'APP レポートを生成',
-                        ),
+                        tooltip: _androidReverseGenerateAppReportLabel(context),
                         onPressed:
                             _capturingPackageReport || _loadingPackageAnalysis
                             ? null
@@ -8168,15 +8016,7 @@ fi
                               IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 14),
                                 onPressed: () => _copyText('${p.pid}'),
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '复制 PID',
-                                  zhHant: '複製 PID',
-                                  en: 'Copy PID',
-                                  fr: 'Copier le PID',
-                                  de: 'PID kopieren',
-                                  ja: 'PID をコピー',
-                                ),
+                                tooltip: _androidReverseCopyPidLabel(context),
                                 visualDensity: VisualDensity.compact,
                               ),
                               const SizedBox(width: _kIconButtonGap),
@@ -8858,15 +8698,7 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.folder_open_rounded),
-        label: openHandLocalizedText(
-          context,
-          zh: '读取工件',
-          zhHant: '讀取工件',
-          en: 'Read artifacts',
-          fr: 'Lire les artefacts',
-          de: 'Artefakte lesen',
-          ja: '成果物を読み込み',
-        ),
+        label: _androidReverseReadArtifactsLabel(context),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction ? null : _startExistingFridaServer,
@@ -9409,15 +9241,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.folder_open_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '读取工件',
-                  zhHant: '讀取工件',
-                  en: 'Read artifacts',
-                  fr: 'Lire les artefacts',
-                  de: 'Artefakte lesen',
-                  ja: '成果物を読み込み',
-                ),
+                label: _androidReverseReadArtifactsLabel(context),
               ),
               _DashboardActionButton(
                 onPressed: certificateBusy ? null : _generateDebugKeystore,
@@ -9999,15 +9823,7 @@ fi
       _lastToolchainCommandResult = AdbCommandResult(
         args: <String>['toolchain', action.name, probe.id],
         exitCode: -1,
-        stdout: openHandLocalizedText(
-          context,
-          zh: '执行中...',
-          zhHant: '執行中...',
-          en: 'Running...',
-          fr: 'Exécution...',
-          de: 'Wird ausgeführt...',
-          ja: '実行中...',
-        ),
+        stdout: _androidReverseRunningLabel(context),
         stderr: '',
         displayCommand: command,
       );
@@ -10255,14 +10071,8 @@ fi
     return switch (action) {
       _ToolchainCommandAction.install => openHandInstallLabel(context),
       _ToolchainCommandAction.update => openHandUpdateLabel(context),
-      _ToolchainCommandAction.uninstall => openHandLocalizedText(
+      _ToolchainCommandAction.uninstall => _androidReverseUninstallLabel(
         context,
-        zh: '卸载',
-        zhHant: '解除安裝',
-        en: 'Uninstall',
-        fr: 'Désinstaller',
-        de: 'Deinstallieren',
-        ja: 'アンインストール',
       ),
       _ToolchainCommandAction.reference => openHandLocalizedText(
         context,
@@ -10309,15 +10119,7 @@ fi
         de: 'bereit',
         ja: '準備完了',
       ),
-      McpToolCatalogStatus.failed => openHandLocalizedText(
-        context,
-        zh: '失败',
-        zhHant: '失敗',
-        en: 'failed',
-        fr: 'échec',
-        de: 'fehlgeschlagen',
-        ja: '失敗',
-      ),
+      McpToolCatalogStatus.failed => _androidReverseFailedLabel(context),
     };
   }
 
@@ -10453,15 +10255,7 @@ fi
                             de: 'erfolgreich',
                             ja: '成功',
                           )
-                  : openHandLocalizedText(
-                      context,
-                      zh: '失败',
-                      zhHant: '失敗',
-                      en: 'failed',
-                      fr: 'échec',
-                      de: 'fehlgeschlagen',
-                      ja: '失敗',
-                    ),
+                  : _androidReverseFailedLabel(context),
               color: statusColor,
             ),
             _StatusPill(
@@ -10510,15 +10304,7 @@ fi
         if (stdout.isEmpty && stderr.isEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            openHandLocalizedText(
-              context,
-              zh: '(命令无输出)',
-              zhHant: '（指令無輸出）',
-              en: '(no output)',
-              fr: '(aucune sortie)',
-              de: '(keine Ausgabe)',
-              ja: '（出力なし）',
-            ),
+            _androidReverseNoOutputLabel(context),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
               fontStyle: FontStyle.italic,
@@ -11297,15 +11083,7 @@ class _SmallActionButton extends StatelessWidget {
 
 String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
   return switch (plugin.status) {
-    PluginStatus.notInstalled => openHandLocalizedText(
-      context,
-      zh: '未安装',
-      zhHant: '未安裝',
-      en: 'Not installed',
-      fr: 'Non installé',
-      de: 'Nicht installiert',
-      ja: '未インストール',
-    ),
+    PluginStatus.notInstalled => _androidReverseNotInstalledLabel(context),
     PluginStatus.installed =>
       plugin.enabled
           ? openHandLocalizedText(
@@ -11408,27 +11186,11 @@ class _ToolchainInfoDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 children: [
                   _DashboardDetailSection(
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '基本信息',
-                      zhHant: '基本資訊',
-                      en: 'Basic info',
-                      fr: 'Infos de base',
-                      de: 'Basisinfo',
-                      ja: '基本情報',
-                    ),
+                    title: _androidReverseBasicInfoLabel(context),
                     icon: Icons.construction_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '名称',
-                          zhHant: '名稱',
-                          en: 'Name',
-                          fr: 'Nom',
-                          de: 'Name',
-                          ja: '名前',
-                        ),
+                        label: _androidReverseNameLabel(context),
                         value: probe.label,
                       ),
                       _DashboardDetailRow(label: 'ID', value: probe.id),
@@ -11469,27 +11231,11 @@ class _ToolchainInfoDialog extends StatelessWidget {
                             : openHandNoLabel(context),
                       ),
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '状态',
-                          zhHant: '狀態',
-                          en: 'Status',
-                          fr: 'État',
-                          de: 'Status',
-                          ja: '状態',
-                        ),
+                        label: _androidReverseStatusLabel(context),
                         value: installed == true
                             ? openHandInstalledLabel(context)
                             : installed == false
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '未安装',
-                                zhHant: '未安裝',
-                                en: 'Not installed',
-                                fr: 'Non installé',
-                                de: 'Nicht installiert',
-                                ja: '未インストール',
-                              )
+                            ? _androidReverseNotInstalledLabel(context)
                             : openHandLocalizedText(
                                 context,
                                 zh: '未检测',
@@ -11595,15 +11341,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '卸载',
-                          zhHant: '解除安裝',
-                          en: 'Uninstall',
-                          fr: 'Désinstaller',
-                          de: 'Deinstallieren',
-                          ja: 'アンインストール',
-                        ),
+                        label: _androidReverseUninstallLabel(context),
                         value: _commandText(probe.uninstallCommand),
                         monospace: true,
                       ),
@@ -11637,40 +11375,16 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       icon: Icons.extension_rounded,
                       children: [
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '名称',
-                            zhHant: '名稱',
-                            en: 'Name',
-                            fr: 'Nom',
-                            de: 'Name',
-                            ja: '名前',
-                          ),
+                          label: _androidReverseNameLabel(context),
                           value: plugin!.name,
                         ),
                         _DashboardDetailRow(label: 'ID', value: plugin!.id),
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '描述',
-                            zhHant: '描述',
-                            en: 'Description',
-                            fr: 'Description',
-                            de: 'Beschreibung',
-                            ja: '説明',
-                          ),
+                          label: _androidReverseDescriptionLabel(context),
                           value: plugin!.description,
                         ),
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '状态',
-                            zhHant: '狀態',
-                            en: 'Status',
-                            fr: 'État',
-                            de: 'Status',
-                            ja: '状態',
-                          ),
+                          label: _androidReverseStatusLabel(context),
                           value: _runtimePluginStatusLabel(context, plugin!),
                           valueColor: plugin!.isInstalled
                               ? plugin!.enabled
@@ -11754,52 +11468,20 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 children: [
                   _DashboardDetailSection(
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '基本信息',
-                      zhHant: '基本資訊',
-                      en: 'Basic info',
-                      fr: 'Infos de base',
-                      de: 'Basisinfo',
-                      ja: '基本情報',
-                    ),
+                    title: _androidReverseBasicInfoLabel(context),
                     icon: Icons.info_outline_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '名称',
-                          zhHant: '名稱',
-                          en: 'Name',
-                          fr: 'Nom',
-                          de: 'Name',
-                          ja: '名前',
-                        ),
+                        label: _androidReverseNameLabel(context),
                         value: plugin.name,
                       ),
                       _DashboardDetailRow(label: 'ID', value: plugin.id),
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '描述',
-                          zhHant: '描述',
-                          en: 'Description',
-                          fr: 'Description',
-                          de: 'Beschreibung',
-                          ja: '説明',
-                        ),
+                        label: _androidReverseDescriptionLabel(context),
                         value: plugin.description,
                       ),
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '状态',
-                          zhHant: '狀態',
-                          en: 'Status',
-                          fr: 'État',
-                          de: 'Status',
-                          ja: '状態',
-                        ),
+                        label: _androidReverseStatusLabel(context),
                         value: _runtimePluginStatusLabel(context, plugin),
                         valueColor: statusColor,
                       ),
@@ -11909,15 +11591,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: '依存先',
                         ),
                         value: plugin.dependencies.isEmpty
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '无',
-                                zhHant: '無',
-                                en: 'None',
-                                fr: 'Aucune',
-                                de: 'Keine',
-                                ja: 'なし',
-                              )
+                            ? _androidReverseNoneLabel(context)
                             : plugin.dependencies.join(', '),
                         monospace: plugin.dependencies.isNotEmpty,
                       ),
@@ -11932,15 +11606,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: '依存元',
                         ),
                         value: plugin.dependents.isEmpty
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '无',
-                                zhHant: '無',
-                                en: 'None',
-                                fr: 'Aucune',
-                                de: 'Keine',
-                                ja: 'なし',
-                              )
+                            ? _androidReverseNoneLabel(context)
                             : plugin.dependents.join(', '),
                         monospace: plugin.dependents.isNotEmpty,
                       ),
@@ -12166,4 +11832,211 @@ class _InfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _androidReverseBasicInfoLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '基本信息',
+    zhHant: '基本資訊',
+    en: 'Basic info',
+    fr: 'Infos de base',
+    de: 'Basisinfo',
+    ja: '基本情報',
+  );
+}
+
+String _androidReverseCopyPackageNameLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制包名',
+    zhHant: '複製套件名稱',
+    en: 'Copy package name',
+    fr: 'Copier le nom du package',
+    de: 'Paketnamen kopieren',
+    ja: 'パッケージ名をコピー',
+  );
+}
+
+String _androidReverseCopyPidLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制 PID',
+    zhHant: '複製 PID',
+    en: 'Copy PID',
+    fr: 'Copier le PID',
+    de: 'PID kopieren',
+    ja: 'PID をコピー',
+  );
+}
+
+String _androidReverseDescriptionLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '描述',
+    zhHant: '描述',
+    en: 'Description',
+    fr: 'Description',
+    de: 'Beschreibung',
+    ja: '説明',
+  );
+}
+
+String _androidReverseFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '失败',
+    zhHant: '失敗',
+    en: 'failed',
+    fr: 'échec',
+    de: 'fehlgeschlagen',
+    ja: '失敗',
+  );
+}
+
+String _androidReverseForceStopLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '强制停止',
+    zhHant: '強制停止',
+    en: 'Force stop',
+    fr: 'Forcer l’arrêt',
+    de: 'Stopp erzwingen',
+    ja: '強制停止',
+  );
+}
+
+String _androidReverseGenerateAppReportLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '生成 APP 信息报告',
+    zhHant: '產生 APP 資訊報告',
+    en: 'Generate app report',
+    fr: 'Générer le rapport APP',
+    de: 'APP-Bericht erstellen',
+    ja: 'APP レポートを生成',
+  );
+}
+
+String _androidReverseLaunchAppLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '启动 APP',
+    zhHant: '啟動 APP',
+    en: 'Launch app',
+    fr: 'Lancer l’APP',
+    de: 'APP starten',
+    ja: 'APP を起動',
+  );
+}
+
+String _androidReverseNameLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '名称',
+    zhHant: '名稱',
+    en: 'Name',
+    fr: 'Nom',
+    de: 'Name',
+    ja: '名前',
+  );
+}
+
+String _androidReverseNoOutputLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '(命令无输出)',
+    zhHant: '（指令無輸出）',
+    en: '(no output)',
+    fr: '(aucune sortie)',
+    de: '(keine Ausgabe)',
+    ja: '（出力なし）',
+  );
+}
+
+String _androidReverseNoneLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '无',
+    zhHant: '無',
+    en: 'None',
+    fr: 'Aucune',
+    de: 'Keine',
+    ja: 'なし',
+  );
+}
+
+String _androidReverseNotInstalledLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '未安装',
+    zhHant: '未安裝',
+    en: 'Not installed',
+    fr: 'Non installé',
+    de: 'Nicht installiert',
+    ja: '未インストール',
+  );
+}
+
+String _androidReverseReadArtifactsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '读取工件',
+    zhHant: '讀取工件',
+    en: 'Read artifacts',
+    fr: 'Lire les artefacts',
+    de: 'Artefakte lesen',
+    ja: '成果物を読み込み',
+  );
+}
+
+String _androidReverseRemotePathLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '设备路径',
+    zhHant: '裝置路徑',
+    en: 'remote path',
+    fr: 'chemin distant',
+    de: 'Remote-Pfad',
+    ja: 'リモートパス',
+  );
+}
+
+String _androidReverseRunningLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '执行中...',
+    zhHant: '執行中...',
+    en: 'Running...',
+    fr: 'Exécution...',
+    de: 'Wird ausgeführt...',
+    ja: '実行中...',
+  );
+}
+
+String _androidReverseStatusLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '状态',
+    zhHant: '狀態',
+    en: 'Status',
+    fr: 'État',
+    de: 'Status',
+    ja: '状態',
+  );
+}
+
+String _androidReverseUninstallLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '卸载',
+    zhHant: '解除安裝',
+    en: 'Uninstall',
+    fr: 'Désinstaller',
+    de: 'Deinstallieren',
+    ja: 'アンインストール',
+  );
 }

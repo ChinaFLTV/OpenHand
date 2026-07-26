@@ -1409,12 +1409,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       context: context,
       position: position,
       items: [
-        PopupMenuItem(
-          value: 'copy',
-          child: Text(
-            openHandCopyLabel(context),
-          ),
-        ),
+        PopupMenuItem(value: 'copy', child: Text(openHandCopyLabel(context))),
         PopupMenuItem(
           value: 'paste',
           child: Text(
@@ -1444,12 +1439,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           ),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'reload',
-          child: Text(
-            _wrReloadLabel(context),
-          ),
-        ),
+        PopupMenuItem(value: 'reload', child: Text(_wrReloadLabel(context))),
         PopupMenuItem(
           value: 'inspect',
           child: Text(
@@ -1973,15 +1963,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           const SizedBox(width: 6),
           _NavIconButton(
             tooltip: alive
-                ? openHandLocalizedText(
-                    context,
-                    zh: '重启浏览器',
-                    zhHant: '重啟瀏覽器',
-                    en: 'Restart browser',
-                    fr: 'Redémarrer le navigateur',
-                    de: 'Browser neu starten',
-                    ja: 'ブラウザを再起動',
-                  )
+                ? _webReverseDashRestartBrowserLabel(context)
                 : openHandLocalizedText(
                     context,
                     zh: '启动浏览器',
@@ -2090,24 +2072,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                     : const Icon(Icons.restart_alt_rounded, size: 16),
                 label: Text(
                   _restartBrowserInFlight
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '重启中...',
-                          zhHant: '重啟中...',
-                          en: 'Restarting...',
-                          fr: 'Redémarrage...',
-                          de: 'Neustart...',
-                          ja: '再起動中...',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '重启浏览器',
-                          zhHant: '重啟瀏覽器',
-                          en: 'Restart browser',
-                          fr: 'Redémarrer le navigateur',
-                          de: 'Browser neu starten',
-                          ja: 'ブラウザを再起動',
-                        ),
+                      ? _webReverseDashRestartingLabel(context)
+                      : _webReverseDashRestartBrowserLabel(context),
                 ),
               ),
             ],
@@ -2281,15 +2247,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                           : const Icon(Icons.restart_alt_rounded, size: 16),
                       label: Text(
                         _restartBrowserInFlight
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '重启中...',
-                                zhHant: '重啟中...',
-                                en: 'Restarting...',
-                                fr: 'Redémarrage...',
-                                de: 'Neustart...',
-                                ja: '再起動中...',
-                              )
+                            ? _webReverseDashRestartingLabel(context)
                             : openHandLocalizedText(
                                 context,
                                 zh: '重启浏览器',
@@ -3406,4 +3364,31 @@ class _HistoryDropdownIcon extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _webReverseDashRestartBrowserLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重启浏览器',
+    zhHant: '重啟瀏覽器',
+    en: 'Restart browser',
+    fr: 'Redémarrer le navigateur',
+    de: 'Browser neu starten',
+    ja: 'ブラウザを再起動',
+  );
+}
+
+String _webReverseDashRestartingLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重启中...',
+    zhHant: '重啟中...',
+    en: 'Restarting...',
+    fr: 'Redémarrage...',
+    de: 'Neustart...',
+    ja: '再起動中...',
+  );
 }

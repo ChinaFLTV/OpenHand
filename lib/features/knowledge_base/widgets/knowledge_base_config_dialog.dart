@@ -2579,15 +2579,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 if (profile.supportsRerank)
                   KnowledgeDialogChip(
                     icon: Icons.filter_alt_rounded,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '可重排',
-                      zhHant: '可重排',
-                      en: 'Rerank',
-                      fr: 'Reclassement',
-                      de: 'Rerank',
-                      ja: '再ランク',
-                    ),
+                    label: _knowledgeBaseCRerankLabel(context),
                   ),
               ],
             ),
@@ -2751,7 +2743,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         value: [
           _listLabel(profile.embeddingInputTypes),
           if (profile.embeddingDefaultInputType != null)
-            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultInputType}',
+            '${_knowledgeBaseCDefaultLabel(context)} ${profile.embeddingDefaultInputType}',
           if (profile.embeddingQueryInputType != null)
             'query ${profile.embeddingQueryInputType}',
           if (profile.embeddingDocumentInputType != null)
@@ -2776,7 +2768,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           if (profile.embeddingDefaultDocumentTaskType != null)
             'doc ${profile.embeddingDefaultDocumentTaskType}',
           if (profile.embeddingDefaultTaskType != null)
-            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultTaskType}',
+            '${_knowledgeBaseCDefaultLabel(context)} ${profile.embeddingDefaultTaskType}',
         ].join(' / '),
       ),
       (
@@ -2811,7 +2803,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         value: [
           _listLabel(profile.embeddingEncodingFormats),
           if (profile.embeddingDefaultEncodingFormat != null)
-            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultEncodingFormat}',
+            '${_knowledgeBaseCDefaultLabel(context)} ${profile.embeddingDefaultEncodingFormat}',
         ].join(' / '),
       ),
       (
@@ -2828,7 +2820,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         value: [
           _listLabel(profile.embeddingOutputDTypes),
           if (profile.embeddingDefaultOutputDType != null)
-            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultOutputDType}',
+            '${_knowledgeBaseCDefaultLabel(context)} ${profile.embeddingDefaultOutputDType}',
           if (profile.embeddingDefaultTruncation != null)
             '${openHandLocalizedText(context, zh: '截断', zhHant: '截斷', en: 'truncate', fr: 'troncature', de: 'Kürzung', ja: '切り詰め')} ${profile.embeddingDefaultTruncation}',
         ].join(' / '),
@@ -2945,15 +2937,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         if (profile.supportsRerank)
                           KnowledgeDialogChip(
                             icon: Icons.filter_alt_rounded,
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '可重排',
-                              zhHant: '可重排',
-                              en: 'Rerank',
-                              fr: 'Reclassement',
-                              de: 'Rerank',
-                              ja: '再ランク',
-                            ),
+                            label: _knowledgeBaseCRerankLabel(context),
                           ),
                       ],
                     ),
@@ -4283,4 +4267,31 @@ class _KnowledgeConfigGridScope extends InheritedWidget {
         fullWidth != oldWidget.fullWidth ||
         columns != oldWidget.columns;
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _knowledgeBaseCDefaultLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '默认',
+    zhHant: '預設',
+    en: 'default',
+    fr: 'défaut',
+    de: 'Standard',
+    ja: '既定',
+  );
+}
+
+String _knowledgeBaseCRerankLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '可重排',
+    zhHant: '可重排',
+    en: 'Rerank',
+    fr: 'Reclassement',
+    de: 'Rerank',
+    ja: '再ランク',
+  );
 }

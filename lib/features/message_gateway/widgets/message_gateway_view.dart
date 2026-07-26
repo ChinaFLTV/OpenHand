@@ -333,15 +333,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     _FeatureIconButton(
                       tooltip: isRunning
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '端口连通性测试',
-                              zhHant: '連接埠連通性測試',
-                              en: 'Port connectivity test',
-                              fr: 'Test de connectivité du port',
-                              de: 'Port-Konnektivitätstest',
-                              ja: 'ポート接続テスト',
-                            )
+                          ? _messageGatewayPortConnectivityTestLabel(context)
                           : openHandLocalizedText(
                               context,
                               zh: '服务运行后可测试端口',
@@ -2468,29 +2460,13 @@ class _AgentExposurePanel extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _GatewayRoundIconActionButton(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '全选',
-                  zhHant: '全選',
-                  en: 'Select all',
-                  fr: 'Tout sélectionner',
-                  de: 'Alle auswählen',
-                  ja: 'すべて選択',
-                ),
+                tooltip: _messageGatewaySelectAllLabel(context),
                 icon: Icons.done_all_rounded,
                 onPressed: options.isEmpty ? null : () => onChanged(optionIds),
               ),
               const SizedBox(width: 8),
               _GatewayRoundIconActionButton(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '全不选',
-                  zhHant: '全不選',
-                  en: 'Deselect all',
-                  fr: 'Tout désélectionner',
-                  de: 'Alle abwählen',
-                  ja: 'すべて解除',
-                ),
+                tooltip: _messageGatewayDeselectAllLabel(context),
                 icon: Icons.remove_done_rounded,
                 onPressed: options.isEmpty
                     ? null
@@ -2681,15 +2657,7 @@ class _WebGatewayConnectivityDialogState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '端口连通性测试',
-                          zhHant: '連接埠連通性測試',
-                          en: 'Port connectivity test',
-                          fr: 'Test de connectivité du port',
-                          de: 'Port-Konnektivitätstest',
-                          ja: 'ポート接続テスト',
-                        ),
+                        _messageGatewayPortConnectivityTestLabel(context),
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(height: 2),
@@ -3972,24 +3940,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Abgelaufene Ressourcen',
       ja: '期限切れリソース',
     );
-    final logsLabel = openHandLocalizedText(
-      context,
-      zh: '日志',
-      zhHant: '日誌',
-      en: 'Logs',
-      fr: 'Journaux',
-      de: 'Protokolle',
-      ja: 'ログ',
-    );
-    final uploadCacheLabel = openHandLocalizedText(
-      context,
-      zh: '上传缓存',
-      zhHant: '上傳快取',
-      en: 'Upload cache',
-      fr: 'Cache d’envoi',
-      de: 'Upload-Cache',
-      ja: 'アップロードキャッシュ',
-    );
+    final logsLabel = _messageGatewayLogsLabel(context);
+    final uploadCacheLabel = _messageGatewayUploadCacheLabel(context);
     final opsCacheLabel = openHandLocalizedText(
       context,
       zh: '运维缓存',
@@ -4048,15 +4000,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                   opsCacheLabel: opsCacheLabel,
                 ),
                 onClearLogs: () => _confirmAndCleanup(
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '清空日志',
-                    zhHant: '清空日誌',
-                    en: 'Clear logs',
-                    fr: 'Effacer les journaux',
-                    de: 'Protokolle leeren',
-                    ja: 'ログをクリア',
-                  ),
+                  title: _messageGatewayClearLogsLabel(context),
                   message: openHandLocalizedText(
                     context,
                     zh: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
@@ -4353,15 +4297,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ),
                             _WebOpsMetricTile(
                               icon: Icons.timer_rounded,
-                              label: openHandLocalizedText(
-                                context,
-                                zh: 'P95 延迟',
-                                zhHant: 'P95 延遲',
-                                en: 'P95 latency',
-                                fr: 'Latence P95',
-                                de: 'P95-Latenz',
-                                ja: 'P95レイテンシ',
-                              ),
+                              label: _messageGatewayP95LatencyLabel(context),
                               value: '${snapshot.latencyStats.p95Ms}ms',
                               detail: openHandLocalizedText(
                                 context,
@@ -4508,14 +4444,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           builder: (context, constraints) {
                             final panels = <Widget>[
                               _WebOpsTrendPanel(
-                                title: openHandLocalizedText(
+                                title: _messageGatewayRequestTrendLabel(
                                   context,
-                                  zh: '请求趋势',
-                                  zhHant: '請求趨勢',
-                                  en: 'Request trend',
-                                  fr: 'Tendance des requêtes',
-                                  de: 'Anfragetrend',
-                                  ja: 'リクエスト傾向',
                                 ),
                                 icon: Icons.show_chart_rounded,
                                 subtitle: openHandLocalizedText(
@@ -4528,28 +4458,17 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   ja: '直近12分 · 成功 / ブロック / 失敗',
                                 ),
                                 series: stats.requestTrendSeries(context),
-                                emptyLabel: openHandLocalizedText(
-                                  context,
-                                  zh: '等待请求样本',
-                                  zhHant: '等待請求樣本',
-                                  en: 'Waiting for traffic',
-                                  fr: 'En attente de trafic',
-                                  de: 'Warten auf Datenverkehr',
-                                  ja: 'トラフィック待機中',
-                                ),
+                                emptyLabel:
+                                    _messageGatewayWaitingForTrafficLabel(
+                                      context,
+                                    ),
                                 onTap: () => _showOpsInsight(
                                   _WebOpsInsightKind.requestTrend,
                                 ),
                               ),
                               _WebOpsTrendPanel(
-                                title: openHandLocalizedText(
+                                title: _messageGatewayLatencyCurveLabel(
                                   context,
-                                  zh: '耗时曲线',
-                                  zhHant: '耗時曲線',
-                                  en: 'Latency curve',
-                                  fr: 'Courbe de latence',
-                                  de: 'Latenzkurve',
-                                  ja: 'レイテンシ曲線',
                                 ),
                                 icon: Icons.timeline_rounded,
                                 subtitle: openHandLocalizedText(
@@ -4562,15 +4481,10 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   ja: '平均および P95 テールレイテンシ',
                                 ),
                                 series: stats.latencyTrendSeries(context),
-                                emptyLabel: openHandLocalizedText(
-                                  context,
-                                  zh: '暂无耗时样本',
-                                  zhHant: '暫無耗時樣本',
-                                  en: 'No latency samples',
-                                  fr: 'Aucun échantillon de latence',
-                                  de: 'Keine Latenzstichproben',
-                                  ja: 'レイテンシサンプルなし',
-                                ),
+                                emptyLabel:
+                                    _messageGatewayNoLatencySamplesLabel(
+                                      context,
+                                    ),
                                 valueSuffix: 'ms',
                                 onTap: () => _showOpsInsight(
                                   _WebOpsInsightKind.latencyTrend,
@@ -4603,15 +4517,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           maxColumns: 3,
                           children: [
                             _WebOpsDistributionPanel(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '状态分布',
-                                zhHant: '狀態分布',
-                                en: 'Status mix',
-                                fr: 'Répartition des statuts',
-                                de: 'Statusverteilung',
-                                ja: 'ステータス分布',
-                              ),
+                              title: _messageGatewayStatusMixLabel(context),
                               icon: Icons.donut_small_rounded,
                               values: stats.statusDistribution(
                                 context,
@@ -4636,30 +4542,14 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   _showOpsInsight(_WebOpsInsightKind.peerMix),
                             ),
                             _WebOpsDistributionPanel(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '客户端 UA 分布',
-                                zhHant: '用戶端 UA 分布',
-                                en: 'Client UA mix',
-                                fr: 'Répartition des UA clients',
-                                de: 'Client-UA-Verteilung',
-                                ja: 'クライアント UA 分布',
-                              ),
+                              title: _messageGatewayClientUaMixLabel(context),
                               icon: Icons.devices_other_rounded,
                               values: snapshot.clientDistribution,
                               onTap: () =>
                                   _showOpsInsight(_WebOpsInsightKind.clientMix),
                             ),
                             _WebOpsDistributionPanel(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '请求分布',
-                                zhHant: '請求分布',
-                                en: 'Request mix',
-                                fr: 'Répartition des requêtes',
-                                de: 'Anfrageverteilung',
-                                ja: 'リクエスト分布',
-                              ),
+                              title: _messageGatewayRequestMixLabel(context),
                               icon: Icons.account_tree_rounded,
                               values: snapshot.requestDistribution,
                               onTap: () => _showOpsInsight(
@@ -4667,15 +4557,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               ),
                             ),
                             _WebOpsDistributionPanel(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '协议分布',
-                                zhHant: '協議分布',
-                                en: 'Protocol mix',
-                                fr: 'Répartition des protocoles',
-                                de: 'Protokollverteilung',
-                                ja: 'プロトコル分布',
-                              ),
+                              title: _messageGatewayProtocolMixLabel(context),
                               icon: Icons.api_rounded,
                               values: snapshot.protocolDistribution,
                               onTap: () => _showOpsInsight(
@@ -4727,15 +4609,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 SizedBox(
                                   width: tileWidth,
                                   child: _MetricTile(
-                                    label: openHandLocalizedText(
-                                      context,
-                                      zh: '线程数',
-                                      zhHant: '執行緒數',
-                                      en: 'Threads',
-                                      fr: 'Threads',
-                                      de: 'Threads',
-                                      ja: 'スレッド数',
-                                    ),
+                                    label: _messageGatewayThreadsLabel(context),
                                     value:
                                         snapshot.threadCount?.toString() ??
                                         _gatewayUnavailable(context),
@@ -4785,15 +4659,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 SizedBox(
                                   width: tileWidth,
                                   child: _MetricTile(
-                                    label: openHandLocalizedText(
-                                      context,
-                                      zh: '日志磁盘',
-                                      zhHant: '日誌磁碟',
-                                      en: 'Log disk',
-                                      fr: 'Disque des journaux',
-                                      de: 'Protokollspeicher',
-                                      ja: 'ログディスク',
-                                    ),
+                                    label: _messageGatewayLogDiskLabel(context),
                                     value: formatByteSize(snapshot.logBytes),
                                   ),
                                 ),
@@ -5067,15 +4933,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                       formatByteSize(value.round()),
                                 ),
                                 _TrendLineChart(
-                                  title: openHandLocalizedText(
-                                    context,
-                                    zh: '日志磁盘',
-                                    zhHant: '日誌磁碟',
-                                    en: 'Log disk',
-                                    fr: 'Disque des journaux',
-                                    de: 'Protokollspeicher',
-                                    ja: 'ログディスク',
-                                  ),
+                                  title: _messageGatewayLogDiskLabel(context),
                                   values: _series(
                                     _trend,
                                     (snapshot) => snapshot.logBytes.toDouble(),
@@ -5084,15 +4942,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                       formatByteSize(value.round()),
                                 ),
                                 _TrendLineChart(
-                                  title: openHandLocalizedText(
-                                    context,
-                                    zh: '线程数',
-                                    zhHant: '執行緒數',
-                                    en: 'Threads',
-                                    fr: 'Threads',
-                                    de: 'Threads',
-                                    ja: 'スレッド数',
-                                  ),
+                                  title: _messageGatewayThreadsLabel(context),
                                   values: _series(
                                     _trend,
                                     (snapshot) =>
@@ -5677,15 +5527,7 @@ class _WebOpsInsightDialog extends StatelessWidget {
     final stats = _WebOpsDashboardStats.from(snapshot);
     return switch (kind) {
       _WebOpsInsightKind.requestTrend => _WebOpsTrendPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '请求趋势',
-          zhHant: '請求趨勢',
-          en: 'Request trend',
-          fr: 'Tendance des requêtes',
-          de: 'Anfragetrend',
-          ja: 'リクエスト傾向',
-        ),
+        title: _messageGatewayRequestTrendLabel(context),
         icon: Icons.show_chart_rounded,
         subtitle: openHandLocalizedText(
           context,
@@ -5693,27 +5535,11 @@ class _WebOpsInsightDialog extends StatelessWidget {
           en: 'Success / blocked / failed',
         ),
         series: stats.requestTrendSeries(context),
-        emptyLabel: openHandLocalizedText(
-          context,
-          zh: '等待请求样本',
-          zhHant: '等待請求樣本',
-          en: 'Waiting for traffic',
-          fr: 'En attente de trafic',
-          de: 'Warten auf Datenverkehr',
-          ja: 'トラフィック待機中',
-        ),
+        emptyLabel: _messageGatewayWaitingForTrafficLabel(context),
       ),
       _WebOpsInsightKind.latency ||
       _WebOpsInsightKind.latencyTrend => _WebOpsTrendPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '耗时曲线',
-          zhHant: '耗時曲線',
-          en: 'Latency curve',
-          fr: 'Courbe de latence',
-          de: 'Latenzkurve',
-          ja: 'レイテンシ曲線',
-        ),
+        title: _messageGatewayLatencyCurveLabel(context),
         icon: Icons.timeline_rounded,
         subtitle: openHandLocalizedText(
           context,
@@ -5725,104 +5551,48 @@ class _WebOpsInsightDialog extends StatelessWidget {
           ja: '平均および P95 テールレイテンシ',
         ),
         series: stats.latencyTrendSeries(context),
-        emptyLabel: openHandLocalizedText(
-          context,
-          zh: '暂无耗时样本',
-          zhHant: '暫無耗時樣本',
-          en: 'No latency samples',
-          fr: 'Aucun échantillon de latence',
-          de: 'Keine Latenzstichproben',
-          ja: 'レイテンシサンプルなし',
-        ),
+        emptyLabel: _messageGatewayNoLatencySamplesLabel(context),
         valueSuffix: 'ms',
       ),
       _WebOpsInsightKind.statusMix ||
       _WebOpsInsightKind.outcomes => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '状态分布',
-          zhHant: '狀態分布',
-          en: 'Status mix',
-          fr: 'Répartition des statuts',
-          de: 'Statusverteilung',
-          ja: 'ステータス分布',
-        ),
+        title: _messageGatewayStatusMixLabel(context),
         icon: Icons.donut_small_rounded,
         values: stats.statusDistribution(context, snapshot),
       ),
       _WebOpsInsightKind.peerMix => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '来源端点（IP:端口）',
-          en: 'Source endpoints',
-        ),
+        title: _messageGatewaySourceEndpointsLabel(context),
         icon: Icons.public_rounded,
         values: snapshot.effectivePeerDistribution,
       ),
       _WebOpsInsightKind.clientMix ||
       _WebOpsInsightKind.connections => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '客户端 UA 分布',
-          zhHant: '用戶端 UA 分布',
-          en: 'Client UA mix',
-          fr: 'Répartition des UA clients',
-          de: 'Client-UA-Verteilung',
-          ja: 'クライアント UA 分布',
-        ),
+        title: _messageGatewayClientUaMixLabel(context),
         icon: Icons.devices_other_rounded,
         values: snapshot.clientDistribution,
       ),
       _WebOpsInsightKind.requestMix ||
       _WebOpsInsightKind.requests ||
       _WebOpsInsightKind.mutations => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '请求分布',
-          zhHant: '請求分布',
-          en: 'Request mix',
-          fr: 'Répartition des requêtes',
-          de: 'Anfrageverteilung',
-          ja: 'リクエスト分布',
-        ),
+        title: _messageGatewayRequestMixLabel(context),
         icon: Icons.account_tree_rounded,
         values: snapshot.requestDistribution,
       ),
       _WebOpsInsightKind.protocolMix ||
       _WebOpsInsightKind.traffic => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(
-          context,
-          zh: '协议分布',
-          zhHant: '協議分布',
-          en: 'Protocol mix',
-          fr: 'Répartition des protocoles',
-          de: 'Protokollverteilung',
-          ja: 'プロトコル分布',
-        ),
+        title: _messageGatewayProtocolMixLabel(context),
         icon: Icons.api_rounded,
         values: snapshot.protocolDistribution,
       ),
       _WebOpsInsightKind.overview => _WebOpsPanelGrid(
         children: [
           _WebOpsDistributionPanel(
-            title: openHandLocalizedText(
-              context,
-              zh: '来源端点（IP:端口）',
-              en: 'Source endpoints',
-            ),
+            title: _messageGatewaySourceEndpointsLabel(context),
             icon: Icons.public_rounded,
             values: snapshot.effectivePeerDistribution,
           ),
           _WebOpsDistributionPanel(
-            title: openHandLocalizedText(
-              context,
-              zh: '协议分布',
-              zhHant: '協議分布',
-              en: 'Protocol mix',
-              fr: 'Répartition des protocoles',
-              de: 'Protokollverteilung',
-              ja: 'プロトコル分布',
-            ),
+            title: _messageGatewayProtocolMixLabel(context),
             icon: Icons.api_rounded,
             values: snapshot.protocolDistribution,
           ),
@@ -5892,41 +5662,17 @@ class _WebOpsDashboardStats {
   List<OpenHandChartSeries> requestTrendSeries(BuildContext context) {
     return <OpenHandChartSeries>[
       OpenHandChartSeries(
-        label: openHandLocalizedText(
-          context,
-          zh: '成功',
-          zhHant: '成功',
-          en: 'Success',
-          fr: 'Succès',
-          de: 'Erfolg',
-          ja: '成功',
-        ),
+        label: _messageGatewaySuccessLabel(context),
         values: successBuckets,
         color: OpenHandStatusColors.success,
       ),
       OpenHandChartSeries(
-        label: openHandLocalizedText(
-          context,
-          zh: '拦截',
-          zhHant: '攔截',
-          en: 'Blocked',
-          fr: 'Bloqué',
-          de: 'Blockiert',
-          ja: 'ブロック',
-        ),
+        label: _messageGatewayBlockedLabel(context),
         values: blockedBuckets,
         color: OpenHandStatusColors.warning,
       ),
       OpenHandChartSeries(
-        label: openHandLocalizedText(
-          context,
-          zh: '失败',
-          zhHant: '失敗',
-          en: 'Failed',
-          fr: 'Échec',
-          de: 'Fehler',
-          ja: '失敗',
-        ),
+        label: _messageGatewayFailedLabel(context),
         values: failedBuckets,
         color: Theme.of(context).colorScheme.error,
       ),
@@ -5962,33 +5708,9 @@ class _WebOpsDashboardStats {
     WebGatewayRuntimeSnapshot snapshot,
   ) {
     return <String, int>{
-      openHandLocalizedText(
-        context,
-        zh: '成功',
-        zhHant: '成功',
-        en: 'Success',
-        fr: 'Succès',
-        de: 'Erfolg',
-        ja: '成功',
-      ): snapshot.successTotal,
-      openHandLocalizedText(
-        context,
-        zh: '拦截',
-        zhHant: '攔截',
-        en: 'Blocked',
-        fr: 'Bloqué',
-        de: 'Blockiert',
-        ja: 'ブロック',
-      ): snapshot.effectiveBlockedTotal,
-      openHandLocalizedText(
-        context,
-        zh: '失败',
-        zhHant: '失敗',
-        en: 'Failed',
-        fr: 'Échec',
-        de: 'Fehler',
-        ja: '失敗',
-      ): snapshot.failedRequests,
+      _messageGatewaySuccessLabel(context): snapshot.successTotal,
+      _messageGatewayBlockedLabel(context): snapshot.effectiveBlockedTotal,
+      _messageGatewayFailedLabel(context): snapshot.failedRequests,
     }..removeWhere((_, value) => value <= 0);
   }
 }
@@ -6365,15 +6087,7 @@ class _WebOpsHeaderActions extends StatelessWidget {
       children: [
         _WebOpsIconButton(
           icon: Icons.delete_sweep_outlined,
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '清空日志',
-            zhHant: '清空日誌',
-            en: 'Clear logs',
-            fr: 'Effacer les journaux',
-            de: 'Protokolle leeren',
-            ja: 'ログをクリア',
-          ),
+          tooltip: _messageGatewayClearLogsLabel(context),
           onPressed: cleaning ? null : onClearLogs,
         ),
         _WebOpsIconButton(
@@ -7048,15 +6762,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
       onTap: onTap,
       child: top.isEmpty
           ? Text(
-              openHandLocalizedText(
-                context,
-                zh: '等待请求样本',
-                zhHant: '等待請求樣本',
-                en: 'Waiting for traffic',
-                fr: 'En attente de trafic',
-                de: 'Warten auf Datenverkehr',
-                ja: 'トラフィック待機中',
-              ),
+              _messageGatewayWaitingForTrafficLabel(context),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -7839,24 +7545,8 @@ Widget _webOpsFlagChip(
   return _OpsPill(
     label,
     enabled
-        ? openHandLocalizedText(
-            context,
-            zh: '开启',
-            zhHant: '開啟',
-            en: 'On',
-            fr: 'Actif',
-            de: 'Ein',
-            ja: 'オン',
-          )
-        : openHandLocalizedText(
-            context,
-            zh: '关闭',
-            zhHant: '關閉',
-            en: 'Off',
-            fr: 'Inactif',
-            de: 'Aus',
-            ja: 'オフ',
-          ),
+        ? _messageGatewayOnLabel(context)
+        : _messageGatewayOffLabel(context),
     color: color,
   );
 }
@@ -7903,24 +7593,8 @@ String _webOpsHealthEndpoint(
       ? ''
       : '?${_formatQueryParameters(config.healthCheck.queryParameters)}';
   final enabled = config.healthCheck.enabled
-      ? openHandLocalizedText(
-          context,
-          zh: '开启',
-          zhHant: '開啟',
-          en: 'On',
-          fr: 'Actif',
-          de: 'Ein',
-          ja: 'オン',
-        )
-      : openHandLocalizedText(
-          context,
-          zh: '关闭',
-          zhHant: '關閉',
-          en: 'Off',
-          fr: 'Inactif',
-          de: 'Aus',
-          ja: 'オフ',
-        );
+      ? _messageGatewayOnLabel(context)
+      : _messageGatewayOffLabel(context);
   return '$enabled · ${config.healthCheck.method} ${config.healthCheck.path}$query · ${config.healthCheck.timeoutMs}ms · ${config.healthCheck.expectedStatusCode}';
 }
 
@@ -8585,15 +8259,7 @@ class _OpsDiagnosis {
       de: 'Parallelitätsniveau',
       ja: '同時実行水位',
     );
-    final p95LatencyLabel = openHandLocalizedText(
-      context,
-      zh: 'P95 延迟',
-      zhHant: 'P95 延遲',
-      en: 'P95 latency',
-      fr: 'Latence P95',
-      de: 'P95-Latenz',
-      ja: 'P95レイテンシ',
-    );
+    final p95LatencyLabel = _messageGatewayP95LatencyLabel(context);
 
     if (snapshot.state == WebGatewayRuntimeState.crashed) {
       score -= 45;
@@ -9714,26 +9380,10 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
 
   String _summary(BuildContext context) {
     if (_isExplicitNone(widget.selected, widget.noneValue)) {
-      return openHandLocalizedText(
-        context,
-        zh: '全部不可用',
-        zhHant: '全部不可用',
-        en: 'All unavailable',
-        fr: 'Tout indisponible',
-        de: 'Alle nicht verfügbar',
-        ja: 'すべて利用不可',
-      );
+      return _messageGatewayAllUnavailableLabel(context);
     }
     if (widget.emptyMeansAll && widget.selected.isEmpty) {
-      return openHandLocalizedText(
-        context,
-        zh: '全部可用',
-        zhHant: '全部可用',
-        en: 'All available',
-        fr: 'Tout disponible',
-        de: 'Alle verfügbar',
-        ja: 'すべて利用可能',
-      );
+      return _messageGatewayAllAvailableLabel(context);
     }
     if (widget.selected.isEmpty) {
       return openHandLocalizedText(
@@ -10029,17 +9679,7 @@ class _MultiSelectDropdownMenuState<T>
                   _MenuActionButton(
                     onPressed: _applyAndClose,
                     icon: const Icon(Icons.check_rounded, size: 18),
-                    label: Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '完成',
-                        zhHant: '完成',
-                        en: 'Done',
-                        fr: 'Terminé',
-                        de: 'Fertig',
-                        ja: '完了',
-                      ),
-                    ),
+                    label: Text(_messageGatewayDoneLabel(context)),
                     filled: true,
                   ),
                 ],
@@ -10109,10 +9749,10 @@ class _MultiSelectDropdownMenuState<T>
     String scope,
   ) {
     if (_isExplicitNone(_selected, widget.noneValue)) {
-      return '$scope · ${openHandLocalizedText(context, zh: '全部不可用', zhHant: '全部不可用', en: 'All unavailable', fr: 'Tout indisponible', de: 'Alle nicht verfügbar', ja: 'すべて利用不可')}';
+      return '$scope · ${_messageGatewayAllUnavailableLabel(context)}';
     }
     if (widget.emptyMeansAll && _selected.isEmpty) {
-      return '$scope · ${openHandLocalizedText(context, zh: '全部可用', zhHant: '全部可用', en: 'All available', fr: 'Tout disponible', de: 'Alle verfügbar', ja: 'すべて利用可能')}';
+      return '$scope · ${_messageGatewayAllAvailableLabel(context)}';
     }
     return '$scope · ${_gatewaySelectedCount(context, selectedCount, totalCount)}';
   }
@@ -10138,15 +9778,7 @@ String _gatewaySelectAllTooltip(
           de: 'Gefilterte auswählen',
           ja: '絞り込み結果を全選択',
         )
-      : openHandLocalizedText(
-          context,
-          zh: '全选',
-          zhHant: '全選',
-          en: 'Select all',
-          fr: 'Tout sélectionner',
-          de: 'Alle auswählen',
-          ja: 'すべて選択',
-        );
+      : _messageGatewaySelectAllLabel(context);
 }
 
 String _gatewayDeselectAllTooltip(
@@ -10163,15 +9795,7 @@ String _gatewayDeselectAllTooltip(
           de: 'Gefilterte abwählen',
           ja: '絞り込み結果を全解除',
         )
-      : openHandLocalizedText(
-          context,
-          zh: '全不选',
-          zhHant: '全不選',
-          en: 'Deselect all',
-          fr: 'Tout désélectionner',
-          de: 'Alle abwählen',
-          ja: 'すべて解除',
-        );
+      : _messageGatewayDeselectAllLabel(context);
 }
 
 /// 选择弹窗搜索框的统一装饰。[hintText] 由调用方给出（「搜索」/「搜索模型」）。
@@ -10696,15 +10320,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 12),
                 OpenHandDialogActionButton.primary(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '完成',
-                    zhHant: '完成',
-                    en: 'Done',
-                    fr: 'Terminé',
-                    de: 'Fertig',
-                    ja: '完了',
-                  ),
+                  label: _messageGatewayDoneLabel(context),
                   onPressed: () => Navigator.of(context).pop(_selected),
                 ),
               ],
@@ -10776,26 +10392,10 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     int totalCount,
   ) {
     if (_selected.contains(webGatewayDenyAllSelectionMarker)) {
-      return openHandLocalizedText(
-        context,
-        zh: '全部不可用',
-        zhHant: '全部不可用',
-        en: 'All unavailable',
-        fr: 'Tout indisponible',
-        de: 'Alle nicht verfügbar',
-        ja: 'すべて利用不可',
-      );
+      return _messageGatewayAllUnavailableLabel(context);
     }
     if (widget.emptyMeansAll && _selected.isEmpty) {
-      return openHandLocalizedText(
-        context,
-        zh: '全部可用',
-        zhHant: '全部可用',
-        en: 'All available',
-        fr: 'Tout disponible',
-        de: 'Alle verfügbar',
-        ja: 'すべて利用可能',
-      );
+      return _messageGatewayAllAvailableLabel(context);
     }
     return _gatewaySelectedCount(context, selectedCount, totalCount);
   }
@@ -11496,24 +11096,8 @@ String _percent(double value) =>
 
 String _cleanupTargetLabel(BuildContext context, String target) {
   return switch (target) {
-    'logs' => openHandLocalizedText(
-      context,
-      zh: '日志',
-      zhHant: '日誌',
-      en: 'Logs',
-      fr: 'Journaux',
-      de: 'Protokolle',
-      ja: 'ログ',
-    ),
-    'uploads' => openHandLocalizedText(
-      context,
-      zh: '上传缓存',
-      zhHant: '上傳快取',
-      en: 'Upload cache',
-      fr: 'Cache d’envoi',
-      de: 'Upload-Cache',
-      ja: 'アップロードキャッシュ',
-    ),
+    'logs' => _messageGatewayLogsLabel(context),
+    'uploads' => _messageGatewayUploadCacheLabel(context),
     'all' => openHandLocalizedText(
       context,
       zh: '全部资源',
@@ -11525,4 +11109,315 @@ String _cleanupTargetLabel(BuildContext context, String target) {
     ),
     _ => target,
   };
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _messageGatewayAllAvailableLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '全部可用',
+    zhHant: '全部可用',
+    en: 'All available',
+    fr: 'Tout disponible',
+    de: 'Alle verfügbar',
+    ja: 'すべて利用可能',
+  );
+}
+
+String _messageGatewayAllUnavailableLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '全部不可用',
+    zhHant: '全部不可用',
+    en: 'All unavailable',
+    fr: 'Tout indisponible',
+    de: 'Alle nicht verfügbar',
+    ja: 'すべて利用不可',
+  );
+}
+
+String _messageGatewayBlockedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '拦截',
+    zhHant: '攔截',
+    en: 'Blocked',
+    fr: 'Bloqué',
+    de: 'Blockiert',
+    ja: 'ブロック',
+  );
+}
+
+String _messageGatewayClearLogsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '清空日志',
+    zhHant: '清空日誌',
+    en: 'Clear logs',
+    fr: 'Effacer les journaux',
+    de: 'Protokolle leeren',
+    ja: 'ログをクリア',
+  );
+}
+
+String _messageGatewayClientUaMixLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '客户端 UA 分布',
+    zhHant: '用戶端 UA 分布',
+    en: 'Client UA mix',
+    fr: 'Répartition des UA clients',
+    de: 'Client-UA-Verteilung',
+    ja: 'クライアント UA 分布',
+  );
+}
+
+String _messageGatewayDeselectAllLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '全不选',
+    zhHant: '全不選',
+    en: 'Deselect all',
+    fr: 'Tout désélectionner',
+    de: 'Alle abwählen',
+    ja: 'すべて解除',
+  );
+}
+
+String _messageGatewayDoneLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '完成',
+    zhHant: '完成',
+    en: 'Done',
+    fr: 'Terminé',
+    de: 'Fertig',
+    ja: '完了',
+  );
+}
+
+String _messageGatewayFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '失败',
+    zhHant: '失敗',
+    en: 'Failed',
+    fr: 'Échec',
+    de: 'Fehler',
+    ja: '失敗',
+  );
+}
+
+String _messageGatewayLatencyCurveLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '耗时曲线',
+    zhHant: '耗時曲線',
+    en: 'Latency curve',
+    fr: 'Courbe de latence',
+    de: 'Latenzkurve',
+    ja: 'レイテンシ曲線',
+  );
+}
+
+String _messageGatewayLogDiskLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '日志磁盘',
+    zhHant: '日誌磁碟',
+    en: 'Log disk',
+    fr: 'Disque des journaux',
+    de: 'Protokollspeicher',
+    ja: 'ログディスク',
+  );
+}
+
+String _messageGatewayLogsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '日志',
+    zhHant: '日誌',
+    en: 'Logs',
+    fr: 'Journaux',
+    de: 'Protokolle',
+    ja: 'ログ',
+  );
+}
+
+String _messageGatewayNoLatencySamplesLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '暂无耗时样本',
+    zhHant: '暫無耗時樣本',
+    en: 'No latency samples',
+    fr: 'Aucun échantillon de latence',
+    de: 'Keine Latenzstichproben',
+    ja: 'レイテンシサンプルなし',
+  );
+}
+
+String _messageGatewayOffLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '关闭',
+    zhHant: '關閉',
+    en: 'Off',
+    fr: 'Inactif',
+    de: 'Aus',
+    ja: 'オフ',
+  );
+}
+
+String _messageGatewayOnLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '开启',
+    zhHant: '開啟',
+    en: 'On',
+    fr: 'Actif',
+    de: 'Ein',
+    ja: 'オン',
+  );
+}
+
+String _messageGatewayP95LatencyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: 'P95 延迟',
+    zhHant: 'P95 延遲',
+    en: 'P95 latency',
+    fr: 'Latence P95',
+    de: 'P95-Latenz',
+    ja: 'P95レイテンシ',
+  );
+}
+
+String _messageGatewayPortConnectivityTestLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '端口连通性测试',
+    zhHant: '連接埠連通性測試',
+    en: 'Port connectivity test',
+    fr: 'Test de connectivité du port',
+    de: 'Port-Konnektivitätstest',
+    ja: 'ポート接続テスト',
+  );
+}
+
+String _messageGatewayProtocolMixLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '协议分布',
+    zhHant: '協議分布',
+    en: 'Protocol mix',
+    fr: 'Répartition des protocoles',
+    de: 'Protokollverteilung',
+    ja: 'プロトコル分布',
+  );
+}
+
+String _messageGatewayRequestMixLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '请求分布',
+    zhHant: '請求分布',
+    en: 'Request mix',
+    fr: 'Répartition des requêtes',
+    de: 'Anfrageverteilung',
+    ja: 'リクエスト分布',
+  );
+}
+
+String _messageGatewayRequestTrendLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '请求趋势',
+    zhHant: '請求趨勢',
+    en: 'Request trend',
+    fr: 'Tendance des requêtes',
+    de: 'Anfragetrend',
+    ja: 'リクエスト傾向',
+  );
+}
+
+String _messageGatewaySelectAllLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '全选',
+    zhHant: '全選',
+    en: 'Select all',
+    fr: 'Tout sélectionner',
+    de: 'Alle auswählen',
+    ja: 'すべて選択',
+  );
+}
+
+String _messageGatewaySourceEndpointsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '来源端点（IP:端口）',
+    en: 'Source endpoints',
+  );
+}
+
+String _messageGatewayStatusMixLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '状态分布',
+    zhHant: '狀態分布',
+    en: 'Status mix',
+    fr: 'Répartition des statuts',
+    de: 'Statusverteilung',
+    ja: 'ステータス分布',
+  );
+}
+
+String _messageGatewaySuccessLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '成功',
+    zhHant: '成功',
+    en: 'Success',
+    fr: 'Succès',
+    de: 'Erfolg',
+    ja: '成功',
+  );
+}
+
+String _messageGatewayThreadsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '线程数',
+    zhHant: '執行緒數',
+    en: 'Threads',
+    fr: 'Threads',
+    de: 'Threads',
+    ja: 'スレッド数',
+  );
+}
+
+String _messageGatewayUploadCacheLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '上传缓存',
+    zhHant: '上傳快取',
+    en: 'Upload cache',
+    fr: 'Cache d’envoi',
+    de: 'Upload-Cache',
+    ja: 'アップロードキャッシュ',
+  );
+}
+
+String _messageGatewayWaitingForTrafficLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '等待请求样本',
+    zhHant: '等待請求樣本',
+    en: 'Waiting for traffic',
+    fr: 'En attente de trafic',
+    de: 'Warten auf Datenverkehr',
+    ja: 'トラフィック待機中',
+  );
 }

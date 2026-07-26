@@ -575,28 +575,12 @@ class _ProgrammingExpertProjectDialogState
         .sdkPath
         .trim();
     if (globalValue.isNotEmpty) {
-      return openHandLocalizedText(
-        context,
-        zh: '全局设置',
-        zhHant: '全域設定',
-        en: 'global settings',
-        fr: 'paramètres globaux',
-        de: 'globale Einstellungen',
-        ja: 'グローバル設定',
-      );
+      return _homeProgramminGlobalSettingsLabel(context);
     }
     if ((widget.recentPathCache.sdkPathsByLanguage[language] ??
             const <String>[])
         .isNotEmpty) {
-      return openHandLocalizedText(
-        context,
-        zh: '最近记录',
-        zhHant: '最近記錄',
-        en: 'recent history',
-        fr: 'historique récent',
-        de: 'letzter Verlauf',
-        ja: '最近の履歴',
-      );
+      return _homeProgramminRecentHistoryLabel(context);
     }
     return openHandLocalizedText(
       context,
@@ -615,28 +599,12 @@ class _ProgrammingExpertProjectDialogState
         .rootPath
         .trim();
     if (globalValue.isNotEmpty) {
-      return openHandLocalizedText(
-        context,
-        zh: '全局设置',
-        zhHant: '全域設定',
-        en: 'global settings',
-        fr: 'paramètres globaux',
-        de: 'globale Einstellungen',
-        ja: 'グローバル設定',
-      );
+      return _homeProgramminGlobalSettingsLabel(context);
     }
     if ((widget.recentPathCache.lspPathsByLanguage[language] ??
             const <String>[])
         .isNotEmpty) {
-      return openHandLocalizedText(
-        context,
-        zh: '最近记录',
-        zhHant: '最近記錄',
-        en: 'recent history',
-        fr: 'historique récent',
-        de: 'letzter Verlauf',
-        ja: '最近の履歴',
-      );
+      return _homeProgramminRecentHistoryLabel(context);
     }
     return openHandLocalizedText(
       context,
@@ -1838,4 +1806,31 @@ void _appendRecentProgrammingExpertPath({
   if (paths.length < 6) {
     paths.add(path);
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeProgramminGlobalSettingsLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '全局设置',
+    zhHant: '全域設定',
+    en: 'global settings',
+    fr: 'paramètres globaux',
+    de: 'globale Einstellungen',
+    ja: 'グローバル設定',
+  );
+}
+
+String _homeProgramminRecentHistoryLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '最近记录',
+    zhHant: '最近記錄',
+    en: 'recent history',
+    fr: 'historique récent',
+    de: 'letzter Verlauf',
+    ja: '最近の履歴',
+  );
 }

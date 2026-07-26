@@ -988,7 +988,7 @@ class _MessageCollapseToggleCapsuleState
     final label = widget.collapsed
         ? openHandLocalizedText(context, zh: '展开完整内容', en: 'Show Full Content')
         : openHandLocalizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final unitText = openHandLocalizedText(context, zh: ' 字符', en: ' chars');
+    final unitText = _homeMessageConCharsLabel(context);
     final textStyle =
         (theme.textTheme.labelLarge?.copyWith(
           color: effectiveColor,
@@ -4281,7 +4281,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                     ),
                   ),
                   Text(
-                    openHandLocalizedText(context, zh: ' 字符', en: ' chars'),
+                    _homeMessageConCharsLabel(context),
                     style: captionStyle.copyWith(
                       color: widget.textColor.withValues(alpha: 0.62),
                     ),
@@ -6412,4 +6412,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeMessageConCharsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: ' 字符', en: ' chars');
 }

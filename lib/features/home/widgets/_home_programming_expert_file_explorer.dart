@@ -3351,15 +3351,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ja: 'シンボル名を変更',
       ),
       initialValue: initialValue,
-      hintText: openHandLocalizedText(
-        context,
-        zh: '新名称',
-        zhHant: '新名稱',
-        en: 'New name',
-        fr: 'Nouveau nom',
-        de: 'Neuer Name',
-        ja: '新しい名前',
-      ),
+      hintText: _homeProgramminNewNameLabel(context),
       cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandLocalizedText(
         context,
@@ -3371,15 +3363,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ja: '適用',
       ),
       decoration: InputDecoration(
-        labelText: openHandLocalizedText(
-          context,
-          zh: '新名称',
-          zhHant: '新名稱',
-          en: 'New name',
-          fr: 'Nouveau nom',
-          de: 'Neuer Name',
-          ja: '新しい名前',
-        ),
+        labelText: _homeProgramminNewNameLabel(context),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -15650,4 +15634,19 @@ String _friendlyLspError(Object error) {
     return error.message;
   }
   return '$error';
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _homeProgramminNewNameLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '新名称',
+    zhHant: '新名稱',
+    en: 'New name',
+    fr: 'Nouveau nom',
+    de: 'Neuer Name',
+    ja: '新しい名前',
+  );
 }

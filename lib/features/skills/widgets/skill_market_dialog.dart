@@ -326,15 +326,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                       de: 'Der Skill-Markt ist nicht erreichbar. Versuche es später erneut.',
                       ja: 'スキルマーケットに接続できません。後でもう一度お試しください。',
                     ),
-                    actionLabel: openHandLocalizedText(
-                      context,
-                      zh: '重试',
-                      zhHant: '重試',
-                      en: 'Retry',
-                      fr: 'Réessayer',
-                      de: 'Erneut versuchen',
-                      ja: '再試行',
-                    ),
+                    actionLabel: _skillMarketDiaRetryLabel(context),
                     onAction: () => _runSearch(keepSelection: false),
                   )
                 : _isSearching && result == null
@@ -554,15 +546,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               de: 'Skill-Details konnten nicht geladen werden. Erneut versuchen.',
               ja: 'このスキルの詳細を読み込めません。再試行してください。',
             ),
-            actionLabel: openHandLocalizedText(
-              context,
-              zh: '重试',
-              zhHant: '重試',
-              en: 'Retry',
-              fr: 'Réessayer',
-              de: 'Erneut versuchen',
-              ja: '再試行',
-            ),
+            actionLabel: _skillMarketDiaRetryLabel(context),
             onAction: () => _selectSkill(selectedSkill, forceReload: true),
           );
         }
@@ -958,15 +942,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 if (skill.source.isNotEmpty)
                   _InfoChip(
                     icon: Icons.hub_outlined,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '来源',
-                      zhHant: '來源',
-                      en: 'Source',
-                      fr: 'Source',
-                      de: 'Quelle',
-                      ja: 'ソース',
-                    ),
+                    label: _skillMarketDiaSourceLabel(context),
                     value: skill.source,
                   ),
                 _InfoChip(
@@ -1333,15 +1309,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                 if (skill.source.isNotEmpty)
                   _InfoChip(
                     icon: Icons.hub_outlined,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '来源',
-                      zhHant: '來源',
-                      en: 'Source',
-                      fr: 'Source',
-                      de: 'Quelle',
-                      ja: 'ソース',
-                    ),
+                    label: _skillMarketDiaSourceLabel(context),
                     value: skill.source,
                   ),
                 _InfoChip(
@@ -1466,9 +1434,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 20),
-            _SectionTitle(
-              text: openHandDetailsLabel(context),
-            ),
+            _SectionTitle(text: openHandDetailsLabel(context)),
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -1815,4 +1781,31 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
     ja: '\n\n---\nプレビューを切り詰めました。インストール後、ローカルの SKILL.md で全文を確認できます。',
   );
   return '${markdown.substring(0, maxChars)}$suffix';
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _skillMarketDiaRetryLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '重试',
+    zhHant: '重試',
+    en: 'Retry',
+    fr: 'Réessayer',
+    de: 'Erneut versuchen',
+    ja: '再試行',
+  );
+}
+
+String _skillMarketDiaSourceLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '来源',
+    zhHant: '來源',
+    en: 'Source',
+    fr: 'Source',
+    de: 'Quelle',
+    ja: 'ソース',
+  );
 }

@@ -358,17 +358,7 @@ List<Widget> _buildToolTelemetryHeader({
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.refresh, size: 16),
-          label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '刷新',
-              zhHant: '重新整理',
-              en: 'Refresh',
-              fr: 'Actualiser',
-              de: 'Aktualisieren',
-              ja: '更新',
-            ),
-          ),
+          label: Text(_settingsViewRefreshLabel(context)),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
@@ -568,17 +558,7 @@ Widget _buildToolCacheActions({
       TextButton.icon(
         onPressed: clearing ? null : onRefresh,
         icon: const Icon(Icons.refresh, size: 16),
-        label: Text(
-          openHandLocalizedText(
-            context,
-            zh: '刷新',
-            zhHant: '重新整理',
-            en: 'Refresh',
-            fr: 'Actualiser',
-            de: 'Aktualisieren',
-            ja: '更新',
-          ),
-        ),
+        label: Text(_settingsViewRefreshLabel(context)),
       ),
       const SizedBox(width: 4),
       FilledButton.tonalIcon(
@@ -2983,15 +2963,7 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 流式输出节流：每秒最多向卡片追加渲染的字符数
               _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '每秒最大输出渲染字符',
-                  zhHant: '每秒最大輸出渲染字元',
-                  en: 'Max Render Chars / Sec',
-                  fr: 'Caractères rendus max / s',
-                  de: 'Max. Render-Zeichen / s',
-                  ja: '1 秒あたりの最大描画文字数',
-                ),
+                title: _settingsViewMaxRenderCharsSecLabel(context),
                 subtitle: openHandLocalizedText(
                   context,
                   zh: 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。',
@@ -3013,15 +2985,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: openHandLocalizedText(
-                          context,
-                          zh: '每秒最大输出渲染字符',
-                          zhHant: '每秒最大輸出渲染字元',
-                          en: 'Max Render Chars / Sec',
-                          fr: 'Caractères rendus max / s',
-                          de: 'Max. Render-Zeichen / s',
-                          ja: '1 秒あたりの最大描画文字数',
-                        ),
+                        labelText: _settingsViewMaxRenderCharsSecLabel(context),
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
                       ),
@@ -3063,15 +3027,7 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 卡片限速：每秒最多新追加多少张消息卡片
               _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '每秒最大输出消息卡片数',
-                  zhHant: '每秒最大輸出訊息卡片數',
-                  en: 'Max Render Cards / Sec',
-                  fr: 'Cartes rendues max / s',
-                  de: 'Max. Render-Karten / s',
-                  ja: '1 秒あたりの最大描画カード数',
-                ),
+                title: _settingsViewMaxRenderCardsSecLabel(context),
                 subtitle: openHandLocalizedText(
                   context,
                   zh: 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。',
@@ -3093,15 +3049,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: openHandLocalizedText(
-                          context,
-                          zh: '每秒最大输出消息卡片数',
-                          zhHant: '每秒最大輸出訊息卡片數',
-                          en: 'Max Render Cards / Sec',
-                          fr: 'Cartes rendues max / s',
-                          de: 'Max. Render-Karten / s',
-                          ja: '1 秒あたりの最大描画カード数',
-                        ),
+                        labelText: _settingsViewMaxRenderCardsSecLabel(context),
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
                       ),
@@ -3144,15 +3092,7 @@ class _SettingsViewState extends State<SettingsView> {
               // 节流持续时长入口。
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: openHandLocalizedText(
-                  context,
-                  zh: '节流持续时长（秒）',
-                  zhHant: '節流持續時長（秒）',
-                  en: 'Throttle Duration (s)',
-                  fr: 'Durée de limitation (s)',
-                  de: 'Drosselungsdauer (s)',
-                  ja: 'スロットリング継続時間（秒）',
-                ),
+                title: _settingsViewThrottleDurationSLabel(context),
                 subtitle: openHandLocalizedText(
                   context,
                   zh: '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。',
@@ -3174,15 +3114,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: openHandLocalizedText(
-                          context,
-                          zh: '节流持续时长（秒）',
-                          zhHant: '節流持續時長（秒）',
-                          en: 'Throttle Duration (s)',
-                          fr: 'Durée de limitation (s)',
-                          de: 'Drosselungsdauer (s)',
-                          ja: 'スロットリング継続時間（秒）',
-                        ),
+                        labelText: _settingsViewThrottleDurationSLabel(context),
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds}',
                       ),
@@ -5835,15 +5767,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (diffs.isEmpty) {
       flashOpenHandSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '配置无变化。',
-          zhHant: '設定無變化。',
-          en: 'No changes detected.',
-          fr: 'Aucune modification détectée.',
-          de: 'Keine Änderungen erkannt.',
-          ja: '変更はありません。',
-        ),
+        _settingsViewNoChangesDetectedLabel(context),
         kind: OpenHandSnackKind.success,
       );
       return;
@@ -5893,15 +5817,7 @@ class _SettingsViewState extends State<SettingsView> {
             ja: 'スロットリング設定をインポートして適用しました。',
           ),
           AiStreamThrottleConfigImportOutcome.unchanged =>
-            openHandLocalizedText(
-              context,
-              zh: '配置无变化。',
-              zhHant: '設定無變化。',
-              en: 'No changes detected.',
-              fr: 'Aucune modification détectée.',
-              de: 'Keine Änderungen erkannt.',
-              ja: '変更はありません。',
-            ),
+            _settingsViewNoChangesDetectedLabel(context),
           AiStreamThrottleConfigImportOutcome.failed => openHandLocalizedText(
             context,
             zh: '导入失败，配置未能保存。',
@@ -8011,15 +7927,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     if (diffs.isEmpty) {
       setState(() {
         _statusError = false;
-        _status = openHandLocalizedText(
-          context,
-          zh: '配置无变化。',
-          zhHant: '設定無變化。',
-          en: 'No changes detected.',
-          fr: 'Aucune modification détectée.',
-          de: 'Keine Änderungen erkannt.',
-          ja: '変更はありません。',
-        );
+        _status = _settingsViewNoChangesDetectedLabel(context);
       });
       return;
     }
@@ -8047,15 +7955,8 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
           de: 'Cloud-Konfiguration angewendet.',
           ja: 'クラウド設定を適用しました。',
         ),
-        AiStreamThrottleConfigImportOutcome.unchanged => openHandLocalizedText(
-          context,
-          zh: '配置无变化。',
-          zhHant: '設定無變化。',
-          en: 'No changes detected.',
-          fr: 'Aucune modification détectée.',
-          de: 'Keine Änderungen erkannt.',
-          ja: '変更はありません。',
-        ),
+        AiStreamThrottleConfigImportOutcome.unchanged =>
+          _settingsViewNoChangesDetectedLabel(context),
         AiStreamThrottleConfigImportOutcome.failed => openHandLocalizedText(
           context,
           zh: '应用失败，配置未能保存。',
@@ -8336,4 +8237,67 @@ String _settingsClearLabel(BuildContext context) {
 
 String _settingsLocalCacheLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '本地缓存', en: 'Local Cache');
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _settingsViewMaxRenderCardsSecLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '每秒最大输出消息卡片数',
+    zhHant: '每秒最大輸出訊息卡片數',
+    en: 'Max Render Cards / Sec',
+    fr: 'Cartes rendues max / s',
+    de: 'Max. Render-Karten / s',
+    ja: '1 秒あたりの最大描画カード数',
+  );
+}
+
+String _settingsViewMaxRenderCharsSecLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '每秒最大输出渲染字符',
+    zhHant: '每秒最大輸出渲染字元',
+    en: 'Max Render Chars / Sec',
+    fr: 'Caractères rendus max / s',
+    de: 'Max. Render-Zeichen / s',
+    ja: '1 秒あたりの最大描画文字数',
+  );
+}
+
+String _settingsViewNoChangesDetectedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '配置无变化。',
+    zhHant: '設定無變化。',
+    en: 'No changes detected.',
+    fr: 'Aucune modification détectée.',
+    de: 'Keine Änderungen erkannt.',
+    ja: '変更はありません。',
+  );
+}
+
+String _settingsViewRefreshLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '刷新',
+    zhHant: '重新整理',
+    en: 'Refresh',
+    fr: 'Actualiser',
+    de: 'Aktualisieren',
+    ja: '更新',
+  );
+}
+
+String _settingsViewThrottleDurationSLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '节流持续时长（秒）',
+    zhHant: '節流持續時長（秒）',
+    en: 'Throttle Duration (s)',
+    fr: 'Durée de limitation (s)',
+    de: 'Drosselungsdauer (s)',
+    ja: 'スロットリング継続時間（秒）',
+  );
 }

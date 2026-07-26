@@ -1004,7 +1004,7 @@ class _AiTranslationProviderCardState
       models: widget.availableModels,
     );
     return _AiTtsProviderSection(
-      title: openHandLocalizedText(context, zh: 'AI 模型', en: 'AI Model'),
+      title: _settingsHelperAiModelLabel(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1049,11 +1049,11 @@ class _AiTranslationProviderCardState
   ) {
     final provider = widget.provider;
     return _AiTtsProviderSection(
-      title: openHandLocalizedText(context, zh: '连接与凭据', en: 'Access'),
+      title: _settingsHelperAccessLabel(context),
       child: _AiTtsProviderFieldGrid(
         children: [
           _AiTtsProviderTextField(
-            label: openHandLocalizedText(context, zh: '接口地址', en: 'Endpoint'),
+            label: _settingsHelperEndpointLabel(context),
             value: providerSettings.endpoint,
             onSubmitted: (value) =>
                 _updateCurrent((current) => current.copyWith(endpoint: value)),
@@ -1100,11 +1100,7 @@ class _AiTranslationProviderCardState
             ),
           if (provider == AiTranslationProvider.bing)
             _AiTtsProviderTextField(
-              label: openHandLocalizedText(
-                context,
-                zh: '区域 Region',
-                en: 'Region',
-              ),
+              label: _settingsHelperRegionLabel(context),
               value: providerSettings.region,
               onSubmitted: (value) =>
                   _updateCurrent((current) => current.copyWith(region: value)),
@@ -1820,7 +1816,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       widget.availableModels,
     ).isNotEmpty;
     return _AiTtsProviderSection(
-      title: openHandLocalizedText(context, zh: 'AI 模型', en: 'AI Model'),
+      title: _settingsHelperAiModelLabel(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1901,7 +1897,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsDropdown(
-                label: openHandLocalizedText(context, zh: '音频格式', en: 'Format'),
+                label: _settingsHelperFormatLabel(context),
                 value: formatValue,
                 options: formatOptions,
                 onChanged: (value) => _updateExtra('format', value),
@@ -1931,7 +1927,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsProviderNumberField(
-                label: openHandLocalizedText(context, zh: '音调', en: 'Pitch'),
+                label: _settingsHelperPitchLabel(context),
                 value: providerSettings.pitch,
                 range: _aiTtsNumberRangeForModel(
                   protocol: modelProtocol,
@@ -2255,7 +2251,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
               ),
               if (provider != AiTtsProvider.mimo)
                 _AiTtsProviderNumberField(
-                  label: openHandLocalizedText(context, zh: '音调', en: 'Pitch'),
+                  label: _settingsHelperPitchLabel(context),
                   value: providerSettings.pitch,
                   range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
                   onChanged: (value) => _updateCurrent((current) {
@@ -2269,16 +2265,12 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             _providerNeedsCredentials(provider)) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: openHandLocalizedText(context, zh: '连接与凭据', en: 'Access'),
+            title: _settingsHelperAccessLabel(context),
             child: _AiTtsProviderFieldGrid(
               children: [
                 if (_providerNeedsEndpoint(provider))
                   _AiTtsProviderTextField(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '接口地址',
-                      en: 'Endpoint',
-                    ),
+                    label: _settingsHelperEndpointLabel(context),
                     value: providerSettings.endpoint,
                     onSubmitted: (value) => _updateCurrent((current) {
                       return current.copyWith(endpoint: value);
@@ -2321,11 +2313,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   ),
                 if (provider == AiTtsProvider.bing)
                   _AiTtsProviderTextField(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '区域 Region',
-                      en: 'Region',
-                    ),
+                    label: _settingsHelperRegionLabel(context),
                     value: providerSettings.region,
                     onSubmitted: (value) => _updateCurrent((current) {
                       return current.copyWith(region: value);
@@ -2356,11 +2344,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   onChanged: (value) => _updateExtra('model', value),
                 ),
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '音频格式',
-                    en: 'Format',
-                  ),
+                  label: _settingsHelperFormatLabel(context),
                   value: '${providerSettings.extra['format'] ?? 'mp3'}',
                   options: catalog.formatOptions,
                   onChanged: (value) => _updateExtra('format', value),
@@ -2382,11 +2366,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   onChanged: (value) => _updateExtra('model', value),
                 ),
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '音频格式',
-                    en: 'Format',
-                  ),
+                  label: _settingsHelperFormatLabel(context),
                   value:
                       '${providerSettings.extra['format'] ?? aiMimoDefaultAudioFormat}',
                   options: catalog.formatOptions,
@@ -2419,11 +2399,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 if ('${providerSettings.extra['model']}' ==
                     'mimo-v2.5-tts-voiceclone')
                   _AiTtsProviderTextField(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '克隆样本路径',
-                      en: 'Clone Sample Path',
-                    ),
+                    label: _settingsHelperCloneSamplePathLabel(context),
                     value:
                         '${providerSettings.extra['voice_sample_path'] ?? ''}',
                     onSubmitted: (value) =>
@@ -2435,15 +2411,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ] else if (provider == AiTtsProvider.xfyun) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: openHandLocalizedText(context, zh: '音频编码', en: 'Audio'),
+            title: _settingsHelperAudioLabel(context),
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '音频格式',
-                    en: 'Format',
-                  ),
+                  label: _settingsHelperFormatLabel(context),
                   value: '${providerSettings.extra['aue'] ?? 'lame'}',
                   options: catalog.formatOptions,
                   onChanged: (value) => _updateExtra('aue', value),
@@ -2455,15 +2427,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             provider == AiTtsProvider.bing) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: openHandLocalizedText(context, zh: '音频编码', en: 'Audio'),
+            title: _settingsHelperAudioLabel(context),
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '音频格式',
-                    en: 'Format',
-                  ),
+                  label: _settingsHelperFormatLabel(context),
                   value:
                       '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
                   options: catalog.formatOptions,
@@ -3146,7 +3114,7 @@ class _SettingsStringDropdown extends StatelessWidget {
             _SettingsStringDropdownOption(
               normalized,
               normalized.isEmpty
-                  ? openHandLocalizedText(context, zh: '默认', en: 'Default')
+                  ? _settingsHelperDefaultLabel(context)
                   : _humanizedDropdownValue(context, normalized),
             ),
           ]
@@ -3445,7 +3413,7 @@ String _localizedTtsCatalogOptionLabel(
 String _humanizedDropdownValue(BuildContext context, String value) {
   final normalized = value.trim();
   if (normalized.isEmpty) {
-    return openHandLocalizedText(context, zh: '默认', en: 'Default');
+    return _settingsHelperDefaultLabel(context);
   }
   final languageLabel = _localizedLanguageCodeLabel(
     context,
@@ -4189,9 +4157,7 @@ String? _ttsProviderReadinessError(
     case AiTtsProvider.bing:
       requireField(settings.apiKey, 'Subscription Key');
       if (settings.region.trim().isEmpty && settings.endpoint.trim().isEmpty) {
-        missing.add(
-          openHandLocalizedText(context, zh: '区域 Region', en: 'Region'),
-        );
+        missing.add(_settingsHelperRegionLabel(context));
       }
       break;
     case AiTtsProvider.google:
@@ -4213,9 +4179,7 @@ String? _ttsProviderReadinessError(
       }
       if (_mimoUsesVoiceClone(settings) &&
           '${settings.extra['voice_sample_path'] ?? ''}'.trim().isEmpty) {
-        missing.add(
-          openHandLocalizedText(context, zh: '克隆样本路径', en: 'Clone Sample Path'),
-        );
+        missing.add(_settingsHelperCloneSamplePathLabel(context));
       }
       break;
   }
@@ -6366,4 +6330,43 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
       ),
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _settingsHelperAccessLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '连接与凭据', en: 'Access');
+}
+
+String _settingsHelperAiModelLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: 'AI 模型', en: 'AI Model');
+}
+
+String _settingsHelperAudioLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '音频编码', en: 'Audio');
+}
+
+String _settingsHelperCloneSamplePathLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '克隆样本路径', en: 'Clone Sample Path');
+}
+
+String _settingsHelperDefaultLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '默认', en: 'Default');
+}
+
+String _settingsHelperEndpointLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '接口地址', en: 'Endpoint');
+}
+
+String _settingsHelperFormatLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '音频格式', en: 'Format');
+}
+
+String _settingsHelperPitchLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '音调', en: 'Pitch');
+}
+
+String _settingsHelperRegionLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '区域 Region', en: 'Region');
 }

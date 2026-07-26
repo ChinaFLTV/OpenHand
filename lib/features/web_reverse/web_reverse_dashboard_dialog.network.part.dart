@@ -269,15 +269,7 @@ class _NetworkBody extends StatelessWidget {
     await _copyNetworkText(
       context,
       text: e.url,
-      base: openHandLocalizedText(
-        context,
-        zh: '已复制 URL',
-        zhHant: '已複製 URL',
-        en: 'URL copied',
-        fr: 'URL copiée',
-        de: 'URL kopiert',
-        ja: 'URL をコピーしました',
-      ),
+      base: _webReverseDashUrlCopiedLabel(context),
     );
   }
 }
@@ -712,15 +704,7 @@ class _NetworkRow extends StatelessWidget {
         await _copyNetworkText(
           context,
           text: entry.url,
-          base: openHandLocalizedText(
-            context,
-            zh: '已复制 URL',
-            zhHant: '已複製 URL',
-            en: 'URL copied',
-            fr: 'URL copiée',
-            de: 'URL kopiert',
-            ja: 'URL をコピーしました',
-          ),
+          base: _webReverseDashUrlCopiedLabel(context),
         );
       case 'copy_curl':
         await _copyNetworkText(
@@ -1472,4 +1456,19 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
       ],
     );
   }
+}
+
+// ── 本文件内复用的文案 ──
+// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+
+String _webReverseDashUrlCopiedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已复制 URL',
+    zhHant: '已複製 URL',
+    en: 'URL copied',
+    fr: 'URL copiée',
+    de: 'URL kopiert',
+    ja: 'URL をコピーしました',
+  );
 }
