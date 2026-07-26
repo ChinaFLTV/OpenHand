@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -332,7 +333,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                             ],
                           ),
                         ),
-                        if (_busy) const LinearProgressIndicator(minHeight: 3),
+                        OpenHandBusyProgressBar(busy: _busy),
                         Divider(height: 1, color: cs.outlineVariant),
                         Expanded(
                           child: _cdpConsoleHistory.isEmpty

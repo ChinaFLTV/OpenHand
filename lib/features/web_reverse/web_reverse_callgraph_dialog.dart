@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_clipboard.dart';
@@ -614,7 +615,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
             itemCount: g.functions.length,
             itemBuilder: (_, i) {
               final fn = g.functions[i];
-              return ExpansionTile(
+              return OpenHandExpansionTile(
                 title: Text(
                   fn.name,
                   style: const TextStyle(

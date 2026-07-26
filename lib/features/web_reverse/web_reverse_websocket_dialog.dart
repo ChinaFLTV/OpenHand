@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -988,8 +989,7 @@ class _WsDialogState extends State<_WsDialog> {
                                       ],
                                     ),
                                   ),
-                                  if (_busy)
-                                    const LinearProgressIndicator(minHeight: 3),
+                                  OpenHandBusyProgressBar(busy: _busy),
                                   Expanded(
                                     child: ListView.builder(
                                       padding: const EdgeInsets.symmetric(

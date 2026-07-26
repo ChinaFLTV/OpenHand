@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -299,7 +300,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
               ],
             ),
           ),
-          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          OpenHandBusyProgressBar(busy: _busy),
           Expanded(
             child: _hits.isEmpty
                 ? Center(

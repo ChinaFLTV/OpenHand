@@ -21,6 +21,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';

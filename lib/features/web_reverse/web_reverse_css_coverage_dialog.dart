@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -220,7 +221,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           ),
           Divider(height: 1, color: cs.outlineVariant),
           _buildTrackingBar(theme, cs, loc),
-          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          OpenHandBusyProgressBar(busy: _busy),
           buildWebReverseStatusBar(context, status: _status),
           Expanded(
             child: _results.isEmpty

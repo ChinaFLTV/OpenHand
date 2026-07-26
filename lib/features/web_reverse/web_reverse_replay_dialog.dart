@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -220,11 +221,10 @@ class _ReplayDialogState extends State<_ReplayDialog> {
               ],
             ),
           ),
-          if (_busy)
-            LinearProgressIndicator(
-              value: _total == 0 ? 0 : _progress / _total,
-              minHeight: 3,
-            ),
+          OpenHandBusyProgressBar(
+            busy: _busy,
+            value: _total == 0 ? 0 : _progress / _total,
+          ),
           Expanded(
             child: entries.isEmpty
                 ? Center(

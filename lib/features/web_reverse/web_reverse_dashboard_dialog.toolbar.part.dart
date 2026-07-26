@@ -2165,60 +2165,57 @@ class _HarChangeRow extends StatelessWidget {
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-          title: Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: headerChips,
-          ),
-          subtitle: SelectableText(
-            '${c.a.method} ${c.a.url}',
-            maxLines: 1,
-            style: const TextStyle(
-              fontFamily: kOpenHandMonospaceFontFamily,
-              fontSize: 11,
-            ),
-          ),
-          children: [
-            // body 文本不同时走行级 unified diff（LCS-based），
-            // 两份都为空 / 同时只有一边有内容 → 退化到双列截断预览。
-            if (c.textChanged &&
-                c.a.bodyText.isNotEmpty &&
-                c.b.bodyText.isNotEmpty)
-              _UnifiedBodyDiff(
-                titleA: 'A · ${c.a.mimeType}',
-                titleB: 'B · ${c.b.mimeType}',
-                bodyA: c.a.bodyText,
-                bodyB: c.b.bodyText,
-                isZh: isZh,
-              )
-            else
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _BodyPreview(
-                      title: 'A · ${c.a.mimeType}',
-                      body: c.a.bodyText,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _BodyPreview(
-                      title: 'B · ${c.b.mimeType}',
-                      body: c.b.bodyText,
-                      accentChanged: c.textChanged,
-                    ),
-                  ),
-                ],
-              ),
-          ],
+      child: OpenHandExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        title: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: headerChips,
         ),
+        subtitle: SelectableText(
+          '${c.a.method} ${c.a.url}',
+          maxLines: 1,
+          style: const TextStyle(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontSize: 11,
+          ),
+        ),
+        children: [
+          // body 文本不同时走行级 unified diff（LCS-based），
+          // 两份都为空 / 同时只有一边有内容 → 退化到双列截断预览。
+          if (c.textChanged &&
+              c.a.bodyText.isNotEmpty &&
+              c.b.bodyText.isNotEmpty)
+            _UnifiedBodyDiff(
+              titleA: 'A · ${c.a.mimeType}',
+              titleB: 'B · ${c.b.mimeType}',
+              bodyA: c.a.bodyText,
+              bodyB: c.b.bodyText,
+              isZh: isZh,
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _BodyPreview(
+                    title: 'A · ${c.a.mimeType}',
+                    body: c.a.bodyText,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BodyPreview(
+                    title: 'B · ${c.b.mimeType}',
+                    body: c.b.bodyText,
+                    accentChanged: c.textChanged,
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

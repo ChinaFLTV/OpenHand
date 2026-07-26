@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
@@ -278,7 +279,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
               ),
             ),
           ),
-          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          OpenHandBusyProgressBar(busy: _busy),
           buildWebReverseStatusBar(context, status: _status),
           buildOpenHandDialogActionsBar(
             actions: [

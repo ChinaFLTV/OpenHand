@@ -1666,12 +1666,10 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.42)),
       ),
-      child: ExpansionTile(
+      child: OpenHandExpansionTile(
         initiallyExpanded: index == total,
         tilePadding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        shape: const RoundedRectangleBorder(),
-        collapsedShape: const RoundedRectangleBorder(),
         leading: Container(
           width: 30,
           height: 30,

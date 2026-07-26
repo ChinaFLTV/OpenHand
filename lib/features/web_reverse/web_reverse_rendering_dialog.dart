@@ -16,6 +16,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -423,15 +424,11 @@ class _RenderingDialogState extends State<_RenderingDialog> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
             child: Row(
               children: [
-                if (_busy)
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: cs.primary,
-                    ),
-                  ),
+                OpenHandBusyStatusIcon(
+                  busy: _busy,
+                  icon: null,
+                  color: cs.primary,
+                ),
                 const Spacer(),
                 OpenHandDialogActionButton.primary(
                   label: loc?.webReverseRenderingClose ?? 'Close',

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -732,7 +733,7 @@ class _StorageDialogState extends State<_StorageDialog>
               Tab(text: 'IndexedDB'),
             ],
           ),
-          if (_loading) const LinearProgressIndicator(minHeight: 3),
+          OpenHandBusyProgressBar(busy: _loading),
           Expanded(
             child: TabBarView(
               controller: _tab,

@@ -51,6 +51,7 @@ import '../../shared/net/http_response_utils.dart';
 import '../../shared/net/http_status_utils.dart';
 import '../../shared/ui/animated_appearance.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/animated_overlay.dart';
 import '../../shared/ui/appear_once.dart';

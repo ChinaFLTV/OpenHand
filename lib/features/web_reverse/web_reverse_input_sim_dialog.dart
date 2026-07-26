@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -468,7 +469,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
               children: [_mouseTab(), _keyTab(), _textTab()],
             ),
           ),
-          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          OpenHandBusyProgressBar(busy: _busy),
           buildWebReverseStatusBar(context, status: _status),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),

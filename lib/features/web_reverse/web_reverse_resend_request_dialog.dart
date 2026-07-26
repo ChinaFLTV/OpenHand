@@ -18,6 +18,7 @@ import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -1211,9 +1212,8 @@ print(resp.text[:2000])''';
             ],
           ),
           const SizedBox(height: 6),
-          ExpansionTile(
+          OpenHandExpansionTile(
             tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
             title: Text(
               loc?.webReverseResendRequestHeadersWithCount(r.headers.length) ??
                   'Headers (${r.headers.length})',

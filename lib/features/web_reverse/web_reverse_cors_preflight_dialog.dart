@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -371,11 +372,10 @@ class _CorsDialogState extends State<_CorsDialog> {
                     ),
                   ],
                 ),
-                if (_busy)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: LinearProgressIndicator(minHeight: 3),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: OpenHandBusyProgressBar(busy: _busy),
+                ),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),

@@ -246,23 +246,13 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
               children: [
                 Row(
                   children: [
-                    if (_running)
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: statusColor,
-                        ),
-                      )
-                    else
-                      Icon(
-                        _success
-                            ? Icons.check_circle_rounded
-                            : Icons.error_rounded,
-                        size: 18,
-                        color: statusColor,
-                      ),
+                    OpenHandBusyStatusIcon(
+                      busy: _running,
+                      icon: _success
+                          ? Icons.check_circle_rounded
+                          : Icons.error_rounded,
+                      color: statusColor,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

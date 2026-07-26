@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -378,7 +379,7 @@ class _SmDialogState extends State<_SmDialog> {
               ],
             ),
           ),
-          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          OpenHandBusyProgressBar(busy: _busy),
           Expanded(
             child: r == null
                 ? Center(

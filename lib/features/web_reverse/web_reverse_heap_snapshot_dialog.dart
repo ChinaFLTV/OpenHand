@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
@@ -139,14 +140,11 @@ class _HeapDialogState extends State<_HeapDialog> {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
             child: Row(
               children: [
-                if (_busy)
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  Icon(Icons.flash_on_rounded, color: cs.secondary),
+                OpenHandBusyStatusIcon(
+                  busy: _busy,
+                  icon: Icons.flash_on_rounded,
+                  color: cs.secondary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

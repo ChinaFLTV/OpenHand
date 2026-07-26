@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -533,17 +534,11 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
               children: [
                 Row(
                   children: [
-                    if (_running)
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: statusColor,
-                        ),
-                      )
-                    else
-                      Icon(statusIcon, size: 18, color: statusColor),
+                    OpenHandBusyStatusIcon(
+                      busy: _running,
+                      icon: statusIcon,
+                      color: statusColor,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       statusLabel,
