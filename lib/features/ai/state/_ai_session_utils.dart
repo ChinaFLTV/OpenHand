@@ -586,3 +586,17 @@ Map<String, Object?> _toolCallMessageMetadata(AiToolCall toolCall) {
     ],
   };
 }
+
+/// 把消息标记为隐藏，并记录隐藏来源。
+///
+/// 「隐藏」在落库上就是 isDeleted 叠加一个来源标记键。重新生成与响应变体两条
+/// 路径必须写成同一形态，否则恢复时认不出这条消息是被哪条路径隐藏的。
+AiSessionMessage _hiddenMessage(
+  AiSessionMessage message,
+  Map<String, Object?> hiddenMarkers,
+) {
+  return message.copyWith(
+    isDeleted: true,
+    metadata: <String, Object?>{...message.metadata, ...hiddenMarkers},
+  );
+}

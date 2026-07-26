@@ -3085,14 +3085,10 @@ class AiSessionController extends ChangeNotifier {
         }
         didChange = true;
         updatedMessages.add(
-          message.copyWith(
-            isDeleted: true,
-            metadata: <String, Object?>{
-              ...message.metadata,
-              _responseRegenerationHiddenMessageKey:
-                  regenerationHiddenMarker ?? true,
-            },
-          ),
+          _hiddenMessage(message, <String, Object?>{
+            _responseRegenerationHiddenMessageKey:
+                regenerationHiddenMarker ?? true,
+          }),
         );
         continue;
       }
@@ -3124,13 +3120,9 @@ class AiSessionController extends ChangeNotifier {
       }
       didChange = true;
       updatedMessages.add(
-        message.copyWith(
-          isDeleted: true,
-          metadata: <String, Object?>{
-            ...message.metadata,
-            _responseVariantHiddenMessageKey: true,
-          },
-        ),
+        _hiddenMessage(message, <String, Object?>{
+          _responseVariantHiddenMessageKey: true,
+        }),
       );
     }
     return didChange ? updatedMessages : messages;
@@ -3154,14 +3146,10 @@ class AiSessionController extends ChangeNotifier {
       }
       didChange = true;
       updatedMessages.add(
-        message.copyWith(
-          isDeleted: true,
-          metadata: <String, Object?>{
-            ...message.metadata,
-            _responseRegenerationHiddenMessageKey: marker,
-            _responseRegenerationFailedGeneratedMessageKey: true,
-          },
-        ),
+        _hiddenMessage(message, <String, Object?>{
+          _responseRegenerationHiddenMessageKey: marker,
+          _responseRegenerationFailedGeneratedMessageKey: true,
+        }),
       );
     }
     return didChange ? updatedMessages : messages;
@@ -3211,13 +3199,9 @@ class AiSessionController extends ChangeNotifier {
       }
       didChange = true;
       updatedMessages.add(
-        message.copyWith(
-          isDeleted: true,
-          metadata: <String, Object?>{
-            ...message.metadata,
-            _responseRegenerationHiddenMessageKey: marker,
-          },
-        ),
+        _hiddenMessage(message, <String, Object?>{
+          _responseRegenerationHiddenMessageKey: marker,
+        }),
       );
     }
     return didChange ? updatedMessages : messages;
