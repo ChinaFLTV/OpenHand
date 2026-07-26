@@ -399,3 +399,211 @@ _openHandInlineTextCatalog = <String, Map<String, String>>{
   'Key': <String, String>{'fr': 'Clé', 'de': 'Schlüssel', 'ja': 'キー'},
   'Value': <String, String>{'fr': 'Valeur', 'de': 'Wert', 'ja': '値'},
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 跨模块通用文案
+//
+// 下列标签原先在三个及以上的 feature 里各写了一份多语言字面量（合计逾百个
+// 调用点）：改一处措辞就得全库同步，漏改就是同一个动作在不同面板叫不同名字。
+// 收敛到这里后只剩一个改动点。
+// ─────────────────────────────────────────────────────────────────────────────
+
+String openHandAddLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '添加',
+    zhHant: '新增',
+    en: 'Add',
+    fr: 'Ajouter',
+    de: 'Hinzufügen',
+    ja: '追加',
+  );
+}
+
+String openHandBrowserLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '浏览器',
+    zhHant: '瀏覽器',
+    en: 'Browser',
+    fr: 'Navigateur',
+    de: 'Browser',
+    ja: 'ブラウザ',
+  );
+}
+
+String openHandClearLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '清空',
+    zhHant: '清空',
+    en: 'Clear',
+    fr: 'Effacer',
+    de: 'Leeren',
+    ja: 'クリア',
+  );
+}
+
+String openHandCopiedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已复制',
+    zhHant: '已複製',
+    en: 'Copied',
+    fr: 'Copié',
+    de: 'Kopiert',
+    ja: 'コピーしました',
+  );
+}
+
+String openHandCopyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '复制',
+    zhHant: '複製',
+    en: 'Copy',
+    fr: 'Copier',
+    de: 'Kopieren',
+    ja: 'コピー',
+  );
+}
+
+String openHandErrorLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '错误',
+    zhHant: '錯誤',
+    en: 'Error',
+    fr: 'Erreur',
+    de: 'Fehler',
+    ja: 'エラー',
+  );
+}
+
+String openHandFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '失败',
+    zhHant: '失敗',
+    en: 'Failed',
+    fr: 'Échec',
+    de: 'Fehlgeschlagen',
+    ja: '失敗',
+  );
+}
+
+String openHandInstallLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '安装',
+    zhHant: '安裝',
+    en: 'Install',
+    fr: 'Installer',
+    de: 'Installieren',
+    ja: 'インストール',
+  );
+}
+
+String openHandInstructionsLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '指令', en: 'Instructions');
+}
+
+String openHandKnowledgeBaseLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '知识库', en: 'Knowledge Base');
+}
+
+String openHandModelLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '模型', en: 'Model');
+}
+
+String openHandOutputLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '输出', en: 'Output');
+}
+
+String openHandPreviewLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '预览',
+    zhHant: '預覽',
+    en: 'Preview',
+    fr: 'Aperçu',
+    de: 'Vorschau',
+    ja: 'プレビュー',
+  );
+}
+
+String openHandRefreshLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '刷新',
+    zhHant: '重新整理',
+    en: 'Refresh',
+    fr: 'Actualiser',
+    de: 'Aktualisieren',
+    ja: '更新',
+  );
+}
+
+String openHandResetLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '重置', en: 'Reset');
+}
+
+String openHandRunningLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '运行中',
+    zhHant: '執行中',
+    en: 'Running',
+    fr: 'En cours',
+    de: 'Läuft',
+    ja: '実行中',
+  );
+}
+
+String openHandSaveFailedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '保存失败',
+    zhHant: '儲存失敗',
+    en: 'Save failed',
+    fr: 'Échec de l’enregistrement',
+    de: 'Speichern fehlgeschlagen',
+    ja: '保存に失敗しました',
+  );
+}
+
+String openHandStartLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '启动',
+    zhHant: '啟動',
+    en: 'Start',
+    fr: 'Démarrer',
+    de: 'Starten',
+    ja: '起動',
+  );
+}
+
+String openHandStatusLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '状态', en: 'Status');
+}
+
+String openHandStoppedLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '已停止',
+    zhHant: '已停止',
+    en: 'Stopped',
+    fr: 'Arrêté',
+    de: 'Gestoppt',
+    ja: '停止済み',
+  );
+}
+
+String openHandTemplateLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '模板', en: 'Template');
+}
+
+String openHandUpdatedLabel(BuildContext context) {
+  return openHandLocalizedText(context, zh: '更新时间', en: 'Updated');
+}

@@ -348,15 +348,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   }
 
   String _tabLabel(BuildContext context, _Tab t) => switch (t) {
-    _Tab.browser => openHandLocalizedText(
-      context,
-      zh: '浏览器',
-      zhHant: '瀏覽器',
-      en: 'Browser',
-      fr: 'Navigateur',
-      de: 'Browser',
-      ja: 'ブラウザ',
-    ),
+    _Tab.browser => openHandBrowserLabel(context),
     _Tab.overview => openHandLocalizedText(
       context,
       zh: '概览',

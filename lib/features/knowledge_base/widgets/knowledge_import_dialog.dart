@@ -628,15 +628,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                     label: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '添加',
-                          zhHant: '新增',
-                          en: 'Add',
-                          fr: 'Ajouter',
-                          de: 'Hinzufügen',
-                          ja: '追加',
-                        ),
+                        openHandAddLabel(context),
                         maxLines: 1,
                         softWrap: false,
                       ),

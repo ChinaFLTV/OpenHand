@@ -3427,7 +3427,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               ),
               const SizedBox(width: 8),
               _buildToolPill(
-                label: openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                label: openHandResetLabel(context),
                 icon: Icons.center_focus_strong_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,

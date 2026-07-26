@@ -7905,11 +7905,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'Hooks',
       ),
       AppSection.crons => 'Crons',
-      AppSection.instructions => openHandLocalizedText(
-        context,
-        zh: '指令',
-        en: 'Instructions',
-      ),
+      AppSection.instructions => openHandInstructionsLabel(context),
       AppSection.messageGateway => openHandLocalizedText(
         context,
         zh: '消息网关',
@@ -7920,11 +7916,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '插件',
         en: 'Plugins',
       ),
-      AppSection.knowledgeBase => openHandLocalizedText(
-        context,
-        zh: '知识库',
-        en: 'Knowledge Base',
-      ),
+      AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
       AppSection.agents => openHandLocalizedText(
         context,
         zh: '智能体',

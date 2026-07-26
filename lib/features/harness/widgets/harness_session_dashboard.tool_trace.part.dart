@@ -777,27 +777,11 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                           logTag: 'harness',
                           context: context,
                           text: normalized,
-                          successMessage: openHandLocalizedText(
-                            context,
-                            zh: '已复制',
-                            zhHant: '已複製',
-                            en: 'Copied',
-                            fr: 'Copié',
-                            de: 'Kopiert',
-                            ja: 'コピーしました',
-                          ),
+                          successMessage: openHandCopiedLabel(context),
                           logAction: '复制工具追踪值',
                         );
                       },
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '复制',
-                  zhHant: '複製',
-                  en: 'Copy',
-                  fr: 'Copier',
-                  de: 'Kopieren',
-                  ja: 'コピー',
-                ),
+                tooltip: openHandCopyLabel(context),
                 icon: const Icon(Icons.content_copy_rounded, size: 16),
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
@@ -1203,15 +1187,7 @@ String _heToolActionLabel({
               ja: '呼び出し完了',
             );
     case 'cancelled':
-      return openHandLocalizedText(
-        context,
-        zh: '已停止',
-        zhHant: '已停止',
-        en: 'Stopped',
-        fr: 'Arrêté',
-        de: 'Gestoppt',
-        ja: '停止済み',
-      );
+      return openHandStoppedLabel(context);
     case 'denied':
       return openHandLocalizedText(
         context,
@@ -1301,15 +1277,7 @@ String _heToolOutcomeLabel({
 }) {
   switch (status) {
     case 'running':
-      return openHandLocalizedText(
-        context,
-        zh: '运行中',
-        zhHant: '執行中',
-        en: 'Running',
-        fr: 'En cours',
-        de: 'Läuft',
-        ja: '実行中',
-      );
+      return openHandRunningLabel(context);
     case 'success':
       return openHandLocalizedText(
         context,
@@ -1321,15 +1289,7 @@ String _heToolOutcomeLabel({
         ja: '成功',
       );
     case 'cancelled':
-      return openHandLocalizedText(
-        context,
-        zh: '已停止',
-        zhHant: '已停止',
-        en: 'Stopped',
-        fr: 'Arrêté',
-        de: 'Gestoppt',
-        ja: '停止済み',
-      );
+      return openHandStoppedLabel(context);
     case 'denied':
       return openHandLocalizedText(
         context,

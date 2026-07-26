@@ -1856,15 +1856,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     await copyWebReverseTextToClipboard(
                       context: context,
                       text: source,
-                      successBase: openHandLocalizedText(
-                        context,
-                        zh: '已复制',
-                        zhHant: '已複製',
-                        en: 'Copied',
-                        fr: 'Copié',
-                        de: 'Kopiert',
-                        ja: 'コピーしました',
-                      ),
+                      successBase: openHandCopiedLabel(context),
                       logTag: 'web_reverse_sources_panel',
                       logAction: '复制源代码',
                       successDuration: const Duration(seconds: 1),

@@ -2258,15 +2258,7 @@ Future<void> _toggleMitmproxyBridge(
       ja: 'mitmdump -p 8080 で起動します。起動後、対象クライアントのプロキシを 127.0.0.1:8080 に向けてください。\n\n初回は http://mitm.it で CA を信頼してください。\n\n取得した通信は Network リストに mitmproxy リソースとして表示されます。',
     ),
     cancelLabel: openHandCancelLabel(context),
-    confirmLabel: openHandLocalizedText(
-      context,
-      zh: '启动',
-      zhHant: '啟動',
-      en: 'Start',
-      fr: 'Démarrer',
-      de: 'Starten',
-      ja: '起動',
-    ),
+    confirmLabel: openHandStartLabel(context),
   );
   if (go != true || !context.mounted) return;
   final r = await ctrl.startMitmproxyBridge();

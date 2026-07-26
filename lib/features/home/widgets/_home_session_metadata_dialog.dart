@@ -2079,7 +2079,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
               ),
               _MetadataChip(
                 label:
-                    '${openHandLocalizedText(context, zh: '输出', en: 'Output')} $outputCharacters ${openHandLocalizedText(context, zh: '字符', en: 'chars')}',
+                    '${openHandOutputLabel(context)} $outputCharacters ${openHandLocalizedText(context, zh: '字符', en: 'chars')}',
               ),
             ],
           ),

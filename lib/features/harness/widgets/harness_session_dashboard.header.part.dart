@@ -565,15 +565,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Abgeschlossen',
           ja: '完了',
         ),
-        HarnessOrchestratorStatus.failed => openHandLocalizedText(
-          context,
-          zh: '失败',
-          zhHant: '失敗',
-          en: 'Failed',
-          fr: 'Échec',
-          de: 'Fehlgeschlagen',
-          ja: '失敗',
-        ),
+        HarnessOrchestratorStatus.failed => openHandFailedLabel(context),
         HarnessOrchestratorStatus.cancelled => openHandLocalizedText(
           context,
           zh: '已中止',
@@ -1077,15 +1069,7 @@ String harnessPhaseStatusLabel(BuildContext context, HarnessPhaseStatus s) =>
         de: 'Abgeschlossen',
         ja: '完了',
       ),
-      HarnessPhaseStatus.failed => openHandLocalizedText(
-        context,
-        zh: '失败',
-        zhHant: '失敗',
-        en: 'Failed',
-        fr: 'Échec',
-        de: 'Fehlgeschlagen',
-        ja: '失敗',
-      ),
+      HarnessPhaseStatus.failed => openHandFailedLabel(context),
       HarnessPhaseStatus.cancelled => openHandLocalizedText(
         context,
         zh: '已中止',

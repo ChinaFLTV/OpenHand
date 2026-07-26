@@ -298,15 +298,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           de: 'Header',
           ja: 'ヘッダー',
         ),
-        _DetailTab.preview => openHandLocalizedText(
-          context,
-          zh: '预览',
-          zhHant: '預覽',
-          en: 'Preview',
-          fr: 'Aperçu',
-          de: 'Vorschau',
-          ja: 'プレビュー',
-        ),
+        _DetailTab.preview => openHandPreviewLabel(context),
         _DetailTab.response => openHandLocalizedText(
           context,
           zh: '响应',

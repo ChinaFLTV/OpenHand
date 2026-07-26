@@ -1547,15 +1547,7 @@ class _UsageEventCard extends StatelessWidget {
             ),
           if (event.errorSummary.isNotEmpty)
             _EventSummaryLine(
-              label: openHandLocalizedText(
-                context,
-                zh: '错误',
-                zhHant: '錯誤',
-                en: 'Error',
-                fr: 'Erreur',
-                de: 'Fehler',
-                ja: 'エラー',
-              ),
+              label: openHandErrorLabel(context),
               value: event.errorSummary,
               error: true,
             )

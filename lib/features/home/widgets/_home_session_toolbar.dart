@@ -1840,7 +1840,7 @@ class _GoalRecordSection extends StatelessWidget {
               _formatGoalDateTime(context, goal.createdAt),
             ),
             _GoalKeyValue(
-              openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
+              openHandUpdatedLabel(context),
               _formatGoalDateTime(context, goal.updatedAt),
             ),
             if (goal.completedAt != null)
@@ -2064,7 +2064,7 @@ class _GoalEnvironmentSection extends StatelessWidget {
           session.id,
         ),
         _GoalKeyValue(
-          openHandLocalizedText(context, zh: '模板', en: 'Template'),
+          openHandTemplateLabel(context),
           session.templateName,
         ),
         _GoalKeyValue(

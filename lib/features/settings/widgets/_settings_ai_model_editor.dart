@@ -4612,15 +4612,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               onPressed: () => onChanged(<String>{}),
               icon: const Icon(Icons.clear_all_rounded, size: 16),
               label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '清空',
-                  zhHant: '清空',
-                  en: 'Clear',
-                  fr: 'Effacer',
-                  de: 'Leeren',
-                  ja: 'クリア',
-                ),
+                openHandClearLabel(context),
               ),
             ),
           ],

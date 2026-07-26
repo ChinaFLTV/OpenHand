@@ -70,15 +70,7 @@ Future<WebReverseClipboardCopyResult?> copyWebReverseTextToClipboard({
       context: context,
       base:
           successBase ??
-          openHandLocalizedText(
-            context,
-            zh: '已复制',
-            zhHant: '已複製',
-            en: 'Copied',
-            fr: 'Copié',
-            de: 'Kopiert',
-            ja: 'コピーしました',
-          ),
+          openHandCopiedLabel(context),
       result: copied,
       duration: successDuration,
     );

@@ -1591,7 +1591,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
             ),
             _AiUsageLegendDot(
               color: theme.colorScheme.tertiary,
-              label: openHandLocalizedText(context, zh: '输出', en: 'Output'),
+              label: openHandOutputLabel(context),
             ),
             _AiUsageLegendDot(
               color: OpenHandStatusColors.success,
@@ -1728,7 +1728,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                         Text('Token  ${_usageInteger(bucket.totalTokens)}'),
                         Text(
                           '${openHandLocalizedText(context, zh: '输入', en: 'Input')}  ${_usageInteger(bucket.promptTokens)}  ·  '
-                          '${openHandLocalizedText(context, zh: '输出', en: 'Output')}  ${_usageInteger(bucket.completionTokens)}',
+                          '${openHandOutputLabel(context)}  ${_usageInteger(bucket.completionTokens)}',
                         ),
                         Text(
                           '${openHandLocalizedText(context, zh: '成本', en: 'Cost')}  ${bucket.pricedRequestCount == 0
@@ -2239,9 +2239,9 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
     final options = <(String, String)>[
       ('source', openHandLocalizedText(context, zh: '来源', en: 'Source')),
       ('provider', openHandLocalizedText(context, zh: '供应商', en: 'Provider')),
-      ('model', openHandLocalizedText(context, zh: '模型', en: 'Model')),
+      ('model', openHandModelLabel(context)),
       ('surface', openHandLocalizedText(context, zh: '端侧', en: 'Surface')),
-      ('template', openHandLocalizedText(context, zh: '模板', en: 'Template')),
+      ('template', openHandTemplateLabel(context)),
       ('operation', openHandLocalizedText(context, zh: '操作', en: 'Operation')),
     ];
     final items = switch (_dimension) {
@@ -2821,7 +2821,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                 flex: 20,
                 child: header
                     ? value(
-                        openHandLocalizedText(context, zh: '模型', en: 'Model'),
+                        openHandModelLabel(context),
                       )
                     : details(record!.modelId, record.providerName),
               ),
@@ -2919,12 +2919,12 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                 alignment: Alignment.center,
                 child: header
                     ? value(
-                        openHandLocalizedText(context, zh: '状态', en: 'Status'),
+                        openHandStatusLabel(context),
                         align: TextAlign.center,
                       )
                     : Tooltip(
                         message:
-                            '${openHandLocalizedText(context, zh: '状态', en: 'Status')}: ${_usageRequestStatusLabel(context, record!.status)}'
+                            '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record!.status)}'
                             '${record.errorType == null ? '' : '\n${openHandLocalizedText(context, zh: '错误', en: 'Error')}: ${record.errorType}'}'
                             '\n$traceLabel: ${record.traceId}',
                         child: Container(
@@ -2999,7 +2999,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
     );
     final requestRows = <({String label, String value})>[
       (
-        label: openHandLocalizedText(context, zh: '模型', en: 'Model'),
+        label: openHandModelLabel(context),
         value: record.modelId,
       ),
       (
@@ -3550,11 +3550,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                   const SizedBox(height: 22),
                   _buildFacet(
                     context,
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '模型',
-                      en: 'Model',
-                    ),
+                    title: openHandModelLabel(context),
                     facets: widget.modelFacets,
                     selected: _filter.modelId,
                     onSelected: (value) => setState(
@@ -3597,7 +3593,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                     () => _filter = AiUsageFilter(range: _filter.range),
                   ),
                   icon: Icons.restart_alt_rounded,
-                  label: openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                  label: openHandResetLabel(context),
                 ),
                 OpenHandDialogActionButton.primary(
                   onPressed: () => Navigator.of(context).pop(_filter),
@@ -3872,11 +3868,7 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '线程会话',
       en: 'Thread',
     ),
-    AiUsageSource.knowledgeBase => openHandLocalizedText(
-      context,
-      zh: '知识库',
-      en: 'Knowledge Base',
-    ),
+    AiUsageSource.knowledgeBase => openHandKnowledgeBaseLabel(context),
     AiUsageSource.harness => 'Harness Engineering',
     AiUsageSource.translation => openHandLocalizedText(
       context,
@@ -4020,8 +4012,8 @@ IconData _usageDimensionIcon(String dimension) {
 String _usageBreakdownDimensionLabel(BuildContext context, String dimension) {
   return switch (dimension) {
     'provider' => openHandLocalizedText(context, zh: '供应商', en: 'Provider'),
-    'model' => openHandLocalizedText(context, zh: '模型', en: 'Model'),
-    'template' => openHandLocalizedText(context, zh: '模板', en: 'Template'),
+    'model' => openHandModelLabel(context),
+    'template' => openHandTemplateLabel(context),
     'surface' => openHandLocalizedText(context, zh: '端侧', en: 'Surface'),
     'operation' => openHandLocalizedText(context, zh: '操作', en: 'Operation'),
     _ => openHandLocalizedText(context, zh: '来源', en: 'Source'),

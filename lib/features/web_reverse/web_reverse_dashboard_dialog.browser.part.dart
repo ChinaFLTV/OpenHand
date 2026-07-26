@@ -1420,15 +1420,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         PopupMenuItem(
           value: 'copy',
           child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '复制',
-              zhHant: '複製',
-              en: 'Copy',
-              fr: 'Copier',
-              de: 'Kopieren',
-              ja: 'コピー',
-            ),
+            openHandCopyLabel(context),
           ),
         ),
         PopupMenuItem(

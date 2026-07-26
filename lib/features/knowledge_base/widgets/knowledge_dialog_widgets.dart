@@ -908,15 +908,7 @@ String knowledgeChunkIdLabel(BuildContext context) {
 }
 
 String knowledgeRefreshLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '刷新',
-    zhHant: '重新整理',
-    en: 'Refresh',
-    fr: 'Actualiser',
-    de: 'Aktualisieren',
-    ja: '更新',
-  );
+  return openHandRefreshLabel(context);
 }
 
 String knowledgeRecallScoreLabel(BuildContext context) {
@@ -980,27 +972,11 @@ String knowledgeCopyPathLabel(BuildContext context) {
 }
 
 String knowledgeFailedLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '失败',
-    zhHant: '失敗',
-    en: 'Failed',
-    fr: 'Échec',
-    de: 'Fehlgeschlagen',
-    ja: '失敗',
-  );
+  return openHandFailedLabel(context);
 }
 
 String knowledgeStoppedLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '已停止',
-    zhHant: '已停止',
-    en: 'Stopped',
-    fr: 'Arrêté',
-    de: 'Gestoppt',
-    ja: '停止済み',
-  );
+  return openHandStoppedLabel(context);
 }
 
 String knowledgeChunkIdCopiedMessage(BuildContext context) {
@@ -1196,15 +1172,7 @@ String knowledgeRerankScoreLabel(BuildContext context) {
 }
 
 String knowledgeErrorLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '错误',
-    zhHant: '錯誤',
-    en: 'Error',
-    fr: 'Erreur',
-    de: 'Fehler',
-    ja: 'エラー',
-  );
+  return openHandErrorLabel(context);
 }
 
 String knowledgeEstimatedTokensLabel(BuildContext context) {
@@ -1220,13 +1188,5 @@ String knowledgeEstimatedTokensLabel(BuildContext context) {
 }
 
 String knowledgePreviewLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '预览',
-    zhHant: '預覽',
-    en: 'Preview',
-    fr: 'Aperçu',
-    de: 'Vorschau',
-    ja: 'プレビュー',
-  );
+  return openHandPreviewLabel(context);
 }

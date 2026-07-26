@@ -2053,7 +2053,7 @@ class _CdpMcpBridgeHeaderStatus {
       if (runtimeStatus.warningMessage.isNotEmpty)
         '${openHandLocalizedText(context, zh: '提示', zhHant: '提示', en: 'Warning', fr: 'Avertissement', de: 'Warnung', ja: '警告')}: ${runtimeStatus.warningMessage}',
       if (runtimeStatus.errorMessage.isNotEmpty)
-        '${openHandLocalizedText(context, zh: '错误', zhHant: '錯誤', en: 'Error', fr: 'Erreur', de: 'Fehler', ja: 'エラー')}: ${runtimeStatus.errorMessage}',
+        '${openHandErrorLabel(context)}: ${runtimeStatus.errorMessage}',
     ];
     return _CdpMcpBridgeHeaderStatus(
       tone: tone,
@@ -2444,26 +2444,10 @@ class _OverviewBodyState extends State<_OverviewBody> {
                 de: 'Aktiv',
                 ja: '実行中',
               )
-            : openHandLocalizedText(
-                context,
-                zh: '已停止',
-                zhHant: '已停止',
-                en: 'Stopped',
-                fr: 'Arrêté',
-                de: 'Gestoppt',
-                ja: '停止済み',
-              ),
+            : openHandStoppedLabel(context),
       ),
       (
-        openHandLocalizedText(
-          context,
-          zh: '浏览器',
-          zhHant: '瀏覽器',
-          en: 'Browser',
-          fr: 'Navigateur',
-          de: 'Browser',
-          ja: 'ブラウザ',
-        ),
+        openHandBrowserLabel(context),
         ctrl.browserVersion ?? '-',
       ),
       (

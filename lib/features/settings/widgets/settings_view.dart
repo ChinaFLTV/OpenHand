@@ -716,7 +716,7 @@ List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
                     vertical: 2,
                   ),
                   child: Text(
-                    openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                    openHandResetLabel(context),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.primary,
                       decoration: TextDecoration.underline,

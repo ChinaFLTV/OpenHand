@@ -254,15 +254,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
     final (Color fg, String label) = switch (status) {
       HarnessOrchestratorStatus.running => (
         isSelected ? colorScheme.onPrimaryContainer : colorScheme.primary,
-        openHandLocalizedText(
-          context,
-          zh: '运行中',
-          zhHant: '執行中',
-          en: 'Running',
-          fr: 'En cours',
-          de: 'Läuft',
-          ja: '実行中',
-        ),
+        openHandRunningLabel(context),
       ),
       HarnessOrchestratorStatus.completed => (
         const Color(0xFF5F7C53),
@@ -278,15 +270,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
       ),
       HarnessOrchestratorStatus.failed => (
         const Color(0xFFC84B4B),
-        openHandLocalizedText(
-          context,
-          zh: '失败',
-          zhHant: '失敗',
-          en: 'Failed',
-          fr: 'Échec',
-          de: 'Fehlgeschlagen',
-          ja: '失敗',
-        ),
+        openHandFailedLabel(context),
       ),
       HarnessOrchestratorStatus.cancelled => (
         const Color(0xFFD97A33),

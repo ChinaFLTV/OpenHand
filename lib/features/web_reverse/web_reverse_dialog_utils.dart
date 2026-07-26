@@ -63,15 +63,7 @@ String webReverseSavedToFileMessage(BuildContext context, String path) {
 
 /// 「保存失败」的统一文案。
 String webReverseSaveFailedMessage(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '保存失败',
-    zhHant: '儲存失敗',
-    en: 'Save failed',
-    fr: 'Échec de l’enregistrement',
-    de: 'Speichern fehlgeschlagen',
-    ja: '保存に失敗しました',
-  );
+  return openHandSaveFailedLabel(context);
 }
 
 Future<void> confirmWebReverseDiscardChanges({

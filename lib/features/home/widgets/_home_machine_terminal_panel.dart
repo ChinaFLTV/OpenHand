@@ -716,7 +716,7 @@ class _MachineTerminalHistoryDialogState
           ),
           _historyCell(
             context,
-            openHandLocalizedText(context, zh: '状态', en: 'Status'),
+            openHandStatusLabel(context),
             width: columns.status,
             header: true,
           ),
@@ -735,7 +735,7 @@ class _MachineTerminalHistoryDialogState
           ),
           _historyCell(
             context,
-            openHandLocalizedText(context, zh: '输出', en: 'Output'),
+            openHandOutputLabel(context),
             width: columns.output,
             header: true,
           ),
@@ -747,7 +747,7 @@ class _MachineTerminalHistoryDialogState
           ),
           _historyCell(
             context,
-            openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
+            openHandUpdatedLabel(context),
             width: columns.updated,
             header: true,
           ),

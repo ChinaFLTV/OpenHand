@@ -2322,15 +2322,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                                 de: 'Aus',
                                 ja: 'オフ',
                               )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '已停止',
-                                zhHant: '已停止',
-                                en: 'Stopped',
-                                fr: 'Arrêté',
-                                de: 'Gestoppt',
-                                ja: '停止済み',
-                              )),
+                            : openHandStoppedLabel(context)),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: isSampling ? cs.primary : cs.onSurface,
@@ -2923,15 +2915,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                   ),
                 ),
               IconButton(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '刷新',
-                  zhHant: '重新整理',
-                  en: 'Refresh',
-                  fr: 'Actualiser',
-                  de: 'Aktualisieren',
-                  ja: '更新',
-                ),
+                tooltip: openHandRefreshLabel(context),
                 onPressed: _loading ? null : _refresh,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
               ),
@@ -3066,15 +3050,7 @@ class _CookiesTableState extends State<_CookiesTable> {
         ja: '現在のブラウザーセッションのすべての cookie を消去します。元に戻せません。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '清空',
-        zhHant: '清空',
-        en: 'Clear',
-        fr: 'Effacer',
-        de: 'Leeren',
-        ja: 'クリア',
-      ),
+      confirmLabel: openHandClearLabel(context),
       destructive: true,
     );
     if (!ok || !mounted) return;
@@ -3495,15 +3471,7 @@ class _StorageTableState extends State<_StorageTable> {
         ja: '${widget.rows.length} 件のエントリを削除します。元に戻せません。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '清空',
-        zhHant: '清空',
-        en: 'Clear',
-        fr: 'Effacer',
-        de: 'Leeren',
-        ja: 'クリア',
-      ),
+      confirmLabel: openHandClearLabel(context),
       destructive: true,
     );
     if (!ok || !mounted) return;
@@ -5252,15 +5220,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 de: 'Assert: Element sichtbar',
                 ja: 'アサート: 要素が表示される',
               ),
-        submitLabel: openHandLocalizedText(
-          context,
-          zh: '添加',
-          zhHant: '新增',
-          en: 'Add',
-          fr: 'Ajouter',
-          de: 'Hinzufügen',
-          ja: '追加',
-        ),
+        submitLabel: openHandAddLabel(context),
         cancelLabel: openHandCancelLabel(context),
         maxWidth: 420,
         onSubmit: (_) => true,
@@ -5531,15 +5491,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '清空',
-                  zhHant: '清空',
-                  en: 'Clear',
-                  fr: 'Effacer',
-                  de: 'Leeren',
-                  ja: 'クリア',
-                ),
+                tooltip: openHandClearLabel(context),
                 onPressed: (steps.isEmpty || ctrl.isRecording)
                     ? null
                     : ctrl.clearRecorderSteps,

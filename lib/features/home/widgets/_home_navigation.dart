@@ -719,22 +719,14 @@ String _navigationDestinationLabel(BuildContext context, AppSection section) {
       en: 'Hooks',
     ),
     AppSection.crons => 'Crons',
-    AppSection.instructions => openHandLocalizedText(
-      context,
-      zh: '指令',
-      en: 'Instructions',
-    ),
+    AppSection.instructions => openHandInstructionsLabel(context),
     AppSection.messageGateway => l10n.settingsMessageGatewayTitle,
     AppSection.pluginService => openHandLocalizedText(
       context,
       zh: '插件',
       en: 'Plugins',
     ),
-    AppSection.knowledgeBase => openHandLocalizedText(
-      context,
-      zh: '知识库',
-      en: 'Knowledge Base',
-    ),
+    AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
     AppSection.agents => openHandLocalizedText(
       context,
       zh: '智能体',

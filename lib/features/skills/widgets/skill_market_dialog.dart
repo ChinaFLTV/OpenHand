@@ -666,15 +666,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                   de: 'Installiert',
                   ja: 'インストール済み',
                 )
-              : openHandLocalizedText(
-                  context,
-                  zh: '安装',
-                  zhHant: '安裝',
-                  en: 'Install',
-                  fr: 'Installer',
-                  de: 'Installieren',
-                  ja: 'インストール',
-                ),
+              : openHandInstallLabel(context),
         ),
       ],
     );

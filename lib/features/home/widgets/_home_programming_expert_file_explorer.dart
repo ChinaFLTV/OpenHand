@@ -14781,15 +14781,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   ) {
     final accent = _diagnosticColor(colorScheme, diagnostic);
     final severityLabel = diagnostic.isError
-        ? openHandLocalizedText(
-            context,
-            zh: '错误',
-            zhHant: '錯誤',
-            en: 'Error',
-            fr: 'Erreur',
-            de: 'Fehler',
-            ja: 'エラー',
-          )
+        ? openHandErrorLabel(context)
         : diagnostic.isWarning
         ? openHandLocalizedText(
             context,

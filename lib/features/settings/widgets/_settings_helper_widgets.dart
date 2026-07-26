@@ -2357,7 +2357,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   onChanged: (value) => _updateExtra('resource_id', value),
                 ),
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(context, zh: '模型', en: 'Model'),
+                  label: openHandModelLabel(context),
                   value:
                       '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
                   options: catalog.modelOptions,
@@ -2383,7 +2383,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
-                  label: openHandLocalizedText(context, zh: '模型', en: 'Model'),
+                  label: openHandModelLabel(context),
                   value:
                       '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}',
                   options: catalog.modelOptions,

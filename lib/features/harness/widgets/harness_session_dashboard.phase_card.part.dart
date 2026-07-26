@@ -487,15 +487,7 @@ class _HePhaseActionBar extends StatelessWidget {
           style: buttonStyle,
           icon: const Icon(Icons.content_copy_outlined, size: 16),
           label: Text(
-            openHandLocalizedText(
-              context,
-              zh: '复制',
-              zhHant: '複製',
-              en: 'Copy',
-              fr: 'Copier',
-              de: 'Kopieren',
-              ja: 'コピー',
-            ),
+            openHandCopyLabel(context),
           ),
         ),
         OutlinedButton.icon(

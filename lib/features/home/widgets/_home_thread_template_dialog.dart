@@ -584,15 +584,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         value: config.objective,
       ),
       OpenHandMetadataEntryRow(
-        label: openHandLocalizedText(
-          context,
-          zh: '浏览器',
-          zhHant: '瀏覽器',
-          en: 'Browser',
-          fr: 'Navigateur',
-          de: 'Browser',
-          ja: 'ブラウザ',
-        ),
+        label: openHandBrowserLabel(context),
         value: config.browserKind.displayName,
       ),
       OpenHandMetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
@@ -739,7 +731,7 @@ String _localizedMetadataField(BuildContext context, String field) {
       zh: '会话 ID',
       en: 'Session ID',
     ),
-    'template' => openHandLocalizedText(context, zh: '模板', en: 'Template'),
+    'template' => openHandTemplateLabel(context),
     'created_at' => openHandLocalizedText(
       context,
       zh: '创建时间',

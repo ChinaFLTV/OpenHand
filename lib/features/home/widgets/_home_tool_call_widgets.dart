@@ -1396,15 +1396,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                                 de: 'Kopiert',
                                 ja: 'コピー済み',
                               )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '复制',
-                                zhHant: '複製',
-                                en: 'Copy',
-                                fr: 'Copier',
-                                de: 'Kopieren',
-                                ja: 'コピー',
-                              ),
+                            : openHandCopyLabel(context),
                         icon: _copied
                             ? Icons.check_rounded
                             : Icons.content_copy_rounded,

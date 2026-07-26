@@ -988,15 +988,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                                       de: 'Kopiert',
                                       ja: 'コピー済み',
                                     )
-                                  : openHandLocalizedText(
-                                      context,
-                                      zh: '复制',
-                                      zhHant: '複製',
-                                      en: 'Copy',
-                                      fr: 'Copier',
-                                      de: 'Kopieren',
-                                      ja: 'コピー',
-                                    ),
+                                  : openHandCopyLabel(context),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,

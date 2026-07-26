@@ -648,15 +648,7 @@ class _HeSteeringFileEditorDialogState
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
-        fallback: openHandLocalizedText(
-          context,
-          zh: '保存失败',
-          zhHant: '儲存失敗',
-          en: 'Save failed',
-          fr: 'Échec de l’enregistrement',
-          de: 'Speichern fehlgeschlagen',
-          ja: '保存に失敗しました',
-        ),
+        fallback: openHandSaveFailedLabel(context),
       );
     }
   }
@@ -1360,15 +1352,7 @@ class _HeSteeringFileEditorDialogState
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             color: colorScheme.surfaceContainerHigh,
             child: Text(
-              openHandLocalizedText(
-                context,
-                zh: '预览',
-                zhHant: '預覽',
-                en: 'Preview',
-                fr: 'Aperçu',
-                de: 'Vorschau',
-                ja: 'プレビュー',
-              ),
+              openHandPreviewLabel(context),
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: colorScheme.onSurfaceVariant,

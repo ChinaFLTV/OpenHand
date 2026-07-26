@@ -1522,15 +1522,7 @@ class _AndroidReverseDashboardDialogState
         ja: '現在のパネルログを消去し、デバイスの Logcat バッファーもクリアします。自動更新が有効な場合は新しいログを読み続けます。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '清空',
-        zhHant: '清空',
-        en: 'Clear',
-        fr: 'Effacer',
-        de: 'Leeren',
-        ja: 'クリア',
-      ),
+      confirmLabel: openHandClearLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -1680,15 +1672,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Warnung',
         ja: '警告',
       ),
-      'E' => openHandLocalizedText(
-        context,
-        zh: '错误',
-        zhHant: '錯誤',
-        en: 'Error',
-        fr: 'Erreur',
-        de: 'Fehler',
-        ja: 'エラー',
-      ),
+      'E' => openHandErrorLabel(context),
       'F' => openHandLocalizedText(
         context,
         zh: '致命',
@@ -2485,15 +2469,7 @@ fi
         ja: '既存の /data/local/tmp/frida-server の起動と 27042 ポート転送のみ試行します。バイナリの自動ダウンロードや push は行いません。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '启动',
-        zhHant: '啟動',
-        en: 'Start',
-        fr: 'Démarrer',
-        de: 'Starten',
-        ja: '起動',
-      ),
+      confirmLabel: openHandStartLabel(context),
     );
     if (!confirmed || !mounted || _runningFridaAction) return;
     final target = _captureAndroidTargetContext();
@@ -2981,15 +2957,7 @@ fi
         ja: 'adb root/remount を実行し、mitmproxy CA をシステム証明書ストアへ書き込みます。root/Magisk のテストデバイスでのみ使用してください。',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(
-        context,
-        zh: '安装',
-        zhHant: '安裝',
-        en: 'Install',
-        fr: 'Installer',
-        de: 'Installieren',
-        ja: 'インストール',
-      ),
+      confirmLabel: openHandInstallLabel(context),
       destructive: true,
     );
     if (!confirmed ||
@@ -3397,15 +3365,7 @@ fi
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '刷新',
-              zhHant: '重新整理',
-              en: 'Refresh',
-              fr: 'Actualiser',
-              de: 'Aktualisieren',
-              ja: '更新',
-            ),
+            tooltip: openHandRefreshLabel(context),
             onPressed: _refreshAll,
             iconSize: 20,
           ),
@@ -3578,15 +3538,7 @@ fi
                     _refreshAll();
                   },
                   icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '刷新',
-                    zhHant: '重新整理',
-                    en: 'Refresh',
-                    fr: 'Actualiser',
-                    de: 'Aktualisieren',
-                    ja: '更新',
-                  ),
+                  label: openHandRefreshLabel(context),
                 ),
               ),
             ],
@@ -4283,15 +4235,7 @@ fi
                       ? null
                       : _addForward,
                   icon: const Icon(Icons.add_rounded),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '添加',
-                    zhHant: '新增',
-                    en: 'Add',
-                    fr: 'Ajouter',
-                    de: 'Hinzufügen',
-                    ja: '追加',
-                  ),
+                  label: openHandAddLabel(context),
                 ),
               ),
             ],
@@ -4451,15 +4395,7 @@ fi
                       ? null
                       : _addReverse,
                   icon: const Icon(Icons.add_link_rounded),
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '添加',
-                    zhHant: '新增',
-                    en: 'Add',
-                    fr: 'Ajouter',
-                    de: 'Hinzufügen',
-                    ja: '追加',
-                  ),
+                  label: openHandAddLabel(context),
                 ),
               ),
             ],
@@ -4566,15 +4502,7 @@ fi
               ja: 'ローカル APK パス',
             ),
             icon: Icons.install_mobile_rounded,
-            label: openHandLocalizedText(
-              context,
-              zh: '安装',
-              zhHant: '安裝',
-              en: 'Install',
-              fr: 'Installer',
-              de: 'Installieren',
-              ja: 'インストール',
-            ),
+            label: openHandInstallLabel(context),
             onPressed: serial == null || _runningDeviceAction
                 ? null
                 : _installApkFromPanel,
@@ -4795,15 +4723,7 @@ fi
                             de: 'Leert den Logcat-Puffer des aktuellen Geräts.',
                             ja: '現在のデバイスの Logcat バッファーをクリアします。',
                           ),
-                          confirmLabel: openHandLocalizedText(
-                            context,
-                            zh: '清空',
-                            zhHant: '清空',
-                            en: 'Clear',
-                            fr: 'Effacer',
-                            de: 'Leeren',
-                            ja: 'クリア',
-                          ),
+                          confirmLabel: openHandClearLabel(context),
                         );
                         if (!confirmed) return;
                         await _runDeviceAction(
@@ -6038,15 +5958,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '刷新',
-                  zhHant: '重新整理',
-                  en: 'Refresh',
-                  fr: 'Actualiser',
-                  de: 'Aktualisieren',
-                  ja: '更新',
-                ),
+                label: openHandRefreshLabel(context),
               ),
             ],
           ),
@@ -7496,15 +7408,7 @@ fi
         de: 'Info anzeigen',
         ja: '情報を見る',
       ),
-      _RuntimePluginAction.install => openHandLocalizedText(
-        context,
-        zh: '安装',
-        zhHant: '安裝',
-        en: 'Install',
-        fr: 'Installer',
-        de: 'Installieren',
-        ja: 'インストール',
-      ),
+      _RuntimePluginAction.install => openHandInstallLabel(context),
       _RuntimePluginAction.checkUpdate => openHandLocalizedText(
         context,
         zh: '检查更新',
@@ -7965,15 +7869,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '刷新',
-                  zhHant: '重新整理',
-                  en: 'Refresh',
-                  fr: 'Actualiser',
-                  de: 'Aktualisieren',
-                  ja: '更新',
-                ),
+                label: openHandRefreshLabel(context),
               ),
             ],
           ),
@@ -8296,15 +8192,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: openHandLocalizedText(
-                  context,
-                  zh: '刷新',
-                  zhHant: '重新整理',
-                  en: 'Refresh',
-                  fr: 'Actualiser',
-                  de: 'Aktualisieren',
-                  ja: '更新',
-                ),
+                label: openHandRefreshLabel(context),
               ),
             ],
           ),
@@ -8509,15 +8397,7 @@ fi
                   _DashboardActionButton(
                     onPressed: _loadingLogcat ? null : _fetchLogcat,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '刷新',
-                      zhHant: '重新整理',
-                      en: 'Refresh',
-                      fr: 'Actualiser',
-                      de: 'Aktualisieren',
-                      ja: '更新',
-                    ),
+                    label: openHandRefreshLabel(context),
                   ),
                   _DashboardActionButton(
                     onPressed: () => _setLogcatAutoRefresh(!_logcatAutoRefresh),
@@ -8586,15 +8466,7 @@ fi
                         ? null
                         : () => _copyText(_logcatLines.join('\n')),
                     icon: const Icon(Icons.copy_rounded),
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '复制',
-                      zhHant: '複製',
-                      en: 'Copy',
-                      fr: 'Copier',
-                      de: 'Kopieren',
-                      ja: 'コピー',
-                    ),
+                    label: openHandCopyLabel(context),
                   ),
                   _DashboardActionButton(
                     onPressed: _clearingLogcat || _capturingLogcatSnapshot
@@ -8607,15 +8479,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.delete_sweep_rounded),
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '清空',
-                      zhHant: '清空',
-                      en: 'Clear',
-                      fr: 'Effacer',
-                      de: 'Leeren',
-                      ja: 'クリア',
-                    ),
+                    label: openHandClearLabel(context),
                   ),
                 ],
               ),
@@ -10469,15 +10333,7 @@ fi
 
   String _toolchainCommandLabel(_ToolchainCommandAction action) {
     return switch (action) {
-      _ToolchainCommandAction.install => openHandLocalizedText(
-        context,
-        zh: '安装',
-        zhHant: '安裝',
-        en: 'Install',
-        fr: 'Installer',
-        de: 'Installieren',
-        ja: 'インストール',
-      ),
+      _ToolchainCommandAction.install => openHandInstallLabel(context),
       _ToolchainCommandAction.update => openHandLocalizedText(
         context,
         zh: '更新',
@@ -11824,15 +11680,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         ),
                         if (result!.stderr.trim().isNotEmpty)
                           _DashboardDetailRow(
-                            label: openHandLocalizedText(
-                              context,
-                              zh: '错误',
-                              zhHant: '錯誤',
-                              en: 'Error',
-                              fr: 'Erreur',
-                              de: 'Fehler',
-                              ja: 'エラー',
-                            ),
+                            label: openHandErrorLabel(context),
                             value: result!.stderr.trim(),
                             valueColor: cs.error,
                             monospace: true,
@@ -11854,15 +11702,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                     icon: Icons.terminal_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '安装',
-                          zhHant: '安裝',
-                          en: 'Install',
-                          fr: 'Installer',
-                          de: 'Installieren',
-                          ja: 'インストール',
-                        ),
+                        label: openHandInstallLabel(context),
                         value:
                             _commandText(probe.installCommand) ??
                             _androidToolchainInstallHint(context, probe),
@@ -12331,15 +12171,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                       accentColor: cs.error,
                       children: [
                         _DashboardDetailRow(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '错误',
-                            zhHant: '錯誤',
-                            en: 'Error',
-                            fr: 'Erreur',
-                            de: 'Fehler',
-                            ja: 'エラー',
-                          ),
+                          label: openHandErrorLabel(context),
                           value: plugin.errorMessage!.trim(),
                           valueColor: cs.error,
                         ),

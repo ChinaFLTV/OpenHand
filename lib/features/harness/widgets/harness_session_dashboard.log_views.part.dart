@@ -94,15 +94,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                 ],
                 _HeSmallPill(
                   icon: Icons.copy_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '复制',
-                    zhHant: '複製',
-                    en: 'Copy',
-                    fr: 'Copier',
-                    de: 'Kopieren',
-                    ja: 'コピー',
-                  ),
+                  label: openHandCopyLabel(context),
                   onTap: widget.onCopy,
                 ),
               ],

@@ -428,15 +428,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               de: 'Stoppen',
                               ja: '停止',
                             )
-                          : openHandLocalizedText(
-                              context,
-                              zh: '启动',
-                              zhHant: '啟動',
-                              en: 'Start',
-                              fr: 'Démarrer',
-                              de: 'Starten',
-                              ja: '起動',
-                            ),
+                          : openHandStartLabel(context),
                       onPressed: controller.isOperating
                           ? null
                           : () => isRunning
@@ -2038,15 +2030,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _EditorNotice(
                             icon: Icons.error_outline_rounded,
-                            title: openHandLocalizedText(
-                              context,
-                              zh: '保存失败',
-                              zhHant: '儲存失敗',
-                              en: 'Save failed',
-                              fr: 'Échec de l’enregistrement',
-                              de: 'Speichern fehlgeschlagen',
-                              ja: '保存に失敗しました',
-                            ),
+                            title: openHandSaveFailedLabel(context),
                             body: _saveError!,
                             error: true,
                           ),
@@ -11393,15 +11377,7 @@ String _modelSummary(
 
 String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
   return switch (state) {
-    WebGatewayRuntimeState.stopped => openHandLocalizedText(
-      context,
-      zh: '已停止',
-      zhHant: '已停止',
-      en: 'Stopped',
-      fr: 'Arrêté',
-      de: 'Gestoppt',
-      ja: '停止済み',
-    ),
+    WebGatewayRuntimeState.stopped => openHandStoppedLabel(context),
     WebGatewayRuntimeState.starting => openHandLocalizedText(
       context,
       zh: '启动中',
@@ -11411,15 +11387,7 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
       de: 'Startet',
       ja: '起動中',
     ),
-    WebGatewayRuntimeState.running => openHandLocalizedText(
-      context,
-      zh: '运行中',
-      zhHant: '執行中',
-      en: 'Running',
-      fr: 'En cours',
-      de: 'Läuft',
-      ja: '実行中',
-    ),
+    WebGatewayRuntimeState.running => openHandRunningLabel(context),
     WebGatewayRuntimeState.stopping => openHandLocalizedText(
       context,
       zh: '停止中',

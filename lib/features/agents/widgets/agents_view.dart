@@ -1795,7 +1795,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: _agentTaskStatusIcon(task.status),
-              title: openHandLocalizedText(context, zh: '状态', en: 'Status'),
+              title: openHandStatusLabel(context),
               body: _agentTaskStatusLabel(l10n, task.status),
               compact: true,
             ),
@@ -1823,7 +1823,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.update_rounded,
-              title: openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
+              title: openHandUpdatedLabel(context),
               body: _agentDateTimeLabel(task.updatedAt),
               compact: true,
             ),
@@ -1912,7 +1912,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.monitor_heart_outlined,
-              title: openHandLocalizedText(context, zh: '状态', en: 'Status'),
+              title: openHandStatusLabel(context),
               body: _agentWorkerStatusLabel(l10n, worker.status),
               compact: true,
             ),
@@ -1934,7 +1934,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.update_rounded,
-              title: openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
+              title: openHandUpdatedLabel(context),
               body: _agentDateTimeLabel(worker.updatedAt),
               compact: true,
             ),
@@ -2034,7 +2034,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             ),
             _AgentTaskDetailBlock(
               icon: Icons.psychology_alt_outlined,
-              title: openHandLocalizedText(context, zh: '模型', en: 'Model'),
+              title: openHandModelLabel(context),
               body: nullIfBlank(agent.modelId) ?? '-',
               compact: true,
             ),
@@ -3541,11 +3541,7 @@ Future<void> _showAgentTaskDetailDialog(
                 ),
                 _AgentTaskDetailFact(
                   icon: Icons.update_rounded,
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '更新时间',
-                    en: 'Updated',
-                  ),
+                  title: openHandUpdatedLabel(context),
                   value: _agentDateTimeLabel(task.updatedAt),
                 ),
                 _AgentTaskDetailFact(
@@ -4650,11 +4646,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
             AnimatedDropdownButtonFormField<String>(
               initialValue: _status,
               decoration: InputDecoration(
-                labelText: openHandLocalizedText(
-                  context,
-                  zh: '状态',
-                  en: 'Status',
-                ),
+                labelText: openHandStatusLabel(context),
               ),
               items: [
                 for (final value in agentKpiStatusOptions)
@@ -9136,11 +9128,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 SizedBox(
                   width: itemWidth,
                   child: _CapabilityPanel(
-                    title: openHandLocalizedText(
-                      context,
-                      zh: '指令',
-                      en: 'Instructions',
-                    ),
+                    title: openHandInstructionsLabel(context),
                     icon: Icons.rule_rounded,
                     options: instructions,
                     selected: _instructionIds,

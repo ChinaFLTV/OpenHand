@@ -1673,15 +1673,7 @@ class _RoleConfigRow extends StatelessWidget {
                       onPressed: onInstall,
                       icon: const Icon(Icons.download_rounded, size: 15),
                       label: Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '安装',
-                          zhHant: '安裝',
-                          en: 'Install',
-                          fr: 'Installer',
-                          de: 'Installieren',
-                          ja: 'インストール',
-                        ),
+                        openHandInstallLabel(context),
                         style: const TextStyle(fontSize: 12),
                       ),
                       style: OutlinedButton.styleFrom(
