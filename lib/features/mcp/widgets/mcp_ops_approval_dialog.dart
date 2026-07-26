@@ -186,7 +186,8 @@ class _McpOpsWriteApprovalDialogState
                 description: openHandLocalizedText(
                   context,
                   zh: '外部客户端请求执行写类型工具，需要你明确放行后才会运行。',
-                  en: 'An external client requested a write-capable tool. '
+                  en:
+                      'An external client requested a write-capable tool. '
                       'OpenHand will run it only after your approval.',
                 ),
               ),
@@ -612,30 +613,18 @@ class _ApprovalPayloadNode extends StatelessWidget {
           ? _approvalPayloadMaxItemsPerLevel
           : _approvalPayloadPreviewItemsPerLevel;
       final visibleEntries = entries.take(maxItems).toList(growable: false);
-      final hiddenCount = entries.length - visibleEntries.length;
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final entry in visibleEntries.indexed)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom:
-                    entry.$1 == visibleEntries.length - 1 && hiddenCount <= 0
-                    ? 0
-                    : 9,
-              ),
-              child: _ApprovalPayloadField(
-                label: '${entry.$2.key}',
-                value: entry.$2.value,
-                expanded: expanded,
-                accent: accent,
-                depth: depth,
-              ),
-            ),
-          if (hiddenCount > 0)
-            _ApprovalPayloadOverflowNotice(hiddenCount: hiddenCount),
-        ],
+      return buildMcpPayloadEntryColumn(
+        visible: visibleEntries,
+        hiddenCount: entries.length - visibleEntries.length,
+        fieldBuilder: (_, entry) => _ApprovalPayloadField(
+          label: '${entry.key}',
+          value: entry.value,
+          expanded: expanded,
+          accent: accent,
+          depth: depth,
+        ),
+        overflowBuilder: (hidden) =>
+            _ApprovalPayloadOverflowNotice(hiddenCount: hidden),
       );
     }
     if (current is List) {
@@ -651,29 +640,18 @@ class _ApprovalPayloadNode extends StatelessWidget {
           ? _approvalPayloadMaxItemsPerLevel
           : _approvalPayloadPreviewItemsPerLevel;
       final visibleItems = current.take(maxItems).toList(growable: false);
-      final hiddenCount = current.length - visibleItems.length;
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final item in visibleItems.indexed)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: item.$1 == visibleItems.length - 1 && hiddenCount <= 0
-                    ? 0
-                    : 9,
-              ),
-              child: _ApprovalPayloadField(
-                label: '#${item.$1 + 1}',
-                value: item.$2,
-                expanded: expanded,
-                accent: accent,
-                depth: depth,
-              ),
-            ),
-          if (hiddenCount > 0)
-            _ApprovalPayloadOverflowNotice(hiddenCount: hiddenCount),
-        ],
+      return buildMcpPayloadEntryColumn(
+        visible: visibleItems,
+        hiddenCount: current.length - visibleItems.length,
+        fieldBuilder: (index, item) => _ApprovalPayloadField(
+          label: '#${index + 1}',
+          value: item,
+          expanded: expanded,
+          accent: accent,
+          depth: depth,
+        ),
+        overflowBuilder: (hidden) =>
+            _ApprovalPayloadOverflowNotice(hiddenCount: hidden),
       );
     }
     return _ApprovalPayloadScalar(

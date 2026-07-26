@@ -150,3 +150,36 @@ IconData mcpPayloadValueIcon(Object? value) {
   if (value == null) return Icons.block_rounded;
   return Icons.short_text_rounded;
 }
+
+/// 结构化载荷分层列表的项间距。
+const double kMcpPayloadEntrySpacing = 9;
+
+/// 把结构化载荷的一层渲染为纵向列表：逐项调 [fieldBuilder]，
+/// 末项不留下边距，被截断时追加一条 [overflowBuilder] 提示。
+///
+/// MCP 运维面板与写调用审批弹窗各自把 Map / List 两个分支都抄了一遍（合计
+/// 四份），间距、末项去间距、溢出提示的挂载条件全靠人工对齐，改一处必漏三处。
+Widget buildMcpPayloadEntryColumn<T>({
+  required List<T> visible,
+  required int hiddenCount,
+  required Widget Function(int index, T item) fieldBuilder,
+  required Widget Function(int hiddenCount) overflowBuilder,
+  double spacing = kMcpPayloadEntrySpacing,
+}) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final entry in visible.indexed)
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: entry.$1 == visible.length - 1 && hiddenCount <= 0
+                ? 0
+                : spacing,
+          ),
+          child: fieldBuilder(entry.$1, entry.$2),
+        ),
+      if (hiddenCount > 0) overflowBuilder(hiddenCount),
+    ],
+  );
+}

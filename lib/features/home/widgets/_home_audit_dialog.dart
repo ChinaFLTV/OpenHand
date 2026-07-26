@@ -117,74 +117,22 @@ AiSessionMessage? _auditRelatedTelemetryMessage(
 }
 
 const Duration _auditShimmerPeriod = Duration(milliseconds: 1400);
+const double _auditShimmerLineHeight = 14;
+const double _auditShimmerLastLineWidth = 180;
+const BorderRadius _auditShimmerRadius = BorderRadius.all(Radius.circular(6));
 const Duration _auditShellSizeDuration = Duration(milliseconds: 260);
 const Duration _auditToggleRotationDuration = Duration(milliseconds: 200);
 const Duration _auditContentSizeDuration = Duration(milliseconds: 220);
 const Curve _auditMotionCurve = Curves.easeInOutCubic;
 
-/// Gemini-style greyscale sweep shimmer placeholder for audit fields that are
-/// still being populated (e.g. while the AI response is streaming).
-class _AuditShimmerPlaceholder extends StatefulWidget {
-  const _AuditShimmerPlaceholder({this.width});
-
-  final double? width;
-
-  @override
-  State<_AuditShimmerPlaceholder> createState() =>
-      _AuditShimmerPlaceholderState();
-}
-
-class _AuditShimmerPlaceholderState extends State<_AuditShimmerPlaceholder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: _auditShimmerPeriod);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final baseColor = cs.surfaceContainerHighest;
-    final highlightColor = cs.surfaceContainerLow;
-    final animationsEnabled = openHandTickerMotionEnabled(context);
-    if (!animationsEnabled) {
-      _ctrl.stop();
-      return _buildBar(baseColor, highlightColor, 0.5);
-    }
-    if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        return _buildBar(baseColor, highlightColor, _ctrl.value);
-      },
-    );
-  }
-
-  Widget _buildBar(Color baseColor, Color highlightColor, double progress) {
-    return Container(
-      width: widget.width ?? double.infinity,
-      height: 14,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        gradient: LinearGradient(
-          begin: Alignment(-1.0 + 2.0 * progress, 0),
-          end: Alignment(-1.0 + 2.0 * progress + 1.0, 0),
-          colors: [baseColor, highlightColor, baseColor],
-        ),
-      ),
-    );
-  }
+/// 审计字段的骨架占位：统一行高、圆角与扫光周期。
+Widget _auditShimmerLine({double? width}) {
+  return OpenHandSkeletonShimmer(
+    width: width,
+    height: _auditShimmerLineHeight,
+    borderRadius: _auditShimmerRadius,
+    period: _auditShimmerPeriod,
+  );
 }
 
 /// A stack of shimmer bars that gives the impression of loading text content.
@@ -194,9 +142,9 @@ Widget _auditShimmerBlock({int lines = 3, double spacing = 8}) {
     children: List<Widget>.generate(lines, (i) {
       return Padding(
         padding: EdgeInsets.only(bottom: i < lines - 1 ? spacing : 0),
-        child: _AuditShimmerPlaceholder(
-          // Last line shorter to look more natural.
-          width: i == lines - 1 ? 180 : null,
+        // 末行更短，读起来更像真实文本。
+        child: _auditShimmerLine(
+          width: i == lines - 1 ? _auditShimmerLastLineWidth : null,
         ),
       );
     }),
@@ -978,9 +926,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (waitingForTelemetry && endedAt == null)
                         _AuditKvRow(
                           label: AppLocalizations.of(context)!.auditEnded,
-                          valueWidget: const _AuditShimmerPlaceholder(
-                            width: 200,
-                          ),
+                          valueWidget: _auditShimmerLine(width: 200),
                         )
                       else
                         _AuditKvRow(
@@ -990,9 +936,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (waitingForTelemetry && durationMs == null)
                         _AuditKvRow(
                           label: AppLocalizations.of(context)!.auditDurationMs,
-                          valueWidget: const _AuditShimmerPlaceholder(
-                            width: 120,
-                          ),
+                          valueWidget: _auditShimmerLine(width: 120),
                         )
                       else
                         _AuditKvRow(
@@ -1080,7 +1024,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                               ? null
                               : '~$estimatedTotalTokens',
                           valueWidget: estimatedTotalTokens == null
-                              ? const _AuditShimmerPlaceholder(width: 100)
+                              ? _auditShimmerLine(width: 100)
                               : null,
                         ),
                         _AuditKvRow(
@@ -1091,16 +1035,14 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                               ? null
                               : '~$estimatedPromptTokens',
                           valueWidget: estimatedPromptTokens == null
-                              ? const _AuditShimmerPlaceholder(width: 100)
+                              ? _auditShimmerLine(width: 100)
                               : null,
                         ),
                         _AuditKvRow(
                           label: AppLocalizations.of(
                             context,
                           )!.auditCompletionTokens,
-                          valueWidget: const _AuditShimmerPlaceholder(
-                            width: 100,
-                          ),
+                          valueWidget: _auditShimmerLine(width: 100),
                         ),
                       ] else ...[
                         _AuditKvRow(

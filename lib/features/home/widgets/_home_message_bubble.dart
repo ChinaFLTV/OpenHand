@@ -2580,74 +2580,25 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
   }
 }
 
-/// Shimmer / skeleton placeholder shown while an image frame is loading.
-class _ImageShimmerPlaceholder extends StatefulWidget {
+const BorderRadius _imageShimmerRadius = BorderRadius.all(Radius.circular(12));
+const double _imageShimmerIconSize = 48;
+
+/// 图片帧解码期间的骨架占位。
+class _ImageShimmerPlaceholder extends StatelessWidget {
   const _ImageShimmerPlaceholder();
 
   @override
-  State<_ImageShimmerPlaceholder> createState() =>
-      _ImageShimmerPlaceholderState();
-}
-
-class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: kOpenHandMotion1200);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final baseColor = cs.surfaceContainerHighest;
-    final highlightColor = cs.surfaceContainerLow;
-    final animationsEnabled = openHandTickerMotionEnabled(context);
-    if (!animationsEnabled) {
-      _ctrl.stop();
-      return _buildPlaceholder(cs, baseColor, highlightColor, 0.5);
-    }
-    if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        return _buildPlaceholder(cs, baseColor, highlightColor, _ctrl.value);
-      },
-    );
-  }
-
-  Widget _buildPlaceholder(
-    ColorScheme cs,
-    Color baseColor,
-    Color highlightColor,
-    double progress,
-  ) {
-    return SizedBox.expand(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            begin: Alignment(-1.0 + 2.0 * progress, 0),
-            end: Alignment(-1.0 + 2.0 * progress + 1.0, 0),
-            colors: [baseColor, highlightColor, baseColor],
-          ),
-        ),
-        child: Center(
-          child: Icon(
-            Icons.image_outlined,
-            size: 48,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return OpenHandSkeletonShimmer(
+      expand: true,
+      borderRadius: _imageShimmerRadius,
+      period: kOpenHandMotion1200,
+      child: Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: _imageShimmerIconSize,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
         ),
       ),
     );

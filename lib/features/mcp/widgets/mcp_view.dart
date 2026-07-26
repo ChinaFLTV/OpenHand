@@ -9127,29 +9127,17 @@ class _McpOpsStructuredNode extends StatelessWidget {
       final visibleEntries = entries
           .take(_mcpOpsPayloadMaxItemsPerLevel)
           .toList(growable: false);
-      final hiddenCount = entries.length - visibleEntries.length;
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final entry in visibleEntries.indexed)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom:
-                    entry.$1 == visibleEntries.length - 1 && hiddenCount <= 0
-                    ? 0
-                    : 9,
-              ),
-              child: _McpOpsStructuredField(
-                label: '${entry.$2.key}',
-                value: entry.$2.value,
-                accent: accent,
-                depth: depth,
-              ),
-            ),
-          if (hiddenCount > 0)
-            _McpOpsPayloadOverflowNotice(hiddenCount: hiddenCount),
-        ],
+      return buildMcpPayloadEntryColumn(
+        visible: visibleEntries,
+        hiddenCount: entries.length - visibleEntries.length,
+        fieldBuilder: (_, entry) => _McpOpsStructuredField(
+          label: '${entry.key}',
+          value: entry.value,
+          accent: accent,
+          depth: depth,
+        ),
+        overflowBuilder: (hidden) =>
+            _McpOpsPayloadOverflowNotice(hiddenCount: hidden),
       );
     }
     if (current is List) {
@@ -9163,28 +9151,17 @@ class _McpOpsStructuredNode extends StatelessWidget {
       final visibleItems = current
           .take(_mcpOpsPayloadMaxItemsPerLevel)
           .toList(growable: false);
-      final hiddenCount = current.length - visibleItems.length;
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final item in visibleItems.indexed)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: item.$1 == visibleItems.length - 1 && hiddenCount <= 0
-                    ? 0
-                    : 9,
-              ),
-              child: _McpOpsStructuredField(
-                label: '#${item.$1 + 1}',
-                value: item.$2,
-                accent: accent,
-                depth: depth,
-              ),
-            ),
-          if (hiddenCount > 0)
-            _McpOpsPayloadOverflowNotice(hiddenCount: hiddenCount),
-        ],
+      return buildMcpPayloadEntryColumn(
+        visible: visibleItems,
+        hiddenCount: current.length - visibleItems.length,
+        fieldBuilder: (index, item) => _McpOpsStructuredField(
+          label: '#${index + 1}',
+          value: item,
+          accent: accent,
+          depth: depth,
+        ),
+        overflowBuilder: (hidden) =>
+            _McpOpsPayloadOverflowNotice(hiddenCount: hidden),
       );
     }
     return _McpOpsScalarPayload(
