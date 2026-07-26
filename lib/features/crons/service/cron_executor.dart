@@ -30,23 +30,6 @@ class CronExecutor {
 
   static const Uuid _uuid = Uuid();
 
-  /// Runs the script defined by [entry] and returns an execution record.
-  ///
-  /// Handles: timeout, retry with exponential back-off, resource cleanup,
-  /// process killing on timeout, and output truncation.
-  static Future<CronExecutionRecord> execute(
-    CronEntry entry, {
-    String triggerType = 'scheduled',
-    Map<String, String> runtimeContext = const <String, String>{},
-  }) async {
-    final handle = start(
-      entry,
-      triggerType: triggerType,
-      runtimeContext: runtimeContext,
-    );
-    return handle.result;
-  }
-
   /// Starts a cancellable cron execution.
   static CronExecutionHandle start(
     CronEntry entry, {

@@ -95,8 +95,6 @@ class AiLspTool extends AiTool {
     }
   }
 
-  static Future<void> disposeAll() => AiLspClientService.instance.disposeAll();
-
   String _renderOperationResult(String operation, Object? result) {
     switch (operation) {
       case 'goToDefinition':

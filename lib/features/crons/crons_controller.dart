@@ -52,12 +52,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   static const int _maxConcurrentExecutions = 8;
   static const Duration _maxTimedOutAgentLockRetention = Duration(seconds: 30);
 
-  static Future<CronsController> create({CronsStore? store}) async {
-    final controller = CronsController.uninitialized(store: store);
-    await controller.initialize();
-    return controller;
-  }
-
   /// Performs the deferred boot work: sqlite table ensure, full entries
   /// load, system-managed Hermes Talker entry seeding/refresh, app lifecycle
   /// observer + signal watcher registration, and scheduler startup. Safe to

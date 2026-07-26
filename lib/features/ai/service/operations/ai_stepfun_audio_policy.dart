@@ -5,7 +5,6 @@ import '../../model/ai_tts_provider_catalog.dart';
 final class AiStepFunAudioPolicy {
   const AiStepFunAudioPolicy._();
 
-  static const String defaultVoice = AiTtsProviderCatalogs.stepFunDefaultVoice;
   static const int maxSpeechInputRunes = 1000;
 
   static bool isStepFunSpeech({
@@ -16,10 +15,6 @@ final class AiStepFunAudioPolicy {
       protocol: protocol,
       modelId: modelId,
     );
-  }
-
-  static bool isStepFunTtsModel(String modelId) {
-    return AiTtsProviderCatalogs.isStepFunTtsModel(modelId);
   }
 
   static bool isStepAudio25TtsModel(String modelId) {

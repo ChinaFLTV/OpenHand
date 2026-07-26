@@ -68,16 +68,6 @@ class McpKeywordIndex {
   final DateTime builtAt;
   final int durationMs;
 
-  static final McpKeywordIndex empty = McpKeywordIndex(
-    byName: const <String, List<McpToolRef>>{},
-    byDescription: const <String, List<McpToolRef>>{},
-    bySearchHint: const <String, List<McpToolRef>>{},
-    totalTools: 0,
-    totalServers: 0,
-    builtAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-    durationMs: 0,
-  );
-
   Map<String, Object?> toJson() {
     Map<String, List<Map<String, Object?>>> dump(
       Map<String, List<McpToolRef>> m,
@@ -195,7 +185,6 @@ class McpKeywordIndex {
       durationMs: 0,
     );
   }
-
 }
 
 /// 统计口径必须与全量构建一致：取三张倒排表的并集。

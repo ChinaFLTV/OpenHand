@@ -32,18 +32,6 @@ class SkillsController extends ManagedChangeNotifier {
     );
   }
 
-  static Future<SkillsController> create({
-    required String initialStoragePath,
-    SkillsRepository? repository,
-  }) async {
-    final controller = SkillsController._(
-      repository: repository ?? SkillsRepository(),
-      storagePath: initialStoragePath,
-    );
-    await controller.refresh();
-    return controller;
-  }
-
   final SkillsRepository _repository;
 
   String _storagePath;

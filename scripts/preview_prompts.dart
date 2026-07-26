@@ -8,8 +8,11 @@ import 'dart:io';
 
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 
-List<AiPromptTemplatePolicy> get _templates =>
-    AiPromptTemplatePolicies.byId.values.toList(growable: false);
+List<AiPromptTemplatePolicy> get _templates => AiPromptTemplatePolicies
+    .byTemplateId
+    .values
+    .map((entry) => entry.policy)
+    .toList(growable: false);
 
 String _appendSectionsIfAbsent(
   String instructions,

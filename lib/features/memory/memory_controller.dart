@@ -34,20 +34,6 @@ class MemoryController extends ManagedChangeNotifier {
     );
   }
 
-  static Future<MemoryController> create({
-    MemoryStore? store,
-    String Function()? idGenerator,
-    DateTime Function()? clock,
-  }) async {
-    final controller = MemoryController.uninitialized(
-      store: store,
-      idGenerator: idGenerator,
-      clock: clock,
-    );
-    await controller.refresh();
-    return controller;
-  }
-
   final MemoryStore _store;
   final String Function() _idGenerator;
   final DateTime Function() _clock;

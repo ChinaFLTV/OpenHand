@@ -220,16 +220,8 @@ class AiSessionRuntimeContext {
 
   static const int defaultSingleRoundToolCallLimit =
       AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;
-  static const int minSingleRoundToolCallLimit =
-      AiToolCallLimitPolicy.minSingleRoundToolCallLimit;
-  static const int maxSingleRoundToolCallLimit =
-      AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
   static const int defaultSequentialToolRoundLimit =
       AiToolCallLimitPolicy.defaultSequentialToolRoundLimit;
-  static const int minSequentialToolRoundLimit =
-      AiToolCallLimitPolicy.minSequentialToolRoundLimit;
-  static const int maxSequentialToolRoundLimit =
-      AiToolCallLimitPolicy.maxSequentialToolRoundLimit;
 
   static int normalizeSingleRoundToolCallLimit(int value) {
     return AiToolCallLimitPolicy.normalizeSingleRound(value);
@@ -241,46 +233,18 @@ class AiSessionRuntimeContext {
 
   static const int defaultMaxToolOutputChars =
       AiToolExecutionLimitPolicy.defaultMaxToolOutputChars;
-  static const int minMaxToolOutputChars =
-      AiToolExecutionLimitPolicy.minMaxToolOutputChars;
-  static const int maxMaxToolOutputChars =
-      AiToolExecutionLimitPolicy.maxMaxToolOutputChars;
   static const int defaultWriteConfirmationTimeoutMs =
       AiToolExecutionLimitPolicy.defaultWriteConfirmationTimeoutMs;
-  static const int minWriteConfirmationTimeoutMs =
-      AiToolExecutionLimitPolicy.minWriteConfirmationTimeoutMs;
-  static const int maxWriteConfirmationTimeoutMs =
-      AiToolExecutionLimitPolicy.maxWriteConfirmationTimeoutMs;
   static const int defaultFastPathWriteAnalysisThreshold =
       AiToolExecutionLimitPolicy.defaultFastPathWriteAnalysisThreshold;
-  static const int minFastPathWriteAnalysisThreshold =
-      AiToolExecutionLimitPolicy.minFastPathWriteAnalysisThreshold;
-  static const int maxFastPathWriteAnalysisThreshold =
-      AiToolExecutionLimitPolicy.maxFastPathWriteAnalysisThreshold;
   static const int defaultMaxHookTextCharacters =
       AiToolExecutionLimitPolicy.defaultMaxHookTextCharacters;
-  static const int minMaxHookTextCharacters =
-      AiToolExecutionLimitPolicy.minMaxHookTextCharacters;
-  static const int maxMaxHookTextCharacters =
-      AiToolExecutionLimitPolicy.maxMaxHookTextCharacters;
   static const int defaultSubprocessGracefulShutdownMs =
       AiToolExecutionLimitPolicy.defaultSubprocessGracefulShutdownMs;
-  static const int minSubprocessGracefulShutdownMs =
-      AiToolExecutionLimitPolicy.minSubprocessGracefulShutdownMs;
-  static const int maxSubprocessGracefulShutdownMs =
-      AiToolExecutionLimitPolicy.maxSubprocessGracefulShutdownMs;
   static const int defaultBashOutputMaxBytes =
       AiToolExecutionLimitPolicy.defaultBashOutputMaxBytes;
-  static const int minBashOutputMaxBytes =
-      AiToolExecutionLimitPolicy.minBashOutputMaxBytes;
-  static const int maxBashOutputMaxBytes =
-      AiToolExecutionLimitPolicy.maxBashOutputMaxBytes;
   static const int defaultMaxConcurrentTools =
       AiToolExecutionLimitPolicy.defaultMaxConcurrentTools;
-  static const int minMaxConcurrentTools =
-      AiToolExecutionLimitPolicy.minMaxConcurrentTools;
-  static const int maxMaxConcurrentTools =
-      AiToolExecutionLimitPolicy.maxMaxConcurrentTools;
 
   static int normalizeMaxToolOutputChars(int value) {
     return AiToolExecutionLimitPolicy.normalizeMaxToolOutputChars(value);
@@ -318,22 +282,10 @@ class AiSessionRuntimeContext {
 
   static const int defaultConnectTimeoutSeconds =
       AiRequestTimeoutPolicy.defaultConnectTimeoutSeconds;
-  static const int minConnectTimeoutSeconds =
-      AiRequestTimeoutPolicy.minConnectTimeoutSeconds;
-  static const int maxConnectTimeoutSeconds =
-      AiRequestTimeoutPolicy.maxConnectTimeoutSeconds;
   static const int defaultResponseTimeoutSeconds =
       AiRequestTimeoutPolicy.defaultResponseTimeoutSeconds;
-  static const int minResponseTimeoutSeconds =
-      AiRequestTimeoutPolicy.minResponseTimeoutSeconds;
-  static const int maxResponseTimeoutSeconds =
-      AiRequestTimeoutPolicy.maxResponseTimeoutSeconds;
   static const int defaultStreamIdleTimeoutSeconds =
       AiRequestTimeoutPolicy.defaultStreamIdleTimeoutSeconds;
-  static const int minStreamIdleTimeoutSeconds =
-      AiRequestTimeoutPolicy.minStreamIdleTimeoutSeconds;
-  static const int maxStreamIdleTimeoutSeconds =
-      AiRequestTimeoutPolicy.maxStreamIdleTimeoutSeconds;
 
   static int normalizeConnectTimeoutSeconds(int value) {
     return AiRequestTimeoutPolicy.normalizeConnectTimeoutSeconds(value);

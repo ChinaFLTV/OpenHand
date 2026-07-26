@@ -1,22 +1,8 @@
-import 'ai_translation_settings.dart';
-
 class AiTranslationCatalogOption {
   const AiTranslationCatalogOption(this.value, this.label);
 
   final String value;
   final String label;
-}
-
-class AiTranslationProviderCatalog {
-  const AiTranslationProviderCatalog({
-    required this.provider,
-    required this.sourceLanguageOptions,
-    required this.targetLanguageOptions,
-  });
-
-  final AiTranslationProvider provider;
-  final List<AiTranslationCatalogOption> sourceLanguageOptions;
-  final List<AiTranslationCatalogOption> targetLanguageOptions;
 }
 
 class AiTranslationProviderCatalogs {
@@ -53,12 +39,4 @@ class AiTranslationProviderCatalogs {
         AiTranslationCatalogOption('auto', '自动检测 Auto'),
         ...targetLanguageOptions,
       ];
-
-  static AiTranslationProviderCatalog of(AiTranslationProvider provider) {
-    return AiTranslationProviderCatalog(
-      provider: provider,
-      sourceLanguageOptions: sourceLanguageOptions,
-      targetLanguageOptions: targetLanguageOptions,
-    );
-  }
 }

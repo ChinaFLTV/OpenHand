@@ -514,13 +514,6 @@ class AiPromptTemplatePolicies {
         },
       );
 
-  static final Map<String, AiPromptTemplatePolicy> byId =
-      Map<String, AiPromptTemplatePolicy>.unmodifiable(
-        <String, AiPromptTemplatePolicy>{
-          for (final entry in entries) entry.id: entry.policy,
-        },
-      );
-
   static AiPromptTemplateCatalogEntry resolveEntry(String templateId) {
     final normalized = templateId.trim();
     if (normalized.isEmpty) {

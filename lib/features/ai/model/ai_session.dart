@@ -1075,16 +1075,8 @@ class AiSessionEnvironment {
 
   static const int defaultSingleRoundToolCallLimit =
       AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;
-  static const int minSingleRoundToolCallLimit =
-      AiToolCallLimitPolicy.minSingleRoundToolCallLimit;
-  static const int maxSingleRoundToolCallLimit =
-      AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
   static const int defaultSequentialToolRoundLimit =
       AiToolCallLimitPolicy.defaultSequentialToolRoundLimit;
-  static const int minSequentialToolRoundLimit =
-      AiToolCallLimitPolicy.minSequentialToolRoundLimit;
-  static const int maxSequentialToolRoundLimit =
-      AiToolCallLimitPolicy.maxSequentialToolRoundLimit;
 
   static int singleRoundToolCallLimitFromValue(Object? value) {
     return AiToolCallLimitPolicy.singleRoundFromValue(value);

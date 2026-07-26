@@ -31,20 +31,6 @@ class InstructionsController extends ManagedChangeNotifier {
     );
   }
 
-  static Future<InstructionsController> create({
-    InstructionsStore? store,
-    String Function()? idGenerator,
-    DateTime Function()? clock,
-  }) async {
-    final controller = InstructionsController.uninitialized(
-      store: store,
-      idGenerator: idGenerator,
-      clock: clock,
-    );
-    await controller.refresh();
-    return controller;
-  }
-
   final InstructionsStore _store;
   final String Function() _idGenerator;
   final DateTime Function() _clock;
