@@ -289,10 +289,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       ),
                     ),
                   ],
-                  if (_isSaving) ...[
-                    const SizedBox(height: 12),
-                    const LinearProgressIndicator(),
-                  ],
+                  OpenHandDialogBusyBar(busy: _isSaving),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,

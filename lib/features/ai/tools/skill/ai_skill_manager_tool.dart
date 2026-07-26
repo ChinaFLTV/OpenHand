@@ -341,22 +341,23 @@ class AiSkillManagerTool extends AiTool {
       return AiToolUtils.invalidResult(_toolName, readResult.error!);
     }
     final original = readResult.content!;
-    final occurrences = _countOccurrences(original, oldString);
-    if (occurrences == 0) {
+    final replacement = AiToolUtils.replaceOnceOrAll(
+      content: original,
+      oldString: oldString,
+      newString: newString,
+      replaceAll: replaceAll,
+    );
+    if (!replacement.success) {
+      final relativePath = safeRelativePathForDisplay(
+        targetFile.path,
+        from: skillContext.skillDir.path,
+      );
       return AiToolUtils.invalidResult(
         _toolName,
-        'old_string not found in ${safeRelativePathForDisplay(targetFile.path, from: skillContext.skillDir.path)}.',
+        '${replacement.errorMessage} ($relativePath)',
       );
     }
-    if (occurrences > 1 && !replaceAll) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'old_string matches $occurrences occurrences; pass replace_all=true '
-        'to replace all, or refine old_string for a unique match.',
-      );
-    }
-
-    final updated = original.replaceAll(oldString, newString);
+    final updated = replacement.content;
 
     if (patchingSkillMd) {
       final sizeError = _validateContentSize(updated);
@@ -377,8 +378,8 @@ class AiSkillManagerTool extends AiTool {
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager patch $name',
       output:
-          'Patched ${targetFile.path} ($occurrences replacement'
-          '${occurrences == 1 ? '' : 's'}).',
+          'Patched ${targetFile.path} (${replacement.replacementCount} '
+          'replacement${replacement.replacementCount == 1 ? '' : 's'}).',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
@@ -387,7 +388,7 @@ class AiSkillManagerTool extends AiTool {
         'skill_action': 'patch',
         'skill_name': name,
         'skill_path': targetFile.path,
-        'replacements': occurrences,
+        'replacements': replacement.replacementCount,
       },
     );
   }
@@ -704,19 +705,6 @@ class AiSkillManagerTool extends AiTool {
         silentLog('ai_skill_manager_tool', logContext, error, stack);
       },
     );
-  }
-
-  int _countOccurrences(String haystack, String needle) {
-    if (needle.isEmpty) return 0;
-    var count = 0;
-    var index = 0;
-    while (true) {
-      final found = haystack.indexOf(needle, index);
-      if (found < 0) break;
-      count++;
-      index = found + needle.length;
-    }
-    return count;
   }
 
   String? _validateName(String name) {

@@ -55,7 +55,7 @@ class _HeChangedFilesList extends StatelessWidget {
               final (icon, iconColor) = switch (file.changeType) {
                 HarnessFileChangeType.added => (
                   Icons.add_circle_outline_rounded,
-                  const Color(0xFF4CAF50),
+                  OpenHandStatusColors.success,
                 ),
                 HarnessFileChangeType.modified => (
                   Icons.edit_outlined,
@@ -214,9 +214,8 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           _DiffStatChip(
                             label: _changeTypeLabel(),
                             color: switch (file.changeType) {
-                              HarnessFileChangeType.added => const Color(
-                                0xFF4CAF50,
-                              ),
+                              HarnessFileChangeType.added =>
+                                OpenHandStatusColors.success,
                               HarnessFileChangeType.modified =>
                                 colorScheme.primary,
                               HarnessFileChangeType.deleted =>

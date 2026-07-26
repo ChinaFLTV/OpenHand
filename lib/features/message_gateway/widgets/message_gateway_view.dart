@@ -229,7 +229,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
     final usingFallbackPort =
         isRunning && boundPort != null && boundPort != config.listenPort;
     final stateColor = switch (controller.runtimeState) {
-      WebGatewayRuntimeState.running => const Color(0xFF16A34A),
+      WebGatewayRuntimeState.running => OpenHandStatusColors.success,
       WebGatewayRuntimeState.crashed => theme.colorScheme.error,
       WebGatewayRuntimeState.starting ||
       WebGatewayRuntimeState.stopping => OpenHandStatusColors.warning,
@@ -2708,7 +2708,7 @@ class _WebGatewayConnectivityDialogState
                   color: result == null
                       ? colorScheme.primary
                       : result.ok
-                      ? const Color(0xFF16A34A)
+                      ? OpenHandStatusColors.success
                       : colorScheme.error,
                 ),
                 const SizedBox(width: 10),
@@ -2925,12 +2925,16 @@ class _ConnectivityResultView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: (result.ok ? const Color(0xFF16A34A) : colorScheme.error)
-                  .withValues(alpha: .10),
+              color:
+                  (result.ok ? OpenHandStatusColors.success : colorScheme.error)
+                      .withValues(alpha: .10),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: (result.ok ? const Color(0xFF16A34A) : colorScheme.error)
-                    .withValues(alpha: .35),
+                color:
+                    (result.ok
+                            ? OpenHandStatusColors.success
+                            : colorScheme.error)
+                        .withValues(alpha: .35),
               ),
             ),
             child: Row(
@@ -2940,7 +2944,7 @@ class _ConnectivityResultView extends StatelessWidget {
                       ? Icons.check_circle_outline_rounded
                       : Icons.error_outline_rounded,
                   color: result.ok
-                      ? const Color(0xFF16A34A)
+                      ? OpenHandStatusColors.success
                       : colorScheme.error,
                 ),
                 const SizedBox(width: 12),
@@ -3126,7 +3130,9 @@ class _ConnectivityTargetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final stateColor = target.ok ? const Color(0xFF16A34A) : colorScheme.error;
+    final stateColor = target.ok
+        ? OpenHandStatusColors.success
+        : colorScheme.error;
     final content = Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),

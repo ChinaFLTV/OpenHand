@@ -1629,26 +1629,11 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                   ),
                 ),
               ),
-              if (_isSaving) ...[
-                const SizedBox(height: 12),
-                const LinearProgressIndicator(),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _isSaving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    label: l10n.commonCancel,
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _isSaving ? null : _handleSave,
-                    label: l10n.commonSave,
-                  ),
-                ],
+              OpenHandDialogSaveActions(
+                busy: _isSaving,
+                cancelLabel: l10n.commonCancel,
+                confirmLabel: l10n.commonSave,
+                onConfirm: _handleSave,
               ),
             ],
           ),
@@ -11009,10 +10994,9 @@ class _StdioProcessButtons extends StatelessWidget {
                         },
                   style: info.isRunning
                       ? IconButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFF16A34A,
-                          ).withValues(alpha: 0.15),
-                          foregroundColor: const Color(0xFF16A34A),
+                          backgroundColor: OpenHandStatusColors.success
+                              .withValues(alpha: 0.15),
+                          foregroundColor: OpenHandStatusColors.success,
                         )
                       : null,
                   icon: info.isTransitioning
@@ -13066,7 +13050,7 @@ class _ProbeServerRow extends StatelessWidget {
     final isBusy = health.isChecking || catalog.isLoading;
 
     final statusColor = switch (health.status) {
-      McpServerHealthStatus.healthy => const Color(0xFF16A34A),
+      McpServerHealthStatus.healthy => OpenHandStatusColors.success,
       McpServerHealthStatus.unhealthy => colorScheme.error,
       McpServerHealthStatus.checking => OpenHandStatusColors.warning,
       McpServerHealthStatus.idle => colorScheme.onSurfaceVariant,
@@ -13101,7 +13085,7 @@ class _ProbeServerRow extends StatelessWidget {
                       : Icons.cancel_rounded,
                   size: 14,
                   color: server.probeEnabled
-                      ? const Color(0xFF16A34A)
+                      ? OpenHandStatusColors.success
                       : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
                 visualDensity: VisualDensity.compact,

@@ -2596,10 +2596,7 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: kOpenHandMotion1200,
-    );
+    _ctrl = AnimationController(vsync: this, duration: kOpenHandMotion1200);
   }
 
   @override
@@ -2799,7 +2796,35 @@ class _ImagePreviewDialog extends StatefulWidget {
   State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
 }
 
-class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
+/// 头部实测高度：布局稳定后回填真实高度，供预览弹窗的占位高度估算使用。
+///
+/// 使用方在头部挂 [headerMeasureKey]，并在内容可能改变高度时调用
+/// [scheduleHeaderHeightSync]；抖动小于 [_kHeaderHeightEpsilon] 时不触发重建。
+mixin _MeasuredHeaderHeight<T extends StatefulWidget> on State<T> {
+  static const double _kHeaderHeightEpsilon = 0.5;
+
+  final GlobalKey headerMeasureKey = GlobalKey();
+  double? measuredHeaderHeight;
+
+  void scheduleHeaderHeightSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderObject = headerMeasureKey.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox) return;
+      final height = renderObject.size.height;
+      if (height <= 0) return;
+      final previous = measuredHeaderHeight;
+      if (previous != null &&
+          (previous - height).abs() < _kHeaderHeightEpsilon) {
+        return;
+      }
+      setState(() => measuredHeaderHeight = height);
+    });
+  }
+}
+
+class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
+    with _MeasuredHeaderHeight<_ImagePreviewDialog> {
   /// 图片四周统一的内边距 (与 WEB 端 12px 保持一致)。
   static const double _kPadding = 12.0;
 
@@ -2822,8 +2847,6 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
   Size? _naturalSize;
-  final GlobalKey _headerKey = GlobalKey();
-  double? _measuredHeaderHeight;
   // 三个互不相干的忙位：与媒体预览弹窗保持同一套并发口径，避免连点在同一
   // 目标路径上并发写入（后一次的清理会删掉前一次已写好的文件）。
   bool _isCopying = false;
@@ -2899,14 +2922,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       OpenHandMotionSettingsScope.dialog,
     );
     final viewport = _adaptivePreviewDialogViewport(context);
-    _scheduleHeaderHeightSync();
+    scheduleHeaderHeightSync();
 
     final natural = _naturalSize;
     final metrics = _AdaptivePreviewDialogMetrics.fromAspectRatio(
       viewport: viewport,
       insetPadding: _kInsetPadding,
       chromeHeight:
-          math.max(_kHeaderEstimate, _measuredHeaderHeight ?? 0) + _kDividerH,
+          math.max(_kHeaderEstimate, measuredHeaderHeight ?? 0) + _kDividerH,
       contentPadding: _kPadding,
       minDialogWidth: _kMinDialogW,
       fallbackContentSize: const Size.square(_kFallbackSide),
@@ -2947,7 +2970,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                 children: [
                   // 头部标题栏。
                   Padding(
-                    key: _headerKey,
+                    key: headerMeasureKey,
                     padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
                     child: Row(
                       children: [
@@ -3057,19 +3080,6 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     final imageUri = widget.imageUri;
     if (imageUri != null) return 'network:$imageUri';
     return 'empty:${widget.title}';
-  }
-
-  void _scheduleHeaderHeightSync() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final renderObject = _headerKey.currentContext?.findRenderObject();
-      if (renderObject is! RenderBox) return;
-      final height = renderObject.size.height;
-      if (height <= 0) return;
-      final previous = _measuredHeaderHeight;
-      if (previous != null && (previous - height).abs() < 0.5) return;
-      setState(() => _measuredHeaderHeight = height);
-    });
   }
 
   Future<void> _copyImageToClipboard(BuildContext context) async {
@@ -4625,7 +4635,8 @@ class _MediaPreviewDialog extends StatefulWidget {
 const int _kMediaPreviewControlAutoHideMs = 900;
 const int _kMediaPreviewPointerLeaveHideMs = 80;
 
-class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
+class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
+    with _MeasuredHeaderHeight<_MediaPreviewDialog> {
   static const Duration _mediaLoadTimeout = Duration(seconds: 18);
   static const double _kInsetPadding = 24.0;
   static const double _kContentPadding = 12.0;
@@ -4652,8 +4663,6 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   bool _disposed = false;
   bool _mediaBootstrapStarted = false;
   DialogAnimationSettings _playerMotionSettings = OpenHandMotionDefaults.dialog;
-  final GlobalKey _headerKey = GlobalKey();
-  double? _measuredHeaderHeight;
   // Cancel signal for the in-flight save. Completed when the user dismisses
   // the dialog mid-download so we stop pulling bytes and clean up the
   // partial file instead of writing into a destination the user is no
@@ -5107,7 +5116,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             viewport: viewport,
             insetPadding: _kInsetPadding,
             chromeHeight:
-                math.max(_kHeaderEstimate, _measuredHeaderHeight ?? 0) +
+                math.max(_kHeaderEstimate, measuredHeaderHeight ?? 0) +
                 _kDividerH,
             contentPadding: _kContentPadding,
             minDialogWidth: _kMinDialogW,
@@ -5127,7 +5136,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             minDialogWidth: _kMinDialogW,
             contentSize: kNativeAudioPreviewPreferredSize,
           );
-    if (isVideo) _scheduleHeaderHeightSync();
+    if (isVideo) scheduleHeaderHeightSync();
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
@@ -5194,7 +5203,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                key: _headerKey,
+                key: headerMeasureKey,
                 padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
                 child: Row(
                   children: [
@@ -5417,19 +5426,6 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
         ],
       ),
     );
-  }
-
-  void _scheduleHeaderHeightSync() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final renderObject = _headerKey.currentContext?.findRenderObject();
-      if (renderObject is! RenderBox) return;
-      final height = renderObject.size.height;
-      if (height <= 0) return;
-      final previous = _measuredHeaderHeight;
-      if (previous != null && (previous - height).abs() < 0.5) return;
-      setState(() => _measuredHeaderHeight = height);
-    });
   }
 
   Future<void> _openInSystemPlayer(BuildContext context) async {

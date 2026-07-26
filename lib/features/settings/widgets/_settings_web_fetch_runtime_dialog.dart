@@ -1,5 +1,10 @@
 part of 'settings_view.dart';
 
+/// 运行时控制台的固定前景色：始终渲染在深色控制台底色上，不随主题切换。
+const Color _kConsoleCommandColor = Color(0xFFF1F5F9);
+const Color _kConsoleStatusColor = Color(0xFF64B5F6);
+const Color _kConsoleStdoutColor = Color(0xFFCDD9E5);
+
 enum _ScraplingRuntimeAction { install, uninstall }
 
 class _ScraplingRuntimeDialog extends StatefulWidget {
@@ -203,7 +208,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
     final statusColor = _running
         ? colorScheme.primary
         : _success
-        ? const Color(0xFF4CAF50)
+        ? OpenHandStatusColors.success
         : colorScheme.error;
     final statusLabel = _running
         ? (installing
@@ -370,13 +375,14 @@ class _ScraplingRuntimeLogLine extends StatelessWidget {
 
   Color _colorForLevel(_ScraplingRuntimeLogLevel level) {
     return switch (level) {
-      _ScraplingRuntimeLogLevel.command => const Color(0xFF4CAF50),
-      _ScraplingRuntimeLogLevel.status => const Color(0xFF64B5F6),
-      _ScraplingRuntimeLogLevel.stdout => const Color(0xFFCDD9E5),
-      _ScraplingRuntimeLogLevel.stderr => const Color(0xFFFFA726),
-      _ScraplingRuntimeLogLevel.success => const Color(0xFF4CAF50),
-      _ScraplingRuntimeLogLevel.warning => const Color(0xFFFFA726),
-      _ScraplingRuntimeLogLevel.error => const Color(0xFFEF5350),
+      // 回显命令用高亮前景与普通输出区分；stderr 未被识别为错误时按告警呈现。
+      _ScraplingRuntimeLogLevel.command => _kConsoleCommandColor,
+      _ScraplingRuntimeLogLevel.status => _kConsoleStatusColor,
+      _ScraplingRuntimeLogLevel.stdout => _kConsoleStdoutColor,
+      _ScraplingRuntimeLogLevel.stderr => OpenHandStatusColors.warning,
+      _ScraplingRuntimeLogLevel.success => OpenHandStatusColors.success,
+      _ScraplingRuntimeLogLevel.warning => OpenHandStatusColors.warning,
+      _ScraplingRuntimeLogLevel.error => OpenHandStatusColors.error,
     };
   }
 }

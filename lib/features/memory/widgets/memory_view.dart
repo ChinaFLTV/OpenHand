@@ -543,26 +543,11 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                   ),
                 ),
               ),
-              if (_isSaving) ...[
-                const SizedBox(height: 12),
-                const LinearProgressIndicator(),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _isSaving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    label: l10n.commonCancel,
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _isSaving ? null : _handleSave,
-                    label: l10n.commonSave,
-                  ),
-                ],
+              OpenHandDialogSaveActions(
+                busy: _isSaving,
+                cancelLabel: l10n.commonCancel,
+                confirmLabel: l10n.commonSave,
+                onConfirm: _handleSave,
               ),
             ],
           ),

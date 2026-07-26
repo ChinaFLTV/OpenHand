@@ -1,7 +1,84 @@
 import 'package:flutter/material.dart';
 
+import 'openhand_reveal_switcher.dart';
+
 const double kOpenHandDialogActionButtonWidth = 164;
 const double kOpenHandDialogActionButtonHeight = 54;
+
+/// 弹窗内的忙碌进度条：出现与消失都走全局动效，不做生硬的插入与移除。
+class OpenHandDialogBusyBar extends StatelessWidget {
+  const OpenHandDialogBusyBar({
+    super.key,
+    required this.busy,
+    this.topGap = 12,
+  });
+
+  final bool busy;
+
+  /// 展开时与上方内容的间距；收起时一并折叠，不留空洞。
+  final double topGap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OpenHandVerticalRevealSwitcher(
+      presentKey: const ValueKey<String>('openhand-dialog-busy-bar'),
+      child: busy
+          ? Padding(
+              padding: EdgeInsets.only(top: topGap),
+              child: const LinearProgressIndicator(),
+            )
+          : null,
+    );
+  }
+}
+
+/// 弹窗底部的「取消 / 确认」动作区。
+///
+/// [busy] 期间禁用两个按钮以防重复提交，并平滑展开进度条。
+/// [onCancel] 缺省为 `pop(false)`。
+class OpenHandDialogSaveActions extends StatelessWidget {
+  const OpenHandDialogSaveActions({
+    super.key,
+    required this.busy,
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.onConfirm,
+    this.onCancel,
+  });
+
+  final bool busy;
+  final String cancelLabel;
+  final String confirmLabel;
+  final VoidCallback onConfirm;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OpenHandDialogBusyBar(busy: busy),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: busy
+                  ? null
+                  : (onCancel ?? () => Navigator.of(context).pop(false)),
+              label: cancelLabel,
+            ),
+            const SizedBox(width: 12),
+            OpenHandDialogActionButton.primary(
+              onPressed: busy ? null : onConfirm,
+              label: confirmLabel,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 
 class OpenHandDialogActionButton extends StatelessWidget {
   const OpenHandDialogActionButton.primary({

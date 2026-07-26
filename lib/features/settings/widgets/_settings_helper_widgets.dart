@@ -12,6 +12,8 @@ const Duration _aiTtsDragHoverDuration = Duration(milliseconds: 220);
 const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
 const double _aiTtsCardActionSize = 40;
+const double _aiCardActionEnabledAlpha = 0.74;
+const double _aiCardActionDisabledAlpha = 0.42;
 const double _aiTtsDragFeedbackMaxHeight = 240;
 const double _settingsStandardFieldWidth = 360;
 const String _translationSettingsTestText = 'Hello, OpenHand.';
@@ -2899,6 +2901,26 @@ class _AiTtsStatusBadge extends StatelessWidget {
   }
 }
 
+/// AI 服务卡片右上角圆形操作按钮的统一样式（展开、试听等共用）。
+ButtonStyle _aiCardActionButtonStyle(ThemeData theme) {
+  return IconButton.styleFrom(
+    shape: const CircleBorder(),
+    padding: EdgeInsets.zero,
+    minimumSize: const Size.square(_aiTtsCardActionSize),
+    fixedSize: const Size.square(_aiTtsCardActionSize),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
+      alpha: _aiCardActionEnabledAlpha,
+    ),
+    foregroundColor: theme.colorScheme.onSurfaceVariant,
+    disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
+        .withValues(alpha: _aiCardActionDisabledAlpha),
+    disabledForegroundColor: theme.colorScheme.onSurfaceVariant.withValues(
+      alpha: _aiCardActionDisabledAlpha,
+    ),
+  );
+}
+
 class _AiProviderCardExpandButton extends StatelessWidget {
   const _AiProviderCardExpandButton({
     required this.expanded,
@@ -2931,20 +2953,7 @@ class _AiProviderCardExpandButton extends StatelessWidget {
         dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
           onPressed: enabled ? onPressed : null,
-          style: IconButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: EdgeInsets.zero,
-            minimumSize: const Size.square(_aiTtsCardActionSize),
-            fixedSize: const Size.square(_aiTtsCardActionSize),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.74),
-            foregroundColor: theme.colorScheme.onSurfaceVariant,
-            disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.42),
-            disabledForegroundColor: theme.colorScheme.onSurfaceVariant
-                .withValues(alpha: 0.42),
-          ),
+          style: _aiCardActionButtonStyle(theme),
           icon: AnimatedRotation(
             turns: enabled && expanded ? 0 : 0.5,
             duration: duration,
@@ -2979,20 +2988,7 @@ class _AiTtsTestButton extends StatelessWidget {
         dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
           onPressed: onPressed,
-          style: IconButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: EdgeInsets.zero,
-            minimumSize: const Size.square(_aiTtsCardActionSize),
-            fixedSize: const Size.square(_aiTtsCardActionSize),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.74),
-            foregroundColor: theme.colorScheme.onSurfaceVariant,
-            disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.48),
-            disabledForegroundColor: theme.colorScheme.onSurfaceVariant
-                .withValues(alpha: 0.54),
-          ),
+          style: _aiCardActionButtonStyle(theme),
           icon: testing
               ? const SizedBox.square(
                   dimension: 16,

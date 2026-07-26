@@ -7,9 +7,6 @@ import '../../shared/util/input_value_parsing.dart';
 abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
 
-  static const String defaultMcpServersFileLabel =
-      '~/.openhand/mcp/mcp_servers.json';
-
   static String homeDirectoryPath() {
     final home = nullIfBlank(Platform.environment['HOME']);
     if (home != null) {

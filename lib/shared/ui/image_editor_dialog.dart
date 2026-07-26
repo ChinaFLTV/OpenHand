@@ -303,10 +303,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                           ),
                         ),
                       ),
-                      if (_isSaving || _isProcessing) ...[
-                        const SizedBox(height: 16),
-                        const LinearProgressIndicator(),
-                      ],
+                      OpenHandDialogBusyBar(
+                        busy: _isSaving || _isProcessing,
+                        topGap: 16,
+                      ),
                       const SizedBox(height: 16),
                       _buildActionBar(context),
                     ],

@@ -4044,25 +4044,47 @@ class WebMessagePlatformService {
     });
   }
 
-  Future<shelf.Response> _getTerminal(
+  /// 机器终端接口的公共前置：校验会话可见性、记忆会话元数据并读取请求体，
+  /// 保证四个终端入口的鉴权与历史返回口径完全一致。
+  Future<shelf.Response> _withMachineTerminalSession(
     shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
+    Future<shelf.Response> Function(
+      AiSession session,
+      Map<String, Object?> body,
+      bool includeHistory,
+    )
+    handle,
   ) async {
     final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
     if (session == null) {
       return _machineTerminalUnavailable(auth, sessionId);
     }
     _rememberMachineTerminalSessionMetadata(session);
-    final start = request.requestedUri.queryParameters['start'] != 'false';
-    final includeHistory = _includeTerminalHistory(request);
-    final snapshot = await _machineTerminalService.ensureWorkspace(
-      sessionId: session.id,
-      workingDirectory: _machineTerminalWorkingDirectory(session),
-      start: start,
-    );
-    return _json(HttpStatus.ok, <String, Object?>{
-      'terminal': snapshot.toJson(includeHistory: includeHistory),
+    final body = await _readJsonBody(request);
+    return handle(session, body, _includeTerminalHistory(request, body));
+  }
+
+  Future<shelf.Response> _getTerminal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) {
+    return _withMachineTerminalSession(request, auth, sessionId, (
+      session,
+      _,
+      includeHistory,
+    ) async {
+      final start = request.requestedUri.queryParameters['start'] != 'false';
+      final snapshot = await _machineTerminalService.ensureWorkspace(
+        sessionId: session.id,
+        workingDirectory: _machineTerminalWorkingDirectory(session),
+        start: start,
+      );
+      return _json(HttpStatus.ok, <String, Object?>{
+        'terminal': snapshot.toJson(includeHistory: includeHistory),
+      });
     });
   }
 
@@ -4070,29 +4092,29 @@ class WebMessagePlatformService {
     shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
-  ) async {
-    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
-    if (session == null) {
-      return _machineTerminalUnavailable(auth, sessionId);
-    }
-    _rememberMachineTerminalSessionMetadata(session);
-    final body = await _readJsonBody(request);
-    final includeHistory = _includeTerminalHistory(request, body);
-    final data = _string(body['data'] ?? body['text'] ?? body['input'], '');
-    if (data.isEmpty) {
-      return _errorJson(HttpStatus.badRequest, 'terminal_input_required');
-    }
-    await _machineTerminalService.writeInput(
-      sessionId: session.id,
-      terminalId: _string(body['terminal_id'], '').trim(),
-      data: data,
-      appendNewline:
-          boolFromValue(body['append_newline']) || boolFromValue(body['enter']),
-    );
-    final snapshot = _machineTerminalService.snapshot(session.id);
-    return _json(HttpStatus.ok, <String, Object?>{
-      'ok': true,
-      'terminal': snapshot?.toJson(includeHistory: includeHistory),
+  ) {
+    return _withMachineTerminalSession(request, auth, sessionId, (
+      session,
+      body,
+      includeHistory,
+    ) async {
+      final data = _string(body['data'] ?? body['text'] ?? body['input'], '');
+      if (data.isEmpty) {
+        return _errorJson(HttpStatus.badRequest, 'terminal_input_required');
+      }
+      await _machineTerminalService.writeInput(
+        sessionId: session.id,
+        terminalId: _string(body['terminal_id'], '').trim(),
+        data: data,
+        appendNewline:
+            boolFromValue(body['append_newline']) ||
+            boolFromValue(body['enter']),
+      );
+      final snapshot = _machineTerminalService.snapshot(session.id);
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'terminal': snapshot?.toJson(includeHistory: includeHistory),
+      });
     });
   }
 
@@ -4100,31 +4122,29 @@ class WebMessagePlatformService {
     shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
-  ) async {
-    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
-    if (session == null) {
-      return _machineTerminalUnavailable(auth, sessionId);
-    }
-    _rememberMachineTerminalSessionMetadata(session);
-    final body = await _readJsonBody(request);
-    final includeHistory = _includeTerminalHistory(request, body);
-    final command = _string(body['command'] ?? body['cmd'], '').trimRight();
-    if (command.trim().isEmpty) {
-      return _errorJson(HttpStatus.badRequest, 'terminal_command_required');
-    }
-    final timeout = Duration(milliseconds: _terminalTimeoutMs(body));
-    final result = await _machineTerminalService.executeCommand(
-      sessionId: session.id,
-      terminalId: _string(body['terminal_id'], '').trim(),
-      command: command,
-      timeout: timeout,
-    );
-    return _json(HttpStatus.ok, <String, Object?>{
-      'ok': result.error == null && !result.timedOut,
-      'result': result.toJson(),
-      'terminal': _machineTerminalService
-          .snapshot(session.id)
-          ?.toJson(includeHistory: includeHistory),
+  ) {
+    return _withMachineTerminalSession(request, auth, sessionId, (
+      session,
+      body,
+      includeHistory,
+    ) async {
+      final command = _string(body['command'] ?? body['cmd'], '').trimRight();
+      if (command.trim().isEmpty) {
+        return _errorJson(HttpStatus.badRequest, 'terminal_command_required');
+      }
+      final result = await _machineTerminalService.executeCommand(
+        sessionId: session.id,
+        terminalId: _string(body['terminal_id'], '').trim(),
+        command: command,
+        timeout: Duration(milliseconds: _terminalTimeoutMs(body)),
+      );
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': result.error == null && !result.timedOut,
+        'result': result.toJson(),
+        'terminal': _machineTerminalService
+            .snapshot(session.id)
+            ?.toJson(includeHistory: includeHistory),
+      });
     });
   }
 
@@ -4132,40 +4152,39 @@ class WebMessagePlatformService {
     shelf.Request request,
     _WebGatewayAuthSession auth,
     String sessionId,
-  ) async {
-    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
-    if (session == null) {
-      return _machineTerminalUnavailable(auth, sessionId);
-    }
-    _rememberMachineTerminalSessionMetadata(session);
-    final body = await _readJsonBody(request);
-    final includeHistory = _includeTerminalHistory(request, body);
-    final action = _string(body['action'], '').trim();
-    if (action.isEmpty) {
-      return _errorJson(HttpStatus.badRequest, 'terminal_action_required');
-    }
-    try {
-      final snapshot = await _machineTerminalService.control(
-        sessionId: session.id,
-        action: action,
-        terminalId: _string(body['terminal_id'], '').trim(),
-        workingDirectory: _string(
-          body['working_directory'] ?? body['cwd'],
-          '',
-        ).trim(),
-        columns: optionalIntFromValue(body['columns']),
-        rows: optionalIntFromValue(body['rows']),
-      );
-      return _json(HttpStatus.ok, <String, Object?>{
-        'ok': true,
-        'terminal': snapshot.toJson(includeHistory: includeHistory),
-      });
-    } catch (error) {
-      return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'terminal_control_failed',
-        'message': '$error',
-      });
-    }
+  ) {
+    return _withMachineTerminalSession(request, auth, sessionId, (
+      session,
+      body,
+      includeHistory,
+    ) async {
+      final action = _string(body['action'], '').trim();
+      if (action.isEmpty) {
+        return _errorJson(HttpStatus.badRequest, 'terminal_action_required');
+      }
+      try {
+        final snapshot = await _machineTerminalService.control(
+          sessionId: session.id,
+          action: action,
+          terminalId: _string(body['terminal_id'], '').trim(),
+          workingDirectory: _string(
+            body['working_directory'] ?? body['cwd'],
+            '',
+          ).trim(),
+          columns: optionalIntFromValue(body['columns']),
+          rows: optionalIntFromValue(body['rows']),
+        );
+        return _json(HttpStatus.ok, <String, Object?>{
+          'ok': true,
+          'terminal': snapshot.toJson(includeHistory: includeHistory),
+        });
+      } catch (error) {
+        return _json(HttpStatus.badRequest, <String, Object?>{
+          'error': 'terminal_control_failed',
+          'message': '$error',
+        });
+      }
+    });
   }
 
   bool _includeTerminalHistory(

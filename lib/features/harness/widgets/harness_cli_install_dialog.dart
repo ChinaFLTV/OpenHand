@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -514,7 +515,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     final statusColor = _running
         ? colorScheme.primary
         : _success
-        ? const Color(0xFF4CAF50)
+        ? OpenHandStatusColors.success
         : colorScheme.error;
 
     final statusIcon = _running
@@ -671,18 +672,18 @@ class _LogLine extends StatelessWidget {
   static Color _colorForLine(String line) {
     final lower = line.toLowerCase();
     if (line.startsWith('✓') || line.startsWith('>')) {
-      return const Color(0xFF4CAF50);
+      return OpenHandStatusColors.success;
     }
     if (line.startsWith('✗') ||
         lower.startsWith('error') ||
         lower.startsWith('err ') ||
         lower.contains(' error:')) {
-      return const Color(0xFFEF5350);
+      return OpenHandStatusColors.error;
     }
     if (line.startsWith('⚠') ||
         lower.startsWith('warn') ||
         lower.startsWith('warning')) {
-      return const Color(0xFFFFA726);
+      return OpenHandStatusColors.warning;
     }
     if (line.startsWith('  →')) {
       return const Color(0xFF64B5F6);

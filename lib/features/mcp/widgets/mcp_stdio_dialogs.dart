@@ -124,7 +124,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                   Icons.terminal_rounded,
                   size: 20,
                   color: info.isRunning
-                      ? const Color(0xFF16A34A)
+                      ? OpenHandStatusColors.success
                       : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
@@ -230,7 +230,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
           Container(
             height: 3,
             color: info.isRunning
-                ? const Color(0xFF16A34A)
+                ? OpenHandStatusColors.success
                 : info.isTransitioning
                 ? OpenHandStatusColors.warning
                 : theme.colorScheme.outlineVariant,
@@ -577,7 +577,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                         title: l10n.mcpStdioDialogProcessStatus,
                         icon: Icons.memory_rounded,
                         color: processInfo.isRunning
-                            ? const Color(0xFF16A34A)
+                            ? OpenHandStatusColors.success
                             : theme.colorScheme.onSurfaceVariant,
                         children: [
                           for (final entry in _runtimeInfo.entries.take(5))
@@ -1153,7 +1153,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                                 : Icons.cancel,
                             size: 18,
                             color: _packageInstalled
-                                ? const Color(0xFF16A34A)
+                                ? OpenHandStatusColors.success
                                 : theme.colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 8),

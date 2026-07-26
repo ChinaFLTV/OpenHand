@@ -836,26 +836,11 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
                   ),
                 ),
               ],
-              if (_isSaving) ...[
-                const SizedBox(height: 12),
-                const LinearProgressIndicator(),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _isSaving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    label: l10n.skillsEditorCancel,
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _isSaving ? null : _handleSave,
-                    label: l10n.skillsEditorSave,
-                  ),
-                ],
+              OpenHandDialogSaveActions(
+                busy: _isSaving,
+                cancelLabel: l10n.skillsEditorCancel,
+                confirmLabel: l10n.skillsEditorSave,
+                onConfirm: _handleSave,
               ),
             ],
           ),
@@ -1239,26 +1224,12 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
                   ),
                 ),
               ),
-              if (_isSaving) ...[
-                const SizedBox(height: 12),
-                const LinearProgressIndicator(),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _isSaving
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    label: l10n.commonCancel,
-                  ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _isSaving ? null : _handleSave,
-                    label: l10n.commonSave,
-                  ),
-                ],
+              OpenHandDialogSaveActions(
+                busy: _isSaving,
+                cancelLabel: l10n.commonCancel,
+                confirmLabel: l10n.commonSave,
+                onConfirm: _handleSave,
+                onCancel: () => Navigator.of(context).pop(),
               ),
             ],
           ),

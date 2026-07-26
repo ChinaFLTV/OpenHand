@@ -490,7 +490,7 @@ class _LogLine extends StatelessWidget {
   final ColorScheme colorScheme;
 
   Color? _resolveColor() {
-    if (line.startsWith('\u2713')) return const Color(0xFF4CAF50);
+    if (line.startsWith('\u2713')) return OpenHandStatusColors.success;
     if (line.startsWith('\u2717')) return colorScheme.error;
     if (line.startsWith('>')) return colorScheme.primary;
     if (line.startsWith('\u25b6')) return colorScheme.secondary;
