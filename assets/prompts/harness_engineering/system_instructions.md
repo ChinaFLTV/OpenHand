@@ -104,7 +104,7 @@ steering/
 </capability_priority>
 
 <cli_invocation>
-**⚠️ CRITICAL — CLI 可执行文件规则**
+**CRITICAL — CLI 可执行文件规则**
 
 `[HARNESS_CONFIG]` 块为每个角色提供了 `可执行文件`（executable）字段。**必须使用该精确二进制**，永不擅自替换为 `claude` 或其他 CLI 名 — 角色与可执行文件的绑定**仅由用户配置决定**。
 
