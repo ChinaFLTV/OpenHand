@@ -2131,6 +2131,11 @@ class _TokenReadResult {
 class _ShellWriteCommandAnalyzer {
   _ShellWriteCommandAnalyzer(this.source);
 
+  /// `$VAR` 形式的变量展开；提到静态字段避免逐字符重编译正则。
+  static final RegExp _shellVariablePattern = RegExp(
+    r'^\$[A-Za-z_][A-Za-z0-9_]*',
+  );
+
   static const Set<String> _outputRedirections = <String>{
     '>',
     '>>',
@@ -3324,45 +3329,16 @@ class _ShellWriteCommandAnalyzer {
         cursor = quoted.nextIndex;
         continue;
       }
-      if (char == '`') {
-        final nested = _readBacktickCommand(input, cursor);
-        buffer.write('`${nested.content}`');
-        nestedCommands.add(nested.content);
+      final expansionEnd = _readShellExpansion(
+        input,
+        cursor,
+        buffer: buffer,
+        nestedCommands: nestedCommands,
+      );
+      if (expansionEnd != null) {
         hasDynamicExpansion = true;
-        cursor = nested.nextIndex;
+        cursor = expansionEnd;
         continue;
-      }
-      if (char == r'$') {
-        if (cursor + 1 < input.length && input[cursor + 1] == '(') {
-          final nested = _readBalancedCommand(input, cursor + 2);
-          buffer.write(r'$(${nested.content})');
-          nestedCommands.add(nested.content);
-          hasDynamicExpansion = true;
-          cursor = nested.nextIndex;
-          continue;
-        }
-        if (cursor + 1 < input.length && input[cursor + 1] == '{') {
-          final closing = input.indexOf('}', cursor + 2);
-          if (closing == -1) {
-            buffer.write(input.substring(cursor));
-            hasDynamicExpansion = true;
-            cursor = input.length;
-          } else {
-            buffer.write(input.substring(cursor, closing + 1));
-            hasDynamicExpansion = true;
-            cursor = closing + 1;
-          }
-          continue;
-        }
-        final variableMatch = RegExp(
-          r'^\$[A-Za-z_][A-Za-z0-9_]*',
-        ).matchAsPrefix(input.substring(cursor));
-        if (variableMatch != null) {
-          buffer.write(variableMatch.group(0));
-          hasDynamicExpansion = true;
-          cursor += variableMatch.group(0)!.length;
-          continue;
-        }
       }
       if (char == r'\') {
         if (cursor + 1 < input.length) {
@@ -3385,6 +3361,50 @@ class _ShellWriteCommandAnalyzer {
       ),
       nextIndex: cursor,
     );
+  }
+
+  /// 读取一段 shell 展开：反引号、`$(...)`、`${...}` 与 `$VAR`。
+  ///
+  /// 未引用词与双引号串对这四种展开的处理规则完全一致，故共用本实现。
+  /// 命中时把展开后的文本写入 [buffer]、把嵌套命令登记到 [nestedCommands]，
+  /// 并返回新的游标——命中即意味着存在动态展开，由调用方置位对应标记。
+  /// 当前字符不是展开起点（如裸 `$` 后跟空格）时返回 null，交回调用方按
+  /// 普通字符处理。
+  int? _readShellExpansion(
+    String input,
+    int index, {
+    required StringBuffer buffer,
+    required List<String> nestedCommands,
+  }) {
+    final char = input[index];
+    if (char == '`') {
+      final nested = _readBacktickCommand(input, index);
+      buffer.write('`${nested.content}`');
+      nestedCommands.add(nested.content);
+      return nested.nextIndex;
+    }
+    if (char != r'$') return null;
+    if (index + 1 < input.length && input[index + 1] == '(') {
+      final nested = _readBalancedCommand(input, index + 2);
+      buffer.write(r'$(${nested.content})');
+      nestedCommands.add(nested.content);
+      return nested.nextIndex;
+    }
+    if (index + 1 < input.length && input[index + 1] == '{') {
+      final closing = input.indexOf('}', index + 2);
+      if (closing == -1) {
+        buffer.write(input.substring(index));
+        return input.length;
+      }
+      buffer.write(input.substring(index, closing + 1));
+      return closing + 1;
+    }
+    final variableMatch = _shellVariablePattern.matchAsPrefix(
+      input.substring(index),
+    );
+    if (variableMatch == null) return null;
+    buffer.write(variableMatch.group(0));
+    return index + variableMatch.group(0)!.length;
   }
 
   _QuotedReadResult _readDoubleQuoted(String input, int index) {
@@ -3411,45 +3431,16 @@ class _ShellWriteCommandAnalyzer {
         cursor++;
         break;
       }
-      if (char == '`') {
-        final nested = _readBacktickCommand(input, cursor);
-        buffer.write('`${nested.content}`');
-        nestedCommands.add(nested.content);
+      final expansionEnd = _readShellExpansion(
+        input,
+        cursor,
+        buffer: buffer,
+        nestedCommands: nestedCommands,
+      );
+      if (expansionEnd != null) {
         hasDynamicExpansion = true;
-        cursor = nested.nextIndex;
+        cursor = expansionEnd;
         continue;
-      }
-      if (char == r'$') {
-        if (cursor + 1 < input.length && input[cursor + 1] == '(') {
-          final nested = _readBalancedCommand(input, cursor + 2);
-          buffer.write(r'$(${nested.content})');
-          nestedCommands.add(nested.content);
-          hasDynamicExpansion = true;
-          cursor = nested.nextIndex;
-          continue;
-        }
-        if (cursor + 1 < input.length && input[cursor + 1] == '{') {
-          final closing = input.indexOf('}', cursor + 2);
-          if (closing == -1) {
-            buffer.write(input.substring(cursor));
-            hasDynamicExpansion = true;
-            cursor = input.length;
-          } else {
-            buffer.write(input.substring(cursor, closing + 1));
-            hasDynamicExpansion = true;
-            cursor = closing + 1;
-          }
-          continue;
-        }
-        final variableMatch = RegExp(
-          r'^\$[A-Za-z_][A-Za-z0-9_]*',
-        ).matchAsPrefix(input.substring(cursor));
-        if (variableMatch != null) {
-          buffer.write(variableMatch.group(0));
-          hasDynamicExpansion = true;
-          cursor += variableMatch.group(0)!.length;
-          continue;
-        }
       }
       buffer.write(char);
       cursor++;

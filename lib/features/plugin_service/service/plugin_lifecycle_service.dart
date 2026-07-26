@@ -723,6 +723,53 @@ class PluginLifecycleService {
     return '${OpenHandPaths.homeDirectoryPath()}/.openhand/knowledge/qdrant';
   }
 
+  /// 校验既有 Qdrant 容器确由 OpenHand 托管，不是则以 3 退出。
+  ///
+  /// 启动与更新两条脚本共用。片段停在 `fi` 之前，调用方接上各自的后续分支：
+  /// 启动走 `docker start`，更新走 `docker stop` + `docker rm`。
+  String _qdrantManagedContainerGuard() {
+    final name = _pluginShellQuote(_qdrantContainerName);
+    return '''
+if docker inspect $name >/dev/null 2>&1; then
+  LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' $name 2>/dev/null || true)"
+  if [ "\$LABEL" != "true" ]; then
+    echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
+    exit 3
+  fi''';
+  }
+
+  /// 创建 Qdrant 容器的 `docker run`：端口、标签与挂载点在此单点维护。
+  ///
+  /// [indent] 为整条命令的缩进空格数，用于嵌入不同层级的 shell 分支。
+  String _qdrantDockerRunCommand(String dataDir, {required int indent}) {
+    final head = ' ' * indent;
+    final pad = ' ' * (indent + 2);
+    return '''
+${head}docker run -d \\
+$pad--name ${_pluginShellQuote(_qdrantContainerName)} \\
+$pad--label openhand.managed=true \\
+$pad--label com.openhand.managed=true \\
+$pad--restart unless-stopped \\
+$pad-p $_qdrantRestPort:6333 \\
+$pad-p $_qdrantGrpcPort:6334 \\
+$pad-v ${_pluginShellQuote(dataDir)}:/qdrant/storage \\
+$pad${_pluginShellQuote(_qdrantImage)}''';
+  }
+
+  /// 轮询 REST 端点直到 Qdrant 就绪，30 秒内未就绪则以 4 退出。
+  String _qdrantHealthWaitScript() {
+    return '''
+for i in \$(seq 1 30); do
+  if curl -fsS http://127.0.0.1:$_qdrantRestPort/ >/dev/null 2>&1; then
+    docker ps --filter name=^/$_qdrantContainerName\$ --format 'container={{.ID}} image={{.Image}} status={{.Status}}'
+    exit 0
+  fi
+  sleep 1
+done
+echo "Qdrant health endpoint did not become ready" >&2
+exit 4''';
+  }
+
   /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
   static String _nvmSourcePrefix() {
     final home = Platform.environment['HOME'] ?? '';
@@ -2150,33 +2197,12 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
 set -euo pipefail
 mkdir -p ${_pluginShellQuote(dataDir)}
 docker pull ${_pluginShellQuote(_qdrantImage)}
-if docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
-  LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
-  if [ "\$LABEL" != "true" ]; then
-    echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
-    exit 3
-  fi
+${_qdrantManagedContainerGuard()}
   docker start ${_pluginShellQuote(_qdrantContainerName)} >/dev/null
 else
-  docker run -d \\
-    --name ${_pluginShellQuote(_qdrantContainerName)} \\
-    --label openhand.managed=true \\
-    --label com.openhand.managed=true \\
-    --restart unless-stopped \\
-    -p $_qdrantRestPort:6333 \\
-    -p $_qdrantGrpcPort:6334 \\
-    -v ${_pluginShellQuote(dataDir)}:/qdrant/storage \\
-    ${_pluginShellQuote(_qdrantImage)}
+${_qdrantDockerRunCommand(dataDir, indent: 2)}
 fi
-for i in \$(seq 1 30); do
-  if curl -fsS http://127.0.0.1:$_qdrantRestPort/ >/dev/null 2>&1; then
-    docker ps --filter name=^/$_qdrantContainerName\$ --format 'container={{.ID}} image={{.Image}} status={{.Status}}'
-    exit 0
-  fi
-  sleep 1
-done
-echo "Qdrant health endpoint did not become ready" >&2
-exit 4
+${_qdrantHealthWaitScript()}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -2621,35 +2647,14 @@ exit 4
     final script =
         '''
 set -euo pipefail
-if docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
-  LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
-  if [ "\$LABEL" != "true" ]; then
-    echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
-    exit 3
-  fi
+${_qdrantManagedContainerGuard()}
   docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
   docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
 fi
 mkdir -p ${_pluginShellQuote(dataDir)}
 docker pull ${_pluginShellQuote(_qdrantImage)}
-docker run -d \\
-  --name ${_pluginShellQuote(_qdrantContainerName)} \\
-  --label openhand.managed=true \\
-  --label com.openhand.managed=true \\
-  --restart unless-stopped \\
-  -p $_qdrantRestPort:6333 \\
-  -p $_qdrantGrpcPort:6334 \\
-  -v ${_pluginShellQuote(dataDir)}:/qdrant/storage \\
-  ${_pluginShellQuote(_qdrantImage)}
-for i in \$(seq 1 30); do
-  if curl -fsS http://127.0.0.1:$_qdrantRestPort/ >/dev/null 2>&1; then
-    docker ps --filter name=^/$_qdrantContainerName\$ --format 'container={{.ID}} image={{.Image}} status={{.Status}}'
-    exit 0
-  fi
-  sleep 1
-done
-echo "Qdrant health endpoint did not become ready" >&2
-exit 4
+${_qdrantDockerRunCommand(dataDir, indent: 0)}
+${_qdrantHealthWaitScript()}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
