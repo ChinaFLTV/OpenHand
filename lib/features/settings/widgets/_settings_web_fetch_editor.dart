@@ -453,13 +453,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
           onMaxBytesChanged: (value) => _emit(v.copyWith(cacheMaxBytes: value)),
         ),
         const SizedBox(height: 10),
-        _buildToolCacheActions(
-          context: context,
-          bytesOnDisk: _cacheBytesOnDisk,
-          clearing: _clearingCache,
-          onRefresh: _refreshCacheBytesOnDisk,
-          onClear: _confirmAndClearCache,
-        ),
+        _buildCacheActionsRow(context),
         const SizedBox(height: 16),
 
         ...buildWebEngineListSection(

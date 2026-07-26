@@ -5942,6 +5942,18 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     );
   }
 
+  /// 缓存占用与清理按钮：四个参数全部取自本 mixin 的状态，两个编辑器此前各
+  /// 拼一遍同样的实参。
+  Widget _buildCacheActionsRow(BuildContext context) {
+    return _buildToolCacheActions(
+      context: context,
+      bytesOnDisk: _cacheBytesOnDisk,
+      clearing: _clearingCache,
+      onRefresh: _refreshCacheBytesOnDisk,
+      onClear: _confirmAndClearCache,
+    );
+  }
+
   Future<void> _refreshTelemetry() async {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
