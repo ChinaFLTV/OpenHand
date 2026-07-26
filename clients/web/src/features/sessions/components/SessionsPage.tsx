@@ -583,7 +583,7 @@ export function SessionsPage() {
                           </span>
                         </div>
                         {row.error ? (
-                          <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
+                          <p class="text-xs mt-2 oh-text-error">
                             {row.error}
                           </p>
                         ) : null}

@@ -22,7 +22,7 @@ export function LoginPage() {
           class="w-full max-w-md rounded-m3-xl p-8 text-center"
           style={{ backgroundColor: 'var(--m3-surface-container)', boxShadow: 'var(--m3-elev-2)' }}
         >
-          <h1 class="text-xl font-semibold mb-3" style={{ color: 'var(--m3-on-surface)' }}>
+          <h1 class="text-xl font-semibold mb-3 oh-text-body">
             {t('login.anonymous.notice')}
           </h1>
           <button
@@ -70,7 +70,7 @@ export function LoginPage() {
         class="w-full max-w-md rounded-m3-xl p-8"
         style={{ backgroundColor: 'var(--m3-surface-container)', boxShadow: 'var(--m3-elev-2)' }}
       >
-        <h1 class="text-2xl font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
+        <h1 class="text-2xl font-semibold mb-1 oh-text-body">
           {t('login.title')}
         </h1>
         <p class="text-sm mb-6 oh-text-muted">

@@ -89,7 +89,7 @@ function TemplatePluginSummary(props: { plugins: PluginSummary[] }) {
   if (rows.length === 0) return null;
   return (
     <div class="oh-toolbox-card mb-4">
-      <div class="text-sm font-semibold mb-2" style={{ color: 'var(--m3-on-surface)' }}>
+      <div class="text-sm font-semibold mb-2 oh-text-body">
         {t('plugins.templateBindings', '线程模板关联插件')}
       </div>
       <div class="flex flex-wrap gap-2">
@@ -275,7 +275,7 @@ export function PluginsPage() {
                         <span style={{ fontSize: 24 }}>{pluginIcon(plugin.id)}</span>
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-2 flex-wrap">
-                            <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+                            <h3 class="text-sm font-semibold oh-text-body">
                               {plugin.name}
                             </h3>
                             <span
@@ -345,7 +345,7 @@ export function PluginsPage() {
                             </div>
                           ) : null}
                           {plugin.error_message ? (
-                            <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
+                            <p class="text-xs mt-2 oh-text-error">
                               {plugin.error_message}
                             </p>
                           ) : null}
@@ -428,7 +428,7 @@ export function PluginsPage() {
                             ) : null}
                           </>
                         ) : isBusy ? (
-                          <span class="text-xs" style={{ color: 'var(--m3-primary)' }}>
+                          <span class="text-xs oh-text-primary">
                             ⏳
                           </span>
                         ) : null}

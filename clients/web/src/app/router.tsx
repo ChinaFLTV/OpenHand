@@ -47,7 +47,7 @@ function NotFound() {
   return (
     <main class="min-h-screen flex items-center justify-center">
       <div class="text-center">
-        <p class="text-3xl font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+        <p class="text-3xl font-semibold oh-text-body">
           404
         </p>
         <p class="text-sm mt-2 oh-text-muted">
@@ -69,7 +69,7 @@ function FeatureUnavailable(props: { title: string; body: string }) {
           boxShadow: 'var(--m3-elev-2)',
         }}
       >
-        <p class="text-lg font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+        <p class="text-lg font-semibold oh-text-body">
           {props.title}
         </p>
         <p class="text-sm mt-2 oh-text-muted">

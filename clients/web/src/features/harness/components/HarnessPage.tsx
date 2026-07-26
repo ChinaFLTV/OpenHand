@@ -149,7 +149,7 @@ function HarnessRecordView(props: { record: HarnessSessionRecord }) {
           }}
         >
           <div class="flex items-baseline justify-between gap-3">
-            <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+            <h2 class="text-base font-semibold oh-text-body">
               {r.title || r.id}
             </h2>
             <span
@@ -176,7 +176,7 @@ function HarnessRecordView(props: { record: HarnessSessionRecord }) {
               </div>
             ) : null}
             {r.error_message ? (
-              <div class="col-span-2 mt-1" style={{ color: 'var(--m3-error)' }}>
+              <div class="col-span-2 mt-1 oh-text-error">
                 {r.error_message}
               </div>
             ) : null}
@@ -257,7 +257,7 @@ function PhaseCard(props: {
           </span>
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline gap-2 flex-wrap">
-              <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+              <span class="text-sm font-semibold oh-text-body">
                 {index + 1}. {PHASE_NAMES_ZH[phase]}
               </span>
               <span class="text-[10px] oh-text-muted">

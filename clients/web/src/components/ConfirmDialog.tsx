@@ -125,8 +125,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         </span>
         <div class="oh-confirm-dialog-main min-w-0 flex-1">
           <h2
-            class="oh-confirm-dialog-title text-base font-semibold"
-            style={{ color: 'var(--m3-on-surface)' }}
+            class="oh-confirm-dialog-title text-base font-semibold oh-text-body"
           >
             {title}
           </h2>

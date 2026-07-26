@@ -454,8 +454,7 @@ export function DialogHeader({
         {icon ? <div class="shrink-0">{icon}</div> : null}
         <div class="min-w-0">
           <h2
-            class={titleClassName}
-            style={{ color: 'var(--m3-on-surface)' }}
+            class={classNames('oh-text-body', titleClassName)}
           >
             {title}
           </h2>

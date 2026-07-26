@@ -150,7 +150,7 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
                       </span>
                     ) : null}
                   </div>
-                  <h3 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+                  <h3 class="text-base font-semibold oh-text-body">
                     {tpl.name}
                   </h3>
                   {tpl.description ? (
@@ -279,7 +279,7 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
         </div>
 
         {error ? (
-          <p class="text-xs" style={{ color: 'var(--m3-error)' }}>
+          <p class="text-xs oh-text-error">
             {error}
           </p>
         ) : null}

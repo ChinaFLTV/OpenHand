@@ -4817,7 +4817,7 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
     >
       <div class="oh-file-mutation-header flex items-center justify-between gap-2 mb-2">
         <div class="flex items-center gap-2 min-w-0">
-          <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+          <span class="text-sm font-semibold oh-text-body">
             {t('detail.fileMutation.title', '文件变动')}
           </span>
           {kind ? <MetaChip label={kind} /> : null}

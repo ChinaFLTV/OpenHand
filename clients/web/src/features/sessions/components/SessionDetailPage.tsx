@@ -7471,7 +7471,7 @@ export function SessionDetailPage() {
   if (!sessionId) {
     return (
       <main class="min-h-screen flex items-center justify-center">
-        <p class="text-sm" style={{ color: 'var(--m3-error)' }}>
+        <p class="text-sm oh-text-error">
           {t('detail.missingId', '缺少会话 ID')}
         </p>
       </main>
@@ -8218,7 +8218,7 @@ export function SessionDetailPage() {
             </div>
 
             {composerError ? (
-              <p class="text-xs mt-2" style={{ color: 'var(--m3-error)' }}>
+              <p class="text-xs mt-2 oh-text-error">
                 {composerError}
               </p>
             ) : null}
@@ -8704,7 +8704,7 @@ function GoalStartOptionsDialog({
         <form onSubmit={submit} class="oh-goal-start-form">
           <header class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+              <h2 class="text-base font-semibold oh-text-body">
                 {t('goal.start.title', '启动目标模式')}
               </h2>
               <p class="text-xs mt-1 oh-text-muted">
@@ -8735,7 +8735,7 @@ function GoalStartOptionsDialog({
           <div class="oh-goal-option-stack">
             <div class="oh-goal-option-row">
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.turnLimit', '轮次限制')}</div>
+                <div class="text-sm font-semibold oh-text-body">{t('goal.start.turnLimit', '轮次限制')}</div>
                 <div class="text-xs mt-1 oh-text-muted">{t('goal.start.turnLimit.hint', '关闭时使用运行时默认安全上限。')}</div>
               </div>
               <SwitchButton checked={turnLimitEnabled} onClick={() => setTurnLimitEnabled((value) => !value)} label={t('goal.start.turnLimit', '轮次限制')} />
@@ -8756,7 +8756,7 @@ function GoalStartOptionsDialog({
           <div class="oh-goal-option-stack">
             <div class="oh-goal-option-row">
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.tokenBudget', 'Token 预算')}</div>
+                <div class="text-sm font-semibold oh-text-body">{t('goal.start.tokenBudget', 'Token 预算')}</div>
                 <div class="text-xs mt-1 oh-text-muted">{t('goal.start.tokenBudget.hint', '关闭时不额外设置预算，只保留硬性轮次保护。')}</div>
               </div>
               <SwitchButton checked={tokenBudgetEnabled} onClick={() => setTokenBudgetEnabled((value) => !value)} label={t('goal.start.tokenBudget', 'Token 预算')} />
@@ -8774,7 +8774,7 @@ function GoalStartOptionsDialog({
             ) : null}
           </div>
 
-          {error ? <p class="text-xs" style={{ color: 'var(--m3-error)' }}>{error}</p> : null}
+          {error ? <p class="text-xs oh-text-error">{error}</p> : null}
 
           <div class="oh-goal-dialog-actions">
             <DialogActionButton onClick={requestClose}>
@@ -8825,7 +8825,7 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
     >
       <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div class="min-w-0">
-          <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+          <h2 class="text-base font-semibold oh-text-body">
             {t('goal.details.title', '目标执行详情')}
           </h2>
           <p class="text-xs mt-1 oh-text-muted">
@@ -9216,7 +9216,7 @@ function ContextUsageOverview({
     >
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <h3 class="text-xs font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+          <h3 class="text-xs font-extrabold oh-text-body">
             {t('tokenPopup.context.title', '上下文数据概览')}
           </h3>
           {usage ? (
@@ -9229,7 +9229,7 @@ function ContextUsageOverview({
         </div>
         {usage ? (
           <div class="shrink-0 text-right">
-            <strong class="block text-sm tabular-nums" style={{ color: 'var(--m3-primary)' }}>
+            <strong class="block text-sm tabular-nums oh-text-primary">
               {usage.totalTokens.toLocaleString()}
             </strong>
             <span class="text-[10px] font-semibold oh-text-muted">Token</span>
@@ -9245,7 +9245,7 @@ function ContextUsageOverview({
           }}
         >
           <div class="flex items-center gap-2">
-            <span class="text-[11px] font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+            <span class="text-[11px] font-extrabold oh-text-body">
               {t('tokenPopup.context.window', '上下文窗口')}
             </span>
             <span class="ml-auto text-xs font-black tabular-nums" style={{ color: contextColor }}>
@@ -9331,7 +9331,7 @@ function ContextUsageOverview({
                     </span>
                   </div>
                   <div class="mt-1 flex items-end justify-between gap-1">
-                    <strong class="min-w-0 truncate text-xs tabular-nums" style={{ color: 'var(--m3-on-surface)' }}>
+                    <strong class="min-w-0 truncate text-xs tabular-nums oh-text-body">
                       {item.tokenCount.toLocaleString()}
                     </strong>
                     <span class="shrink-0 text-[10px] font-bold tabular-nums" style={{ color: presentation.color }}>
@@ -9352,7 +9352,7 @@ function ContextUsageOverview({
             border: '1px solid color-mix(in srgb, var(--m3-outline-variant) 46%, transparent)',
           }}
         >
-          <span class="shrink-0" style={{ color: 'var(--m3-primary)' }}>
+          <span class="shrink-0 oh-text-primary">
             <ComposerIcon name="history" size={16} />
           </span>
           <span>{t('tokenPopup.context.empty', '发送下一条消息后生成概览')}</span>
@@ -9432,7 +9432,7 @@ function SessionTokenStatsContent({
         title={t('tokenPopup.total', '总计')}
         emphasized
         trailing={(
-          <span class="text-lg font-black tabular-nums" style={{ color: 'var(--m3-primary)' }}>
+          <span class="text-lg font-black tabular-nums oh-text-primary">
             <RollingText text={totalTokens.toLocaleString()} />
           </span>
         )}
@@ -9604,7 +9604,7 @@ function TokenStatsSection({
       }}
     >
       <div class="flex items-center justify-between gap-3">
-        <h3 class="text-xs font-extrabold" style={{ color: 'var(--m3-on-surface)' }}>
+        <h3 class="text-xs font-extrabold oh-text-body">
           {title}
         </h3>
         {trailing}
@@ -10758,7 +10758,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                     border: '1px solid var(--m3-outline-variant)',
                   }}
                 >
-                  <div class="text-sm font-bold" style={{ color: 'var(--m3-error)' }}>
+                  <div class="text-sm font-bold oh-text-error">
                     {error.stage || 'error'} · {formatDialogDate(error.created_at)}
                   </div>
                   <div class="mt-2 text-sm whitespace-pre-wrap">{error.message}</div>
@@ -10967,7 +10967,7 @@ function SessionThrottleDialog({
       })}
       ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}
     >
-      <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
+      <h2 class="text-base font-semibold mb-1 oh-text-body">
         {t('topbar.throttle.dialogTitle', '本会话流式节流')}
       </h2>
       <p class="text-xs mb-3 oh-text-muted">
@@ -11009,7 +11009,7 @@ function SessionThrottleDialog({
         }}
       >
         <div class="flex-1 min-w-0">
-          <div class="text-sm font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
+          <div class="text-sm font-semibold mb-1 oh-text-body">
             {t('topbar.throttle.enabledTitle', '启用流式输出节流（本会话）')}
           </div>
           <div class="text-xs oh-text-muted">

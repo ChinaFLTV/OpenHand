@@ -248,7 +248,7 @@ export function TitleSummaryDialog({
     >
       {phase === 'loading' ? (
             <div class="flex flex-col items-center py-6 gap-4">
-              <div class="oh-spin" style={{ color: 'var(--m3-primary)' }}>
+              <div class="oh-spin oh-text-primary">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
@@ -383,7 +383,7 @@ export function TitleSummaryDialog({
             </>
           ) : phase === 'pending' ? (
             <div class="flex flex-col items-center py-6 gap-4">
-              <div class="oh-spin" style={{ color: 'var(--m3-primary)' }}>
+              <div class="oh-spin oh-text-primary">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
@@ -400,14 +400,14 @@ export function TitleSummaryDialog({
             </div>
           ) : phase === 'success' ? (
             <div class="flex flex-col items-center py-4 gap-3">
-              <div style={{ color: 'var(--m3-primary)' }}>
+              <div class="oh-text-primary">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                   <polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
               </div>
               <p class="text-sm font-medium">{t('titleSummary.success', '标题生成成功')}</p>
-              <p class="text-base font-semibold text-center px-4" style={{ color: 'var(--m3-primary)' }}>
+              <p class="text-base font-semibold text-center px-4 oh-text-primary">
                 {generatedTitle}
               </p>
               <button
@@ -421,7 +421,7 @@ export function TitleSummaryDialog({
             </div>
           ) : (
             <div class="flex flex-col items-center py-4 gap-3">
-              <div style={{ color: 'var(--m3-error)' }}>
+              <div class="oh-text-error">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="15" y1="9" x2="9" y2="15" />

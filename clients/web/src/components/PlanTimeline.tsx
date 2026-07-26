@@ -288,7 +288,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
             {t('detail.plan.approveHint', '或在输入框回复任意文本继续讨论')}
           </span>
           {error && (
-            <span class="oh-plan-approve-error text-xs ml-auto" style={{ color: 'var(--m3-error)' }}>
+            <span class="oh-plan-approve-error text-xs ml-auto oh-text-error">
               {error}
             </span>
           )}

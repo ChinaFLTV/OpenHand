@@ -300,7 +300,7 @@ function McpList(props: { items: McpServerSummary[] }) {
           <Appear key={srv.name} variant="up" index={idx}>
             <li class="oh-toolbox-card">
               <div class="flex items-baseline justify-between gap-3">
-                <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+                <h3 class="text-sm font-semibold oh-text-body">
                   {srv.name}
                 </h3>
                 <div class="flex items-center gap-1.5 flex-wrap justify-end">
@@ -330,7 +330,7 @@ function McpList(props: { items: McpServerSummary[] }) {
                     {t('toolbox.mcp.cmd', '命令')}: <code>{srv.command}{srv.args && srv.args.length > 0 ? ' ' + srv.args.join(' ') : ''}</code>
                   </div>
                 ) : null}
-                {srv.summary ? <div class="col-span-2 mt-1" style={{ color: 'var(--m3-on-surface)' }}>{srv.summary}</div> : null}
+                {srv.summary ? <div class="col-span-2 mt-1 oh-text-body">{srv.summary}</div> : null}
                 {(srv.template_associations ?? []).some((association) => (association.capabilities ?? []).length > 0) ? (
                   <div class="col-span-2 flex flex-wrap gap-1.5 mt-1">
                     {(srv.template_associations ?? []).flatMap((association) =>
@@ -370,7 +370,7 @@ function SkillsList(props: { items: SkillSummary[]; root: string }) {
             <li class="oh-toolbox-card">
               <div class="flex items-baseline gap-2">
                 {sk.emoji_icon ? <span style={{ fontSize: 16 }}>{sk.emoji_icon}</span> : null}
-                <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{sk.name}</h3>
+                <h3 class="text-sm font-semibold oh-text-body">{sk.name}</h3>
                 {sk.has_default_prompt ? (
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded-m3-xs"
@@ -404,7 +404,7 @@ function MemoriesList(props: { items: MemoryEntrySummary[] }) {
         <Appear key={m.id} variant="up" index={idx}>
           <li class="oh-toolbox-card">
             <div class="flex items-baseline justify-between gap-3">
-              <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{m.title}</h3>
+              <h3 class="text-sm font-semibold oh-text-body">{m.title}</h3>
               <span class="text-[10px] oh-text-muted">
                 {tDateTime(m.created_at)}
               </span>
@@ -453,7 +453,7 @@ function CronsList(props: { items: CronEntrySummary[] }) {
           <Appear key={c.id} variant="up" index={idx}>
             <li class="oh-toolbox-card">
               <div class="flex items-baseline justify-between gap-3">
-                <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{c.name}</h3>
+                <h3 class="text-sm font-semibold oh-text-body">{c.name}</h3>
                 <span
                   class="oh-toolbox-badge"
                   style={{ color: badge.color, background: badge.bg }}

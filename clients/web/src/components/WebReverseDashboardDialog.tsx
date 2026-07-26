@@ -269,7 +269,7 @@ function NextActionPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
       <div class="text-xs font-semibold oh-text-muted">
         {t('webReverse.runtime.nextAction', '下一步')}
       </div>
-      <div class="mt-1 text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+      <div class="mt-1 text-sm font-semibold oh-text-body">
         {summary.nextAction}
       </div>
       {visibleTools.length > 0 ? (
@@ -323,7 +323,7 @@ function OverviewTab({ config }: { config: WebReverseConfig | null }) {
         )}
       </p>
       {config ? (
-        <div class="space-y-2 text-sm" style={{ color: 'var(--m3-on-surface)' }}>
+        <div class="space-y-2 text-sm oh-text-body">
           <DashboardInfoRow label={t('webReverse.config.targetUrl', '目标 URL')} value={config.target_url ?? '-'} mono />
           <DashboardInfoRow label={t('webReverse.config.objective', '逆向目标')} value={config.objective ?? '-'} />
           <DashboardInfoRow label={t('webReverse.config.browser', '浏览器')} value={config.browser_kind ?? '-'} />

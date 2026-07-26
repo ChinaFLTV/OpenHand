@@ -60,8 +60,7 @@ export function DashboardMetric({ label, value }: { label: string; value: string
         {label}
       </div>
       <div
-        class="mt-1 text-sm font-bold break-all"
-        style={{ color: 'var(--m3-on-surface)' }}
+        class="mt-1 text-sm font-bold break-all oh-text-body"
       >
         {value}
       </div>
@@ -86,8 +85,7 @@ export function DashboardInfoRow({
         {label}
       </div>
       <div
-        class={`text-sm break-all ${mono ? 'font-mono' : ''}`}
-        style={{ color: 'var(--m3-on-surface)' }}
+        class={`text-sm break-all oh-text-body ${mono ? 'font-mono' : ''}`}
       >
         {value}
       </div>
@@ -222,8 +220,7 @@ export function DashboardStatusPanel({
       </div>
       {warning ? (
         <div
-          class="mt-3 text-xs leading-relaxed"
-          style={{ color: 'var(--m3-error)' }}
+          class="mt-3 text-xs leading-relaxed oh-text-error"
         >
           {warning}
         </div>

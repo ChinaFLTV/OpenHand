@@ -292,8 +292,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
                 <span class="flex items-center gap-1.5 min-w-0">
                   <AnimatedTitleText
                     text={title}
-                    className="block text-sm font-semibold truncate"
-                    style={{ color: 'var(--m3-on-surface)' }}
+                    className="block text-sm font-semibold truncate oh-text-body"
                   />
                   {titleGenerating ? (
                     <span class="oh-title-generating-spinner flex-none" aria-label={t('topbar.titleGenerating', '标题生成中…')}>

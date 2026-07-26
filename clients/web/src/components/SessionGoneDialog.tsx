@@ -86,7 +86,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
         >
           !
         </span>
-        <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+        <h2 class="text-base font-semibold oh-text-body">
           {t('sessionGone.title', '会话已不存在')}
         </h2>
       </header>

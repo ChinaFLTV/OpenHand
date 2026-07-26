@@ -2273,10 +2273,20 @@ button.oh-message-context-capsule {
   border-radius: 13px;
   background: color-mix(in srgb, var(--m3-surface-container-lowest) 72%, transparent);
 }
-/* 次级说明文字：全站最常见的一种前景色，此前以内联 style 出现 153 次。
-   收成一个 class，既少掉每次渲染新建的样式对象，也让这个取值只有一处。 */
+/* 前景色 token：这四种取值此前以内联 style 出现共 222 次。内联写法每次渲染都
+   要新建样式对象并做一次 style diff，取值也散在几十个文件里；收成 class 后既
+   省掉这些分配，也让每个取值只有一处。 */
 .oh-text-muted {
   color: var(--m3-on-surface-variant);
+}
+.oh-text-body {
+  color: var(--m3-on-surface);
+}
+.oh-text-error {
+  color: var(--m3-error);
+}
+.oh-text-primary {
+  color: var(--m3-primary);
 }
 .oh-status-banner {
   padding: 10px 12px;

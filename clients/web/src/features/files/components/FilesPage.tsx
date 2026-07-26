@@ -409,7 +409,7 @@ export function FilesPage() {
               </div>
             ) : null}
             {actionError && (
-              <p class="text-xs mb-2" style={{ color: 'var(--m3-error)' }}>
+              <p class="text-xs mb-2 oh-text-error">
                 {actionError}
               </p>
             )}
@@ -433,7 +433,7 @@ export function FilesPage() {
               </p>
             )}
             {listError && (
-              <p class="text-sm" style={{ color: 'var(--m3-error)' }}>
+              <p class="text-sm oh-text-error">
                 {listError}
               </p>
             )}
@@ -540,12 +540,12 @@ export function FilesPage() {
                   </p>
                 )}
                 {contentError && (
-                  <p class="text-sm" style={{ color: 'var(--m3-error)' }}>
+                  <p class="text-sm oh-text-error">
                     {contentError}
                   </p>
                 )}
                 {saveError && (
-                  <p class="text-sm" style={{ color: 'var(--m3-error)' }}>
+                  <p class="text-sm oh-text-error">
                     {saveError}
                   </p>
                 )}

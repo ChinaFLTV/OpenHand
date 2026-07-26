@@ -537,7 +537,7 @@ export function OpsPage() {
                       <p class="text-[10px] uppercase tracking-wider oh-text-muted">
                         {k}
                       </p>
-                      <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>{v} ms</p>
+                      <p class="font-mono text-sm oh-text-body">{v} ms</p>
                     </div>
                   ))}
                 </div>
@@ -557,7 +557,7 @@ export function OpsPage() {
                           }}
                         >
                           <p class="text-[10px] oh-text-muted">{label}</p>
-                          <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>{count}</p>
+                          <p class="font-mono text-sm oh-text-body">{count}</p>
                         </div>
                       ))}
                     </div>
@@ -604,7 +604,7 @@ export function OpsPage() {
                     const max = Math.max(...snapshot.top_routes!.map((r) => r.count), 1);
                     return snapshot.top_routes!.map((r) => (
                       <div key={r.path} class="flex items-center gap-2">
-                        <span class="font-mono text-xs flex-1 truncate" style={{ color: 'var(--m3-on-surface)' }}>
+                        <span class="font-mono text-xs flex-1 truncate oh-text-body">
                           {r.path}
                         </span>
                         <div
@@ -636,7 +636,7 @@ export function OpsPage() {
                     <p class="text-xs mb-1 oh-text-muted">
                       {t('ops.section.slowestRecent', '近期最慢请求')}
                     </p>
-                    <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>
+                    <p class="font-mono text-sm oh-text-body">
                       {snapshot.slowest_recent.method} {snapshot.slowest_recent.path}
                     </p>
                     <p class="text-xs mt-1 oh-text-muted">
@@ -649,7 +649,7 @@ export function OpsPage() {
                     <p class="text-xs mb-1 oh-text-muted">
                       {t('ops.section.lastError', '上次错误')}
                     </p>
-                    <p class="font-mono text-sm" style={{ color: 'var(--m3-error)' }}>
+                    <p class="font-mono text-sm oh-text-error">
                       {snapshot.last_error_path || '—'}
                     </p>
                     <p class="text-xs mt-1 oh-text-muted">
@@ -689,12 +689,12 @@ export function OpsPage() {
                         {e.status}
                       </span>
                       <span class="oh-text-muted">{e.method}</span>
-                      <span style={{ color: 'var(--m3-on-surface)' }}>{e.path}</span>
+                      <span class="oh-text-body">{e.path}</span>
                       <span class="ml-auto oh-text-muted">
                         {e.duration_ms} ms · {tDateTime(e.at)}
                       </span>
                       {e.message && (
-                        <span class="basis-full pl-1" style={{ color: 'var(--m3-error)' }}>
+                        <span class="basis-full pl-1 oh-text-error">
                           {e.message}
                         </span>
                       )}
@@ -742,7 +742,7 @@ export function OpsPage() {
 
         {/* 清理面板 */}
         <section class="oh-appear-up oh-ops-panel mb-3">
-          <h2 class="text-base font-semibold mb-3" style={{ color: 'var(--m3-on-surface)' }}>
+          <h2 class="text-base font-semibold mb-3 oh-text-body">
             {t('ops.cleanup.title', '资源清理')}
           </h2>
           <div class="flex items-center gap-3 flex-wrap mb-3">
@@ -779,12 +779,12 @@ export function OpsPage() {
             </button>
           </div>
           {cleanupError && (
-            <p class="text-sm" style={{ color: 'var(--m3-error)' }}>
+            <p class="text-sm oh-text-error">
               {cleanupError}
             </p>
           )}
           {cleanupOk && (
-            <p class="text-sm" style={{ color: 'var(--m3-primary)' }}>
+            <p class="text-sm oh-text-primary">
               ✓ {cleanupOk}
             </p>
           )}
@@ -813,7 +813,7 @@ export function OpsPage() {
         {/* 历史 */}
         <section class="oh-appear-up oh-ops-panel">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+            <h2 class="text-base font-semibold oh-text-body">
               {historyCapacity == null
                 ? t('ops.cleanup.historyTitle', '清理历史')
                 : tFmt(
@@ -832,7 +832,7 @@ export function OpsPage() {
             </button>
           </div>
           {historyError && (
-            <p class="text-sm" style={{ color: 'var(--m3-error)' }}>
+            <p class="text-sm oh-text-error">
               {historyError}
             </p>
           )}
@@ -856,7 +856,7 @@ export function OpsPage() {
                 </thead>
                 <tbody>
                   {history.map((h, idx) => (
-                    <tr key={idx} style={{ color: 'var(--m3-on-surface)' }}>
+                    <tr key={idx} class="oh-text-body">
                       <td class="py-1 px-2 font-mono text-xs">{tDateTime(h.timestamp)}</td>
                       <td class="py-1 px-2">{h.target}</td>
                       <td class="py-1 px-2">{h.expired_only ? '✓' : '—'}</td>
