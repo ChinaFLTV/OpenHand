@@ -642,12 +642,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           buildDefaultDragHandles: false,
           physics: const NeverScrollableScrollPhysics(),
           proxyDecorator: (child, index, animation) =>
-              _settingsTransparentReorderProxy(
-                context,
-                child,
-                index,
-                animation,
-              ),
+              buildOpenHandReorderProxy(context, child, animation),
           itemCount: v.engines.length,
           onReorder: _reorderEngines,
           itemBuilder: (ctx, idx) {

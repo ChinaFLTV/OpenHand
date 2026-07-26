@@ -542,12 +542,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           buildDefaultDragHandles: false,
           physics: const NeverScrollableScrollPhysics(),
           proxyDecorator: (child, index, animation) =>
-              _settingsTransparentReorderProxy(
-                context,
-                child,
-                index,
-                animation,
-              ),
+              buildOpenHandReorderProxy(context, child, animation),
           itemCount: v.engines.length,
           onReorder: _reorderEngines,
           itemBuilder: (ctx, idx) {

@@ -16,6 +16,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -1251,23 +1252,8 @@ class _ThreadSessionManagementDialogState
       cacheExtent: 600,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       itemBuilder: (context, index) => rowFor(index),
-      proxyDecorator: (child, index, animation) {
-        // The default proxy wraps the row in a square Material whose
-        // bounds extend past our rounded Card border, leaving an ugly
-        // rectangular halo while dragging. Override with a transparent
-        // Material so only the Card's own rounded shape is visible.
-        return AnimatedBuilder(
-          animation: animation,
-          builder: (context, _) {
-            final lerp = Curves.easeInOut.transform(animation.value);
-            return Material(
-              type: MaterialType.transparency,
-              child: Transform.scale(scale: 1 + 0.02 * lerp, child: child),
-            );
-          },
-          child: child,
-        );
-      },
+      proxyDecorator: (child, index, animation) =>
+          buildOpenHandReorderProxy(context, child, animation),
       onReorder: (oldIndex, newIndex) {
         setState(() {
           final list = _localOrder!;

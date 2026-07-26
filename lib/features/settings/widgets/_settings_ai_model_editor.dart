@@ -4228,12 +4228,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       padding: const EdgeInsets.all(10),
                       buildDefaultDragHandles: false,
                       proxyDecorator: (child, index, animation) =>
-                          _settingsTransparentReorderProxy(
-                            context,
-                            child,
-                            index,
-                            animation,
-                          ),
+                          buildOpenHandReorderProxy(context, child, animation),
                       itemCount: _reasoningEffortOptionDrafts.length,
                       onReorder: _reorderReasoningEffortOptionDrafts,
                       itemBuilder: (context, index) {

@@ -4836,44 +4836,6 @@ class _SettingsExpandIcon extends StatelessWidget {
   }
 }
 
-Widget _settingsTransparentReorderProxy(
-  BuildContext context,
-  Widget child,
-  int index,
-  Animation<double> animation,
-) {
-  final colorScheme = Theme.of(context).colorScheme;
-  final motionEnabled = _settingsMotionEnabled(context);
-  return AnimatedBuilder(
-    animation: animation,
-    child: Material(
-      type: MaterialType.transparency,
-      color: Colors.transparent,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      child: child,
-    ),
-    builder: (context, proxyChild) {
-      final raw = animation.value.clamp(0.0, 1.0);
-      final t = motionEnabled ? Curves.easeOutBack.transform(raw) : 1.0;
-      return Transform.scale(
-        scale: 1 + 0.018 * t,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.shadow.withValues(alpha: 0.12 * t),
-                blurRadius: 18 * t,
-                offset: Offset(0, 8 * t),
-              ),
-            ],
-          ),
-          child: proxyChild,
-        ),
-      );
-    },
-  );
-}
 
 class _SettingsPersistenceIssueCard extends StatelessWidget {
   const _SettingsPersistenceIssueCard({

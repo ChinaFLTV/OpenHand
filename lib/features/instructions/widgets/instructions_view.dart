@@ -18,6 +18,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
@@ -116,6 +117,8 @@ class InstructionsView extends StatelessWidget {
     return ReorderableListView.builder(
       key: const ValueKey('list'),
       buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) =>
+          buildOpenHandReorderProxy(context, child, animation),
       itemCount: snapshot.entries.length,
       onReorder: (oldIndex, newIndex) async {
         if (newIndex > oldIndex) newIndex -= 1;

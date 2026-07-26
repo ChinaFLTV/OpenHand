@@ -65,6 +65,7 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
+import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
