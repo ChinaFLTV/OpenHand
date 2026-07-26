@@ -513,7 +513,15 @@ String openHandKnowledgeBaseLabel(BuildContext context) {
 }
 
 String openHandModelLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '模型', en: 'Model');
+  return openHandLocalizedText(
+    context,
+    zh: '模型',
+    zhHant: '模型',
+    en: 'Model',
+    fr: 'Modèle',
+    de: 'Modell',
+    ja: 'モデル',
+  );
 }
 
 String openHandOutputLabel(BuildContext context) {
@@ -585,7 +593,15 @@ String openHandStartLabel(BuildContext context) {
 }
 
 String openHandStatusLabel(BuildContext context) {
-  return openHandLocalizedText(context, zh: '状态', en: 'Status');
+  return openHandLocalizedText(
+    context,
+    zh: '状态',
+    zhHant: '狀態',
+    en: 'Status',
+    fr: 'État',
+    de: 'Status',
+    ja: 'ステータス',
+  );
 }
 
 String openHandStoppedLabel(BuildContext context) {

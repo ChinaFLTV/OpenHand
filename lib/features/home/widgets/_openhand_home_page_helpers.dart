@@ -483,15 +483,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              openHandLocalizedText(
-                context,
-                zh: '模型',
-                zhHant: '模型',
-                en: 'Model',
-                fr: 'Modèle',
-                de: 'Modell',
-                ja: 'モデル',
-              ),
+              openHandModelLabel(context),
               style: sectionStyle,
             ),
             const SizedBox(height: 8),

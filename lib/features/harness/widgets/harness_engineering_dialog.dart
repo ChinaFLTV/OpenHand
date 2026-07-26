@@ -1634,15 +1634,7 @@ class _RoleConfigRow extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _CompactDropdown<String>(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '模型',
-                      zhHant: '模型',
-                      en: 'Model',
-                      fr: 'Modèle',
-                      de: 'Modell',
-                      ja: 'モデル',
-                    ),
+                    label: openHandModelLabel(context),
                     value: effectiveModel,
                     items: modelItems,
                     onChanged: modelItems.isNotEmpty ? onModelChanged : null,
@@ -2141,15 +2133,7 @@ class _QuickApplyBar extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _CompactDropdown<String>(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '模型',
-                    zhHant: '模型',
-                    en: 'Model',
-                    fr: 'Modèle',
-                    de: 'Modell',
-                    ja: 'モデル',
-                  ),
+                  label: openHandModelLabel(context),
                   value: cliEffectiveModel,
                   items: cliModelItems,
                   onChanged: cliModelItems.isNotEmpty ? onModelChanged : null,

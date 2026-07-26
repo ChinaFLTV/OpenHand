@@ -21,15 +21,7 @@ class _HeModelDropdown extends StatelessWidget {
         key: ValueKey<String>('he-model-text-${roleConfig.cliName}'),
         initialValue: roleConfig.modelId,
         decoration: InputDecoration(
-          labelText: openHandLocalizedText(
-            context,
-            zh: '模型',
-            zhHant: '模型',
-            en: 'Model',
-            fr: 'Modèle',
-            de: 'Modell',
-            ja: 'モデル',
-          ),
+          labelText: openHandModelLabel(context),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
@@ -65,15 +57,7 @@ class _HeModelDropdown extends StatelessWidget {
           ? configuredModelId
           : (models.contains(configuredModelId) ? configuredModelId : null),
       decoration: InputDecoration(
-        labelText: openHandLocalizedText(
-          context,
-          zh: '模型',
-          zhHant: '模型',
-          en: 'Model',
-          fr: 'Modèle',
-          de: 'Modell',
-          ja: 'モデル',
-        ),
+        labelText: openHandModelLabel(context),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,

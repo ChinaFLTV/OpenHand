@@ -11369,11 +11369,7 @@ class _CapabilityPanel extends StatelessWidget {
                               ? null
                               : () => onChanged(selected.difference(optionIds)),
                           child: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '清空',
-                              en: 'Clear',
-                            ),
+                            openHandClearLabel(context),
                           ),
                         ),
                       ],

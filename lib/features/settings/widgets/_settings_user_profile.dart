@@ -405,7 +405,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
         en: 'This permanently deletes the current user profile.',
       ),
       cancelLabel: openHandCancelLabel(context),
-      confirmLabel: openHandLocalizedText(context, zh: '清空', en: 'Clear'),
+      confirmLabel: openHandClearLabel(context),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
