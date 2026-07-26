@@ -198,13 +198,43 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   static const String hermesTalkerTag = 'hermes_talker';
 
   static CronEntry _buildSelfLearningSystemEntry() {
-    return const CronEntry(
+    // 名称与说明按当前语言产出：上层每次加载都会用这里的规范值刷新落库条目，
+    // 所以切换语言重启后列表里的文案会跟着变。
+    return CronEntry(
       id: selfLearningSystemEntryId,
-      name: 'Hermes Talker 自我学习',
-      description:
-          '系统内置：每 5 分钟触发一次 Hermes Talker 自我学习，'
-          '让 AI 在后台把近期对话中沉淀的知识与偏好静默写入记忆 / 画像 / 技能库。'
-          '本任务为系统管理，无法删除；如需暂停，请使用右侧开关关闭。',
+      name: openHandAmbientText(
+        zh: 'Hermes Talker 自我学习',
+        en: 'Hermes Talker self-learning',
+        fr: 'Auto-apprentissage Hermes Talker',
+        de: 'Hermes-Talker-Selbstlernen',
+        ja: 'Hermes Talker の自己学習',
+      ),
+      description: openHandAmbientText(
+        zh:
+            '系统内置：每 5 分钟触发一次 Hermes Talker 自我学习，'
+            '让 AI 在后台把近期对话中沉淀的知识与偏好静默写入记忆 / 画像 / 技能库。'
+            '本任务为系统管理，无法删除；如需暂停，请使用右侧开关关闭。',
+        en:
+            'Built in: runs Hermes Talker self-learning every 5 minutes so the '
+            'assistant quietly writes knowledge and preferences distilled from '
+            'recent conversations into memory, profile and skills. '
+            'System-managed and not removable; use the switch on the right to pause it.',
+        fr:
+            "Intégré : lance l'auto-apprentissage Hermes Talker toutes les 5 minutes "
+            "afin que l'assistant enregistre discrètement les connaissances et "
+            "préférences issues des conversations récentes dans la mémoire, le profil "
+            "et les compétences. Géré par le système et non supprimable ; utilisez "
+            "l'interrupteur à droite pour le suspendre.",
+        de:
+            'Systemintern: startet alle 5 Minuten das Hermes-Talker-Selbstlernen, '
+            'damit die KI Wissen und Vorlieben aus den letzten Gesprächen still in '
+            'Gedächtnis, Profil und Skills schreibt. Systemverwaltet und nicht '
+            'löschbar; zum Pausieren den Schalter rechts nutzen.',
+        ja:
+            'システム内蔵：5 分ごとに Hermes Talker の自己学習を実行し、直近の会話から'
+            '得た知識と好みをメモリ / プロフィール / スキルへ静かに書き込みます。'
+            'システム管理のため削除できません。一時停止は右側のスイッチで行えます。',
+      ),
       scriptType: CronScriptType.agent,
       cronExpression: '*/5 * * * *',
       timeoutSeconds: 600,
@@ -223,14 +253,44 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   static const String mcpKeywordIndexTag = 'mcp_keyword_index';
 
   static CronEntry _buildMcpKeywordIndexSystemEntry() {
-    return const CronEntry(
+    return CronEntry(
       id: mcpKeywordIndexSystemEntryId,
-      name: 'MCP 关键词倒排索引重建',
-      description:
-          '系统内置：按「全局设置 → MCP → 更新关键词映射模式」驱动。'
-          '冷启动模式下不存在；定时间隔 / 每日定点模式下由系统创建并保持启用。'
-          '该任务的启用状态由设置项强制锁定，无法手动开关，亦无法删除；'
-          '可查看执行历史 / 立即执行一次。',
+      name: openHandAmbientText(
+        zh: 'MCP 关键词倒排索引重建',
+        en: 'Rebuild MCP keyword inverted index',
+        fr: "Reconstruire l'index inversé des mots-clés MCP",
+        de: 'MCP-Stichwortindex neu aufbauen',
+        ja: 'MCP キーワード転置インデックスの再構築',
+      ),
+      description: openHandAmbientText(
+        zh:
+            '系统内置：按「全局设置 → MCP → 更新关键词映射模式」驱动。'
+            '冷启动模式下不存在；定时间隔 / 每日定点模式下由系统创建并保持启用。'
+            '该任务的启用状态由设置项强制锁定，无法手动开关，亦无法删除；'
+            '可查看执行历史 / 立即执行一次。',
+        en:
+            'Built in: driven by Settings → MCP → keyword mapping update mode. '
+            'Absent in cold-start mode; created and kept enabled in interval or '
+            'daily modes. Its enabled state is locked by that setting, so it cannot '
+            'be toggled or removed here; you can still view run history or run it once.',
+        fr:
+            'Intégré : piloté par Réglages → MCP → mode de mise à jour des mots-clés. '
+            'Absent en mode démarrage à froid ; créé et maintenu actif en mode '
+            'intervalle ou quotidien. Son activation est verrouillée par ce réglage : '
+            "impossible de le basculer ou de le supprimer ici ; l'historique et "
+            "l'exécution ponctuelle restent disponibles.",
+        de:
+            'Systemintern: gesteuert über Einstellungen → MCP → Aktualisierungsmodus '
+            'der Stichwortzuordnung. Im Kaltstart-Modus nicht vorhanden; in den Modi '
+            'Intervall oder täglich wird sie angelegt und aktiv gehalten. Der '
+            'Aktivierungszustand ist durch diese Einstellung gesperrt, daher hier '
+            'weder umschaltbar noch löschbar; Verlauf und Einzelausführung bleiben möglich.',
+        ja:
+            'システム内蔵：「設定 → MCP → キーワードマッピング更新モード」に従います。'
+            'コールドスタートモードでは存在せず、一定間隔 / 毎日定時モードではシステムが'
+            '作成して有効のまま保ちます。有効状態はその設定に固定されるため、ここでの'
+            '切り替えや削除はできません。実行履歴の確認と単発実行は可能です。',
+      ),
       scriptType: CronScriptType.agent,
       cronExpression: '0 2 * * *',
       timeoutSeconds: 1800,
