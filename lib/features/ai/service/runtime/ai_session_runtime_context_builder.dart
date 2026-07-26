@@ -42,6 +42,11 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
   return AiSessionRuntimeContext(
     templateId: templateId,
     toolExecutionMetadata: toolExecutionMetadata,
+    // 技能正文上限由会话控制器回灌给 SkillManager 工具；此前这份映射没填，
+    // 于是它恒等于模型默认值，用户改了设置也不生效。
+    maxSkillContentLength: settingsController.aiMaxSkillContentLength,
+    maxWorkspaceDocumentCharacters:
+        settingsController.aiMaxWorkspaceDocumentCharacters,
     fallbackTitleMaxCharacters: settingsController.aiFallbackTitleMaxCharacters,
     generatedTitleMaxCharacters:
         settingsController.aiGeneratedTitleMaxCharacters,
