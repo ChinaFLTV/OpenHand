@@ -476,13 +476,12 @@ class AiTtsSettings {
       'enabled': enabled,
       'timeout_seconds': normalizeTimeoutSeconds(timeoutSeconds),
       'max_text_characters': normalizeMaxTextCharacters(maxTextCharacters),
-      'provider_priority': providerPriority
-          .map((provider) => provider.storageKey)
-          .toList(growable: false),
-      'providers': <String, Object?>{
-        for (final entry in providers.entries)
-          entry.key.storageKey: entry.value.toJson(),
-      },
+      ...aiProviderSettingsToJson(
+        providers: providers,
+        priority: providerPriority,
+        storageKey: (provider) => provider.storageKey,
+        toJson: (settings) => settings.toJson(),
+      ),
     };
   }
 }

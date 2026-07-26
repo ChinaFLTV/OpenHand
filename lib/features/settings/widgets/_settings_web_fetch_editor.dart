@@ -23,7 +23,15 @@ class _WebFetchSettingsEditor extends StatefulWidget {
       _WebFetchSettingsEditorState();
 }
 
-class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
+class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
+    with
+        _ToolTelemetryPanelHost<
+          _WebFetchSettingsEditor,
+          WebFetchCallLog,
+          AiWebFetchEngineKind,
+          WebFetchEngineStat,
+          WebFetchEngineSample
+        > {
   late TextEditingController _resultCountController;
   late TextEditingController _cacheTtlController;
   late TextEditingController _cacheMaxBytesController;
@@ -31,17 +39,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
 
   // 当前磁盘上已经落盘的 WebFetch 缓存字节数，由 [_refreshCacheBytesOnDisk]
   // 异步加载；null 代表尚未读取或读取失败。
-  int? _cacheBytesOnDisk;
   bool _clearingCache = false;
 
   // ── Telemetry (调用日志 + 引擎健康度) ──
-  List<WebFetchCallLog> _recentCalls = const [];
-  Map<AiWebFetchEngineKind, WebFetchEngineStat> _engineStats = const {};
-  Map<AiWebFetchEngineKind, List<WebFetchEngineSample>> _engineHistory =
-      const {};
-  bool _telemetryLoading = false;
-  bool _clearingTelemetry = false;
-  bool _exportingTelemetry = false;
   WebFetchScraplingProbeStatus _scraplingProbe =
       const WebFetchScraplingProbeStatus(
         ready: false,
@@ -75,39 +75,49 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     unawaited(_refreshScraplingProbe());
   }
 
-  Future<void> _refreshCacheBytesOnDisk() async {
-    try {
-      final bytes = await WebFetchCacheStore.instance.totalBytesOnDisk();
-      if (!mounted) return;
-      setState(() => _cacheBytesOnDisk = bytes);
-    } catch (e, st) {
-      silentLog('settings_web_fetch_editor', '刷新磁盘缓存大小', e, st);
-      if (!mounted) return;
-      setState(() => _cacheBytesOnDisk = 0);
-    }
+  @override
+  String get _telemetryLogTag => 'settings_web_fetch_editor';
+
+  @override
+  String get _telemetryToolLabel => 'WebFetch';
+
+  @override
+  String get _telemetryExportLogTag => 'Web 抓取设置';
+
+  @override
+  String get _telemetryFileStem => 'webfetch';
+
+  @override
+  Future<int> _loadCacheBytesOnDisk() {
+    return WebFetchCacheStore.instance.totalBytesOnDisk();
   }
 
-  Future<void> _refreshTelemetry() async {
-    if (_telemetryLoading) return;
-    setState(() => _telemetryLoading = true);
-    try {
-      final (calls, stats, history) = await (
-        WebFetchTelemetryStore.instance.recentCalls(),
-        WebFetchTelemetryStore.instance.engineStats(),
-        WebFetchTelemetryStore.instance.engineHistory(),
-      ).wait;
-      if (!mounted) return;
-      setState(() {
-        _recentCalls = calls;
-        _engineStats = stats;
-        _engineHistory = history;
-        _telemetryLoading = false;
-      });
-    } catch (e, st) {
-      silentLog('settings_web_fetch_editor', '刷新遥测数据', e, st);
-      if (!mounted) return;
-      setState(() => _telemetryLoading = false);
-    }
+  @override
+  Future<
+    (
+      List<WebFetchCallLog>,
+      Map<AiWebFetchEngineKind, WebFetchEngineStat>,
+      Map<AiWebFetchEngineKind, List<WebFetchEngineSample>>,
+    )
+  >
+  _loadTelemetry() {
+    return (
+      WebFetchTelemetryStore.instance.recentCalls(),
+      WebFetchTelemetryStore.instance.engineStats(),
+      WebFetchTelemetryStore.instance.engineHistory(),
+    ).wait;
+  }
+
+  @override
+  Future<void> _clearTelemetryStore() {
+    return WebFetchTelemetryStore.instance.clearAll();
+  }
+
+  @override
+  Future<List<WebFetchCallLog>> _loadCallsForExport() {
+    return WebFetchTelemetryStore.instance.recentCalls(
+      limit: WebFetchTelemetryStore.maxRecentCalls,
+    );
   }
 
   Future<void> _refreshScraplingProbe([
@@ -246,48 +256,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     await _refreshScraplingProbe();
   }
 
-  Future<void> _confirmAndClearTelemetry() async {
-    if (_clearingTelemetry) return;
-    final confirmed = await _confirmClearToolTelemetry(
-      context: context,
-      toolLabel: 'WebFetch',
-    );
-    if (!confirmed || !mounted) return;
-    setState(() => _clearingTelemetry = true);
-    try {
-      await WebFetchTelemetryStore.instance.clearAll();
-    } catch (e, st) {
-      silentLog('settings_web_fetch_editor', '清空遥测数据', e, st);
-    }
-    if (!mounted) return;
-    setState(() => _clearingTelemetry = false);
-    await _refreshTelemetry();
-  }
-
-  Future<void> _exportTelemetry({required bool asCsv}) async {
-    if (_exportingTelemetry) return;
-    setState(() => _exportingTelemetry = true);
-    try {
-      await _exportToolTelemetry<WebFetchCallLog>(
-        context: context,
-        logTag: 'Web 抓取设置',
-        fileStem: 'webfetch',
-        asCsv: asCsv,
-        loadCalls: () => WebFetchTelemetryStore.instance.recentCalls(
-          limit: WebFetchTelemetryStore.maxRecentCalls,
-        ),
-        encodeJson: _callsToJson,
-        encodeCsv: _callsToCsv,
-      );
-    } finally {
-      if (mounted) setState(() => _exportingTelemetry = false);
-    }
-  }
-
+  @override
   String _callsToJson(List<WebFetchCallLog> calls) {
     return _encodeJsonList(calls.map((c) => c.toJson()));
   }
 
+  @override
   String _callsToCsv(List<WebFetchCallLog> calls) {
     final buf = StringBuffer();
     buf.writeln(

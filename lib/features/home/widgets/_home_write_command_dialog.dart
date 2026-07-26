@@ -169,21 +169,10 @@ class _WriteCommandConfirmationDialogState
     final dialog = Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          return KeyEventResult.handled;
-        }
-        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-          return KeyEventResult.ignored;
-        }
-        // Esc 已在上方消费：必须明确允许或取消，避免误触意外丢弃。
-        if (event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-          _closeWith(BashCommandApprovalDecision.approved);
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
+      onKeyEvent: (node, event) => handleOpenHandApprovalDialogKey(
+        event,
+        onConfirm: () => _closeWith(BashCommandApprovalDecision.approved),
+      ),
       child: buildOpenHandResponsiveDialogShell(
         context: context,
         maxWidth: kOpenHandApprovalDialogMaxWidth,
@@ -210,7 +199,8 @@ class _WriteCommandConfirmationDialogState
                 description: openHandLocalizedText(
                   context,
                   zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
-                  en: 'This bash command may modify files or system state. '
+                  en:
+                      'This bash command may modify files or system state. '
                       'OpenHand needs your approval before running it.',
                 ),
               ),

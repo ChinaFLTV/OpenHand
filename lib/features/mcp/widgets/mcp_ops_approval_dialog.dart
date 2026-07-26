@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -145,20 +144,10 @@ class _McpOpsWriteApprovalDialogState
     final dialog = Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
-      onKeyEvent: (_, event) {
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          return KeyEventResult.handled;
-        }
-        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-          return KeyEventResult.ignored;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-          _closeWith(true);
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
+      onKeyEvent: (_, event) => handleOpenHandApprovalDialogKey(
+        event,
+        onConfirm: () => _closeWith(true),
+      ),
       child: buildOpenHandResponsiveDialogShell(
         context: context,
         maxWidth: kOpenHandApprovalDialogMaxWidth,
@@ -245,8 +234,7 @@ class _McpOpsWriteApprovalDialogState
                           en: 'Call Context',
                         ),
                         rows: {
-                          openHandToolLabel(context):
-                              widget.request.toolName,
+                          openHandToolLabel(context): widget.request.toolName,
                           openHandLocalizedText(
                             context,
                             zh: '客户端',

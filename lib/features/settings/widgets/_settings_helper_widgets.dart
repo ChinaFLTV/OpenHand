@@ -5864,6 +5864,115 @@ class _AnimatedSettingReveal extends StatelessWidget {
 // WebSearch / WebFetch 引擎卡片共用外壳
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// WebSearch / WebFetch 设置编辑器共用的遥测面板状态机。
+///
+/// 两个编辑器此前各维护一份同样的七个字段与四个刷新/清空/导出方法，差异只在
+/// 存储单例和调用日志类型上。收敛后新增一个工具只需接上自己的存储：面板的
+/// 忙碌位、重入保护、失败兜底不会再各写各的。
+///
+/// 类型参数依次为：宿主 Widget、调用日志、引擎枚举、引擎统计、引擎采样。
+mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
+    on State<W> {
+  int? _cacheBytesOnDisk;
+  List<L> _recentCalls = const [];
+  Map<K, S> _engineStats = const {};
+  Map<K, List<H>> _engineHistory = const {};
+  bool _telemetryLoading = false;
+  bool _clearingTelemetry = false;
+  bool _exportingTelemetry = false;
+
+  /// silentLog 的组件标签。
+  String get _telemetryLogTag;
+
+  /// 确认弹窗与导出文件名里出现的工具名，如 `WebSearch`。
+  String get _telemetryToolLabel;
+
+  /// 导出提示里出现的中文工具名，如 `Web 搜索设置`。
+  String get _telemetryExportLogTag;
+
+  /// 导出文件名主干，如 `websearch`。
+  String get _telemetryFileStem;
+
+  Future<int> _loadCacheBytesOnDisk();
+
+  Future<(List<L>, Map<K, S>, Map<K, List<H>>)> _loadTelemetry();
+
+  Future<void> _clearTelemetryStore();
+
+  Future<List<L>> _loadCallsForExport();
+
+  String _callsToJson(List<L> calls);
+
+  String _callsToCsv(List<L> calls);
+
+  Future<void> _refreshCacheBytesOnDisk() async {
+    try {
+      final bytes = await _loadCacheBytesOnDisk();
+      if (!mounted) return;
+      setState(() => _cacheBytesOnDisk = bytes);
+    } catch (e, st) {
+      silentLog(_telemetryLogTag, '刷新磁盘缓存大小', e, st);
+      if (!mounted) return;
+      setState(() => _cacheBytesOnDisk = 0);
+    }
+  }
+
+  Future<void> _refreshTelemetry() async {
+    if (_telemetryLoading) return;
+    setState(() => _telemetryLoading = true);
+    try {
+      final (calls, stats, history) = await _loadTelemetry();
+      if (!mounted) return;
+      setState(() {
+        _recentCalls = calls;
+        _engineStats = stats;
+        _engineHistory = history;
+        _telemetryLoading = false;
+      });
+    } catch (e, st) {
+      silentLog(_telemetryLogTag, '刷新遥测数据', e, st);
+      if (!mounted) return;
+      setState(() => _telemetryLoading = false);
+    }
+  }
+
+  Future<void> _confirmAndClearTelemetry() async {
+    if (_clearingTelemetry) return;
+    final confirmed = await _confirmClearToolTelemetry(
+      context: context,
+      toolLabel: _telemetryToolLabel,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _clearingTelemetry = true);
+    try {
+      await _clearTelemetryStore();
+    } catch (e, st) {
+      silentLog(_telemetryLogTag, '清空遥测数据', e, st);
+    }
+    if (!mounted) return;
+    setState(() => _clearingTelemetry = false);
+    await _refreshTelemetry();
+  }
+
+  Future<void> _exportTelemetry({required bool asCsv}) async {
+    if (_exportingTelemetry) return;
+    setState(() => _exportingTelemetry = true);
+    try {
+      await _exportToolTelemetry<L>(
+        context: context,
+        logTag: _telemetryExportLogTag,
+        fileStem: _telemetryFileStem,
+        asCsv: asCsv,
+        loadCalls: _loadCallsForExport,
+        encodeJson: _callsToJson,
+        encodeCsv: _callsToCsv,
+      );
+    } finally {
+      if (mounted) setState(() => _exportingTelemetry = false);
+    }
+  }
+}
+
 /// 引擎卡片内的整数输入框：数字键盘 + 仅数字过滤 + 越界回落到合法区间。
 Widget _buildEngineNumberField({
   required TextEditingController controller,

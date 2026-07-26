@@ -146,3 +146,23 @@ List<P> normalizeAiProviderPriority<P>(
 ) {
   return <P>{...priority, ...fallback}.toList(growable: false);
 }
+
+/// 提供商映射与优先级的落库形态，供设置类的 `toJson` 展开。
+///
+/// 解析侧早有 [parseAiProviderSettings] / [parseAiProviderPriority]，序列化侧
+/// 却由各设置类各写一遍相同的两个键，键名只靠人工对齐——改错一处就是存进去
+/// 读不回来。补上这一半让两侧同源。
+Map<String, Object?> aiProviderSettingsToJson<P, S>({
+  required Map<P, S> providers,
+  required List<P> priority,
+  required String Function(P provider) storageKey,
+  required Map<String, Object?> Function(S settings) toJson,
+}) {
+  return <String, Object?>{
+    'provider_priority': priority.map(storageKey).toList(growable: false),
+    'providers': <String, Object?>{
+      for (final entry in providers.entries)
+        storageKey(entry.key): toJson(entry.value),
+    },
+  };
+}

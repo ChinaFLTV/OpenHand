@@ -23,7 +23,15 @@ class _WebSearchSettingsEditor extends StatefulWidget {
       _WebSearchSettingsEditorState();
 }
 
-class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
+class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
+    with
+        _ToolTelemetryPanelHost<
+          _WebSearchSettingsEditor,
+          WebSearchCallLog,
+          AiWebSearchEngineKind,
+          WebSearchEngineStat,
+          WebSearchEngineSample
+        > {
   late TextEditingController _resultCountController;
   late TextEditingController _summaryMinController;
   late TextEditingController _summaryMaxController;
@@ -33,17 +41,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
   // 当前磁盘上已经落盘的 WebSearch 缓存字节数，由 [_refreshCacheBytesOnDisk]
   // 异步加载；null 代表尚未读取或读取失败。
-  int? _cacheBytesOnDisk;
   bool _clearingCache = false;
 
   // ── Telemetry (调用日志 + 引擎健康度) ──
-  List<WebSearchCallLog> _recentCalls = const [];
-  Map<AiWebSearchEngineKind, WebSearchEngineStat> _engineStats = const {};
-  Map<AiWebSearchEngineKind, List<WebSearchEngineSample>> _engineHistory =
-      const {};
-  bool _telemetryLoading = false;
-  bool _clearingTelemetry = false;
-  bool _exportingTelemetry = false;
 
   @override
   void initState() {
@@ -70,83 +70,57 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     _refreshTelemetry();
   }
 
-  Future<void> _refreshCacheBytesOnDisk() async {
-    try {
-      final bytes = await WebSearchCacheStore.instance.totalBytesOnDisk();
-      if (!mounted) return;
-      setState(() => _cacheBytesOnDisk = bytes);
-    } catch (e, st) {
-      silentLog('settings_web_search_editor', '刷新磁盘缓存大小', e, st);
-      if (!mounted) return;
-      setState(() => _cacheBytesOnDisk = 0);
-    }
+  @override
+  String get _telemetryLogTag => 'settings_web_search_editor';
+
+  @override
+  String get _telemetryToolLabel => 'WebSearch';
+
+  @override
+  String get _telemetryExportLogTag => 'Web 搜索设置';
+
+  @override
+  String get _telemetryFileStem => 'websearch';
+
+  @override
+  Future<int> _loadCacheBytesOnDisk() {
+    return WebSearchCacheStore.instance.totalBytesOnDisk();
   }
 
-  Future<void> _refreshTelemetry() async {
-    if (_telemetryLoading) return;
-    setState(() => _telemetryLoading = true);
-    try {
-      final (calls, stats, history) = await (
-        WebSearchTelemetryStore.instance.recentCalls(),
-        WebSearchTelemetryStore.instance.engineStats(),
-        WebSearchTelemetryStore.instance.engineHistory(),
-      ).wait;
-      if (!mounted) return;
-      setState(() {
-        _recentCalls = calls;
-        _engineStats = stats;
-        _engineHistory = history;
-        _telemetryLoading = false;
-      });
-    } catch (e, st) {
-      silentLog('settings_web_search_editor', '刷新遥测数据', e, st);
-      if (!mounted) return;
-      setState(() => _telemetryLoading = false);
-    }
+  @override
+  Future<
+    (
+      List<WebSearchCallLog>,
+      Map<AiWebSearchEngineKind, WebSearchEngineStat>,
+      Map<AiWebSearchEngineKind, List<WebSearchEngineSample>>,
+    )
+  >
+  _loadTelemetry() {
+    return (
+      WebSearchTelemetryStore.instance.recentCalls(),
+      WebSearchTelemetryStore.instance.engineStats(),
+      WebSearchTelemetryStore.instance.engineHistory(),
+    ).wait;
   }
 
-  Future<void> _confirmAndClearTelemetry() async {
-    if (_clearingTelemetry) return;
-    final confirmed = await _confirmClearToolTelemetry(
-      context: context,
-      toolLabel: 'WebSearch',
+  @override
+  Future<void> _clearTelemetryStore() {
+    return WebSearchTelemetryStore.instance.clearAll();
+  }
+
+  @override
+  Future<List<WebSearchCallLog>> _loadCallsForExport() {
+    return WebSearchTelemetryStore.instance.recentCalls(
+      limit: WebSearchTelemetryStore.maxRecentCalls,
     );
-    if (!confirmed || !mounted) return;
-    setState(() => _clearingTelemetry = true);
-    try {
-      await WebSearchTelemetryStore.instance.clearAll();
-    } catch (e, st) {
-      silentLog('settings_web_search_editor', '清空遥测数据', e, st);
-    }
-    if (!mounted) return;
-    setState(() => _clearingTelemetry = false);
-    await _refreshTelemetry();
   }
 
-  Future<void> _exportTelemetry({required bool asCsv}) async {
-    if (_exportingTelemetry) return;
-    setState(() => _exportingTelemetry = true);
-    try {
-      await _exportToolTelemetry<WebSearchCallLog>(
-        context: context,
-        logTag: 'Web 搜索设置',
-        fileStem: 'websearch',
-        asCsv: asCsv,
-        loadCalls: () => WebSearchTelemetryStore.instance.recentCalls(
-          limit: WebSearchTelemetryStore.maxRecentCalls,
-        ),
-        encodeJson: _callsToJson,
-        encodeCsv: _callsToCsv,
-      );
-    } finally {
-      if (mounted) setState(() => _exportingTelemetry = false);
-    }
-  }
-
+  @override
   String _callsToJson(List<WebSearchCallLog> calls) {
     return _encodeJsonList(calls.map((c) => c.toJson()));
   }
 
+  @override
   String _callsToCsv(List<WebSearchCallLog> calls) {
     final buf = StringBuffer();
     buf.writeln(
