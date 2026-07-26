@@ -949,6 +949,12 @@ abstract class AppLocalizations {
   /// **'环境信息'**
   String get pluginServiceDetailEnvironment;
 
+  /// No description provided for @pluginServiceDetailFileSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件系统'**
+  String get pluginServiceDetailFileSystem;
+
   /// No description provided for @pluginServiceDetailDependencies.
   ///
   /// In zh, this message translates to:
@@ -990,6 +996,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'安装路径'**
   String get pluginServiceDetailInstallPath;
+
+  /// No description provided for @pluginServiceDetailInstallationTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装目标'**
+  String get pluginServiceDetailInstallationTarget;
+
+  /// No description provided for @pluginServiceDetailExecutablePath.
+  ///
+  /// In zh, this message translates to:
+  /// **'可执行入口'**
+  String get pluginServiceDetailExecutablePath;
+
+  /// No description provided for @pluginServiceDetailCacheDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存目录'**
+  String get pluginServiceDetailCacheDirectory;
+
+  /// No description provided for @pluginServiceDetailNpmGlobalRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'npm 全局目录'**
+  String get pluginServiceDetailNpmGlobalRoot;
 
   /// No description provided for @pluginServiceDetailCurrentVersion.
   ///

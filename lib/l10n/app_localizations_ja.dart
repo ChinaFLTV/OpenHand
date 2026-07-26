@@ -478,6 +478,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pluginServiceDetailEnvironment => '環境情報';
 
   @override
+  String get pluginServiceDetailFileSystem => 'ファイルシステム';
+
+  @override
   String get pluginServiceDetailDependencies => '依存関係';
 
   @override
@@ -497,6 +500,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get pluginServiceDetailInstallPath => 'インストールパス';
+
+  @override
+  String get pluginServiceDetailInstallationTarget => 'インストール先';
+
+  @override
+  String get pluginServiceDetailExecutablePath => '実行エントリ';
+
+  @override
+  String get pluginServiceDetailCacheDirectory => 'キャッシュディレクトリ';
+
+  @override
+  String get pluginServiceDetailNpmGlobalRoot => 'npm グローバルディレクトリ';
 
   @override
   String get pluginServiceDetailCurrentVersion => '現在のバージョン';

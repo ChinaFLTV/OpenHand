@@ -89,6 +89,10 @@ String _localizedDetailLabel(AppLocalizations l10n, String key) {
   return switch (key) {
     'processors' => l10n.pluginServiceDetailProcessors,
     'install_path' => l10n.pluginServiceDetailInstallPath,
+    'installation_target' => l10n.pluginServiceDetailInstallationTarget,
+    'executable_path' => l10n.pluginServiceDetailExecutablePath,
+    'cache_directory' => l10n.pluginServiceDetailCacheDirectory,
+    'npm_global_root' => l10n.pluginServiceDetailNpmGlobalRoot,
     'current_version' => l10n.pluginServiceDetailCurrentVersion,
     'latest_version' => l10n.pluginServiceDetailLatestVersion,
     'bound_python' => l10n.pluginServiceDetailBoundPython,
@@ -1155,7 +1159,17 @@ class _PluginDetailDialog extends StatefulWidget {
 
 class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   Map<String, Object?> _envInfo = {};
+  Map<String, Object?> _fileSystemInfo = {};
   bool _loading = true;
+
+  static const _fileSystemKeys = <String>{
+    'installation_target',
+    'executable_path',
+    'data_directory',
+    'cache_directory',
+    'npm_global_root',
+    'docker_root_dir',
+  };
 
   @override
   void initState() {
@@ -1165,6 +1179,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
 
   Future<void> _loadEnvInfo() async {
     final info = <String, Object?>{};
+    final fileSystemInfo = <String, Object?>{};
     try {
       info['OS'] =
           '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
@@ -1173,16 +1188,19 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       info['PID'] = '$pid';
       info['processors'] = Platform.numberOfProcessors;
       final installPath = widget.plugin.installPath;
-      if (installPath != null) {
-        info['install_path'] = installPath;
+      final metadata = widget.plugin.metadata;
+      final installationTarget = metadata['installation_target'];
+      if (installationTarget != null &&
+          '$installationTarget'.trim().isNotEmpty) {
+        fileSystemInfo['installation_target'] = installationTarget;
       }
-      final installedVersion = widget.plugin.installedVersion;
-      if (installedVersion != null) {
-        info['current_version'] = installedVersion;
-      }
-      final latestVersion = widget.plugin.latestVersion;
-      if (latestVersion != null) {
-        info['latest_version'] = latestVersion;
+      final executablePath =
+          metadata['executable_path'] ??
+          (widget.plugin.id == 'qdrant' ? null : installPath);
+      if (executablePath != null &&
+          '$executablePath'.trim().isNotEmpty &&
+          executablePath != installationTarget) {
+        fileSystemInfo['executable_path'] = executablePath;
       }
       // 获取额外运行时信息
       if (widget.plugin.id == 'nodejs' && widget.plugin.isInstalled) {
@@ -1235,20 +1253,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           silentLog('plugin_service_view', '加载 pip 环境信息', error, stack);
         }
       }
-      if (widget.plugin.id == 'playwright' && widget.plugin.isInstalled) {
-        try {
-          final result = await runTrackedProcessOrFailed('npx', [
-            'playwright',
-            '--version',
-          ], timeout: const Duration(seconds: 10));
-          if (result.exitCode == 0) {
-            info['Playwright CLI'] = result.stdout.toString().trim();
-          }
-        } catch (error, stack) {
-          silentLog('plugin_service_view', '加载 Playwright 环境信息', error, stack);
-        }
-      }
-      for (final entry in widget.plugin.metadata.entries) {
+      for (final entry in metadata.entries) {
         final key = entry.key.trim();
         if (key.isEmpty) continue;
         final value = entry.value;
@@ -1257,7 +1262,11 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             ? value.map((item) => '$item').join(', ')
             : '$value';
         if (text.trim().isNotEmpty) {
-          info[key] = value;
+          if (_fileSystemKeys.contains(key)) {
+            fileSystemInfo[key] = value;
+          } else {
+            info[key] = value;
+          }
         }
       }
     } catch (error, stack) {
@@ -1266,6 +1275,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
     if (mounted) {
       setState(() {
         _envInfo = info;
+        _fileSystemInfo = fileSystemInfo;
         _loading = false;
       });
     }
@@ -1279,8 +1289,8 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 480,
-      maxHeight: 520,
+      maxWidth: 620,
+      maxHeight: 680,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1289,113 +1299,167 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             context: context,
             icon: Icons.info_outline_rounded,
             title: l10n.pluginServiceDetailTitle(plugin.name),
+            subtitle: plugin.installedVersion == null
+                ? plugin.status.label(l10n)
+                : '${plugin.status.label(l10n)} · v${plugin.installedVersion}',
           ),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           // 内容
           Flexible(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      // 基本信息
-                      _DetailSection(
-                        title: l10n.pluginServiceDetailBasicInfo,
-                        icon: Icons.extension_rounded,
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: _loading
+                  ? const Center(
+                      key: ValueKey('plugin_detail_loading'),
+                      child: CircularProgressIndicator(),
+                    )
+                  : SelectionArea(
+                      key: const ValueKey('plugin_detail_content'),
+                      child: ListView(
+                        padding: const EdgeInsets.all(24),
                         children: [
-                          _DetailRow(
-                            label: l10n.pluginServiceDetailName,
-                            value: plugin.name,
+                          // 基本信息
+                          _DetailSection(
+                            title: l10n.pluginServiceDetailBasicInfo,
+                            icon: Icons.extension_rounded,
+                            children: [
+                              _DetailRow(
+                                label: l10n.pluginServiceDetailName,
+                                value: plugin.name,
+                              ),
+                              _DetailRow(label: 'ID', value: plugin.id),
+                              _DetailRow(
+                                label: l10n.pluginServiceDetailDescription,
+                                value: _localizedPluginDescription(
+                                  l10n,
+                                  plugin,
+                                ),
+                              ),
+                              _DetailRow(
+                                label: l10n.pluginServiceDetailStatus,
+                                value: plugin.status.label(l10n),
+                              ),
+                              if (plugin.installedVersion != null)
+                                _DetailRow(
+                                  label: l10n.pluginServiceDetailCurrentVersion,
+                                  value: plugin.installedVersion!,
+                                ),
+                              if (plugin.latestVersion != null)
+                                _DetailRow(
+                                  label: l10n.pluginServiceDetailLatestVersion,
+                                  value: plugin.latestVersion!,
+                                ),
+                            ],
                           ),
-                          _DetailRow(label: 'ID', value: plugin.id),
-                          _DetailRow(
-                            label: l10n.pluginServiceDetailDescription,
-                            value: _localizedPluginDescription(l10n, plugin),
+                          const SizedBox(height: 18),
+                          // 环境信息
+                          _DetailSection(
+                            title: l10n.pluginServiceDetailEnvironment,
+                            icon: Icons.computer_rounded,
+                            children: [
+                              for (final entry in _envInfo.entries)
+                                _DetailRow(
+                                  label: _localizedDetailLabel(l10n, entry.key),
+                                  value: _localizedDetailValue(
+                                    l10n,
+                                    entry.value,
+                                  ),
+                                ),
+                            ],
                           ),
-                          _DetailRow(
-                            label: l10n.pluginServiceDetailStatus,
-                            value: plugin.status.label(l10n),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // 环境信息
-                      _DetailSection(
-                        title: l10n.pluginServiceDetailEnvironment,
-                        icon: Icons.computer_rounded,
-                        children: [
-                          for (final entry in _envInfo.entries)
-                            _DetailRow(
-                              label: _localizedDetailLabel(l10n, entry.key),
-                              value: _localizedDetailValue(l10n, entry.value),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // 依赖关系
-                      _DetailSection(
-                        title: l10n.pluginServiceDetailDependencies,
-                        icon: Icons.account_tree_rounded,
-                        children: [
-                          _DetailRow(
-                            label: l10n.pluginServiceDependsOn,
-                            value: plugin.dependencies.isEmpty
-                                ? l10n.pluginServiceNone
-                                : plugin.dependencies.join(', '),
-                          ),
-                          _DetailRow(
-                            label: l10n.pluginServiceRequiredBy,
-                            value: plugin.dependents.isEmpty
-                                ? l10n.pluginServiceNone
-                                : plugin.dependents.join(', '),
-                          ),
-                        ],
-                      ),
-                      if (TemplateRuntimeDependencyRegistry.specsForPlugin(
-                        plugin.id,
-                      ).isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        _DetailSection(
-                          title: l10n.pluginServiceThreadTemplates,
-                          icon: Icons.dashboard_customize_rounded,
-                          children: [
-                            _DetailRow(
-                              label: l10n.pluginServiceTemplates,
-                              value:
-                                  TemplateRuntimeDependencyRegistry.specsForPlugin(
-                                        plugin.id,
-                                      )
-                                      .map(
-                                        (spec) =>
-                                            _localizedTemplateDependencyLabel(
-                                              l10n,
-                                              spec,
-                                            ),
-                                      )
-                                      .join(', '),
+                          if (_fileSystemInfo.isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            _DetailSection(
+                              title: l10n.pluginServiceDetailFileSystem,
+                              icon: Icons.folder_open_rounded,
+                              children: [
+                                for (final entry in _fileSystemInfo.entries)
+                                  _DetailRow(
+                                    label: _localizedDetailLabel(
+                                      l10n,
+                                      entry.key,
+                                    ),
+                                    value: _localizedDetailValue(
+                                      l10n,
+                                      entry.value,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
-                      if (plugin.id == 'playwright') ...[
-                        const SizedBox(height: 16),
-                        _DetailSection(
-                          title: 'MCP',
-                          icon: Icons.hub_rounded,
-                          children: [
-                            _DetailRow(
-                              label: l10n.pluginServiceMcpPackage,
-                              value: '@playwright/mcp',
-                            ),
-                            _DetailRow(
-                              label: l10n.pluginServiceDetailDescription,
-                              value: l10n.pluginServiceMcpBrowserDescription,
+                          const SizedBox(height: 18),
+                          // 依赖关系
+                          _DetailSection(
+                            title: l10n.pluginServiceDetailDependencies,
+                            icon: Icons.account_tree_rounded,
+                            children: [
+                              _DetailRow(
+                                label: l10n.pluginServiceDependsOn,
+                                value: plugin.dependencies.isEmpty
+                                    ? l10n.pluginServiceNone
+                                    : plugin.dependencies.join(', '),
+                              ),
+                              _DetailRow(
+                                label: l10n.pluginServiceRequiredBy,
+                                value: plugin.dependents.isEmpty
+                                    ? l10n.pluginServiceNone
+                                    : plugin.dependents.join(', '),
+                              ),
+                            ],
+                          ),
+                          if (TemplateRuntimeDependencyRegistry.specsForPlugin(
+                            plugin.id,
+                          ).isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            _DetailSection(
+                              title: l10n.pluginServiceThreadTemplates,
+                              icon: Icons.dashboard_customize_rounded,
+                              children: [
+                                _DetailRow(
+                                  label: l10n.pluginServiceTemplates,
+                                  value:
+                                      TemplateRuntimeDependencyRegistry.specsForPlugin(
+                                            plugin.id,
+                                          )
+                                          .map(
+                                            (spec) =>
+                                                _localizedTemplateDependencyLabel(
+                                                  l10n,
+                                                  spec,
+                                                ),
+                                          )
+                                          .join(', '),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
-                    ],
-                  ),
+                          if (plugin.id == 'playwright') ...[
+                            const SizedBox(height: 18),
+                            _DetailSection(
+                              title: 'MCP',
+                              icon: Icons.hub_rounded,
+                              children: [
+                                _DetailRow(
+                                  label: l10n.pluginServiceMcpPackage,
+                                  value: '@playwright/mcp',
+                                ),
+                                _DetailRow(
+                                  label: l10n.pluginServiceDetailDescription,
+                                  value:
+                                      l10n.pluginServiceMcpBrowserDescription,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
           ),
         ],
       ),
@@ -1417,37 +1481,50 @@ class _DetailSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.primary,
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, size: 18, color: colors.onPrimaryContainer),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(
-              alpha: 0.3,
-            ),
-            borderRadius: BorderRadius.circular(10),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurface,
+                ),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            color: colors.outlineVariant.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 9),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: children,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1461,31 +1538,38 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final labelStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w600,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurface,
+      height: 1.4,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: labelStyle),
+                    const SizedBox(height: 3),
+                    Text(value, style: valueStyle),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 132, child: Text(label, style: labelStyle)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(value, style: valueStyle)),
+                  ],
+                ),
+        );
+      },
     );
   }
 }

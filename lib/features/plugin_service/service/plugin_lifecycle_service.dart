@@ -668,6 +668,24 @@ class PluginLifecycleService {
     return _extractAbsolutePathFromOutput(result.stdout.toString());
   }
 
+  Future<PluginNpmPackageInstallation?> _resolveGlobalNpmPackage(
+    String packageName,
+  ) async {
+    final rootResult = await _runManagedToolchainCommand('npm', const [
+      'root',
+      '-g',
+    ]);
+    if (rootResult.exitCode != 0) return null;
+    final globalRoot = _extractAbsolutePathFromOutput(
+      rootResult.stdout.toString(),
+    );
+    if (globalRoot == null) return null;
+    return resolvePluginNpmPackageInstallation(
+      globalRoot: globalRoot,
+      packageName: packageName,
+    );
+  }
+
   Future<bool> _isExecutableAvailable(String executable) async {
     final result = await runTrackedProcessOrFailed(
       pluginShellExecutable(),
@@ -1225,57 +1243,79 @@ fi
   Future<PluginOperationResult> installPlaywright({
     void Function(String line)? onProgress,
   }) async {
-    final nodeCheck = await runTrackedProcessOrFailed('node', [
-      '--version',
-    ], timeout: _pluginLifecycleVerifyTimeout);
+    final nodeCheck = await _runManagedToolchainCommand('node', ['--version']);
     if (nodeCheck.exitCode != 0) {
       return const PluginOperationResult(
         success: false,
         message: 'Playwright 依赖 Node.js，请先安装 Node.js',
       );
     }
-    onProgress?.call('正在安装 Playwright…');
-    final installResult = await _runWithProgress(
+    return _installOrUpdatePlaywright(onProgress: onProgress);
+  }
+
+  Future<PluginOperationResult> _installOrUpdatePlaywright({
+    required void Function(String line)? onProgress,
+    bool updating = false,
+  }) async {
+    final action = updating ? '更新' : '安装';
+    onProgress?.call('正在$action Playwright…');
+    final installResult = await _runManagedToolchainCommandWithProgress(
       'npm',
-      ['install', '-g', 'playwright'],
+      const ['install', '-g', 'playwright@latest'],
       onProgress: onProgress,
       timeout: const Duration(minutes: 5),
+      environment: _npmGlobalPackageEnv(),
     );
     if (installResult.exitCode != 0) {
       return PluginOperationResult(
         success: false,
-        message: 'npm install playwright 失败: ${installResult.stderr}',
+        message: 'Playwright $action失败: ${_processErrorMessage(installResult)}',
       );
     }
-    onProgress?.call('正在安装 Playwright 浏览器…');
-    final browserInstall = await _runWithProgress(
-      'npx',
-      ['playwright', 'install'],
+    final installation = await _resolveGlobalNpmPackage('playwright');
+    if (installation == null) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Playwright $action后未找到 npm 全局安装目标',
+      );
+    }
+    onProgress?.call('正在${updating ? '更新' : '安装'} Playwright 浏览器…');
+    final browserInstall = await _runManagedToolchainCommandWithProgress(
+      'node',
+      [installation.executablePath, 'install'],
       onProgress: onProgress,
       timeout: const Duration(minutes: 10),
     );
     if (browserInstall.exitCode != 0) {
       return PluginOperationResult(
         success: false,
-        message: 'Playwright 浏览器安装失败: ${_processErrorMessage(browserInstall)}',
+        message:
+            'Playwright 浏览器${updating ? '更新' : '安装'}失败: '
+            '${_processErrorMessage(browserInstall)}',
       );
     }
-    final verify = await runTrackedProcessOrFailed('npx', [
-      'playwright',
+    final verify = await _runManagedToolchainCommand('node', [
+      installation.executablePath,
       '--version',
     ], timeout: const Duration(seconds: 15));
     if (verify.exitCode == 0) {
       final version = _normalizePlaywrightVersion(verify.stdout);
-      onProgress?.call('Playwright $version 安装成功');
+      if (!_pluginLifecycleSemverPattern.hasMatch(version)) {
+        return PluginOperationResult(
+          success: false,
+          message: 'Playwright $action后版本校验失败',
+        );
+      }
+      onProgress?.call('Playwright $version $action成功');
       return PluginOperationResult(
         success: true,
-        message: 'Playwright $version 已安装',
+        message: 'Playwright 已${updating ? '更新到' : '安装'} $version',
         newVersion: version,
       );
     }
-    return const PluginOperationResult(
+    return PluginOperationResult(
       success: false,
-      message: 'Playwright 安装后验证失败',
+      message: 'Playwright $action后验证失败',
     );
   }
 
@@ -2501,50 +2541,7 @@ exit 4
 
   Future<PluginOperationResult> updatePlaywright({
     void Function(String line)? onProgress,
-  }) async {
-    onProgress?.call('正在更新 Playwright…');
-    final result = await _runWithProgress(
-      'npm',
-      ['update', '-g', 'playwright'],
-      onProgress: onProgress,
-      timeout: const Duration(minutes: 5),
-    );
-    if (result.exitCode != 0) {
-      return PluginOperationResult(
-        success: false,
-        message: '更新失败: ${result.stderr}',
-      );
-    }
-    onProgress?.call('正在更新 Playwright 浏览器…');
-    final browserInstall = await _runWithProgress(
-      'npx',
-      ['playwright', 'install'],
-      onProgress: onProgress,
-      timeout: const Duration(minutes: 10),
-    );
-    if (browserInstall.exitCode != 0) {
-      return PluginOperationResult(
-        success: false,
-        message: 'Playwright 浏览器更新失败: ${_processErrorMessage(browserInstall)}',
-      );
-    }
-    final verify = await runTrackedProcessOrFailed('npx', [
-      'playwright',
-      '--version',
-    ], timeout: const Duration(seconds: 15));
-    if (verify.exitCode == 0) {
-      final version = _normalizePlaywrightVersion(verify.stdout);
-      return PluginOperationResult(
-        success: true,
-        message: 'Playwright 已更新到 $version',
-        newVersion: version,
-      );
-    }
-    return const PluginOperationResult(
-      success: false,
-      message: 'Playwright 更新后验证失败',
-    );
-  }
+  }) => _installOrUpdatePlaywright(onProgress: onProgress, updating: true);
 
   Future<PluginOperationResult> updateHermesAgent({
     void Function(String line)? onProgress,
@@ -2838,11 +2835,12 @@ exit 4
     void Function(String line)? onProgress,
   }) async {
     onProgress?.call('正在卸载 Playwright…');
-    final result = await _runWithProgress('npm', [
-      'uninstall',
-      '-g',
-      'playwright',
-    ], onProgress: onProgress);
+    final result = await _runManagedToolchainCommandWithProgress(
+      'npm',
+      const ['uninstall', '-g', 'playwright'],
+      onProgress: onProgress,
+      environment: _npmGlobalPackageEnv(),
+    );
     if (result.exitCode == 0) {
       onProgress?.call('Playwright 已卸载');
       return const PluginOperationResult(

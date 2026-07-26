@@ -477,6 +477,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pluginServiceDetailEnvironment => '环境信息';
 
   @override
+  String get pluginServiceDetailFileSystem => '文件系统';
+
+  @override
   String get pluginServiceDetailDependencies => '依赖关系';
 
   @override
@@ -496,6 +499,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get pluginServiceDetailInstallPath => '安装路径';
+
+  @override
+  String get pluginServiceDetailInstallationTarget => '安装目标';
+
+  @override
+  String get pluginServiceDetailExecutablePath => '可执行入口';
+
+  @override
+  String get pluginServiceDetailCacheDirectory => '缓存目录';
+
+  @override
+  String get pluginServiceDetailNpmGlobalRoot => 'npm 全局目录';
 
   @override
   String get pluginServiceDetailCurrentVersion => '当前版本';
@@ -11137,6 +11152,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get pluginServiceDetailEnvironment => '環境資訊';
 
   @override
+  String get pluginServiceDetailFileSystem => '檔案系統';
+
+  @override
   String get pluginServiceDetailDependencies => '依賴關係';
 
   @override
@@ -11156,6 +11174,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get pluginServiceDetailInstallPath => '安裝路徑';
+
+  @override
+  String get pluginServiceDetailInstallationTarget => '安裝目標';
+
+  @override
+  String get pluginServiceDetailExecutablePath => '可執行入口';
+
+  @override
+  String get pluginServiceDetailCacheDirectory => '快取目錄';
+
+  @override
+  String get pluginServiceDetailNpmGlobalRoot => 'npm 全域目錄';
 
   @override
   String get pluginServiceDetailCurrentVersion => '目前版本';

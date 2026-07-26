@@ -486,6 +486,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get pluginServiceDetailEnvironment => 'Umgebung';
 
   @override
+  String get pluginServiceDetailFileSystem => 'Dateisystem';
+
+  @override
   String get pluginServiceDetailDependencies => 'Abhängigkeiten';
 
   @override
@@ -506,6 +509,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pluginServiceDetailInstallPath => 'Installationspfad';
+
+  @override
+  String get pluginServiceDetailInstallationTarget => 'Installationsziel';
+
+  @override
+  String get pluginServiceDetailExecutablePath => 'Ausführbarer Einstieg';
+
+  @override
+  String get pluginServiceDetailCacheDirectory => 'Cache-Verzeichnis';
+
+  @override
+  String get pluginServiceDetailNpmGlobalRoot => 'Globales npm-Verzeichnis';
 
   @override
   String get pluginServiceDetailCurrentVersion => 'Version';

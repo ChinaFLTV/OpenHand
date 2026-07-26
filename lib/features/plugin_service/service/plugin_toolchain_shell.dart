@@ -66,17 +66,17 @@ command -v $command
 String pluginToolchainShellPrefix() {
   final home = Platform.environment['HOME'] ?? '';
   return '''
-export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
-[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
-if command -v fnm >/dev/null 2>&1; then
-  eval "\$(fnm env)"
-fi
 export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"
 export PYENV_ROOT="\${PYENV_ROOT:-$home/.pyenv}"
 export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$VOLTA_HOME/bin:\$PATH"
 if command -v pyenv >/dev/null 2>&1; then
   eval "\$(pyenv init -)"
 fi
+if command -v fnm >/dev/null 2>&1; then
+  eval "\$(fnm env)"
+fi
+export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 ''';
 }
 

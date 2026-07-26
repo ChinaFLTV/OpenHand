@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/version_compare.dart';
 import 'model/plugin_info.dart';
 import 'service/plugin_lifecycle_service.dart';
 import 'service/plugin_scanner_service.dart';
@@ -391,8 +392,38 @@ class PluginServiceController extends ManagedChangeNotifier {
     try {
       final result = await operation();
       if (result.success) {
-        _operationSuccessPulse.emit();
         await _refreshAllPlugins();
+        final expectedVersion = result.newVersion?.trim();
+        final refreshed = pluginById(pluginId);
+        if (transientStatus != PluginStatus.uninstalling &&
+            expectedVersion != null &&
+            expectedVersion.isNotEmpty &&
+            (refreshed?.installedVersion == null ||
+                compareSemanticVersions(
+                      refreshed!.installedVersion!,
+                      expectedVersion,
+                    ) <
+                    0)) {
+          final actualVersion = refreshed?.installedVersion?.trim();
+          final message = _pluginServiceText(
+            zh: '操作后版本校验失败：预期 $expectedVersion，实际 ${actualVersion?.isNotEmpty == true ? actualVersion : '未检测到'}',
+            zhHant:
+                '操作後版本驗證失敗：預期 $expectedVersion，實際 ${actualVersion?.isNotEmpty == true ? actualVersion : '未偵測到'}',
+            en: 'Post-operation verification failed: expected $expectedVersion, got ${actualVersion?.isNotEmpty == true ? actualVersion : 'not detected'}.',
+            fr: 'Échec de la vérification après l’opération : $expectedVersion attendu, ${actualVersion?.isNotEmpty == true ? actualVersion : 'non détecté'} obtenu.',
+            de: 'Überprüfung nach dem Vorgang fehlgeschlagen: erwartet $expectedVersion, erhalten ${actualVersion?.isNotEmpty == true ? actualVersion : 'nicht erkannt'}.',
+            ja: '操作後のバージョン確認に失敗しました：期待値 $expectedVersion、実際 ${actualVersion?.isNotEmpty == true ? actualVersion : '未検出'}。',
+          );
+          _updatePluginStatus(
+            pluginId,
+            PluginStatus.error,
+            errorMessage: message,
+          );
+          _errorMessage = message;
+          notifyListeners();
+          return false;
+        }
+        _operationSuccessPulse.emit();
         return true;
       }
       _updatePluginStatus(

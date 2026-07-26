@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -221,9 +223,22 @@ class PluginScannerService {
   static String? _extractAbsolutePath(String output) {
     for (final line in output.split('\n').reversed) {
       final trimmed = line.trim();
-      if (trimmed.startsWith('/')) return trimmed;
+      if (p.isAbsolute(trimmed)) return p.normalize(trimmed);
     }
     return null;
+  }
+
+  Future<PluginNpmPackageInstallation?> _resolveGlobalNpmPackage(
+    String packageName,
+  ) async {
+    final rootResult = await _shellRun('npm root -g');
+    if (rootResult.exitCode != 0) return null;
+    final globalRoot = _extractAbsolutePath(rootResult.stdout.toString());
+    if (globalRoot == null) return null;
+    return resolvePluginNpmPackageInstallation(
+      globalRoot: globalRoot,
+      packageName: packageName,
+    );
   }
 
   static String? _extractVersion(String output) {
@@ -794,36 +809,46 @@ class PluginScannerService {
 
   Future<PluginInfo> scanPlaywright() async {
     try {
-      final npxCheck = await _shellRun('which npx');
-      if (npxCheck.exitCode != 0) {
+      final installation = await _resolveGlobalNpmPackage('playwright');
+      if (installation == null) return _playwrightNotInstalled;
+      final versionResult = await _shellRun(
+        '${_shellQuote('node')} '
+        '${_shellQuote(installation.executablePath)} --version',
+      );
+      if (versionResult.exitCode != 0) return _playwrightNotInstalled;
+      final version = versionResult.stdout
+          .toString()
+          .trim()
+          .replaceFirst(_playwrightVersionPrefixPattern, '')
+          .trim();
+      if (!_semverSearchPattern.hasMatch(version)) {
         return _playwrightNotInstalled;
       }
-      final versionResult = await _shellRun('npx playwright --version');
-      if (versionResult.exitCode == 0) {
-        final output = versionResult.stdout.toString().trim();
-        final version = output
-            .replaceFirst(_playwrightVersionPrefixPattern, '')
-            .trim();
-        String? latestVersion;
-        try {
-          final r = await _shellRun('npm view playwright version');
-          if (r.exitCode == 0) {
-            final m = _semverSearchPattern.firstMatch(r.stdout.toString());
-            if (m != null) latestVersion = m.group(1);
-          }
-        } catch (error, stack) {
-          silentLog('plugin_scanner', '查询 Playwright 最新版本', error, stack);
-        }
-        return PluginInfo(
-          id: 'playwright',
-          name: 'Playwright',
-          description: '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit',
-          status: PluginStatus.installed,
-          installedVersion: version,
-          latestVersion: latestVersion,
-          dependencies: const ['nodejs'],
-        );
-      }
+      final latestVersion = await _queryLatestNpmVersion('playwright');
+      final globalRoot = p.dirname(installation.packageDirectory);
+      final npmCacheResult = await _shellRun('npm config get cache');
+      final npmCache = npmCacheResult.exitCode == 0
+          ? _extractAbsolutePath(npmCacheResult.stdout.toString())
+          : null;
+      return PluginInfo(
+        id: 'playwright',
+        name: 'Playwright',
+        description: '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit',
+        status: PluginStatus.installed,
+        installedVersion: version,
+        latestVersion: latestVersion,
+        installPath: installation.executablePath,
+        dependencies: const ['nodejs'],
+        metadata: <String, Object?>{
+          'installation_target': installation.packageDirectory,
+          'executable_path': installation.executablePath,
+          'data_directory': pluginPlaywrightDataDirectory(
+            packageDirectory: installation.packageDirectory,
+          ),
+          if (npmCache != null) 'cache_directory': npmCache,
+          'npm_global_root': globalRoot,
+        },
+      );
     } catch (e) {
       silentLog('PluginScanner', '扫描 Playwright', e);
     }
