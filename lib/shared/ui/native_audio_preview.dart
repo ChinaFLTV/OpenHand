@@ -13,8 +13,8 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
 import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
-import 'motion_durations.dart';
 import 'animated_menu.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);

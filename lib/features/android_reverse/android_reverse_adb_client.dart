@@ -1,4 +1,3 @@
-import 'android_reverse_session_config.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +6,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import 'android_reverse_session_config.dart';
 
 const String _kTag = 'android_reverse_adb_client';
 const Duration _kAdbCommandTimeout = Duration(seconds: 30);

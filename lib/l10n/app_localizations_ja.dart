@@ -3935,7 +3935,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => '合計';
 
-
   @override
   String get tokenPopupContextOverview => 'コンテキストデータ概要';
 
@@ -4036,7 +4035,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get toolbarSessionMetadata => 'セッションメタデータ';
-
 
   @override
   String get toolbarShowPlan => 'プラン展開';
@@ -4504,10 +4502,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mdlEdSupportsAttachments => '添付ファイル対応';
 
   @override
-  String get mdlEdReasoningEcho => '携带思考内容回响';
+  String get mdlEdReasoningEcho => '思考履歴を引き継ぐ';
 
   @override
-  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+  String get mdlEdReasoningEchoHint =>
+      'このモデルで、過去のターンの思考／推論内容を以降のプロンプト履歴に再投入するかどうかを制御します。';
 
   @override
   String get mdlEdSupportedModalities => '対応モダリティ';
@@ -4769,9 +4768,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tlCallExpandToInspectToolOutput => '展開してツール出力を確認';
-
-
-
 
   @override
   String get tlCallSelfLearning => '自己学習';

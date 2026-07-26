@@ -4060,7 +4060,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => 'Gesamt';
 
-
   @override
   String get tokenPopupContextOverview => 'Kontextübersicht';
 
@@ -4165,7 +4164,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get toolbarSessionMetadata => 'Sitzungsmetadaten';
-
 
   @override
   String get toolbarShowPlan => 'Plan einblenden';
@@ -4666,10 +4664,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mdlEdSupportsAttachments => 'Unterstützt Anhänge';
 
   @override
-  String get mdlEdReasoningEcho => '携带思考内容回响';
+  String get mdlEdReasoningEcho => 'Denkverlauf einbeziehen';
 
   @override
-  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+  String get mdlEdReasoningEchoHint =>
+      'Legt fest, ob frühere Denk-/Reasoning-Inhalte für dieses Modell erneut in den Prompt-Verlauf eingespeist werden.';
 
   @override
   String get mdlEdSupportedModalities => 'Unterstützte Modalitäten';
@@ -4948,9 +4947,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get tlCallExpandToInspectToolOutput =>
       'Erweitern, um die Werkzeugausgabe zu prüfen';
-
-
-
 
   @override
   String get tlCallSelfLearning => 'Selbstlernen';

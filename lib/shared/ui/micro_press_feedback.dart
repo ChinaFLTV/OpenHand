@@ -1,6 +1,6 @@
-import 'motion_durations.dart';
 import 'package:flutter/material.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 const double kOpenHandMicroPressMinScale = 0.5;

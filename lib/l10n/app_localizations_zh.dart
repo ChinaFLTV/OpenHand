@@ -3888,7 +3888,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => '总计';
 
-
   @override
   String get tokenPopupContextOverview => '上下文数据概览';
 
@@ -3988,7 +3987,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toolbarSessionMetadata => '会话元数据';
-
 
   @override
   String get toolbarShowPlan => '展开计划';
@@ -4710,9 +4708,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
-
-
-
 
   @override
   String get tlCallSelfLearning => '自我学习';
@@ -14557,7 +14552,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get tokenPopupGrandTotal => '總計';
 
-
   @override
   String get tokenPopupContextOverview => '上下文資料概覽';
 
@@ -14657,7 +14651,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get toolbarSessionMetadata => '會話元數據';
-
 
   @override
   String get toolbarShowPlan => '展開計劃';
@@ -15379,9 +15372,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
-
-
-
 
   @override
   String get tlCallSelfLearning => '自我学习';

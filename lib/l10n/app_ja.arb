@@ -2485,6 +2485,8 @@
   "mdlEdYes": "はい",
   "mdlEdNo": "いいえ",
   "mdlEdSupportsAttachments": "添付ファイル対応",
+  "mdlEdReasoningEcho": "思考履歴を引き継ぐ",
+  "mdlEdReasoningEchoHint": "このモデルで、過去のターンの思考／推論内容を以降のプロンプト履歴に再投入するかどうかを制御します。",
   "mdlEdSupportedModalities": "対応モダリティ",
   "mdlEdText": "テキスト",
   "mdlEdImage": "画像",

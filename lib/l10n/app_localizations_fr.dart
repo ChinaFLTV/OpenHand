@@ -4072,7 +4072,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get tokenPopupGrandTotal => 'Total général';
 
-
   @override
   String get tokenPopupContextOverview => 'Vue d’ensemble du contexte';
 
@@ -4177,7 +4176,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get toolbarSessionMetadata => 'Métadonnées de session';
-
 
   @override
   String get toolbarShowPlan => 'Afficher le plan';
@@ -4679,10 +4677,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mdlEdSupportsAttachments => 'Prend en charge les pièces jointes';
 
   @override
-  String get mdlEdReasoningEcho => '携带思考内容回响';
+  String get mdlEdReasoningEcho => 'Inclure l\'historique de raisonnement';
 
   @override
-  String get mdlEdReasoningEchoHint => '控制该模型是否把先前轮次的思考/推理内容回灌到后续 Prompt 历史中。';
+  String get mdlEdReasoningEchoHint =>
+      'Détermine si le contenu de réflexion/raisonnement des tours précédents est réinjecté dans l\'historique du prompt pour ce modèle.';
 
   @override
   String get mdlEdSupportedModalities => 'Modalités prises en charge';
@@ -4961,9 +4960,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get tlCallExpandToInspectToolOutput =>
       'Développez pour inspecter la sortie de l’outil';
-
-
-
 
   @override
   String get tlCallSelfLearning => 'Auto-apprentissage';

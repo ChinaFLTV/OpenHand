@@ -8381,7 +8381,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         message,
         kind: OpenHandSnackKind.error,
         maxLines: 2,
-        postFrame: true,
       );
       return;
     }

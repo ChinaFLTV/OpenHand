@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
-import 'motion_durations.dart';
 import 'animated_dialog.dart';
+import 'motion_durations.dart';
 import 'openhand_dialog_action_button.dart';
 
 enum OpenHandCleanupRangePreset { all, today, last24Hours, last7Days, custom }

@@ -1232,7 +1232,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     String message, {
     OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    flashOpenHandSnack(context, message, kind: kind, postFrame: true);
+    flashOpenHandSnack(context, message, kind: kind);
   }
 
   _ToolContentDialogStats _statsFor(String text) {

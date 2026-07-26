@@ -2485,6 +2485,8 @@
   "mdlEdYes": "Ja",
   "mdlEdNo": "Nein",
   "mdlEdSupportsAttachments": "Unterstützt Anhänge",
+  "mdlEdReasoningEcho": "Denkverlauf einbeziehen",
+  "mdlEdReasoningEchoHint": "Legt fest, ob frühere Denk-/Reasoning-Inhalte für dieses Modell erneut in den Prompt-Verlauf eingespeist werden.",
   "mdlEdSupportedModalities": "Unterstützte Modalitäten",
   "mdlEdText": "Text",
   "mdlEdImage": "Bild",

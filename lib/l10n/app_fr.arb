@@ -2485,6 +2485,8 @@
   "mdlEdYes": "Oui",
   "mdlEdNo": "Non",
   "mdlEdSupportsAttachments": "Prend en charge les pièces jointes",
+  "mdlEdReasoningEcho": "Inclure l'historique de raisonnement",
+  "mdlEdReasoningEchoHint": "Détermine si le contenu de réflexion/raisonnement des tours précédents est réinjecté dans l'historique du prompt pour ce modèle.",
   "mdlEdSupportedModalities": "Modalités prises en charge",
   "mdlEdText": "Texte",
   "mdlEdImage": "Image",

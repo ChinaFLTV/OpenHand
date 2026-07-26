@@ -7134,7 +7134,6 @@ abstract class AppLocalizations {
   /// **'总计'**
   String get tokenPopupGrandTotal;
 
-
   /// No description provided for @tokenPopupContextOverview.
   ///
   /// In zh, this message translates to:
@@ -7326,7 +7325,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'会话元数据'**
   String get toolbarSessionMetadata;
-
 
   /// No description provided for @toolbarShowPlan.
   ///
@@ -8665,9 +8663,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'点击展开查看工具输出'**
   String get tlCallExpandToInspectToolOutput;
-
-
-
 
   /// No description provided for @tlCallSelfLearning.
   ///
