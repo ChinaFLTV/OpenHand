@@ -93,7 +93,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
           context,
           loc?.webReverseAccountSnapAppliedSnapshot(snap.name) ??
               'Applied "${snap.name}". Refresh the page so JS re-reads it.',
-          duration: const Duration(seconds: 4),
+          duration: kOpenHandSnackBarDetailedDuration,
         );
       } else {
         showOpenHandErrorSnack(

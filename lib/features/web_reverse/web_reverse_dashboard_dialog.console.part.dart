@@ -170,7 +170,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       showOpenHandErrorSnack(
         context,
         loc?.webReverseConsoleEvalFailed ?? 'Eval failed',
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }

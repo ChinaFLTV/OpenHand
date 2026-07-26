@@ -97,7 +97,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
                 de: 'Export fehlgeschlagen',
                 ja: 'エクスポートに失敗しました',
               ),
-              duration: const Duration(seconds: 3),
+              duration: kOpenHandSnackBarNormalDuration,
             );
           } else {
             showOpenHandSuccessSnack(
@@ -110,7 +110,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
                 de: 'Exportiert nach $path',
                 ja: '$path にエクスポートしました',
               ),
-              duration: const Duration(seconds: 3),
+              duration: kOpenHandSnackBarNormalDuration,
             );
           }
         },
@@ -1512,7 +1512,7 @@ Future<void> _showExtraHeadersDialog(
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   } finally {
@@ -1705,7 +1705,7 @@ Future<void> _copyRecentRequestsForAi(
         de: 'Noch keine Anfragen',
         ja: '分析できるリクエストがまだありません',
       ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     return;
   }
@@ -1785,7 +1785,7 @@ Future<void> _showDiffPicker(
         de: 'Mindestens 2 Anfragen erforderlich',
         ja: '比較には 2 件以上のリクエストが必要です',
       ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     return;
   }
@@ -2059,7 +2059,7 @@ Future<void> _showServiceWorkersDialog(
                     de: 'Unregister fehlgeschlagen',
                     ja: '登録解除に失敗しました',
                   ),
-                  duration: const Duration(seconds: 2),
+                  duration: kOpenHandSnackBarBriefDuration,
                 );
               } else {
                 showOpenHandSuccessSnack(
@@ -2110,7 +2110,7 @@ Future<void> _toggleHarReplayServer(
         de: 'HAR-Replay-Server gestoppt',
         ja: 'HAR リプレイサーバーを停止しました',
       ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     return;
   }
@@ -2128,7 +2128,7 @@ Future<void> _toggleHarReplayServer(
         de: 'Start fehlgeschlagen',
         ja: '起動に失敗しました',
       ),
-      duration: const Duration(seconds: 3),
+      duration: kOpenHandSnackBarNormalDuration,
     );
     return;
   }
@@ -2144,7 +2144,7 @@ Future<void> _toggleHarReplayServer(
       de: 'Replay-Server lauft unter http://127.0.0.1:${r.port}/  · ${r.entryCount} Eintrage',
       ja: 'リプレイサーバー起動: http://127.0.0.1:${r.port}/  · ${r.entryCount} 件',
     ),
-    duration: const Duration(seconds: 6),
+    duration: kOpenHandSnackBarLongReadDuration,
     action: SnackBarAction(
       label: openHandLocalizedText(
         context,
@@ -2188,7 +2188,7 @@ Future<void> _toggleMitmproxyBridge(
         de: 'mitmproxy-Bridge gestoppt',
         ja: 'mitmproxy ブリッジを停止しました',
       ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     return;
   }
@@ -2275,7 +2275,7 @@ Future<void> _toggleMitmproxyBridge(
         de: 'Fehlgeschlagen (Port 8080 belegt?)',
         ja: '失敗しました（ポート 8080 が使用中の可能性があります）',
       ),
-      duration: const Duration(seconds: 3),
+      duration: kOpenHandSnackBarNormalDuration,
     );
     return;
   }
@@ -2291,7 +2291,7 @@ Future<void> _toggleMitmproxyBridge(
       de: 'mitmproxy aktiv: Proxy 127.0.0.1:${r.mitmPort} (Callback :${r.callbackPort})',
       ja: 'mitmproxy 起動: proxy 127.0.0.1:${r.mitmPort}（callback :${r.callbackPort}）',
     ),
-    duration: const Duration(seconds: 6),
+    duration: kOpenHandSnackBarLongReadDuration,
   );
 }
 
@@ -2313,7 +2313,7 @@ Future<void> _toggleWebRtcCapture(
         de: 'Installation fehlgeschlagen',
         ja: '注入に失敗しました',
       ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     return;
   }
@@ -2592,7 +2592,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -2706,9 +2706,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   OutlinedButton.icon(
                     onPressed: _exportSeriesCsv,
                     icon: const Icon(Icons.download_rounded, size: 16),
-                    label: Text(
-                      _wrExportCsvLabel(context),
-                    ),
+                    label: Text(_wrExportCsvLabel(context)),
                   ),
                 if (_tab == 3 && _events.isNotEmpty)
                   OutlinedButton.icon(

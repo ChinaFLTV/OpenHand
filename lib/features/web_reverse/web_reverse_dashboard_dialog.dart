@@ -924,7 +924,7 @@ class _WebReverseDashboardDialogState
           de: 'Dieses Fenster kann die MCP-Einstellungen nicht aktualisieren',
           ja: 'このウィンドウでは MCP 設定を更新できません',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -955,7 +955,7 @@ class _WebReverseDashboardDialogState
           de: 'AI-seitiges CDP-MCP konnte nicht aktualisiert werden',
           ja: 'AI 側 CDP MCP 設定の更新に失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -980,7 +980,7 @@ class _WebReverseDashboardDialogState
               de: 'AI-seitiges CDP-MCP deaktiviert; temporares MCP gestoppt',
               ja: 'AI 側 CDP MCP を無効化し、このセッションの一時 MCP を停止しました',
             ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
   }
 
@@ -1631,7 +1631,7 @@ class _WebReverseDashboardDialogState
               de: 'Aufzeichnung gestoppt',
               ja: '録画を停止しました',
             ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
   }
 
@@ -2267,7 +2267,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           de: 'Snapshot gespeichert unter ${location.path}',
           ja: 'スナップショットを ${location.path} に保存しました',
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '导出快照', error, stack);
@@ -2283,7 +2283,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           de: 'Snapshot-Export fehlgeschlagen',
           ja: 'スナップショットのエクスポートに失敗しました',
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -2306,7 +2306,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
             read.tooLargeBytes!,
             context: context,
           ),
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
         return;
       }
@@ -2325,7 +2325,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
             de: 'Ungültiges Snapshot-Format',
             ja: 'スナップショット形式が無効です',
           ),
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
         return;
       }
@@ -2343,7 +2343,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
             de: 'Snapshot-Version wird nicht unterstützt',
             ja: 'スナップショットのバージョンはサポートされていません',
           ),
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
       } else {
         showOpenHandSuccessSnack(
@@ -2357,7 +2357,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
             de: '$count Netzwerkeintrage importiert',
             ja: '$count 件のネットワーク記録をインポートしました',
           ),
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
       }
     } catch (error, stack) {
@@ -2374,7 +2374,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           de: 'Snapshot-Import fehlgeschlagen',
           ja: 'スナップショットのインポートに失敗しました',
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -1624,7 +1624,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           en: 'Read aloud failed: ${_friendlyMessageActionUiError(error)}',
         ),
         kind: OpenHandSnackKind.error,
-        duration: const Duration(seconds: 4),
       );
     }
   }
@@ -1688,7 +1687,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           en: 'Translation failed: ${_friendlyMessageActionUiError(error)}',
         ),
         kind: OpenHandSnackKind.error,
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
       if (mounted) {

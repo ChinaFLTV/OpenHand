@@ -234,7 +234,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -271,7 +271,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           de: 'Trace fehlgeschlagen',
           ja: 'Trace の記録に失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -333,7 +333,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           de: 'Trace konnte nicht gespeichert werden',
           ja: 'Trace の保存に失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -1527,7 +1527,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
               de: 'V8-Heap ${usedMb.toStringAsFixed(1)} MB uberschreitet Schwelle ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
               ja: 'V8 heap ${usedMb.toStringAsFixed(1)} MB がしきい値 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB を超えました',
             ),
-            duration: const Duration(seconds: 3),
+            duration: kOpenHandSnackBarNormalDuration,
           );
         }
       }
@@ -1551,7 +1551,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             de: 'Sampling konnte nicht beendet werden',
             ja: 'サンプリング停止に失敗しました',
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       }
     } else {
@@ -1569,7 +1569,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             de: 'Sampling konnte nicht gestartet werden',
             ja: 'サンプリング開始に失敗しました',
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       } else {
         setState(() {
@@ -1615,7 +1615,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           de: 'Snapshot fehlgeschlagen',
           ja: 'スナップショット取得に失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -1638,7 +1638,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           de: 'Mindestens zwei Snapshots erforderlich',
           ja: '比較には 2 回以上のスナップショットが必要です',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -1697,7 +1697,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -2681,7 +2681,6 @@ class _SamplingTopList extends StatelessWidget {
                   context: context,
                   base: _wrCopiedLabel(context),
                   result: copied,
-                  duration: const Duration(seconds: 1),
                 );
               },
               label: openHandLocalizedText(
@@ -4778,7 +4777,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -4806,7 +4805,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
             context: context,
             maxBytes: WebReverseSessionController.maxRecorderImportBytes,
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
         return;
       }
@@ -4843,7 +4842,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
           de: 'Import fehlgeschlagen: ungültiges JSON',
           ja: 'インポートに失敗しました: JSON 形式が不正です',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -4905,7 +4904,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }

@@ -3677,32 +3677,30 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          duration: const Duration(seconds: 6),
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: 'SVG 已复制（${svgBytes.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
-              en: 'SVG copied (${svgBytes.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
-            ),
-            maxLines: 4,
+        OpenHandSnackBar.success(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: 'SVG 已复制（${svgBytes.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
+            en: 'SVG copied (${svgBytes.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
           ),
+          duration: kOpenHandSnackBarLongReadDuration,
+          maxLines: 4,
         ),
       );
     } else {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          duration: const Duration(seconds: 8),
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '剪贴板不可信：写 ${svgBytes.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
-              en: 'Clipboard unreliable: wrote ${svgBytes.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
-            ),
-            maxLines: 4,
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '剪贴板不可信：写 ${svgBytes.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
+            en: 'Clipboard unreliable: wrote ${svgBytes.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
           ),
+          duration: kOpenHandSnackBarLongReadDuration,
+          maxLines: 4,
           action: savedPath == null
               ? null
               : SnackBarAction(

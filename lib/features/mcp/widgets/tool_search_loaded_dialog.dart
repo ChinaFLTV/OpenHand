@@ -347,7 +347,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         savedPath,
       ),
       kind: OpenHandSnackKind.success,
-      duration: const Duration(seconds: 6),
+      duration: kOpenHandSnackBarLongReadDuration,
       action: SnackBarAction(
         label: l10n.snackToolSearchLoadedHistoryExportRevealAction,
         onPressed: () => _revealInFileManager(savedPath),

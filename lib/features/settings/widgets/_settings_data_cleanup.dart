@@ -997,7 +997,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     showOpenHandInfoSnack(
       context,
       pendingText,
-      duration: const Duration(seconds: 1),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     try {
       final json = await _ledger.exportBundleJson();

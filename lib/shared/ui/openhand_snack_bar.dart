@@ -19,16 +19,23 @@ const EdgeInsets _kDefaultSnackBarContentPadding = EdgeInsets.symmetric(
   horizontal: 16,
   vertical: 14,
 );
-const Duration kOpenHandSnackBarSuccessDuration = Duration(seconds: 2);
-const Duration kOpenHandSnackBarInfoDuration = Duration(seconds: 3);
-const Duration kOpenHandSnackBarErrorDuration = Duration(seconds: 4);
+
+/// 提示条停留时长按「这条文案读完要多久」分四档，调用方只在这四档里选。
+///
+/// 此前上百处调用各自内联 `Duration(seconds: N)`，N 取遍 1..8，且同一类提示
+/// 的取值互相矛盾——光是错误提示就出现过 2/3/4/5/6 五种。分档后取值集中在
+/// 这里，想整体调快调慢只改一处。
+const Duration kOpenHandSnackBarBriefDuration = Duration(seconds: 2);
+const Duration kOpenHandSnackBarNormalDuration = Duration(seconds: 3);
+const Duration kOpenHandSnackBarDetailedDuration = Duration(seconds: 4);
+const Duration kOpenHandSnackBarLongReadDuration = Duration(seconds: 6);
 
 enum OpenHandSnackKind { info, success, error }
 
 void showOpenHandSuccessSnack(
   BuildContext context,
   String message, {
-  Duration duration = kOpenHandSnackBarSuccessDuration,
+  Duration duration = kOpenHandSnackBarBriefDuration,
   SnackBarAction? action,
   int? maxLines,
 }) {
@@ -45,7 +52,7 @@ void showOpenHandSuccessSnack(
 void showOpenHandInfoSnack(
   BuildContext context,
   String message, {
-  Duration duration = kOpenHandSnackBarInfoDuration,
+  Duration duration = kOpenHandSnackBarNormalDuration,
   SnackBarAction? action,
   int? maxLines,
 }) {
@@ -61,7 +68,7 @@ void showOpenHandInfoSnack(
 void showOpenHandErrorSnack(
   BuildContext context,
   String message, {
-  Duration duration = kOpenHandSnackBarErrorDuration,
+  Duration duration = kOpenHandSnackBarDetailedDuration,
   SnackBarAction? action,
   int? maxLines,
 }) {
@@ -448,7 +455,7 @@ class OpenHandSnackBar {
   static SnackBar success(
     BuildContext context,
     String message, {
-    Duration duration = kOpenHandSnackBarSuccessDuration,
+    Duration duration = kOpenHandSnackBarBriefDuration,
     SnackBarAction? action,
     int? maxLines,
   }) {
@@ -466,7 +473,7 @@ class OpenHandSnackBar {
   static SnackBar error(
     BuildContext context,
     String message, {
-    Duration duration = kOpenHandSnackBarErrorDuration,
+    Duration duration = kOpenHandSnackBarDetailedDuration,
     SnackBarAction? action,
     int? maxLines,
   }) {
@@ -484,7 +491,7 @@ class OpenHandSnackBar {
   static SnackBar info(
     BuildContext context,
     String message, {
-    Duration duration = kOpenHandSnackBarInfoDuration,
+    Duration duration = kOpenHandSnackBarNormalDuration,
     SnackBarAction? action,
     int? maxLines,
   }) {
@@ -502,9 +509,9 @@ class OpenHandSnackBar {
 
   static Duration defaultDurationForKind(OpenHandSnackKind kind) {
     return switch (kind) {
-      OpenHandSnackKind.success => kOpenHandSnackBarSuccessDuration,
-      OpenHandSnackKind.error => kOpenHandSnackBarErrorDuration,
-      OpenHandSnackKind.info => kOpenHandSnackBarInfoDuration,
+      OpenHandSnackKind.success => kOpenHandSnackBarBriefDuration,
+      OpenHandSnackKind.error => kOpenHandSnackBarDetailedDuration,
+      OpenHandSnackKind.info => kOpenHandSnackBarNormalDuration,
     };
   }
 
@@ -598,7 +605,7 @@ class OpenHandSnackBar {
     required Color tint,
     required Color backgroundColor,
     required Color foregroundColor,
-    Duration duration = kOpenHandSnackBarErrorDuration,
+    Duration duration = kOpenHandSnackBarDetailedDuration,
   }) {
     return _build(
       context,

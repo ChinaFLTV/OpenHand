@@ -640,7 +640,6 @@ class _HeSteeringFileEditorDialogState
           de: 'Datei gespeichert',
           ja: 'ファイルを保存しました',
         ),
-        duration: const Duration(seconds: 1),
       );
     } catch (e) {
       if (!mounted) return;

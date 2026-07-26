@@ -51,7 +51,7 @@ void showFriendlyErrorSnackBar(
       maxLines: 2,
       duration: hasDetails
           ? _kFriendlyErrorDetailsSnackDuration
-          : kOpenHandSnackBarErrorDuration,
+          : kOpenHandSnackBarDetailedDuration,
       action: hasDetails
           ? SnackBarAction(
               label: l10n.commonDetails,

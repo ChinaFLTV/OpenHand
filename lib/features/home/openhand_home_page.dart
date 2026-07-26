@@ -1904,10 +1904,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         showOpenHandSnackBarOn(
           context,
           messenger,
-          SnackBar(
-            content: Text(l10n.snackToolSearchLoadedReplayCancelledToast),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
+          OpenHandSnackBar.info(
+            context,
+            l10n.snackToolSearchLoadedReplayCancelledToast,
+            duration: kOpenHandSnackBarBriefDuration,
           ),
         );
       }
@@ -1930,10 +1930,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         showOpenHandSnackBarOn(
           context,
           messengerNow,
-          SnackBar(
-            content: Text(l10nNow.snackToolSearchLoadedReplayedToast),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
+          OpenHandSnackBar.success(
+            context,
+            l10nNow.snackToolSearchLoadedReplayedToast,
           ),
         );
       }
@@ -5929,7 +5928,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '消息已暂存，将在当前回答完成后自动发送。',
         en: 'Message queued and will be sent automatically.',
       ),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
   }
 
@@ -8635,7 +8634,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             zh: '导出成功：$destinationPath',
             en: 'Export succeeded: $destinationPath',
           ),
-          duration: const Duration(seconds: 6),
+          duration: kOpenHandSnackBarLongReadDuration,
           maxLines: 2,
         );
         break;
@@ -8654,7 +8653,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             zh: '导出失败：$reason',
             en: 'Export failed: $reason',
           ),
-          duration: const Duration(seconds: 6),
+          duration: kOpenHandSnackBarLongReadDuration,
           maxLines: 2,
         );
         break;

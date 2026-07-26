@@ -162,7 +162,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                                 de: 'Drosselung konnte nicht gesetzt werden',
                                 ja: 'スロットリング設定に失敗しました',
                               ),
-                              duration: const Duration(seconds: 2),
+                              duration: kOpenHandSnackBarBriefDuration,
                             );
                           }
                         },
@@ -525,7 +525,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           de: 'Speicherdialog konnte nicht geöffnet werden',
           ja: '保存ダイアログを開けませんでした',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -551,7 +551,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           de: 'HAR-Speichern fehlgeschlagen oder abgelaufen',
           ja: 'HAR の保存に失敗またはタイムアウトしました',
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } else {
       showOpenHandSuccessSnack(
@@ -565,7 +565,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           de: 'HAR gespeichert unter $written',
           ja: 'HAR を $written に保存しました',
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     }
   }
@@ -583,7 +583,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       showOpenHandErrorSnack(
         context,
         _wrScreenshotFailedLabel(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -615,7 +615,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           de: 'Speicherdialog konnte nicht geöffnet werden',
           ja: '保存ダイアログを開けませんでした',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -626,7 +626,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       showOpenHandSuccessSnack(
         context,
         webReverseSavedToFileMessage(context, location.path),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '写入截图', error, stack);
@@ -642,7 +642,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           de: 'Screenshot konnte nicht gespeichert werden',
           ja: 'スクリーンショットの保存に失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -737,7 +737,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
             context: context,
             isZh: isZh,
           ),
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
         return;
       }
@@ -756,7 +756,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           de: '${merge ? "Zusammengeführt" : "Ersetzt"}: ${r.loaded}; ${r.skipped} übersprungen',
           ja: '${merge ? "マージ" : "置換"}: ${r.loaded} 件、無効な ${r.skipped} 件をスキップ',
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', '解析 HAR', error, stack);
@@ -764,7 +764,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       showOpenHandErrorSnack(
         context,
         _webReverseDashHarParseFailedLabel(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -868,7 +868,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           context: context,
           isZh: isZh,
         ),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
       return;
     }
@@ -876,7 +876,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       showOpenHandErrorSnack(
         context,
         _webReverseDashHarParseFailedLabel(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }

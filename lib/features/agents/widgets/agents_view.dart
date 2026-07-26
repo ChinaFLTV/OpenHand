@@ -210,7 +210,7 @@ const EdgeInsetsDirectional _agentNumberStepperLabelPadding =
 void _showAgentInfoSnack(
   BuildContext context,
   String message, {
-  Duration duration = kOpenHandSnackBarInfoDuration,
+  Duration duration = kOpenHandSnackBarNormalDuration,
   SnackBarAction? action,
   int? maxLines,
 }) {
@@ -226,7 +226,7 @@ void _showAgentInfoSnack(
 void _showAgentErrorSnack(
   BuildContext context,
   String message, {
-  Duration duration = kOpenHandSnackBarErrorDuration,
+  Duration duration = kOpenHandSnackBarDetailedDuration,
   SnackBarAction? action,
   int? maxLines,
 }) {

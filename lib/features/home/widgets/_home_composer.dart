@@ -2591,7 +2591,7 @@ class _ComposerCreationModeButtonState
         flashOpenHandSnack(
           context,
           label,
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       }
       return;

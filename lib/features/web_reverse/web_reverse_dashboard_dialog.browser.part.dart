@@ -365,7 +365,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           de: 'Browser neu gestartet',
           ja: 'ブラウザを再起動しました',
         ),
-        duration: const Duration(seconds: 1),
       );
     } catch (error, stack) {
       silentLog(
@@ -378,7 +377,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       showOpenHandErrorSnack(
         context,
         _restartFailureMessage(error),
-        duration: const Duration(seconds: 5),
+        duration: kOpenHandSnackBarLongReadDuration,
       );
     } finally {
       if (mounted) setState(() => _restartBrowserInFlight = false);
@@ -1260,7 +1259,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           de: 'Kein Frame verfügbar',
           ja: '利用できるフレームがありません',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -1291,7 +1290,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }
@@ -1323,7 +1322,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       showOpenHandErrorSnack(
         context,
         _wrScreenshotFailedLabel(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -1340,7 +1339,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           de: 'Dekodierung fehlgeschlagen',
           ja: 'デコードに失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -1384,7 +1383,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       showOpenHandErrorSnack(
         context,
         webReverseSaveFailedMessage(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   }

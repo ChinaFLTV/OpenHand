@@ -63,8 +63,8 @@ Future<bool> copyOpenHandTextToClipboard({
   String? errorMessage,
   bool showSuccess = true,
   Duration timeout = kOpenHandClipboardCopyTimeout,
-  Duration successDuration = kOpenHandSnackBarSuccessDuration,
-  Duration errorDuration = kOpenHandSnackBarErrorDuration,
+  Duration successDuration = kOpenHandSnackBarBriefDuration,
+  Duration errorDuration = kOpenHandSnackBarDetailedDuration,
   OpenHandClipboardSnackPresenter? showSuccessSnack,
   OpenHandClipboardSnackPresenter? showErrorSnack,
 }) async {

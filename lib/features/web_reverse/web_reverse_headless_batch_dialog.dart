@@ -84,7 +84,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         context,
         loc0?.webReverseHeadlessBatchNeedUrlAndDir ??
             'Need at least one http(s):// URL and an output directory',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
       return;
     }
@@ -108,7 +108,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         context,
         loc0?.webReverseHeadlessBatchBrowserNotReady ??
             'Browser is not running yet — start a session first',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
       return;
     }
@@ -143,7 +143,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       showOpenHandErrorSnack(
         context,
         loc0?.webReverseHeadlessBatchPhaseFailed ?? 'Failed',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
       return;
     }
@@ -166,7 +166,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         context,
         loc1?.webReverseHeadlessBatchFinished(ok, results.length) ??
             'Batch finished: $ok/${results.length} ok',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     }
   }

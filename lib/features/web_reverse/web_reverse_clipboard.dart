@@ -42,8 +42,8 @@ Future<WebReverseClipboardCopyResult?> copyWebReverseTextToClipboard({
   required String logTag,
   String logAction = '复制',
   int maxChars = kWebReverseClipboardMaxChars,
-  Duration successDuration = kOpenHandSnackBarSuccessDuration,
-  Duration errorDuration = kOpenHandSnackBarErrorDuration,
+  Duration successDuration = kOpenHandSnackBarBriefDuration,
+  Duration errorDuration = kOpenHandSnackBarDetailedDuration,
   Duration timeout = kOpenHandClipboardCopyTimeout,
   bool showSuccess = true,
 }) async {
@@ -68,9 +68,7 @@ Future<WebReverseClipboardCopyResult?> copyWebReverseTextToClipboard({
   if (showSuccess) {
     showWebReverseClipboardSuccessSnack(
       context: context,
-      base:
-          successBase ??
-          openHandCopiedLabel(context),
+      base: successBase ?? openHandCopiedLabel(context),
       result: copied,
       duration: successDuration,
     );
@@ -105,7 +103,7 @@ void showWebReverseClipboardSuccessSnack({
   required BuildContext context,
   required String base,
   required WebReverseClipboardCopyResult result,
-  Duration duration = kOpenHandSnackBarSuccessDuration,
+  Duration duration = kOpenHandSnackBarBriefDuration,
 }) {
   showOpenHandSuccessSnack(
     context,
@@ -121,7 +119,7 @@ void showWebReverseClipboardSuccessSnack({
 void showWebReverseClipboardErrorSnack({
   required BuildContext context,
   Object? error,
-  Duration duration = kOpenHandSnackBarErrorDuration,
+  Duration duration = kOpenHandSnackBarDetailedDuration,
 }) {
   final detail = error == null ? '' : ': $error';
   showOpenHandErrorSnack(

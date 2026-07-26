@@ -740,7 +740,7 @@ class _NetworkRow extends StatelessWidget {
             de: 'URL blockiert',
             ja: 'URL をブロックしました',
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       case 'unblock':
         await controller.unblockUrl(entry.url);
@@ -756,7 +756,7 @@ class _NetworkRow extends StatelessWidget {
             de: 'URL entsperrt',
             ja: 'URL のブロックを解除しました',
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       case 'replay':
         if (!context.mounted) return;

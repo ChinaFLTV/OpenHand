@@ -216,7 +216,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Noch keine Skripte erfasst',
           ja: 'スクリプトはまだありません',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -282,7 +282,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'LSP fehlgeschlagen: $detail',
           ja: 'LSP 起動に失敗しました: $detail',
         ),
-        duration: const Duration(seconds: 6),
+        duration: kOpenHandSnackBarLongReadDuration,
       );
       return;
     }
@@ -323,7 +323,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       showOpenHandErrorSnack(
         context,
         friendly,
-        duration: const Duration(seconds: 6),
+        duration: kOpenHandSnackBarLongReadDuration,
       );
       return;
     }
@@ -338,7 +338,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         de: 'LSP bereit',
         ja: 'LSP 準備完了',
       ),
-      duration: const Duration(seconds: 1),
     );
     await _pushCurrentToLsp();
   }
@@ -769,7 +768,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Keine Hover-Info',
           ja: 'Hover 情報はありません',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -808,7 +807,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Keine Definition gefunden',
           ja: '定義が見つかりません',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -829,7 +828,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Definiert in ${r.uri} Zeile ${r.line + 1}',
           ja: '定義位置: ${r.uri} ${r.line + 1} 行目',
         ),
-        duration: const Duration(seconds: 4),
+        duration: kOpenHandSnackBarDetailedDuration,
       );
     }
   }
@@ -869,7 +868,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Umbenennen fehlgeschlagen',
           ja: '名前変更に失敗しました',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -979,7 +978,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Kein passendes Skript: $url',
           ja: '対応するスクリプトが見つかりません: $url',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -1010,7 +1009,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           de: 'Breakpoints in Originalquellenansicht nicht unterstützt',
           ja: '元ソース表示ではブレークポイントを設定できません',
         ),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
       return;
     }
@@ -1037,7 +1036,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             de: 'Entfernen fehlgeschlagen',
             ja: '解除に失敗しました',
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       }
     } else {
@@ -1062,7 +1061,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             de: 'Breakpoint gesetzt',
             ja: 'ブレークポイントを設定しました',
           ),
-          duration: const Duration(seconds: 1),
         );
       } else {
         showOpenHandErrorSnack(
@@ -1076,7 +1074,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             de: 'Setzen fehlgeschlagen',
             ja: '設定に失敗しました',
           ),
-          duration: const Duration(seconds: 2),
+          duration: kOpenHandSnackBarBriefDuration,
         );
       }
     }

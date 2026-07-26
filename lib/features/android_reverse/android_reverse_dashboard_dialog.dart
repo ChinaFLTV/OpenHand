@@ -1124,7 +1124,7 @@ class _AndroidReverseDashboardDialogState
             ja: 'APP レポート成果物を保存しました。',
           ),
           kind: OpenHandSnackKind.success,
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
       }
     } catch (error) {
@@ -1806,7 +1806,7 @@ class _AndroidReverseDashboardDialogState
             ja: 'Logcat スナップショット成果物を保存しました。',
           ),
           kind: OpenHandSnackKind.success,
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
       }
     } catch (error) {
@@ -1926,7 +1926,7 @@ class _AndroidReverseDashboardDialogState
             ja: '静的スキャンに失敗しました。エラー出力を表示しています。',
           ),
           kind: OpenHandSnackKind.error,
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
       }
     } catch (error) {
@@ -1993,7 +1993,7 @@ class _AndroidReverseDashboardDialogState
           ja: 'mitmproxy addon の生成に失敗しました。',
         ),
         kind: OpenHandSnackKind.error,
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
       if (mounted) setState(() => _writingNetworkAddon = false);
@@ -2024,7 +2024,7 @@ class _AndroidReverseDashboardDialogState
           ja: '証明書成果物の生成に失敗しました。',
         ),
         kind: OpenHandSnackKind.error,
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
       if (mounted) setState(() => _writingCertificateArtifacts = false);
@@ -2055,7 +2055,7 @@ class _AndroidReverseDashboardDialogState
           ja: 'MCP 連携成果物の生成に失敗しました。',
         ),
         kind: OpenHandSnackKind.error,
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
       if (mounted) setState(() => _writingMcpArtifacts = false);
@@ -2141,7 +2141,7 @@ class _AndroidReverseDashboardDialogState
           ja: 'Frida snippet の読み込みに失敗しました: $error',
         ),
         kind: OpenHandSnackKind.error,
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     }
   }
@@ -2181,7 +2181,7 @@ class _AndroidReverseDashboardDialogState
             ja: 'Frida スクリプト成果物を保存しました。',
           ),
           kind: OpenHandSnackKind.success,
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
       }
     } catch (error) {
@@ -7478,7 +7478,7 @@ fi
   void _showSnack(
     String message, {
     OpenHandSnackKind kind = OpenHandSnackKind.info,
-    Duration duration = const Duration(seconds: 2),
+    Duration? duration,
   }) {
     if (!mounted || message.trim().isEmpty) return;
     OpenHandSnackBar.flash(context, message, kind: kind, duration: duration);

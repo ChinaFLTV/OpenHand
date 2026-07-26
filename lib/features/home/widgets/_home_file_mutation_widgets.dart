@@ -646,10 +646,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                                 strokeWidth: 1.6,
                                 value: _bulkUndoTotal == 0
                                     ? null
-                                    : unitRatio(
-                                        _bulkUndoDone,
-                                        _bulkUndoTotal,
-                                      ),
+                                    : unitRatio(_bulkUndoDone, _bulkUndoTotal),
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -2236,7 +2233,7 @@ Future<void> _revealFileMutationPath(
     showOpenHandErrorSnack(
       context,
       _fileMutationRevealPathFailedLabel(context),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
     return;
   }
@@ -2267,7 +2264,7 @@ Future<void> _revealFileMutationPath(
       showOpenHandErrorSnack(
         context,
         _fileMutationRevealPathFailedLabel(context),
-        duration: const Duration(seconds: 2),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
   } catch (error, stack) {
@@ -2276,7 +2273,7 @@ Future<void> _revealFileMutationPath(
     showOpenHandErrorSnack(
       context,
       _fileMutationRevealPathFailedLabel(context),
-      duration: const Duration(seconds: 2),
+      duration: kOpenHandSnackBarBriefDuration,
     );
   }
 }
@@ -4729,8 +4726,7 @@ class _DiffEmptyPlaceholder extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Text(
-          message ??
-              _homeNoTextualDiffAvailableLabel(context),
+          message ?? _homeNoTextualDiffAvailableLabel(context),
           style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),

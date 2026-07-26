@@ -778,7 +778,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         showOpenHandErrorSnack(
           context,
           webReverseHarTooLargeMessage(read.tooLargeBytes!, context: context),
-          duration: const Duration(seconds: 3),
+          duration: kOpenHandSnackBarNormalDuration,
         );
         return;
       }
@@ -797,7 +797,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     r.skipped,
                   ) ??
                   'Replaced: ${r.loaded}; skipped ${r.skipped}'),
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } catch (error, stack) {
       silentLog('web_reverse_waterfall_dialog', '解析 HAR', error, stack);
@@ -805,7 +805,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       showOpenHandErrorSnack(
         context,
         loc?.webReverseWaterfallHarParseFailed ?? 'HAR parse failed',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     }
   }
@@ -841,13 +841,13 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         context,
         loc2?.webReverseWaterfallHarSaveFailed ??
             'HAR save failed or timed out',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     } else {
       showOpenHandSuccessSnack(
         context,
         loc2?.webReverseWaterfallHarSavedTo(written) ?? 'HAR saved to $written',
-        duration: const Duration(seconds: 3),
+        duration: kOpenHandSnackBarNormalDuration,
       );
     }
   }
