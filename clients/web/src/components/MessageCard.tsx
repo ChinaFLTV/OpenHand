@@ -82,6 +82,7 @@ import {
 } from '../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
 import { messageBubbleMaxWidth } from '../shared/ui/layout';
+import { svgIconProps } from '../shared/ui/svg_icon';
 import { formatLocalDateTimeMinute } from '../shared/util/date_time';
 
 const TOOL_LIVE_ELAPSED_TICK_MS = 1000;
@@ -236,18 +237,7 @@ const MESSAGE_REASONING_SHADOW =
   'var(--m3-elev-2), 0 16px 38px -24px rgba(0, 0, 0, 0.72)';
 
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.9,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size, strokeWidth: 1.9 });
   switch (name) {
     case 'image':
       return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="m7 16 4-4 3 3 2-2 3 3" /><circle cx="9" cy="9" r="1.2" /></svg>;

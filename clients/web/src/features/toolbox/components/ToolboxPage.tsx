@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
+import { ErrorBanner } from '../../../components/ErrorBanner';
 import {
   AgentSummary,
   BuiltinToolSummary,
@@ -38,8 +39,6 @@ import {
   STATUS_ERROR_BG,
   STATUS_NEUTRAL_BG,
   STATUS_NEUTRAL_BG_FAINT,
-  ERROR_BANNER_BG,
-  ERROR_BANNER_BORDER,
 } from '../../../shared/ui/status_palette';
 import { templateAssociationLabel } from '../../../shared/util/template_association';
 
@@ -164,18 +163,7 @@ export function ToolboxPage() {
       />
 
       <div class="max-w-6xl mx-auto px-4 py-6">
-        {error ? (
-          <div
-            class="rounded-m3-md px-3 py-2 text-sm mb-4"
-            style={{
-              background: ERROR_BANNER_BG,
-              color: 'var(--m3-error)',
-              border: `1px solid ${ERROR_BANNER_BORDER}`,
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
+        <ErrorBanner message={error} />
 
         <div class="oh-toolbox-tabs mb-4" role="tablist" aria-label={t('toolbox.tabs.aria', '工具箱分类')}>
           {tabs.map((tab) => {

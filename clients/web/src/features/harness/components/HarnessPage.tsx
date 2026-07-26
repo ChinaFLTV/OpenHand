@@ -11,6 +11,7 @@
 import { useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';
+import { ErrorBanner } from '../../../components/ErrorBanner';
 import {
   HarnessPhaseLogSnapshot,
   HarnessPhaseStatus,
@@ -29,8 +30,6 @@ import {
   STATUS_WARNING_BG,
   STATUS_NEUTRAL_BG,
   STATUS_NEUTRAL_BG_FAINT,
-  ERROR_BANNER_BG,
-  ERROR_BANNER_BORDER,
 } from '../../../shared/ui/status_palette';
 
 const HARNESS_POLL_INTERVAL_MS = 5_000;
@@ -106,18 +105,7 @@ export function HarnessPage() {
       />
 
       <div class="max-w-6xl mx-auto px-4 py-6">
-        {error ? (
-          <div
-            class="rounded-m3-md px-3 py-2 text-sm mb-4"
-            style={{
-              background: ERROR_BANNER_BG,
-              color: 'var(--m3-error)',
-              border: `1px solid ${ERROR_BANNER_BORDER}`,
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
+        <ErrorBanner message={error} />
 
         {record === undefined ? (
           <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>

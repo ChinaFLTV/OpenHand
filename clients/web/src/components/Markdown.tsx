@@ -37,6 +37,7 @@ import {
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useTransientFlag } from '../hooks/useTransientFlag';
 import { useTimeoutController } from '../hooks/useTimeoutController';
+import { svgIconProps } from '../shared/ui/svg_icon';
 import 'katex/dist/katex.min.css';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
@@ -758,18 +759,7 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { sour
 });
 
 function HtmlPreviewIcon({ name, size = 14 }: { name: 'render' | 'external'; size?: number }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.9,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
+  const common = svgIconProps({ size, strokeWidth: 1.9 });
   if (name === 'external') {
     return <svg {...common}><path d="M14 5h5v5" /><path d="m19 5-8 8" /><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4" /></svg>;
   }
