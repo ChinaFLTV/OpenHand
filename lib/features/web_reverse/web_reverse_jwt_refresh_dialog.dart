@@ -7,7 +7,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -201,15 +200,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
             .replaceAll('__MAX_TOKEN_CHARS__', '$_maxJwtTokenChars')
             .replaceAll('__MAX_KEY_CHARS__', '$_maxJwtKeyChars')
             .replaceAll('__MAX_CLAIM_CHARS__', '$_maxJwtClaimChars');
-    final r = await widget.controller.sendRawCdp(
-      method: 'Runtime.evaluate',
-      paramsJson: jsonEncode({
-        'expression': js,
-        'returnByValue': true,
-        'awaitPromise': false,
-        'userGesture': true,
-      }),
-    );
+    final r = await widget.controller.evaluateJavaScript(js, userGesture: true);
     if (r == null) return const <_JwtSample>[];
     final value = cdpStringResultValue(r);
     if (value == null) return const <_JwtSample>[];
@@ -271,14 +262,10 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
       return false;
     }
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': '(async()=>{ $expr })()',
-          'awaitPromise': true,
-          'returnByValue': true,
-          'userGesture': true,
-        }),
+      final r = await widget.controller.evaluateJavaScript(
+        '(async()=>{ $expr })()',
+        awaitPromise: true,
+        userGesture: true,
       );
       if (r == null) {
         _addRefreshLog(ok: false, detail: 'no response');

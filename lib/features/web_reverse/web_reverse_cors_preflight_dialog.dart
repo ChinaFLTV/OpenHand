@@ -122,13 +122,9 @@ class _CorsDialogState extends State<_CorsDialog> {
 })()
 ''';
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': js,
-          'awaitPromise': true,
-          'returnByValue': true,
-        }),
+      final r = await widget.controller.evaluateJavaScript(
+        js,
+        awaitPromise: true,
       );
       final res = cdpJsonMapStringResultValue(r);
       if (res == null) {

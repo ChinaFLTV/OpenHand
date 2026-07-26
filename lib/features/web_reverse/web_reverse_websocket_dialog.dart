@@ -286,13 +286,9 @@ class _WsDialogState extends State<_WsDialog> {
   }
 })()
 ''';
-    final r = await widget.controller.sendRawCdp(
-      method: 'Runtime.evaluate',
-      paramsJson: jsonEncode({
-        'expression': js,
-        'awaitPromise': true,
-        'returnByValue': true,
-      }),
+    final r = await widget.controller.evaluateJavaScript(
+      js,
+      awaitPromise: true,
     );
     return cdpJsonMapStringResultValue(r);
   }

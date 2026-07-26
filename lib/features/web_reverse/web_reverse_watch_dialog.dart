@@ -34,6 +34,9 @@ const int _kWatchMaxNameChars = 80;
 const int _kWatchMaxExpressionChars = 16 * 1024;
 const int _kWatchMaxResultChars = 800;
 const int _kWatchMaxSamples = 50;
+
+/// 监视表达式由用户手写，给 V8 一个页内执行上限，避免死循环挂住渲染进程。
+const Duration _kWatchEvaluationTimeout = Duration(milliseconds: 800);
 const double _kWatchDialogMaxWidth = 1020;
 
 Future<void> showWebReverseWatchDialog(
@@ -135,14 +138,10 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   Future<void> _evalOne(_WatchExpr e) async {
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode(<String, Object?>{
-          'expression': e.code,
-          'returnByValue': true,
-          'allowUnsafeEvalBlockedByCSP': true,
-          'timeout': 800,
-        }),
+      final r = await widget.controller.evaluateJavaScript(
+        e.code,
+        allowUnsafeEvalBlockedByCsp: true,
+        evaluationTimeout: _kWatchEvaluationTimeout,
         timeout: const Duration(seconds: 2),
       );
       String text;

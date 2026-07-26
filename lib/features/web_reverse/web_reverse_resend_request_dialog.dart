@@ -288,14 +288,10 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         body: body,
         abortKey: abortKey,
       );
-      final result = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode(<String, Object?>{
-          'expression': js,
-          'awaitPromise': true,
-          'returnByValue': true,
-          'silent': true,
-        }),
+      final result = await widget.controller.evaluateJavaScript(
+        js,
+        awaitPromise: true,
+        silent: true,
         timeout: _kRequestTimeout + const Duration(seconds: 2),
       );
       final raw = cdpStringResultValue(result);
@@ -459,15 +455,10 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   Future<void> _abortBrowserReplay(String abortKey) async {
     if (!widget.controller.isBrowserAlive) return;
     try {
-      await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode(<String, Object?>{
-          'expression':
-              '(() => { const c = window[${jsonEncode(abortKey)}]; '
-              'if (c) c.abort("aborted"); delete window[${jsonEncode(abortKey)}]; })()',
-          'returnByValue': true,
-          'silent': true,
-        }),
+      await widget.controller.evaluateJavaScript(
+        '(() => { const c = window[${jsonEncode(abortKey)}]; '
+        'if (c) c.abort("aborted"); delete window[${jsonEncode(abortKey)}]; })()',
+        silent: true,
         timeout: const Duration(seconds: 2),
       );
     } catch (error, stack) {

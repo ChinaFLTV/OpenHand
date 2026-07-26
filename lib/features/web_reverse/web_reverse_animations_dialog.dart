@@ -187,14 +187,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       _busy = true;
     });
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': _snapshotExpr,
-          'returnByValue': true,
-          'awaitPromise': false,
-        }),
-      );
+      final r = await widget.controller.evaluateJavaScript(_snapshotExpr);
       if (!mounted) return;
       final value = cdpStringResultValue(r);
       if (value == null) {
@@ -302,10 +295,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
     try {
       final expr =
           '(function(){var a=window.__oh_anims||[];var n=0;for(var i=0;i<a.length;i++){try{a[i].$method();n++;}catch(_){}};return n;})()';
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({'expression': expr, 'returnByValue': true}),
-      );
+      final r = await widget.controller.evaluateJavaScript(expr);
       final result = stringKeyedMapFromValue(r?['result']);
       final n = nonNegativeIntFromValue(result['value'], fallback: 0);
       if (!mounted) return;
@@ -336,10 +326,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
     try {
       final expr =
           '(function(){var a=window.__oh_anims&&window.__oh_anims[$handle];if(!a)return 0;try{a.$method();return 1;}catch(_){return -1;}})()';
-      await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({'expression': expr, 'returnByValue': true}),
-      );
+      await widget.controller.evaluateJavaScript(expr);
     } catch (e, st) {
       silentLog('web_reverse_animations_dialog', '操作单个动画：$method', e, st);
     }

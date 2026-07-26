@@ -26,6 +26,18 @@ import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_artifacts.dart';
 import 'web_reverse_session_config.dart';
 
+/// 页面上下文求值的 CDP 方法名，见
+/// [WebReverseSessionController.evaluateJavaScript]。
+const String kCdpRuntimeEvaluate = 'Runtime.evaluate';
+
+/// 注册“每个新 document 加载前执行”的初始化脚本，见
+/// [WebReverseSessionController._installDocumentInitScript]。
+const String kCdpPageAddScriptToEvaluateOnNewDocument =
+    'Page.addScriptToEvaluateOnNewDocument';
+
+/// 初始化脚本注入的等待上限：脚本本身很短，超时多半意味着页面已卡死。
+const Duration _kInitScriptInstallTimeout = Duration(seconds: 5);
+
 /// 单个 Web 逆向会话的运行时编排：浏览器进程、CDP 通道、
 /// dashboard 实时数据缓冲。
 ///
@@ -4057,6 +4069,63 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  /// 在页面上下文里求值一段 JS。
+  ///
+  /// 收敛全模块 `Runtime.evaluate` 的参数拼装：可选开关只在开启时写进 params，
+  /// 其余保持 CDP 默认，避免各面板各自拼一份易漂移的 JSON。
+  /// [timeout] 是本地传输等待上限；[evaluationTimeout] 是交给 V8 的页内执行
+  /// 上限，用于给用户可编辑的表达式兜底，避免死循环把渲染进程挂住。
+  Future<Map<String, Object?>?> evaluateJavaScript(
+    String expression, {
+    bool returnByValue = true,
+    bool awaitPromise = false,
+    bool userGesture = false,
+    bool silent = false,
+    bool allowUnsafeEvalBlockedByCsp = false,
+    Duration? evaluationTimeout,
+    Duration timeout = const Duration(seconds: 30),
+  }) {
+    return sendRawCdp(
+      method: kCdpRuntimeEvaluate,
+      paramsJson: jsonEncode(<String, Object?>{
+        'expression': expression,
+        'returnByValue': returnByValue,
+        if (awaitPromise) 'awaitPromise': true,
+        if (userGesture) 'userGesture': true,
+        if (silent) 'silent': true,
+        if (allowUnsafeEvalBlockedByCsp) 'allowUnsafeEvalBlockedByCSP': true,
+        if (evaluationTimeout != null)
+          'timeout': evaluationTimeout.inMilliseconds,
+      }),
+      timeout: timeout,
+    );
+  }
+
+  /// 注入初始化脚本：登记到后续 document，并立刻在当前 document 执行一次，
+  /// 使刷新 / SPA 导航后仍然生效，同时接管已经加载完的页面。
+  ///
+  /// 返回 CDP 分配的 script identifier（供后续卸载），未返回时为 null。
+  Future<String?> _installDocumentInitScript(
+    WebReverseCdpClient cdp,
+    String source, {
+    required String? sessionId,
+    Duration timeout = _kInitScriptInstallTimeout,
+  }) async {
+    final registered = await cdp.send(
+      kCdpPageAddScriptToEvaluateOnNewDocument,
+      params: <String, Object?>{'source': source},
+      sessionId: sessionId,
+      timeout: timeout,
+    );
+    await cdp.send(
+      kCdpRuntimeEvaluate,
+      params: <String, Object?>{'expression': source},
+      sessionId: sessionId,
+      timeout: timeout,
+    );
+    return registered['identifier'] as String?;
+  }
+
   void _syncRawCdpDomainState(String method) {
     switch (method) {
       case 'CSS.enable':
@@ -4408,18 +4477,7 @@ class WebReverseSessionController extends ChangeNotifier {
 })();
 ''';
     try {
-      await cdp.send(
-        'Page.addScriptToEvaluateOnNewDocument',
-        params: const <String, Object?>{'source': js},
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
-      await cdp.send(
-        'Runtime.evaluate',
-        params: const <String, Object?>{'expression': js},
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
+      await _installDocumentInitScript(cdp, js, sessionId: sessionId);
       if (_pageSessionId != sessionId) return false;
       _fpsCounterInstalled = true;
       return true;
@@ -4472,18 +4530,7 @@ class WebReverseSessionController extends ChangeNotifier {
 ''';
     try {
       // init script 让后续导航也保留观测器；同时在当前 page 立即注入。
-      await cdp.send(
-        'Page.addScriptToEvaluateOnNewDocument',
-        params: <String, Object?>{'source': js},
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
-      await cdp.send(
-        'Runtime.evaluate',
-        params: const <String, Object?>{'expression': js},
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
+      await _installDocumentInitScript(cdp, js, sessionId: sessionId);
       if (_pageSessionId != sessionId) return false;
       _longTaskObserverInstalled = true;
       return true;
@@ -4700,18 +4747,7 @@ class WebReverseSessionController extends ChangeNotifier {
 })();
 ''';
     try {
-      await cdp.send(
-        'Page.addScriptToEvaluateOnNewDocument',
-        params: const <String, Object?>{'source': js},
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
-      await cdp.send(
-        'Runtime.evaluate',
-        params: const <String, Object?>{'expression': js},
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
+      await _installDocumentInitScript(cdp, js, sessionId: sessionId);
       if (_pageSessionId != sessionId) return false;
       _rtcInstalled = true;
       return true;
@@ -5200,22 +5236,13 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 })();
 ''';
-      final r = await cdp.send(
-        'Page.addScriptToEvaluateOnNewDocument',
-        params: <String, Object?>{'source': initJs},
+      // initJs 自身在顶层调用 apply()，注入即对当前页生效，无需另拼一条
+      // 立即执行的表达式——那份表达式用 `||` 短路，实际只会命中 body 与
+      // documentElement 之一，与导航后重放的效果并不一致。
+      _zoomScriptId = await _installDocumentInitScript(
+        cdp,
+        initJs,
         sessionId: _pageSessionId,
-      );
-      _zoomScriptId = r['identifier'] as String?;
-      // 当前页立即应用一次。
-      await cdp.send(
-        'Runtime.evaluate',
-        params: <String, Object?>{
-          'expression':
-              '(document.body && (document.body.style.zoom = "$clamped"))'
-              ' || (document.documentElement.style.zoom = "$clamped");',
-        },
-        sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
       );
     } catch (error, stack) {
       silentLog(
@@ -5382,16 +5409,7 @@ class WebReverseSessionController extends ChangeNotifier {
 })();
 ''';
     try {
-      await cdp.send(
-        'Page.addScriptToEvaluateOnNewDocument',
-        params: <String, Object?>{'source': js},
-        sessionId: _pageSessionId,
-      );
-      await cdp.send(
-        'Runtime.evaluate',
-        params: <String, Object?>{'expression': js},
-        sessionId: _pageSessionId,
-      );
+      await _installDocumentInitScript(cdp, js, sessionId: _pageSessionId);
       _finderInstalled = true;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '安装页面查找器', error, stack);
@@ -8598,13 +8616,9 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 })()
 ''';
-      final r = await sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': js,
-          'awaitPromise': true,
-          'returnByValue': true,
-        }),
+      final r = await evaluateJavaScript(
+        js,
+        awaitPromise: true,
         timeout: _sourceMapFetchTimeout + const Duration(seconds: 2),
       );
       final raw = cdpStringResultValue(r);

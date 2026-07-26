@@ -185,14 +185,7 @@ class _PmDialogState extends State<_PmDialog> {
           _hookScriptId = addRes['identifier'].toString();
         }
         // 2. 当前 document 也直接 eval 一次
-        await widget.controller.sendRawCdp(
-          method: 'Runtime.evaluate',
-          paramsJson: jsonEncode({
-            'expression': _kHookSource,
-            'awaitPromise': false,
-            'returnByValue': true,
-          }),
-        );
+        await widget.controller.evaluateJavaScript(_kHookSource);
         _pollTimer?.cancel();
         _pollTimer = startNonOverlappingPeriodicTimer(
           const Duration(milliseconds: 800),
@@ -236,13 +229,8 @@ class _PmDialogState extends State<_PmDialog> {
 
   Future<void> _drain() async {
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression':
-              'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
-          'returnByValue': true,
-        }),
+      final r = await widget.controller.evaluateJavaScript(
+        'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
       );
       if (r == null || r['error'] != null) return;
       final value = cdpStringResultValue(r);
@@ -273,12 +261,8 @@ class _PmDialogState extends State<_PmDialog> {
   Future<void> _clear() async {
     setState(() => _records.clear());
     try {
-      await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': 'window.__OH_PM_clear__ && window.__OH_PM_clear__()',
-          'returnByValue': true,
-        }),
+      await widget.controller.evaluateJavaScript(
+        'window.__OH_PM_clear__ && window.__OH_PM_clear__()',
       );
     } catch (e, st) {
       silentLog('web_reverse_pm', '清空 postMessage 事件', e, st);

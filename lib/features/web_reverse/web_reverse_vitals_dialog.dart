@@ -128,14 +128,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
 })()
 ''';
     try {
-      final res = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': installer,
-          'returnByValue': true,
-          'awaitPromise': false,
-        }),
-      );
+      final res = await widget.controller.evaluateJavaScript(installer);
       if ((res?['error']) != null) {
         if (mounted) {
           setState(() => _status = 'Runtime.evaluate · ${res!['error']}');
@@ -162,12 +155,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   Future<void> _pull() async {
     if (!mounted || !_bootstrapped) return;
     try {
-      final res = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': 'JSON.stringify(window.__oh_vitals || {})',
-          'returnByValue': true,
-        }),
+      final res = await widget.controller.evaluateJavaScript(
+        'JSON.stringify(window.__oh_vitals || {})',
       );
       final value = cdpStringResultValue(res);
       if (value == null) return;
@@ -193,12 +182,9 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           'Resetting…';
     });
     try {
-      await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression':
-              'delete window.__oh_vitals; delete window.__oh_vitals_installed;',
-        }),
+      await widget.controller.evaluateJavaScript(
+        'delete window.__oh_vitals; delete window.__oh_vitals_installed;',
+        returnByValue: false,
       );
       for (final m in _metrics) {
         m.value = null;

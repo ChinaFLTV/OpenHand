@@ -255,12 +255,9 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       );
       _scriptIdentifier = reg?['identifier']?.toString();
       // 当前页面立即装一次。
-      await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': _kInstallScript,
-          'awaitPromise': false,
-        }),
+      await widget.controller.evaluateJavaScript(
+        _kInstallScript,
+        returnByValue: false,
       );
       _drainTimer = startNonOverlappingPeriodicTimer(
         const Duration(milliseconds: 800),
@@ -338,12 +335,9 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           timeout: const Duration(seconds: 3),
         );
       }
-      await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression':
-              'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
-        }),
+      await widget.controller.evaluateJavaScript(
+        'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
+        returnByValue: false,
         timeout: const Duration(seconds: 3),
       );
     } catch (e, st) {
@@ -359,13 +353,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
   Future<void> _drain() async {
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression':
-              '(window.__OH_DOM_MUT_DRAIN__ && JSON.stringify(window.__OH_DOM_MUT_DRAIN__($_kMaxMutationDrainRecords))) || "[]"',
-          'returnByValue': true,
-        }),
+      final r = await widget.controller.evaluateJavaScript(
+        '(window.__OH_DOM_MUT_DRAIN__ && JSON.stringify(window.__OH_DOM_MUT_DRAIN__($_kMaxMutationDrainRecords))) || "[]"',
       );
       final v = cdpStringResultValue(r);
       if (v == null || v.length > _kMaxMutationDrainJsonChars) return;

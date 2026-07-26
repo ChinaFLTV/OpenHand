@@ -108,13 +108,9 @@ class _SmDialogState extends State<_SmDialog> {
   }
 })()
 ''';
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': js,
-          'awaitPromise': true,
-          'returnByValue': true,
-        }),
+      final r = await widget.controller.evaluateJavaScript(
+        js,
+        awaitPromise: true,
       );
       if (r == null || r['error'] != null) {
         if (!mounted) return;

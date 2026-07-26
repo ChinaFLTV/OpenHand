@@ -186,13 +186,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         _scriptId = '${addRes['identifier']}';
       }
       // 立即在当前 document 应用一次。
-      final evalRes = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode(<String, Object?>{
-          'expression': _kBootstrap,
-          'returnByValue': true,
-        }),
-      );
+      final evalRes = await widget.controller.evaluateJavaScript(_kBootstrap);
       if (evalRes != null && evalRes['error'] != null) {
         _installError = '${evalRes['error']}';
       } else {
@@ -210,13 +204,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
   Future<void> _refresh() async {
     if (!mounted) return;
     try {
-      final res = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode(<String, Object?>{
-          'expression': _kList,
-          'returnByValue': true,
-        }),
-      );
+      final res = await widget.controller.evaluateJavaScript(_kList);
       if (res == null) return;
       final value = cdpStringResultValue(res);
       if (value == null) return;
@@ -279,13 +267,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
           "window.__OH_WS_REGISTRY__[$id].readyState === 1 "
           "? (window.__OH_WS_REGISTRY__[$id].send($encoded), 'sent') "
           ": 'not-open';";
-      final res = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode(<String, Object?>{
-          'expression': expr,
-          'returnByValue': true,
-        }),
-      );
+      final res = await widget.controller.evaluateJavaScript(expr);
       final value = cdpResultValue(res);
       final ok = value == 'sent';
       _log.insert(
