@@ -19,8 +19,6 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
-const double _kAccountSnapshotsDialogMaxWidth = 720;
-const double _kAccountSnapshotsDialogMaxHeight = 620;
 const int _kAccountSnapshotImportMaxChars = 8 * 1024 * 1024;
 
 Future<void> showWebReverseAccountSnapshotsDialog(
@@ -178,8 +176,8 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         final snaps = widget.controller.accountSnapshots;
         return buildOpenHandToolDialogShell(
           context: context,
-          maxWidth: _kAccountSnapshotsDialogMaxWidth,
-          maxHeight: _kAccountSnapshotsDialogMaxHeight,
+          maxWidth: kOpenHandDialogWidthStandard,
+          maxHeight: kOpenHandDialogHeightStandard,
           backgroundColor: cs.surfaceContainer,
           insetPadding: const EdgeInsets.all(24),
           child: Column(

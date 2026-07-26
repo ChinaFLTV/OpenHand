@@ -487,8 +487,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 980,
-      maxHeight: 780,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

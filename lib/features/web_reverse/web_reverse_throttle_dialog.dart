@@ -257,7 +257,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 720,
+      maxWidth: kOpenHandDialogWidthStandard,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

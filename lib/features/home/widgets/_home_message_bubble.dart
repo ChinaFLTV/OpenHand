@@ -2348,7 +2348,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
       },
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 560,
+        maxWidth: kOpenHandDialogWidthCompact,
         maxHeight: double.infinity,
         maxWidthFraction: 0.92,
         maxHeightFraction: 0.82,

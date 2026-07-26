@@ -311,8 +311,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 880,
-      maxHeight: 700,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

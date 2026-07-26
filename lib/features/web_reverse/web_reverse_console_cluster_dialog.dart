@@ -119,8 +119,8 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
     final clusters = _build();
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 880,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

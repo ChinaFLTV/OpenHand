@@ -4,8 +4,6 @@ class _ThreadTemplateDialog extends StatelessWidget {
   const _ThreadTemplateDialog({required this.templates});
 
   final List<AiThreadTemplate> templates;
-  static const double _dialogMaxWidth = 1080;
-  static const double _dialogMaxHeight = 640;
   static const double _cardMinWidth = 220;
   static const double _cardMaxWidth = 300;
   static const double _gridSpacing = 16;
@@ -20,13 +18,19 @@ class _ThreadTemplateDialog extends StatelessWidget {
     final dialogWidth = math
         .max(
           _cardMinWidth,
-          math.min(_dialogMaxWidth, viewport.width - _dialogHorizontalInset),
+          math.min(
+            kOpenHandDialogWidthPanel,
+            viewport.width - _dialogHorizontalInset,
+          ),
         )
         .toDouble();
     final dialogHeight = math
         .max(
           360,
-          math.min(_dialogMaxHeight, viewport.height - _dialogVerticalInset),
+          math.min(
+            kOpenHandDialogHeightStandard,
+            viewport.height - _dialogVerticalInset,
+          ),
         )
         .toDouble();
     return buildOpenHandAlertDialog(

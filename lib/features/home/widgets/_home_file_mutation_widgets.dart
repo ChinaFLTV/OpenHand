@@ -2429,8 +2429,8 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 840,
-      maxHeight: 640,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightStandard,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -2668,8 +2668,8 @@ class _FileMutationHistoryInspectorDialogState
     final l10n = AppLocalizations.of(context)!;
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 720,
-      maxHeight: 640,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(

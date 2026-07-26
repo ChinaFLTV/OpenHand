@@ -86,7 +86,7 @@ class _OpenHandCleanupRangeDialogState
     final cs = theme.colorScheme;
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 560,
+      maxWidth: kOpenHandDialogWidthCompact,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
         child: Column(

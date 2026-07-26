@@ -119,7 +119,7 @@ class _ResourceUsageStatisticsDialogState
         borderRadius: BorderRadius.circular(30),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      maxWidth: 1120,
+      maxWidth: kOpenHandDialogWidthPanel,
       maxHeight: maxHeight,
       child: ValueListenableBuilder<int>(
         valueListenable: widget.store.changes,

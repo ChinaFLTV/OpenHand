@@ -105,6 +105,10 @@ String _gatewaySelectedCount(BuildContext context, int selected, int total) {
   );
 }
 
+/// 网关详情弹窗走 expandToMax（固定尺寸），不套用统一档位——档位是上限语义。
+const double _kGatewayDetailDialogWidth = 860;
+const double _kGatewayDetailDialogHeight = 760;
+
 class MessageGatewayView extends StatefulWidget {
   const MessageGatewayView({super.key});
 
@@ -1024,7 +1028,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     final colorScheme = theme.colorScheme;
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 920,
+      maxWidth: kOpenHandDialogWidthExtraWide,
       minAvailableHeight: 420,
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
@@ -2625,8 +2629,8 @@ class _WebGatewayConnectivityDialogState
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 700,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       minAvailableHeight: 420,
       minHeight: 480,
       child: Column(
@@ -3327,8 +3331,8 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog>
     _scheduleRenderedSync(visible);
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 960,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightStandard,
       minHeight: 480,
       child: Column(
         children: [
@@ -3930,7 +3934,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     );
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 1180,
+      maxWidth: kOpenHandDialogWidthFull,
       minAvailableHeight: 520,
       child: _WebOpsDialogSurface(
         child: _WebOpsConsoleShell(
@@ -5320,8 +5324,8 @@ class _WebOpsInsightDialog extends StatelessWidget {
     final spec = _spec(context);
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 860,
-      maxHeight: 760,
+      maxWidth: _kGatewayDetailDialogWidth,
+      maxHeight: _kGatewayDetailDialogHeight,
       maxWidthFraction: .94,
       maxHeightFraction: .90,
       minAvailableWidth: 300,
@@ -10020,8 +10024,8 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
       ),
-      maxWidth: 640,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         children: [
           Padding(

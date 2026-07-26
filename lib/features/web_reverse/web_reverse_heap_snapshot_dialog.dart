@@ -20,8 +20,6 @@ import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
-const double _kHeapDialogMaxWidth = 640;
-
 Future<void> showWebReverseHeapSnapshotDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -119,7 +117,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     final loc = AppLocalizations.of(context);
     final dialog = buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kHeapDialogMaxWidth,
+      maxWidth: kOpenHandDialogWidthStandard,
       backgroundColor: cs.surfaceContainer,
       insetPadding: const EdgeInsets.all(24),
       child: Column(

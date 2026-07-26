@@ -808,8 +808,8 @@ class _PluginOperationProgressDialogState
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 560,
-      maxHeight: 480,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1292,8 +1292,8 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 620,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1828,8 +1828,8 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 520,
-      maxHeight: 500,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

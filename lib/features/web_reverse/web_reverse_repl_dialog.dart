@@ -165,7 +165,7 @@ class _ReplDialogState extends State<_ReplDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxHeight: 760,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

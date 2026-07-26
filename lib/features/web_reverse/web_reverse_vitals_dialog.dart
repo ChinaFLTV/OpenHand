@@ -254,8 +254,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
     final tt = Theme.of(context).textTheme;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 720,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

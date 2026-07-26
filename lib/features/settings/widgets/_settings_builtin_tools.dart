@@ -963,8 +963,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       canPop: !_isSaving,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 720,
-        maxHeight: 780,
+        maxWidth: kOpenHandDialogWidthStandard,
+        maxHeight: kOpenHandDialogHeightTall,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: Padding(
           padding: const EdgeInsets.all(24),

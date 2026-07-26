@@ -37,7 +37,6 @@ const int _kWatchMaxSamples = 50;
 
 /// 监视表达式由用户手写，给 V8 一个页内执行上限，避免死循环挂住渲染进程。
 const Duration _kWatchEvaluationTimeout = Duration(milliseconds: 800);
-const double _kWatchDialogMaxWidth = 1020;
 
 Future<void> showWebReverseWatchDialog(
   BuildContext context, {
@@ -280,7 +279,7 @@ class _WatchDialogState extends State<_WatchDialog> {
         : null;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kWatchDialogMaxWidth,
+      maxWidth: kOpenHandDialogWidthPanel,
       backgroundColor: cs.surfaceContainer,
       insetPadding: const EdgeInsets.all(24),
       child: Column(

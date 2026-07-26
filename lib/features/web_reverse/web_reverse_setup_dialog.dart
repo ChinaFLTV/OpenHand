@@ -231,7 +231,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 620,
+      maxWidth: kOpenHandDialogWidthStandard,
       insetPadding: const EdgeInsets.all(28),
       child: Column(
         mainAxisSize: MainAxisSize.min,

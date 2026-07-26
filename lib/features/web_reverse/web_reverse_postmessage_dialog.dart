@@ -305,8 +305,8 @@ class _PmDialogState extends State<_PmDialog> {
     final filtered = _filtered();
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

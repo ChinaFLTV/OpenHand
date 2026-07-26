@@ -58,8 +58,8 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 520,
-      maxHeight: 640,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightStandard,
       insetPadding: const EdgeInsets.all(36),
       child: Column(
         mainAxisSize: MainAxisSize.min,

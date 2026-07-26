@@ -551,8 +551,8 @@ class _WsDialogState extends State<_WsDialog> {
           final cs = Theme.of(ctx).colorScheme;
           return buildOpenHandToolDialogShell(
             context: ctx,
-            maxWidth: 720,
-            maxHeight: 560,
+            maxWidth: kOpenHandDialogWidthStandard,
+            maxHeight: kOpenHandDialogHeightCompact,
             child: Column(
               children: [
                 buildOpenHandToolDialogHeader(
@@ -634,7 +634,7 @@ class _WsDialogState extends State<_WsDialog> {
           final cs = Theme.of(ctx).colorScheme;
           return buildOpenHandToolDialogShell(
             context: ctx,
-            maxWidth: 520,
+            maxWidth: kOpenHandDialogWidthCompact,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -822,8 +822,8 @@ class _WsDialogState extends State<_WsDialog> {
     }
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 980,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

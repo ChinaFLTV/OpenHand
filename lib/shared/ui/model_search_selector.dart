@@ -8,8 +8,6 @@ import 'animated_dialog.dart';
 import 'oh_pill.dart';
 import 'openhand_safe_scrollbar.dart';
 
-const double _kModelSearchDialogMaxWidth = 420;
-const double _kModelSearchDialogMaxHeight = 520;
 const double _kModelSearchDialogRadius = 16;
 const double _kModelSearchScrollbarThickness = 6;
 const Radius _kModelSearchScrollbarRadius = kOpenHandPillRadius;
@@ -210,8 +208,8 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(_kModelSearchDialogRadius),
       ),
-      maxWidth: _kModelSearchDialogMaxWidth,
-      maxHeight: _kModelSearchDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

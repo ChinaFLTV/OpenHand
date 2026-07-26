@@ -274,8 +274,8 @@ class _IssuesDialogState extends State<_IssuesDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

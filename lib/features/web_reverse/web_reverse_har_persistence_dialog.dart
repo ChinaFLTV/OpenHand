@@ -314,8 +314,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     }
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 760,
-      maxHeight: 780,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

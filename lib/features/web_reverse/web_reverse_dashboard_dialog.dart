@@ -152,11 +152,7 @@ BoxDecoration _toolbarChipDecoration(ColorScheme cs, {required bool enabled}) {
   );
 }
 
-const double _kDashboardDialogMaxWidth = 1180;
-const double _kDashboardDialogMaxHeight = 760;
 const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);
-const double _kShortcutsHelpDialogMaxWidth = 560;
-const double _kShortcutsHelpDialogMaxHeight = 600;
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Duration _kDevToolsDiscoveryTimeout = Duration(seconds: 3);
 const int _kDevToolsDiscoveryMaxResponseBytes = 4 * 1024 * 1024;
@@ -1526,8 +1522,8 @@ class _WebReverseDashboardDialogState
       // 焦点 scope 已足以让 CallbackShortcuts 接收到键盘事件。
       child: buildOpenHandToolDialogShell(
         context: context,
-        maxWidth: _kDashboardDialogMaxWidth,
-        maxHeight: _kDashboardDialogMaxHeight,
+        maxWidth: kOpenHandDialogWidthFull,
+        maxHeight: kOpenHandDialogHeightTall,
         insetPadding: _kDashboardDialogInsetPadding,
         backgroundColor: cs.surfaceContainer,
         child: Column(
@@ -3225,8 +3221,8 @@ class _ShortcutsHelpDialog extends StatelessWidget {
     ];
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kShortcutsHelpDialogMaxWidth,
-      maxHeight: _kShortcutsHelpDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightStandard,
       backgroundColor: cs.surfaceContainer,
       child: Column(
         mainAxisSize: MainAxisSize.min,

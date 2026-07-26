@@ -31,9 +31,6 @@ enum _SkillCardAction { openDirectory, edit, delete }
 
 /// 技能图标预览框的边长（逻辑像素）。
 const double _kSkillIconPreviewExtent = 48;
-const double _kSkillEditDialogMaxWidth = 960;
-const double _kSkillCreateDialogMaxWidth = 920;
-const double _kSkillDialogMaxHeight = 760;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 
 const List<String> _skillEmojiOptions = <String>[
@@ -443,7 +440,7 @@ class _SkillsViewState extends State<SkillsView> {
         builder: (dialogContext) {
           return buildOpenHandToolDialogShell(
             context: dialogContext,
-            maxHeight: _kSkillDialogMaxHeight,
+            maxHeight: kOpenHandDialogHeightTall,
             child: Padding(
               padding: _kSkillDialogContentPadding,
               child: Column(
@@ -899,8 +896,8 @@ class _EditSkillDialogState extends State<_EditSkillDialog>
       canPop: !_isSaving,
       child: buildOpenHandToolDialogShell(
         context: context,
-        maxWidth: _kSkillEditDialogMaxWidth,
-        maxHeight: _kSkillDialogMaxHeight,
+        maxWidth: kOpenHandDialogWidthExtraWide,
+        maxHeight: kOpenHandDialogHeightTall,
         child: Padding(
           padding: _kSkillDialogContentPadding,
           child: Column(
@@ -1013,8 +1010,8 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog>
       canPop: !_isSaving,
       child: buildOpenHandToolDialogShell(
         context: context,
-        maxWidth: _kSkillCreateDialogMaxWidth,
-        maxHeight: _kSkillDialogMaxHeight,
+        maxWidth: kOpenHandDialogWidthExtraWide,
+        maxHeight: kOpenHandDialogHeightTall,
         child: Padding(
           padding: _kSkillDialogContentPadding,
           child: Column(

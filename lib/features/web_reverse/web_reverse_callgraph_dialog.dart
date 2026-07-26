@@ -332,8 +332,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1200,
-      maxHeight: 800,
+      maxWidth: kOpenHandDialogWidthFull,
+      maxHeight: kOpenHandDialogHeightTall,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

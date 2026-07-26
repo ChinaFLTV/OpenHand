@@ -7577,8 +7577,8 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 640,
-      maxHeight: 560,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightCompact,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       child: Padding(
         padding: const EdgeInsets.all(20),

@@ -537,9 +537,6 @@ class _MachineTerminalHistoryDialog extends StatefulWidget {
 
 class _MachineTerminalHistoryDialogState
     extends State<_MachineTerminalHistoryDialog> {
-  static const double _dialogMaxWidth = 1180;
-  static const double _dialogMaxHeight = 720;
-
   final ScrollController _verticalScrollController = ScrollController();
   String? _deletingTerminalId;
   String? _restoringTerminalId;
@@ -562,9 +559,12 @@ class _MachineTerminalHistoryDialogState
     final viewport = MediaQuery.sizeOf(context);
     final dialogWidth = math.min(
       math.max(360.0, viewport.width - 24),
-      _dialogMaxWidth,
+      kOpenHandDialogWidthFull,
     );
-    final dialogHeight = math.min(viewport.height * 0.86, _dialogMaxHeight);
+    final dialogHeight = math.min(
+      viewport.height * 0.86,
+      kOpenHandDialogHeightTall,
+    );
     final activeTerminalId = workspace?.activeTerminalId ?? '';
 
     return buildOpenHandDialog(
@@ -1283,8 +1283,8 @@ class _MachineTerminalHistoryDetailDialog extends StatefulWidget {
 
 class _MachineTerminalHistoryDetailDialogState
     extends State<_MachineTerminalHistoryDetailDialog> {
-  static const double _dialogMaxWidth = 980;
-  static const double _dialogMaxHeight = 760;
+  static const double kOpenHandDialogWidthFull = 980;
+  static const double kOpenHandDialogHeightTall = 760;
 
   late _MachineTerminalHistoryView _selectedView;
 
@@ -1301,8 +1301,14 @@ class _MachineTerminalHistoryDetailDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
-    final dialogWidth = math.min(viewport.width * 0.94, _dialogMaxWidth);
-    final dialogHeight = math.min(viewport.height * 0.88, _dialogMaxHeight);
+    final dialogWidth = math.min(
+      viewport.width * 0.94,
+      kOpenHandDialogWidthFull,
+    );
+    final dialogHeight = math.min(
+      viewport.height * 0.88,
+      kOpenHandDialogHeightTall,
+    );
 
     return buildOpenHandDialog(
       backgroundColor: Colors.transparent,

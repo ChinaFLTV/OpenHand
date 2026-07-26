@@ -425,7 +425,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
       canPop: !_isSaving,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 760,
+        maxWidth: kOpenHandDialogWidthWide,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(

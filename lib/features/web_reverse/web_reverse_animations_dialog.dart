@@ -369,8 +369,8 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 880,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

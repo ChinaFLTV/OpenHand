@@ -184,7 +184,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final list = _visible;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
+      maxWidth: kOpenHandDialogWidthExtraWide,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [
@@ -440,8 +440,8 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
               'Edit ${widget.row!.name}');
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 560,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightStandard,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -2000,8 +2000,8 @@ class _SourcesGlobalSearchDialogState
     final cs = theme.colorScheme;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 720,
-      maxHeight: 600,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

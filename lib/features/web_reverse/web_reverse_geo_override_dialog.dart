@@ -54,7 +54,6 @@ const List<_GeoPreset> _presets = <_GeoPreset>[
   _GeoPreset('São Paulo', -23.5505, -46.6333, 'America/Sao_Paulo', 'pt-BR'),
   _GeoPreset('Moscow', 55.7558, 37.6173, 'Europe/Moscow', 'ru-RU'),
 ];
-const double _kGeoOverrideDialogMaxWidth = 760;
 const double _kMinLatitude = -90;
 const double _kMaxLatitude = 90;
 const double _kMinLongitude = -180;
@@ -235,7 +234,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kGeoOverrideDialogMaxWidth,
+      maxWidth: kOpenHandDialogWidthWide,
       backgroundColor: cs.surfaceContainer,
       insetPadding: const EdgeInsets.all(24),
       child: Column(

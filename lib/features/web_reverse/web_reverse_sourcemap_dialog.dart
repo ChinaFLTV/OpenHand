@@ -311,7 +311,7 @@ class _SmDialogState extends State<_SmDialog> {
     final r = _result;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 820,
+      maxWidth: kOpenHandDialogWidthWide,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

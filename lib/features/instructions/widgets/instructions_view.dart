@@ -692,7 +692,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final dialog = buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 760,
+      maxWidth: kOpenHandDialogWidthWide,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       child: Padding(
         padding: const EdgeInsets.all(20),

@@ -201,7 +201,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 760,
+      maxWidth: kOpenHandDialogWidthWide,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

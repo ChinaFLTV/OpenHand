@@ -3151,8 +3151,8 @@ class _StreamThrottleSessionDialogState
           );
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 860,
-      maxHeight: 780,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       minAvailableWidth: 360,
       minAvailableHeight: 420,
       horizontalMargin: 48,

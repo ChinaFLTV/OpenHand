@@ -261,7 +261,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 820,
+      maxWidth: kOpenHandDialogWidthWide,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

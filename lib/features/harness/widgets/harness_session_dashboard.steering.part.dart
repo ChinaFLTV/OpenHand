@@ -190,7 +190,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 780,
+      maxWidth: kOpenHandDialogWidthWide,
       maxHeight: double.infinity,
       maxHeightFraction: 0.80,
       safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -852,7 +852,7 @@ class _HeSteeringFileEditorDialogState
       },
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 1060,
+        maxWidth: kOpenHandDialogWidthPanel,
         maxHeight: double.infinity,
         maxHeightFraction: 0.88,
         safeAreaMinimum: const EdgeInsets.symmetric(

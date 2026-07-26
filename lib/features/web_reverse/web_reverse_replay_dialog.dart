@@ -160,8 +160,8 @@ class _ReplayDialogState extends State<_ReplayDialog> {
     final entries = _entries;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

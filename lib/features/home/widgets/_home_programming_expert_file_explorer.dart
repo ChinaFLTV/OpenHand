@@ -2956,8 +2956,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
         return buildOpenHandResponsiveDialogShell(
           context: dialogContext,
-          maxWidth: 1080,
-          maxHeight: 760,
+          maxWidth: kOpenHandDialogWidthPanel,
+          maxHeight: kOpenHandDialogHeightTall,
           safeAreaMinimum: const EdgeInsets.symmetric(
             horizontal: 28,
             vertical: 24,

@@ -103,8 +103,8 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 600,
-      maxHeight: 540,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

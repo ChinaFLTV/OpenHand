@@ -857,8 +857,8 @@ class _ThreadSessionManagementDialogState
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 880,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightFull,
       maxHeightFraction: 0.85,
       minAvailableWidth: 420,
       minAvailableHeight: 420,

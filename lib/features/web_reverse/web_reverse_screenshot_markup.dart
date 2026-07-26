@@ -109,8 +109,8 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     final img = _decoded;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1200,
-      maxHeight: 800,
+      maxWidth: kOpenHandDialogWidthFull,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -255,8 +255,8 @@ class _CorsDialogState extends State<_CorsDialog> {
     final diags = _diagnose(loc);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 760,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           Padding(

@@ -224,8 +224,8 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 720,
-      maxHeight: 580,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -564,8 +564,8 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 560,
-      maxHeight: 560,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1069,8 +1069,8 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 620,
-      maxHeight: 540,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

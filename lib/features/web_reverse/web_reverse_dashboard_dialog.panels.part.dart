@@ -5604,7 +5604,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
     final top = indexed.take(30).toList();
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1280,
+      maxWidth: kOpenHandDialogWidthFull,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -6180,7 +6180,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
     final dSelf = result.totalSelfB - result.totalSelfA;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1280,
+      maxWidth: kOpenHandDialogWidthFull,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

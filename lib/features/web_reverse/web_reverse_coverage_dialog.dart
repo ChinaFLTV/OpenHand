@@ -231,8 +231,8 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     final globalRatio = unitRatio(coveredBytes, totalBytes);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 960,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightStandard,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
         children: [

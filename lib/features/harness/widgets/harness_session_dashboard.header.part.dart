@@ -693,7 +693,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 860,
+      maxWidth: kOpenHandDialogWidthWide,
       maxHeight: double.infinity,
       maxHeightFraction: 0.82,
       safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),

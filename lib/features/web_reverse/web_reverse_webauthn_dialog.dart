@@ -218,8 +218,8 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

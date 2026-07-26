@@ -204,8 +204,8 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 760,
-      maxHeight: 680,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

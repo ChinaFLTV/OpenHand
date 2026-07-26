@@ -26,10 +26,6 @@ import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
-const double _kWaterfallDialogMaxWidth = 1100;
-const double _kWaterfallDialogMaxHeight = 760;
-const double _kWaterfallInitiatorDialogMaxWidth = 720;
-
 Future<void> showWebReverseWaterfallDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -115,8 +111,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kWaterfallDialogMaxWidth,
-      maxHeight: _kWaterfallDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthPanel,
+      maxHeight: kOpenHandDialogHeightTall,
       backgroundColor: cs.surfaceContainer,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
@@ -561,7 +557,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         final frames = e.initiatorStack;
         return buildOpenHandToolDialogShell(
           context: dialogContext,
-          maxWidth: _kWaterfallInitiatorDialogMaxWidth,
+          maxWidth: kOpenHandDialogWidthStandard,
           backgroundColor: cs.surfaceContainer,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

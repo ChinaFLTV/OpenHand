@@ -15,8 +15,6 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_headless_batch.dart';
 import 'web_reverse_session_controller.dart';
 
-const double _kHeadlessBatchDialogMaxWidth = 760;
-
 /// Headless 批量采集对话框：用户贴一批 URL，选输出目录，逐个跑、实时进度。
 /// 复用 controller 现有 `_browserCdp` 连接，所以不会再启第二个浏览器进程。
 Future<void> showWebReverseHeadlessBatchDialog(
@@ -182,7 +180,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kHeadlessBatchDialogMaxWidth,
+      maxWidth: kOpenHandDialogWidthWide,
       insetPadding: const EdgeInsets.all(24),
       child: Padding(
         padding: const EdgeInsets.all(20),

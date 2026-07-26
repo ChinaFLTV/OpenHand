@@ -1052,8 +1052,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       canPop: !_isSaving,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 760,
-        maxHeight: 860,
+        maxWidth: kOpenHandDialogWidthWide,
+        maxHeight: kOpenHandDialogHeightFull,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: Stack(
           children: [

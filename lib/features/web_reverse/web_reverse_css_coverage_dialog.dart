@@ -201,7 +201,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 820,
+      maxWidth: kOpenHandDialogWidthWide,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

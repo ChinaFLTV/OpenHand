@@ -242,8 +242,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       canPop: !_isSaving && !_isProcessing,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 1040,
-        maxHeight: 920,
+        maxWidth: kOpenHandDialogWidthPanel,
+        maxHeight: kOpenHandDialogHeightFull,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: ScaffoldMessenger(
           key: _messengerKey,

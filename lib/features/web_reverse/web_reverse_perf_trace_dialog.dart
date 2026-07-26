@@ -198,8 +198,8 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     final loc = AppLocalizations.of(context);
     final dialog = buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 720,
-      maxHeight: 700,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

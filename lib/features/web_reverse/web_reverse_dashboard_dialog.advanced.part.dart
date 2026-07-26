@@ -1343,8 +1343,8 @@ class _AdvancedMenuDialog extends StatelessWidget {
     ];
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 560,
-      maxHeight: 600,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightStandard,
       insetPadding: const EdgeInsets.all(28),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1951,7 +1951,7 @@ class _DiffViewerDialog extends StatelessWidget {
     );
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1080,
+      maxWidth: kOpenHandDialogWidthPanel,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -2603,8 +2603,8 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     final cs = theme.colorScheme;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 880,
-      maxHeight: 620,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -3807,8 +3807,8 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
     final cs = theme.colorScheme;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 720,
-      maxHeight: 600,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

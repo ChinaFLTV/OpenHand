@@ -54,8 +54,6 @@ const double _kDashboardHeaderCompactBreakpoint = 720;
 const double _kDashboardHeaderLeadingMaxWidth = 320;
 const double _kDashboardHeaderLeadingMaxWidthRatio = 0.34;
 const double _kDeviceTrailingActionWidth = 88;
-const double _kDashboardDialogMaxWidth = 960;
-const double _kDashboardDialogMaxHeight = 720;
 const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
 const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(16);
@@ -3184,13 +3182,13 @@ fi
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kDashboardDialogMaxWidth,
+      maxWidth: kOpenHandDialogWidthExtraWide,
       insetPadding: _kDashboardDialogInsetPadding,
       clipBehavior: Clip.hardEdge,
       child: ConstrainedBox(
         constraints: const BoxConstraints(
-          maxWidth: _kDashboardDialogMaxWidth,
-          maxHeight: _kDashboardDialogMaxHeight,
+          maxWidth: kOpenHandDialogWidthExtraWide,
+          maxHeight: kOpenHandDialogHeightTall,
         ),
         child: Column(
           children: [
@@ -9397,7 +9395,7 @@ fi
           }
           final maxWidth = constraints.hasBoundedWidth
               ? constraints.maxWidth
-              : _kDashboardDialogMaxWidth;
+              : kOpenHandDialogWidthExtraWide;
           if (maxWidth < _kDashboardHeaderCompactBreakpoint) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -11041,8 +11039,8 @@ class _ToolchainInfoDialog extends StatelessWidget {
         : cs.outline;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 560,
-      maxHeight: 640,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -11299,8 +11297,8 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
         : cs.tertiary;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 520,
-      maxHeight: 560,
+      maxWidth: kOpenHandDialogWidthCompact,
+      maxHeight: kOpenHandDialogHeightCompact,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -366,8 +366,8 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     return buildOpenHandToolDialogShell(
       context: context,
       insetPadding: const EdgeInsets.all(24),
-      maxWidth: 980,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           Padding(

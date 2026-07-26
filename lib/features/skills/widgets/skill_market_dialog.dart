@@ -32,6 +32,11 @@ Future<void> showSkillMarketDialog(BuildContext context) {
   );
 }
 
+/// 技能市场是 expandToMax 的固定尺寸弹窗（左右分栏 + 预览），不套用统一档位：
+/// 档位是上限语义，套上去会把这里的固定尺寸一起改掉。
+const double _kSkillMarketDialogWidth = 1220;
+const double _kSkillMarketDialogHeight = 840;
+
 class _SkillMarketDialog extends StatefulWidget {
   const _SkillMarketDialog();
 
@@ -92,8 +97,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       canPop: !_isInstalling,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 1220,
-        maxHeight: 840,
+        maxWidth: _kSkillMarketDialogWidth,
+        maxHeight: _kSkillMarketDialogHeight,
         minAvailableWidth: 320,
         minAvailableHeight: 420,
         horizontalMargin: viewportMargin,
@@ -868,7 +873,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final normalizedPreviewVersion = previewVersion?.trim() ?? '';
     return buildOpenHandDialog(
-      maxWidth: 620,
+      maxWidth: kOpenHandDialogWidthStandard,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

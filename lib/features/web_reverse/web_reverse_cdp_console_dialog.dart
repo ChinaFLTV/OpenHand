@@ -248,8 +248,8 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Focus(
         onKeyEvent: _onKey,
         child: Column(

@@ -445,7 +445,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
     final loc = AppLocalizations.of(context);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 720,
+      maxWidth: kOpenHandDialogWidthStandard,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

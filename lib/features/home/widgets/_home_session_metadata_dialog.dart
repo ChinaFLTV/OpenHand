@@ -132,7 +132,7 @@ class _SessionMetadataDialog extends StatelessWidget {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 860,
+      maxWidth: kOpenHandDialogWidthWide,
       maxHeight: MediaQuery.sizeOf(context).height * 0.82,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),

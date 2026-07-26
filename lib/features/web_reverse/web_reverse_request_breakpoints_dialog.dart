@@ -16,8 +16,6 @@ import '../../shared/util/date_time_format.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
-const double _kRequestBreakpointsDialogMaxWidth = 1040;
-const double _kRequestBreakpointsDialogMaxHeight = 720;
 const double _kRequestBreakpointsDialogRadius = 20;
 const EdgeInsets _kRequestBreakpointsDialogInsetPadding = EdgeInsets.all(24);
 
@@ -102,8 +100,8 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
           borderRadius: BorderRadius.circular(_kRequestBreakpointsDialogRadius),
         ),
         insetPadding: _kRequestBreakpointsDialogInsetPadding,
-        maxWidth: _kRequestBreakpointsDialogMaxWidth,
-        maxHeight: _kRequestBreakpointsDialogMaxHeight,
+        maxWidth: kOpenHandDialogWidthPanel,
+        maxHeight: kOpenHandDialogHeightTall,
         child: Column(
           children: [
             _buildHeader(theme, cs, loc),

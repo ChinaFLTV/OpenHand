@@ -698,7 +698,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 908,
+      maxWidth: kOpenHandDialogWidthExtraWide,
       maxHeight: maxDialogHeight,
       child: Stack(
         children: [

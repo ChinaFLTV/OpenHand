@@ -215,7 +215,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
       canPop: !_isSaving,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 720,
+        maxWidth: kOpenHandDialogWidthStandard,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: Stack(
           children: [

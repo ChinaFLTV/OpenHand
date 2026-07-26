@@ -1471,8 +1471,8 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
       canPop: !_isSaving,
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 760,
-        maxHeight: 840,
+        maxWidth: kOpenHandDialogWidthWide,
+        maxHeight: kOpenHandDialogHeightFull,
         safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -12256,8 +12256,8 @@ class _McpProbeDetailsDialog extends StatelessWidget {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 680,
-      maxHeight: 620,
+      maxWidth: kOpenHandDialogWidthStandard,
+      maxHeight: kOpenHandDialogHeightStandard,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       child:
           Selector<
@@ -13174,8 +13174,8 @@ class _McpToolDetailsDialog extends StatelessWidget {
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 860,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthWide,
+      maxHeight: kOpenHandDialogHeightTall,
       safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
@@ -13847,8 +13847,8 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 920,
-      maxHeight: 820,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightFull,
       safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),

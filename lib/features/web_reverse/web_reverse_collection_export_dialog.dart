@@ -359,7 +359,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 920,
+      maxWidth: kOpenHandDialogWidthExtraWide,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

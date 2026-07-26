@@ -406,8 +406,8 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1020,
-      maxHeight: 760,
+      maxWidth: kOpenHandDialogWidthPanel,
+      maxHeight: kOpenHandDialogHeightTall,
       child: Column(
         children: [
           buildOpenHandToolDialogHeader(

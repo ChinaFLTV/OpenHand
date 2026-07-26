@@ -89,7 +89,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               .toList(growable: false);
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 1080,
+      maxWidth: kOpenHandDialogWidthPanel,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

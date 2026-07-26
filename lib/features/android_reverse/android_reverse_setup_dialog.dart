@@ -163,7 +163,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
     final cs = theme.colorScheme;
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: 620,
+      maxWidth: kOpenHandDialogWidthStandard,
       insetPadding: const EdgeInsets.all(28),
       child: Column(
         mainAxisSize: MainAxisSize.min,

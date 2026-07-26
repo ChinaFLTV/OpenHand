@@ -3041,7 +3041,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      maxWidth: 780,
+      maxWidth: kOpenHandDialogWidthWide,
       maxHeight: math.min(780, size.height * 0.88),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3452,7 +3452,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
         borderRadius: BorderRadius.circular(28),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
-      maxWidth: 760,
+      maxWidth: kOpenHandDialogWidthWide,
       maxHeight: math.min(760, size.height * 0.88),
       child: Column(
         mainAxisSize: MainAxisSize.min,

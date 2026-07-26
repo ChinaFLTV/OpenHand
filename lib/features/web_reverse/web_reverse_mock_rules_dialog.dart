@@ -20,9 +20,6 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
-const double _kMockRulesDialogMaxWidth = 1080;
-const double _kMockRulesDialogMaxHeight = 760;
-
 Future<void> showWebReverseMockRulesDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -151,8 +148,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: _kMockRulesDialogMaxWidth,
-      maxHeight: _kMockRulesDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthPanel,
+      maxHeight: kOpenHandDialogHeightTall,
       backgroundColor: cs.surfaceContainer,
       insetPadding: const EdgeInsets.all(24),
       child: Column(

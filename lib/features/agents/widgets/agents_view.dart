@@ -96,15 +96,11 @@ BoxDecoration _agentListCardDecoration(
   );
 }
 
-const double _agentDialogMaxWidth = 1040;
-const double _agentDialogMaxHeight = 780;
 const EdgeInsets _agentDialogPadding = EdgeInsets.all(22);
 const double _agentDialogTitleGap = 10;
 const double _agentDialogSectionGap = 18;
 const double _agentDialogScrollableFooterClearance = 28;
 const EdgeInsets _agentDialogActionPadding = EdgeInsets.fromLTRB(16, 8, 16, 12);
-const double _agentTaskDetailDialogMaxWidth = 980;
-const double _agentTaskDetailDialogMaxHeight = 780;
 const double _agentTaskDetailMaxWidthFraction = 0.96;
 const double _agentTaskDetailMaxHeightFraction = 0.92;
 const double _agentTaskDetailHorizontalMargin = 32;
@@ -130,19 +126,13 @@ const EdgeInsets _agentTaskDetailCardPadding = EdgeInsets.fromLTRB(
   14,
   12,
 );
-const double _agentAuditDialogMaxWidth = 980;
-const double _agentAuditDialogMaxHeight = 760;
 const double _agentAuditSectionGridGap = 12;
 const double _agentAuditSectionGridBreakpoint = 760;
 const double _agentAuditEventIconExtent = 38;
-const double _agentLogDetailDialogMaxWidth = 1020;
-const double _agentLogDetailDialogMaxHeight = 780;
 const int _agentLogDetailMaxJsonDepth = 8;
 const int _agentLogDetailMaxStringChars = 6000;
 const int _agentLogDetailMaxJsonChars = 60000;
 const int _agentLogDetailMaxCollectionItems = 500;
-const double _agentResourceDialogMaxWidth = 1040;
-const double _agentResourceDialogMaxHeight = 780;
 const Duration _agentResourceSampleInterval = Duration(milliseconds: 1400);
 const Duration _agentResourceSampleTimeout = Duration(seconds: 8);
 const String _agentResourceTelemetryExtraKey = '_openhand_resource_telemetry';
@@ -1551,8 +1541,8 @@ Future<void> _showAgentCapabilityLogDetailDialog(
             _agentAuditEventById(currentAgent, event.id) ?? event;
         return buildOpenHandResponsiveDialogShell(
           context: context,
-          maxWidth: _agentLogDetailDialogMaxWidth,
-          maxHeight: _agentLogDetailDialogMaxHeight,
+          maxWidth: kOpenHandDialogWidthPanel,
+          maxHeight: kOpenHandDialogHeightTall,
           maxWidthFraction: _agentTaskDetailMaxWidthFraction,
           maxHeightFraction: _agentTaskDetailMaxHeightFraction,
           horizontalMargin: _agentTaskDetailHorizontalMargin,
@@ -2565,8 +2555,8 @@ class _AgentClusterDialogContentState
             controller.agentById(widget.agent.id) ?? widget.agent;
         final settings = currentAgent.scaleSettings;
         return buildOpenHandDialog(
-          maxWidth: 880,
-          maxHeight: 700,
+          maxWidth: kOpenHandDialogWidthWide,
+          maxHeight: kOpenHandDialogHeightTall,
           child: _AgentDialogScaffold(
             icon: Icons.account_tree_rounded,
             title: l10n.agentsDialogTitleWithName(
@@ -3452,8 +3442,8 @@ Future<void> _showAgentTaskDetailDialog(
     context: context,
     builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
       context: dialogContext,
-      maxWidth: _agentTaskDetailDialogMaxWidth,
-      maxHeight: _agentTaskDetailDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       maxWidthFraction: _agentTaskDetailMaxWidthFraction,
       maxHeightFraction: _agentTaskDetailMaxHeightFraction,
       horizontalMargin: _agentTaskDetailHorizontalMargin,
@@ -4064,7 +4054,7 @@ Future<void> _showCompleteTaskDialog(
     final submitted = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => buildOpenHandDialog(
-        maxWidth: 680,
+        maxWidth: kOpenHandDialogWidthStandard,
         child: _AgentDialogScaffold(
           icon: Icons.done_all_rounded,
           title: openHandLocalizedText(
@@ -4149,8 +4139,8 @@ Future<void> _showAgentAuditDialog(BuildContext context, AgentProfile agent) {
     context: context,
     builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
       context: dialogContext,
-      maxWidth: _agentAuditDialogMaxWidth,
-      maxHeight: _agentAuditDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthExtraWide,
+      maxHeight: kOpenHandDialogHeightTall,
       maxWidthFraction: _agentTaskDetailMaxWidthFraction,
       maxHeightFraction: _agentTaskDetailMaxHeightFraction,
       horizontalMargin: _agentTaskDetailHorizontalMargin,
@@ -4519,7 +4509,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return buildOpenHandDialog(
-      maxWidth: 680,
+      maxWidth: kOpenHandDialogWidthStandard,
       child: _AgentDialogScaffold(
         icon: Icons.flag_rounded,
         title: widget.initial == null
@@ -4725,8 +4715,8 @@ Future<void> _showAgentResourcesDialog(
         final resource = currentAgent.resourceUsage;
         return buildOpenHandResponsiveDialogShell(
           context: context,
-          maxWidth: _agentResourceDialogMaxWidth,
-          maxHeight: _agentResourceDialogMaxHeight,
+          maxWidth: kOpenHandDialogWidthPanel,
+          maxHeight: kOpenHandDialogHeightTall,
           maxWidthFraction: _agentTaskDetailMaxWidthFraction,
           maxHeightFraction: _agentTaskDetailMaxHeightFraction,
           horizontalMargin: _agentTaskDetailHorizontalMargin,
@@ -6177,7 +6167,7 @@ class _AgentResourceEditorDialogState
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return buildOpenHandDialog(
-      maxWidth: 720,
+      maxWidth: kOpenHandDialogWidthStandard,
       child: _AgentDialogScaffold(
         icon: Icons.storage_rounded,
         title: _agentsViewEditResourcesLabel(context),
@@ -7720,7 +7710,7 @@ class _AgentApprovalRequestDialogState
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return buildOpenHandDialog(
-      maxWidth: 680,
+      maxWidth: kOpenHandDialogWidthStandard,
       child: _AgentDialogScaffold(
         icon: Icons.add_moderator_outlined,
         title: _agentsViewRequestApprovalLabel(context),
@@ -8030,7 +8020,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return buildOpenHandDialog(
-      maxWidth: 680,
+      maxWidth: kOpenHandDialogWidthStandard,
       child: _AgentDialogScaffold(
         icon: Icons.add_task_rounded,
         title: l10n.agentsDialogTitleWithName(
@@ -8639,8 +8629,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     );
 
     return buildOpenHandDialog(
-      maxWidth: _agentDialogMaxWidth,
-      maxHeight: _agentDialogMaxHeight,
+      maxWidth: kOpenHandDialogWidthPanel,
+      maxHeight: kOpenHandDialogHeightTall,
       child: DefaultTabController(
         length: 5,
         child: Builder(
