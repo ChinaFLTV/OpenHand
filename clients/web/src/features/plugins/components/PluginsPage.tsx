@@ -232,7 +232,7 @@ export function PluginsPage() {
         <ErrorBanner message={error} />
 
         <div class="flex items-center justify-between mb-4">
-          <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-xs oh-text-muted">
             {t('plugins.scanHint', '自动扫描本机环境，已安装的插件将被识别并显示版本信息。')}
           </p>
           <button
@@ -250,7 +250,7 @@ export function PluginsPage() {
         </div>
 
         {loading && !plugins ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             {t('common.loading', '加载中…')}
           </p>
         ) : null}
@@ -305,7 +305,7 @@ export function PluginsPage() {
                               </span>
                             ))}
                           </div>
-                          <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                          <p class="text-xs mt-1 oh-text-muted">
                             {plugin.description}
                           </p>
                           {plugin.installed_version ? (
@@ -323,7 +323,7 @@ export function PluginsPage() {
                           ) : null}
                           {plugin.dependencies.length > 0 ? (
                             <div class="mt-2 flex items-center gap-1 flex-wrap">
-                              <span class="text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                              <span class="text-[11px] oh-text-muted">
                                 {t('plugins.dependsOn', '依赖')}:
                               </span>
                               {plugin.dependencies.map((dep) => {

@@ -284,7 +284,7 @@ export function PlanTimeline({ session, modelKey, onApproved }: PlanTimelineProp
                 </>
               )}
           </button>
-          <span class="oh-plan-approve-hint text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <span class="oh-plan-approve-hint text-xs oh-text-muted">
             {t('detail.plan.approveHint', '或在输入框回复任意文本继续讨论')}
           </span>
           {error && (

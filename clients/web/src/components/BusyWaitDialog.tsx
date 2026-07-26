@@ -49,7 +49,7 @@ export function BusyWaitDialog({
           <div class="min-w-0 flex-1">
             <h2 class="text-base font-semibold">{title}</h2>
             {body ? (
-              <p class="mt-1 text-sm leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="mt-1 text-sm leading-relaxed oh-text-muted">
                 {body}
               </p>
             ) : null}

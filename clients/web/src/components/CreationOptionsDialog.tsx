@@ -101,7 +101,7 @@ function ChipGroup<T extends string | number>({
 }: ChipGroupProps<T>) {
   return (
     <div class="mb-4">
-      <p class="text-xs font-medium mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-xs font-medium mb-2 oh-text-muted">
         {title}
       </p>
       <div class="flex flex-wrap gap-2">
@@ -149,7 +149,7 @@ function TriStateGroup({ title, value, onChange }: TriStateGroupProps) {
   ];
   return (
     <div class="mb-4">
-      <p class="text-xs font-medium mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-xs font-medium mb-2 oh-text-muted">
         {title}
       </p>
       <div class="flex flex-wrap gap-2">
@@ -190,7 +190,7 @@ function TextOption({ label, value, onInput, type = 'text', rows = 1 }: TextOpti
   };
   return (
     <label class="block mb-3">
-      <span class="block text-xs font-medium mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <span class="block text-xs font-medium mb-2 oh-text-muted">
         {label}
       </span>
       {rows > 1 ? (
@@ -372,7 +372,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
           </>
         ) : null}
         <div class="mb-5">
-          <p class="text-xs font-medium mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-xs font-medium mb-2 oh-text-muted">
             {t('creation.options.count', '数量')}
           </p>
           <div class="flex items-center gap-3">

@@ -108,7 +108,7 @@ export function HarnessPage() {
         <ErrorBanner message={error} />
 
         {record === undefined ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             {t('common.loading', '加载中…')}
           </p>
         ) : record === null ? (
@@ -166,7 +166,7 @@ function HarnessRecordView(props: { record: HarnessSessionRecord }) {
               {overallStatusLabel(r.status)}
             </span>
           </div>
-          <div class="mt-2 grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-xs oh-text-muted">
             <div>{t('harness.createdAt', '创建于')}: {tDateTime(r.created_at)}</div>
             <div>{t('harness.updatedAt', '更新于')}: {tDateTime(r.updated_at)}</div>
             {r.current_phase ? (
@@ -260,7 +260,7 @@ function PhaseCard(props: {
               <span class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
                 {index + 1}. {PHASE_NAMES_ZH[phase]}
               </span>
-              <span class="text-[10px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <span class="text-[10px] oh-text-muted">
                 <code>{phase}</code>
               </span>
               {log?.exit_code != null ? (
@@ -284,12 +284,12 @@ function PhaseCard(props: {
               ) : null}
             </div>
             {log?.changed_files && log.changed_files.length > 0 ? (
-              <div class="text-[11px] mt-0.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <div class="text-[11px] mt-0.5 oh-text-muted">
                 {t('harness.changedFiles', '改动文件')}: {log.changed_files.length}
               </div>
             ) : null}
           </div>
-          <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <span class="text-xs oh-text-muted">
             {expanded ? '▾' : '▸'}
           </span>
         </button>
@@ -318,7 +318,7 @@ function PhaseCard(props: {
                     {log.lines.join('\n')}
                   </pre>
                 ) : (
-                  <p style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <p class="oh-text-muted">
                     {t('harness.noOutput', '此阶段尚无输出')}
                   </p>
                 )}
@@ -327,8 +327,7 @@ function PhaseCard(props: {
                     {log.changed_files.map((f) => (
                       <li
                         key={f.relative_path}
-                        class="flex items-baseline gap-2 text-[11px]"
-                        style={{ color: 'var(--m3-on-surface-variant)' }}
+                        class="flex items-baseline gap-2 text-[11px] oh-text-muted"
                       >
                         <span
                           style={{
@@ -346,13 +345,13 @@ function PhaseCard(props: {
                   </ul>
                 ) : null}
                 {log.saved_log_path ? (
-                  <p class="mt-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <p class="mt-1 text-[11px] oh-text-muted">
                     {t('harness.savedLog', '日志文件')}: <code>{log.saved_log_path}</code>
                   </p>
                 ) : null}
               </>
             ) : (
-              <p style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="oh-text-muted">
                 {t('harness.phasePending', '此阶段尚未运行')}
               </p>
             )}

@@ -307,8 +307,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             )}
             {subtitle ? (
               <p
-                class="text-[11px] truncate mt-0.5"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
+                class="text-[11px] truncate mt-0.5 oh-text-muted"
               >
                 {subtitle}
               </p>

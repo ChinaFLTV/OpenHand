@@ -110,13 +110,12 @@ interface TemplatePickerDialogProps {
 export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePickerDialogProps) {
   return (
     <DialogShell title={t('sessions.templatePicker.title', '选择线程模板')} onClose={onClose}>
-      <p class="text-sm mb-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-sm mb-4 oh-text-muted">
         {t('sessions.templatePicker.subtitle', '新建线程前，请先从下方内置能力模板中选择一个。')}
       </p>
       {templates.length === 0 ? (
         <p
-          class="text-center py-12 text-sm"
-          style={{ color: 'var(--m3-on-surface-variant)' }}
+          class="text-center py-12 text-sm oh-text-muted"
         >
           {t('sessions.templatePicker.empty', '主控制台尚未导出任何模板。')}
         </p>
@@ -156,8 +155,7 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
                   </h3>
                   {tpl.description ? (
                     <p
-                      class="oh-template-picker-card-description text-xs leading-snug"
-                      style={{ color: 'var(--m3-on-surface-variant)' }}
+                      class="oh-template-picker-card-description text-xs leading-snug oh-text-muted"
                     >
                       {tpl.description}
                     </p>
@@ -220,12 +218,12 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
       onClose={onClose}
       maxWidth={620}
     >
-      <p class="text-sm mb-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-sm mb-4 oh-text-muted">
         {template.description ??
           t('sessions.templateConfig.subtitle', '为新会话指定标题、对话模式与默认模型。')}
       </p>
       <form onSubmit={submit} class="flex flex-col gap-4">
-        <label class="flex flex-col text-xs gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <label class="flex flex-col text-xs gap-1 oh-text-muted">
           {t('sessions.templateConfig.titleField', '会话标题（可选）')}
           <input
             ref={titleRef}
@@ -244,7 +242,7 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
         </label>
 
         <div class="flex flex-wrap gap-3">
-          <label class="flex flex-col text-xs gap-1 flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <label class="flex flex-col text-xs gap-1 flex-1 min-w-[160px] oh-text-muted">
             {t('sessions.create.mode', '模式')}
             <MenuSelect
               value={mode}
@@ -262,7 +260,7 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
               ]}
             />
           </label>
-          <label class="flex flex-col text-xs gap-1 flex-1 min-w-[220px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <label class="flex flex-col text-xs gap-1 flex-1 min-w-[220px] oh-text-muted">
             {t('composer.model', '模型')}
             <button
               type="button"

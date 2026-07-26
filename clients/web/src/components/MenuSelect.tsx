@@ -261,8 +261,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
               <span class="block truncate">{opt.label}</span>
               {opt.description && (
                 <span
-                  class="block text-xs truncate"
-                  style={{ color: 'var(--m3-on-surface-variant)' }}
+                  class="block text-xs truncate oh-text-muted"
                 >
                   {opt.description}
                 </span>
@@ -305,7 +304,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
       >
         <span class="flex items-center gap-1 min-w-0 truncate">
           {label && (
-            <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
+            <span class="text-xs oh-text-muted">{label}</span>
           )}
           <span class="truncate">{current?.label ?? '—'}</span>
         </span>

@@ -428,7 +428,7 @@ export function FilesPage() {
             )}
 
             {listLoading && (
-              <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-sm oh-text-muted">
                 {t('common.loading')}
               </p>
             )}
@@ -438,7 +438,7 @@ export function FilesPage() {
               </p>
             )}
             {!listLoading && !listError && list && list.items.length === 0 && (
-              <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-sm oh-text-muted">
                 {t('files.empty', '该目录暂无内容')}
               </p>
             )}
@@ -535,7 +535,7 @@ export function FilesPage() {
                 </header>
 
                 {contentLoading && (
-                  <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <p class="text-sm oh-text-muted">
                     {t('common.loading')}
                   </p>
                 )}

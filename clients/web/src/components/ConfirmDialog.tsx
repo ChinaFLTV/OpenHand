@@ -133,10 +133,9 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
           {body ? (
             <div
               class={classNames(
-                'oh-confirm-dialog-body mt-2 text-sm leading-relaxed',
+                'oh-confirm-dialog-body mt-2 text-sm leading-relaxed oh-text-muted',
                 bodyClassName,
               )}
-              style={{ color: 'var(--m3-on-surface-variant)' }}
             >
               {body}
             </div>

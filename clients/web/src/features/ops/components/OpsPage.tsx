@@ -433,7 +433,7 @@ export function OpsPage() {
               >
                 {snapshot.status_code_breakdown && (
                   <div>
-                    <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mb-2 oh-text-muted">
                       {t('ops.section.statusBreakdown', 'HTTP 状态码分布')}
                     </p>
                     <div class="flex flex-wrap gap-2">
@@ -464,7 +464,7 @@ export function OpsPage() {
                 )}
                 {snapshot.method_breakdown && (
                   <div>
-                    <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mb-2 oh-text-muted">
                       {t('ops.section.methodBreakdown', 'HTTP Method 分布')}
                     </p>
                     <div class="flex flex-wrap gap-2">
@@ -515,7 +515,7 @@ export function OpsPage() {
               <section class="oh-appear-up rounded-m3-md p-4 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
-                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <p class="text-xs mb-2 oh-text-muted">
                   {t('ops.section.latency', '请求延迟分位数')} · {t('ops.latency.sample', '样本')} {snapshot.latency_stats.sample_count}
                 </p>
                 <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -534,7 +534,7 @@ export function OpsPage() {
                         border: '1px solid var(--m3-outline)',
                       }}
                     >
-                      <p class="text-[10px] uppercase tracking-wider" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      <p class="text-[10px] uppercase tracking-wider oh-text-muted">
                         {k}
                       </p>
                       <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>{v} ms</p>
@@ -543,7 +543,7 @@ export function OpsPage() {
                 </div>
                 {snapshot.latency_buckets && Object.values(snapshot.latency_buckets).some((v) => v > 0) ? (
                   <div class="mt-3">
-                    <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mb-2 oh-text-muted">
                       {t('ops.section.latencyBuckets', '延迟分布桶')}
                     </p>
                     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
@@ -556,7 +556,7 @@ export function OpsPage() {
                             border: '1px solid var(--m3-outline)',
                           }}
                         >
-                          <p class="text-[10px]" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</p>
+                          <p class="text-[10px] oh-text-muted">{label}</p>
                           <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>{count}</p>
                         </div>
                       ))}
@@ -596,7 +596,7 @@ export function OpsPage() {
               <section class="oh-appear-up rounded-m3-md p-4 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
-                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <p class="text-xs mb-2 oh-text-muted">
                   {t('ops.section.topRoutes', '热点路由 Top')}
                 </p>
                 <div class="space-y-1">
@@ -616,7 +616,7 @@ export function OpsPage() {
                             opacity: 0.6,
                           }}
                         />
-                        <span class="font-mono text-xs w-12 text-right" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                        <span class="font-mono text-xs w-12 text-right oh-text-muted">
                           {r.count}
                         </span>
                       </div>
@@ -633,26 +633,26 @@ export function OpsPage() {
               >
                 {snapshot.slowest_recent && (
                   <div>
-                    <p class="text-xs mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mb-1 oh-text-muted">
                       {t('ops.section.slowestRecent', '近期最慢请求')}
                     </p>
                     <p class="font-mono text-sm" style={{ color: 'var(--m3-on-surface)' }}>
                       {snapshot.slowest_recent.method} {snapshot.slowest_recent.path}
                     </p>
-                    <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mt-1 oh-text-muted">
                       {snapshot.slowest_recent.duration_ms} ms · HTTP {snapshot.slowest_recent.status_code} · {tDateTime(snapshot.slowest_recent.at)}
                     </p>
                   </div>
                 )}
                 {snapshot.last_error_at && (
                   <div>
-                    <p class="text-xs mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mb-1 oh-text-muted">
                       {t('ops.section.lastError', '上次错误')}
                     </p>
                     <p class="font-mono text-sm" style={{ color: 'var(--m3-error)' }}>
                       {snapshot.last_error_path || '—'}
                     </p>
-                    <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <p class="text-xs mt-1 oh-text-muted">
                       {tDateTime(snapshot.last_error_at)}
                     </p>
                   </div>
@@ -666,7 +666,7 @@ export function OpsPage() {
                 class="oh-appear-up rounded-m3-md p-4 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
-                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <p class="text-xs mb-2 oh-text-muted">
                   {t('ops.section.recentErrors', '最近错误')} · {snapshot.recent_errors.length}
                 </p>
                 <ul class="space-y-1.5">
@@ -688,9 +688,9 @@ export function OpsPage() {
                       >
                         {e.status}
                       </span>
-                      <span style={{ color: 'var(--m3-on-surface-variant)' }}>{e.method}</span>
+                      <span class="oh-text-muted">{e.method}</span>
                       <span style={{ color: 'var(--m3-on-surface)' }}>{e.path}</span>
-                      <span class="ml-auto" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                      <span class="ml-auto oh-text-muted">
                         {e.duration_ms} ms · {tDateTime(e.at)}
                       </span>
                       {e.message && (
@@ -721,7 +721,7 @@ export function OpsPage() {
               <section class="oh-appear-up rounded-m3-md p-3 mb-3"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
-                <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <p class="text-xs mb-2 oh-text-muted">
                   {t('ops.accessibleUrls', '可访问 URL')}
                 </p>
                 <div class="flex flex-wrap gap-1">
@@ -756,7 +756,7 @@ export function OpsPage() {
                 { value: 'uploads', label: t('ops.cleanup.target.uploads', '仅上传缓存') },
               ]}
             />
-            <label class="text-sm flex items-center gap-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <label class="text-sm flex items-center gap-1 oh-text-muted">
               <input
                 type="checkbox"
                 checked={expiredOnly}
@@ -837,14 +837,14 @@ export function OpsPage() {
             </p>
           )}
           {history.length === 0 ? (
-            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <p class="text-sm oh-text-muted">
               {t('ops.cleanup.empty', '暂无历史记录')}
             </p>
           ) : (
             <div class="overflow-x-auto -mx-4 px-4">
               <table class="w-full text-sm" style={{ minWidth: '640px' }}>
                 <thead>
-                  <tr style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <tr class="oh-text-muted">
                     <th class="text-left py-1 px-2">{t('ops.cleanup.col.time', '时间')}</th>
                     <th class="text-left py-1 px-2">{t('ops.cleanup.col.target', '目标')}</th>
                     <th class="text-left py-1 px-2">{t('ops.cleanup.col.expired', '仅过期')}</th>
@@ -895,7 +895,7 @@ function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
     >
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <p class="text-xs mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-xs mb-1 oh-text-muted">
             {t('ops.health.title', '运行健康度')}
           </p>
           <div class="flex items-baseline gap-2">
@@ -938,11 +938,11 @@ function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
         ))}
       </div>
       <div class="mt-3 rounded-m3-sm p-3" style={{ background: 'var(--m3-surface)', border: '1px solid var(--m3-outline)' }}>
-        <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-xs mb-2 oh-text-muted">
           {t('ops.alert.title', '阈值告警')}
         </p>
         {health.alerts.length === 0 ? (
-          <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-xs oh-text-muted">
             {t('ops.alert.empty', '暂无触发阈值')}
           </p>
         ) : (
@@ -960,7 +960,7 @@ function OpsHealthPanel({ health }: { health: OpsHealthSummary }) {
                   }}
                 >
                   <strong>{alert.label}</strong>
-                  <span style={{ color: 'var(--m3-on-surface-variant)' }}> · {alert.threshold}</span>
+                  <span class="oh-text-muted"> · {alert.threshold}</span>
                   <span> · {alert.actual}</span>
                 </div>
               );
@@ -1001,14 +1001,14 @@ function BreakdownBlock({
   if (entries.length === 0) {
     return (
       <div>
-        <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>{title}</p>
-        <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>—</p>
+        <p class="text-xs mb-2 oh-text-muted">{title}</p>
+        <p class="text-xs oh-text-muted">—</p>
       </div>
     );
   }
   return (
     <div>
-      <p class="text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>{title}</p>
+      <p class="text-xs mb-2 oh-text-muted">{title}</p>
       <div class="flex flex-wrap gap-2">
         {entries.map(([key, value]) => {
           const danger = dangerKeys.includes(key);

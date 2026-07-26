@@ -184,7 +184,7 @@ export function ToolboxPage() {
         </div>
 
         {loading && !tools && !mcp && !skills && !memories && !hooks && !knowledge && !agents && !crons ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             {t('common.loading', '加载中…')}
           </p>
         ) : null}
@@ -269,7 +269,7 @@ function AgentsList(props: { items: AgentSummary[] }) {
         <Appear key={item.id} variant="up" index={idx}>
           <li class="oh-toolbox-card">
             <div class="flex items-baseline justify-between gap-3"><h3 class="text-sm font-semibold">{item.name}</h3><span class="oh-toolbox-badge">{item.lifecycle_state}</span></div>
-            {item.position || item.department ? <p class="text-xs mt-1.5" style={{ color: 'var(--m3-on-surface-variant)' }}>{[item.position, item.department].filter(Boolean).join(' · ')}</p> : null}
+            {item.position || item.department ? <p class="text-xs mt-1.5 oh-text-muted">{[item.position, item.department].filter(Boolean).join(' · ')}</p> : null}
             <div class="oh-toolbox-meta-grid"><div>{t('toolbox.agent.skills', '技能')}: {item.skill_count}</div><div>{t('toolbox.agent.knowledge', '知识')}: {item.knowledge_count}</div><div>{t('toolbox.agent.memories', '记忆')}: {item.memory_count}</div><div>{item.enabled ? t('common.enabled', '已启用') : t('common.disabled', '未启用')}</div></div>
           </li>
         </Appear>
@@ -381,11 +381,11 @@ function SkillsList(props: { items: SkillSummary[]; root: string }) {
                 ) : null}
               </div>
               {sk.description ? (
-                <p class="text-xs mt-1.5 leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <p class="text-xs mt-1.5 leading-relaxed oh-text-muted">
                   {sk.description}
                 </p>
               ) : null}
-              <p class="text-[11px] mt-1.5" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-[11px] mt-1.5 oh-text-muted">
                 <code>{sk.relative_directory_path || sk.directory_path}</code>
               </p>
             </li>
@@ -405,7 +405,7 @@ function MemoriesList(props: { items: MemoryEntrySummary[] }) {
           <li class="oh-toolbox-card">
             <div class="flex items-baseline justify-between gap-3">
               <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{m.title}</h3>
-              <span class="text-[10px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <span class="text-[10px] oh-text-muted">
                 {tDateTime(m.created_at)}
               </span>
             </div>
@@ -462,7 +462,7 @@ function CronsList(props: { items: CronEntrySummary[] }) {
                 </span>
               </div>
               {c.description ? (
-                <p class="text-xs mt-1.5" style={{ color: 'var(--m3-on-surface-variant)' }}>{c.description}</p>
+                <p class="text-xs mt-1.5 oh-text-muted">{c.description}</p>
               ) : null}
               <div class="oh-toolbox-meta-grid">
                 <div>{t('toolbox.cron.expr', '表达式')}: <code>{c.cron_expression}</code></div>

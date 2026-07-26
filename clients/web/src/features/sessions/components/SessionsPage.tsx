@@ -420,7 +420,7 @@ export function SessionsPage() {
           )}
         />
 
-        <div class="mb-3 flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <div class="mb-3 flex items-center justify-between gap-2 text-xs oh-text-muted">
           <span>{t('sessions.refresh.hint', '下拉列表或点击刷新同步本设备会话')}</span>
           <button
             type="button"
@@ -443,7 +443,7 @@ export function SessionsPage() {
         >
           {/* 列表 */}
         {loading && !data ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             {t('sessions.loading', '加载中…')}
           </p>
         ) : error ? (
@@ -557,23 +557,20 @@ export function SessionsPage() {
                                 patchRow(item.id, { draftTitle: null, error: undefined })
                               }
                               disabled={row.busy}
-                              class="text-xs px-2 py-1"
-                              style={{ color: 'var(--m3-on-surface-variant)' }}
+                              class="text-xs px-2 py-1 oh-text-muted"
                             >
                               {t('common.cancel', '取消')}
                             </button>
                           </div>
                         ) : null}
                         <p
-                          class="text-xs mt-1 truncate"
-                          style={{ color: 'var(--m3-on-surface-variant)' }}
+                          class="text-xs mt-1 truncate oh-text-muted"
                         >
                           {item.last_message_preview ||
                             t('sessions.previewEmpty', '尚无消息')}
                         </p>
                         <div
-                          class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1"
-                          style={{ color: 'var(--m3-on-surface-variant)' }}
+                          class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1 oh-text-muted"
                         >
                           <span>{formatLocalDateTimeMinute(item.updated_at)}</span>
                           <span>· {modeLabel(item.mode)}</span>
@@ -677,7 +674,7 @@ export function SessionsPage() {
             >
               {t('sessions.pager.prev', '上一页')}
             </button>
-            <span style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <span class="oh-text-muted">
               {page} / {totalPages}
             </span>
             <button

@@ -8234,11 +8234,11 @@ export function SessionDetailPage() {
                 <input ref={composerFileInputRef} type="file" multiple accept={attachmentAccept} onChange={handleAttachmentInput} style={{ display: 'none' }} />
               </label>
             ) : null}
-            <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <span class="text-xs flex-1 min-w-[160px] oh-text-muted">
               {composerText.length > 0 ? <RollingText text={`${composerText.length.toLocaleString()} ${t('composer.charUnit', '字符')}`} /> : ''}
             </span>
             {composerAttachments.length > 0 ? (
-              <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <span class="text-xs oh-text-muted">
                 {composerAttachments.length} {t('composer.attachment.unit', '个附件')}
               </span>
             ) : null}
@@ -8707,7 +8707,7 @@ function GoalStartOptionsDialog({
               <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
                 {t('goal.start.title', '启动目标模式')}
               </h2>
-              <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-xs mt-1 oh-text-muted">
                 {t('goal.start.subtitle', '当前输入内容会成为本线程目标，由 Agent Runtime 自动推进并评估完成证据。')}
               </p>
             </div>
@@ -8717,7 +8717,7 @@ function GoalStartOptionsDialog({
             </DialogActionButton>
           </header>
 
-          <label class="oh-goal-field text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <label class="oh-goal-field text-xs oh-text-muted">
             {t('goal.start.evaluatorModel', '评估模型')}
             <button
               type="button"
@@ -8736,7 +8736,7 @@ function GoalStartOptionsDialog({
             <div class="oh-goal-option-row">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.turnLimit', '轮次限制')}</div>
-                <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.turnLimit.hint', '关闭时使用运行时默认安全上限。')}</div>
+                <div class="text-xs mt-1 oh-text-muted">{t('goal.start.turnLimit.hint', '关闭时使用运行时默认安全上限。')}</div>
               </div>
               <SwitchButton checked={turnLimitEnabled} onClick={() => setTurnLimitEnabled((value) => !value)} label={t('goal.start.turnLimit', '轮次限制')} />
             </div>
@@ -8757,7 +8757,7 @@ function GoalStartOptionsDialog({
             <div class="oh-goal-option-row">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.tokenBudget', 'Token 预算')}</div>
-                <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.tokenBudget.hint', '关闭时不额外设置预算，只保留硬性轮次保护。')}</div>
+                <div class="text-xs mt-1 oh-text-muted">{t('goal.start.tokenBudget.hint', '关闭时不额外设置预算，只保留硬性轮次保护。')}</div>
               </div>
               <SwitchButton checked={tokenBudgetEnabled} onClick={() => setTokenBudgetEnabled((value) => !value)} label={t('goal.start.tokenBudget', 'Token 预算')} />
             </div>
@@ -8828,7 +8828,7 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
           <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
             {t('goal.details.title', '目标执行详情')}
           </h2>
-          <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-xs mt-1 oh-text-muted">
             {session.template_name || session.template_id} · {sessionModeLabel(session.mode)}
           </p>
         </div>
@@ -8844,7 +8844,7 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
         ) : (
           <section class="oh-goal-section">
             <h3>{t('goal.details.current', '当前目标')}</h3>
-            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.details.noCurrent', '当前没有正在执行的目标。')}</p>
+            <p class="text-sm oh-text-muted">{t('goal.details.noCurrent', '当前没有正在执行的目标。')}</p>
           </section>
         )}
 
@@ -8864,7 +8864,7 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
         <section class="oh-goal-section">
           <h3>{t('goal.details.history', '历史目标')}</h3>
           {history.length === 0 ? (
-            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.details.history.empty', '暂无历史目标。')}</p>
+            <p class="text-sm oh-text-muted">{t('goal.details.history.empty', '暂无历史目标。')}</p>
           ) : (
             <div class="flex flex-col gap-3">
               {history.map((goal) => <GoalRecordSection key={goal.id} goal={goal} title={goalStatusLabel(goal.status)} />)}
@@ -9220,7 +9220,7 @@ function ContextUsageOverview({
             {t('tokenPopup.context.title', '上下文数据概览')}
           </h3>
           {usage ? (
-            <p class="mt-0.5 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <p class="mt-0.5 text-[11px] oh-text-muted">
               {usage.measured
                 ? t('tokenPopup.context.measured', '总量实测 · 分类折算')
                 : t('tokenPopup.context.estimated', '按请求内容估算')}
@@ -9232,7 +9232,7 @@ function ContextUsageOverview({
             <strong class="block text-sm tabular-nums" style={{ color: 'var(--m3-primary)' }}>
               {usage.totalTokens.toLocaleString()}
             </strong>
-            <span class="text-[10px] font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>Token</span>
+            <span class="text-[10px] font-semibold oh-text-muted">Token</span>
           </div>
         ) : null}
       </div>
@@ -9262,7 +9262,7 @@ function ContextUsageOverview({
               }}
             />
           </div>
-          <div class="mt-1.5 text-right text-[10px] tabular-nums" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <div class="mt-1.5 text-right text-[10px] tabular-nums oh-text-muted">
             {windowUsage.usedTokens.toLocaleString()} / {windowUsage.windowTokens.toLocaleString()} Token
           </div>
         </div>
@@ -9529,7 +9529,7 @@ function SessionTokenStatsDialog({
       <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
         <div class="min-w-0">
           <h2 class="text-base font-semibold">{t('topbar.tokens', 'Token 统计')}</h2>
-          <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="mt-0.5 truncate text-xs oh-text-muted">
             {session.title || t('sessions.untitled', '未命名会话')}
           </p>
         </div>
@@ -9629,7 +9629,7 @@ function TokenStatsRow({ label, value, tone = 'neutral' }: { label: string; valu
         transition: 'transform var(--oh-dialog-duration) var(--oh-dialog-curve), border-color var(--oh-dialog-duration) var(--oh-dialog-curve)',
       }}
     >
-      <span class="text-xs font-medium" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
+      <span class="text-xs font-medium oh-text-muted">{label}</span>
       <span class="font-bold tabular-nums" style={{ color: accent ? 'var(--m3-primary)' : 'var(--m3-on-surface)' }}>
         <RollingText text={value.toLocaleString()} />
       </span>
@@ -9960,7 +9960,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
 
   const SummaryTile = ({ label, value }: { label: string; value: string }) => (
     <div class="p-3.5" style={{ ...sectionStyle, width: '188px' }}>
-      <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <div class="text-sm font-semibold oh-text-muted">
         {label}
       </div>
       <div class="mt-1.5 text-xl font-extrabold tabular-nums">{value}</div>
@@ -9979,7 +9979,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   );
   const EntryRow = ({ label, value }: { label: string; value: ComponentChildren }) => (
     <div class="mb-2.5 min-w-0">
-      <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <div class="text-xs font-bold oh-text-muted">
         {label}
       </div>
       <div class="mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap select-text">{value}</div>
@@ -10120,7 +10120,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     <div>
       <div class="text-sm font-extrabold">{label}</div>
       {detail ? (
-        <div class="mt-1 text-xs leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <div class="mt-1 text-xs leading-relaxed oh-text-muted">
           {detail}
         </div>
       ) : null}
@@ -10142,7 +10142,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
         <ComposerIcon name={icon} size={16} />
       </div>
       <div class="min-w-0">
-        <div class="truncate text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <div class="truncate text-xs font-bold oh-text-muted">
           {label}
         </div>
         <div class="mt-1 truncate text-sm font-extrabold tabular-nums">{value}</div>
@@ -10169,7 +10169,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     if (value != null && typeof value === 'object' && !Array.isArray(value)) {
       const entries = Object.entries(recordFromUnknown(value));
       if (entries.length === 0) {
-        return <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>—</span>;
+        return <span class="text-sm oh-text-muted">—</span>;
       }
       if (depth >= 3) return <JsonPanel content={value} />;
       return (
@@ -10196,7 +10196,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     }
     if (Array.isArray(value)) {
       if (value.length === 0) {
-        return <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>—</span>;
+        return <span class="text-sm oh-text-muted">—</span>;
       }
       if (value.every(isShortMetadataScalar) && value.length <= 24) {
         return (
@@ -10218,7 +10218,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                 border: '1px solid var(--m3-outline-variant)',
               }}
             >
-              <div class="mb-2 text-xs font-extrabold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <div class="mb-2 text-xs font-extrabold oh-text-muted">
                 #{index + 1}
               </div>
               {isShortMetadataScalar(item) || typeof item === 'string' ? (
@@ -10229,7 +10229,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             </div>
           ))}
           {value.length > visibleItems.length ? (
-            <div class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <div class="text-xs oh-text-muted">
               还有 {value.length - visibleItems.length} 项未展示，请复制完整元数据查看。
             </div>
           ) : null}
@@ -10240,7 +10240,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   };
   const StructuredValue = ({ label, value }: { label: string; value: unknown }) => (
     <div class="mb-3 min-w-0">
-      <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <div class="text-xs font-bold oh-text-muted">
         {machineMetadataFieldTitle(label)}
       </div>
       <div class="mt-2">{renderStructuredMetadataNode(value)}</div>
@@ -10375,7 +10375,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     return (
       <Section title="编程专家配置">
         {Object.keys(config).length === 0 ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             配置数据尚未写入会话元数据。
           </p>
         ) : (
@@ -10396,7 +10396,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     return (
       <Section title="Harness Engineering 配置">
         {Object.keys(config).length === 0 ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。
           </p>
         ) : (
@@ -10432,7 +10432,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     return (
       <Section title="Android 逆向配置">
         {Object.keys(config).length === 0 ? (
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm oh-text-muted">
             配置数据尚未写入会话元数据。
           </p>
         ) : (
@@ -10505,7 +10505,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       >
         <div class="min-w-0 flex-1">
           <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
-          <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <p class="text-sm mt-2 truncate oh-text-muted">
             {session.title}
           </p>
         </div>
@@ -10604,7 +10604,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
               <div class="mt-2 mb-2 text-sm font-extrabold">恢复通道</div>
               <div class="flex flex-wrap gap-2">
                 {stringListFromUnknown(rehydration['restored_channels']).length === 0 ? (
-                  <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <span class="text-sm oh-text-muted">
                     暂无恢复通道。
                   </span>
                 ) : (
@@ -10639,7 +10639,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           </Section>
           <Section title="命令策略">
             {!hasPromptMetadata ? (
-              <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-sm oh-text-muted">
                 Prompt 元数据尚不可用。
               </p>
             ) : (
@@ -10648,7 +10648,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                 <EntryRow label="允许规则" value={`${integerFromUnknown(lastPromptMetadata['allow_command_rule_count'])}`} />
                 <div class="flex flex-wrap gap-2">
                   {arrayFromUnknown(lastPromptMetadata['allow_command_rules']).length === 0 ? (
-                    <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <span class="text-sm oh-text-muted">
                       暂无显式允许命令规则。
                     </span>
                   ) : (
@@ -10727,7 +10727,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                     <div class="text-sm font-bold">
                       计划 #{planHistory.length - index} · {plan.status || '—'}
                     </div>
-                    <div class="mt-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <div class="mt-1 text-xs oh-text-muted">
                       {formatDialogDate(plan.created_at)} → {formatDialogDate(plan.updated_at)}
                     </div>
                     {plan.plan ? <div class="mt-2 text-sm whitespace-pre-wrap">{plan.plan}</div> : null}
@@ -10745,7 +10745,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           </Section>
           <Section title="最近错误">
             {recentErrors.length === 0 ? (
-              <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-sm oh-text-muted">
                 暂无会话错误。
               </p>
             ) : (
@@ -10779,7 +10779,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           <Section title={t('topbar.audit', '会话审计')}>
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <div class="text-xs font-bold oh-text-muted">
                   {metadataFieldLabel('session_id')}
                 </div>
                 <div class="mt-1 break-all text-sm font-semibold select-text">{session.id}</div>
@@ -10970,7 +10970,7 @@ function SessionThrottleDialog({
       <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
         {t('topbar.throttle.dialogTitle', '本会话流式节流')}
       </h2>
-      <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-xs mb-3 oh-text-muted">
         {t('topbar.throttle.dialogHint', '调整后在本会话中持久生效（重启后仍会保留）。留空 = 沿用全局值，0 = 关闭节流。')}
       </p>
       <div
@@ -10981,7 +10981,7 @@ function SessionThrottleDialog({
         }}
       >
         <div class="flex items-center justify-between text-xs mb-2">
-          <div style={{ color: 'var(--m3-on-surface-variant)' }} class="font-semibold">
+          <div class="font-semibold oh-text-muted">
             {t('topbar.throttle.gaugeTitle', '字符吞吐 (30s)')}
           </div>
           <div
@@ -11012,7 +11012,7 @@ function SessionThrottleDialog({
           <div class="text-sm font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
             {t('topbar.throttle.enabledTitle', '启用流式输出节流（本会话）')}
           </div>
-          <div class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <div class="text-xs oh-text-muted">
             {enabledOverride ? t('topbar.throttle.enabledOnHint', '已启用：按下方速率限制字符 / 卡片吞吐。') : t('topbar.throttle.enabledOffHint', '已关闭：流式响应将不再受任何节流限制，按 AI 真实速率渲染。')}
           </div>
         </div>
@@ -11062,7 +11062,7 @@ function SessionThrottleDialog({
           />
         </button>
       </div>
-      <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <label class="block text-xs mb-2 oh-text-muted">
         {t('topbar.throttle.charsLabel', '字符 / 秒（当前生效：{cur}）').replace('{cur}', String(current?.chars ?? 0))}
       </label>
       <input
@@ -11078,7 +11078,7 @@ function SessionThrottleDialog({
         }}
         placeholder={current ? String(current.chars) : '10'}
       />
-      <label class="block text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <label class="block text-xs mb-2 oh-text-muted">
         {t('topbar.throttle.cardsLabel', '卡片 / 秒（当前生效：{cur}）').replace('{cur}', String(current?.cards ?? 0))}
       </label>
       <input

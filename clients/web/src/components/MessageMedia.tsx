@@ -1336,7 +1336,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       <header ref={headerRef} class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold truncate">{item.name}</p>
-            <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <p class="text-xs oh-text-muted">
               {mediaKindLabel(item.kind)}
             </p>
           </div>
@@ -1420,7 +1420,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
                 </div>
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-bold truncate">{item.name}</p>
-                  <p class="mt-1 text-xs break-all" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <p class="mt-1 text-xs break-all oh-text-muted">
                     {item.path}
                   </p>
                   <div class="mt-4 flex flex-wrap gap-2">
@@ -1635,8 +1635,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
                 }}
               />
               <p
-                class="text-xs px-2 py-1 truncate"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
+                class="text-xs px-2 py-1 truncate oh-text-muted"
               >
                 {item.name}
               </p>
@@ -1717,8 +1716,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
             <span class="truncate">{item.name}</span>
             {item.hintLabel ? (
               <span
-                class="ml-auto text-[10px]"
-                style={{ color: 'var(--m3-on-surface-variant)' }}
+                class="ml-auto text-[10px] oh-text-muted"
               >
                 {t('detail.media.kind.' + item.hintLabel, item.hintLabel)}
               </span>

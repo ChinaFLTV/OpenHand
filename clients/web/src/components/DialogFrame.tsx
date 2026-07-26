@@ -461,8 +461,7 @@ export function DialogHeader({
           </h2>
           {subtitle ? (
             <p
-              class={subtitleClassName}
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class={classNames('oh-text-muted', subtitleClassName)}
             >
               {subtitle}
             </p>

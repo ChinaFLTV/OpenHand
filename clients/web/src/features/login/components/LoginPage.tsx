@@ -73,13 +73,13 @@ export function LoginPage() {
         <h1 class="text-2xl font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>
           {t('login.title')}
         </h1>
-        <p class="text-sm mb-6" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-sm mb-6 oh-text-muted">
           {t('login.subtitle')}
         </p>
 
         <form onSubmit={onSubmit} class="flex flex-col gap-4">
           <label class="flex flex-col gap-1">
-            <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <span class="text-xs oh-text-muted">
               {t('login.username')}
             </span>
             <input
@@ -95,7 +95,7 @@ export function LoginPage() {
             />
           </label>
           <label class="flex flex-col gap-1">
-            <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            <span class="text-xs oh-text-muted">
               {t('login.password')}
             </span>
             <input

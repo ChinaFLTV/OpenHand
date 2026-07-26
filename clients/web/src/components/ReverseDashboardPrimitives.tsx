@@ -55,8 +55,7 @@ export function DashboardMetric({ label, value }: { label: string; value: string
       }}
     >
       <div
-        class="text-xs font-semibold"
-        style={{ color: 'var(--m3-on-surface-variant)' }}
+        class="text-xs font-semibold oh-text-muted"
       >
         {label}
       </div>
@@ -82,8 +81,7 @@ export function DashboardInfoRow({
   return (
     <div class="flex items-start gap-3">
       <div
-        class="text-xs uppercase pt-0.5 shrink-0 w-24"
-        style={{ color: 'var(--m3-on-surface-variant)' }}
+        class="text-xs uppercase pt-0.5 shrink-0 w-24 oh-text-muted"
       >
         {label}
       </div>
@@ -113,8 +111,7 @@ export function DashboardSection({
       }}
     >
       <div
-        class="text-xs font-semibold mb-2.5"
-        style={{ color: 'var(--m3-on-surface-variant)' }}
+        class="text-xs font-semibold mb-2.5 oh-text-muted"
       >
         {title}
       </div>
@@ -134,7 +131,7 @@ export function DashboardChipList({
 }) {
   if (values.length === 0) {
     return (
-      <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-sm oh-text-muted">
         {emptyLabel}
       </p>
     );
@@ -218,8 +215,7 @@ export function DashboardStatusPanel({
           {label}
         </span>
         <span
-          class="text-sm"
-          style={{ color: 'var(--m3-on-surface-variant)' }}
+          class="text-sm oh-text-muted"
         >
           {detail}
         </span>

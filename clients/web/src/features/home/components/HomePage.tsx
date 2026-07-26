@@ -13,7 +13,7 @@ export function HomePage() {
   }, []);
   return (
     <main class="min-h-screen flex items-center justify-center">
-      <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-sm oh-text-muted">
         {t('home.redirecting', '正在跳转到会话列表…')}
       </p>
     </main>

@@ -300,8 +300,7 @@ export function ModelPickerDialog({
           </div>
           {query.trim() ? (
             <p
-              class="text-xs mt-2"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class="text-xs mt-2 oh-text-muted"
             >
               {t('modelPicker.count', '匹配 ')}
               {filtered.length} / {models.length}
@@ -311,15 +310,13 @@ export function ModelPickerDialog({
         <div class="flex-1 overflow-y-auto pb-2" style={{ minHeight: 0 }} ref={listRef}>
           {models.length === 0 ? (
             <p
-              class="text-sm text-center py-12 px-6"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class="text-sm text-center py-12 px-6 oh-text-muted"
             >
               {t('modelPicker.empty', '主控制台未配置模型')}
             </p>
           ) : filtered.length === 0 ? (
             <p
-              class="text-sm text-center py-12 px-6"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class="text-sm text-center py-12 px-6 oh-text-muted"
             >
               {t('modelPicker.noMatch', '无匹配模型')}
             </p>

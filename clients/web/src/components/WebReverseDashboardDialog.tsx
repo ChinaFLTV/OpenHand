@@ -266,7 +266,7 @@ function NextActionPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
         background: 'var(--m3-surface-container-low)',
       }}
     >
-      <div class="text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <div class="text-xs font-semibold oh-text-muted">
         {t('webReverse.runtime.nextAction', '下一步')}
       </div>
       <div class="mt-1 text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
@@ -301,7 +301,7 @@ function ArtifactPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
         background: 'var(--m3-surface-container-high)',
       }}
     >
-      <div class="text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <div class="text-xs font-semibold oh-text-muted">
         {t('webReverse.runtime.artifacts', '本地工件')}
       </div>
       <div class="mt-2 space-y-1.5">
@@ -316,7 +316,7 @@ function ArtifactPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
 function OverviewTab({ config }: { config: WebReverseConfig | null }) {
   return (
     <>
-      <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <p class="text-sm oh-text-muted">
         {t(
           'webReverse.dashboard.webOnlyHint',
           'Web 端只展示会话配置摘要。完整 CDP 实时数据 / 网络面板 / 控制台请在桌面应用中打开。',

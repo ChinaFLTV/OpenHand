@@ -4823,7 +4823,7 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
           {kind ? <MetaChip label={kind} /> : null}
         </div>
         {recordCount != null ? (
-          <span class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <span class="text-xs oh-text-muted">
             {recordCount} {t('detail.fileMutation.records', '条记录')}
           </span>
         ) : null}
@@ -4859,14 +4859,14 @@ function FileMutationSummaryCard({ message }: { message: SessionMessage }) {
           ))}
         </ul>
       ) : (
-        <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-xs oh-text-muted">
           {recordCount != null
             ? t('detail.fileMutation.summaryOnly', '本轮文件变动记录已归档，可在 App 端查看完整 diff 与撤销记录。')
             : t('detail.fileMutation.empty', '暂无可展示的文件路径。')}
         </p>
       )}
       {reason ? (
-        <p class="text-xs mt-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-xs mt-2 oh-text-muted">
           {reason}
         </p>
       ) : null}
@@ -4902,7 +4902,7 @@ function ToolSection({
   const preRef = useStickyBottom<HTMLPreElement>(formattedContent, autoFollow);
   return (
     <section class="oh-tool-section">
-      <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
+      <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px] oh-text-muted">
         <span style={{ fontWeight: 600, color: danger ? 'var(--m3-error)' : undefined }}>{title}</span>
         {long ? (
           <button
@@ -5096,8 +5096,7 @@ function ToolArgumentsBlock({
   return (
     <div class="mb-2">
       <div
-        class="text-[11px] mb-1 flex items-center gap-2"
-        style={{ color: 'var(--m3-on-surface-variant)' }}
+        class="text-[11px] mb-1 flex items-center gap-2 oh-text-muted"
       >
         <span style={{ fontWeight: 600 }}>{t('detail.tool.argumentsTitle', '工具入参')}</span>
         {overflow ? (

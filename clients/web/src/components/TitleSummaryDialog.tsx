@@ -268,12 +268,12 @@ export function TitleSummaryDialog({
               <h3 class="text-base font-semibold mb-1">
                 {t('titleSummary.title', '获取 AI 摘要标题')}
               </h3>
-              <p class="text-xs mb-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-xs mb-4 oh-text-muted">
                 {t('titleSummary.hint', '选择参与标题总结的用户消息区间')}
               </p>
 
               <div class="mb-4">
-                <label class="block text-xs font-medium mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <label class="block text-xs font-medium mb-1 oh-text-muted">
                   {t('titleSummary.model', '标题生成模型')}
                 </label>
                 <button
@@ -290,7 +290,7 @@ export function TitleSummaryDialog({
                   <span class="block text-sm font-semibold truncate">
                     {selectedModel?.label ?? t('titleSummary.noModel', '无可用模型，将使用文本兜底')}
                   </span>
-                  <span class="block text-xs truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <span class="block text-xs truncate oh-text-muted">
                     {selectedModel
                       ? `${selectedModel.provider}${selectedModel.protocol ? ` (${selectedModel.protocol})` : ''}`
                       : t('titleSummary.modelHint', '默认按当前线程模型、同提供商默认标题模型、全局默认标题模型依次选择')}
@@ -299,19 +299,19 @@ export function TitleSummaryDialog({
               </div>
 
               {totalMessages === 0 ? (
-                <p class="text-sm py-4 text-center" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                <p class="text-sm py-4 text-center oh-text-muted">
                   {t('titleSummary.noMessages', '暂无用户消息可供总结')}
                 </p>
               ) : (
                 <div ref={sliderContainerRef} class="mb-4 relative">
-                  <div class="flex justify-between text-xs mb-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <div class="flex justify-between text-xs mb-2 oh-text-muted">
                     <span>{t('titleSummary.from', '起始')}: #{startIdx + 1}</span>
                     <span>{t('titleSummary.to', '结束')}: #{endIdx + 1}</span>
                   </div>
 
                   {/* 起始滑块 */}
                   <div class="mb-2">
-                    <label class="text-xs font-medium" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <label class="text-xs font-medium oh-text-muted">
                       {t('titleSummary.startMessage', '起始消息')}
                     </label>
                     <input
@@ -329,7 +329,7 @@ export function TitleSummaryDialog({
 
                   {/* 结束滑块 */}
                   <div class="mb-3">
-                    <label class="text-xs font-medium" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    <label class="text-xs font-medium oh-text-muted">
                       {t('titleSummary.endMessage', '结束消息')}
                     </label>
                     <input
@@ -345,7 +345,7 @@ export function TitleSummaryDialog({
                     />
                   </div>
 
-                  <p class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  <p class="text-xs oh-text-muted">
                     {t('titleSummary.selected', '已选择')} {selectedCount} {t('titleSummary.messagesUnit', '条用户消息')}
                   </p>
 
@@ -433,7 +433,7 @@ export function TitleSummaryDialog({
                   ? t('titleSummary.loadFailed', '线程消息读取失败')
                   : t('titleSummary.failed', '标题生成失败')}
               </p>
-              <p class="text-xs text-center px-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              <p class="text-xs text-center px-4 oh-text-muted">
                 {errorMessage}
               </p>
               <div class="flex gap-3 mt-2">

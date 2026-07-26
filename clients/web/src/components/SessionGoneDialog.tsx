@@ -91,7 +91,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
         </h2>
       </header>
       <div class="px-6 pb-4">
-        <p class="text-sm leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-sm leading-relaxed oh-text-muted">
           {t(
             'sessionGone.body',
             '当前会话已被删除或在另一台设备上移除。请返回会话列表选择其它会话或新建一个。',

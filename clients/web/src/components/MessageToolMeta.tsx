@@ -191,8 +191,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
 
   return (
     <div
-      class="oh-tool-meta text-xs flex flex-wrap items-center gap-1.5 mb-2"
-      style={{ color: 'var(--m3-on-surface-variant)' }}
+      class="oh-tool-meta text-xs flex flex-wrap items-center gap-1.5 mb-2 oh-text-muted"
     >
       {ex.toolName ? (
         <span
@@ -375,8 +374,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
       ) : null}
       {ex.writeReason ? (
         <span
-          class="oh-tool-write-reason text-[11px] basis-full mt-1 italic truncate"
-          style={{ color: 'var(--m3-on-surface-variant)' }}
+          class="oh-tool-write-reason text-[11px] basis-full mt-1 italic truncate oh-text-muted"
           title={ex.writeReason}
         >
           {t('detail.tool.writeReason', '写入原因：')}

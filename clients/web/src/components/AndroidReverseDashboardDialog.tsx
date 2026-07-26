@@ -288,7 +288,7 @@ function ConfigTab({ metadata }: { metadata: Record<string, unknown> }) {
     <div class="space-y-4">
       {Object.keys(config).length === 0 ? (
         <DashboardSection title="任务配置">
-          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>该会话尚未写入 android_reverse_config。</p>
+          <p class="text-sm oh-text-muted">该会话尚未写入 android_reverse_config。</p>
         </DashboardSection>
       ) : (
         <DashboardSection title="任务配置">

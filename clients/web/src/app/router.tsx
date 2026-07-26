@@ -31,7 +31,7 @@ function RequireAuth(props: { children: ComponentChildren }) {
   if (auth.loading) {
     return (
       <main class="min-h-screen flex items-center justify-center">
-        <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-sm oh-text-muted">
           {t('guard.checking')}
         </p>
       </main>
@@ -50,7 +50,7 @@ function NotFound() {
         <p class="text-3xl font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
           404
         </p>
-        <p class="text-sm mt-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-sm mt-2 oh-text-muted">
           页面不存在
         </p>
       </div>
@@ -72,7 +72,7 @@ function FeatureUnavailable(props: { title: string; body: string }) {
         <p class="text-lg font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
           {props.title}
         </p>
-        <p class="text-sm mt-2" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        <p class="text-sm mt-2 oh-text-muted">
           {props.body}
         </p>
       </div>

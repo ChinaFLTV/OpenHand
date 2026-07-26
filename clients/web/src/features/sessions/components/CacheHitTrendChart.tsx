@@ -265,8 +265,7 @@ function CacheHitCompositionSummary({
         {items.map((item) => (
           <span
             key={item.label}
-            class="flex items-center gap-1.5 text-[10px] font-semibold tabular-nums"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
+            class="flex items-center gap-1.5 text-[10px] font-semibold tabular-nums oh-text-muted"
           >
             <span
               class="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -623,8 +622,7 @@ export default function CacheHitTrendChart({
           <div style={{ flex: 1 }} />
           {exclusionHint ? (
             <span
-              class="text-xs"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
+              class="text-xs oh-text-muted"
             >
               {exclusionHint}
             </span>
@@ -715,8 +713,7 @@ export default function CacheHitTrendChart({
         <div style={{ flex: 1 }} />
         {exclusionHint ? (
           <span
-            class="text-xs"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
+            class="text-xs oh-text-muted"
           >
             {exclusionHint}
           </span>
