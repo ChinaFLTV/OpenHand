@@ -1114,7 +1114,7 @@ class AgentsController extends ManagedChangeNotifier {
       usage.extra[_resourceTelemetryExtraKey],
     );
     final activeTaskCount = agent.tasks
-        .where((task) => !_taskStatusIsTerminal(task.status))
+        .where((task) => !task.status.isTerminal)
         .length;
     final busyWorkerCount = agent.workers
         .where(
@@ -1837,7 +1837,7 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   bool _canUpdateTaskState(AgentTask task, AgentTaskStatus? nextStatus) {
-    if (_taskStatusIsTerminal(task.status)) return false;
+    if (task.status.isTerminal) return false;
     if (nextStatus == null) return true;
     if (nextStatus == task.status) return true;
     return switch (task.status) {
@@ -1854,19 +1854,6 @@ class AgentsController extends ManagedChangeNotifier {
       AgentTaskStatus.completed ||
       AgentTaskStatus.failed ||
       AgentTaskStatus.canceled => false,
-    };
-  }
-
-  bool _taskStatusIsTerminal(AgentTaskStatus status) {
-    return switch (status) {
-      AgentTaskStatus.completed ||
-      AgentTaskStatus.failed ||
-      AgentTaskStatus.canceled => true,
-      AgentTaskStatus.backlog ||
-      AgentTaskStatus.ready ||
-      AgentTaskStatus.running ||
-      AgentTaskStatus.waitingApproval ||
-      AgentTaskStatus.paused => false,
     };
   }
 
@@ -2022,7 +2009,7 @@ class AgentsController extends ManagedChangeNotifier {
     };
   }
 
-  /// 语义独立于 [_taskStatusIsTerminal]：这里回答“是否计入已执行数”，
+  /// 语义独立于 [AgentTaskStatus.isTerminal]：这里回答“是否计入已执行数”，
   /// 当前取值集合恰好相同，一旦两个概念分叉必须各自演进，勿合并。
   bool _taskStatusCountsExecution(AgentTaskStatus status) {
     return switch (status) {

@@ -308,9 +308,11 @@ class _ThreadSessionManagementDialogState
       }
       return;
     }
+    // 绑定为 final：可空局部变量的类型提升不会延续到下面的闭包里。
+    final session = full;
     final config = await showAiSessionExportConfigDialog(
       context: context,
-      totalMessages: full.messages.length,
+      totalMessages: session.messages.length,
     );
     if (config == null || !mounted) return;
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
@@ -318,7 +320,7 @@ class _ThreadSessionManagementDialogState
     try {
       location = await getSaveLocation(
         suggestedName: jsonlExportPickerSuggestedName(
-          buildJsonlExportFilename(title: full.title, sessionId: full.id),
+          buildJsonlExportFilename(title: session.title, sessionId: session.id),
         ),
         acceptedTypeGroups: const <XTypeGroup>[typeGroup],
       );
@@ -326,34 +328,27 @@ class _ThreadSessionManagementDialogState
       silentLog('thread_session_management_dialog', '导出：选择保存位置', error, stack);
     }
     if (location == null || !mounted) return;
-    final cancelToken = ExportCancelToken();
-    final progressController = ExportProgressController(
-      cancelToken: cancelToken,
-    );
-    final dialogSession = showExportProgressDialog(
+    final destinationPath = normalizeJsonlExportPath(location.path);
+    final result = await runWithExportProgressDialog(
       context: context,
-      controller: progressController,
       title: AppLocalizations.of(context)!.tsmExportSessionDataTitle,
-      subtitle: AppLocalizations.of(context)!.tsmExportingSession(full.title),
+      subtitle: AppLocalizations.of(
+        context,
+      )!.tsmExportingSession(session.title),
       cancelLabel: AppLocalizations.of(context)!.tsmCancel,
-    );
-    ExportResult result;
-    try {
-      result = await exportAiSessionToJsonl(
-        session: full,
-        destinationPath: normalizeJsonlExportPath(location.path),
-        cancelToken: cancelToken,
-        config: config,
-        onProgress: progressController.updateProgress,
-      );
-    } catch (error, stack) {
-      silentLog('thread_session_management_dialog', '执行会话导出', error, stack);
-      result = ExportResult(kind: ExportResultKind.failure, error: error);
-    }
-    progressController.markFinished();
-    await dialogSession.dismiss(
       logTag: 'thread_session_management_dialog',
       logAction: '关闭导出进度弹窗',
+      run: (cancelToken, progressController) => _runBoundedExport(
+        logAction: '执行会话导出',
+        cancelToken: cancelToken,
+        export: () => exportAiSessionToJsonl(
+          session: session,
+          destinationPath: destinationPath,
+          cancelToken: cancelToken,
+          config: config,
+          onProgress: progressController.updateProgress,
+        ),
+      ),
     );
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
@@ -367,6 +362,27 @@ class _ThreadSessionManagementDialogState
       _outcomeSuccessSignal.value++;
     } else {
       _outcomeErrorSignal.value++;
+    }
+  }
+
+  /// 导出统一走超时与失败兜底：此前批量循环里每一项都是无限等待，一次卡住
+  /// 的写入会把整批钉死，用户只剩强退这一条路。
+  Future<ExportResult> _runBoundedExport({
+    required String logAction,
+    required ExportCancelToken cancelToken,
+    required Future<ExportResult> Function() export,
+  }) async {
+    try {
+      return await export().timeout(
+        kOpenHandExportTimeout,
+        onTimeout: () {
+          cancelToken.cancel();
+          return const ExportResult(kind: ExportResultKind.failure);
+        },
+      );
+    } catch (error, stack) {
+      silentLog('thread_session_management_dialog', logAction, error, stack);
+      return ExportResult(kind: ExportResultKind.failure, error: error);
     }
   }
 
@@ -392,68 +408,63 @@ class _ThreadSessionManagementDialogState
       allowRange: false,
     );
     if (config == null || !mounted) return;
-    final cancelToken = ExportCancelToken();
-    final progressController = ExportProgressController(
-      cancelToken: cancelToken,
-    );
-    final dialogSession = showExportProgressDialog(
+    var ok = 0;
+    var failed = 0;
+    await runWithExportProgressDialog<void>(
       context: context,
-      controller: progressController,
       title: AppLocalizations.of(context)!.tsmBatchExportTitle,
       subtitle: AppLocalizations.of(
         context,
       )!.tsmBatchExportSubtitle(ids.length),
       cancelLabel: AppLocalizations.of(context)!.tsmCancel,
-    );
-    var ok = 0;
-    var failed = 0;
-    for (var i = 0; i < ids.length; i++) {
-      if (cancelToken.isCancelled) break;
-      final id = ids[i];
-      progressController.updateProgress(
-        ExportProgress(processed: i, total: ids.length),
-      );
-      AiSession? full;
-      try {
-        full = await controller.store.loadSession(id);
-      } catch (error, stack) {
-        silentLog(
-          'thread_session_management_dialog',
-          '批量导出：加载会话',
-          error,
-          stack,
-        );
-      }
-      if (full == null) {
-        failed++;
-        continue;
-      }
-      final fileName = buildJsonlExportFilename(
-        title: full.title,
-        sessionId: full.id,
-      );
-      final destPath = '$folderPath/$fileName';
-      try {
-        final result = await exportAiSessionToJsonl(
-          session: full,
-          destinationPath: destPath,
-          cancelToken: cancelToken,
-          config: config,
-        );
-        if (result.kind == ExportResultKind.success) {
-          ok++;
-        } else {
-          failed++;
-        }
-      } catch (error, stack) {
-        silentLog('thread_session_management_dialog', '执行批量导出', error, stack);
-        failed++;
-      }
-    }
-    progressController.markFinished();
-    await dialogSession.dismiss(
       logTag: 'thread_session_management_dialog',
       logAction: '关闭批量导出进度弹窗',
+      run: (cancelToken, progressController) async {
+        for (var i = 0; i < ids.length; i++) {
+          if (cancelToken.isCancelled) break;
+          final id = ids[i];
+          progressController.updateProgress(
+            ExportProgress(processed: i, total: ids.length),
+          );
+          AiSession? full;
+          try {
+            full = await controller.store.loadSession(id);
+          } catch (error, stack) {
+            silentLog(
+              'thread_session_management_dialog',
+              '批量导出：加载会话',
+              error,
+              stack,
+            );
+          }
+          if (full == null) {
+            failed++;
+            continue;
+          }
+          // 绑定为 final：可空局部变量的类型提升不会延续到下面的闭包里。
+          final session = full;
+          final fileName = buildJsonlExportFilename(
+            title: session.title,
+            sessionId: session.id,
+          );
+          final destPath = '$folderPath/$fileName';
+          final result = await _runBoundedExport(
+            logAction: '执行批量导出',
+            cancelToken: cancelToken,
+            export: () => exportAiSessionToJsonl(
+              session: session,
+              destinationPath: destPath,
+              cancelToken: cancelToken,
+              config: config,
+            ),
+          );
+          if (result.kind == ExportResultKind.success) {
+            ok++;
+          } else {
+            failed++;
+          }
+        }
+      },
     );
     if (!mounted) return;
     final batchMessage = AppLocalizations.of(

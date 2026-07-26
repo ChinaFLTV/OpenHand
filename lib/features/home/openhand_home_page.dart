@@ -8416,7 +8416,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// Hard cap on a single export operation so a corrupt session can never
   /// hang the UI indefinitely.
-  static const Duration _exportTimeout = Duration(minutes: 5);
+  /// 导出统一走超时与失败兜底，避免某次卡住的写入把进度弹窗永久留在屏幕上。
+  Future<ExportResult> _runBoundedExport({
+    required String logAction,
+    required Future<ExportResult> Function() export,
+    required ExportCancelToken cancelToken,
+  }) async {
+    try {
+      return await export().timeout(
+        kOpenHandExportTimeout,
+        onTimeout: () {
+          cancelToken.cancel();
+          return const ExportResult(kind: ExportResultKind.failure);
+        },
+      );
+    } catch (error, stack) {
+      silentLog('openhand_home_page', logAction, error, stack);
+      return ExportResult(kind: ExportResultKind.failure, error: error);
+    }
+  }
 
   Future<void> _exportSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
@@ -8453,11 +8471,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return;
     }
+    // 绑定为 final：可空局部变量的类型提升不会延续到下面的闭包里。
+    final loadedSession = loaded;
 
     // Step 2: collect the export configuration from the user.
     final config = await showAiSessionExportConfigDialog(
       context: context,
-      totalMessages: loaded.messages.length,
+      totalMessages: loadedSession.messages.length,
     );
     if (config == null || !mounted) return;
 
@@ -8489,48 +8509,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (location == null || !mounted) return;
 
     // Step 4: kick off the streamed export with progress UI.
-    final cancelToken = ExportCancelToken();
-    final progressController = ExportProgressController(
-      cancelToken: cancelToken,
-    );
-
-    final dialogSession = showExportProgressDialog(
+    final destinationPath = normalizeJsonlExportPath(location.path);
+    final result = await runWithExportProgressDialog(
       context: context,
-      controller: progressController,
       title: _homeExportSessionDataLabel(context),
       subtitle: openHandLocalizedText(
         context,
-        zh: '正在导出 “${loaded.title}”…',
-        en: 'Exporting "${loaded.title}"…',
+        zh: '正在导出 “${loadedSession.title}”…',
+        en: 'Exporting "${loadedSession.title}"…',
       ),
       cancelLabel: openHandCancelLabel(context),
-    );
-
-    final destinationPath = normalizeJsonlExportPath(location.path);
-    ExportResult result;
-    try {
-      result =
-          await exportAiSessionToJsonl(
-            session: loaded,
-            destinationPath: destinationPath,
-            cancelToken: cancelToken,
-            config: config,
-            onProgress: progressController.updateProgress,
-          ).timeout(
-            _exportTimeout,
-            onTimeout: () {
-              cancelToken.cancel();
-              return const ExportResult(kind: ExportResultKind.failure);
-            },
-          );
-    } catch (error, stack) {
-      silentLog('openhand_home_page', '导出会话', error, stack);
-      result = ExportResult(kind: ExportResultKind.failure, error: error);
-    }
-    progressController.markFinished();
-    await dialogSession.dismiss(
       logTag: 'openhand_home_page',
       logAction: '导出会话：关闭进度对话框',
+      run: (cancelToken, progressController) => _runBoundedExport(
+        logAction: '导出会话',
+        export: () => exportAiSessionToJsonl(
+          session: loadedSession,
+          destinationPath: destinationPath,
+          cancelToken: cancelToken,
+          config: config,
+          onProgress: progressController.updateProgress,
+        ),
+        cancelToken: cancelToken,
+      ),
     );
 
     if (!mounted) return;
@@ -8575,14 +8576,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (location == null || !mounted) return;
 
-    final cancelToken = ExportCancelToken();
-    final progressController = ExportProgressController(
-      cancelToken: cancelToken,
-    );
-
-    final dialogSession = showExportProgressDialog(
+    final destinationPath = normalizeJsonlExportPath(location.path);
+    final result = await runWithExportProgressDialog(
       context: context,
-      controller: progressController,
       title: _homeExportSessionDataLabel(context),
       subtitle: openHandLocalizedText(
         context,
@@ -8590,33 +8586,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'Exporting "${record.title}"…',
       ),
       cancelLabel: openHandCancelLabel(context),
-    );
-
-    final destinationPath = normalizeJsonlExportPath(location.path);
-    ExportResult result;
-    try {
-      result =
-          await exportHarnessSessionToJsonl(
-            record: record,
-            destinationPath: destinationPath,
-            cancelToken: cancelToken,
-            config: config,
-            onProgress: progressController.updateProgress,
-          ).timeout(
-            _exportTimeout,
-            onTimeout: () {
-              cancelToken.cancel();
-              return const ExportResult(kind: ExportResultKind.failure);
-            },
-          );
-    } catch (error, stack) {
-      silentLog('openhand_home_page', '导出 Harness 会话', error, stack);
-      result = ExportResult(kind: ExportResultKind.failure, error: error);
-    }
-    progressController.markFinished();
-    await dialogSession.dismiss(
       logTag: 'openhand_home_page',
       logAction: '导出 Harness 会话：关闭进度对话框',
+      run: (cancelToken, progressController) => _runBoundedExport(
+        logAction: '导出 Harness 会话',
+        export: () => exportHarnessSessionToJsonl(
+          record: record,
+          destinationPath: destinationPath,
+          cancelToken: cancelToken,
+          config: config,
+          onProgress: progressController.updateProgress,
+        ),
+        cancelToken: cancelToken,
+      ),
     );
 
     if (!mounted) return;

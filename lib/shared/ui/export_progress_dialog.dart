@@ -7,6 +7,12 @@ import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
+/// 单次导出的等待上限：超过即视为卡死，取消并按失败收场。
+///
+/// 导出走的是本地文件写入，正常量级远达不到分钟级；给上限只是不让某次异常
+/// 卡住的写入把进度弹窗永久钉在屏幕上。
+const Duration kOpenHandExportTimeout = Duration(minutes: 5);
+
 /// Listenable controller backing the export progress dialog. Holds the
 /// current progress payload, a cancellation token, and the latest result.
 class ExportProgressController extends ChangeNotifier {
@@ -159,4 +165,42 @@ OpenHandDialogSession<void> showExportProgressDialog({
     }),
   );
   return session;
+}
+
+/// 跑一次带进度弹窗的导出：建取消令牌 → 开弹窗 → 执行 → 收弹窗。
+///
+/// 四处导出流程此前各写一遍这几步。少一步 [ExportProgressController.markFinished]
+/// 就会让弹窗关闭时把一次已完成的导出当成用户取消，回头去 cancel 它；而
+/// dismiss 写在 `try` 外还是里，决定了导出抛异常时弹窗会不会留在屏幕上。
+///
+/// [run] 拿到令牌与控制器后自行决定超时与失败取值，因此批量导出这类返回值不是
+/// [ExportResult] 的流程也能共用。
+Future<T> runWithExportProgressDialog<T>({
+  required BuildContext context,
+  required String title,
+  required String subtitle,
+  required String cancelLabel,
+  required String logTag,
+  required String logAction,
+  required Future<T> Function(
+    ExportCancelToken cancelToken,
+    ExportProgressController controller,
+  )
+  run,
+}) async {
+  final cancelToken = ExportCancelToken();
+  final controller = ExportProgressController(cancelToken: cancelToken);
+  final session = showExportProgressDialog(
+    context: context,
+    controller: controller,
+    title: title,
+    subtitle: subtitle,
+    cancelLabel: cancelLabel,
+  );
+  try {
+    return await run(cancelToken, controller);
+  } finally {
+    controller.markFinished();
+    await session.dismiss(logTag: logTag, logAction: logAction);
+  }
 }
