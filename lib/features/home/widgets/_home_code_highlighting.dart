@@ -643,45 +643,28 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
                     viewportWidth,
                     math.min(3600.0, 96.0 + maxTextLength * 7.6),
                   );
-                  return SizedBox(
+                  return _CodeLineViewport(
                     height: bodyHeight,
-                    child: PrimaryScrollController.none(
-                      child: OpenHandSafeScrollbar(
-                        controller: _verticalController,
-                        child: SingleChildScrollView(
-                          controller: _horizontalController,
-                          scrollDirection: Axis.horizontal,
-                          primary: false,
-                          child: SizedBox(
-                            width: contentWidth,
-                            child: SelectionArea(
-                              child: ListView.builder(
-                                controller: _verticalController,
-                                primary: false,
-                                padding: EdgeInsets.zero,
-                                itemExtent: rowExtent,
-                                itemCount: visibleLines.length,
-                                itemBuilder: (context, index) {
-                                  final line = visibleLines[index];
-                                  return _CodexDiffLineRow(
-                                    line: line,
-                                    minWidth: viewportWidth,
-                                    highlighter: highlighter,
-                                    language: widget.language,
-                                    baseStyle: baseStyle,
-                                    palette: palette,
-                                    cacheKey:
-                                        'inline-diff|$_contentKey|'
-                                        '${brightness.name}|${codeTheme.name}|'
-                                        '$paletteSignature|$index',
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    contentWidth: contentWidth,
+                    rowExtent: rowExtent,
+                    itemCount: visibleLines.length,
+                    verticalController: _verticalController,
+                    horizontalController: _horizontalController,
+                    itemBuilder: (context, index) {
+                      final line = visibleLines[index];
+                      return _CodexDiffLineRow(
+                        line: line,
+                        minWidth: viewportWidth,
+                        highlighter: highlighter,
+                        language: widget.language,
+                        baseStyle: baseStyle,
+                        palette: palette,
+                        cacheKey:
+                            'inline-diff|$_contentKey|'
+                            '${brightness.name}|${codeTheme.name}|'
+                            '$paletteSignature|$index',
+                      );
+                    },
                   );
                 },
               ),

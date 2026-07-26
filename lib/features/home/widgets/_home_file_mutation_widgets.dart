@@ -1782,54 +1782,35 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.topCenter,
-                  child: SizedBox(
+                  child: _CodeLineViewport(
                     height: bodyHeight,
-                    child: PrimaryScrollController.none(
-                      child: OpenHandSafeScrollbar(
-                        controller: _verticalController,
-                        child: SingleChildScrollView(
-                          controller: _horizontalController,
-                          scrollDirection: Axis.horizontal,
-                          primary: false,
-                          child: SizedBox(
-                            width: contentWidth,
-                            child: SelectionArea(
-                              child: ListView.builder(
-                                controller: _verticalController,
-                                primary: false,
-                                padding: EdgeInsets.zero,
-                                itemExtent: rowExtent,
-                                itemCount: visibleLines.length,
-                                itemBuilder: (context, index) {
-                                  final line = visibleLines[index];
-                                  final foldKey = _foldKey(line);
-                                  return _CodexDiffLineRow(
-                                    line: line,
-                                    minWidth: viewportWidth,
-                                    highlighter: highlighter,
-                                    language: _languageFromFilePath(
-                                      widget.record.filePath,
-                                    ),
-                                    baseStyle: baseStyle,
-                                    palette: palette,
-                                    cacheKey:
-                                        '${_diffKey ?? widget.record.recordId}|'
-                                        '${brightness.name}|${codeTheme.name}|'
-                                        '$paletteSignature|$index',
-                                    foldedExpanded:
-                                        foldKey != null &&
-                                        _expandedFoldKeys.contains(foldKey),
-                                    onToggleFold: foldKey == null
-                                        ? null
-                                        : () => _toggleFold(line),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    contentWidth: contentWidth,
+                    rowExtent: rowExtent,
+                    itemCount: visibleLines.length,
+                    verticalController: _verticalController,
+                    horizontalController: _horizontalController,
+                    itemBuilder: (context, index) {
+                      final line = visibleLines[index];
+                      final foldKey = _foldKey(line);
+                      return _CodexDiffLineRow(
+                        line: line,
+                        minWidth: viewportWidth,
+                        highlighter: highlighter,
+                        language: _languageFromFilePath(widget.record.filePath),
+                        baseStyle: baseStyle,
+                        palette: palette,
+                        cacheKey:
+                            '${_diffKey ?? widget.record.recordId}|'
+                            '${brightness.name}|${codeTheme.name}|'
+                            '$paletteSignature|$index',
+                        foldedExpanded:
+                            foldKey != null &&
+                            _expandedFoldKeys.contains(foldKey),
+                        onToggleFold: foldKey == null
+                            ? null
+                            : () => _toggleFold(line),
+                      );
+                    },
                   ),
                 ),
                 if (clipped ||
@@ -1843,6 +1824,62 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// 代码 / diff 行视图的双向滚动外壳。
+///
+/// 纵向由 [verticalController] 驱动列表本体，横向由 [horizontalController]
+/// 承载超宽内容；[PrimaryScrollController.none] 用来切断与页面主滚动的耦合，
+/// 否则代码块内的滚轮事件会一路冒泡到会话列表。内联 diff 面板与文件改动卡片
+/// 此前各写了一份完全相同的六层嵌套。
+class _CodeLineViewport extends StatelessWidget {
+  const _CodeLineViewport({
+    required this.height,
+    required this.contentWidth,
+    required this.rowExtent,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.verticalController,
+    required this.horizontalController,
+  });
+
+  final double height;
+  final double contentWidth;
+  final double rowExtent;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final ScrollController verticalController;
+  final ScrollController horizontalController;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: PrimaryScrollController.none(
+        child: OpenHandSafeScrollbar(
+          controller: verticalController,
+          child: SingleChildScrollView(
+            controller: horizontalController,
+            scrollDirection: Axis.horizontal,
+            primary: false,
+            child: SizedBox(
+              width: contentWidth,
+              child: SelectionArea(
+                child: ListView.builder(
+                  controller: verticalController,
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  itemExtent: rowExtent,
+                  itemCount: itemCount,
+                  itemBuilder: itemBuilder,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
