@@ -2558,6 +2558,13 @@ class _ShellWriteCommandAnalyzer {
     if (commandName == 'curl') {
       return _analyzeCurlInvocation(invocation);
     }
+    // 多用途系统工具要先按子命令判：它们的查询形态只读，但都带有会改系统
+    // 状态的子命令，无条件当只读会让这些子命令跳过写命令二次确认。
+    if (commandName == 'diskutil' ||
+        commandName == 'sysctl' ||
+        _systemToolWriteSubcommands.containsKey(commandName)) {
+      return _analyzeSystemToolInvocation(commandName, invocation);
+    }
     if (_readOnlyCommands.contains(commandName)) {
       return BashWriteAnalysis.readOnly('read-only command $commandName');
     }
@@ -2739,6 +2746,103 @@ class _ShellWriteCommandAnalyzer {
       break;
     }
     return BashWriteAnalysis.write('$commandName injects keyboard/mouse input');
+  }
+
+  /// 多用途系统工具：查询形态只读，但都带有会改系统状态的子命令。
+  ///
+  /// 值是「会改状态」的子命令/开关集合，命中即按写操作处理，走二次确认；
+  /// 其余形态（`ip addr`、`sysctl -a`、`diskutil list`）仍判为只读。
+  static const Map<String, Set<String>> _systemToolWriteSubcommands =
+      <String, Set<String>>{
+        // ip link set … down / ip addr del / ip route flush
+        'ip': <String>{
+          'set',
+          'add',
+          'change',
+          'replace',
+          'append',
+          'del',
+          'delete',
+          'flush',
+        },
+        // route add / delete 改路由表
+        'route': <String>{'add', 'delete', 'del', 'change', 'flush'},
+        // ifconfig en0 down / alias 会断网或改地址
+        'ifconfig': <String>{
+          'up',
+          'down',
+          'add',
+          'delete',
+          'alias',
+          '-alias',
+          'mtu',
+          'netmask',
+          'plumb',
+          'unplumb',
+        },
+        // arp -d 删表项、-s 增静态项
+        'arp': <String>{'-d', '-s', '-f'},
+        // dmesg -C/--clear 清内核环形缓冲
+        'dmesg': <String>{'-c', '-C', '--clear', '--read-clear'},
+        // journalctl --vacuum-*/--rotate/--flush 会删日志
+        'journalctl': <String>{
+          '--rotate',
+          '--flush',
+          '--sync',
+          '--vacuum-size',
+          '--vacuum-time',
+          '--vacuum-files',
+        },
+        // wmic … call/set/delete 能终止进程、改系统对象
+        'wmic': <String>{'call', 'set', 'delete', 'create'},
+      };
+
+  /// diskutil 只有这几个动词是查询，其余（eraseDisk / unmountDisk / repairVolume
+  /// / partitionDisk 等）都可能毁数据或卸载卷，故反过来白名单。
+  static const Set<String> _diskutilReadOnlyVerbs = <String>{
+    'list',
+    'info',
+    'activity',
+    'verifydisk',
+    'verifyvolume',
+  };
+
+  BashWriteAnalysis _analyzeSystemToolInvocation(
+    String commandName,
+    List<_ShellToken> invocation,
+  ) {
+    if (commandName == 'diskutil') {
+      for (final token in invocation.skip(1)) {
+        final value = token.text.toLowerCase();
+        if (value.startsWith('-')) continue;
+        return _diskutilReadOnlyVerbs.contains(value)
+            ? BashWriteAnalysis.readOnly('diskutil $value is read-only')
+            : BashWriteAnalysis.write('diskutil $value mutates disks');
+      }
+      // 裸 diskutil 只打印用法。
+      return const BashWriteAnalysis.readOnly('diskutil without subcommand');
+    }
+    // sysctl 的赋值形态：`sysctl -w k=v` 与 `sysctl k=v` 都会写内核参数。
+    if (commandName == 'sysctl') {
+      for (final token in invocation.skip(1)) {
+        if (token.text == '-w' || token.text.contains('=')) {
+          return BashWriteAnalysis.write('sysctl ${token.text} writes kernel parameters');
+        }
+      }
+      return const BashWriteAnalysis.readOnly('sysctl query is read-only');
+    }
+    final writeSubcommands = _systemToolWriteSubcommands[commandName];
+    if (writeSubcommands != null) {
+      for (final token in invocation.skip(1)) {
+        final value = token.text.toLowerCase();
+        if (writeSubcommands.contains(value)) {
+          return BashWriteAnalysis.write(
+            '$commandName $value mutates system state',
+          );
+        }
+      }
+    }
+    return BashWriteAnalysis.readOnly('read-only command $commandName');
   }
 
   BashWriteAnalysis _analyzeDefaultsInvocation(List<_ShellToken> invocation) {

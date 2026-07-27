@@ -2837,7 +2837,34 @@ class WebMessagePlatformService {
   }
 
   shelf.Response _apiMeta(shelf.Request request) {
+    // 完整 payload 里有用户自定义指令正文、模型与供应商清单、模板、快捷键、
+    // 工作区文件策略——都是私密配置。开了鉴权就只对已登录会话给完整版，
+    // 未登录只给登录页渲染真正需要的那几项。
+    if (_config.authEnabled && _authorize(request) == null) {
+      return _json(HttpStatus.ok, _publicMetaPayload());
+    }
     return _json(HttpStatus.ok, _metaPayload());
+  }
+
+  /// 登录前可匿名读取的最小元数据：服务标识、是否需要鉴权，以及登录页保持
+  /// 与桌面端一致外观所需的主题与偏好。不含任何用户内容。
+  Map<String, Object?> _publicMetaPayload() {
+    return <String, Object?>{
+      'service': <String, Object?>{
+        'id': webMessagePlatformBuiltinId,
+        'name': webMessagePlatformBuiltinName,
+        'description': _config.description,
+        'auth_enabled': _config.authEnabled,
+      },
+      'preferences': <String, Object?>{
+        'reduce_motion': _settingsController.reduceMotion,
+        'locale': _settingsController.locale.toLanguageTag(),
+        'language_storage_value': _settingsController.language.storageValue,
+        'dialog_animation_settings': _settingsController.dialogAnimationSettings
+            .toJson(),
+      },
+      'theme': _theme.toJson(),
+    };
   }
 
   Future<shelf.Response> _opsSnapshot() async {
@@ -3733,6 +3760,18 @@ class WebMessagePlatformService {
       });
     }
     if (_config.authEnabled) {
+      // 开了鉴权却没设密码时一律拒绝：口令为空字符串意味着任何客户端只要
+      // 提交空密码就能通过相等比较，而网关默认监听 0.0.0.0，等于对外裸奔。
+      // 这里选择拒绝而不是放行——把配置改对（设密码或关掉鉴权）才是出路。
+      if (_config.password.isEmpty) {
+        _log(
+          WebGatewayLogLevel.warn,
+          'AUTH',
+          '鉴权已开启但未设置密码，拒绝全部登录',
+          <String, Object?>{'device_id': deviceId, 'remote_ip': remoteAddress},
+        );
+        return _errorJson(HttpStatus.unauthorized, 'password_not_configured');
+      }
       final username = _string(body['username'], '').trim();
       final password = _string(body['password'], '');
       final credentialsTooLong =

@@ -124,12 +124,16 @@ export function useAuth(): AuthState {
 }
 
 /// 登录成功后调用：直接把 service 端 auth_enabled 视为已通过的状态。
+///
+/// 随后补拉一次 /api/meta——登录前那次是匿名的，只拿到公开字段，模型清单、
+/// 模板、用户指令要带上 token 才会下发。
 export function markLoggedIn(profile: AuthProfile): void {
   emit({
     ...current,
     isAuthenticated: true,
     profile,
   });
+  void refreshMeta().catch(ignoreError);
 }
 
 export function logout(): void {
@@ -145,6 +149,9 @@ export function logout(): void {
     isAuthenticated: !current.authRequired,
     profile: null,
   });
+  // 内存里的 meta 还留着登录期间拿到的模型清单与用户指令，登出后补拉一次
+  // 匿名版把它们换掉。
+  if (current.authRequired) void refreshMeta().catch(ignoreError);
   if (revokeRequest) void revokeRequest;
 }
 

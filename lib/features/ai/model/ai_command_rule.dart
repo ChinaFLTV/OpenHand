@@ -49,6 +49,13 @@ abstract class AiCommandRule {
   }
 }
 
+/// 判断命令是否命中规则。
+///
+/// `multiLine: true` 是刻意的：多行命令里任意一行命中即算命中。本函数唯一的
+/// 执行期用途是拦截方向的 deny 规则（[AiBashToolService] 逐条比对），放宽匹配
+/// 只会拦得更多，方向上是安全的。放行方向的 allow 规则只进提示词、不参与放行
+/// 判定，所以这里不存在「首行命中即整条豁免」的问题——改成单行锚定反而会让
+/// `a\nrm -rf /` 这类多行命令绕过 deny。
 bool aiCommandRuleMatches({
   required String pattern,
   required AiCommandMatchMode matchMode,

@@ -3220,23 +3220,23 @@ void _processGeminiStreamEvent(
     for (final part in parts) {
       if (part is! Map<String, Object?>) continue;
 
-      // Text delta.
-      final text = optionalStringFromValue(part['text']);
-      if (text != null) {
+      // 分片正文不能 trim：分片边界上的空格与换行本身就是正文的一部分，
+      // 逐片 trim 会吞掉词间空格与 markdown 的换行结构。与 Anthropic /
+      // OpenAI 两个分支的取法保持一致。
+      final text = '${part['text'] ?? ''}';
+
+      // 思维链要先判：Gemini 2.5 的 thought 分片同样带 text 字段，
+      // 若先消费 text 就永远轮不到这里，思维链会被当作正文写进 textBuffer。
+      if (part['thought'] == true) {
+        if (text.isNotEmpty) {
+          reasoningBuffer.write(text);
+          emitEvent(AiChatStreamEvent.reasoningDelta(text));
+          continue;
+        }
+      } else if (text.isNotEmpty) {
         textBuffer.write(text);
         emitEvent(AiChatStreamEvent.textDelta(text));
         continue;
-      }
-
-      // Thinking / reasoning (Gemini 2.5 `thought` field).
-      final thought = part['thought'];
-      if (thought == true) {
-        final thinkingText = '${part['text'] ?? ''}';
-        if (thinkingText.isNotEmpty) {
-          reasoningBuffer.write(thinkingText);
-          emitEvent(AiChatStreamEvent.reasoningDelta(thinkingText));
-          continue;
-        }
       }
 
       // Function call (tool use).

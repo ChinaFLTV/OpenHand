@@ -167,10 +167,14 @@ export interface ApiMetaResponse {
   config?: Record<string, unknown>;
 }
 
+/// 拉取网关元数据。
+///
+/// 有 token 就带上：开了鉴权时服务端只对已登录会话返回完整 payload（模型清单、
+/// 模板、用户指令等），匿名请求只拿得到登录页所需的公开字段。该接口不会返回
+/// 401，因此没有 token 时照常发出即可。
 export async function fetchApiMeta(signal?: AbortSignal): Promise<ApiMetaResponse> {
   try {
     const value = await apiRequest<unknown>('/api/meta', {
-      anonymous: true,
       signal,
       timeoutMs: API_META_REQUEST_TIMEOUT_MS,
     });

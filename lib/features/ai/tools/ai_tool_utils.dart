@@ -420,13 +420,25 @@ class AiToolUtils {
     return '';
   }
 
+  static final RegExp _cdataSection = RegExp(
+    r'<!\[CDATA\[([\s\S]*?)\]\]>',
+    caseSensitive: false,
+  );
+  static final RegExp _wholeCdata = RegExp(
+    r'^<!\[CDATA\[[\s\S]*\]\]>$',
+    caseSensitive: false,
+  );
+
+  /// 剥掉 XML 传输层的 CDATA 包装。
+  ///
+  /// 只在整个取值恰好就是一段 CDATA 包装时才剥——模型为转义而包裹参数时正是
+  /// 这种形态（含内容里出现 `]]>` 时拆成多段包装的写法，首尾仍是包装标记）。
+  /// 若 CDATA 只是出现在正文中间，那就是待写入的文件内容本身（XML、Android
+  /// 资源等），剥掉等于静默改写用户正文，与调用处「避免改写文件正文」相悖。
   static String _stripCdata(String value) {
-    final cdataPattern = RegExp(
-      r'<!\[CDATA\[([\s\S]*?)\]\]>',
-      caseSensitive: false,
-    );
-    if (!cdataPattern.hasMatch(value)) return value;
-    return value.replaceAllMapped(cdataPattern, (m) => m.group(1) ?? '');
+    final trimmed = value.trim();
+    if (!_wholeCdata.hasMatch(trimmed)) return value;
+    return trimmed.replaceAllMapped(_cdataSection, (m) => m.group(1) ?? '');
   }
 
   /// 从自由格式 XML 中提取键值并移除 CDATA；闭合标签不匹配时读取到下一闭合标签。

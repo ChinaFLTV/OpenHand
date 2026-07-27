@@ -2071,6 +2071,23 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   }
 
   Future<void> _save() async {
+    // 开鉴权必须有密码：空口令会让登录的相等比较对任何空密码请求成立，
+    // 而网关默认监听 0.0.0.0。服务端也会拒绝这种配置，这里先行拦下并说明原因。
+    if (_authEnabled && _passwordController.text.isEmpty) {
+      setState(() {
+        _saving = false;
+        _saveError = openHandLocalizedText(
+          context,
+          zh: '已开启访问鉴权，必须设置登录密码。',
+          zhHant: '已開啟存取驗證，必須設定登入密碼。',
+          en: 'Access authentication is on; a login password is required.',
+          fr: "L'authentification est activée ; un mot de passe est requis.",
+          de: 'Authentifizierung ist aktiv; ein Passwort ist erforderlich.',
+          ja: '認証が有効です。ログインパスワードを設定してください。',
+        );
+      });
+      return;
+    }
     setState(() {
       _saving = true;
       _saveError = null;
