@@ -443,13 +443,10 @@ class _CronsBodyState extends State<_CronsBody>
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: _runningNow ? null : _runNow,
-                      icon: _runningNow
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.play_arrow_rounded, size: 18),
+                      icon: OpenHandBusyStatusIcon(
+                        busy: _runningNow,
+                        icon: Icons.play_arrow_rounded,
+                      ),
                       label: Text(
                         _text(
                           zh: '立即跑',

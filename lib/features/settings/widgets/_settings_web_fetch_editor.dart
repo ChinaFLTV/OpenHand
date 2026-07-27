@@ -786,13 +786,11 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                 onPressed: widget.loading || widget.runtimeBusy
                     ? null
                     : widget.onRefresh,
-                icon: widget.loading
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh, size: 16),
+                icon: OpenHandBusyStatusIcon(
+                  busy: widget.loading,
+                  icon: Icons.refresh,
+                  size: 16,
+                ),
                 label: Text(
                   openHandLocalizedText(context, zh: '检测环境', en: 'Probe'),
                 ),
@@ -814,13 +812,11 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                 onPressed: widget.runtimeBusy || widget.loading
                     ? null
                     : widget.onInstallRuntime,
-                icon: widget.runtimeBusy && !widget.probe.runtimeInstalled
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.download_rounded, size: 16),
+                icon: OpenHandBusyStatusIcon(
+                  busy: widget.runtimeBusy && !widget.probe.runtimeInstalled,
+                  icon: Icons.download_rounded,
+                  size: 16,
+                ),
                 label: Text(
                   openHandLocalizedText(
                     context,
@@ -833,13 +829,11 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                 onPressed: widget.runtimeBusy || widget.loading
                     ? null
                     : widget.onUninstallRuntime,
-                icon: widget.runtimeBusy && widget.probe.runtimeInstalled
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.delete_outline_rounded, size: 16),
+                icon: OpenHandBusyStatusIcon(
+                  busy: widget.runtimeBusy && widget.probe.runtimeInstalled,
+                  icon: Icons.delete_outline_rounded,
+                  size: 16,
+                ),
                 label: Text(
                   openHandLocalizedText(
                     context,

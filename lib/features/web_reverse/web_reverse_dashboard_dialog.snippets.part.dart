@@ -193,13 +193,10 @@ class _SnippetsBodyState extends State<_SnippetsBody>
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: _running ? null : _run,
-                      icon: _running
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.play_arrow_rounded, size: 18),
+                      icon: OpenHandBusyStatusIcon(
+                        busy: _running,
+                        icon: Icons.play_arrow_rounded,
+                      ),
                       label: Text(loc?.webReverseSnippetsRun ?? 'Run (⌘R)'),
                     ),
                     const SizedBox(width: 6),

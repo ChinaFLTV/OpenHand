@@ -3278,13 +3278,10 @@ class _TranscriptLoadEarlierButtonState
     return Center(
       child: OutlinedButton.icon(
         onPressed: loading ? null : () => unawaited(_handlePressed()),
-        icon: loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.history_rounded, size: 18),
+        icon: OpenHandBusyStatusIcon(
+          busy: loading,
+          icon: Icons.history_rounded,
+        ),
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: colorScheme.onSurface,

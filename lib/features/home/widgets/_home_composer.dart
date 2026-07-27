@@ -2200,16 +2200,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                       ? const Icon(Icons.queue_play_next_rounded)
                       : canStopSending && !hasUserTextOrAttachments
                       ? const Icon(Icons.stop_rounded)
-                      : isCompressing || isSendingMessage
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2.4),
-                        )
-                      : Icon(
-                          isResponding
+                      : OpenHandBusyStatusIcon(
+                          busy: isCompressing || isSendingMessage,
+                          icon: isResponding
                               ? Icons.stop_rounded
                               : Icons.arrow_upward_rounded,
+                          strokeWidth: 2.4,
                         ),
                   label: Text(
                     isQueueingAction

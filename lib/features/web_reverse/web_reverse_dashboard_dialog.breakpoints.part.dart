@@ -1145,13 +1145,10 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     ),
                     FilledButton.tonalIcon(
                       onPressed: _gListLoading ? null : _refreshGlobalListeners,
-                      icon: _gListLoading
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded, size: 18),
+                      icon: OpenHandBusyStatusIcon(
+                        busy: _gListLoading,
+                        icon: Icons.refresh_rounded,
+                      ),
                       label: Text(
                         _text(
                           zh: '刷新',

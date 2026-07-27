@@ -5470,15 +5470,13 @@ class _AiModelTileState extends State<_AiModelTile> {
                           tooltip: widget.isTesting
                               ? l10n.aiModelTesting
                               : l10n.aiModelTest,
-                          icon: widget.isTesting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.network_check_rounded),
+                          icon: OpenHandBusyStatusIcon(
+                            busy: widget.isTesting,
+                            icon: Icons.network_check_rounded,
+                            // IconButton 的图标默认按 24 绘制，转圈原本只有 18，
+                            // 一忙一闲之间整个按钮会缩一下；统一到 24。
+                            size: 24,
+                          ),
                         ),
                       ],
                     ),

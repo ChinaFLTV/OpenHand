@@ -465,13 +465,10 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
           children: <Widget>[
             FilledButton.tonalIcon(
               onPressed: _testing ? null : _runConnectivityTest,
-              icon: _testing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.network_check),
+              icon: OpenHandBusyStatusIcon(
+                busy: _testing,
+                icon: Icons.network_check,
+              ),
               label: Text(l10n.proxyTestButton),
             ),
             const SizedBox(width: 12),

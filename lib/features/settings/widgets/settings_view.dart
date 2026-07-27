@@ -322,37 +322,32 @@ List<Widget> _buildToolTelemetryHeader({
         const SizedBox(width: 4),
         TextButton.icon(
           onPressed: exportEnabled ? onExportCsv : null,
-          icon: exporting
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.table_chart, size: 16),
+          icon: OpenHandBusyStatusIcon(
+            busy: exporting,
+            icon: Icons.table_chart,
+            size: 16,
+          ),
           label: Text(openHandExportCsvLabel(context)),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
           onPressed: loading || clearing ? null : onRefresh,
-          icon: loading
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.refresh, size: 16),
+          icon: OpenHandBusyStatusIcon(
+            busy: loading,
+            icon: Icons.refresh,
+            size: 16,
+          ),
           label: Text(openHandRefreshLabel(context)),
         ),
         const SizedBox(width: 4),
         TextButton.icon(
           onPressed: !hasData || clearing ? null : onClear,
-          icon: clearing
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
+          icon: OpenHandBusyStatusIcon(
+            busy: clearing,
+            icon: Icons.delete_sweep,
+            size: 16,
+            color: colorScheme.error,
+          ),
           label: Text(
             openHandLocalizedText(
               context,

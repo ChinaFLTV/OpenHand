@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_expandable.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -353,13 +354,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               children: [
                 FilledButton.tonalIcon(
                   onPressed: _scanning ? null : _scan,
-                  icon: _scanning
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_arrow_rounded, size: 18),
+                  icon: OpenHandBusyStatusIcon(
+                    busy: _scanning,
+                    icon: Icons.play_arrow_rounded,
+                  ),
                   label: Text(loc?.webReverseCallgraphScanBtn ?? 'Scan'),
                 ),
                 const SizedBox(width: 12),

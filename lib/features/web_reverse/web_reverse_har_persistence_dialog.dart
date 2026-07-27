@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -383,15 +384,10 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                     children: [
                       FilledButton.tonalIcon(
                         onPressed: _busy ? null : _saveNow,
-                        icon: _busy
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.download_rounded, size: 18),
+                        icon: OpenHandBusyStatusIcon(
+                          busy: _busy,
+                          icon: Icons.download_rounded,
+                        ),
                         label: Text(
                           loc?.webReverseHarSaveNow ?? 'Save HAR now',
                         ),

@@ -2337,13 +2337,11 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                   IconButton(
                     tooltip: cleanupText,
                     onPressed: _isCleaning ? null : _cleanupTempHtmlFiles,
-                    icon: _isCleaning
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.cleaning_services_rounded, size: 20),
+                    icon: OpenHandBusyStatusIcon(
+                      busy: _isCleaning,
+                      icon: Icons.cleaning_services_rounded,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 4),
                   IconButton(
