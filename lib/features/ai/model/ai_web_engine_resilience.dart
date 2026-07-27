@@ -1,3 +1,4 @@
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 /// WebFetch 与 WebSearch 共用的故障降级、告警和限流配置。
@@ -182,8 +183,37 @@ abstract final class AiWebEngineResiliencePolicy {
   );
 }
 
-/// Web 引擎单次调用的统一执行上限。
+/// Web 引擎单次调用的统一执行上限与并发取值。
 abstract final class AiWebEngineExecutionPolicy {
   static const int maxAttempts = 8;
   static const int maxRetries = maxAttempts - 1;
+
+  static const int defaultParallelWorkers = 3;
+  static const int minParallelWorkers = 1;
+  static const int maxParallelWorkers = 9;
+
+  static const IntValueRange parallelWorkersRange = IntValueRange(
+    fallback: defaultParallelWorkers,
+    min: minParallelWorkers,
+    max: maxParallelWorkers,
+  );
+}
+
+/// WebFetch 与 WebSearch 共用的本地缓存取值边界。
+///
+/// 默认 TTL 因用途不同由各自的设置类定义（抓取的正文变化慢、搜索的结果变化快），
+/// 其余上下限两者一致，集中在此处以免两边各改一半。
+abstract final class AiWebEngineCachePolicy {
+  static const int minTtlSeconds = 0;
+  static const int maxTtlSeconds = 60 * 60 * 24 * 7;
+
+  static const int defaultMaxBytes = 50 * kBytesPerMiB;
+  static const int minMaxBytes = kBytesPerMiB;
+  static const int maxMaxBytes = 2 * kBytesPerGiB;
+
+  static const IntValueRange maxBytesRange = IntValueRange(
+    fallback: defaultMaxBytes,
+    min: minMaxBytes,
+    max: maxMaxBytes,
+  );
 }

@@ -431,22 +431,21 @@ List<Widget> _buildToolTelemetryBody({
 
 /// WebSearch / WebFetch 共用的「缓存 TTL + 容量上限」输入行。
 ///
-/// 两者取值范围一致，只有默认值不同；提示文案直接由传入的默认值渲染，避免
-/// 把一处的默认值抄到另一处（此前抓取缓存实际默认 15 分钟，提示却写 5 分钟）。
+/// 上下限两者一致、取自 [AiWebEngineCachePolicy]；只有默认 TTL 因用途不同而由
+/// 调用方传入，提示文案直接由它渲染，避免把一处的默认值抄到另一处
+/// （此前抓取缓存实际默认 15 分钟，提示却写 5 分钟）。
 Widget _buildWebEngineCacheFields({
   required BuildContext context,
   required TextEditingController ttlController,
   required TextEditingController maxBytesController,
   required int defaultTtlSeconds,
-  required int minTtlSeconds,
-  required int maxTtlSeconds,
-  required int defaultMaxBytes,
-  required int minMaxBytes,
-  required int maxMaxBytes,
   required int currentMaxBytes,
   required ValueChanged<int> onTtlChanged,
   required ValueChanged<int> onMaxBytesChanged,
 }) {
+  const defaultMaxBytes = AiWebEngineCachePolicy.defaultMaxBytes;
+  const minMaxBytes = AiWebEngineCachePolicy.minMaxBytes;
+  const maxMaxBytes = AiWebEngineCachePolicy.maxMaxBytes;
   final defaultTtlMinutes = defaultTtlSeconds ~/ 60;
   return Row(
     children: [
@@ -473,8 +472,8 @@ Widget _buildWebEngineCacheFields({
             clampedIntFromText(
               text,
               fallback: 0,
-              min: minTtlSeconds,
-              max: maxTtlSeconds,
+              min: AiWebEngineCachePolicy.minTtlSeconds,
+              max: AiWebEngineCachePolicy.maxTtlSeconds,
             ),
           ),
         ),

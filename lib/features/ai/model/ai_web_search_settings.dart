@@ -1,4 +1,3 @@
-import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_web_engine_resilience.dart';
 
@@ -221,13 +220,13 @@ class AiWebSearchSettings {
     this.fixedModelProviderConfigId,
     this.fixedModelId,
     this.parallel = true,
-    this.parallelWorkers = defaultParallelWorkers,
+    this.parallelWorkers = AiWebEngineExecutionPolicy.defaultParallelWorkers,
     this.summaryDetail = AiWebSearchSummaryDetail.balanced,
     this.summaryStyle = AiWebSearchSummaryStyle.neutral,
     this.summaryMinChars = 0,
     this.summaryMaxChars = defaultSummaryMaxChars,
     this.cacheTtlSeconds = defaultCacheTtlSeconds,
-    this.cacheMaxBytes = defaultCacheMaxBytes,
+    this.cacheMaxBytes = AiWebEngineCachePolicy.defaultMaxBytes,
     this.resilience = AiWebEngineResilienceSettings.defaults,
   });
 
@@ -246,32 +245,17 @@ class AiWebSearchSettings {
   static const int minResultCount = 1;
   static const int maxResultCount = 30;
 
-  static const int defaultParallelWorkers = 3;
-  static const int minParallelWorkers = 1;
-  static const int maxParallelWorkers = 9;
-
   static const int defaultSummaryMaxChars = 1500;
   static const int maxSummaryMaxChars = 8000;
 
-  /// 关键词 → summary 元数据的本地缓存默认 TTL（秒）。0 表示停用缓存。
+  /// 关键词 → summary 元数据的本地缓存默认 TTL（秒）。0 表示停用缓存；
+  /// 上下限见 [AiWebEngineCachePolicy]。
   static const int defaultCacheTtlSeconds = 300;
-  static const int minCacheTtlSeconds = 0;
-  static const int maxCacheTtlSeconds = 60 * 60 * 24 * 7;
-
-  /// 缓存容量上限（字节）。默认 50 MB，范围 1 MB 至 2 GB。
-  static const int defaultCacheMaxBytes = 50 * kBytesPerMiB;
-  static const int minCacheMaxBytes = kBytesPerMiB;
-  static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
   static const IntValueRange _resultCountRange = IntValueRange(
     fallback: defaultResultCount,
     min: minResultCount,
     max: maxResultCount,
-  );
-  static const IntValueRange _parallelWorkersRange = IntValueRange(
-    fallback: defaultParallelWorkers,
-    min: minParallelWorkers,
-    max: maxParallelWorkers,
   );
   static const IntValueRange _summaryMinCharsRange = IntValueRange(
     fallback: 0,
@@ -285,13 +269,8 @@ class AiWebSearchSettings {
   );
   static const IntValueRange _cacheTtlSecondsRange = IntValueRange(
     fallback: defaultCacheTtlSeconds,
-    min: minCacheTtlSeconds,
-    max: maxCacheTtlSeconds,
-  );
-  static const IntValueRange _cacheMaxBytesRange = IntValueRange(
-    fallback: defaultCacheMaxBytes,
-    min: minCacheMaxBytes,
-    max: maxCacheMaxBytes,
+    min: AiWebEngineCachePolicy.minTtlSeconds,
+    max: AiWebEngineCachePolicy.maxTtlSeconds,
   );
   final List<AiWebSearchEngineConfig> engines;
   final int resultCount;
@@ -438,7 +417,7 @@ class AiWebSearchSettings {
       ),
       fixedModelId: optionalStringFromValue(json['fixed_model_id']),
       parallel: boolFromValue(json['parallel'], defaultValue: true),
-      parallelWorkers: _parallelWorkersRange.fromValue(
+      parallelWorkers: AiWebEngineExecutionPolicy.parallelWorkersRange.fromValue(
         json['parallel_workers'],
       ),
       summaryDetail: summaryDetail,
@@ -448,7 +427,7 @@ class AiWebSearchSettings {
       cacheTtlSeconds: _cacheTtlSecondsRange.fromValue(
         json['cache_ttl_seconds'],
       ),
-      cacheMaxBytes: _cacheMaxBytesRange.fromValue(
+      cacheMaxBytes: AiWebEngineCachePolicy.maxBytesRange.fromValue(
         optionalPositiveIntFromValue(json['cache_max_bytes']),
       ),
       resilience: resilience,

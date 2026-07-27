@@ -5642,8 +5642,6 @@ class _WebEngineDispatchControls extends StatelessWidget {
     required this.parallel,
     required this.onParallelChanged,
     required this.parallelWorkersController,
-    required this.minParallelWorkers,
-    required this.maxParallelWorkers,
     required this.onParallelWorkersChanged,
   });
 
@@ -5656,9 +5654,11 @@ class _WebEngineDispatchControls extends StatelessWidget {
   final bool parallel;
   final ValueChanged<bool> onParallelChanged;
   final TextEditingController parallelWorkersController;
-  final int minParallelWorkers;
-  final int maxParallelWorkers;
   final ValueChanged<int> onParallelWorkersChanged;
+
+  /// WebSearch 与 WebFetch 的 worker 取值范围一致，直接取共用策略。
+  static const int _minWorkers = AiWebEngineExecutionPolicy.minParallelWorkers;
+  static const int _maxWorkers = AiWebEngineExecutionPolicy.maxParallelWorkers;
 
   @override
   Widget build(BuildContext context) {
@@ -5731,8 +5731,8 @@ class _WebEngineDispatchControls extends StatelessWidget {
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
                     context,
-                    zh: 'Workers ($minParallelWorkers-$maxParallelWorkers)',
-                    en: 'Workers ($minParallelWorkers-$maxParallelWorkers)',
+                    zh: 'Workers ($_minWorkers-$_maxWorkers)',
+                    en: 'Workers ($_minWorkers-$_maxWorkers)',
                   ),
                 ),
                 onChanged: (value) {
@@ -5740,7 +5740,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
                   if (parsed == null) return;
                   onParallelWorkersChanged(
                     parsed
-                        .clamp(minParallelWorkers, maxParallelWorkers)
+                        .clamp(_minWorkers, _maxWorkers)
                         .toInt(),
                   );
                 },

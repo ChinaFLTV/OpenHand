@@ -1,4 +1,3 @@
-import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_web_engine_resilience.dart';
 
@@ -302,9 +301,9 @@ class AiWebFetchSettings {
     required this.engines,
     this.resultCount = defaultResultCount,
     this.parallel = true,
-    this.parallelWorkers = defaultParallelWorkers,
+    this.parallelWorkers = AiWebEngineExecutionPolicy.defaultParallelWorkers,
     this.cacheTtlSeconds = defaultCacheTtlSeconds,
-    this.cacheMaxBytes = defaultCacheMaxBytes,
+    this.cacheMaxBytes = AiWebEngineCachePolicy.defaultMaxBytes,
     this.resilience = AiWebEngineResilienceSettings.defaults,
     this.scrapling = const AiWebFetchScraplingSettings(),
   });
@@ -323,39 +322,18 @@ class AiWebFetchSettings {
   static const int minResultCount = 1;
   static const int maxResultCount = 30;
 
-  static const int defaultParallelWorkers = 3;
-  static const int minParallelWorkers = 1;
-  static const int maxParallelWorkers = 9;
-
-  /// URL → 内容缓存默认 TTL（秒）。15 分钟。
+  /// URL → 内容缓存默认 TTL（秒）。15 分钟；上下限见 [AiWebEngineCachePolicy]。
   static const int defaultCacheTtlSeconds = 15 * 60;
-  static const int minCacheTtlSeconds = 0;
-  static const int maxCacheTtlSeconds = 60 * 60 * 24 * 7;
-
-  /// 缓存目录磁盘占用上限（字节）。默认 50 MB，范围 1 MB 至 2 GB。
-  static const int defaultCacheMaxBytes = 50 * kBytesPerMiB;
-  static const int minCacheMaxBytes = kBytesPerMiB;
-  static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
   static const IntValueRange _resultCountRange = IntValueRange(
     fallback: defaultResultCount,
     min: minResultCount,
     max: maxResultCount,
   );
-  static const IntValueRange _parallelWorkersRange = IntValueRange(
-    fallback: defaultParallelWorkers,
-    min: minParallelWorkers,
-    max: maxParallelWorkers,
-  );
   static const IntValueRange _cacheTtlSecondsRange = IntValueRange(
     fallback: defaultCacheTtlSeconds,
-    min: minCacheTtlSeconds,
-    max: maxCacheTtlSeconds,
-  );
-  static const IntValueRange _cacheMaxBytesRange = IntValueRange(
-    fallback: defaultCacheMaxBytes,
-    min: minCacheMaxBytes,
-    max: maxCacheMaxBytes,
+    min: AiWebEngineCachePolicy.minTtlSeconds,
+    max: AiWebEngineCachePolicy.maxTtlSeconds,
   );
   final List<AiWebFetchEngineConfig> engines;
   final int resultCount;
@@ -438,13 +416,13 @@ class AiWebFetchSettings {
           const AiWebFetchScraplingSettings(),
       resultCount: _resultCountRange.fromValue(json['result_count']),
       parallel: boolFromValue(json['parallel'], defaultValue: true),
-      parallelWorkers: _parallelWorkersRange.fromValue(
+      parallelWorkers: AiWebEngineExecutionPolicy.parallelWorkersRange.fromValue(
         json['parallel_workers'],
       ),
       cacheTtlSeconds: _cacheTtlSecondsRange.fromValue(
         json['cache_ttl_seconds'],
       ),
-      cacheMaxBytes: _cacheMaxBytesRange.fromValue(
+      cacheMaxBytes: AiWebEngineCachePolicy.maxBytesRange.fromValue(
         optionalPositiveIntFromValue(json['cache_max_bytes']),
       ),
       resilience: resilience,
