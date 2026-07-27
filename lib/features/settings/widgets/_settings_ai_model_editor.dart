@@ -1367,8 +1367,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     onNotification: (_) => true,
                                     child: OpenHandSafeScrollbar(
                                       controller: _chipScrollController,
-                                      thumbVisibility:
-                                          _visibleModelIds.length > 30,
                                       child: SingleChildScrollView(
                                         controller: _chipScrollController,
                                         physics: const ClampingScrollPhysics(),

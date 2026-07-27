@@ -4162,7 +4162,6 @@ class _SettingsViewState extends State<SettingsView> {
         child: PrimaryScrollController.none(
           child: OpenHandSafeScrollbar(
             controller: _shortcutListScrollController,
-            thumbVisibility: true,
             child: ListView.separated(
               controller: _shortcutListScrollController,
               primary: false,

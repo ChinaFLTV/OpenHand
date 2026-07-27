@@ -1351,7 +1351,6 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                       ? OpenHandInlineEmptyState(message: widget.emptyMessage)
                       : OpenHandSafeScrollbar(
                           controller: _scrollController,
-                          thumbVisibility: scrollable,
                           child: ListView.builder(
                             controller: _scrollController,
                             padding: EdgeInsets.only(
@@ -2370,10 +2369,6 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
                         height: bodyHeight,
                         child: OpenHandSafeScrollbar(
                           controller: _verticalController,
-                          thumbVisibility:
-                              widget.items.length *
-                                  _kAiUsageBreakdownRowHeight >
-                              _kAiUsageBreakdownBodyMaxHeight,
                           child: ListView.builder(
                             controller: _verticalController,
                             padding: EdgeInsets.zero,
@@ -2647,10 +2642,6 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                         height: bodyHeight,
                         child: OpenHandSafeScrollbar(
                           controller: _verticalController,
-                          thumbVisibility:
-                              widget.records.length *
-                                  _kAiUsageRequestRowHeight >
-                              _kAiUsageRequestBodyMaxHeight,
                           child: ListView.builder(
                             controller: _verticalController,
                             padding: EdgeInsets.zero,

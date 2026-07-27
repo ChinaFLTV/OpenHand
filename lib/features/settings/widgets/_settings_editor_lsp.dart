@@ -240,7 +240,6 @@ extension on _SettingsViewState {
             child: PrimaryScrollController.none(
               child: OpenHandSafeScrollbar(
                 controller: _editorLspListScrollController,
-                thumbVisibility: supportedLanguages.length > 6,
                 child: ListView.separated(
                   controller: _editorLspListScrollController,
                   primary: false,
@@ -287,7 +286,6 @@ extension on _SettingsViewState {
         child: PrimaryScrollController.none(
           child: OpenHandSafeScrollbar(
             controller: _editorShortcutListScrollController,
-            thumbVisibility: true,
             child: ListView.separated(
               controller: _editorShortcutListScrollController,
               primary: false,

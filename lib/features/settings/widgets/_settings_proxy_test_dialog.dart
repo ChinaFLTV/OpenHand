@@ -806,7 +806,6 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       child: SelectionArea(
         child: OpenHandSafeScrollbar(
           controller: _scrollController,
-          thumbVisibility: true,
           child: NotificationListener<ScrollNotification>(
             onNotification: _scrollGuard.handleNotification,
             child: ListView.builder(
