@@ -1982,6 +1982,12 @@ const Duration _remoteMediaOpenTimeout = Duration(seconds: 20);
 const Duration _remoteMediaHeaderTimeout = Duration(seconds: 30);
 const Duration _remoteMediaChunkTimeout = Duration(seconds: 30);
 const Duration _remoteMediaFileIoTimeout = Duration(seconds: 30);
+const BoundedDeletePolicy _mediaPreviewTempDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 1,
+  maxDepth: 0,
+  operationTimeout: Duration(seconds: 3),
+  totalTimeout: Duration(seconds: 5),
+);
 const Duration _remoteImageDownloadTimeout = Duration(minutes: 5);
 const Duration _remoteAudioDownloadTimeout = Duration(minutes: 5);
 const Duration _remoteVideoDownloadTimeout = Duration(minutes: 20);
@@ -1989,6 +1995,19 @@ const int _imageClipboardMaxBytes = 64 * kBytesPerMiB;
 const int _remoteImageDownloadMaxBytes = 256 * kBytesPerMiB;
 const int _remoteAudioDownloadMaxBytes = 256 * kBytesPerMiB;
 const int _remoteVideoDownloadMaxBytes = 2 * kBytesPerGiB;
+
+Future<void> _deleteMediaPreviewTempFile(String path, String action) async {
+  final absolutePath = p.absolute(path);
+  try {
+    await deletePathBounded(
+      absolutePath,
+      policy: _mediaPreviewTempDeletePolicy,
+      allowedRoot: p.dirname(absolutePath),
+    );
+  } catch (error, stack) {
+    silentLog('home_message_bubble', action, error, stack);
+  }
+}
 
 void _showMediaClipboardSnack(
   BuildContext context, {
@@ -4687,9 +4706,18 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
         final tempName =
             '.openhand_media_player_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
         final tempFile = File(p.join(dir, tempName));
-        await tempFile.writeAsString(_buildMediaHtml(localOverride: localPath));
+        await writeTemporaryFileTextBounded(
+          tempFile,
+          _buildMediaHtml(localOverride: localPath),
+          timeout: _remoteMediaFileIoTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('home_message_bubble', '清理媒体预览临时页面', error, stack),
+        );
         if (!mounted) {
-          await tempFile.delete().catchError((_) => tempFile);
+          await _deleteMediaPreviewTempFile(
+            tempFile.path,
+            '媒体预览：清理未挂载的临时页面',
+          );
           return;
         }
         _tempHtmlPath = tempFile.path;
@@ -4725,15 +4753,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
     _dialogFocus.dispose();
     final tempPath = _tempHtmlPath;
     if (tempPath != null) {
-      // 临时文件可能已被系统清理，此处仅尽力删除。
-      Future<void>(() async {
-        try {
-          final f = File(tempPath);
-          if (await f.exists()) await f.delete();
-        } catch (error, stack) {
-          silentLog('home_message_bubble', '媒体预览：清理临时页面失败', error, stack);
-        }
-      });
+      unawaited(_deleteMediaPreviewTempFile(tempPath, '媒体预览：清理临时页面'));
     }
     super.dispose();
   }
@@ -8474,9 +8494,18 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
         final tempName =
             '.openhand_fullscreen_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
         final tempFile = File(p.join(dir, tempName));
-        await tempFile.writeAsString(_buildHtml(localOverride: localPath));
+        await writeTemporaryFileTextBounded(
+          tempFile,
+          _buildHtml(localOverride: localPath),
+          timeout: _remoteMediaFileIoTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('home_message_bubble', '清理全屏视频临时页面', error, stack),
+        );
         if (!mounted) {
-          await tempFile.delete().catchError((_) => tempFile);
+          await _deleteMediaPreviewTempFile(
+            tempFile.path,
+            '全屏视频：清理未挂载的临时页面',
+          );
           return;
         }
         _tempHtmlPath = tempFile.path;
@@ -8624,14 +8653,7 @@ updateVolume();
     _focusNode.dispose();
     final tmp = _tempHtmlPath;
     if (tmp != null) {
-      Future<void>(() async {
-        try {
-          final f = File(tmp);
-          if (await f.exists()) await f.delete();
-        } catch (error, stack) {
-          silentLog('home_message_bubble', '全屏视频：清理临时页面失败', error, stack);
-        }
-      });
+      unawaited(_deleteMediaPreviewTempFile(tmp, '全屏视频：清理临时页面'));
     }
     super.dispose();
   }

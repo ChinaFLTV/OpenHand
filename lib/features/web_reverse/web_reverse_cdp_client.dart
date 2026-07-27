@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// CDP（Chrome DevTools Protocol）轻量客户端：连 WebSocket、发命令、订阅事件。
@@ -100,7 +101,8 @@ class WebReverseCdpClient {
   );
   static const Duration _defaultReconnectMaxDelay = Duration(seconds: 5);
   static const int _maxPendingCommands = 256;
-  static const int _maxIncomingMessageCharacters = 8 * 1024 * 1024;
+  static const int _defaultMaxResponseCharacters = 8 * kBytesPerMiB;
+  static const int _maxResponseCharacters = 65 * kBytesPerMiB;
 
   /// `webSocketDebuggerUrl`，形如 `ws://127.0.0.1:9222/devtools/browser/<uuid>`。
   final String endpoint;
@@ -126,8 +128,7 @@ class WebReverseCdpClient {
   bool _connected = false;
   bool _closed = false;
 
-  final Map<int, Completer<Map<String, Object?>>> _pending =
-      <int, Completer<Map<String, Object?>>>{};
+  final Map<int, _PendingCdpCommand> _pending = <int, _PendingCdpCommand>{};
   final StreamController<CdpEvent> _eventCtrl =
       StreamController<CdpEvent>.broadcast();
 
@@ -247,8 +248,18 @@ class WebReverseCdpClient {
     Map<String, Object?>? params,
     String? sessionId,
     Duration timeout = const Duration(seconds: 8),
+    int maxResponseCharacters = _defaultMaxResponseCharacters,
   }) async {
     requireNonNegativeDuration(timeout, 'timeout');
+    if (maxResponseCharacters < 1 ||
+        maxResponseCharacters > _maxResponseCharacters) {
+      throw RangeError.range(
+        maxResponseCharacters,
+        1,
+        _maxResponseCharacters,
+        'maxResponseCharacters',
+      );
+    }
     if (_closed) throw StateError('CDP client is closed');
     if (_isReconnecting) throw StateError('CDP client is reconnecting');
     final transport = _transport;
@@ -261,7 +272,10 @@ class WebReverseCdpClient {
 
     final id = _nextId++;
     final completer = Completer<Map<String, Object?>>();
-    _pending[id] = completer;
+    _pending[id] = _PendingCdpCommand(
+      completer,
+      maxResponseCharacters: maxResponseCharacters,
+    );
     final payload = <String, Object?>{
       'id': id,
       'method': method,
@@ -289,11 +303,11 @@ class WebReverseCdpClient {
     dynamic raw,
   ) {
     if (!_ownsActiveTransport(transport, generation) || raw is! String) return;
-    if (raw.length > _maxIncomingMessageCharacters) {
+    if (!_canAcceptIncomingLength(raw.length)) {
       _handleTransportError(
         transport,
         generation,
-        StateError('CDP message exceeds the safety limit'),
+        StateError('CDP 消息超过安全上限。'),
         StackTrace.current,
       );
       return;
@@ -305,17 +319,21 @@ class WebReverseCdpClient {
       final id = map['id'];
       if (id is int) {
         final pending = _pending.remove(id);
-        if (pending == null || pending.isCompleted) return;
+        if (pending == null || pending.completer.isCompleted) return;
+        if (raw.length > pending.maxResponseCharacters) {
+          pending.completer.completeError(StateError('CDP 响应超过安全上限。'));
+          return;
+        }
         if (map['error'] is Map) {
           final err = stringKeyedMapFromValue(map['error']);
-          pending.completeError(
+          pending.completer.completeError(
             CdpException(
               code: intFromValue(err['code'], fallback: -1),
               message: '${err['message'] ?? 'unknown error'}',
             ),
           );
         } else {
-          pending.complete(
+          pending.completer.complete(
             map['result'] is Map
                 ? stringKeyedMapFromValue(map['result'])
                 : <String, Object?>{},
@@ -324,6 +342,15 @@ class WebReverseCdpClient {
         return;
       }
 
+      if (raw.length > _defaultMaxResponseCharacters) {
+        _handleTransportError(
+          transport,
+          generation,
+          StateError('CDP 事件超过安全上限。'),
+          StackTrace.current,
+        );
+        return;
+      }
       final method = map['method'];
       if (method is! String || _eventCtrl.isClosed) return;
       final params = map['params'] is Map
@@ -339,6 +366,14 @@ class WebReverseCdpClient {
     } catch (error, stack) {
       silentLog('web_reverse_cdp_client', '解析 CDP 消息', error, stack);
     }
+  }
+
+  bool _canAcceptIncomingLength(int length) {
+    if (length <= _defaultMaxResponseCharacters) return true;
+    for (final pending in _pending.values) {
+      if (length <= pending.maxResponseCharacters) return true;
+    }
+    return false;
   }
 
   void _handleTransportError(
@@ -473,9 +508,9 @@ class WebReverseCdpClient {
   }
 
   void _failAllPending(Object error, [StackTrace? stack]) {
-    for (final completer in _pending.values) {
-      if (!completer.isCompleted) {
-        completer.completeError(error, stack ?? StackTrace.current);
+    for (final pending in _pending.values) {
+      if (!pending.completer.isCompleted) {
+        pending.completer.completeError(error, stack ?? StackTrace.current);
       }
     }
     _pending.clear();
@@ -559,6 +594,16 @@ class WebReverseCdpClient {
       silentLog('web_reverse_cdp_client', where, error, stack);
     }
   }
+}
+
+class _PendingCdpCommand {
+  const _PendingCdpCommand(
+    this.completer, {
+    required this.maxResponseCharacters,
+  });
+
+  final Completer<Map<String, Object?>> completer;
+  final int maxResponseCharacters;
 }
 
 class CdpEvent {

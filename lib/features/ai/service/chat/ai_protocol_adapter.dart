@@ -8,8 +8,10 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_dialect.dart';
@@ -28,8 +30,10 @@ const Duration _inlineImageReadIdleTimeout = Duration(seconds: 15);
 const Duration _inlineImageReadTotalTimeout = Duration(minutes: 1);
 const int _inlineMediaCacheScanLimit = 10000;
 const int _inlineMediaCacheDeleteLimit = 2000;
+const int _inlineMediaMaxDecodedBytes = 128 * kBytesPerMiB;
 const Duration _inlineMediaCacheIdleTimeout = Duration(seconds: 2);
 const Duration _inlineMediaCacheCleanupTimeout = Duration(seconds: 15);
+const Duration _inlineMediaWriteTimeout = Duration(seconds: 30);
 
 abstract final class AiThinkingRequestPolicy {
   static const int _defaultThinkingBudget = 8192;
@@ -4604,33 +4608,32 @@ String inlineMediaFileMarkdown({
   return '[📎 $displayLabel]($filePath)';
 }
 
-/// Saves an [AiInlineMedia] to a temp file and returns a markdown reference.
-///
-/// Images are rendered as `![...](file_path)` so the markdown renderer can
-/// display them inline. Audio/video use a link `[🔊 ...](file_path)`.
+/// 把内联媒体安全写入临时文件，并返回对应的 Markdown 引用。
 Future<String> saveInlineMediaToMarkdown(
   AiInlineMedia media, {
   String? label,
 }) async {
-  File? file;
+  if (media.base64Data.isEmpty) return '';
   try {
-    final bytes = base64Decode(media.base64Data);
+    final bytes = decodeBase64Bounded(
+      media.base64Data,
+      maxDecodedBytes: _inlineMediaMaxDecodedBytes,
+    );
     if (bytes.isEmpty) return '';
-    file = await createInlineMediaOutputFile(mimeType: media.mimeType);
-    await file.writeAsBytes(bytes);
+    final file = await createInlineMediaOutputFile(mimeType: media.mimeType);
+    await writeTemporaryFileBytesBounded(
+      file,
+      bytes,
+      timeout: _inlineMediaWriteTimeout,
+      onSecondaryError: (error, stack) =>
+          silentLog('ai_protocol_adapter', '清理内联媒体临时文件', error, stack),
+    );
     return inlineMediaFileMarkdown(
       filePath: file.path,
       mimeType: media.mimeType,
       label: label,
     );
   } catch (error, stack) {
-    if (file != null) {
-      try {
-        if (await file.exists()) await file.delete();
-      } on FileSystemException {
-        // Preserve the primary decode/write failure.
-      }
-    }
     silentLog('ai_protocol_adapter', '保存内联媒体并生成 Markdown', error, stack);
     return '';
   }

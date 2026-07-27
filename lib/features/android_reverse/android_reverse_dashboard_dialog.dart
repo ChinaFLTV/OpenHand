@@ -26,6 +26,7 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -68,6 +69,7 @@ const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
 const int _kMcpToolPreviewLimit = 8;
 const int _kMcpReconnectConcurrency = 4;
+const int _kCryptoDecodeMaxBytes = 8 * kBytesPerMiB;
 const int _kMaxNetworkFlowExportBytes = 1024 * kBytesPerMiB;
 const Duration _kArtifactFileProbeTimeout = Duration(seconds: 3);
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
@@ -10213,8 +10215,12 @@ fi
 
   void _decodeBase64Input() {
     try {
-      final normalized = _base64Ctrl.text.replaceAll(RegExp(r'\s+'), '');
-      final decoded = utf8.decode(base64Decode(base64.normalize(normalized)));
+      final decoded = utf8.decode(
+        decodeFlexibleBase64Bounded(
+          _base64Ctrl.text,
+          maxDecodedBytes: _kCryptoDecodeMaxBytes,
+        ),
+      );
       _setCryptoOutput(
         openHandLocalizedText(
           context,

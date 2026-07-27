@@ -11,6 +11,8 @@
 
 part of 'web_reverse_dashboard_dialog.dart';
 
+const int _kCryptoPadMaxDecodedBytes = 8 * kBytesPerMiB;
+
 class _CryptoPadBody extends StatefulWidget {
   const _CryptoPadBody({required this.reduceMotion});
   final bool reduceMotion;
@@ -63,12 +65,13 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
 
   String _b64Decode(String s) {
     try {
-      // 容错 base64url
-      var t = s.trim().replaceAll('-', '+').replaceAll('_', '/');
-      while (t.length % 4 != 0) {
-        t += '=';
-      }
-      return utf8.decode(base64Decode(t), allowMalformed: true);
+      return utf8.decode(
+        decodeFlexibleBase64Bounded(
+          s,
+          maxDecodedBytes: _kCryptoPadMaxDecodedBytes,
+        ),
+        allowMalformed: true,
+      );
     } catch (e) {
       return '! $e';
     }

@@ -17,6 +17,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -2066,15 +2067,13 @@ class AiTtsPlaybackService {
     if (maxBytes < 1) {
       throw StateError('TTS 音频超过配置的安全上限。');
     }
-    final maxEncodedChars = ((maxBytes + 2) ~/ 3) * 4 + 4096;
-    if (encoded.length > maxEncodedChars) {
+    try {
+      return decodeBase64Bounded(encoded, maxDecodedBytes: maxBytes);
+    } on BoundedBase64SizeException {
       throw StateError('TTS 音频超过 ${formatByteSize(maxBytes)} 的安全上限。');
+    } on BoundedBase64FormatException {
+      throw const FormatException('TTS 音频 Base64 格式无效。');
     }
-    final decoded = base64Decode(encoded);
-    if (decoded.length > maxBytes) {
-      throw StateError('TTS 音频超过 ${formatByteSize(maxBytes)} 的安全上限。');
-    }
-    return decoded;
   }
 
   static void _appendBoundedBase64Audio(

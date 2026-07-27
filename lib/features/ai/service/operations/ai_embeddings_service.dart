@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
@@ -435,7 +435,7 @@ class AiEmbeddingsService {
     }
     if (normalized == 'base64' || normalized == 'base64_float32') {
       if (bytes.length % 4 != 0) return null;
-      final data = ByteData.sublistView(Uint8List.fromList(bytes));
+      final data = ByteData.sublistView(bytes);
       return <double>[
         for (var offset = 0; offset < bytes.length; offset += 4)
           data.getFloat32(offset, Endian.little),
@@ -479,10 +479,13 @@ class AiEmbeddingsService {
     return vector.sublist(0, expectedDimensions);
   }
 
-  List<int>? _base64BytesOrNull(String value) {
+  Uint8List? _base64BytesOrNull(String value) {
     try {
-      return base64Decode(value.trim());
-    } on FormatException {
+      return decodeBase64Bounded(
+        value.trim(),
+        maxDecodedBytes: defaultAiTransportResponseMaxBytes,
+      );
+    } on BoundedBase64Exception {
       return null;
     }
   }

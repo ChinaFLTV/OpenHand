@@ -142,6 +142,10 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
   static const Duration _maxTraceDuration = Duration(minutes: 5);
   static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
+  static const int _maxScreenshotDecodedBytes = 48 * kBytesPerMiB;
+  static const int _maxScreenshotResponseCharacters =
+      _maxScreenshotBase64Chars + 64 * kBytesPerKiB;
+  static const int _maxScreencastFrameBytes = 6 * kBytesPerMiB;
   static const int maxRawCdpMethodChars = 256;
   static const int _maxRawCdpParamsJsonChars = 2 * 1024 * 1024;
   static const int maxReplExpressionChars = 2 * 1024 * 1024;
@@ -2961,7 +2965,10 @@ class WebReverseSessionController extends ChangeNotifier {
     final sessionId = p['sessionId'];
     if (data != null && data.isNotEmpty) {
       try {
-        _latestScreencastFrame = base64Decode(data);
+        _latestScreencastFrame = decodeBase64Bounded(
+          data,
+          maxDecodedBytes: _maxScreencastFrameBytes,
+        );
         _screencastFrameSeq++;
         final meta = p['metadata'] as Map?;
         final w = (meta?['deviceWidth'] as num?)?.round();
@@ -5563,11 +5570,14 @@ class WebReverseSessionController extends ChangeNotifier {
         params: params,
         sessionId: _pageSessionId,
         timeout: _cdpScreenshotTimeout,
+        maxResponseCharacters: _maxScreenshotResponseCharacters,
       );
       final data = r['data'] as String?;
       if (data == null || data.isEmpty) return null;
-      if (data.length > _maxScreenshotBase64Chars) return null;
-      return base64Decode(data);
+      return decodeBase64Bounded(
+        data,
+        maxDecodedBytes: _maxScreenshotDecodedBytes,
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',

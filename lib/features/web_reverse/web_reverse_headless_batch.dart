@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_base64.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/text_clip.dart';
@@ -20,7 +21,8 @@ const int kWebReverseHeadlessBatchMaxUrls = 50;
 const int kWebReverseHeadlessBatchMaxNetworkEventsPerUrl = 1500;
 const int kWebReverseHeadlessBatchMaxConsoleEventsPerUrl = 1000;
 const int kWebReverseHeadlessBatchMaxConsoleTextChars = 4096;
-const int kWebReverseHeadlessBatchMaxScreenshotBase64Chars = 64 * 1024 * 1024;
+const int _kHeadlessMaxScreenshotDecodedBytes = 48 * kBytesPerMiB;
+const int _kHeadlessMaxScreenshotResponseCharacters = 65 * kBytesPerMiB;
 
 /// Headless 批量采集：复用现有 [WebReverseCdpClient]，按 URL 列表逐个建一个
 /// 后台 Page target，做最小可用的事件采集（network response 列表 / console /
@@ -364,13 +366,16 @@ class WebReverseHeadlessBatch {
             params: <String, Object?>{'format': 'png'},
             sessionId: sessionId,
             timeout: _kHeadlessCdpIoTimeout,
+            maxResponseCharacters: _kHeadlessMaxScreenshotResponseCharacters,
           );
           final data = shot['data'];
-          if (data is String &&
-              data.isNotEmpty &&
-              data.length <= kWebReverseHeadlessBatchMaxScreenshotBase64Chars) {
+          if (data is String && data.isNotEmpty) {
             final path = '${perDir.path}/screenshot.png';
-            await writeBytesFileAtomically(File(path), base64Decode(data));
+            final bytes = decodeBase64Bounded(
+              data,
+              maxDecodedBytes: _kHeadlessMaxScreenshotDecodedBytes,
+            );
+            await writeBytesFileAtomically(File(path), bytes);
             screenshotPath = path;
           }
         } catch (e, st) {

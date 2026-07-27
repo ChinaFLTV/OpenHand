@@ -9,7 +9,22 @@ import 'abortable_http_request.dart';
 const Set<String> _sensitiveRedirectHeaderNames = <String>{
   'authorization',
   'cookie',
+  'host',
   'proxy-authorization',
+};
+
+const Set<String> _redirectEntityHeaderNames = <String>{
+  'content-encoding',
+  'content-disposition',
+  'content-language',
+  'content-length',
+  'content-location',
+  'content-md5',
+  'content-type',
+  'digest',
+  'expect',
+  'trailer',
+  'transfer-encoding',
 };
 
 /// `Location` 响应头名。
@@ -18,8 +33,9 @@ const String kLocationHeaderName = 'location';
 /// 手动跟随 HTTP 重定向，直到拿到非重定向响应或超出 [maxRedirects]。
 ///
 /// 之所以不用 package:http 自带的跟随：需要在跨源跳转时剥离 `Authorization`
-/// 一类的敏感头，并把 303 降级为 GET。AI 聊天与 MCP 工具发现此前各维护一份
-/// 逐行相同的实现，这类安全语义一旦分叉就是漏洞。差异部分通过回调注入：
+/// 一类的敏感头，并统一 301 / 302 / 303 的请求方法语义。AI 聊天与 MCP
+/// 工具发现此前各维护一份逐行相同的实现，这类安全语义一旦分叉就是漏洞。
+/// 差异部分通过回调注入：
 ///
 /// - [drainResponse]：排空被丢弃的中间响应，避免连接悬挂。
 /// - [onTooManyRedirects]：超出跳转上限时抛出调用方自己的异常类型。
@@ -80,14 +96,24 @@ Future<http.StreamedResponse> sendHttpRequestFollowingRedirects({
       );
     }
     currentUri = redirectedUri;
-    // 303 要求后续请求改用 GET 且不携带原始请求体（RFC 7231 §6.4.4）。
-    if (response.statusCode == 303 &&
-        currentMethod != 'GET' &&
-        currentMethod != 'HEAD') {
+    if (_redirectUsesGet(response.statusCode, currentMethod)) {
       currentMethod = 'GET';
       currentBody = null;
+      currentHeaders.removeWhere(
+        (name, _) => _redirectEntityHeaderNames.contains(name.toLowerCase()),
+      );
     }
   }
+}
+
+/// 301 / 302 对 POST 沿用浏览器兼容语义，303 则把除 GET / HEAD 外的方法转为 GET。
+bool _redirectUsesGet(int statusCode, String method) {
+  final normalizedMethod = method.toUpperCase();
+  return (statusCode == 301 || statusCode == 302) &&
+          normalizedMethod == 'POST' ||
+      statusCode == 303 &&
+          normalizedMethod != 'GET' &&
+          normalizedMethod != 'HEAD';
 }
 
 /// 判断状态码是否为需要跟随的重定向响应。

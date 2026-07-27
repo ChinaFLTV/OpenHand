@@ -1,5 +1,7 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+const int _kImageInlinePreviewMaxDecodedBytes = 3 * kBytesPerMiB;
+
 /// 单条请求的右侧详情面板，6 个 tab 与 Chrome DevTools 一致：
 /// Headers / Preview / Response / Initiator / Timing / Messages（仅 WS）。
 enum _DetailTab { headers, preview, response, initiator, timing, messages }
@@ -1989,8 +1991,11 @@ class _ImageInlinePreview extends StatelessWidget {
     final t = bytesText;
     if (t == null || t.isEmpty) return null;
     try {
-      return base64Decode(t);
-    } catch (_) {
+      return decodeBase64Bounded(
+        t,
+        maxDecodedBytes: _kImageInlinePreviewMaxDecodedBytes,
+      );
+    } on BoundedBase64Exception {
       return null;
     }
   }

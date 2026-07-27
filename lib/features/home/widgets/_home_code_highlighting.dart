@@ -14,6 +14,7 @@ const int _highlightSkipThresholdChars = 80 * 1024;
 /// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
 const int _highlightDeferThresholdChars = 256;
 const Duration _tempPreviewCleanupTotalTimeout = Duration(seconds: 20);
+const Duration _tempPreviewWriteTimeout = Duration(seconds: 30);
 const BoundedDeletePolicy _tempPreviewDeletePolicy = BoundedDeletePolicy(
   maxEntries: 128,
   maxDepth: 8,
@@ -2466,7 +2467,13 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     try {
       final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
       final htmlFile = File(p.join(tempDir.path, 'preview.html'));
-      await htmlFile.writeAsString(widget.htmlContent);
+      await writeTemporaryFileTextBounded(
+        htmlFile,
+        widget.htmlContent,
+        timeout: _tempPreviewWriteTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('home_code_highlighting', '清理浏览器预览临时文件', error, stack),
+      );
       await openLocalPathWithSystemApp(
         htmlFile.path,
         tag: 'home_code_highlighting.open_html_preview',
@@ -2822,7 +2829,13 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       // Create temp HTML file as fallback.
       final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
       final htmlFile = File(p.join(tempDir.path, 'preview.html'));
-      await htmlFile.writeAsString(widget.htmlContent);
+      await writeTemporaryFileTextBounded(
+        htmlFile,
+        widget.htmlContent,
+        timeout: _tempPreviewWriteTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('home_code_highlighting', '清理 HTML 预览临时文件', error, stack),
+      );
       _tempFilePath = htmlFile.path;
 
       if (!mounted) return;
@@ -3038,6 +3051,7 @@ class _MermaidDiagramView extends StatefulWidget {
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   static const Duration _mermaidLoadTimeout = Duration(seconds: 60);
   static const Duration _svgClipboardProcessTimeout = Duration(seconds: 2);
+  static const int _maxPngDecodedBytes = 32 * kBytesPerMiB;
   static const int _svgClipboardVerificationMinBytes = 64 * 1024;
   static const int _svgClipboardVerificationMaxBytes = 16 * 1024 * 1024;
   static const int _svgClipboardStderrMaxBytes = 8 * 1024;
@@ -3144,8 +3158,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final base64Part = match?.group(1);
     if (base64Part == null || base64Part.isEmpty) return null;
     try {
-      return base64Decode(base64Part);
-    } catch (_) {
+      return decodeBase64Bounded(
+        base64Part,
+        maxDecodedBytes: _maxPngDecodedBytes,
+      );
+    } on BoundedBase64Exception {
       return null;
     }
   }
@@ -3225,7 +3242,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           'openhand_mermaid_',
         );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
-        await tempFile.writeAsString(html, flush: true);
+        await writeTemporaryFileTextBounded(
+          tempFile,
+          html,
+          timeout: _tempPreviewWriteTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('home_code_highlighting', '清理 Mermaid 临时页面', error, stack),
+        );
         _tempHtmlPath = tempFile.path;
         await controller.loadFile(tempFile.path);
       } else {
@@ -3657,7 +3680,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       final ts = DateTime.now().millisecondsSinceEpoch;
       final tempDir = await Directory.systemTemp.createTemp('openhand_svg_');
       final tempFile = File(p.join(tempDir.path, 'mermaid_$ts.svg'));
-      await tempFile.writeAsString(svg);
+      await writeTemporaryFileTextBounded(
+        tempFile,
+        svg,
+        timeout: _tempPreviewWriteTimeout,
+        onSecondaryError: (error, stack) =>
+            silentLog('home_code_highlighting', '清理 Mermaid SVG 临时文件', error, stack),
+      );
       savedPath = tempFile.path;
     } catch (error, stack) {
       silentLog('home_code_highlighting', '写入 Mermaid SVG 临时文件', error, stack);

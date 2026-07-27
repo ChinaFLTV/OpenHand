@@ -350,6 +350,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _composerAttachmentReadTotalTimeout = Duration(
     seconds: 30,
   );
+  static const Duration _composerAttachmentWriteTimeout = Duration(
+    seconds: 30,
+  );
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
   // 桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
@@ -6625,7 +6628,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         final ts = DateTime.now().microsecondsSinceEpoch;
         final tempFile = File(p.join(tempDir.path, 'pasted_$ts.png'));
-        await tempFile.writeAsBytes(bytes, flush: true);
+        await writeTemporaryFileBytesBounded(
+          tempFile,
+          bytes,
+          timeout: _composerAttachmentWriteTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('openhand_home_page', '清理剪贴板图片临时文件', error, stack),
+        );
         tempPath = tempFile.path;
       } catch (error, stack) {
         silentLog('openhand_home_page', '写入剪贴板临时文件', error, stack);
@@ -6780,7 +6789,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               ? 'image'
               : p.basenameWithoutExtension(path).trim();
           final tempFile = File(p.join(tempDir.path, '$basename.$ext'));
-          await tempFile.writeAsBytes(editorResult.bytes, flush: true);
+          await writeTemporaryFileBytesBounded(
+            tempFile,
+            editorResult.bytes,
+            timeout: _composerAttachmentWriteTimeout,
+            onSecondaryError: (error, stack) =>
+                silentLog('openhand_home_page', '清理编辑图片临时文件', error, stack),
+          );
           resolvedPath = tempFile.path;
         } on BoundedFileReadException catch (error, stack) {
           silentLog('openhand_home_page', '有界读取图片附件', error, stack);

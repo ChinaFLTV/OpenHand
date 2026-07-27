@@ -45,6 +45,7 @@ import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
