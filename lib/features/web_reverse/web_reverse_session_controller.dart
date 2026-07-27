@@ -89,6 +89,7 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _reattachAfterReconnectInFlight = false;
   bool _reattachAfterReconnectQueued = false;
   Future<void>? _restartBrowserTask;
+  Future<void>? _attachToTargetTask;
   Future<void>? _safeStopTask;
   Future<void>? _shutdownFuture;
   String? _errorMessage;
@@ -753,7 +754,28 @@ class WebReverseSessionController extends ChangeNotifier {
     _pageTargets.add(snapshot);
   }
 
-  Future<void> _attachToTargetInternal(String targetId) async {
+  /// 串行化 attach：cancel→await→assign `_pageEventsSub` 的写法在两条 attach
+  /// 路径并发时会互相穿插，让其中一个订阅被覆盖后永不 cancel、持续回调
+  /// `_onCdpEvent`。这里沿用本文件既有的单飞范式，把每次 attach 追加到上一次
+  /// 之后串行执行。
+  Future<void> _attachToTargetInternal(String targetId) {
+    final previous = _attachToTargetTask;
+    final task = (() async {
+      if (previous != null) {
+        // 前一次 attach 失败不应阻断本次；仅用于排队，吞掉其异常。
+        await previous.catchError((_) {});
+      }
+      await _attachToTargetLocked(targetId);
+    })();
+    _attachToTargetTask = task;
+    return task.whenComplete(() {
+      if (identical(_attachToTargetTask, task)) {
+        _attachToTargetTask = null;
+      }
+    });
+  }
+
+  Future<void> _attachToTargetLocked(String targetId) async {
     final normalizedTargetId = _validatedPageTargetId(targetId);
     if (normalizedTargetId == null) {
       throw const FormatException('Invalid page target ID.');
@@ -4292,7 +4314,10 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _restartBrowserInternal() async {
-    final restoreScreencastRefCount = _screencastRefCount;
+    // 不快照/回写 _screencastRefCount：stopBrowser 已刻意保留这份活计数
+    // （resetRefCount: false），重启期间订阅者的 acquire/release 会实时增减它。
+    // 此前先快照再无条件写回，会把这些并发增减整段丢弃（lost update）。宽高质量
+    // 属配置量、不受并发增减影响，快照仅用于重启后按上次参数恢复投屏。
     final restoreScreencastWidth = _screencastWidth;
     final restoreScreencastHeight = _screencastHeight;
     final restoreScreencastQuality = _screencastQuality;
@@ -4301,15 +4326,13 @@ class WebReverseSessionController extends ChangeNotifier {
       await stopBrowser();
       _stopped = false;
       _started = false;
-      _screencastRefCount = restoreScreencastRefCount;
       _screencastWidth = restoreScreencastWidth;
       _screencastHeight = restoreScreencastHeight;
       _screencastQuality = restoreScreencastQuality;
       _errorMessage = null;
       _safeNotify();
       await start();
-      if (restoreScreencastRefCount > 0) {
-        _screencastRefCount = restoreScreencastRefCount;
+      if (_screencastRefCount > 0) {
         await _startScreencastForCurrentSubscribers(
           maxWidth: restoreScreencastWidth,
           maxHeight: restoreScreencastHeight,
@@ -4318,7 +4341,6 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '重启浏览器后启动会话', error, stack);
-      _screencastRefCount = restoreScreencastRefCount;
       _errorMessage = '浏览器重启失败：$error';
       _safeNotify();
       rethrow;
@@ -4849,6 +4871,13 @@ class WebReverseSessionController extends ChangeNotifier {
     );
     if (!ok) {
       _screencastRefCount = (_screencastRefCount - 1).clamp(0, 1 << 30);
+      return ok;
+    }
+    // start 是异步的：在它的 await 期间可能有订阅者 release 到 0，而那次
+    // release 因为当时 _screencastActive 尚为 false 直接返回了、没真正 stop。
+    // 若此刻已无人认领，这次 start 就成了停不下来的悬挂投屏，补一次收尾。
+    if (_screencastRefCount == 0) {
+      await releaseScreencast();
     }
     return ok;
   }
