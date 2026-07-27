@@ -3113,7 +3113,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               }
               final transcriptList = OpenHandSafeScrollbar(
                 controller: widget.controller,
-                thumbVisibility: true,
                 thickness: _kTranscriptScrollbarThickness,
                 radius: _kTranscriptScrollbarRadius,
                 stabilizeMetrics: true,

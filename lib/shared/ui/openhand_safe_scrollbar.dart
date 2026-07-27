@@ -11,6 +11,8 @@ import 'oh_pill.dart';
 
 const Duration _kStableScrollbarSettleDelay = Duration(milliseconds: 140);
 const Duration _kStableScrollbarSettleDuration = Duration(milliseconds: 180);
+const Duration _kStableScrollbarFadeDelay = Duration(milliseconds: 360);
+const Duration _kStableScrollbarFadeDuration = Duration(milliseconds: 240);
 
 bool openHandPlatformUsesImplicitScrollbars(TargetPlatform platform) {
   switch (platform) {
@@ -148,7 +150,7 @@ class _OpenHandSafeScrollbarState extends State<OpenHandSafeScrollbar> {
     } else if (widget.stabilizeMetrics) {
       content = _OpenHandStableRawScrollbar(
         controller: controller,
-        thumbVisibility: widget.thumbVisibility ?? true,
+        thumbVisibility: widget.thumbVisibility,
         trackVisibility: widget.trackVisibility,
         thickness: widget.thickness,
         radius: widget.radius,
@@ -194,8 +196,8 @@ class _OpenHandStableRawScrollbar extends RawScrollbar {
     super.scrollbarOrientation,
   }) : super(
          notificationPredicate: sourceNotificationPredicate,
-         fadeDuration: Duration.zero,
-         timeToFade: Duration.zero,
+         fadeDuration: _kStableScrollbarFadeDuration,
+         timeToFade: _kStableScrollbarFadeDelay,
          pressDuration: Duration.zero,
        );
 
