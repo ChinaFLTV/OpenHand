@@ -46,16 +46,13 @@ dependencies:
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
   flutter_lints: ^6.0.0
 
 dependency_overrides:
   # 上游 1.0.12 强制固定 Strut 高度，会让中文回退字形与混合样式上下重叠。
   flutter_markdown_plus:
     path: vendor/flutter_markdown_plus
-  # Local xterm patch: guards terminal reflow from copying past the backing
-  # line buffer when a wide glyph sits at the right edge.
+  # 本地 xterm 修复：宽字符位于行尾时，阻止终端回流越过底层行缓冲区复制。
   xterm:
     path: vendor/xterm
 
@@ -83,7 +80,7 @@ flutter:
     - assets/web/assets/
     - assets/tooling/
 
-# Use system SQLite on macOS (avoids downloading from GitHub).
+# macOS 使用系统 SQLite，避免从 GitHub 下载二进制文件。
 hooks:
   user_defines:
     sqlite3:

@@ -76,8 +76,6 @@ class WebFetchScraplingProbeStatus {
 }
 
 class WebFetchScraplingBridge {
-  WebFetchScraplingBridge();
-
   static const String _assetPath =
       'assets/tooling/webfetch_scrapling_bridge.py';
   static const String _pythonNotFoundCode = 'python_not_found';

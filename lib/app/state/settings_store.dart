@@ -59,8 +59,6 @@ class SettingsLoadResult {
 }
 
 class SettingsStore {
-  SettingsStore();
-
   static const String _dbSettingsKey = 'app_settings_json';
   static const String _legacyMigrationKey = 'legacy_settings_toml_v1';
   static const int _currentSchemaVersion = 5;

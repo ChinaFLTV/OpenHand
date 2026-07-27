@@ -563,8 +563,6 @@ class _PersistentBashSessionBusy implements Exception {
 }
 
 class AiBashToolService {
-  AiBashToolService();
-
   static const int defaultTimeoutMs = 120000;
   static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _subscriptionCancelTimeout = Duration(seconds: 1);

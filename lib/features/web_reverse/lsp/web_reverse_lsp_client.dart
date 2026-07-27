@@ -37,8 +37,6 @@ const int _kMaxLspMessagesPerDrain = 64;
 final int _maxLspContentLengthDigits = _kMaxLspFrameBytes.toString().length;
 
 class WebReverseLspClient {
-  WebReverseLspClient();
-
   Process? _proc;
   StreamSubscription<List<int>>? _stdoutSub;
   StreamSubscription<List<int>>? _stderrSub;

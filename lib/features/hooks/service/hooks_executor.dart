@@ -15,12 +15,6 @@ import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../hooks_controller.dart';
 
-/// 钩子执行结果状态；与 [HookEntryResult.status] 及用量记录字段同源。
-const String kHookStatusSuccess = 'success';
-const String kHookStatusFailed = 'failed';
-const String kHookStatusTimedOut = 'timed_out';
-const String kHookStatusBlocked = 'blocked';
-
 /// 钩子脚本以该退出码表示“拦截本次操作”，沿用 Claude Code 钩子约定。
 const int kHookBlockExitCode = 2;
 
@@ -64,7 +58,7 @@ Future<void> _deleteHookTempContextFile(File file) async {
   }
 }
 
-/// Result of executing all hooks for a single event.
+/// 单个事件的全部 Hook 执行结果。
 class HookExecutionResult {
   const HookExecutionResult({
     this.executedCount = 0,
@@ -87,7 +81,7 @@ class HookExecutionResult {
   final List<HookEntryResult> hookResults;
 }
 
-/// Detailed result for a single hook execution.
+/// 单个 Hook 的详细执行结果。
 class HookEntryResult {
   const HookEntryResult({
     required this.hookLabel,
@@ -112,52 +106,25 @@ class HookEntryResult {
   final String stdout;
   final String stderr;
 
-  /// Path to bounded captured stdout when the preview is truncated.
+  /// 预览被截断时，有界捕获的标准输出文件路径。
   final String? stdoutFile;
 
-  /// Path to bounded captured stderr when the preview is truncated.
+  /// 预览被截断时，有界捕获的标准错误文件路径。
   final String? stderrFile;
   final String? scriptPath;
   final String? scriptContent;
 }
 
-class HookUsageRecord {
-  const HookUsageRecord({
-    required this.hookId,
-    required this.eventName,
-    required this.status,
-    required this.durationMs,
-    required this.resultSummary,
-    required this.errorSummary,
-  });
-
-  final String hookId;
-  final String eventName;
-  final String status;
-  final int durationMs;
-  final String resultSummary;
-  final String errorSummary;
-}
-
-/// Public executor that runs hooks for a given event. Designed to be called
-/// from AI session controllers and other orchestration layers.
-///
-/// This class is intentionally stateless — it reads the enabled hooks from the
-/// [HooksController] each time [executeEvent] is called, ensuring it always
-/// reflects the latest user configuration.
+/// 执行指定事件 Hook 的无状态执行器；每次运行均读取最新启用配置。
 class HooksExecutor {
   HooksExecutor({required HooksController controller})
     : _enabledHooksForEvent = controller.enabledHooksForEvent;
 
   static const Uuid _uuid = Uuid();
   final List<HookEntry> Function(HookEvent event) _enabledHooksForEvent;
-  Future<void> Function(String sessionId, Iterable<HookUsageRecord> records)?
-  _usageRecorder;
+  HookUsageRecorder? _usageRecorder;
 
-  void configureUsageRecorder(
-    Future<void> Function(String sessionId, Iterable<HookUsageRecord> records)?
-    recorder,
-  ) {
+  void configureUsageRecorder(HookUsageRecorder? recorder) {
     _usageRecorder = recorder;
   }
 
@@ -165,14 +132,10 @@ class HooksExecutor {
     return _enabledHooksForEvent(event).isNotEmpty;
   }
 
-  /// Maximum age of files left behind in the hooks temp directory. Files
-  /// older than this are removed on startup to prevent unbounded growth from
-  /// truncated-output saves and context files that leaked due to crashes.
+  /// Hook 临时目录中文件的最长保留时间。
   static const Duration _tmpFileMaxAge = Duration(days: 7);
 
-  /// Best-effort cleanup of stale hook artifacts under
-  /// `~/.openhand/hooks/tmp/`. Invoked once at application startup. The
-  /// operation is tolerant of every IO failure mode — it never throws.
+  /// 启动时尽力清理 `~/.openhand/hooks/tmp/` 下的过期文件，不向外抛出异常。
   static Future<void> pruneStaleTempFiles() async {
     try {
       final tmpDir = Directory(
@@ -194,22 +157,19 @@ class HooksExecutor {
             await entity.delete().timeout(_hookTempFileOperationTimeout);
           }
         } on FileSystemException {
-          // Best-effort — skip files we cannot stat or delete.
+          // 无法读取或删除的文件直接跳过。
         }
       }
     } on FileSystemException {
-      // Never propagate cleanup failures to the application.
+      // 清理失败不能影响应用启动。
     }
   }
 
-  /// Execute all enabled hooks for [event].
+  /// 执行 [event] 下全部已启用的 Hook。
   ///
-  /// [sessionId] and [payload] are forwarded to each hook script via stdin as
-  /// a JSON object. Returns a summary result with execution counts and errors.
+  /// [sessionId] 与 [payload] 会作为 JSON 经标准输入传给每个 Hook 脚本。
   ///
-  /// Each hook is executed sequentially. If any hook exits with code 2, the
-  /// remaining hooks are skipped and the result is marked as blocked (matching
-  /// the existing AiClaudeHookService convention).
+  /// Hook 串行执行；任一 Hook 以退出码 2 结束时跳过剩余项并标记为已拦截。
   Future<HookExecutionResult> executeEvent({
     required HookEvent event,
     required String sessionId,
@@ -263,9 +223,7 @@ class HooksExecutor {
         stopwatch.stop();
         if (result.timedOut) {
           timedOutCount++;
-          errors.add(
-            'Hook "${hook.label}" timed out after ${hook.timeoutSeconds}s.',
-          );
+          errors.add('Hook“${hook.label}”在 ${hook.timeoutSeconds} 秒后超时。');
           record(kHookStatusTimedOut, result: result);
           continue;
         }
@@ -273,15 +231,15 @@ class HooksExecutor {
           failedCount++;
           blockReason = result.stdout.isNotEmpty
               ? result.stdout
-              : 'Blocked by hook "${hook.label}".';
+              : '已被 Hook“${hook.label}”拦截。';
           record(kHookStatusBlocked, result: result);
           break;
         }
         if (result.exitCode != null && result.exitCode != 0) {
           failedCount++;
           errors.add(
-            'Hook "${hook.label}" exited with code ${result.exitCode}.'
-            '${result.stderr.isNotEmpty ? ' stderr: ${result.stderr}' : ''}',
+            'Hook“${hook.label}”退出码为 ${result.exitCode}。'
+            '${result.stderr.isNotEmpty ? ' 标准错误：${result.stderr}' : ''}',
           );
           record(kHookStatusFailed, result: result);
           continue;
@@ -291,7 +249,7 @@ class HooksExecutor {
       } catch (error) {
         stopwatch.stop();
         failedCount++;
-        errors.add('Hook "${hook.label}" failed to start: $error');
+        errors.add('Hook“${hook.label}”启动失败：$error');
         record(kHookStatusFailed, error: '$error');
       }
     }
@@ -358,9 +316,7 @@ class HooksExecutor {
     }
     final contextBytes = utf8.encode(contextJson);
 
-    // Keep a unique, valid JSON context file for scripts that prefer jq. The
-    // UUID prevents concurrent invocations of the same hook from overwriting
-    // and then deleting each other's context.
+    // 为偏好 jq 的脚本保留独立 JSON 上下文；UUID 防止并发 Hook 互相覆盖或删除文件。
     File? contextFile;
     try {
       final tmpDir = Directory(
@@ -386,7 +342,7 @@ class HooksExecutor {
             silentLog('hooks_executor', '清理临时上下文文件', error, stack),
       );
     } catch (_) {
-      // If file creation fails, scripts can still read from stdin.
+      // 文件创建失败时，脚本仍可从标准输入读取上下文。
       contextFile = null;
     }
 
@@ -499,11 +455,11 @@ class HooksExecutor {
   }
 
   _ShellCommand _buildCommand(HookEntry hook) {
-    // If a script file path is set, execute that file directly.
+    // 已配置脚本路径时直接执行该文件。
     if (hook.scriptPath != null && hook.scriptPath!.isNotEmpty) {
       return _buildFileCommand(hook.scriptPath!);
     }
-    // Otherwise, execute inline script content via the platform shell.
+    // 否则通过平台 Shell 执行内联脚本。
     final content = hook.scriptContent ?? '';
     if (Platform.isWindows) {
       return _ShellCommand(
@@ -538,7 +494,7 @@ class HooksExecutor {
         arguments: <String>['/C', scriptPath],
       );
     }
-    // macOS / Linux — execute as shell script.
+    // macOS / Linux 作为 Shell 脚本执行。
     return _ShellCommand(
       executable: preferredPosixShellExecutable(),
       arguments: <String>[scriptPath],
@@ -570,7 +526,7 @@ class HooksExecutor {
     );
   }
 
-  /// Saves bounded captured output and returns its path.
+  /// 保存有界捕获的输出并返回文件路径。
   Future<String?> _saveCapturedOutputFile({
     required String content,
     required String sessionId,
@@ -621,10 +577,10 @@ class _HookScriptResult {
   final String stderr;
   final bool timedOut;
 
-  /// Path to bounded captured stdout when the preview was truncated.
+  /// 预览被截断时，有界捕获的标准输出文件路径。
   final String? stdoutFile;
 
-  /// Path to bounded captured stderr when the preview was truncated.
+  /// 预览被截断时，有界捕获的标准错误文件路径。
   final String? stderrFile;
 }
 
@@ -642,10 +598,10 @@ class _CollectedOutput {
     this.wasTruncated = false,
   });
 
-  /// Display text (truncated if necessary).
+  /// 用于展示的文本，必要时已截断。
   final String text;
 
-  /// Bounded captured text when the preview is truncated.
+  /// 预览被截断时有界捕获的完整文本。
   final String? capturedText;
 
   final bool wasTruncated;

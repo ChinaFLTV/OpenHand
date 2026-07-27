@@ -101,8 +101,6 @@ class AutoFollowProgrammaticScrollWindow {
 /// 通过 [handleNotification] 记录用户手势，并由 [followToBottom] 统一执行
 /// 跳转或动画，避免流式更新与用户滚动争抢同一 ScrollPosition。
 class AutoFollowScrollGuard {
-  AutoFollowScrollGuard();
-
   bool _userScrolling = false;
   bool _followScheduled = false;
   final AutoFollowProgrammaticScrollWindow _programmaticScroll =

@@ -12,8 +12,6 @@ import '../../../../shared/util/lifecycle_cache.dart';
 /// 2. Edit/Write 前重新采样当前文件快照
 /// 3. 优先用内容指纹识别真实变化，避免时间戳抖动误报或容差漏报
 class AiFileTrackerService {
-  AiFileTrackerService();
-
   static const Duration _timestampTolerance = Duration(seconds: 2);
   static const int _maxFingerprintBytes = 4 * 1024 * 1024;
   static const int _maxTrackedFiles = 4096;

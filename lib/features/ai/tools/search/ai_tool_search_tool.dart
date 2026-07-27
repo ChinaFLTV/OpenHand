@@ -12,8 +12,6 @@ import '../ai_tool_utils.dart';
 /// 模型先查询目标 Schema，再通过同一入口代理执行，避免轮次间改写缓存前缀。
 /// 支持精确 `select:`、关键词和 `+必含词` 三种查询方式。
 class AiToolSearchTool extends AiTool {
-  AiToolSearchTool();
-
   static const int _defaultMaxResults = 5;
   static const int _minMaxResults = 1;
   static const int _maxMaxResults = 50;

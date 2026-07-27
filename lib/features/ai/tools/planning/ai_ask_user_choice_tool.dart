@@ -74,8 +74,6 @@ typedef AskUserChoicePresenter =
 /// failure describing the missing UI bridge so the model can recover
 /// gracefully (e.g. fall back to asking the question in chat text).
 class AiAskUserChoiceTool extends AiTool {
-  AiAskUserChoiceTool();
-
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.askUserChoice;
 

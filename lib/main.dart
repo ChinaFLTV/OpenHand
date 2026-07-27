@@ -43,7 +43,7 @@ import 'shared/ui/structured_error_text.dart';
 const Duration _mcpRuntimeCleanupTimeout = Duration(seconds: 10);
 
 Future<void> main() async {
-  // 用 Zone 统一兜住异步异常，并拦截 highlight 内部裸 print 产生的可恢复噪声。
+  // 用 Zone 统一兜住异步异常，并过滤第三方库已知的可恢复输出噪声。
   await runZonedGuarded<Future<void>>(
     _bootstrap,
     _handleUncaughtZoneError,
@@ -581,7 +581,7 @@ bool _shouldSilenceHighlightFormattingError(Object error, StackTrace? stack) {
       trace.contains('package:flutter_highlight/');
 }
 
-/// 过滤 highlight 通过裸 print 打出的可恢复格式化异常，避免刷屏和首屏卡顿。
+/// 过滤 highlight 格式化异常和 media_kit 初始化跟踪输出，避免刷屏和首屏卡顿。
 bool _shouldSilencePrintLine(String line) {
   return line.contains('FormatException: Invalid number') ||
       line.contains('FormatException: Invalid radix-10 number') ||

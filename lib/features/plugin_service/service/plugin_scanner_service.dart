@@ -61,8 +61,6 @@ Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
 /// 对于 nvm / pyenv 用户，优先直接解析或借助管理器拿到真实可执行路径，
 /// 避免 GUI 应用进程 PATH 与终端不一致的问题。
 class PluginScannerService {
-  PluginScannerService();
-
   static const String hermesAgentPackageName = 'hermes-agent';
   static const String hermesAgentCommand = 'hermes-agent';
   static const String hermesAgentAltCommand = 'hermes';

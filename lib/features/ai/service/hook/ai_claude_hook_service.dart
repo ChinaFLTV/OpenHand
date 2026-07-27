@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../app/model/hook_config.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
@@ -55,27 +56,7 @@ class AiClaudeHookInvocationResult {
   final List<String> loadedConfigPaths;
 }
 
-class AiClaudeHookUsageRecord {
-  const AiClaudeHookUsageRecord({
-    required this.hookId,
-    required this.eventName,
-    required this.status,
-    required this.durationMs,
-    required this.resultSummary,
-    required this.errorSummary,
-  });
-
-  final String hookId;
-  final String eventName;
-  final String status;
-  final int durationMs;
-  final String resultSummary;
-  final String errorSummary;
-}
-
 class AiNoopClaudeHookService extends AiClaudeHookService {
-  AiNoopClaudeHookService();
-
   @override
   Future<AiClaudeHookInvocationResult> runHooks({
     required String eventName,
@@ -126,19 +107,9 @@ class AiClaudeHookService {
       LifecycleLruCache<_AiCachedHookConfigPresence>(
         maxEntries: _maxAiHookPresenceCacheEntries,
       );
-  Future<void> Function(
-    String sessionId,
-    Iterable<AiClaudeHookUsageRecord> records,
-  )?
-  _usageRecorder;
+  HookUsageRecorder? _usageRecorder;
 
-  void configureUsageRecorder(
-    Future<void> Function(
-      String sessionId,
-      Iterable<AiClaudeHookUsageRecord> records,
-    )?
-    recorder,
-  ) {
+  void configureUsageRecorder(HookUsageRecorder? recorder) {
     _usageRecorder = recorder;
   }
 
@@ -177,7 +148,7 @@ class AiClaudeHookService {
     final userFeedback = <String>[];
     final systemReminders = <String>[];
     final executedCommands = <String>[];
-    final usageRecords = <AiClaudeHookUsageRecord>[];
+    final usageRecords = <HookUsageRecord>[];
     String? blockReason;
     var executedHookCount = 0;
     final deadline = MonotonicDeadline(
@@ -207,16 +178,16 @@ class AiClaudeHookService {
         );
         stopwatch.stop();
         usageRecords.add(
-          AiClaudeHookUsageRecord(
+          HookUsageRecord(
             hookId: entry.id,
             eventName: eventName,
             status: commandResult.timedOut
-                ? 'timed_out'
+                ? kHookStatusTimedOut
                 : commandResult.exitCode != 0
-                ? 'failed'
+                ? kHookStatusFailed
                 : parsed.blockReason?.trim().isNotEmpty == true
-                ? 'blocked'
-                : 'success',
+                ? kHookStatusBlocked
+                : kHookStatusSuccess,
             durationMs: stopwatch.elapsedMilliseconds,
             resultSummary: commandResult.stdout,
             errorSummary: commandResult.stderr,
@@ -235,10 +206,10 @@ class AiClaudeHookService {
       } catch (error) {
         stopwatch.stop();
         usageRecords.add(
-          AiClaudeHookUsageRecord(
+          HookUsageRecord(
             hookId: entry.id,
             eventName: eventName,
-            status: 'failed',
+            status: kHookStatusFailed,
             durationMs: stopwatch.elapsedMilliseconds,
             resultSummary: '',
             errorSummary: '$error',

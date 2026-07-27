@@ -40,8 +40,6 @@ class WebReverseLaunchResult {
 /// - `--no-first-run --no-default-browser-check`：跳过首启向导。
 /// - `--disable-features=...`：关掉若干会拦截 CDP 的功能。
 class WebReverseBrowserLauncher {
-  WebReverseBrowserLauncher();
-
   static const int _firstCdpPort = 9222;
   static const int _lastCdpPortExclusive = 9322;
   static const Duration _handshakeTimeout = Duration(seconds: 30);

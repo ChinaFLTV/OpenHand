@@ -37,8 +37,6 @@ class WebReverseBrowserProbeResult {
 ///
 /// 返回值兼容"未安装"场景；UI 层据此弹引导对话框。
 class WebReverseBrowserDetector {
-  WebReverseBrowserDetector();
-
   Future<WebReverseBrowserProbeResult> detect() async {
     final all = await detectAll();
     return all.isEmpty

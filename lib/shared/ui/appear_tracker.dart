@@ -1,8 +1,6 @@
 /// Tracks list item identities so only entries added after the first build
 /// play their entrance animation.
 class AppearTracker {
-  AppearTracker();
-
   final Set<String> _seen = <String>{};
   bool _initialBuildDone = false;
 

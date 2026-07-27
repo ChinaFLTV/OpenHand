@@ -1,7 +1,35 @@
 import '../../l10n/app_localizations.dart';
 import '../../shared/util/input_value_parsing.dart';
 
-/// Hook lifecycle event types matching GitHub Copilot agent lifecycle stages.
+/// Hook 执行结果状态，供内置 Hook 与用户 Hook 统一记录。
+const String kHookStatusSuccess = 'success';
+const String kHookStatusFailed = 'failed';
+const String kHookStatusTimedOut = 'timed_out';
+const String kHookStatusBlocked = 'blocked';
+
+/// Hook 用量记录，供不同 Hook 执行器复用。
+class HookUsageRecord {
+  const HookUsageRecord({
+    required this.hookId,
+    required this.eventName,
+    required this.status,
+    required this.durationMs,
+    required this.resultSummary,
+    required this.errorSummary,
+  });
+
+  final String hookId;
+  final String eventName;
+  final String status;
+  final int durationMs;
+  final String resultSummary;
+  final String errorSummary;
+}
+
+typedef HookUsageRecorder =
+    Future<void> Function(String sessionId, Iterable<HookUsageRecord> records);
+
+/// 与 GitHub Copilot Agent 生命周期对应的 Hook 事件。
 enum HookEvent {
   sessionStart('session_start'),
   userPromptSubmit('user_prompt_submit'),
@@ -36,7 +64,7 @@ enum HookEvent {
   }
 }
 
-/// A single hook entry that maps a lifecycle event to a script.
+/// 把一个生命周期事件映射到脚本的 Hook 配置。
 class HookEntry {
   const HookEntry({
     required this.id,
@@ -88,7 +116,7 @@ class HookEntry {
   final bool enabled;
   final int timeoutSeconds;
 
-  /// Whether this entry has a valid executable source.
+  /// 是否包含可执行的脚本来源。
   bool get hasScript =>
       (scriptPath != null && scriptPath!.isNotEmpty) ||
       (scriptContent != null && scriptContent!.isNotEmpty);

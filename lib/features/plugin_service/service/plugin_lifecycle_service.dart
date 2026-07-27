@@ -661,8 +661,6 @@ String? _localizedPluginLifecycleMessage(String? message) {
 /// - 卸载 NodeJS 前检查 Playwright 是否仍在使用
 /// - Python / pip 仅自动管理 pyenv 与 Homebrew 来源
 class PluginLifecycleService {
-  PluginLifecycleService();
-
   // ── 插件操作时长预算 ───────────────────────────────────────────────────
   // 按下载与构建体量分档，同档共用一个常量：调整某类组件的预算只需改一处，
   // 不必在几十个调用点里逐个找同一个字面量。

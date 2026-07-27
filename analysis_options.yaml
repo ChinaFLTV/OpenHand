@@ -1,4 +1,3 @@
-# 2026-04-01 10:27:21
 # 升级为生产级 lint 规则配置。
 # 基础规则来自 flutter_lints，在此基础上追加更严格的质量检查。
 include: package:flutter_lints/flutter.yaml
@@ -72,11 +71,10 @@ linter:
 
 analyzer:
   exclude:
-    # vendored dependency with local OpenHand patch; keep app lint noise focused
-    # on first-party source and avoid rewriting third-party style wholesale.
+    # vendor 包含 OpenHand 本地补丁；静态检查只关注第一方源码，避免批量改写第三方风格。
     - vendor/**
   errors:
-    # 将以下降级为 warning，避免过于严格影响开发效率
+    # 将以下规则降级为 info，避免过于严格影响开发效率
     prefer_final_locals: info
     sort_constructors_first: info
     directives_ordering: info
