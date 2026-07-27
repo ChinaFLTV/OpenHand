@@ -282,6 +282,11 @@ class McpKeywordIndexService {
   Future<McpKeywordIndexBuildResult>? _inflight;
   int _persistenceRevision = 0;
 
+  /// 整表重建进行期间发生的单服务替换，按 serverName 记最新一次的工具列表。
+  /// 重建落盘时把它们叠加到全量结果上，避免二者互相覆盖（见 build 落盘处）。
+  final Map<String, List<McpTool>> _replacesDuringBuild =
+      <String, List<McpTool>>{};
+
   static const String _fileName = 'keyword_index.json';
   static const int _defaultMaxPersistedBytes = 32 * 1024 * 1024;
 
@@ -298,6 +303,8 @@ class McpKeywordIndexService {
     final existing = _inflight;
     if (existing != null) return existing;
     final persistenceRevision = _persistenceRevision;
+    // 本次重建的基线由此刻起算：清掉上一轮遗留的替换记录，只累积重建期间新到的。
+    _replacesDuringBuild.clear();
     final fut = _doBuild(
       servers: servers,
       resolveTools: resolveTools,
@@ -456,9 +463,21 @@ class McpKeywordIndexService {
       durationMs: stopwatch.elapsedMilliseconds,
     );
     await _persistenceQueue.enqueue(() async {
-      if (persistenceRevision == _persistenceRevision) {
-        await _persist(index);
+      // 全量重建始终落盘，不因期间发生过单服务替换而整轮丢弃（此前的守卫
+      // 恰好反了：跳过重建、却让「陈旧全量 + 单服务增量」的替换写入胜出）。
+      // 期间到达的替换比重建更新，叠加到全量结果之上，二者都不丢。
+      var toPersist = index;
+      if (persistenceRevision != _persistenceRevision &&
+          _replacesDuringBuild.isNotEmpty) {
+        for (final entry in _replacesDuringBuild.entries) {
+          toPersist = toPersist.replaceServerTools(
+            serverName: entry.key,
+            tools: entry.value,
+          );
+        }
       }
+      _replacesDuringBuild.clear();
+      await _persist(toPersist);
     });
     return McpKeywordIndexBuildResult(
       index: index,
@@ -516,6 +535,12 @@ class McpKeywordIndexService {
     required List<McpTool> tools,
   }) {
     _persistenceRevision += 1;
+    // 若此刻有整表重建在途，记下这次替换：重建落盘时会把它叠加到全量结果上。
+    // 二者都仍各自落盘，且重建的 persist 一定排在本任务之后，故无论调度次序如何，
+    // 最终盘面都是「全量 + 本次替换」；即便重建中途失败，本任务也已把增量写盘。
+    if (_inflight != null) {
+      _replacesDuringBuild[serverName] = tools;
+    }
     return _persistenceQueue.enqueue(() async {
       final current = await _loadFromDisk();
       if (current == null) return;
