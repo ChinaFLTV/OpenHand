@@ -1,5 +1,25 @@
 part of '../openhand_home_page.dart';
 
+/// 终端画布底色：不随主题变化，始终保持深色以贴合终端配色。
+const Color _machineTerminalBackground = Color(0xFF0B0D10);
+
+/// 终端画布表面：深色底 + 细描边 + 一层托起阴影，圆角由调用方决定。
+BoxDecoration _machineTerminalSurfaceDecoration(
+  ColorScheme cs, {
+  required double radius,
+}) => BoxDecoration(
+  color: _machineTerminalBackground,
+  borderRadius: BorderRadius.circular(radius),
+  border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.34)),
+  boxShadow: <BoxShadow>[
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.20),
+      blurRadius: 24,
+      offset: const Offset(0, 14),
+    ),
+  ],
+);
+
 class _MachineExpertTerminalPanel extends StatefulWidget {
   const _MachineExpertTerminalPanel({
     required this.sessionId,
@@ -181,20 +201,7 @@ class _MachineExpertTerminalPanelState
           const SizedBox(height: 10),
           Expanded(
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF0B0D10),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.34),
-                ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.20),
-                    blurRadius: 24,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
-              ),
+              decoration: _machineTerminalSurfaceDecoration(cs, radius: 8),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: _MachineTerminalViewport(
@@ -1506,18 +1513,7 @@ class _MachineTerminalReplayViewState
     final cs = Theme.of(context).colorScheme;
     _scheduleReplay();
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B0D10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.34)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
+      decoration: _machineTerminalSurfaceDecoration(cs, radius: 14),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: RepaintBoundary(
@@ -2248,7 +2244,7 @@ TerminalTheme _machineTerminalTheme() {
     cursor: Color(0xFFE6F6C3),
     selection: Color(0x664D7CFF),
     foreground: Color(0xFFE7ECF3),
-    background: Color(0xFF0B0D10),
+    background: _machineTerminalBackground,
     black: Color(0xFF101217),
     red: Color(0xFFFF6B6B),
     green: Color(0xFF5FE3A1),
@@ -2267,7 +2263,7 @@ TerminalTheme _machineTerminalTheme() {
     brightWhite: Color(0xFFFFFFFF),
     searchHitBackground: Color(0xFFE8D66B),
     searchHitBackgroundCurrent: Color(0xFF5FE3A1),
-    searchHitForeground: Color(0xFF0B0D10),
+    searchHitForeground: _machineTerminalBackground,
   );
 }
 

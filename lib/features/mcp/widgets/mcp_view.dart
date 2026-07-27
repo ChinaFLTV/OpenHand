@@ -2341,6 +2341,24 @@ const int _mcpOpsExposureInitialLimit = 14;
 const int _mcpOpsExposurePageSize = 18;
 const Duration _mcpOpsEndpointDiscoveryDebounce = Duration(milliseconds: 320);
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
+
+/// 运维面板外层卡片的统一表面：半透明底 + 细描边 + 一层浅投影。
+///
+/// 与 [_mcpOpsPanelDecoration] 的区别：那个是卡片**内部**信息块的底色（无投影），
+/// 这个是卡片本身。两者取值不同，不可互换。
+BoxDecoration _mcpOpsCardDecoration(ColorScheme cs) => BoxDecoration(
+  color: cs.surfaceContainerLow.withValues(alpha: 0.84),
+  borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
+  border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
+  boxShadow: <BoxShadow>[
+    BoxShadow(
+      color: cs.shadow.withValues(alpha: 0.05),
+      blurRadius: 18,
+      offset: const Offset(0, 10),
+    ),
+  ],
+);
+
 const List<String> _mcpOpsSchemaEditableTypes = <String>[
   'string',
   'number',
@@ -6126,18 +6144,7 @@ class _McpOpsPanel extends StatelessWidget {
     final panel = AnimatedContainer(
       duration: _mcpMotionDuration(context, const Duration(milliseconds: 180)),
       curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      decoration: _mcpOpsCardDecoration(cs),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -8168,20 +8175,7 @@ class _McpOpsAuditRow extends StatelessWidget {
               const Duration(milliseconds: 180),
             ),
             curve: Curves.easeOutCubic,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow.withValues(alpha: 0.84),
-              borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.62),
-              ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: cs.shadow.withValues(alpha: 0.05),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
+            decoration: _mcpOpsCardDecoration(cs),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
               child: IntrinsicHeight(
