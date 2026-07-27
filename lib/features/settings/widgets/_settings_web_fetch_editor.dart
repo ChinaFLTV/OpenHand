@@ -729,7 +729,8 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
       probe,
     );
     return _ToolEngineCardShell(
-      key: ValueKey('engine-${widget.config.kind.name}-${widget.index}'),
+      // 同理只认种类；壳层虽无状态，掺下标也会在排序时触发无谓的元素重建。
+      key: ValueKey('engine-${widget.config.kind.name}'),
       index: widget.index,
       name: 'Scrapling',
       subtitle: openHandLocalizedText(
@@ -1089,7 +1090,9 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
   Widget build(BuildContext context) {
     final cfg = widget.config;
     return _ToolEngineCard(
-      key: ValueKey('engine-${cfg.kind.name}-${widget.index}'),
+      // key 只认引擎种类，不掺位置下标：外层列表可拖拽排序，掺了下标后每次
+      // 拖动都会让位移过的卡片换 key、State 连同展开态与未提交的输入一起被销毁。
+      key: ValueKey('engine-${cfg.kind.name}'),
       index: widget.index,
       name: _fetchEngineDisplayName(cfg.kind),
       subtitle: _fetchEngineSubtitle(context, cfg.kind),

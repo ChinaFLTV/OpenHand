@@ -1398,6 +1398,32 @@ class AiSessionStore {
         return;
       }
 
+      // 完整会话回写走 delete + 批量重插。带遥测裁剪标记的消息在内存里是有损
+      // 副本（尾窗加载时遥测被 json_remove 裁过），先把库内完整遥测读出来，
+      // 重插时补回，避免整轮覆盖永久清空 request_payload / response_raw 等大字段。
+      final deferredIds = <String>[
+        for (final message in session.messages)
+          if (message.metadata[aiSessionMessageDeferredTelemetryMetadataKey] ==
+              true)
+            message.id,
+      ];
+      final storedTelemetry = <String, Map<String, Object?>>{};
+      if (deferredIds.isNotEmpty) {
+        final placeholders = List.filled(deferredIds.length, '?').join(', ');
+        final rows = await txn.query(
+          'messages',
+          columns: const <String>['id', 'metadata_json'],
+          where: 'session_id = ? AND id IN ($placeholders)',
+          whereArgs: <Object?>[session.id, ...deferredIds],
+        );
+        for (final row in rows) {
+          final id = row['id'] as String?;
+          if (id != null) {
+            storedTelemetry[id] = _decodeJsonMap(row['metadata_json']);
+          }
+        }
+      }
+
       // Replace all messages: delete existing, then bulk-insert.
       await txn.delete(
         'messages',
@@ -1408,7 +1434,12 @@ class AiSessionStore {
       for (var i = 0; i < session.messages.length; i++) {
         batch.insert(
           'messages',
-          _messageToRow(session.messages[i], session.id, i),
+          _messageToRow(
+            session.messages[i],
+            session.id,
+            i,
+            storedTelemetry: storedTelemetry,
+          ),
         );
       }
       await batch.commit(noResult: true);
@@ -1453,9 +1484,28 @@ class AiSessionStore {
       messageId,
       label: '消息标识符',
     );
+    Map<String, Object?>? stored;
+    if (metadata[aiSessionMessageDeferredTelemetryMetadataKey] == true) {
+      // 传入的是遥测裁剪副本（如在尾窗里点赞/点踩）：先读回库内完整遥测再合并，
+      // 否则整列覆盖会把 request_payload / response_raw 等大字段一并清空。
+      final rows = await _db.query(
+        'messages',
+        columns: const <String>['metadata_json'],
+        where: 'id = ? AND session_id = ?',
+        whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        stored = _decodeJsonMap(rows.first['metadata_json']);
+      }
+    }
     final updated = await _db.update(
       'messages',
-      <String, Object?>{'metadata_json': jsonEncode(metadata)},
+      <String, Object?>{
+        'metadata_json': jsonEncode(
+          _metadataForPersistence(metadata, stored: stored),
+        ),
+      },
       where: 'id = ? AND session_id = ?',
       whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
     );
@@ -2029,11 +2079,45 @@ class AiSessionStore {
     );
   }
 
+  /// 计算某条消息最终要落库的 metadata。
+  ///
+  /// 加载尾窗时遥测大字段会被 json_remove 裁掉、并打上
+  /// [aiSessionMessageDeferredTelemetryMetadataKey] 标记，这份内存副本是有损的。
+  /// 直接回写会用裁剪版整列覆盖库里的完整遥测，永久丢失 request_payload /
+  /// response_raw / composed_prompt_* / prompt_metadata。
+  ///
+  /// 以内存 metadata 为准（保留调用方对普通字段的增删意图，如点赞/点踩），
+  /// 但当它带遥测裁剪标记时，从 [stored] 把被裁掉的遥测键补回；两个仅供加载期
+  /// 使用的标记键（遥测裁剪、正文预览）一律不落库。
+  static Map<String, Object?> _metadataForPersistence(
+    Map<String, Object?> inMemory, {
+    Map<String, Object?>? stored,
+  }) {
+    final deferred =
+        inMemory[aiSessionMessageDeferredTelemetryMetadataKey] == true;
+    final result = <String, Object?>{
+      for (final entry in inMemory.entries)
+        if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey &&
+            entry.key != aiSessionMessageContentPreviewMetadataKey)
+          entry.key: entry.value,
+    };
+    if (deferred && stored != null) {
+      for (final key in aiSessionMessageDeferredTelemetryMetadataKeys) {
+        if (!result.containsKey(key) && stored.containsKey(key)) {
+          result[key] = stored[key];
+        }
+      }
+    }
+    return result;
+  }
+
   Map<String, Object?> _messageToRow(
     AiSessionMessage message,
     String sessionId,
-    int sortOrder,
-  ) {
+    int sortOrder, {
+    Map<String, Map<String, Object?>> storedTelemetry =
+        const <String, Map<String, Object?>>{},
+  }) {
     return <String, Object?>{
       'id': message.id,
       'session_id': sessionId,
@@ -2049,7 +2133,12 @@ class AiSessionStore {
       'usage_json': message.usage != null
           ? jsonEncode(message.usage!.toJson())
           : null,
-      'metadata_json': jsonEncode(message.metadata),
+      'metadata_json': jsonEncode(
+        _metadataForPersistence(
+          message.metadata,
+          stored: storedTelemetry[message.id],
+        ),
+      ),
     };
   }
 

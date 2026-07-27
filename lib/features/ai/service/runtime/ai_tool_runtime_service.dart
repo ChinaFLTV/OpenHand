@@ -18,6 +18,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/physical_path_safety.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/index.dart';
@@ -1614,10 +1615,12 @@ class AiToolRuntimeService {
     omittedChars = value.length - includedChars;
     final headChars = (includedChars / 2).ceil();
     final tailChars = includedChars - headChars;
-    final head = value.substring(0, headChars);
+    // 用不拆分代理对的安全边界切分：裸 substring 会把 emoji / 增补区字符从中间
+    // 劈开，留下孤立代理码元（显示成 �，还可能污染后续 JSON 编码）。
+    final head = value.substring(0, safeUtf16PrefixCodeUnits(value, headChars));
     final tail = tailChars <= 0
         ? ''
-        : value.substring(value.length - tailChars);
+        : value.substring(safeUtf16SuffixStart(value, value.length - tailChars));
     return (
       text: '$head$notice$tail',
       includedChars: includedChars,

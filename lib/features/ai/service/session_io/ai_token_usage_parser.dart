@@ -368,13 +368,27 @@ class AiTokenUsageParser {
       return a > b ? a : b;
     }
 
+    // 先合出 prompt / completion，再据此重算 total。Anthropic 流式里 prompt 只在
+    // message_start 下发一次、completion 随 message_delta 递增；若 total 只做
+    // max 合并，就会被钉死在 message_start 那一帧的初值，永远反映不出增长的
+    // completion。同时不让 total 低于任一帧显式给出的 total（有的供应商会给出
+    // 大于 prompt+completion 的权威总量）。
+    final mergedPrompt = incoming.promptTokens ?? previous.promptTokens;
+    final mergedCompletion = maxNullable(
+      previous.completionTokens,
+      incoming.completionTokens,
+    );
+    final recomputedTotal = mergedPrompt == null && mergedCompletion == null
+        ? null
+        : (mergedPrompt ?? 0) + (mergedCompletion ?? 0);
+
     return AiTokenUsage(
-      promptTokens: incoming.promptTokens ?? previous.promptTokens,
-      completionTokens: maxNullable(
-        previous.completionTokens,
-        incoming.completionTokens,
+      promptTokens: mergedPrompt,
+      completionTokens: mergedCompletion,
+      totalTokens: maxNullable(
+        recomputedTotal,
+        maxNullable(previous.totalTokens, incoming.totalTokens),
       ),
-      totalTokens: maxNullable(previous.totalTokens, incoming.totalTokens),
       cacheCreationTokens:
           incoming.cacheCreationTokens ?? previous.cacheCreationTokens,
       cacheReadTokens: incoming.cacheReadTokens ?? previous.cacheReadTokens,

@@ -485,6 +485,23 @@ class SettingsStore {
     return persisted;
   }
 
+  static int _migrateMcpLazyLoadingThresholdTokens({
+    required int persisted,
+    required int schemaVersion,
+  }) {
+    if (schemaVersion < 5 &&
+        persisted == AppSettingsSnapshot.legacyMcpLazyLoadingThresholdTokens) {
+      // 旧版把默认值 80000 写进了库，升级后一次性收敛到新默认值 16000。
+      //
+      // 门槛不可省：此前这里是无条件改写，而 80000 本身落在合法区间
+      // [1000, 1000000] 内，于是用户主动设成 80000 每次启动都被改回 16000，
+      // 永远存不住。门槛取 5 而非当前版本号，是因为动画设置那几处迁移用的是
+      // `< _currentSchemaVersion`，抬版本号会把它们一并重跑。
+      return AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens;
+    }
+    return persisted;
+  }
+
   static AppSettingsSnapshot _snapshotFromJson(Map<String, Object?> json) {
     final schemaVersion = optionalIntegralIntFromValue(json['version']) ?? 0;
     final themeMode = _themeModeFromStorage('${json['theme_mode'] ?? ''}');
@@ -516,10 +533,10 @@ class SettingsStore {
       max: AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
     );
     final mcpLazyLoadingThresholdTokens =
-        loadedMcpLazyLoadingThresholdTokens ==
-            AppSettingsSnapshot.legacyMcpLazyLoadingThresholdTokens
-        ? AppSettingsSnapshot.defaultMcpLazyLoadingThresholdTokens
-        : loadedMcpLazyLoadingThresholdTokens;
+        _migrateMcpLazyLoadingThresholdTokens(
+          persisted: loadedMcpLazyLoadingThresholdTokens,
+          schemaVersion: schemaVersion,
+        );
     final mcpAutoProbeConcurrency = clampedIntFromValue(
       json['mcp_auto_probe_concurrency'],
       fallback: AppSettingsSnapshot.defaultMcpAutoProbeConcurrency,

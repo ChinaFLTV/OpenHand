@@ -185,6 +185,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
   _MessageMarkdownThemeData? _cachedMarkdownThemeData;
   String? _cachedFilePathParseKey;
   List<String>? _cachedFilePathRoots;
+
+  // 三套「专家请求卡」的解析结果按消息缓存：每套 fromPrompt 都要对整条正文做
+  // 分行 + 多次正则字段提取，而结果只取决于不可变的用户消息，逐帧重算纯属浪费。
+  // 随 _invalidateCache（消息 id 变化时触发）一并失效。
+  bool _expertRequestCardsComputed = false;
+  AiMachineExpertRequestCard? _machineExpertRequestCard;
+  AiWebReverseRequestCard? _webReverseRequestCard;
+  AiAndroidReverseRequestCard? _androidReverseRequestCard;
   String? _lastCacheMessageId;
   String? _lastCacheEnvironmentKey;
   int? _lastCacheThemeSignature;
@@ -312,12 +320,47 @@ class _MessageBubbleState extends State<_MessageBubble> {
     });
   }
 
+  /// 解析（并缓存）三套专家请求卡。非用户消息一律为空。优先用 metadata 里已
+  /// 结构化的卡片，缺失时才回退到对正文做一次 fromPrompt 解析。
+  void _ensureExpertRequestCards(
+    AiSessionMessage message, {
+    required bool isUser,
+  }) {
+    if (_expertRequestCardsComputed) return;
+    _expertRequestCardsComputed = true;
+    if (!isUser) {
+      _machineExpertRequestCard = null;
+      _webReverseRequestCard = null;
+      _androidReverseRequestCard = null;
+      return;
+    }
+    _machineExpertRequestCard =
+        AiMachineExpertRequestCard.fromMetadata(
+          message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
+        ) ??
+        AiMachineExpertRequestCard.fromPrompt(message.content);
+    _webReverseRequestCard =
+        AiWebReverseRequestCard.fromMetadata(
+          message.metadata[aiSessionWebReverseRequestCardMetadataKey],
+        ) ??
+        AiWebReverseRequestCard.fromPrompt(message.content);
+    _androidReverseRequestCard =
+        AiAndroidReverseRequestCard.fromMetadata(
+          message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
+        ) ??
+        AiAndroidReverseRequestCard.fromPrompt(message.content);
+  }
+
   void _invalidateCache() {
     _cachedInlineSyntaxes = null;
     _cachedBuilders = null;
     _cachedMarkdownThemeData = null;
     _cachedFilePathParseKey = null;
     _cachedFilePathRoots = null;
+    _expertRequestCardsComputed = false;
+    _machineExpertRequestCard = null;
+    _webReverseRequestCard = null;
+    _androidReverseRequestCard = null;
     _lastCacheMessageId = null;
     _lastCacheEnvironmentKey = null;
     _lastCacheThemeSignature = null;
@@ -426,24 +469,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         isGoalEvaluationRequest || isGoalEvaluationResponse;
     final goalMessageView = _GoalMessageViewData.fromMessage(message);
     final isGoalRuntimeMessage = goalMessageView != null;
-    final machineExpertRequestCard = isUser
-        ? AiMachineExpertRequestCard.fromMetadata(
-                message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
-              ) ??
-              AiMachineExpertRequestCard.fromPrompt(message.content)
-        : null;
-    final webReverseRequestCard = isUser
-        ? AiWebReverseRequestCard.fromMetadata(
-                message.metadata[aiSessionWebReverseRequestCardMetadataKey],
-              ) ??
-              AiWebReverseRequestCard.fromPrompt(message.content)
-        : null;
-    final androidReverseRequestCard = isUser
-        ? AiAndroidReverseRequestCard.fromMetadata(
-                message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
-              ) ??
-              AiAndroidReverseRequestCard.fromPrompt(message.content)
-        : null;
+    _ensureExpertRequestCards(message, isUser: isUser);
+    final machineExpertRequestCard = _machineExpertRequestCard;
+    final webReverseRequestCard = _webReverseRequestCard;
+    final androidReverseRequestCard = _androidReverseRequestCard;
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;

@@ -152,6 +152,14 @@ class AiNotebookEditTool extends AiTool {
             'NotebookEdit insert requires cell_type.',
           );
         }
+        // 指定了 cell_id 却没找到，是「在某个不存在的单元格后插入」——按错误处理，
+        // 而不是静默插到开头。仅当未指定 cell_id 时才插到开头（index == -1）。
+        if (cellId.isNotEmpty && index == -1) {
+          return AiToolUtils.invalidResult(
+            'NotebookEdit',
+            'Target cell_id was not found.',
+          );
+        }
         final insertedCell = <String, Object?>{
           'cell_type': cellType,
           'metadata': const <String, Object?>{},
