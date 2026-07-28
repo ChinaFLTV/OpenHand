@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -60,6 +61,12 @@ const Duration _maxTrackedChildrenGracefulTimeout = Duration(seconds: 5);
 const int _processGroupProbeConcurrency = 4;
 const int _maxDescendantProcesses = 256;
 const int _maxCapturedProcessBytesPerStream = 16 * 1024 * 1024;
+const int _posixExistenceProbeSignal = 0;
+
+typedef _NativePosixKill = Int32 Function(Int32 processId, Int32 signal);
+typedef _PosixKill = int Function(int processId, int signal);
+
+final _PosixKill? _posixKill = _resolvePosixKill();
 
 enum _TrackedChildrenCleanupPhase {
   idle,
@@ -179,6 +186,10 @@ Future<void> _pruneExitedProcessGroups() async {
 
 Future<bool> _isProcessGroupAlive(int processGroupId) async {
   if (Platform.isWindows || processGroupId <= 0) return false;
+  final posixKill = _posixKill;
+  if (posixKill != null) {
+    return posixKill(-processGroupId, _posixExistenceProbeSignal) == 0;
+  }
   final result = await runBinaryProcessWithTimeout(
     '/bin/kill',
     <String>['-0', '-$processGroupId'],
@@ -190,6 +201,32 @@ Future<bool> _isProcessGroupAlive(int processGroupId) async {
   );
   // 探针启动失败时保守保留登记，避免误丢仍存活的进程组。
   return result == null || result.exitCode == 0;
+}
+
+_PosixKill? _resolvePosixKill() {
+  if (!Platform.isMacOS && !Platform.isLinux) return null;
+  try {
+    return DynamicLibrary.process()
+        .lookupFunction<_NativePosixKill, _PosixKill>('kill');
+  } catch (error, stack) {
+    silentLog('safe_subprocess', '加载 POSIX 进程组探针', error, stack);
+    return null;
+  }
+}
+
+Future<void> _handleExitedProcessGroup(Process process) async {
+  final processGroupId = process.pid;
+  if (!identical(_trackedProcessGroups[processGroupId], process)) return;
+  if (await _isProcessGroupAlive(processGroupId)) {
+    if (identical(_trackedProcessGroups[processGroupId], process)) {
+      _ensureProcessGroupPruner();
+    }
+    return;
+  }
+  if (identical(_trackedProcessGroups[processGroupId], process)) {
+    _trackedProcessGroups.remove(processGroupId);
+  }
+  _stopProcessGroupPrunerIfIdle();
 }
 
 /// 启动一个长驻子进程（LSP / mitmdump / Hook / Cron / MCP 调试探针等）并
@@ -310,16 +347,10 @@ Future<_TrackedProcessLaunch> _startTrackedProcessInNewGroup(
   _applyTrackedChildrenCleanupPhase(process);
   unawaited(
     process.exitCode.then<void>(
-      (_) {
-        if (identical(_trackedProcessGroups[process.pid], process)) {
-          _ensureProcessGroupPruner();
-        }
-      },
+      (_) => _handleExitedProcessGroup(process),
       onError: (Object error, StackTrace stack) {
-        if (identical(_trackedProcessGroups[process.pid], process)) {
-          _ensureProcessGroupPruner();
-        }
         silentLog('safe_subprocess', '监听进程组长退出', error, stack);
+        return _handleExitedProcessGroup(process);
       },
     ),
   );
@@ -1713,9 +1744,7 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
   Duration remainingTimeout() {
     final remainingMicroseconds =
         effectiveTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) {
-      throw TimeoutException('Binary process exceeded its time limit.');
-    }
+    if (remainingMicroseconds <= 0) return Duration.zero;
     return Duration(microseconds: remainingMicroseconds);
   }
 
