@@ -5,7 +5,7 @@
 // 这里生成。size / class 缺省时对应属性值为 undefined，Preact 渲染时
 // 自动跳过，与原先不声明该属性完全等价。
 
-export interface SvgIconPropsOptions {
+interface SvgIconPropsOptions {
   /** 同时作为 width 与 height；不传则由使用处自行控制尺寸。 */
   size?: number;
   /** 线宽，默认 2（图标族另一常用档为 1.9）。 */

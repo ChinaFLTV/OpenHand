@@ -174,6 +174,7 @@ import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { createTimedAbortController } from '../../../utils/timed_abort';
 import { PopMenu } from '../../../components/PopMenu';
 import { svgIconProps } from '../../../shared/ui/svg_icon';
+import { STORAGE_KEY_COMPOSER_COLLAPSED } from '../../../shared/util/storage_keys';
 import { listSkills, type SkillSummary } from '../../../api/toolbox';
 import { ImageEditorDialog, type ImageEditorInput, type ImageEditorResult } from '../../../components/ImageEditorDialog';
 import { CreationOptionsDialog, type CreationOptions } from '../../../components/CreationOptionsDialog';
@@ -280,7 +281,6 @@ const COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
 const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
 const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
-const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 const THROTTLE_BUCKET_TICK_MS = 1000;
 const AUTO_TITLE_FOLLOW_UP_DELAYS_MS = [1200, 3200, 7000, 14000, 24000] as const;
@@ -484,14 +484,14 @@ function skillSummaryFromSelection(selection: RestoredSkillSelection, source: Sk
 }
 
 function readPersistedComposerCollapsed(): boolean {
-  return readBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY) === '1';
+  return readBrowserStorage(STORAGE_KEY_COMPOSER_COLLAPSED) === '1';
 }
 
 function persistComposerCollapsed(value: boolean): void {
   if (value) {
-    writeBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY, '1');
+    writeBrowserStorage(STORAGE_KEY_COMPOSER_COLLAPSED, '1');
   } else {
-    removeBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY);
+    removeBrowserStorage(STORAGE_KEY_COMPOSER_COLLAPSED);
   }
 }
 

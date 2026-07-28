@@ -6,7 +6,7 @@
 import type { JSX } from 'preact';
 import { svgIconProps } from '../shared/ui/svg_icon';
 
-export type MediaKindIconName = 'image' | 'video' | 'audio' | 'file';
+type MediaKindIconName = 'image' | 'video' | 'audio' | 'file';
 
 const MEDIA_KIND_ICON_STROKE_WIDTH = 1.9;
 

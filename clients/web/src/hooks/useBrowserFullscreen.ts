@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import { showSnackbar } from '../components/Snackbar';
 import { t } from '../i18n';
 
-export interface BrowserFullscreenController {
+interface BrowserFullscreenController {
   active: boolean;
   toggle: () => Promise<void>;
 }

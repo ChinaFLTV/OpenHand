@@ -128,8 +128,8 @@ class ThrottleCloudSyncService {
   final http.Client Function() _clientFactory;
   final bool _registerCloudChangeHandler;
   final Set<http.Client> _activeOwnedClients = <http.Client>{};
+  final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
   bool _disposed = false;
-  Future<void>? _disposeFuture;
 
   final StreamController<void> _cloudChangesController =
       StreamController<void>.broadcast();
@@ -152,20 +152,7 @@ class ThrottleCloudSyncService {
     }
   }
 
-  Future<void> dispose() {
-    final active = _disposeFuture;
-    if (active != null) return active;
-    final completer = Completer<void>();
-    _disposeFuture = completer.future;
-    unawaited(
-      _dispose().then<void>(
-        (_) => completer.complete(),
-        onError: (Object error, StackTrace stack) =>
-            completer.completeError(error, stack),
-      ),
-    );
-    return completer.future;
-  }
+  Future<void> dispose() => _disposeOnce.run(_dispose);
 
   Future<void> _dispose() async {
     _disposed = true;

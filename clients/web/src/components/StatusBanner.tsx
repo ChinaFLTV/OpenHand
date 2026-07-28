@@ -8,7 +8,7 @@ import type { ComponentChildren, JSX } from 'preact';
 import { Appear } from './Appear';
 import { classNames } from '../shared/util/class_names';
 
-export type StatusBannerTone = 'success' | 'error';
+type StatusBannerTone = 'success' | 'error';
 
 interface StatusBannerProps {
   tone: StatusBannerTone;

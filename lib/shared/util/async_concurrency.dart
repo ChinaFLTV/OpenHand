@@ -92,6 +92,29 @@ Future<bool> cancelStreamSubscriptionBounded<T>(
   );
 }
 
+/// 仅启动一次异步操作；重复调用共享首次操作的结果。
+///
+/// 操作开始前先登记 Future，确保同步回调重入时不会重复启动。
+final class OpenHandAsyncOnce {
+  Future<void>? _future;
+
+  Future<void> run(FutureOr<void> Function() operation) {
+    final active = _future;
+    if (active != null) return active;
+    final completer = Completer<void>();
+    final future = completer.future;
+    _future = future;
+    unawaited(
+      Future<void>.sync(operation).then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) =>
+            completer.completeError(error, stack),
+      ),
+    );
+    return future;
+  }
+}
+
 /// 控制异步扇出的轻量 FIFO 信号量。
 ///
 /// 并发数和等待数都会归一化，避免异常配置创建无界工作器或等待队列。

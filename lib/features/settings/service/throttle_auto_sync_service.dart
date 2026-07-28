@@ -60,6 +60,7 @@ class ThrottleAutoSyncService {
   final Duration _cloudChangeDebounce;
   final Duration _disposeTimeout;
   final Completer<void> _disposeSignal = Completer<void>();
+  final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
 
   Timer? _pushDebounceTimer;
   Timer? _pullDebounceTimer;
@@ -73,7 +74,6 @@ class ThrottleAutoSyncService {
   bool _applyingRemote = false;
   bool _started = false;
   bool _disposed = false;
-  Future<void>? _disposeFuture;
 
   /// 注册监听并安排一次延迟启动拉取。重复调用安全且不会产生副作用。
   void start() {
@@ -94,20 +94,7 @@ class ThrottleAutoSyncService {
 
   /// 停止所有触发器并逻辑取消当前操作。等待 worker 时使用有界期限，
   /// 避免注入的客户端或平台通道忽略取消而阻塞退出。
-  Future<void> dispose() {
-    final active = _disposeFuture;
-    if (active != null) return active;
-    final completer = Completer<void>();
-    _disposeFuture = completer.future;
-    unawaited(
-      _dispose().then<void>(
-        (_) => completer.complete(),
-        onError: (Object error, StackTrace stack) =>
-            completer.completeError(error, stack),
-      ),
-    );
-    return completer.future;
-  }
+  Future<void> dispose() => _disposeOnce.run(_dispose);
 
   Future<void> _dispose() async {
     _disposed = true;

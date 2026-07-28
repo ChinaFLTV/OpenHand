@@ -5,13 +5,14 @@
 // 「storage」事件 / 自定义事件刷新。
 import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
+import {
+  EVENT_MESSAGE_CONTENT_FORMAT_CHANGED,
+  STORAGE_KEY_HTML_RENDER_FALLBACK,
+  STORAGE_KEY_MESSAGE_CONTENT_FORMAT,
+} from '../shared/util/storage_keys';
 
 export type MessageContentFormat = 'markdown' | 'plain_text' | 'html';
 type HtmlRenderFallback = 'markdown' | 'plain_text';
-
-const FORMAT_KEY = 'openhand_message_content_format';
-const FALLBACK_KEY = 'openhand_html_render_fallback';
-const EVENT_NAME = 'openhand:message-content-format-changed';
 
 const FORMATS: ReadonlySet<MessageContentFormat> = new Set<MessageContentFormat>([
   'markdown',
@@ -24,18 +25,18 @@ const FALLBACKS: ReadonlySet<HtmlRenderFallback> = new Set<HtmlRenderFallback>([
 ]);
 
 function readFormat(): MessageContentFormat {
-  const v = readBrowserStorage(FORMAT_KEY);
+  const v = readBrowserStorage(STORAGE_KEY_MESSAGE_CONTENT_FORMAT);
   if (v && FORMATS.has(v as MessageContentFormat)) return v as MessageContentFormat;
   return 'markdown';
 }
 
 function readFallback(): HtmlRenderFallback {
-  const v = readBrowserStorage(FALLBACK_KEY);
+  const v = readBrowserStorage(STORAGE_KEY_HTML_RENDER_FALLBACK);
   if (v && FALLBACKS.has(v as HtmlRenderFallback)) return v as HtmlRenderFallback;
   return 'markdown';
 }
 
-export interface MessageContentFormatSnapshot {
+interface MessageContentFormatSnapshot {
   format: MessageContentFormat;
   htmlFallback: HtmlRenderFallback;
 }
@@ -66,20 +67,23 @@ function refreshFormatSnapshot(): void {
 function bindFormatWindowListeners(): void {
   if (formatWindowBound || typeof window === 'undefined') return;
   formatWindowBound = true;
-  window.addEventListener(EVENT_NAME, refreshFormatSnapshot);
+  window.addEventListener(
+    EVENT_MESSAGE_CONTENT_FORMAT_CHANGED,
+    refreshFormatSnapshot,
+  );
   window.addEventListener('storage', refreshFormatSnapshot);
 }
 
 export function setMessageContentFormat(value: MessageContentFormat): void {
-  writeBrowserStorage(FORMAT_KEY, value);
+  writeBrowserStorage(STORAGE_KEY_MESSAGE_CONTENT_FORMAT, value);
   refreshFormatSnapshot();
-  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+  window.dispatchEvent(new CustomEvent(EVENT_MESSAGE_CONTENT_FORMAT_CHANGED));
 }
 
 export function setHtmlRenderFallback(value: HtmlRenderFallback): void {
-  writeBrowserStorage(FALLBACK_KEY, value);
+  writeBrowserStorage(STORAGE_KEY_HTML_RENDER_FALLBACK, value);
   refreshFormatSnapshot();
-  window.dispatchEvent(new CustomEvent(EVENT_NAME));
+  window.dispatchEvent(new CustomEvent(EVENT_MESSAGE_CONTENT_FORMAT_CHANGED));
 }
 
 export function useMessageContentFormat(): MessageContentFormatSnapshot {

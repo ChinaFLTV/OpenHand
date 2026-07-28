@@ -1,8 +1,7 @@
 // 浏览器端「设备身份」与会话 token 的 localStorage 容器。OpenHand service
 // 要求每个请求带 `x-openhand-device-id` 等头，token 走 Authorization: Bearer。
 // 这里只承担「读 / 写 / 清空」，不做任何 UI 决策；登录态切换由 auth store
-// 调度。所有 key 统一登记在 shared/util/storage_keys（共用
-// STORAGE_KEY_PREFIX 前缀，方便调试时一键 clear）。
+// 调度。所有 key 统一登记在 shared/util/storage_keys，并统一使用既定前缀。
 
 import {
   readBrowserStorage,

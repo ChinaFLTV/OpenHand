@@ -30,7 +30,7 @@ interface CacheHitDisplayData {
 }
 
 /** 单轮前缀复用信息：命中率会被本轮新增（必然未缓存）输入稀释，复用率不会。 */
-export interface CacheHitPrefixStats {
+interface CacheHitPrefixStats {
   /** 本轮相对上一轮新增的输入 token（结构上不可能命中缓存）。 */
   freshInputTokens: number;
   /** 上一轮总输入规模，即本轮理论可复用前缀的上限；首轮为 null。 */
