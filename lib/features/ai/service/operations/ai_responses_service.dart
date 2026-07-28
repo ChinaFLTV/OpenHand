@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../model/ai_api_family.dart';
@@ -228,10 +229,16 @@ class AiResponsesService {
     AiEndpointRouter? router,
     AiTransportClient? transport,
     http.Client? client,
-  }) : assert(transport == null || client == null),
-       _router = router ?? const AiEndpointRouter(),
+  }) : _router = router ?? const AiEndpointRouter(),
        _transport = transport ?? AiTransportClient(client: client),
-       _ownsTransport = transport == null;
+       _ownsTransport = transport == null {
+    requireAtMostOneProvided(
+      firstValue: transport,
+      firstName: 'transport',
+      secondValue: client,
+      secondName: 'client',
+    );
+  }
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
@@ -304,8 +311,7 @@ class AiResponsesService {
       if (toolChoice != null) 'tool_choice': toolChoice,
       if (!mimo && userValue != null) 'user': userValue,
       if (stream) 'stream': true,
-      // Keep the growing conversation input last so provider-side prefix
-      // caches see a stable request prefix across turns.
+      // 把持续增长的会话输入放在末尾，使服务端前缀缓存在多轮间保持稳定。
       'input': input,
     };
     final cacheAffinity = AiPromptCacheAffinity.resolve(

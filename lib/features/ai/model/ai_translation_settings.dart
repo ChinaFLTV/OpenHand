@@ -1,5 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/lifecycle_cache.dart';
+import '../../../shared/util/stable_hash.dart';
 import 'ai_provider_settings_shared.dart';
 
 enum AiTranslationProvider {

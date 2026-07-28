@@ -9,8 +9,8 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/serial_task_queue.dart';
+import '../../../shared/util/stable_hash.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
 

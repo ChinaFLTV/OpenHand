@@ -552,19 +552,14 @@ Future<T?> showOpenHandFormDialog<T>({
   );
 }
 
-/// Max wait for the dialog builder to attach its [Route] before [dismiss]
-/// gives up. Keeps a fast-finishing async op from racing past first paint
-/// and leaving a stuck progress shell, without unbounded waiting.
+/// [dismiss] 等待弹窗构建器绑定 [Route] 的最长时间，避免快速任务越过首帧后
+/// 遗留加载壳，同时杜绝无限等待。
 const Duration kOpenHandDialogRouteAttachTimeout = Duration(seconds: 2);
 
-/// Tracks one [showAnimatedDialog] presentation so it can be dismissed later
-/// without risking a bare [Navigator.maybePop] on the host page route.
+/// 跟踪一次 [showAnimatedDialog] 展示，使后续关闭只作用于对应弹窗路由。
 ///
-/// When the dialog is already gone (ESC / barrier / external pop), [dismiss]
-/// is a no-op. Dismissal targets the captured [Route] only:
-/// - if it is current → [Navigator.pop] so the global exit transition runs;
-/// - else if still active → defer the pop until it becomes current, preserving
-///   both the route above it and the configured dialog exit transition.
+/// 弹窗已被 ESC、遮罩或外部操作关闭时，[dismiss] 不执行任何操作。若目标路由
+/// 位于栈顶则正常弹出以播放全局退场动画；若仍活动但被覆盖，则等它回到栈顶再弹出。
 class OpenHandDialogSession<T extends Object?> {
   OpenHandDialogSession._(this._result) {
     _result.then<void>(
@@ -587,7 +582,7 @@ class OpenHandDialogSession<T extends Object?> {
   VoidCallback? _deferredDismissListener;
   bool _deferredDismissPopScheduled = false;
 
-  /// Whether the reverse transition finished and the route overlay is gone.
+  /// 退场动画及路由遮罩是否已完全结束。
   bool get isClosed => _closed;
 
   bool get isDismissRequested => _dismissRequested;
@@ -671,20 +666,18 @@ class OpenHandDialogSession<T extends Object?> {
     try {
       await _routeAttached.future.timeout(timeout);
     } on TimeoutException {
-      // Fall through and return whatever is attached (may still be null).
+      // 超时后返回当前绑定结果，可能仍为空。
     }
     if (_closed) return null;
     return _route;
   }
 
-  /// Dismisses this session's dialog if it is still active.
+  /// 关闭本会话仍处于活动状态的弹窗。
   ///
-  /// Waits briefly for the route to attach so a task that finishes before the
-  /// first dialog frame does not leave a stuck progress shell. Prefer
-  /// [Navigator.pop] when this route is current so exit motion runs.
+  /// 短暂等待路由绑定，避免首帧前完成的任务遗留加载壳。路由位于栈顶时通过
+  /// [Navigator.pop] 关闭，以完整播放退场动画。
   ///
-  /// Returns `true` only when this session successfully requested close of
-  /// its own route.
+  /// 仅在成功请求关闭本会话路由时返回 `true`。
   Future<bool> dismiss({
     T? result,
     String logTag = 'dialog',
@@ -730,13 +723,11 @@ class OpenHandDialogSession<T extends Object?> {
     final navigator = route.navigator!;
     try {
       if (route.isCurrent) {
-        // Runs the reverse transition (global dialog exit / Q-bounce when set).
+        // 正常弹出路由，播放全局配置的退场或 Q 弹动画。
         navigator.pop<T>(_dismissResult);
       } else if (route.isActive) {
-        // Never hard-remove a covered dialog: that bypasses its exit motion.
-        // Listen to the secondary route animation and pop this route normally
-        // once it becomes current. Return immediately so callers never wait
-        // indefinitely for the covering route to close.
+        // 被覆盖的弹窗不能强制移除；监听上层路由，回到栈顶后再正常弹出。
+        // 此处立即返回，避免调用方无限等待上层路由关闭。
         final deferred = _deferAnimatedDismiss(route);
         if (!deferred) {
           _dismissRequested = false;
@@ -764,8 +755,7 @@ class OpenHandDialogSession<T extends Object?> {
   }
 }
 
-/// Presents an animated dialog and returns a [OpenHandDialogSession] that can
-/// dismiss only that dialog later (safe after async work).
+/// 展示动画弹窗并返回仅能关闭该弹窗的 [OpenHandDialogSession]。
 OpenHandDialogSession<T> showTrackedAnimatedDialog<T extends Object?>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -798,10 +788,9 @@ OpenHandDialogSession<T> showTrackedAnimatedDialog<T extends Object?>({
   );
 }
 
-/// Navigator-resolved counterpart to [showTrackedAnimatedDialog].
+/// 已解析导航器版本的 [showTrackedAnimatedDialog]。
 ///
-/// App-level hosts can use this without deriving a navigator from a context
-/// above [MaterialApp], while retaining precise, route-owned dismissal.
+/// 应用级宿主无需从 [MaterialApp] 上层上下文推导导航器，也能精确关闭所属路由。
 OpenHandDialogSession<T>
 showTrackedAnimatedDialogOnNavigator<T extends Object?>({
   required NavigatorState navigator,
@@ -839,8 +828,7 @@ OpenHandDialogSession<T> _trackAnimatedDialogPresentation<T extends Object?>({
   required WidgetBuilder builder,
   required Future<T?> Function(WidgetBuilder trackedBuilder) present,
 }) {
-  // Holder so the route builder can attach even if it runs after this returns
-  // (normal for showGeneralDialog) or, rarely, before session assignment.
+  // 路由构建器可能在本方法返回后执行，也可能极少数地早于会话赋值，故用容器衔接。
   final sessionHolder = <OpenHandDialogSession<T>?>[null];
   final future = present((dialogContext) {
     final route = ModalRoute.of<T>(dialogContext);
@@ -864,16 +852,13 @@ OpenHandDialogSession<T> _trackAnimatedDialogPresentation<T extends Object?>({
   return session;
 }
 
-/// Shows a dialog with configurable entrance and exit animations.
+/// 展示可配置进场与退场动画的弹窗。
 ///
-/// When [settings] is null, the animation configuration is automatically
-/// read from the nearest [SettingsController] in the widget tree.
-/// Falls back to default animation settings if no controller is found.
+/// [settings] 为空时从组件树最近的 [SettingsController] 读取动画配置；找不到时
+/// 使用默认配置。
 ///
-/// [dismissOnEscape] is decoupled from [barrierDismissible]: by default ESC
-/// always closes the dialog, even when outside-tap is blocked. Long-running
-/// task dialogs (export progress / image processing) opt out via
-/// `dismissOnEscape: false`.
+/// [dismissOnEscape] 与 [barrierDismissible] 独立：默认即使禁止点击外部，ESC
+/// 仍可关闭弹窗；长任务弹窗可通过 `dismissOnEscape: false` 禁用。
 Future<T?> showAnimatedDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -912,10 +897,8 @@ Future<T?> showAnimatedDialog<T>({
   );
 }
 
-/// Shows an animated dialog by pushing directly through an already resolved
-/// [NavigatorState]. Use this for app-level hosts that live above the
-/// Navigator and therefore cannot safely call [showGeneralDialog] with their
-/// own [BuildContext].
+/// 通过已解析的 [NavigatorState] 直接推入动画弹窗，适用于位于 Navigator 上层、
+/// 无法用自身 [BuildContext] 安全展示弹窗的应用级宿主。
 Future<T?> showAnimatedDialogOnNavigator<T>({
   required NavigatorState navigator,
   required BuildContext context,
@@ -1012,8 +995,7 @@ Future<T?> _pushOpenHandDialogRoute<T>({
 final Expando<List<TransitionRoute<dynamic>>> _openHandRoutesByNavigator =
     Expando<List<TransitionRoute<dynamic>>>('openHandRoutesByNavigator');
 
-/// Pushes an animated route and resolves only after its reverse transition
-/// finishes and all overlay entries are removed.
+/// 推入动画路由，并在退场完成且全部遮罩条目移除后结束。
 Future<T?> pushOpenHandTransitionRoute<T>(
   NavigatorState navigator,
   TransitionRoute<T> route, {
@@ -1096,11 +1078,10 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
   }
 }
 
-/// Shows a dialog with a caller-provided motion profile.
+/// 使用调用方提供的动效配置展示弹窗。
 ///
-/// Feature modules use this when a family of dialogs needs one tuned geometry
-/// while still inheriting global duration, curve, reduce-motion, and exit
-/// behavior from [showAnimatedDialog].
+/// 同族弹窗需要专属几何参数时使用；时长、曲线、减少动态效果与退场行为仍继承
+/// [showAnimatedDialog] 的全局配置。
 Future<T?> showOpenHandProfiledDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -1714,7 +1695,9 @@ Future<T?> showAnimatedModalSheet<T>({
   ShapeBorder? shape,
   EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(8, 0, 8, 8),
 }) {
-  assert(elevation >= 0, '底部弹窗阴影高度不能为负数。');
+  if (!elevation.isFinite || elevation < 0) {
+    throw ArgumentError.value(elevation, 'elevation', '必须为有限非负数。');
+  }
   return showAnimatedDialog<T>(
     context: context,
     settings: settings,
@@ -2058,12 +2041,9 @@ class _OpenHandEscapeDismissScopeState
   }
 }
 
-/// Public, shared transition builder so non-dialog surfaces (chips,
-/// list-item entrances/exits, tooltips, ...) can reuse the same library
-/// of styles as the dialog system. The forward/reverse style is picked
-/// based on the controller's status: while running forward (or already
-/// completed) we use [DialogAnimationSettings.entranceStyle], otherwise
-/// the [DialogAnimationSettings.exitStyle].
+/// 公共过渡构建器，使胶囊、列表项和工具提示等非弹窗界面复用弹窗动效库。
+/// 正向或已完成时使用 [DialogAnimationSettings.entranceStyle]，其余状态使用
+/// [DialogAnimationSettings.exitStyle]。
 Widget buildAnimationStyleTransition({
   required Animation<double> animation,
   required DialogAnimationSettings settings,
@@ -2228,7 +2208,7 @@ Offset _finiteOffset(Offset value, Offset fallback) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Individual transition widgets
+// 各类过渡组件
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FadeScaleTransition extends StatelessWidget {
@@ -2398,8 +2378,7 @@ class _ElasticTransition extends StatelessWidget {
   }
 }
 
-/// Q-bouncy spring scale: easeOutBack overshoot on entrance + slight
-/// fade window. Reverse uses easeInBack so exit also feels springy.
+/// Q 弹缩放：进场轻微过冲并渐显，退场使用反向回弹曲线。
 class _SpringScaleTransition extends StatelessWidget {
   const _SpringScaleTransition({
     required this.animation,
@@ -2615,10 +2594,9 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
   }
 }
 
-/// Layout-safe paint-time translation driven by an [Animation].
+/// 由 [Animation] 驱动、不会影响布局的绘制阶段位移。
 ///
-/// The render object only shifts the paint offset via [markNeedsPaint], so
-/// pixel-based slide transitions can be reused without changing layout size.
+/// 渲染对象仅通过 [markNeedsPaint] 改变绘制偏移，可复用像素位移动画而不改变布局尺寸。
 class _PaintOffsetRenderObject extends RenderProxyBox {
   _PaintOffsetRenderObject({
     required Animation<double> animation,

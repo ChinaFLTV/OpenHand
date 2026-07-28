@@ -11,7 +11,7 @@ const Duration kBoundedXFileMetadataTimeout = Duration(seconds: 5);
 const Duration kBoundedXFileIdleTimeout = Duration(seconds: 30);
 const Duration kBoundedXFileTotalTimeout = Duration(minutes: 2);
 
-/// A size-limit failure while reading a platform-neutral [XFile].
+/// 读取跨平台 [XFile] 时的大小超限异常。
 final class BoundedXFileSizeException implements IOException {
   const BoundedXFileSizeException({required this.maxBytes, this.actualBytes});
 
@@ -27,11 +27,9 @@ final class BoundedXFileSizeException implements IOException {
   }
 }
 
-/// Reads an [XFile] without allowing unknown metadata or a growing source to
-/// bypass the memory and time budgets.
+/// 在内存和时间预算内读取 [XFile]，未知元数据或持续增长的来源不能绕过限制。
 ///
-/// Native path-backed files use the stricter single-handle implementation;
-/// in-memory and web files fall back to a bounded, cancellable byte stream.
+/// 原生路径文件使用单句柄实现；内存文件和 Web 文件使用有界、可取消的字节流。
 Future<Uint8List> readBoundedXFileBytes(
   XFile file, {
   required int maxBytes,
@@ -40,11 +38,9 @@ Future<Uint8List> readBoundedXFileBytes(
   Duration metadataTimeout = kBoundedXFileMetadataTimeout,
 }) async {
   requirePositiveInt(maxBytes, 'maxBytes');
-  if (idleTimeout <= Duration.zero ||
-      totalTimeout <= Duration.zero ||
-      metadataTimeout <= Duration.zero) {
-    throw ArgumentError('File read timeouts must be positive.');
-  }
+  requirePositiveDuration(idleTimeout, 'idleTimeout');
+  requirePositiveDuration(totalTimeout, 'totalTimeout');
+  requirePositiveDuration(metadataTimeout, 'metadataTimeout');
 
   final knownLength = await _tryReadLength(file, metadataTimeout);
   if (knownLength != null && knownLength > maxBytes) {

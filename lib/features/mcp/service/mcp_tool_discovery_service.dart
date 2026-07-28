@@ -13,6 +13,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -824,9 +825,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           ...resolved.environment,
           ...server.environment,
         },
-        // Windows .cmd / .bat / .ps1 launchers (e.g. `npx.cmd`) only resolve
-        // through the shell. On macOS / Linux we already resolved an absolute
-        // path, so direct exec keeps argv quoting honest.
+        // Windows 的 .cmd/.bat/.ps1 启动器只能经 Shell 解析；macOS/Linux
+        // 已解析为绝对路径，直接执行可保持参数引用语义准确。
         runInShell: Platform.isWindows,
       ),
       requestTimeout: _requestTimeout,
@@ -1954,9 +1954,7 @@ class _LegacySseSession {
     final responseFuture = _messages.stream
         .firstWhere(
           (message) => '${message['id']}' == requestIdText,
-          // Stream closed (e.g. server hung up) before a matching response
-          // arrived. Surface a uniform timeout so callers handle a single
-          // failure mode regardless of whether the stream closed or stalled.
+          // 匹配响应到达前连接关闭时统一转换为超时，让调用方只处理一种失败模式。
           orElse: () => throw TimeoutException(
             'MCP stream closed before response for request $requestIdText',
           ),
@@ -3028,8 +3026,10 @@ class _BoundedSseEventParser {
   _BoundedSseEventParser({
     required this.maxLineBytes,
     required this.maxEventBytes,
-  }) : assert(maxLineBytes > 0),
-       assert(maxEventBytes > 0);
+  }) {
+    requirePositiveInt(maxLineBytes, 'maxLineBytes');
+    requirePositiveInt(maxEventBytes, 'maxEventBytes');
+  }
 
   static const int _carriageReturn = 0x0d;
   static const int _lineFeed = 0x0a;

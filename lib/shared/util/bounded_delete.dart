@@ -30,11 +30,9 @@ final class BoundedDeletePolicy {
   void validate() {
     requirePositiveInt(maxEntries, 'maxEntries');
     requireNonNegativeInt(maxDepth, 'maxDepth');
-    if (directoryIdleTimeout <= Duration.zero ||
-        operationTimeout <= Duration.zero ||
-        totalTimeout <= Duration.zero) {
-      throw ArgumentError('Delete timeouts must be positive.');
-    }
+    requirePositiveDuration(directoryIdleTimeout, 'directoryIdleTimeout');
+    requirePositiveDuration(operationTimeout, 'operationTimeout');
+    requirePositiveDuration(totalTimeout, 'totalTimeout');
   }
 }
 
@@ -58,10 +56,10 @@ final class BoundedDeleteException extends FileSystemException {
 
   final BoundedDeleteFailureReason reason;
 
-  /// Entries whose deletion completed before the failure was observed.
+  /// 发现异常前已确认删除的条目数。
   final int deletedEntries;
 
-  /// Entries discovered by the bounded preflight before deletion began.
+  /// 删除开始前由有界预检发现的条目数。
   final int plannedEntries;
   final Object? cause;
 }
@@ -84,14 +82,11 @@ final class BoundedDeleteResult {
   final bool wasMissing;
 }
 
-/// Deletes one absolute path without following symbolic links or performing an
-/// unbounded recursive filesystem operation.
+/// 删除一个绝对路径，不跟随符号链接，也不执行无界递归文件操作。
 ///
-/// Directory trees are fully preflighted before deletion. Entry, depth, idle,
-/// per-operation, and total limits therefore fail without partial deletion.
-/// A filesystem failure during the subsequent post-order deletion can still
-/// leave a partial result; [BoundedDeleteException.deletedEntries] reports the
-/// number of deletions confirmed before that failure.
+/// 目录树会在删除前完整预检；条目、深度、空闲、单步和总时限超限时不会部分删除。
+/// 后序删除阶段若发生文件系统异常，可能留下部分结果，已删除数量由
+/// [BoundedDeleteException.deletedEntries] 返回。
 Future<BoundedDeleteResult> deletePathBounded(
   String path, {
   BoundedDeletePolicy policy = defaultBoundedDeletePolicy,

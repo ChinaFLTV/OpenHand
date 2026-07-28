@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/timer_safety.dart';
 import 'throttle_cloud_sync_service.dart';
 
@@ -25,17 +26,25 @@ class ThrottleAutoSyncService {
     Duration pushDebounce = const Duration(seconds: 5),
     Duration cloudChangeDebounce = const Duration(milliseconds: 600),
     Duration disposeTimeout = kOpenHandDefaultAsyncCleanupTimeout,
-  }) : assert(!bootPullDelay.isNegative),
-       assert(!pushDebounce.isNegative),
-       assert(!cloudChangeDebounce.isNegative),
-       assert(!disposeTimeout.isNegative),
+  }) : _bootPullDelay = _validatedNonNegativeDuration(
+         bootPullDelay,
+         'bootPullDelay',
+       ),
+       _pushDebounce = _validatedNonNegativeDuration(
+         pushDebounce,
+         'pushDebounce',
+       ),
+       _cloudChangeDebounce = _validatedNonNegativeDuration(
+         cloudChangeDebounce,
+         'cloudChangeDebounce',
+       ),
+       _disposeTimeout = _validatedNonNegativeDuration(
+         disposeTimeout,
+         'disposeTimeout',
+       ),
        _settingsController = settingsController,
        _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService(),
-       _ownsService = cloudSyncService == null,
-       _bootPullDelay = bootPullDelay,
-       _pushDebounce = pushDebounce,
-       _cloudChangeDebounce = cloudChangeDebounce,
-       _disposeTimeout = disposeTimeout;
+       _ownsService = cloudSyncService == null;
 
   static const Set<String> _signatureMetadataKeys = <String>{
     'exported_at',
@@ -64,6 +73,7 @@ class ThrottleAutoSyncService {
   bool _applyingRemote = false;
   bool _started = false;
   bool _disposed = false;
+  Future<void>? _disposeFuture;
 
   /// 注册监听并安排一次延迟启动拉取。重复调用安全且不会产生副作用。
   void start() {
@@ -84,8 +94,22 @@ class ThrottleAutoSyncService {
 
   /// 停止所有触发器并逻辑取消当前操作。等待 worker 时使用有界期限，
   /// 避免注入的客户端或平台通道忽略取消而阻塞退出。
-  Future<void> dispose() async {
-    if (_disposed) return;
+  Future<void> dispose() {
+    final active = _disposeFuture;
+    if (active != null) return active;
+    final completer = Completer<void>();
+    _disposeFuture = completer.future;
+    unawaited(
+      _dispose().then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) =>
+            completer.completeError(error, stack),
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<void> _dispose() async {
     _disposed = true;
     if (!_disposeSignal.isCompleted) _disposeSignal.complete();
     _pullPending = false;
@@ -96,16 +120,18 @@ class ThrottleAutoSyncService {
     _pullDebounceTimer = null;
     _bootPullTimer?.cancel();
     _bootPullTimer = null;
+    final cloudChangesSub = _cloudChangesSub;
+    _cloudChangesSub = null;
+    if (_started) {
+      _settingsController.removeListener(_onSettingsChanged);
+      _started = false;
+    }
     await cancelStreamSubscriptionBounded<void>(
-      _cloudChangesSub,
+      cloudChangesSub,
       timeout: _disposeTimeout,
       onError: (error, stack) =>
           silentLog('throttle_auto_sync', '取消云端变更订阅', error, stack),
     );
-    _cloudChangesSub = null;
-    if (_started) {
-      _settingsController.removeListener(_onSettingsChanged);
-    }
     if (_ownsService) {
       await _cloudSyncService.dispose();
     }
@@ -327,33 +353,16 @@ class ThrottleAutoSyncService {
     };
   }
 
-  /// 生成转义后的规范 JSON，避免值内分隔符让不同配置产生相同签名。
+  /// 生成稳定指纹；元数据变化不应触发配置同步。
   static String _signatureForConfig(Map<String, Object?> config) {
-    final keys =
-        config.keys
-            .where((key) => !_signatureMetadataKeys.contains(key))
-            .toList(growable: false)
-          ..sort();
-    return jsonEncode(<String, Object?>{
-      for (final key in keys) key: _canonicalJsonValue(config[key]),
+    return stableJsonSha256(<String, Object?>{
+      for (final entry in config.entries)
+        if (!_signatureMetadataKeys.contains(entry.key)) entry.key: entry.value,
     });
   }
+}
 
-  static Object? _canonicalJsonValue(Object? value) {
-    if (value is Map) {
-      final entries = value.entries.toList(growable: false)
-        ..sort((a, b) => '${a.key}'.compareTo('${b.key}'));
-      return <String, Object?>{
-        for (final entry in entries)
-          '${entry.key}': _canonicalJsonValue(entry.value),
-      };
-    }
-    if (value is Iterable) {
-      return value.map<Object?>(_canonicalJsonValue).toList(growable: false);
-    }
-    if (value == null || value is num || value is bool || value is String) {
-      return value;
-    }
-    return '$value';
-  }
+Duration _validatedNonNegativeDuration(Duration value, String name) {
+  requireNonNegativeDuration(value, name);
+  return value;
 }

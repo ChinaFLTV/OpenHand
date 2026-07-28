@@ -1,7 +1,4 @@
 import 'dart:collection';
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 
 const int _defaultLifecycleCacheEntryCost = 1;
 const int _maxLifecycleCacheEntryCost = 1 << 62;
@@ -21,7 +18,7 @@ class LifecycleLruCache<V> {
       LinkedHashMap<String, _LifecycleCacheEntry<V>>();
   int _totalCost = 0;
 
-  /// Distinguishes a cached nullable value from an absent entry.
+  /// 区分已缓存的空值与不存在的条目。
   bool containsKey(String key) => _entries.containsKey(key);
 
   V? get(String key) {
@@ -76,7 +73,7 @@ class LifecycleLruCache<V> {
     _totalCost = 0;
   }
 
-  /// Returns an immutable insertion-ordered copy without changing recency.
+  /// 返回保持插入顺序的不可变副本，不改变条目新旧顺序。
   Map<String, V> snapshot() => Map<String, V>.unmodifiable(<String, V>{
     for (final entry in _entries.entries) entry.key: entry.value.value,
   });
@@ -106,48 +103,4 @@ class _LifecycleCacheEntry<V> {
 
   final V value;
   final int cost;
-}
-
-String stableJsonSha256(Object? value) {
-  final canonical = jsonEncode(_canonicalJsonValue(value));
-  return sha256.convert(utf8.encode(canonical)).toString();
-}
-
-Object? _canonicalJsonValue(Object? value) {
-  if (value == null || value is String || value is bool || value is int) {
-    return value;
-  }
-  if (value is double) {
-    if (value.isFinite) return value;
-    return value.toString();
-  }
-  if (value is num) return value;
-  if (value is DateTime) return value.toUtc().toIso8601String();
-  if (value is Enum) return value.name;
-  if (value is Map) {
-    final entries = <MapEntry<String, Object?>>[];
-    value.forEach((key, child) {
-      entries.add(
-        MapEntry<String, Object?>('$key', _canonicalJsonValue(child)),
-      );
-    });
-    entries.sort((a, b) {
-      final keyOrder = a.key.compareTo(b.key);
-      if (keyOrder != 0) return keyOrder;
-      return _canonicalJsonSortKey(
-        a.value,
-      ).compareTo(_canonicalJsonSortKey(b.value));
-    });
-    return <String, Object?>{
-      for (final entry in entries) entry.key: entry.value,
-    };
-  }
-  if (value is Iterable) {
-    return value.map(_canonicalJsonValue).toList(growable: false);
-  }
-  return '$value';
-}
-
-String _canonicalJsonSortKey(Object? value) {
-  return jsonEncode(value);
 }

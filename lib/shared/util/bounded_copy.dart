@@ -35,11 +35,9 @@ final class BoundedCopyPolicy {
     requirePositiveInt(maxEntries, 'maxEntries');
     requirePositiveInt(maxBytes, 'maxBytes');
     requireNonNegativeInt(maxDepth, 'maxDepth');
-    if (directoryIdleTimeout <= Duration.zero ||
-        operationTimeout <= Duration.zero ||
-        totalTimeout <= Duration.zero) {
-      throw ArgumentError('Copy timeouts must be positive.');
-    }
+    requirePositiveDuration(directoryIdleTimeout, 'directoryIdleTimeout');
+    requirePositiveDuration(operationTimeout, 'operationTimeout');
+    requirePositiveDuration(totalTimeout, 'totalTimeout');
   }
 }
 
@@ -57,9 +55,7 @@ final class BoundedDirectoryCopyResult {
   final int totalBytes;
 }
 
-/// Copies a directory tree only after a bounded preflight has accepted every
-/// entry. Data is written to a sibling staging directory and published with a
-/// rename, so callers never observe a partially copied target.
+/// 通过有界预检后再复制目录树；先写入同级暂存目录，再以重命名原子发布。
 Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
   Directory source,
   Directory target, {
@@ -183,9 +179,7 @@ Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
   }
 }
 
-/// Copies one regular file through a private staging directory. Existing
-/// targets and symbolic-link sources are rejected instead of being overwritten
-/// or followed implicitly.
+/// 通过私有暂存目录复制普通文件；拒绝覆盖既有目标，也不隐式跟随符号链接。
 Future<void> copyFileBounded(
   File source,
   File target, {
@@ -535,7 +529,7 @@ Future<void> _deleteDirectoryQuietly(Directory directory) async {
   try {
     await deletePathBounded(p.absolute(directory.path));
   } catch (_) {
-    // Staging cleanup must not replace the primary copy failure.
+    // 暂存目录清理失败不能覆盖原始复制异常。
   }
 }
 

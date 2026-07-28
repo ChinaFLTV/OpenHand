@@ -11,6 +11,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -109,10 +110,15 @@ class ThrottleCloudSyncService {
     http.Client? client,
     http.Client Function()? clientFactory,
     bool registerCloudChangeHandler = true,
-  }) : assert(client == null || clientFactory == null),
-       _client = client,
+  }) : _client = client,
        _clientFactory = clientFactory ?? http.Client.new,
        _registerCloudChangeHandler = registerCloudChangeHandler {
+    requireAtMostOneProvided(
+      firstValue: client,
+      firstName: 'client',
+      secondValue: clientFactory,
+      secondName: 'clientFactory',
+    );
     if (_registerCloudChangeHandler) {
       _icloudChannel.setMethodCallHandler(_handleNativeCall);
     }
@@ -123,6 +129,7 @@ class ThrottleCloudSyncService {
   final bool _registerCloudChangeHandler;
   final Set<http.Client> _activeOwnedClients = <http.Client>{};
   bool _disposed = false;
+  Future<void>? _disposeFuture;
 
   final StreamController<void> _cloudChangesController =
       StreamController<void>.broadcast();
@@ -145,8 +152,22 @@ class ThrottleCloudSyncService {
     }
   }
 
-  Future<void> dispose() async {
-    if (_disposed) return;
+  Future<void> dispose() {
+    final active = _disposeFuture;
+    if (active != null) return active;
+    final completer = Completer<void>();
+    _disposeFuture = completer.future;
+    unawaited(
+      _dispose().then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) =>
+            completer.completeError(error, stack),
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<void> _dispose() async {
     _disposed = true;
     for (final client in _activeOwnedClients.toList(growable: false)) {
       client.close();
@@ -178,7 +199,7 @@ class ThrottleCloudSyncService {
   static const int _maxResponseBytes = 2 * 1024 * 1024;
   static const int _httpErrorPreviewLength = 256;
   static const String _gistFileName = 'openhand_throttle.json';
-  static const String _gistApiUrl = 'https://api.github.com/gists';
+  static const String _gistApiHost = 'api.github.com';
   static const String _githubApiVersion = '2022-11-28';
   static const String _githubUserAgent = 'OpenHand-throttle-sync/1';
   static const String _customClientHeader = 'throttle-sync/1';
@@ -303,7 +324,10 @@ class ThrottleCloudSyncService {
       return (uri: null, bearerToken: null, error: 'endpoint is required');
     }
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.scheme != 'https' && uri.scheme != 'http') {
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        uri.scheme != 'https' && uri.scheme != 'http') {
       return (
         uri: null,
         bearerToken: null,
@@ -319,7 +343,13 @@ class ThrottleCloudSyncService {
   ) async {
     if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
     final ownsClient = _client == null;
-    final client = _client ?? _clientFactory();
+    late final http.Client client;
+    try {
+      client = _client ?? _clientFactory();
+    } catch (error, stack) {
+      silentLog('throttle_cloud_sync', '创建云同步客户端', error, stack);
+      return ThrottleCloudSyncResult.failure('$error');
+    }
     if (ownsClient) {
       if (_disposed) {
         client.close();
@@ -436,7 +466,8 @@ class ThrottleCloudSyncService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
       final json = prettyPrintJson(payload);
-      if (utf8.encode(json).length > _maxRequestBytes) {
+      final payloadBytes = utf8.encode(json).length;
+      if (payloadBytes > _maxRequestBytes) {
         return ThrottleCloudSyncResult.failure(
           'iCloud payload exceeds $_maxRequestBytes bytes',
         );
@@ -460,7 +491,7 @@ class ThrottleCloudSyncService {
       }
       return ThrottleCloudSyncResult.success(
         message: synced
-            ? 'iCloud sync ${utf8.encode(json).length} bytes'
+            ? 'iCloud sync $payloadBytes bytes'
             : 'iCloud sync queued',
       );
     } on MissingPluginException {
@@ -555,6 +586,7 @@ class ThrottleCloudSyncService {
           _gistFileName: <String, Object?>{'content': fileContent},
         },
       });
+      final bodyBytes = utf8.encode(body);
       final headers = <String, String>{
         HttpHeaders.acceptHeader: 'application/vnd.github+json',
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
@@ -568,17 +600,17 @@ class ThrottleCloudSyncService {
         resp = await _sendHttpRequest(
           client,
           method: 'POST',
-          uri: Uri.parse(_gistApiUrl),
+          uri: _gistApiUri(),
           headers: headers,
-          bodyBytes: utf8.encode(body),
+          bodyBytes: bodyBytes,
         );
       } else {
         resp = await _sendHttpRequest(
           client,
           method: 'PATCH',
-          uri: Uri.parse('$_gistApiUrl/$id'),
+          uri: _gistApiUri(id),
           headers: headers,
-          bodyBytes: utf8.encode(body),
+          bodyBytes: bodyBytes,
         );
       }
       if (isHttpFailureStatus(resp.statusCode)) {
@@ -619,7 +651,7 @@ class ThrottleCloudSyncService {
       final resp = await _sendHttpRequest(
         client,
         method: 'GET',
-        uri: Uri.parse('$_gistApiUrl/$id'),
+        uri: _gistApiUri(id),
         headers: <String, String>{
           HttpHeaders.acceptHeader: 'application/vnd.github+json',
           HttpHeaders.authorizationHeader: 'Bearer $pat',
@@ -678,5 +710,13 @@ class ThrottleCloudSyncService {
         message: 'Gist OK',
       );
     });
+  }
+
+  Uri _gistApiUri([String? id]) {
+    return Uri(
+      scheme: 'https',
+      host: _gistApiHost,
+      pathSegments: <String>['gists', if (id != null) id],
+    );
   }
 }

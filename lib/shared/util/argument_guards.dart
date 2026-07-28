@@ -34,3 +34,15 @@ void requireNonNegativeInt(int value, String name) {
     throw ArgumentError.value(value, name, _nonNegativeMessage);
   }
 }
+
+/// 两个可选依赖不能同时提供，避免发布版因 `assert` 被移除而产生歧义。
+void requireAtMostOneProvided({
+  required Object? firstValue,
+  required String firstName,
+  required Object? secondValue,
+  required String secondName,
+}) {
+  if (firstValue != null && secondValue != null) {
+    throw ArgumentError('$firstName 与 $secondName 不能同时提供。');
+  }
+}
