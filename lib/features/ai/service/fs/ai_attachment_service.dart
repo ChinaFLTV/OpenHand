@@ -45,6 +45,7 @@ class AiAttachmentService {
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
+  static const int _maxStoredAttachmentBytes = kBytesPerGiB;
   static const int _maxPdfTextSpanMatches = 10000;
   static const int _maxAttachmentCleanupEntries = 100000;
   static const BoundedDeletePolicy _attachmentDeletePolicy =
@@ -68,11 +69,9 @@ class AiAttachmentService {
 
   String get attachmentsDirectoryPath => _attachmentsDirectoryPath;
 
-  /// Resolves the directory where new attachments for [sessionId] should be
-  /// written. Returns the per-session directory when a resolver was provided
-  /// at construction time (modern layout:
-  /// `~/.openhand/sessions/{sessionId}/attachments/{messageId}-{attachmentId}.{ext}`),
-  /// otherwise falls back to the legacy per-message subdirectory layout.
+  /// 解析 [sessionId] 新附件的写入目录。配置会话目录解析器时使用新版布局：
+  /// `~/.openhand/sessions/{sessionId}/attachments/{messageId}-{attachmentId}.{ext}`。
+  /// 否则回退到旧版消息子目录布局。
   String _resolveTargetDirectoryPath({
     required String sessionId,
     required String messageId,
@@ -99,8 +98,7 @@ class AiAttachmentService {
       label: '消息标识符',
     );
     if (_useModernLayout) {
-      // Modern layout: files live as siblings under `{sessionId}/attachments/`
-      // and are prefixed by `{messageId}-`. Delete only the matching files.
+      // 新版布局的文件同处会话附件目录，仅删除带目标消息前缀的文件。
       final sessionDirPath = _resolveTargetDirectoryPath(
         sessionId: normalizedSessionId,
         messageId: normalizedMessageId,
@@ -240,9 +238,7 @@ class AiAttachmentService {
       }
     } on Object {
       if (_useModernLayout) {
-        // Only delete the files we just created; do not nuke the entire
-        // per-session directory which may hold attachments from sibling
-        // messages.
+        // 仅回滚本次创建的文件，保留同一会话中其他消息的附件。
         for (final file in createdFiles) {
           try {
             if (await file.exists()) {
@@ -462,9 +458,7 @@ class AiAttachmentService {
         );
         outputExtension = '.jpg';
       }
-      // If the user has set a per-image size cap and we still exceed it,
-      // run a second compression pass that progressively lowers JPEG
-      // quality and then halves the dimensions until we fit.
+      // 超过用户设置的图片上限时，逐步降低 JPEG 质量和尺寸。
       if (imageSizeLimitBytes != null &&
           imageSizeLimitBytes > 0 &&
           outputBytes.length > imageSizeLimitBytes) {
@@ -517,11 +511,9 @@ class AiAttachmentService {
     );
   }
 
-  /// Compresses [source] into a JPEG that fits within [limitBytes].
+  /// 将 [source] 压缩为不超过 [limitBytes] 的 JPEG。
   ///
-  /// First attempts progressively lower JPEG qualities (92 -> 30 in steps of
-  /// 8). If quality alone is insufficient, halves the dimensions and retries
-  /// until the output fits or the image becomes too small to be useful.
+  /// 先逐步降低质量；仍超限时缩小尺寸，直到满足限制或图片过小。
   ({Uint8List bytes, int width, int height}) _compressImageToLimit({
     required img.Image source,
     required int limitBytes,
@@ -602,9 +594,8 @@ class AiAttachmentService {
     );
   }
 
-  /// Builds the on-disk filename for a non-image attachment, preferring the
-  /// modern `<messageId>-<attachmentId>.<ext>` naming when a per-session
-  /// directory resolver was wired up.
+  /// 生成非图片附件文件名；新版布局优先使用
+  /// `<messageId>-<attachmentId>.<ext>`。
   String _composeTargetName({
     required int sequence,
     required String sourceName,
@@ -684,7 +675,11 @@ class AiAttachmentService {
     required String targetName,
   }) async {
     final targetFile = File(p.join(targetDirectory.path, targetName));
-    await sourceFile.copy(targetFile.path);
+    await copyFileAtomically(
+      sourceFile,
+      targetFile,
+      maxBytes: _maxStoredAttachmentBytes,
+    );
     return targetFile;
   }
 
@@ -1079,9 +1074,7 @@ class _ZipArchiveReader {
   final ByteData _data;
   Map<String, _ZipEntry>? _entries;
 
-  /// Cumulative limit for total decompressed bytes across all entries to
-  /// prevent zip-bomb attacks where many small entries decompress to a
-  /// very large total size.
+  /// 所有条目的累计解压上限，防止大量小条目构造压缩炸弹。
   static const int _maxCumulativeDecompressedBytes = 32 * kBytesPerMiB;
   int _cumulativeDecompressedBytes = 0;
 
@@ -1151,7 +1144,7 @@ class _ZipArchiveReader {
         entry.uncompressedSize > maxEntryBytes) {
       return null;
     }
-    // Check cumulative decompressed size to prevent zip-bomb attacks.
+    // 校验累计解压大小，防止压缩炸弹。
     if (_cumulativeDecompressedBytes + entry.uncompressedSize >
         _maxCumulativeDecompressedBytes) {
       return null;
