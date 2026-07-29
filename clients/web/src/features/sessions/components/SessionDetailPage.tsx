@@ -142,7 +142,7 @@ import {
   messageHasRenderableTranscriptOutput,
 } from '../../../shared/util/session_transcript_messages';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
-import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
+import { ModelPickerDialog } from '../../../components/ModelPickerDialog';
 import { ReasoningEffortControl } from '../../../components/ReasoningEffortControl';
 import { PullIndicator } from '../../../components/PullIndicator';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
@@ -1833,17 +1833,18 @@ function MachineTerminalHistoryDialog({
   const commandTotal = terminals.reduce((total, item) => total + terminalCommandCount(item), 0);
   const outputTotal = terminals.reduce((total, item) => total + terminalHistoryOutputCharacters(item), 0);
 
-  async function confirmDeleteTerminal(): Promise<void> {
+  async function confirmDeleteTerminal(): Promise<boolean> {
     const terminal = pendingDeleteTerminal;
-    if (!terminal || deletingId || busyAction) return;
+    if (!terminal || deletingId || busyAction) return false;
     const terminalId = terminal.terminal_id;
     setDeletingId(terminalId);
     try {
       await onDelete(terminalId);
-      setPendingDeleteTerminal(null);
       showSnackbar(t('terminal.history.delete.ok', '终端会话已删除'), { tone: 'success' });
+      return true;
     } catch {
       // runControl 已报告具体错误。
+      return false;
     } finally {
       setDeletingId(null);
     }
@@ -2030,12 +2031,14 @@ function MachineTerminalHistoryDialog({
           )}
           danger
           busy={deletingId === pendingDeleteTerminal.terminal_id}
+          confirmBeforeClose
           confirmLabel={deletingId === pendingDeleteTerminal.terminal_id ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!deletingId) setPendingDeleteTerminal(null);
           }}
-          onConfirm={() => void confirmDeleteTerminal()}
+          onConfirm={confirmDeleteTerminal}
+          onConfirmSuccess={() => setPendingDeleteTerminal(null)}
         />
       ) : null}
     </>
@@ -3654,6 +3657,7 @@ export function SessionDetailPage() {
     cascade: boolean;
   } | null>(null);
   const [pendingForkMessage, setPendingForkMessage] = useState<SessionMessage | null>(null);
+  const forkedSessionIdRef = useRef<string | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
@@ -3752,6 +3756,7 @@ export function SessionDetailPage() {
     setPendingDeleteAction(null);
     setDeleteBusy(false);
     setPendingForkMessage(null);
+    forkedSessionIdRef.current = null;
     setForkBusy(false);
     setMessageTranslations({});
     setFeedbackBusyMessageIds(new Set());
@@ -4378,8 +4383,8 @@ export function SessionDetailPage() {
   const handleForkMessage = useCallback((m: SessionMessage) => {
     setPendingForkMessage(m);
   }, []);
-  const confirmDeleteMessage = async () => {
-    if (!sessionId || !pendingDeleteAction || deleteBusy) return;
+  const confirmDeleteMessage = async (): Promise<boolean> => {
+    if (!sessionId || !pendingDeleteAction || deleteBusy) return false;
     const requestSessionId = sessionId;
     setDeleteBusy(true);
     const { message, cascade } = pendingDeleteAction;
@@ -4389,99 +4394,98 @@ export function SessionDetailPage() {
       } else {
         await deleteMessage(requestSessionId, message.id);
       }
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setPendingDeleteAction(null);
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
       showSnackbar(cascade ? t('detail.deleteAfter.ok', '已删除此条及后续消息') : t('detail.delete.ok', '已删除消息'), { tone: 'success' });
+      return true;
     } catch (e) {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
+      if (handleAuthError(e)) return false;
+      if (handleSessionGoneError(e)) return false;
       setError(e instanceof Error ? e.message : String(e));
       showSnackbar(t('detail.delete.failed', '删除消息失败'), {
         tone: 'error',
       });
+      return false;
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setDeleteBusy(false);
     }
   };
-  const confirmForkMessage = async () => {
-    if (!sessionId || !pendingForkMessage || forkBusy) return;
+  const confirmForkMessage = async (): Promise<boolean> => {
+    if (!sessionId || !pendingForkMessage || forkBusy) return false;
     const requestSessionId = sessionId;
     const message = pendingForkMessage;
     setForkBusy(true);
     try {
       const res = await forkSessionFromMessage(requestSessionId, message.id);
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setPendingForkMessage(null);
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
       showSnackbar(t('detail.fork.ok', '已派生新会话'), { tone: 'success' });
-      const nextId = res.session?.id;
-      if (nextId) {
-        location.route(`/threads/${encodeURIComponent(nextId)}`);
-      }
+      forkedSessionIdRef.current = res.session?.id ?? null;
+      return true;
     } catch (e) {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
+      if (handleAuthError(e)) return false;
+      if (handleSessionGoneError(e)) return false;
       const messageText = e instanceof Error ? e.message : String(e);
       setError(messageText);
       showSnackbar(`${t('detail.fork.failed', '派生会话失败')}：${messageText}`, {
         tone: 'error',
       });
+      return false;
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setForkBusy(false);
     }
   };
 
-  const confirmDeleteSession = async () => {
-    if (!sessionId || sessionDeleteBusy) return;
+  const confirmDeleteSession = async (): Promise<boolean> => {
+    if (!sessionId || sessionDeleteBusy) return false;
     const requestSessionId = sessionId;
     setSessionDeleteBusy(true);
     try {
       await deleteSession(requestSessionId);
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
       showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
-      location.route('/threads');
+      return true;
     } catch (e) {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (handleAuthError(e)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
+      if (handleAuthError(e)) return false;
       if (e instanceof ApiError && e.status === 404) {
         showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
-        location.route('/threads');
-        return;
+        return true;
       }
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, {
         tone: 'error',
       });
+      return false;
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) {
         setSessionDeleteBusy(false);
-        setPendingSessionDelete(false);
       }
     }
   };
 
-  const applyFullAccessPermission = async (next: boolean) => {
-    if (permissionSaving) return;
+  const applyFullAccessPermission = async (next: boolean): Promise<boolean> => {
+    if (permissionSaving) return false;
     const requestSessionId = sessionId;
     setPermissionSaving(true);
     try {
       const res = await updateSessionFullAccessPermission(requestSessionId, next);
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
       setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
       showSnackbar(t('topbar.perm.ok', '已更新权限设置'), { tone: 'success' });
+      return true;
     } catch (e) {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
+      if (handleAuthError(e)) return false;
+      if (handleSessionGoneError(e)) return false;
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('topbar.perm.failed', '更新权限设置失败')}：${message}`, { tone: 'error' });
+      return false;
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) {
         setPermissionSaving(false);
-        setPendingFullAccess(null);
       }
     }
   };
@@ -4495,15 +4499,17 @@ export function SessionDetailPage() {
     void applyFullAccessPermission(next);
   };
 
-  const handleWriteApproval = async (decision: 'approved' | 'rejected' | 'dismissed') => {
-    if (!pendingWriteApproval || writeApprovalBusy) return;
+  const handleWriteApproval = async (
+    decision: 'approved' | 'rejected' | 'dismissed',
+  ): Promise<boolean> => {
+    if (!pendingWriteApproval || writeApprovalBusy) return false;
     const requestSessionId = sessionId;
     const approvalId = pendingWriteApproval.id;
+    if (decision !== 'approved') setPendingWriteApproval(null);
     setWriteApprovalBusy(true);
     try {
       await respondWriteApproval(requestSessionId, approvalId, decision);
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setPendingWriteApproval(null);
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
       const tone = decision === 'approved' ? 'success' : undefined;
       const label = (() => {
         switch (decision) {
@@ -4517,13 +4523,15 @@ export function SessionDetailPage() {
       })();
       showSnackbar(label, { tone });
       void refresh();
+      return true;
     } catch (e) {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return false;
+      if (handleAuthError(e)) return false;
+      if (handleSessionGoneError(e)) return false;
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('detail.writeApproval.failed', '处理写操作确认失败')}：${message}`, { tone: 'error' });
+      return false;
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) setWriteApprovalBusy(false);
     }
@@ -7477,7 +7485,7 @@ export function SessionDetailPage() {
             const requestSessionId = sessionId;
             try {
               const res = await renameSession(requestSessionId, next);
-              if (!ownsSessionAsyncResult(requestSessionId)) return;
+              if (!ownsSessionAsyncResult(requestSessionId)) return false;
               setDetail((prev) =>
                 prev
                   ? {
@@ -7489,14 +7497,15 @@ export function SessionDetailPage() {
               showSnackbar(t('topbar.rename.ok', '已重命名会话'), {
                 tone: 'success',
               });
+              return true;
             } catch (e) {
-              if (!ownsSessionAsyncResult(requestSessionId)) return;
-              if (handleAuthError(e)) return;
-              if (handleSessionGoneError(e)) return;
+              if (!ownsSessionAsyncResult(requestSessionId)) return false;
+              if (handleAuthError(e)) return false;
+              if (handleSessionGoneError(e)) return false;
               const message = e instanceof Error ? e.message : String(e);
               setLastError(message);
               showSnackbar(`${t('topbar.rename.failed', '重命名失败')}：${message}`, { tone: 'error' });
-              throw e;
+              return false;
             }
           }}
           onDelete={async () => {
@@ -8280,11 +8289,13 @@ export function SessionDetailPage() {
           body={pendingDeleteAction.cascade ? t('detail.deleteAfter.confirmBody', '此操作会删除当前消息以及它之后的所有消息，删除后不可恢复。') : t('detail.delete.confirmBody', '此操作会删除当前消息，删除后不可恢复。')}
           danger
           busy={deleteBusy}
+          confirmBeforeClose
           confirmLabel={deleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           onCancel={() => {
             if (!deleteBusy) setPendingDeleteAction(null);
           }}
           onConfirm={confirmDeleteMessage}
+          onConfirmSuccess={() => setPendingDeleteAction(null)}
         />
       ) : null}
       {pendingForkMessage ? (
@@ -8292,12 +8303,19 @@ export function SessionDetailPage() {
           title={t('detail.fork.confirmTitle', '派生新会话?')}
           body={t('detail.fork.confirmBody', '将从当前会话的这条消息之后派生出一个新会话。新会话会保留这条消息及之前的内容，并丢弃之后的消息。')}
           busy={forkBusy}
+          confirmBeforeClose
           confirmLabel={forkBusy ? t('detail.fork.creating', '派生中…') : t('common.fork', '派生')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!forkBusy) setPendingForkMessage(null);
           }}
           onConfirm={confirmForkMessage}
+          onConfirmSuccess={() => {
+            const nextId = forkedSessionIdRef.current;
+            forkedSessionIdRef.current = null;
+            setPendingForkMessage(null);
+            if (nextId) location.route(`/threads/${encodeURIComponent(nextId)}`);
+          }}
         />
       ) : null}
       {pendingSessionDelete ? (
@@ -8306,12 +8324,17 @@ export function SessionDetailPage() {
           body={t('topbar.deleteConfirm', '确定删除该会话?此操作不可恢复')}
           danger
           busy={sessionDeleteBusy}
+          confirmBeforeClose
           confirmLabel={sessionDeleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!sessionDeleteBusy) setPendingSessionDelete(false);
           }}
           onConfirm={confirmDeleteSession}
+          onConfirmSuccess={() => {
+            setPendingSessionDelete(false);
+            location.route('/threads');
+          }}
         />
       ) : null}
       {pendingFullAccess === true ? (
@@ -8320,12 +8343,14 @@ export function SessionDetailPage() {
           body={t('topbar.perm.fullConfirmBody', '启用后，Web 会话中的写文件、执行命令等高风险操作将按 APP 完全访问权限模式自动执行。请确认当前会话和浏览器设备可信。')}
           danger
           busy={permissionSaving}
+          confirmBeforeClose
           confirmLabel={permissionSaving ? t('common.saving', '保存中…') : t('topbar.perm.enableFullAccess', '启用完全访问权限')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!permissionSaving) setPendingFullAccess(null);
           }}
-          onConfirm={() => void applyFullAccessPermission(true)}
+          onConfirm={() => applyFullAccessPermission(true)}
+          onConfirmSuccess={() => setPendingFullAccess(null)}
         />
       ) : null}
       {pendingWriteApproval ? (
@@ -8349,6 +8374,7 @@ export function SessionDetailPage() {
           }
           danger
           busy={writeApprovalBusy}
+          confirmBeforeClose
           wide
           scrollBody
           disableBackdropClose
@@ -8356,7 +8382,8 @@ export function SessionDetailPage() {
           cancelLabel={t('detail.writeApproval.reject', '拒绝')}
           onCancel={() => void handleWriteApproval('rejected')}
           onDismiss={() => void handleWriteApproval('dismissed')}
-          onConfirm={() => void handleWriteApproval('approved')}
+          onConfirm={() => handleWriteApproval('approved')}
+          onConfirmSuccess={() => setPendingWriteApproval(null)}
         />
       ) : null}
       {imageEditorInput ? <ImageEditorDialog input={imageEditorInput} onCancel={() => settleImageEditor(null)} onSave={(result) => settleImageEditor(result)} /> : null}
@@ -8370,7 +8397,6 @@ export function SessionDetailPage() {
               return;
             }
             setComposerModelKey(key);
-            pushRecentModel(key);
           }}
           onClose={() => setShowComposerModelPicker(false)}
         />
@@ -8598,7 +8624,19 @@ function GoalStartOptionsDialog({
   const [tokenBudgetEnabled, setTokenBudgetEnabled] = useState(false);
   const [tokenBudget, setTokenBudget] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { closing, requestClose } = useDialogExitMotion(onCancel);
+  const pendingOptionsRef = useRef<GoalStartOptions | null>(null);
+  const { closing, requestCloseWithReason } = useDialogExitMotion<
+    'cancel' | 'confirm'
+  >((reason) => {
+    const options = pendingOptionsRef.current;
+    pendingOptionsRef.current = null;
+    if (reason === 'confirm' && options != null) {
+      onConfirm(options);
+      return;
+    }
+    onCancel();
+  });
+  const requestClose = () => requestCloseWithReason('cancel');
 
   useEffect(() => {
     setModelKey((current) => {
@@ -8628,13 +8666,14 @@ function GoalStartOptionsDialog({
       setError(t('goal.start.tokenBudget.invalid', 'Token 预算请输入正整数'));
       return;
     }
-    onConfirm({
+    pendingOptionsRef.current = {
       evaluator_provider_config_id: selectedModel.provider_id || selectedModel.key,
       evaluator_model_id: selectedModel.model_id,
       evaluator_model_label: selectedModel.label || selectedModel.model_id,
       max_turns: turns,
       token_budget: budget,
-    });
+    };
+    requestCloseWithReason('confirm');
   };
 
   const SwitchButton = ({
@@ -8765,7 +8804,6 @@ function GoalStartOptionsDialog({
           selectedKey={modelKey}
           onSelect={(key) => {
             setModelKey(key);
-            pushRecentModel(key);
           }}
           onClose={() => setModelPickerOpen(false)}
         />

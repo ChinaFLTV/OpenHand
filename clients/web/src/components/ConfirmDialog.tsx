@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { classNames } from '../shared/util/class_names';
 import {
@@ -9,7 +10,12 @@ import {
 } from './DialogFrame';
 import { svgIconProps } from '../shared/ui/svg_icon';
 
-type ConfirmCloseReason = 'cancel' | 'confirm' | 'dismiss' | 'escape';
+type ConfirmCloseReason =
+  | 'cancel'
+  | 'confirm'
+  | 'confirmed'
+  | 'dismiss'
+  | 'escape';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = svgIconProps({ size: 20 });
@@ -37,8 +43,12 @@ interface ConfirmDialogProps {
   onDismiss?: () => void;
   /** 无外部 busy 状态时默认先播放退场动画，再执行确认回调。 */
   closeOnConfirm?: boolean;
+  /** 先执行异步确认，成功后再播放退场动画。返回 false 时保持弹窗。 */
+  confirmBeforeClose?: boolean;
+  /** 异步确认成功且退场完成后的收尾回调。 */
+  onConfirmSuccess?: () => void;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => boolean | void | Promise<boolean | void>;
 }
 
 export function ConfirmDialog(props: ConfirmDialogProps) {
@@ -56,13 +66,22 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     disableBackdropClose = false,
     onDismiss,
     closeOnConfirm = !hasExternalBusy,
+    confirmBeforeClose = false,
+    onConfirmSuccess,
     onCancel,
     onConfirm,
   } = props;
+  const confirmPendingRef = useRef(false);
+  const [confirmPending, setConfirmPending] = useState(false);
+  const effectiveBusy = busy || confirmPending;
   const { closing, requestCloseWithReason } = useDialogExitMotion<ConfirmCloseReason>(
     (reason) => {
+      if (reason === 'confirmed') {
+        onConfirmSuccess?.();
+        return;
+      }
       if (reason === 'confirm') {
-        onConfirm();
+        void onConfirm();
         return;
       }
       if (reason === 'escape') {
@@ -72,11 +91,26 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       onCancel();
     },
     {
-      closeOnEscape: !busy,
+      closeOnEscape: !effectiveBusy,
     },
   );
   const requestCancel = () => requestCloseWithReason('cancel');
   const requestConfirm = () => {
+    if (confirmBeforeClose) {
+      if (effectiveBusy || closing || confirmPendingRef.current) return;
+      confirmPendingRef.current = true;
+      setConfirmPending(true);
+      void Promise.resolve()
+        .then(onConfirm)
+        .then((success) => {
+          if (success !== false) requestCloseWithReason('confirmed');
+        })
+        .finally(() => {
+          confirmPendingRef.current = false;
+          setConfirmPending(false);
+        });
+      return;
+    }
     if (closeOnConfirm) {
       requestCloseWithReason('confirm');
       return;
@@ -89,7 +123,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     <DialogFrame
       closing={closing}
       onRequestClose={requestDismiss}
-      closeOnBackdrop={!busy && !closing && !disableBackdropClose}
+      closeOnBackdrop={!effectiveBusy && !closing && !disableBackdropClose}
       {...createStandardDialogFrameAppearance({
         overlayClassName: classNames(
           'oh-confirm-dialog-overlay',
@@ -145,7 +179,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         <DialogActionButton
           className="oh-confirm-dialog-button px-4 py-2"
           tone="secondary"
-          disabled={busy || closing}
+          disabled={effectiveBusy || closing}
           onClick={requestCancel}
         >
           {cancelLabel}
@@ -153,7 +187,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         <DialogActionButton
           className="oh-confirm-dialog-button px-4 py-2"
           tone={danger ? 'danger' : 'primary'}
-          disabled={busy || closing}
+          disabled={effectiveBusy || closing}
           onClick={requestConfirm}
         >
           {confirmLabel}

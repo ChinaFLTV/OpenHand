@@ -215,7 +215,6 @@ function TextOption({ label, value, onInput, type = 'text', rows = 1 }: TextOpti
 }
 
 export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: CreationOptionsDialogProps) {
-  const closeActionRef = useRef<'cancel' | 'confirm'>('cancel');
   const selectedOptionsRef = useRef<CreationOptions>({});
   const [aspectRatio, setAspectRatio] = useState(
     initial?.aspectRatio ?? (mode === 'image' ? '1:1' : mode === 'video' ? '16:9' : undefined),
@@ -270,25 +269,21 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
     pitch: mode === 'audio' ? pitch : undefined,
   });
 
-  const { closing, requestClose } = useDialogExitMotion(() => {
-    const action = closeActionRef.current;
-    closeActionRef.current = 'cancel';
-    if (action === 'confirm') {
+  const { closing, requestCloseWithReason } = useDialogExitMotion<
+    'cancel' | 'confirm'
+  >((reason) => {
+    if (reason === 'confirm') {
       onConfirm(selectedOptionsRef.current);
       return;
     }
     onCancel();
   });
 
-  const requestCancel = () => {
-    closeActionRef.current = 'cancel';
-    requestClose();
-  };
+  const requestCancel = () => requestCloseWithReason('cancel');
 
   const requestConfirm = () => {
     selectedOptionsRef.current = selectedOptions();
-    closeActionRef.current = 'confirm';
-    requestClose();
+    requestCloseWithReason('confirm');
   };
 
   const ratios = mode === 'image' ? IMAGE_RATIOS : mode === 'video' ? VIDEO_RATIOS : [];

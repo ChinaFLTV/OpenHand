@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/services.dart' show rootBundle;
@@ -3938,6 +3939,9 @@ class WebMessagePlatformService {
     shelf.Request request,
     _WebGatewayAuthSession auth,
   ) async {
+    if (!_config.sessionManagementEnabled) {
+      return _errorJson(HttpStatus.forbidden, 'session_management_disabled');
+    }
     final body = await _readJsonBody(request);
     final templateId = _string(body['template_id'], 'default').trim();
     if (!_templateAllowed(templateId)) {
@@ -3957,8 +3961,11 @@ class WebMessagePlatformService {
         'mode': requestedMode,
       });
     }
+    if (requestedMode == 'plan' && !_config.planModeEnabled) {
+      return _errorJson(HttpStatus.forbidden, 'plan_mode_disabled');
+    }
     final mode = switch (requestedMode) {
-      'plan' when _config.planModeEnabled => AiSessionMode.plan,
+      'plan' => AiSessionMode.plan,
       'goal' when aiSessionGoalModeAllowedForTemplate(templateId) =>
         AiSessionMode.goal,
       _ => AiSessionMode.chat,
@@ -3973,6 +3980,11 @@ class WebMessagePlatformService {
         'model_key': requestedModelKey,
       });
     }
+    final title = collapseInlineWhitespace(_string(body['title'], ''));
+    if (title.characters.length >
+        AiSessionController.maxManualTitleCharacters) {
+      return _errorJson(HttpStatus.badRequest, 'title_too_long');
+    }
     final metadata = _metadataForRequest(auth, request, <String, Object?>{
       'created_via': 'web_api',
       'requested_template_id': templateId,
@@ -3984,6 +3996,9 @@ class WebMessagePlatformService {
       templateId: templateId,
       runtimeContext: await _buildRuntimeContext(templateId: templateId),
       mode: mode,
+      title: title,
+      initialModelProviderConfigId: requestedModel?.id ?? '',
+      initialModelId: requestedModel?.modelId ?? '',
       metadata: metadata,
       awaitStartHook: false,
     );
@@ -3991,39 +4006,34 @@ class WebMessagePlatformService {
       return _errorJson(HttpStatus.internalServerError, 'create_failed');
     }
     var session = _sessionController.currentSession!;
-    if (requestedModel != null) {
-      await _sessionController.updateSessionLastUsedModel(
-        session.id,
-        providerConfigId: requestedModel.id,
-        modelId: requestedModel.modelId,
-      );
-      session = _sessionController.sessions.firstWhere(
-        (item) => item.id == session.id,
-        orElse: () => session,
-      );
-    }
-    final title = _string(body['title'], '').trim();
-    if (title.isNotEmpty) {
-      await _sessionController.renameSession(session.id, title);
-      session = _sessionController.sessions.firstWhere(
-        (item) => item.id == session.id,
-        orElse: () => session,
-      );
-    }
+    final warnings = <String>[];
     if (templateId == kMachineExpertTemplateId) {
-      final terminalMetadata = await _machineTerminalService.initialMetadata(
-        sessionId: session.id,
-        workingDirectory: _workspaceDirectoryPath,
-        existingMetadata: session.metadata[kMachineTerminalMetadataKey],
-      );
-      await _sessionController.updateSessionMetadata(
-        session.id,
-        <String, Object?>{kMachineTerminalMetadataKey: terminalMetadata},
-      );
-      session = _sessionController.sessions.firstWhere(
-        (item) => item.id == session.id,
-        orElse: () => session,
-      );
+      try {
+        final terminalMetadata = await _machineTerminalService.initialMetadata(
+          sessionId: session.id,
+          workingDirectory: _workspaceDirectoryPath,
+          existingMetadata: session.metadata[kMachineTerminalMetadataKey],
+        );
+        final metadataUpdated = await _sessionController.updateSessionMetadata(
+          session.id,
+          <String, Object?>{kMachineTerminalMetadataKey: terminalMetadata},
+        );
+        if (!metadataUpdated) {
+          warnings.add('machine_terminal_metadata_not_saved');
+        }
+        session = _sessionController.sessions.firstWhere(
+          (item) => item.id == session.id,
+          orElse: () => session,
+        );
+      } catch (error) {
+        warnings.add('machine_terminal_initialization_failed');
+        _log(
+          WebGatewayLogLevel.warn,
+          'SESSION',
+          '机器终端初始化失败，会话已保留',
+          <String, Object?>{'session_id': session.id, 'error': '$error'},
+        );
+      }
     }
     _log(
       WebGatewayLogLevel.success,
@@ -4038,6 +4048,7 @@ class WebMessagePlatformService {
     );
     return _json(HttpStatus.created, <String, Object?>{
       'session': _sessionSummary(session),
+      if (warnings.isNotEmpty) 'warnings': warnings,
     });
   }
 
@@ -4272,9 +4283,13 @@ class WebMessagePlatformService {
     final changed = <String, Object?>{};
 
     if (hasTitle) {
-      final title = _string(body['title'], '').trim();
+      final title = collapseInlineWhitespace(_string(body['title'], ''));
       if (title.isEmpty) {
         return _errorJson(HttpStatus.badRequest, 'title_required');
+      }
+      if (title.characters.length >
+          AiSessionController.maxManualTitleCharacters) {
+        return _errorJson(HttpStatus.badRequest, 'title_too_long');
       }
       final renamed = await _sessionController.renameSession(session.id, title);
       ok = ok && renamed;

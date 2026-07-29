@@ -468,7 +468,6 @@ export function TitleSummaryDialog({
           selectedKey={modelKey}
           onSelect={(key) => {
             setModelKey(key);
-            setModelPickerOpen(false);
           }}
           onClose={() => setModelPickerOpen(false)}
         />

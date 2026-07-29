@@ -200,6 +200,7 @@ class AiSessionController extends ChangeNotifier {
       return _persistMachineTerminalMetadata(sessionId, metadata);
     });
   }
+  static const int maxManualTitleCharacters = 200;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _responseVariantHiddenMessageKey =
       'hidden_by_response_variant';
@@ -1715,6 +1716,9 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     AiSessionMode mode = AiSessionMode.chat,
     bool fullAccessPermission = false,
+    String title = '',
+    String initialModelProviderConfigId = '',
+    String initialModelId = '',
     Map<String, Object?>? metadata,
     bool awaitStartHook = true,
   }) async {
@@ -1725,6 +1729,9 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         mode: mode,
         fullAccessPermission: fullAccessPermission,
+        title: title,
+        initialModelProviderConfigId: initialModelProviderConfigId,
+        initialModelId: initialModelId,
         metadata: metadata,
         awaitStartHook: awaitStartHook,
       );
@@ -1735,6 +1742,9 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         mode: mode,
         fullAccessPermission: fullAccessPermission,
+        title: title,
+        initialModelProviderConfigId: initialModelProviderConfigId,
+        initialModelId: initialModelId,
         metadata: metadata,
         awaitStartHook: awaitStartHook,
       ),
@@ -2437,19 +2447,31 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     required AiSessionMode mode,
     required bool fullAccessPermission,
+    required String title,
+    required String initialModelProviderConfigId,
+    required String initialModelId,
     Map<String, Object?>? metadata,
     required bool awaitStartHook,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
     if (!template.isSupportedOnPlatform(defaultTargetPlatform)) {
-      _lastErrorMessage =
-          'The thread template "${template.name}" is only available on Apple devices.';
+      _lastErrorMessage = '线程模板“${template.name}”仅支持 Apple 设备。';
       return false;
     }
     if (mode == AiSessionMode.goal &&
         !aiSessionGoalModeAllowedForTemplate(template.id)) {
-      _lastErrorMessage =
-          'Goal mode is not available for the thread template "${template.name}".';
+      _lastErrorMessage = '线程模板“${template.name}”不支持目标模式。';
+      return false;
+    }
+    final normalizedTitle = collapseInlineWhitespace(title);
+    final normalizedModelProviderConfigId = initialModelProviderConfigId.trim();
+    final normalizedModelId = initialModelId.trim();
+    if (normalizedModelProviderConfigId.isEmpty != normalizedModelId.isEmpty) {
+      _lastErrorMessage = '初始模型配置不完整。';
+      return false;
+    }
+    if (normalizedTitle.characters.length > maxManualTitleCharacters) {
+      _lastErrorMessage = '会话标题不能超过 $maxManualTitleCharacters 个字符。';
       return false;
     }
     final now = _clock().toUtc();
@@ -2459,7 +2481,9 @@ class AiSessionController extends ChangeNotifier {
         : Map<String, Object?>.of(stringKeyedMapFromValue(metadata));
     final session = AiSession(
       id: _idGenerator(),
-      title: _defaultNewSessionTitle,
+      title: normalizedTitle.isEmpty
+          ? _defaultNewSessionTitle
+          : normalizedTitle,
       templateId: template.id,
       templateName: template.name,
       templateIconName: template.iconName,
@@ -2470,6 +2494,11 @@ class AiSessionController extends ChangeNotifier {
       environment: _environmentFromRuntime(runtimeContext),
       statistics: const AiSessionStatistics.initial(),
       recentErrors: const <AiSessionErrorRecord>[],
+      lastUsedModelId: normalizedModelProviderConfigId.isEmpty
+          ? null
+          : normalizedModelProviderConfigId,
+      lastUsedModelLabel: normalizedModelId.isEmpty ? null : normalizedModelId,
+      isTitleManuallyEdited: normalizedTitle.isNotEmpty,
       mode: mode,
       fullAccessPermission: fullAccessPermission,
       metadata: sessionMetadata,
@@ -3785,8 +3814,12 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<bool> renameSession(String sessionId, String title) async {
-    final normalizedTitle = title.trim();
+    final normalizedTitle = collapseInlineWhitespace(title);
     if (normalizedTitle.isEmpty) {
+      return false;
+    }
+    if (normalizedTitle.characters.length > maxManualTitleCharacters) {
+      _lastErrorMessage = '会话标题不能超过 $maxManualTitleCharacters 个字符。';
       return false;
     }
     // Keep manual renaming responsive even while sendMessage owns the

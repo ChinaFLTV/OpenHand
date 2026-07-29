@@ -51,7 +51,7 @@ function readRecent(): RecentEntry[] {
   }
 }
 
-export function pushRecentModel(modelKey: string): void {
+function pushRecentModel(modelKey: string): void {
   if (!modelKey) return;
   const next: RecentEntry[] = [
     { key: modelKey, ts: Date.now() },
@@ -79,7 +79,27 @@ export function ModelPickerDialog({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
-  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const pendingSelectionRef = useRef<string | null>(null);
+  const closeRequestedRef = useRef(false);
+  const { closing, requestClose } = useDialogExitMotion(
+    () => {
+      const pendingSelection = pendingSelectionRef.current;
+      pendingSelectionRef.current = null;
+      try {
+        if (pendingSelection != null) {
+          pushRecentModel(pendingSelection);
+          onSelect(pendingSelection);
+        }
+      } finally {
+        onClose();
+      }
+    },
+    {
+      onBeforeClose: () => {
+        closeRequestedRef.current = true;
+      },
+    },
+  );
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -174,8 +194,8 @@ export function ModelPickerDialog({
   }, [query, orderedKeys, selectedKey, highlightKey]);
 
   function handleSelect(key: string) {
-    pushRecentModel(key);
-    onSelect(key);
+    if (closeRequestedRef.current) return;
+    pendingSelectionRef.current = key;
     requestClose();
   }
 

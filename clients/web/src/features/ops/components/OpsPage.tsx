@@ -223,8 +223,8 @@ export function OpsPage() {
     },
   });
 
-  const handleCleanup = async () => {
-    if (cleaning) return;
+  const handleCleanup = async (): Promise<boolean> => {
+    if (cleaning) return false;
     setCleaning(true);
     setCleanupError(null);
     setCleanupOk(null);
@@ -243,13 +243,14 @@ export function OpsPage() {
       showSnackbar(resultText, { tone: 'success' });
       await refreshHistory();
       await refreshSnapshot();
+      return true;
     } catch (err) {
       const message = describeApiError(err);
       setCleanupError(message);
       showSnackbar(`${t('ops.cleanup.failed', '资源清理失败')}：${message}`, { tone: 'error' });
+      return false;
     } finally {
       setCleaning(false);
-      setCleanupConfirmOpen(false);
     }
   };
 
@@ -801,12 +802,14 @@ export function OpsPage() {
             })}
             danger={!expiredOnly || cleanupTarget === 'all'}
             busy={cleaning}
+            confirmBeforeClose
             confirmLabel={cleaning ? t('ops.cleanup.running', '清理中…') : t('ops.cleanup.execute', '立即清理')}
             cancelLabel={t('common.cancel', '取消')}
             onCancel={() => {
               if (!cleaning) setCleanupConfirmOpen(false);
             }}
             onConfirm={handleCleanup}
+            onConfirmSuccess={() => setCleanupConfirmOpen(false)}
           />
         ) : null}
 

@@ -395,10 +395,17 @@ export interface CreateSessionInput {
   modelKey?: string;
 }
 
+export const SESSION_TITLE_MAX_CHARACTERS = 200;
+
+export interface CreateSessionResponse {
+  session: SessionSummary;
+  warnings?: string[];
+}
+
 export function createSession(
   input: CreateSessionInput = {},
-): Promise<{ session: SessionSummary }> {
-  return apiRequest<{ session: SessionSummary }>('/api/sessions', {
+): Promise<CreateSessionResponse> {
+  return apiRequest<CreateSessionResponse>('/api/sessions', {
     method: 'POST',
     body: {
       template_id: input.templateId ?? 'default',

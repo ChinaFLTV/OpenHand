@@ -22,6 +22,7 @@ import { RollingText } from './RollingText';
 import { AnimatedTitleText } from './AnimatedTitleText';
 import { BrowserFullscreenButton, BrowserFullscreenIcon } from './BrowserFullscreenButton';
 import { svgIconProps } from '../shared/ui/svg_icon';
+import { SESSION_TITLE_MAX_CHARACTERS } from '../api/sessions';
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -125,7 +126,7 @@ interface SessionTopBarProps {
   titleGenerating?: boolean;
   onBack?: () => void;
   // 标题点击 → 进入重命名;
-  onRename?: (next: string) => Promise<void> | void;
+  onRename?: (next: string) => boolean | void | Promise<boolean | void>;
 
   // 操作
   onDelete?: () => void;
@@ -166,6 +167,8 @@ export function SessionTopBar(props: SessionTopBarProps) {
     [],
   );
   const [renaming, setRenaming] = useState(false);
+  const renamingRef = useRef(false);
+  const cancelRenameBlurRef = useRef(false);
   const {
     open: moreMenuOpen,
     closing: closingMore,
@@ -179,7 +182,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
   }, [title, editing]);
 
   useEffect(() => {
-    if (editing) titleInputRef.current?.focus();
+    if (!editing) return;
+    cancelRenameBlurRef.current = false;
+    titleInputRef.current?.focus();
   }, [editing]);
 
   useDismissibleOverlay({
@@ -189,22 +194,30 @@ export function SessionTopBar(props: SessionTopBarProps) {
   });
 
   async function commitRename() {
-    if (renaming) return;
+    if (cancelRenameBlurRef.current) {
+      cancelRenameBlurRef.current = false;
+      return;
+    }
+    if (renamingRef.current) return;
+    renamingRef.current = true;
     setEditing(false);
     const next = draftTitle.trim();
     if (next && next !== title && onRename) {
       setRenaming(true);
       try {
-        await onRename(next);
+        const renamed = await onRename(next);
+        if (renamed === false) setEditing(true);
       } catch {
         setEditing(true);
         showSnackbar(t('topbar.rename.failed', '重命名失败，请稍后重试'), {
           tone: 'error',
         });
       } finally {
+        renamingRef.current = false;
         setRenaming(false);
       }
     } else {
+      renamingRef.current = false;
       setDraftTitle(title);
     }
   }
@@ -263,11 +276,17 @@ export function SessionTopBar(props: SessionTopBarProps) {
               <input
                 ref={titleInputRef}
                 value={draftTitle}
+                maxLength={SESSION_TITLE_MAX_CHARACTERS}
                 onInput={(e) => setDraftTitle((e.currentTarget as HTMLInputElement).value)}
                 onBlur={commitRename}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void commitRename();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void commitRename();
+                  }
                   if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelRenameBlurRef.current = true;
                     setEditing(false);
                     setDraftTitle(title);
                   }

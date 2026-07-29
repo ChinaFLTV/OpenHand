@@ -185,9 +185,9 @@ export function FilesPage() {
   const writeDisabled = !list?.write_enabled || !selected?.editable;
   const fileOperationsEnabled = Boolean(list?.operations_enabled ?? list?.write_enabled);
 
-  const confirmDeleteTarget = async () => {
+  const confirmDeleteTarget = async (): Promise<boolean> => {
     const item = deleteTarget;
-    if (!fileOperationsEnabled || !item || deleteBusy) return;
+    if (!fileOperationsEnabled || !item || deleteBusy) return false;
     setDeleteBusy(true);
     setActionError(null);
     try {
@@ -197,13 +197,14 @@ export function FilesPage() {
         setContent('');
         setContentMeta(null);
       }
-      setDeleteTarget(null);
       showSnackbar(`${t('files.delete.ok', '已删除')}：${item.path}`, { tone: 'success' });
       await refresh();
+      return true;
     } catch (err) {
       const message = describeApiError(err);
       setActionError(message);
       showSnackbar(`${t('files.delete.failed', '删除失败')}：${message}`, { tone: 'error' });
+      return false;
     } finally {
       setDeleteBusy(false);
     }
@@ -579,12 +580,14 @@ export function FilesPage() {
           body={`${t('files.delete.confirmBody', '确定删除此文件或空目录?此操作不可恢复。')} ${deleteTarget.path}`}
           danger
           busy={deleteBusy}
+          confirmBeforeClose
           confirmLabel={deleteBusy ? t('files.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!deleteBusy) setDeleteTarget(null);
           }}
           onConfirm={confirmDeleteTarget}
+          onConfirmSuccess={() => setDeleteTarget(null)}
         />
       ) : null}
     </main>

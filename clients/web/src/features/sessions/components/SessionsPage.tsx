@@ -18,7 +18,9 @@ import {
   exportSessionDownload,
   listSessions,
   renameSession,
+  SESSION_TITLE_MAX_CHARACTERS,
   type CreateSessionInput,
+  type CreateSessionResponse,
   type SessionListResponse,
   type SessionMode,
   type SessionSummary,
@@ -86,15 +88,14 @@ export function SessionsPage() {
   const [configTemplate, setConfigTemplate] = useState<ApiMetaTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const creatingRef = useRef(false);
 
   const pageRootRef = useRef<HTMLElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const pullRefreshDelayAbortRef = useRef<AbortController | null>(null);
 
   const templates: ApiMetaTemplate[] = auth.meta?.templates ?? [];
-  const allowedModes: string[] = auth.meta?.conversation_modes ?? ['chat'];
-  const planEnabled =
-    Boolean(auth.meta?.service?.plan_mode_enabled) && allowedModes.includes('plan');
+  const planEnabled = Boolean(auth.meta?.service?.plan_mode_enabled);
   const sessionMgmtEnabled = auth.meta?.service?.session_management_enabled !== false;
 
 
@@ -173,8 +174,51 @@ export function SessionsPage() {
     setConfigTemplate(tpl);
   }
 
+  function createFailureMessage(error: unknown): string {
+    if (!(error instanceof ApiError)) {
+      return error instanceof Error ? error.message : String(error);
+    }
+    const body = error.body;
+    const code = body != null && typeof body === 'object' && 'error' in body
+      ? String((body as { error?: unknown }).error ?? '')
+      : '';
+    switch (code) {
+      case 'session_management_disabled':
+        return t('sessions.create.error.managementDisabled', '当前服务已禁用会话管理');
+      case 'template_not_allowed':
+        return t('sessions.create.error.template', '当前服务不允许使用该模板');
+      case 'plan_mode_disabled':
+        return t('sessions.create.error.planDisabled', '当前服务未启用计划模式');
+      case 'goal_mode_not_available':
+        return t('sessions.create.error.goalUnavailable', '该模板不支持目标模式');
+      case 'model_not_configured':
+        return t('sessions.create.error.model', '所选模型不可用，请重新选择');
+      case 'title_too_long':
+        return t('sessions.create.error.titleTooLong', '会话标题不能超过 200 个字符');
+      case 'create_failed':
+        return t('sessions.create.error.failed', '服务端未能保存新会话');
+      default:
+        return `${t('sessions.create.error.request', '请求失败')}（HTTP ${error.status}）`;
+    }
+  }
+
+  function reportCreationWarnings(result: CreateSessionResponse): void {
+    if (!result.warnings?.length) return;
+    showSnackbar(
+      t('sessions.create.warning', '会话已创建，但部分初始化未完成，可进入会话后重试'),
+      { tone: 'warning' },
+    );
+  }
+
+  function openCreatedSession(session: SessionSummary): void {
+    setConfigTemplate(null);
+    showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });
+    location.route(`/threads/${encodeURIComponent(session.id)}`);
+  }
+
   async function createDirectTemplateSession(tpl: ApiMetaTemplate): Promise<void> {
-    if (creating) return;
+    if (creatingRef.current) return;
+    creatingRef.current = true;
     setCreating(true);
     setCreateError(null);
     try {
@@ -183,27 +227,29 @@ export function SessionsPage() {
         mode: 'chat',
       });
       prependCreatedSession(res.session);
-      showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });
-      location.route(`/threads/${res.session.id}`);
+      reportCreationWarnings(res);
+      openCreatedSession(res.session);
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
         return;
       }
-      const message = e instanceof ApiError
-        ? t('sessions.create.error.api', 'HTTP ') + String(e.status)
-        : e instanceof Error
-        ? e.message
-        : String(e);
+      const message = createFailureMessage(e);
       setCreateError(message);
-      showSnackbar(t('sessions.create.failed', '创建会话失败'), { tone: 'error' });
+      showSnackbar(`${t('sessions.create.failed', '创建会话失败')}：${message}`, { tone: 'error' });
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   }
 
-  async function onConfigSubmit(params: { mode: SessionMode; title: string; modelKey: string }): Promise<void> {
-    if (!configTemplate || creating) return;
+  async function onConfigSubmit(params: {
+    mode: SessionMode;
+    title: string;
+    modelKey: string;
+  }): Promise<SessionSummary | null> {
+    if (!configTemplate || creatingRef.current) return null;
+    creatingRef.current = true;
     setCreating(true);
     setCreateError(null);
     try {
@@ -219,21 +265,19 @@ export function SessionsPage() {
       if (params.modelKey) {
         writeBrowserStorage(STORAGE_KEY_LAST_MODEL, params.modelKey);
       }
-      setConfigTemplate(null);
-      showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });
-      location.route(`/threads/${res.session.id}`);
+      reportCreationWarnings(res);
+      return res.session;
     } catch (e: unknown) {
       if (e instanceof UnauthorizedError) {
         location.route('/login', true);
-        return;
+        return null;
       }
-      if (e instanceof ApiError) {
-        setCreateError(t('sessions.create.error.api', 'HTTP ') + String(e.status));
-      } else {
-        setCreateError(e instanceof Error ? e.message : String(e));
-      }
-      showSnackbar(t('sessions.create.failed', '创建会话失败'), { tone: 'error' });
+      const message = createFailureMessage(e);
+      setCreateError(message);
+      showSnackbar(`${t('sessions.create.failed', '创建会话失败')}：${message}`, { tone: 'error' });
+      return null;
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   }
@@ -267,19 +311,20 @@ export function SessionsPage() {
     }
   }
 
-  async function confirmDeleteTarget(): Promise<void> {
+  async function confirmDeleteTarget(): Promise<boolean> {
     const item = deleteTarget;
-    if (!item || deleteBusy) return;
+    if (!item || deleteBusy) return false;
     setDeleteBusy(true);
     patchRow(item.id, { busy: true, error: undefined });
     try {
       await deleteSession(item.id);
       patchRow(item.id, { busy: false });
-      setDeleteTarget(null);
       showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
       void refresh();
+      return true;
     } catch (e: unknown) {
       reportRowActionError(item, e, t('topbar.delete.failed', '删除会话失败'));
+      return false;
     } finally {
       setDeleteBusy(false);
     }
@@ -487,6 +532,7 @@ export function SessionsPage() {
                           <div class="flex items-center gap-2">
                             <input
                               value={row.draftTitle ?? ''}
+                              maxLength={SESSION_TITLE_MAX_CHARACTERS}
                               onInput={(e) =>
                                 patchRow(item.id, {
                                   draftTitle: (e.currentTarget as HTMLInputElement).value,
@@ -706,11 +752,11 @@ export function SessionsPage() {
           template={configTemplate}
           models={auth.meta?.models ?? []}
           defaultModelKey={auth.meta?.active_model_key ?? ''}
-          allowedModes={allowedModes}
           planEnabled={planEnabled}
           busy={creating}
           error={createError}
           onSubmit={onConfigSubmit}
+          onCreated={openCreatedSession}
           onClose={() => {
             if (creating) return;
             setConfigTemplate(null);
@@ -729,12 +775,14 @@ export function SessionsPage() {
           body={t('topbar.deleteConfirm', '确定删除该会话?此操作不可恢复')}
           danger
           busy={deleteBusy}
+          confirmBeforeClose
           confirmLabel={deleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
           onCancel={() => {
             if (!deleteBusy) setDeleteTarget(null);
           }}
           onConfirm={confirmDeleteTarget}
+          onConfirmSuccess={() => setDeleteTarget(null)}
         />
       ) : null}
     </main>

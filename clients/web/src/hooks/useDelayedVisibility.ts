@@ -108,9 +108,10 @@ export function useControlledDelayedVisibility(
   }: ControlledDelayedVisibilityOptions = {},
 ): ControlledDelayedVisibilityState {
   const reduceMotion = useReducedMotion();
-  const [phase, setPhase] = useState<VisibilityPhase>(
-    open ? 'visible' : 'hidden',
-  );
+  const [phase, setPhase] = useState<VisibilityPhase>(() => {
+    const delayMs = reduceMotion ? 0 : normalizeEnterDelayMs(enterDelayMs);
+    return open && delayMs <= 0 ? 'visible' : 'hidden';
+  });
   const phaseRef = useRef<VisibilityPhase>(phase);
   const { clearTimer, scheduleTimer } = useTimeoutController();
 
