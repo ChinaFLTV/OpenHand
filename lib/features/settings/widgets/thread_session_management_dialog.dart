@@ -54,7 +54,8 @@ class _ThreadSessionManagementDialogState
 
   // 异步加载会话实际磁盘占用，加载期间使用统计数据估算值。
   Map<String, int> _diskBytes = const <String, int>{};
-  bool _diskBytesLoading = false;
+  bool _diskBytesRefreshPending = false;
+  Future<void>? _diskBytesRefreshTask;
 
   // 置顶与归档标记不属于 AiSession，单独从数据库加载并维护。
   Map<String, ({bool pinned, bool archived})> _flags =
@@ -96,6 +97,7 @@ class _ThreadSessionManagementDialogState
 
   @override
   void dispose() {
+    _diskBytesRefreshPending = false;
     _persistDebounce.dispose();
     _searchController.dispose();
     _outcomeSuccessSignal.dispose();
@@ -103,20 +105,38 @@ class _ThreadSessionManagementDialogState
     super.dispose();
   }
 
-  Future<void> _refreshDiskBytes() async {
-    if (_diskBytesLoading) return;
-    _diskBytesLoading = true;
-    try {
-      final controller = context.read<AiSessionController>();
-      final bytes = await controller.store.computeAllSessionDiskBytes();
-      if (!mounted) return;
-      setState(() {
-        _diskBytes = bytes;
-      });
-    } catch (error, stack) {
-      silentLog('thread_session_management_dialog', '统计全部会话磁盘占用', error, stack);
-    } finally {
-      _diskBytesLoading = false;
+  Future<void> _refreshDiskBytes() {
+    if (!mounted) return Future<void>.value();
+    _diskBytesRefreshPending = true;
+    final activeTask = _diskBytesRefreshTask;
+    if (activeTask != null) return activeTask;
+    late final Future<void> task;
+    task = _drainDiskBytesRefreshRequests().whenComplete(() {
+      if (identical(_diskBytesRefreshTask, task)) {
+        _diskBytesRefreshTask = null;
+      }
+    });
+    _diskBytesRefreshTask = task;
+    return task;
+  }
+
+  Future<void> _drainDiskBytesRefreshRequests() async {
+    while (mounted && _diskBytesRefreshPending) {
+      _diskBytesRefreshPending = false;
+      try {
+        final controller = context.read<AiSessionController>();
+        final bytes = await controller.store.computeAllSessionDiskBytes();
+        if (!mounted) return;
+        if (_diskBytesRefreshPending) continue;
+        setState(() => _diskBytes = bytes);
+      } catch (error, stack) {
+        silentLog(
+          'thread_session_management_dialog',
+          '统计全部会话磁盘占用',
+          error,
+          stack,
+        );
+      }
     }
   }
 
@@ -126,8 +146,7 @@ class _ThreadSessionManagementDialogState
     try {
       final controller = context.read<AiSessionController>();
       final flags = await controller.store.loadSessionFlags();
-      // If "show archived" is on, also pull the archived sessions so we
-      // can merge them into the visible list.
+      // 开启“显示已归档”时额外加载归档会话，并合入可见列表。
       List<AiSession> archived = const <AiSession>[];
       if (showArchived) {
         final result = await controller.store.loadAllHeaders(
@@ -155,10 +174,8 @@ class _ThreadSessionManagementDialogState
     return formatYearMonthDayHm(dt.toLocal());
   }
 
-  /// Approximate on-disk size based on the session statistics already
-  /// loaded in memory. Avoids any file-system access so the dialog stays
-  /// snappy even with thousands of sessions. We multiply character counts
-  /// by 2 as a rough UTF-8 average for mixed CJK/Latin content.
+  /// 根据内存中的会话统计估算磁盘占用，避免大量会话时同步访问文件系统。
+  /// 中英文混合内容按每字符约 2 字节估算。
   int _estimateBytes(AiSession session) {
     final stats = session.statistics;
     final chars = stats.totalInputCharacters + stats.totalOutputCharacters;
@@ -181,7 +198,7 @@ class _ThreadSessionManagementDialogState
     });
   }
 
-  // Actions
+  // 会话操作。
   Future<void> _renameSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
     final l10n = AppLocalizations.of(context)!;
@@ -266,8 +283,7 @@ class _ThreadSessionManagementDialogState
       _animatingOutIds.removeAll(ids);
       _selectedIds.removeAll(ids);
       if (_selectedIds.isEmpty) _isSelectionMode = false;
-      // Drop deleted rows from the local order overlay so the list
-      // refreshes immediately without waiting for the controller listener.
+      // 从本地排序层立即移除已删除行，不等待控制器监听回调。
       _localOrder?.removeWhere((s) => ids.contains(s.id));
     });
     if (failed > 0) {
@@ -280,7 +296,7 @@ class _ThreadSessionManagementDialogState
     } else {
       _outcomeSuccessSignal.value++;
     }
-    // Recompute disk footprint after the row count changes.
+    // 行数变化后重新统计磁盘占用。
     unawaited(_refreshDiskBytes());
     unawaited(_refreshFlags());
   }
@@ -386,7 +402,7 @@ class _ThreadSessionManagementDialogState
     if (_selectedIds.isEmpty) return;
     final ids = List<String>.from(_selectedIds);
     final controller = context.read<AiSessionController>();
-    // Pick a destination folder once, then write each session into it.
+    // 只选择一次目标目录，再逐个写入会话。
     String? folderPath;
     try {
       folderPath = await getDirectoryPath(
@@ -398,8 +414,7 @@ class _ThreadSessionManagementDialogState
     if (folderPath == null || !mounted) return;
     final config = await showAiSessionExportConfigDialog(
       context: context,
-      // Use a placeholder total — per-session totals vary; we rely on the
-      // config's filter flags only.
+      // 各会话消息数不同，此处仅使用配置中的筛选选项。
       totalMessages: 0,
       allowRange: false,
     );
@@ -573,10 +588,7 @@ class _ThreadSessionManagementDialogState
     final ok = await controller.setSessionPinned(session.id, !wasPinned);
     if (!mounted) return;
     if (ok) {
-      // Manual ordering tracked by the dialog overlay must be invalidated
-      // because the controller has just refreshed `sessions` with a new
-      // pinned-first order. Drop the overlay so the next build re-mirrors
-      // upstream.
+      // 置顶会刷新控制器顺序，清除本地排序层以便下次构建同步最新顺序。
       setState(() {
         _localOrder = null;
       });
@@ -652,7 +664,7 @@ class _ThreadSessionManagementDialogState
     final l10n = AppLocalizations.of(context)!;
     final session = _previewSession!;
     final stats = session.statistics;
-    // Take the last 6 visible messages so the drawer stays compact.
+    // 仅展示最后 6 条消息，保持抽屉紧凑。
     final allMessages = session.messages;
     final tail = allMessages.length > 6
         ? allMessages.sublist(allMessages.length - 6)
@@ -756,15 +768,12 @@ class _ThreadSessionManagementDialogState
     );
   }
 
-  // Build
+  // 构建界面。
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AiSessionController>();
     final upstream = controller.sessions;
-    // When the user opts in to view archived rows, fold them into the
-    // upstream list. Archived sessions live outside `controller.sessions`
-    // (which mirrors the sidebar — sidebar excludes archived) so we
-    // augment locally only when the toggle is active.
+    // 控制器列表与侧栏一致，不含归档会话；仅在开启显示时本地合并归档项。
     final List<AiSession> upstreamMerged = _showArchived
         ? <AiSession>[
             ...upstream,
@@ -772,35 +781,29 @@ class _ThreadSessionManagementDialogState
               if (!upstream.any((u) => u.id == s.id)) s,
           ]
         : upstream;
-    // Initialize / sync local overlay. We trust the controller's order on
-    // first build and after additions/removals the user didn't perform.
+    // 首次构建或外部增删后，以控制器顺序初始化并同步本地排序层。
     if (_localOrder == null) {
       _localOrder = List<AiSession>.from(upstreamMerged);
     } else {
-      // Reconcile: keep our manual order for ids that still exist, append
-      // new ids that appeared in upstream at the top (matches sidebar
-      // behaviour where new threads surface at the top). This avoids
-      // visual jumps mid-drag.
+      // 保留仍存在会话的手动顺序，并将新会话置顶，避免拖拽期间跳动。
       final knownIds = _localOrder!.map((s) => s.id).toSet();
       final upstreamById = <String, AiSession>{
         for (final s in upstreamMerged) s.id: s,
       };
-      // Refresh known sessions (so titles update after rename, etc.)
+      // 刷新已知会话，及时同步重命名等变更。
       final preserved = <AiSession>[];
       for (final s in _localOrder!) {
         final fresh = upstreamById[s.id];
         if (fresh != null) preserved.add(fresh);
       }
-      // Prepend brand-new sessions that don't appear in our local order.
+      // 将本地顺序中尚不存在的新会话置顶。
       final additions = upstreamMerged
           .where((s) => !knownIds.contains(s.id))
           .toList(growable: false);
       _localOrder = <AiSession>[...additions, ...preserved];
     }
     final sessions = _localOrder!;
-    // Apply view-controls (search / template filter / sort) to derive
-    // the visible list. Reorder mode operates against `sessions` (the
-    // raw manual order) so drag indices map back to the underlying list.
+    // 应用搜索、模板筛选和排序；拖拽仍基于原始手动顺序计算下标。
     final templates = <String>{for (final s in sessions) s.templateName.trim()}
       ..removeWhere((t) => t.isEmpty);
     final query = _searchQuery.trim().toLowerCase();
@@ -819,7 +822,7 @@ class _ThreadSessionManagementDialogState
     int sizeOf(AiSession s) => _diskBytes[s.id] ?? _estimateBytes(s);
     switch (_sortMode) {
       case _SortMode.manual:
-        // Already in manual order — leave as-is.
+        // 手动顺序无需额外排序。
         break;
       case _SortMode.updatedDesc:
         visible.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -1201,10 +1204,7 @@ class _ThreadSessionManagementDialogState
         onDoubleTap: (pos) => _showSessionContextMenu(session, pos),
         onSecondaryTap: (pos) => _showSessionContextMenu(session, pos),
       );
-      // Wrap each row so deletion plays a smooth collapse + fade before
-      // the controller's notifyListeners actually removes the entry from
-      // the list. The wrapper itself keeps a stable key so its state
-      // survives upstream rebuilds.
+      // 数据删除前先播放收起与淡出动画，稳定键确保重建时保留行状态。
       return KeyedSubtree(
         key: ValueKey<String>('row-wrapper-${session.id}'),
         child: OpenHandListRemovalTransition(

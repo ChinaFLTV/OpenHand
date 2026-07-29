@@ -341,7 +341,7 @@ List<Widget> _buildToolTelemetryHeader({
         ),
         const SizedBox(width: 4),
         TextButton.icon(
-          onPressed: !hasData || clearing ? null : onClear,
+          onPressed: !hasData || loading || clearing ? null : onClear,
           icon: OpenHandBusyStatusIcon(
             busy: clearing,
             icon: Icons.delete_sweep,
@@ -511,6 +511,7 @@ Widget _buildWebEngineCacheFields({
 Widget _buildToolCacheActions({
   required BuildContext context,
   required int? bytesOnDisk,
+  required bool loading,
   required bool clearing,
   required VoidCallback onRefresh,
   required VoidCallback onClear,
@@ -533,8 +534,12 @@ Widget _buildToolCacheActions({
       ),
       const SizedBox(width: 12),
       TextButton.icon(
-        onPressed: clearing ? null : onRefresh,
-        icon: const Icon(Icons.refresh, size: 16),
+        onPressed: loading || clearing ? null : onRefresh,
+        icon: OpenHandBusyStatusIcon(
+          busy: loading,
+          icon: Icons.refresh,
+          size: 16,
+        ),
         label: Text(openHandRefreshLabel(context)),
       ),
       const SizedBox(width: 4),
@@ -545,7 +550,7 @@ Widget _buildToolCacheActions({
             alpha: 0.38,
           ),
         ),
-        onPressed: clearing ? null : onClear,
+        onPressed: loading || clearing ? null : onClear,
         icon: clearing
             ? SizedBox(
                 width: 14,

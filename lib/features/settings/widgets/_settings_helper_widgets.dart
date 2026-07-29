@@ -5846,11 +5846,16 @@ class _AnimatedSettingReveal extends StatelessWidget {
 mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     on State<W> {
   int? _cacheBytesOnDisk;
+  bool _cacheBytesLoading = false;
+  bool _cacheRefreshPending = false;
+  Future<void>? _cacheRefreshTask;
   bool _clearingCache = false;
   List<L> _recentCalls = const [];
   Map<K, S> _engineStats = const {};
   Map<K, List<H>> _engineHistory = const {};
   bool _telemetryLoading = false;
+  bool _telemetryRefreshPending = false;
+  Future<void>? _telemetryRefreshTask;
   bool _clearingTelemetry = false;
   bool _exportingTelemetry = false;
 
@@ -5920,15 +5925,34 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     ];
   }
 
-  Future<void> _refreshCacheBytesOnDisk() async {
-    try {
-      final bytes = await _loadCacheBytesOnDisk();
+  Future<void> _refreshCacheBytesOnDisk() {
+    if (!mounted) return Future<void>.value();
+    _cacheRefreshPending = true;
+    final activeTask = _cacheRefreshTask;
+    if (activeTask != null) return activeTask;
+    setState(() => _cacheBytesLoading = true);
+    late final Future<void> task;
+    task = _drainCacheRefreshRequests().whenComplete(() {
+      if (!identical(_cacheRefreshTask, task)) return;
+      _cacheRefreshTask = null;
+      if (mounted) setState(() => _cacheBytesLoading = false);
+    });
+    _cacheRefreshTask = task;
+    return task;
+  }
+
+  Future<void> _drainCacheRefreshRequests() async {
+    while (mounted && _cacheRefreshPending) {
+      _cacheRefreshPending = false;
+      var bytes = 0;
+      try {
+        bytes = await _loadCacheBytesOnDisk();
+      } catch (e, st) {
+        silentLog(_telemetryLogTag, '刷新磁盘缓存大小', e, st);
+      }
       if (!mounted) return;
+      if (_cacheRefreshPending) continue;
       setState(() => _cacheBytesOnDisk = bytes);
-    } catch (e, st) {
-      silentLog(_telemetryLogTag, '刷新磁盘缓存大小', e, st);
-      if (!mounted) return;
-      setState(() => _cacheBytesOnDisk = 0);
     }
   }
 
@@ -5980,28 +6004,45 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     return _buildToolCacheActions(
       context: context,
       bytesOnDisk: _cacheBytesOnDisk,
+      loading: _cacheBytesLoading,
       clearing: _clearingCache,
       onRefresh: _refreshCacheBytesOnDisk,
       onClear: _confirmAndClearCache,
     );
   }
 
-  Future<void> _refreshTelemetry() async {
-    if (_telemetryLoading) return;
+  Future<void> _refreshTelemetry() {
+    if (!mounted) return Future<void>.value();
+    _telemetryRefreshPending = true;
+    final activeTask = _telemetryRefreshTask;
+    if (activeTask != null) return activeTask;
     setState(() => _telemetryLoading = true);
-    try {
-      final (calls, stats, history) = await _loadTelemetry();
+    late final Future<void> task;
+    task = _drainTelemetryRefreshRequests().whenComplete(() {
+      if (!identical(_telemetryRefreshTask, task)) return;
+      _telemetryRefreshTask = null;
+      if (mounted) setState(() => _telemetryLoading = false);
+    });
+    _telemetryRefreshTask = task;
+    return task;
+  }
+
+  Future<void> _drainTelemetryRefreshRequests() async {
+    while (mounted && _telemetryRefreshPending) {
+      _telemetryRefreshPending = false;
+      try {
+        final (calls, stats, history) = await _loadTelemetry();
+        if (!mounted) return;
+        if (_telemetryRefreshPending) continue;
+        setState(() {
+          _recentCalls = calls;
+          _engineStats = stats;
+          _engineHistory = history;
+        });
+      } catch (e, st) {
+        silentLog(_telemetryLogTag, '刷新遥测数据', e, st);
+      }
       if (!mounted) return;
-      setState(() {
-        _recentCalls = calls;
-        _engineStats = stats;
-        _engineHistory = history;
-        _telemetryLoading = false;
-      });
-    } catch (e, st) {
-      silentLog(_telemetryLogTag, '刷新遥测数据', e, st);
-      if (!mounted) return;
-      setState(() => _telemetryLoading = false);
     }
   }
 

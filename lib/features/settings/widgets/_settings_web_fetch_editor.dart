@@ -43,6 +43,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
         code: 'not_checked',
         detail: 'Not checked yet.',
       );
+  AiWebFetchScraplingSettings? _pendingScraplingProbeSettings;
+  Future<void>? _scraplingProbeTask;
   bool _scraplingProbeLoading = false;
   bool _scraplingRuntimeBusy = false;
 
@@ -115,34 +117,46 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     );
   }
 
-  Future<void> _refreshScraplingProbe([
-    AiWebFetchScraplingSettings? settings,
-  ]) async {
-    if (_scraplingProbeLoading) return;
+  Future<void> _refreshScraplingProbe([AiWebFetchScraplingSettings? settings]) {
+    if (!mounted) return Future<void>.value();
+    _pendingScraplingProbeSettings = settings ?? widget.value.scrapling;
+    final activeTask = _scraplingProbeTask;
+    if (activeTask != null) return activeTask;
     setState(() => _scraplingProbeLoading = true);
-    final effectiveSettings = settings ?? widget.value.scrapling;
-    try {
-      final probe = await context
-          .read<AiSessionController>()
-          .toolRuntimeService
-          .probeWebFetchScrapling(settings: effectiveSettings);
-      if (!mounted) return;
-      setState(() {
-        _scraplingProbe = probe;
-        _scraplingProbeLoading = false;
-      });
-    } catch (e, st) {
-      silentLog('settings_web_fetch_editor', '刷新 Scrapling 探测状态', e, st);
-      if (!mounted) return;
-      setState(() {
-        _scraplingProbe = WebFetchScraplingProbeStatus(
+    late final Future<void> task;
+    task = _drainScraplingProbeRequests().whenComplete(() {
+      if (!identical(_scraplingProbeTask, task)) return;
+      _scraplingProbeTask = null;
+      if (mounted) setState(() => _scraplingProbeLoading = false);
+    });
+    _scraplingProbeTask = task;
+    return task;
+  }
+
+  Future<void> _drainScraplingProbeRequests() async {
+    while (mounted) {
+      final settings = _pendingScraplingProbeSettings;
+      if (settings == null) return;
+      _pendingScraplingProbeSettings = null;
+
+      late WebFetchScraplingProbeStatus probe;
+      try {
+        probe = await context
+            .read<AiSessionController>()
+            .toolRuntimeService
+            .probeWebFetchScrapling(settings: settings);
+      } catch (e, st) {
+        silentLog('settings_web_fetch_editor', '刷新 Scrapling 探测状态', e, st);
+        probe = WebFetchScraplingProbeStatus(
           ready: false,
           code: 'probe_failed',
           detail: '$e',
           updatedAt: DateTime.now().toUtc(),
         );
-        _scraplingProbeLoading = false;
-      });
+      }
+      if (!mounted) return;
+      if (_pendingScraplingProbeSettings != null) continue;
+      setState(() => _scraplingProbe = probe);
     }
   }
 
@@ -329,6 +343,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
 
   @override
   void dispose() {
+    _pendingScraplingProbeSettings = null;
     _resultCountController.dispose();
     _cacheTtlController.dispose();
     _cacheMaxBytesController.dispose();
