@@ -104,7 +104,9 @@ class AiAttachmentService {
         messageId: normalizedMessageId,
       );
       final sessionDir = Directory(sessionDirPath);
-      if (await sessionDir.exists()) {
+      if (await sessionDir.exists().timeout(
+        defaultBoundedFileReadIdleTimeout,
+      )) {
         final prefix = '$normalizedMessageId-';
         final listing = await listDirectoryBounded(
           sessionDir,
@@ -176,8 +178,12 @@ class AiAttachmentService {
         messageId: normalizedMessageId,
       ),
     );
-    if (!await targetDirectory.exists()) {
-      await targetDirectory.create(recursive: true);
+    if (!await targetDirectory.exists().timeout(
+      defaultBoundedFileReadIdleTimeout,
+    )) {
+      await targetDirectory
+          .create(recursive: true)
+          .timeout(defaultBoundedFileReadIdleTimeout);
     }
     final attachments = <AiMessageAttachment>[];
     final createdFiles = <File>[];
@@ -189,7 +195,9 @@ class AiAttachmentService {
           continue;
         }
         final sourceFile = File(sourcePath);
-        if (!await sourceFile.exists()) {
+        if (!await sourceFile.exists().timeout(
+          defaultBoundedFileReadIdleTimeout,
+        )) {
           throw AiAttachmentException(
             'Attachment file does not exist: $sourcePath',
           );
@@ -241,8 +249,10 @@ class AiAttachmentService {
         // 仅回滚本次创建的文件，保留同一会话中其他消息的附件。
         for (final file in createdFiles) {
           try {
-            if (await file.exists()) {
-              await file.delete();
+            if (await file.exists().timeout(
+              defaultBoundedFileReadIdleTimeout,
+            )) {
+              await file.delete().timeout(defaultBoundedFileReadIdleTimeout);
             }
           } catch (error, stack) {
             silentLog('ai_attachment_service', '回滚已创建附件', error, stack);
@@ -279,18 +289,26 @@ class AiAttachmentService {
         messageId: normalizedMessageId,
       ),
     );
-    await targetDirectory.create(recursive: true);
+    await targetDirectory
+        .create(recursive: true)
+        .timeout(defaultBoundedFileReadIdleTimeout);
     final copied = <AiMessageAttachment>[];
     final usedAttachmentIds = <String>{};
     for (var index = 0; index < attachments.length; index += 1) {
       final attachment = attachments[index];
       final sourcePath = attachment.storagePath.trim();
       final sourceFile = File(sourcePath);
-      if (sourcePath.isEmpty || !await sourceFile.exists()) {
+      if (sourcePath.isEmpty) {
         copied.add(attachment);
         continue;
       }
       try {
+        if (!await sourceFile.exists().timeout(
+          defaultBoundedFileReadIdleTimeout,
+        )) {
+          copied.add(attachment);
+          continue;
+        }
         final attachmentId = _safeForkAttachmentId(
           attachment.id,
           idGenerator,
@@ -311,7 +329,9 @@ class AiAttachmentService {
           attachment.copyWith(
             id: attachmentId,
             storagePath: targetFile.path,
-            sizeBytes: await targetFile.length(),
+            sizeBytes: await targetFile.length().timeout(
+              defaultBoundedFileReadIdleTimeout,
+            ),
           ),
         );
       } catch (error, stack) {
@@ -332,7 +352,6 @@ class AiAttachmentService {
     int? imageSizeLimitBytes,
   }) async {
     final sourcePath = sourceFile.path;
-    final stat = await sourceFile.stat();
     final sourceName = p.basename(sourcePath).trim();
     final normalizedName = sourceName.isEmpty
         ? 'attachment-$sequence'
@@ -350,6 +369,9 @@ class AiAttachmentService {
         imageSizeLimitBytes: imageSizeLimitBytes,
       );
     }
+    final stat = await sourceFile.stat().timeout(
+      defaultBoundedFileReadIdleTimeout,
+    );
     final sizeLabel = aiFormatBytes(stat.size);
     return _importCopiedAttachment(
       sourceFile: sourceFile,
@@ -415,15 +437,7 @@ class AiAttachmentService {
     required int promptCharacterLimit,
     int? imageSizeLimitBytes,
   }) async {
-    final fileStat = await sourceFile.stat();
-    if (fileStat.size > maxImageRawBytes) {
-      throw AiAttachmentException(
-        'Image file is too large (${aiFormatBytes(fileStat.size)}). '
-        'Maximum supported size is ${aiFormatBytes(maxImageRawBytes)}.',
-      );
-    }
     final extension = p.extension(sourceName).toLowerCase();
-    final originalSize = fileStat.size;
     final Uint8List sourceBytes;
     try {
       sourceBytes = await readBoundedFileBytes(
@@ -438,6 +452,7 @@ class AiAttachmentService {
         'Image file exceeds the ${aiFormatBytes(maxImageRawBytes)} limit.',
       );
     }
+    final originalSize = sourceBytes.length;
     final attachmentId = idGenerator();
     final decodedImage = extension == '.svg'
         ? null
@@ -585,7 +600,9 @@ class AiAttachmentService {
       storagePath: targetFile.path,
       kind: kind,
       mimeType: mimeType ?? aiMimeTypeForPath(sourceFile.path),
-      sizeBytes: await targetFile.length(),
+      sizeBytes: await targetFile.length().timeout(
+        defaultBoundedFileReadIdleTimeout,
+      ),
       promptText: promptText,
       summaryText: described == null
           ? fallbackSummary
@@ -811,10 +828,6 @@ class AiAttachmentService {
 
   Future<String> _readXlsxPreview(File file, int characterLimit) async {
     try {
-      final fileLength = await file.length();
-      if (fileLength > _maxSpreadsheetArchiveBytes) {
-        return 'XLSX preview skipped because the archive exceeds ${aiFormatBytes(_maxSpreadsheetArchiveBytes)}.';
-      }
       final bytes = await readBoundedFileBytes(
         file,
         maxBytes: _maxSpreadsheetArchiveBytes,
@@ -890,6 +903,11 @@ class AiAttachmentService {
         return 'The XLSX workbook did not contain any readable cells in the preview range.';
       }
       return _truncateText(buffer.toString().trim(), characterLimit);
+    } on BoundedFileReadException catch (error) {
+      if (error.failure == BoundedFileReadFailure.tooLarge) {
+        return 'XLSX preview skipped because the archive exceeds ${aiFormatBytes(_maxSpreadsheetArchiveBytes)}.';
+      }
+      return 'Unable to read workbook structure from the XLSX file.';
     } catch (_) {
       return 'Unable to read workbook structure from the XLSX file.';
     }
