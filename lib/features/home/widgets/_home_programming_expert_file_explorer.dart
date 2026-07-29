@@ -696,15 +696,29 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       cancelLabel: openHandCancelLabel(context),
       confirmLabel: openHandOkLabel(context),
     );
-    if (newName == null || newName.isEmpty || newName == node.name) return;
+    if (newName == null || newName == node.name) return;
     try {
+      if (!isPortableFileNamePart(newName)) {
+        throw FileSystemException('文件名包含不支持的字符。', newName);
+      }
       final parentDir = p.dirname(node.path);
       final newPath = p.join(parentDir, newName);
-      if (node.isDirectory) {
-        await Directory(node.path).rename(newPath);
-      } else {
-        await File(node.path).rename(newPath);
+      if (!isPathWithinOrEqual(widget.rootPath, newPath)) {
+        throw FileSystemException('重命名目标超出工作区。', newPath);
       }
+      if (await FileSystemEntity.type(
+            newPath,
+            followLinks: false,
+          ).timeout(_kProgrammingExplorerCopyPolicy.operationTimeout) !=
+          FileSystemEntityType.notFound) {
+        throw FileSystemException('重命名目标已存在。', newPath);
+      }
+      await _renameEntityBounded(
+        sourcePath: node.path,
+        targetPath: newPath,
+        isDirectory: node.isDirectory,
+        onLateSuccess: _refreshRoot,
+      );
       final parent = _findParentNode(_rootNode, node.path) ?? _rootNode;
       await _refreshNode(parent);
     } catch (error, stack) {
@@ -755,11 +769,14 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   Future<void> _pasteToNode(_FileNode node) async {
     final sourcePath = _clipboardPath;
     if (sourcePath == null) return;
-    final targetDir = node.isDirectory ? node.path : p.dirname(node.path);
-    final name = p.basename(sourcePath);
-    final targetPath = p.join(targetDir, name);
-    if (p.equals(p.normalize(targetPath), p.normalize(sourcePath))) return;
     try {
+      final targetDir = node.isDirectory ? node.path : p.dirname(node.path);
+      final name = p.basename(sourcePath);
+      final targetPath = p.join(targetDir, name);
+      if (p.equals(p.normalize(targetPath), p.normalize(sourcePath))) return;
+      if (!isPathWithinOrEqual(widget.rootPath, targetPath)) {
+        throw FileSystemException('粘贴目标超出工作区。', targetPath);
+      }
       final sourceEntity = await FileSystemEntity.type(
         sourcePath,
         followLinks: false,
@@ -798,15 +815,18 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         throw FileSystemException('Paste target already exists.', targetPath);
       }
       if (_clipboardIsCut) {
-        if (sourceEntity == FileSystemEntityType.directory) {
-          await Directory(sourcePath)
-              .rename(targetPath)
-              .timeout(_kProgrammingExplorerCopyPolicy.operationTimeout);
-        } else {
-          await File(sourcePath)
-              .rename(targetPath)
-              .timeout(_kProgrammingExplorerCopyPolicy.operationTimeout);
-        }
+        await _renameEntityBounded(
+          sourcePath: sourcePath,
+          targetPath: targetPath,
+          isDirectory: sourceEntity == FileSystemEntityType.directory,
+          onLateSuccess: () async {
+            if (_clipboardIsCut && _clipboardPath == sourcePath) {
+              _clipboardPath = null;
+              _clipboardIsCut = false;
+            }
+            await _refreshRoot();
+          },
+        );
         _clipboardPath = null;
         _clipboardIsCut = false;
       } else {
@@ -841,6 +861,37 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ),
         maxLines: 3,
       );
+    }
+  }
+
+  Future<void> _renameEntityBounded({
+    required String sourcePath,
+    required String targetPath,
+    required bool isDirectory,
+    required Future<void> Function() onLateSuccess,
+  }) async {
+    final rename = isDirectory
+        ? Directory(sourcePath).rename(targetPath).then<void>((_) {})
+        : File(sourcePath).rename(targetPath).then<void>((_) {});
+    try {
+      await rename.timeout(_kProgrammingExplorerCopyPolicy.operationTimeout);
+    } on TimeoutException {
+      unawaited(
+        rename.then<void>(
+          (_) async {
+            if (!mounted) return;
+            try {
+              await onLateSuccess();
+            } catch (error, stack) {
+              silentLog('file_explorer', '刷新迟到重命名结果', error, stack);
+            }
+          },
+          onError: (Object error, StackTrace stack) {
+            silentLog('file_explorer', '完成迟到重命名', error, stack);
+          },
+        ),
+      );
+      rethrow;
     }
   }
 
