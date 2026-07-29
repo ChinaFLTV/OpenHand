@@ -27,6 +27,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/physical_path_safety.dart';
@@ -232,6 +233,7 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _toolOutputCleanupPathCheckTimeout = Duration(
     seconds: 3,
   );
+  static const int _maxForkedToolOutputBytes = 256 * kBytesPerMiB;
   static const String _telemetryInFlightKey = 'telemetry_in_flight';
   static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
     _editRollbackMarkerKey,
@@ -4506,10 +4508,11 @@ class AiSessionController extends ChangeNotifier {
       return;
     }
     try {
-      await targetDirectory.create(recursive: true);
-      if (!await targetFile.exists()) {
-        await sourceFile.copy(targetFile.path);
-      }
+      await copyFileAtomically(
+        sourceFile,
+        targetFile,
+        maxBytes: _maxForkedToolOutputBytes,
+      );
       metadata[_toolOutputPersistedPathMetadataKey] = targetFile.path;
       metadata['tool_output_full_content_available'] = true;
     } catch (error, stack) {

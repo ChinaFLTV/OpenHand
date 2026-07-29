@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -7813,7 +7814,11 @@ class WebReverseSessionController extends ChangeNotifier {
     final src = await _artifacts.exportHar();
     if (src == null) return null;
     try {
-      await File(src).copy(destPath);
+      await copyFileAtomically(
+        File(src),
+        File(destPath),
+        maxBytes: _maxImportedHarBytes,
+      );
       _lastHarPath = destPath;
       _safeNotify();
       return destPath;
