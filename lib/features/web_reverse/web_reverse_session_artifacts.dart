@@ -18,6 +18,7 @@ import '../../shared/util/timer_safety.dart';
 /// - 600ms throttle flush：高频事件下不会每条都触发 IO 系统调用。
 /// - jsonl 一行一条事件，方便模型用 `tail -N` / `grep` 直接读。
 /// - HAR 写在会话 stop() 时落盘，避免运行期 IO 抢带宽。
+/// - 刷新任务不重入且有明确时限，慢盘不会绕过内存上限持续堆积。
 /// - 任何 IO 失败均吞掉到 silentLog；artifact 不应阻塞 controller。
 class WebReverseSessionArtifacts {
   WebReverseSessionArtifacts({
@@ -35,7 +36,9 @@ class WebReverseSessionArtifacts {
   bool _closed = false;
   Timer? _flushTimer;
   Future<void>? _initFuture;
+  Future<void>? _flushFuture;
   Future<void>? _closeFuture;
+  bool _flushRequested = false;
 
   // 写缓冲：保存待 flush 的字符串行；flush 时合并写入。
   final StringBuffer _networkBuf = StringBuffer();
@@ -51,6 +54,7 @@ class WebReverseSessionArtifacts {
   static const int _maxHarPostDataChars = 256 * 1024;
   static const int _maxJsonlEventChars = 1 * kBytesPerMiB;
   static const int _maxJsonlPendingChars = 4 * kBytesPerMiB;
+  static const Duration _fileIoTimeout = Duration(seconds: 3);
 
   Future<void> init() {
     if (_closed || _ready) return Future<void>.value();
@@ -68,11 +72,13 @@ class WebReverseSessionArtifacts {
     IOSink? networkSink;
     IOSink? consoleSink;
     try {
-      await Directory(rootDir).create(recursive: true);
-      await Directory('$rootDir/network').create(recursive: true);
-      await Directory('$rootDir/scripts').create(recursive: true);
-      await Directory('$rootDir/screenshots').create(recursive: true);
-      await Directory('$rootDir/har').create(recursive: true);
+      await Future.wait<Directory>(
+        <String>['network', 'scripts', 'screenshots', 'har'].map(
+          (name) => Directory(
+            '$rootDir/$name',
+          ).create(recursive: true).timeout(_fileIoTimeout),
+        ),
+      );
       if (_closed) return;
       networkSink = File(
         '$rootDir/network.jsonl',
@@ -82,15 +88,18 @@ class WebReverseSessionArtifacts {
       ).openWrite(mode: FileMode.append);
       if (_closed) {
         await Future.wait<bool>(<Future<bool>>[
-          _closeSink(networkSink, 'late network'),
-          _closeSink(consoleSink, 'late console'),
+          _closeSink(networkSink, '延迟网络'),
+          _closeSink(consoleSink, '延迟控制台'),
         ]);
         return;
       }
       _networkSink = networkSink;
       _consoleSink = consoleSink;
       _ready = true;
-      _flushTimer = startSafePeriodicTimer(_flushInterval, (_) => _flush());
+      _flushTimer = startNonOverlappingPeriodicTimer(
+        _flushInterval,
+        (_) => _flush(),
+      );
       networkSink = null;
       consoleSink = null;
     } catch (error, stack) {
@@ -101,8 +110,8 @@ class WebReverseSessionArtifacts {
       _ready = false;
       silentLog('web_reverse_artifacts', '初始化会话产物', error, stack);
       await Future.wait<bool>(<Future<bool>>[
-        _closeSink(networkSink, 'failed network'),
-        _closeSink(consoleSink, 'failed console'),
+        _closeSink(networkSink, '失败网络'),
+        _closeSink(consoleSink, '失败控制台'),
       ]);
     }
   }
@@ -111,11 +120,11 @@ class WebReverseSessionArtifacts {
   ///   - `kind`: 'request' | 'response' | 'failed'
   ///   - `request_id`, `url`, `method`, `status`, `mime`, `error`, `ts`
   void appendNetwork(Map<String, Object?> event) {
-    _appendJsonLine(_networkBuf, event, 'network');
+    _appendJsonLine(_networkBuf, event, '网络');
   }
 
   void appendConsole(Map<String, Object?> event) {
-    _appendJsonLine(_consoleBuf, event, 'console');
+    _appendJsonLine(_consoleBuf, event, '控制台');
   }
 
   /// 累积 HAR 草稿：CDP `Network.requestWillBeSent` / `responseReceived` /
@@ -188,11 +197,11 @@ class WebReverseSessionArtifacts {
     try {
       final line = jsonEncode(event);
       if (line.length > _maxJsonlEventChars) {
-        _logBufferDropOnce(streamName, 'oversized event');
+        _logBufferDropOnce(streamName, '事件过大');
         return;
       }
       if (buffer.length + line.length + 1 > _maxJsonlPendingChars) {
-        _logBufferDropOnce(streamName, 'pending buffer full');
+        _logBufferDropOnce(streamName, '待写缓冲区已满');
         return;
       }
       buffer.writeln(line);
@@ -207,22 +216,65 @@ class WebReverseSessionArtifacts {
     silentLog('web_reverse_artifacts', '丢弃 $streamName 事件', reason);
   }
 
-  void _flush() {
-    if (!_ready) return;
-    _flushBuffer(_networkBuf, _networkSink, 'network');
-    _flushBuffer(_consoleBuf, _consoleSink, 'console');
+  Future<void> _flush() {
+    if (!_ready) return Future<void>.value();
+    final active = _flushFuture;
+    if (active != null) {
+      _flushRequested = true;
+      return active;
+    }
+    late final Future<void> flushing;
+    flushing = _drainBuffers().whenComplete(() {
+      if (identical(_flushFuture, flushing)) _flushFuture = null;
+    });
+    _flushFuture = flushing;
+    return flushing;
   }
 
-  void _flushBuffer(StringBuffer buffer, IOSink? sink, String streamName) {
+  Future<void> _drainBuffers() async {
+    do {
+      _flushRequested = false;
+      try {
+        await Future.wait<void>(<Future<void>>[
+          _flushBuffer(_networkBuf, _networkSink, '网络'),
+          _flushBuffer(_consoleBuf, _consoleSink, '控制台'),
+        ]);
+      } catch (error, stack) {
+        silentLog('web_reverse_artifacts', '刷新会话产物流', error, stack);
+        await _disableWriting();
+        return;
+      }
+    } while (_flushRequested && _ready);
+  }
+
+  Future<void> _flushBuffer(
+    StringBuffer buffer,
+    IOSink? sink,
+    String streamName,
+  ) async {
     if (buffer.isEmpty) return;
     final pending = buffer.toString();
     buffer.clear();
     _reportedBufferDrops.removeWhere((key) => key.startsWith('$streamName:'));
-    try {
-      sink?.write(pending);
-    } catch (error, stack) {
-      silentLog('web_reverse_artifacts', '刷新 $streamName 输出流', error, stack);
-    }
+    sink?.write(pending);
+    await sink?.flush().timeout(_fileIoTimeout);
+  }
+
+  Future<void> _disableWriting() async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _ready = false;
+    final networkSink = _networkSink;
+    final consoleSink = _consoleSink;
+    _networkSink = null;
+    _consoleSink = null;
+    _networkBuf.clear();
+    _consoleBuf.clear();
+    _reportedBufferDrops.clear();
+    await Future.wait<bool>(<Future<bool>>[
+      _closeSink(networkSink, '网络'),
+      _closeSink(consoleSink, '控制台'),
+    ]);
   }
 
   /// 将 HAR 草稿合成为 HAR 1.2 文档并写到 `<rootDir>/har/<timestamp>.har`。
@@ -310,7 +362,7 @@ class WebReverseSessionArtifacts {
   Future<void> _performClose() async {
     _flushTimer?.cancel();
     _flushTimer = null;
-    _flush();
+    await _flush();
     final networkSink = _networkSink;
     final consoleSink = _consoleSink;
     _networkSink = null;
@@ -328,7 +380,7 @@ class WebReverseSessionArtifacts {
 
   Future<bool> _closeSink(IOSink? sink, String streamName) {
     if (sink == null) return Future<bool>.value(true);
-    // IOSink.close flushes buffered data before releasing the file handle.
+    // IOSink.close 会先刷新缓冲数据，再释放文件句柄。
     return runAsyncCleanupBounded(
       sink.close,
       onError: (error, stack) => silentLog(
