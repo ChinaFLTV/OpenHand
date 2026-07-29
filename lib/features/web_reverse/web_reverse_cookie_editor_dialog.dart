@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -56,6 +57,9 @@ class _CookieEditorDialog extends StatefulWidget {
 
 class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   bool _loading = false;
+  bool _refreshPending = false;
+  Future<void>? _refreshTask;
+  bool _mutating = false;
   String _filter = '';
   List<_CookieRow> _all = const [];
   String _status = '';
@@ -66,30 +70,55 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
   }
 
-  Future<void> _refresh() async {
-    if (!mounted || _loading) return;
+  Future<void> _refresh() {
+    if (!mounted) return Future<void>.value();
+    _refreshPending = true;
+    final activeTask = _refreshTask;
+    if (activeTask != null) return activeTask;
     final loc0 = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _status = loc0?.webReverseCookieEditorFetching ?? 'Fetching cookies...';
     });
-    try {
-      final cookies = await widget.controller.listCookies(all: false);
-      if (!mounted) return;
-      final loc1 = AppLocalizations.of(context);
-      _all = cookies.map(_CookieRow.new).toList()
-        ..sort((a, b) {
-          final d = a.domain.compareTo(b.domain);
-          if (d != 0) return d;
-          return a.name.compareTo(b.name);
-        });
-      setState(
-        () => _status =
-            loc1?.webReverseCookieEditorCookieCount(_all.length) ??
-            '${_all.length} cookies',
-      );
-    } finally {
+    late final Future<void> task;
+    task = _drainRefreshRequests().whenComplete(() {
+      if (!identical(_refreshTask, task)) return;
+      _refreshTask = null;
       if (mounted) setState(() => _loading = false);
+    });
+    _refreshTask = task;
+    return task;
+  }
+
+  Future<void> _drainRefreshRequests() async {
+    while (mounted && _refreshPending) {
+      _refreshPending = false;
+      try {
+        final cookies = await widget.controller.listCookies(all: false);
+        if (!mounted) return;
+        if (_refreshPending) continue;
+        final rows = cookies.map(_CookieRow.new).toList()
+          ..sort((a, b) {
+            final domainOrder = a.domain.compareTo(b.domain);
+            return domainOrder != 0 ? domainOrder : a.name.compareTo(b.name);
+          });
+        final loc = AppLocalizations.of(context);
+        setState(() {
+          _all = rows;
+          _status =
+              loc?.webReverseCookieEditorCookieCount(rows.length) ??
+              '${rows.length} cookies';
+        });
+      } catch (error, stack) {
+        silentLog('web_reverse_cookie_editor', '刷新 Cookie 列表', error, stack);
+        if (!mounted) return;
+        if (_refreshPending) continue;
+        final loc = AppLocalizations.of(context);
+        setState(() {
+          _status =
+              '${loc?.webReverseCookieEditorRefresh ?? 'Refresh'}: $error';
+        });
+      }
     }
   }
 
@@ -107,26 +136,20 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _delete(_CookieRow row) async {
-    final success = await widget.controller.deleteCookie(
-      name: row.name,
-      domain: row.domain,
-      path: row.path,
-      partitionKey: row.partitionKey,
+    final loc = AppLocalizations.of(context);
+    await _runMutation(
+      action: () => widget.controller.deleteCookie(
+        name: row.name,
+        domain: row.domain,
+        path: row.path,
+        partitionKey: row.partitionKey,
+      ),
+      successMessage:
+          loc?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}',
+      failureMessage:
+          loc?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
+      logAction: '删除 Cookie',
     );
-    if (!mounted) return;
-    final loc1 = AppLocalizations.of(context);
-    if (!success) {
-      showOpenHandErrorSnack(
-        context,
-        loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
-      );
-      return;
-    }
-    showOpenHandSuccessSnack(
-      context,
-      loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}',
-    );
-    await _refresh();
   }
 
   Future<void> _edit(_CookieRow? row) async {
@@ -135,34 +158,51 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       builder: (_) => _CookieEditPanel(row: row),
     );
     if (result == null || !mounted) return;
-    final success = await widget.controller.setCookie(
-      name: '${result['name'] ?? ''}',
-      value: '${result['value'] ?? ''}',
-      url: result['url'] as String?,
-      domain: result['domain'] as String?,
-      path: result['path'] as String?,
-      partitionKey: result['partitionKey'] is Map
-          ? stringKeyedMapFromValue(result['partitionKey'])
-          : null,
-      httpOnly: result['httpOnly'] as bool?,
-      secure: result['secure'] as bool?,
-      sameSite: result['sameSite'] as String?,
-      expires: result['expires'] as num?,
-    );
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    if (!success) {
-      showOpenHandErrorSnack(
-        context,
-        loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
-      );
-      return;
-    }
-    showOpenHandSuccessSnack(
-      context,
-      loc?.webReverseCookieEditorSaved ?? 'Saved',
+    await _runMutation(
+      action: () => widget.controller.setCookie(
+        name: '${result['name'] ?? ''}',
+        value: '${result['value'] ?? ''}',
+        url: result['url'] as String?,
+        domain: result['domain'] as String?,
+        path: result['path'] as String?,
+        partitionKey: result['partitionKey'] is Map
+            ? stringKeyedMapFromValue(result['partitionKey'])
+            : null,
+        httpOnly: result['httpOnly'] as bool?,
+        secure: result['secure'] as bool?,
+        sameSite: result['sameSite'] as String?,
+        expires: result['expires'] as num?,
+      ),
+      successMessage: loc?.webReverseCookieEditorSaved ?? 'Saved',
+      failureMessage: loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
+      logAction: '写入 Cookie',
     );
-    await _refresh();
+  }
+
+  Future<void> _runMutation({
+    required Future<bool> Function() action,
+    required String successMessage,
+    required String failureMessage,
+    required String logAction,
+  }) async {
+    if (!mounted || _mutating) return;
+    setState(() => _mutating = true);
+    try {
+      final success = await action();
+      if (!mounted) return;
+      if (!success) {
+        showOpenHandErrorSnack(context, failureMessage);
+        return;
+      }
+      showOpenHandSuccessSnack(context, successMessage);
+      await _refresh();
+    } catch (error, stack) {
+      silentLog('web_reverse_cookie_editor', logAction, error, stack);
+      if (mounted) showOpenHandErrorSnack(context, failureMessage);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
   }
 
   Future<void> _copyJson() async {
@@ -231,7 +271,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton.tonalIcon(
-                  onPressed: _loading ? null : () => _edit(null),
+                  onPressed: _loading || _mutating ? null : () => _edit(null),
                   icon: const Icon(Icons.add_rounded),
                   label: Text(loc?.webReverseCookieEditorNewBtn ?? 'New'),
                 ),
@@ -304,13 +344,17 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                             IconButton(
                               tooltip:
                                   loc?.webReverseCookieEditorEdit ?? 'Edit',
-                              onPressed: c.canMutate ? () => _edit(c) : null,
+                              onPressed: c.canMutate && !_loading && !_mutating
+                                  ? () => _edit(c)
+                                  : null,
                               icon: const Icon(Icons.edit_rounded, size: 16),
                             ),
                             IconButton(
                               tooltip:
                                   loc?.webReverseCookieEditorDelete ?? 'Delete',
-                              onPressed: c.canMutate ? () => _delete(c) : null,
+                              onPressed: c.canMutate && !_loading && !_mutating
+                                  ? () => _delete(c)
+                                  : null,
                               icon: const Icon(
                                 Icons.delete_outline_rounded,
                                 size: 16,
@@ -318,7 +362,9 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                             ),
                           ],
                         ),
-                        onTap: c.canMutate ? () => _edit(c) : null,
+                        onTap: c.canMutate && !_loading && !_mutating
+                            ? () => _edit(c)
+                            : null,
                       );
                     },
                   ),

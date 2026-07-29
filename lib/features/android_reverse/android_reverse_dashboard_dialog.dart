@@ -666,6 +666,7 @@ class _AndroidReverseDashboardDialogState
   bool _packagesRefreshQueued = false;
   bool _processesRefreshQueued = false;
   bool _deviceDetailsRefreshQueued = false;
+  bool _toolchainRefreshQueued = false;
   bool _loadingToolchain = false;
   bool _loadingPackageAnalysis = false;
   bool _capturingPackageReport = false;
@@ -929,14 +930,23 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _refreshToolchain() async {
-    if (_loadingToolchain) return;
+    if (_loadingToolchain) {
+      _toolchainRefreshQueued = true;
+      return;
+    }
+    _toolchainRefreshQueued = false;
     setState(() => _loadingToolchain = true);
     try {
       final rows = await probeAndroidReverseToolchain();
-      if (!mounted) return;
+      if (!mounted || _toolchainRefreshQueued) return;
       setState(() => _toolchainRows = rows);
     } finally {
-      if (mounted) setState(() => _loadingToolchain = false);
+      if (mounted) {
+        final shouldRefreshAgain = _toolchainRefreshQueued;
+        _toolchainRefreshQueued = false;
+        setState(() => _loadingToolchain = false);
+        if (shouldRefreshAgain) unawaited(_refreshToolchain());
+      }
     }
   }
 
