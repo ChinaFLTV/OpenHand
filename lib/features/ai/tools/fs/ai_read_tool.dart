@@ -226,7 +226,7 @@ class AiReadTool extends AiTool {
 
   Future<_ResolvedReadFile?> _resolveExistingReadFile(String filePath) async {
     final file = File(filePath);
-    if (await file.exists()) {
+    if (await AiToolUtils.fileExistsBounded(file)) {
       return _ResolvedReadFile(file: file, filePath: filePath);
     }
     final alternatePath = _alternateMacScreenshotPath(filePath);
@@ -234,7 +234,7 @@ class AiReadTool extends AiTool {
       return null;
     }
     final alternateFile = File(alternatePath);
-    if (!await alternateFile.exists()) {
+    if (!await AiToolUtils.fileExistsBounded(alternateFile)) {
       return null;
     }
     return _ResolvedReadFile(

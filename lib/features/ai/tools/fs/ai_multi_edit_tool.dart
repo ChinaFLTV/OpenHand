@@ -55,7 +55,7 @@ class AiMultiEditTool extends AiTool {
     }
 
     final file = File(filePath);
-    final bool fileExists = await file.exists();
+    final fileExists = await AiToolUtils.fileExistsBounded(file);
     if (!fileExists && _requiresExistingFile(edits)) {
       return AiToolUtils.invalidResult(
         'MultiEdit',

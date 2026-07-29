@@ -164,13 +164,15 @@ class AiSkillManagerTool extends AiTool {
 
     final skillDir = _skillDir(skillsRoot, category, name);
     final skillFile = File(p.join(skillDir, 'SKILL.md'));
-    if (await skillFile.exists()) {
+    if (await AiToolUtils.fileExistsBounded(skillFile)) {
       return AiToolUtils.invalidResult(
         _toolName,
         'Skill already exists at $skillDir.',
       );
     }
-    await Directory(skillsRoot).create(recursive: true);
+    await Directory(
+      skillsRoot,
+    ).create(recursive: true).timeout(_skillScanIdleTimeout);
     if (!await isPhysicalPathWithinOrEqual(
       skillsRoot,
       skillFile.path,
@@ -328,7 +330,7 @@ class AiSkillManagerTool extends AiTool {
       }
       targetFile = resolved.file!;
       patchingSkillMd = false;
-      if (!await targetFile.exists()) {
+      if (!await AiToolUtils.fileExistsBounded(targetFile)) {
         return AiToolUtils.invalidResult(
           _toolName,
           'file_path "$filePathArg" does not exist in skill "$name".',
@@ -450,7 +452,7 @@ class AiSkillManagerTool extends AiTool {
 
     final skillContext = targetResult.context!;
     final target = targetResult.file!;
-    if (!await target.exists()) {
+    if (!await AiToolUtils.fileExistsBounded(target)) {
       return AiToolUtils.invalidResult(
         _toolName,
         'file_path "${targetResult.relativePath}" does not exist in skill "$name".',
@@ -531,7 +533,9 @@ class AiSkillManagerTool extends AiTool {
     String name,
   ) async {
     final rootDir = Directory(skillsRoot);
-    if (!await rootDir.exists()) return const _SkillFileSearchResult();
+    if (!await rootDir.exists().timeout(_skillScanIdleTimeout)) {
+      return const _SkillFileSearchResult();
+    }
 
     var scanned = 0;
     final stopwatch = Stopwatch()..start();
@@ -660,7 +664,7 @@ class AiSkillManagerTool extends AiTool {
     File file,
     bool isSkillManifest,
   ) async {
-    final stat = await file.stat();
+    final stat = await AiToolUtils.fileStatBounded(file);
     if (stat.type != FileSystemEntityType.file &&
         stat.type != FileSystemEntityType.link) {
       return _TextFileReadResult(error: 'Target is not a file: ${file.path}');

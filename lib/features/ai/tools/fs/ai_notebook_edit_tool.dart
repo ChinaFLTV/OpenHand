@@ -41,7 +41,7 @@ class AiNotebookEditTool extends AiTool {
       AiToolUtils.readString(args['cell_type']),
     );
     final file = File(notebookPath);
-    if (!await file.exists()) {
+    if (!await AiToolUtils.fileExistsBounded(file)) {
       return AiToolUtils.invalidResult(
         'NotebookEdit',
         await AiToolUtils.missingPathMessage(

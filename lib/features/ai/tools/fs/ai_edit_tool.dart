@@ -46,7 +46,7 @@ class AiEditTool extends AiTool {
       );
     }
     final file = File(filePath);
-    final fileExists = await file.exists();
+    final fileExists = await AiToolUtils.fileExistsBounded(file);
     if (!fileExists && oldString.isNotEmpty) {
       return AiToolUtils.invalidResult(
         'Edit',

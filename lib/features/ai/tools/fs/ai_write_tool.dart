@@ -35,7 +35,7 @@ class AiWriteTool extends AiTool {
     if (contentSizeValidation != null) return contentSizeValidation;
 
     final file = File(filePath);
-    final fileExists = await file.exists();
+    final fileExists = await AiToolUtils.fileExistsBounded(file);
 
     final preparation = await AiToolUtils.prepareFileMutation(
       context: context,

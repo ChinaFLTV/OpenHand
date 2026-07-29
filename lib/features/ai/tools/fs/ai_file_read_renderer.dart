@@ -22,7 +22,7 @@ class AiFileReadRenderer {
     AiPdfPageRange? pdfPages,
   }) async {
     final extension = p.extension(filePath).toLowerCase();
-    final fileLength = await file.length();
+    final fileLength = await AiToolUtils.fileLengthBounded(file);
     if (fileLength == 0) {
       return RenderedReadContent(
         content: '',

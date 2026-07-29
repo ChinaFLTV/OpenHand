@@ -771,9 +771,9 @@ class AiToolUtils {
       if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
       var sizeBytes = maxEditableTextFileBytes + 1;
       try {
-        final currentSize = await file.length();
+        final currentSize = await fileLengthBounded(file);
         if (currentSize > maxEditableTextFileBytes) sizeBytes = currentSize;
-      } on FileSystemException {
+      } catch (_) {
         // 保留有界读取产生的确定性大小超限错误。
       }
       throw AiEditableTextFileTooLargeException(
@@ -932,7 +932,7 @@ class AiToolUtils {
   }) async {
     if (!requireExistingFileRead) return null;
     final file = File(filePath);
-    if (!await file.exists()) return null;
+    if (!await fileExistsBounded(file)) return null;
     if (!previouslyReadFiles.contains(filePath)) {
       return invalidResult(
         toolName,
@@ -1066,7 +1066,7 @@ class AiToolUtils {
   static Future<String?> readFileContentForLedger(String filePath) async {
     try {
       final f = File(filePath);
-      if (!await f.exists()) return null;
+      if (!await fileExistsBounded(f)) return null;
       return await readBoundedFileString(f, maxBytes: maxLedgerCaptureBytes);
     } catch (error, stack) {
       silentLog('ai_tool_utils', '读取文件变更账本快照', error, stack);
@@ -1338,6 +1338,18 @@ class AiToolUtils {
     return readBoundedFilePrefixBytes(file, maxBytes: byteLimit);
   }
 
+  static Future<bool> fileExistsBounded(File file) {
+    return file.exists().timeout(defaultBoundedFileReadIdleTimeout);
+  }
+
+  static Future<int> fileLengthBounded(File file) {
+    return file.length().timeout(defaultBoundedFileReadIdleTimeout);
+  }
+
+  static Future<FileStat> fileStatBounded(File file) {
+    return file.stat().timeout(defaultBoundedFileReadIdleTimeout);
+  }
+
   static String decodeTextBytes(List<int> bytes) {
     try {
       return utf8.decode(bytes);
@@ -1550,11 +1562,11 @@ class AiToolUtils {
     // 检查每个候选路径
     for (final candidate in candidates) {
       final file = File(candidate);
-      if (await file.exists()) {
+      if (await fileExistsBounded(file)) {
         // 确保有执行权限（非 Windows）
         if (!Platform.isWindows) {
           try {
-            final stat = await file.stat();
+            final stat = await fileStatBounded(file);
             // 检查是否有执行权限 (mode & 0x49 = owner/group/other execute)
             if ((stat.mode & 0x49) == 0) {
               // 尝试添加执行权限
@@ -1641,7 +1653,7 @@ class AiToolUtils {
               separator: '\n',
             ).firstOrNull ??
             '';
-        if (foundPath.isNotEmpty && await File(foundPath).exists()) {
+        if (foundPath.isNotEmpty && await fileExistsBounded(File(foundPath))) {
           _cachedRgPath = foundPath;
           return _cachedRgPath;
         }
@@ -1653,7 +1665,7 @@ class AiToolUtils {
     // 3. 直接检查常见系统安装路径（非 Windows）
     if (!Platform.isWindows) {
       for (final candidatePath in _rgSystemPaths) {
-        if (await File(candidatePath).exists()) {
+        if (await fileExistsBounded(File(candidatePath))) {
           _cachedRgPath = candidatePath;
           return _cachedRgPath;
         }
@@ -1674,7 +1686,8 @@ class AiToolUtils {
         );
         if (shellResult.exitCode == 0) {
           final foundPath = shellResult.stdout.toString().trim();
-          if (foundPath.isNotEmpty && await File(foundPath).exists()) {
+          if (foundPath.isNotEmpty &&
+              await fileExistsBounded(File(foundPath))) {
             _cachedRgPath = foundPath;
             return _cachedRgPath;
           }

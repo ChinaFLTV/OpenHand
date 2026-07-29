@@ -97,7 +97,7 @@ class AiApplyFileDiffsTool extends AiTool {
         );
       }
       final file = File(filePath);
-      final exists = await file.exists();
+      final exists = await AiToolUtils.fileExistsBounded(file);
       if (!exists && _requiresExistingFile(hunks)) {
         return AiToolUtils.invalidResult(
           'ApplyFileDiffs',
@@ -351,7 +351,7 @@ class AiApplyFileDiffsTool extends AiTool {
             plan.file,
             plan.originalContent,
           );
-        } else if (await plan.file.exists()) {
+        } else if (await AiToolUtils.fileExistsBounded(plan.file)) {
           await plan.file.delete();
         }
         await AiToolUtils.updateTrackerAfterMutation(

@@ -53,7 +53,7 @@ class AiDeleteFileTool extends AiTool {
     }
 
     final file = File(filePath);
-    if (!await file.exists()) {
+    if (!await AiToolUtils.fileExistsBounded(file)) {
       return AiToolUtils.simpleSuccessResult(
         command: 'DeleteFile $filePath',
         output: 'File does not exist (no action needed): $filePath',
@@ -63,7 +63,7 @@ class AiDeleteFileTool extends AiTool {
     }
 
     // Check that it's actually a file, not a directory
-    final stat = await file.stat();
+    final stat = await AiToolUtils.fileStatBounded(file);
     if (stat.type == FileSystemEntityType.directory) {
       return AiToolUtils.invalidResult(
         'DeleteFile',
