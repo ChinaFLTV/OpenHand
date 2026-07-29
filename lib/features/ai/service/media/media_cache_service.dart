@@ -19,6 +19,7 @@ import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
@@ -434,11 +435,21 @@ class MediaCacheService {
           .timeout(_fileOperationTimeout);
       var written = 0;
       final downloadWatch = Stopwatch()..start();
-      RandomAccessFile? output;
+      BoundedRandomAccessFileLease? output;
+      var deleteOnRelease = false;
       try {
-        final openedOutput = await tempFile
-            .open(mode: FileMode.write)
-            .timeout(_fileOperationTimeout);
+        final openedOutput = await openBoundedRandomAccessFileLease(
+          tempFile,
+          mode: FileMode.write,
+          timeout: _fileOperationTimeout,
+          deleteIfOpenCompletesLate: true,
+          release: (file) async {
+            await file.close();
+            if (deleteOnRelease) {
+              await _deleteEntity(tempFile!, '删除未完成的媒体缓存临时文件');
+            }
+          },
+        );
         output = openedOutput;
         await for (final chunk in response.timeout(_responseChunkTimeout)) {
           if (_disposed || _clearing || generation != _generation) {
@@ -451,17 +462,19 @@ class MediaCacheService {
           if (written > maxBytes) {
             throw FileSystemException('媒体缓存下载超过大小限制。', normalizedUrl);
           }
-          await openedOutput.writeFrom(chunk).timeout(_fileOperationTimeout);
+          await openedOutput.run<void>((file) async {
+            await file.writeFrom(chunk);
+          }, timeout: _fileOperationTimeout);
         }
-        await openedOutput.flush().timeout(_fileOperationTimeout);
-        await openedOutput.close().timeout(_cleanupTimeout);
+        await openedOutput.run<void>((file) async {
+          await file.flush();
+        }, timeout: _fileOperationTimeout);
+        await openedOutput.close(timeout: _cleanupTimeout);
         output = null;
       } finally {
         downloadWatch.stop();
-        final pendingOutput = output;
-        if (pendingOutput != null) {
-          await _closeOutput(pendingOutput);
-        }
+        deleteOnRelease = output != null;
+        await output?.cleanup();
       }
       if (written <= 0) {
         await _deleteEntity(tempFile, '删除空媒体缓存临时文件');
@@ -628,14 +641,6 @@ class MediaCacheService {
       }
     } finally {
       deadline.stop();
-    }
-  }
-
-  static Future<void> _closeOutput(RandomAccessFile output) async {
-    try {
-      await output.close().timeout(_cleanupTimeout);
-    } catch (error, stack) {
-      silentLog('media_cache', '关闭媒体缓存临时文件', error, stack);
     }
   }
 
