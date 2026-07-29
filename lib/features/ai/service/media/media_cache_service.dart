@@ -194,6 +194,10 @@ class MediaCacheService {
       _cacheDirectoryPathProvider(),
       effectiveKind,
     );
+    _queueInvalidation(path);
+  }
+
+  void _queueInvalidation(String path) {
     _validatedCachePaths.remove(path);
     if (_pendingInvalidations.length >= _maxPendingInvalidations &&
         !_pendingInvalidations.contains(path)) {
@@ -383,7 +387,13 @@ class MediaCacheService {
       await tempFile.parent
           .create(recursive: true)
           .timeout(_fileOperationTimeout);
-      await sourceFile.copy(tempFile.path).timeout(_fileOperationTimeout);
+      final copying = sourceFile.copy(tempFile.path);
+      try {
+        await copying.timeout(_fileOperationTimeout);
+      } on TimeoutException {
+        unawaited(_cleanupLateCacheCopy(copying, tempFile));
+        rethrow;
+      }
       return await _commitTempFile(
         tempFile: tempFile,
         destPath: destPath,
@@ -539,7 +549,14 @@ class MediaCacheService {
         await _deleteEntity(tempFile, '删除重复的媒体缓存临时文件');
       } else {
         await _deleteInvalidCachePair(destPath);
-        await tempFile.rename(destPath).timeout(_fileOperationTimeout);
+        final publishing = tempFile.rename(destPath);
+        try {
+          await publishing.timeout(_fileOperationTimeout);
+        } on TimeoutException {
+          _queueInvalidation(destPath);
+          unawaited(_cleanupLateCachePublish(publishing, tempFile, destPath));
+          rethrow;
+        }
       }
       if (!await _looksUsableFile(destFile)) return null;
       final bytes = await destFile.length().timeout(_fileOperationTimeout);
@@ -562,6 +579,32 @@ class MediaCacheService {
       _validatedCachePaths.put(destPath, DateTime.now().toUtc());
       return destPath;
     });
+  }
+
+  static Future<void> _cleanupLateCacheCopy(
+    Future<File> copying,
+    File tempFile,
+  ) async {
+    try {
+      await copying;
+    } catch (error, stack) {
+      silentLog('media_cache', '等待延迟复制媒体缓存', error, stack);
+    }
+    await _deleteEntity(tempFile, '删除延迟复制的媒体缓存临时文件');
+  }
+
+  static Future<void> _cleanupLateCachePublish(
+    Future<File> publishing,
+    File tempFile,
+    String destPath,
+  ) async {
+    try {
+      await publishing;
+    } catch (error, stack) {
+      silentLog('media_cache', '等待延迟发布媒体缓存', error, stack);
+    }
+    await _deleteEntity(tempFile, '删除延迟发布的媒体缓存临时文件');
+    await _deleteInvalidCachePair(destPath);
   }
 
   Future<void> _pruneCacheDirectory(Directory directory) async {
