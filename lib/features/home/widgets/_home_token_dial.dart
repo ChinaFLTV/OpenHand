@@ -1080,37 +1080,37 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
         child: Column(
           children: [
             if (breakdown.inputUsd != null)
-              _CostPopupRow(
+              _PopupRow.formatted(
                 label: l10n.tokenPopupCostInput,
-                usd: breakdown.inputUsd!,
+                formattedValue: _formatPopupUsd(breakdown.inputUsd!),
                 keyStyle: keyStyle,
                 valueStyle: valueStyle,
               ),
             if (breakdown.outputUsd != null)
-              _CostPopupRow(
+              _PopupRow.formatted(
                 label: l10n.tokenPopupCostOutput,
-                usd: breakdown.outputUsd!,
+                formattedValue: _formatPopupUsd(breakdown.outputUsd!),
                 keyStyle: keyStyle,
                 valueStyle: valueStyle,
               ),
             if (breakdown.cacheReadUsd != null)
-              _CostPopupRow(
+              _PopupRow.formatted(
                 label: l10n.tokenPopupCostCacheRead,
-                usd: breakdown.cacheReadUsd!,
+                formattedValue: _formatPopupUsd(breakdown.cacheReadUsd!),
                 keyStyle: keyStyle,
                 valueStyle: valueStyle,
               ),
             if (breakdown.cacheWriteUsd != null)
-              _CostPopupRow(
+              _PopupRow.formatted(
                 label: l10n.tokenPopupCostCacheWrite,
-                usd: breakdown.cacheWriteUsd!,
+                formattedValue: _formatPopupUsd(breakdown.cacheWriteUsd!),
                 keyStyle: keyStyle,
                 valueStyle: valueStyle,
               ),
             if (breakdown.totalUsd != null)
-              _CostPopupRow(
+              _PopupRow.formatted(
                 label: l10n.tokenPopupCostTotal,
-                usd: breakdown.totalUsd!,
+                formattedValue: _formatPopupUsd(breakdown.totalUsd!),
                 keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w800),
                 valueStyle: valueStyle?.copyWith(color: colorScheme.primary),
               ),
@@ -1684,84 +1684,12 @@ Color _contextUsageColor(
   };
 }
 
-/// 单价行专用：USD 格式化展示（最高精度 4 位小数；总计/小数据时切到更密）。
-class _CostPopupRow extends StatefulWidget {
-  const _CostPopupRow({
-    required this.label,
-    required this.usd,
-    this.keyStyle,
-    this.valueStyle,
-  });
-
-  final String label;
-  final double usd;
-  final TextStyle? keyStyle;
-  final TextStyle? valueStyle;
-
-  @override
-  State<_CostPopupRow> createState() => _CostPopupRowState();
-}
-
-class _CostPopupRowState extends State<_CostPopupRow> {
-  bool _hovered = false;
-
-  String _format(double v) {
-    if (v == 0) return r'$0.0000';
-    if (v >= 1) return '\$${v.toStringAsFixed(2)}';
-    if (v >= 0.01) return '\$${v.toStringAsFixed(4)}';
-    return '\$${v.toStringAsFixed(6)}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = colorScheme.primary;
-    return MouseRegion(
-      onEnter: (_) {
-        if (_hovered) return;
-        setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (!_hovered) return;
-        setState(() => _hovered = false);
-      },
-      child: AnimatedContainer(
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
-        ),
-        curve: Curves.easeOutBack,
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        decoration: BoxDecoration(
-          color: _hovered
-              ? accent.withValues(alpha: 0.10)
-              : colorScheme.surface.withValues(alpha: 0.52),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: _hovered
-                ? accent.withValues(alpha: 0.22)
-                : colorScheme.outlineVariant.withValues(alpha: 0.36),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: widget.keyStyle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(_format(widget.usd), style: widget.valueStyle),
-          ],
-        ),
-      ),
-    );
-  }
+/// USD 展示：常规金额保留 2 至 4 位，小额保留 6 位。
+String _formatPopupUsd(double value) {
+  if (value == 0) return r'$0.0000';
+  if (value >= 1) return '\$${value.toStringAsFixed(2)}';
+  if (value >= 0.01) return '\$${value.toStringAsFixed(4)}';
+  return '\$${value.toStringAsFixed(6)}';
 }
 
 class _PopupRow extends StatefulWidget {
@@ -1770,10 +1698,18 @@ class _PopupRow extends StatefulWidget {
     required this.value,
     this.keyStyle,
     this.valueStyle,
-  });
+  }) : formattedValue = null;
+
+  const _PopupRow.formatted({
+    required this.label,
+    required this.formattedValue,
+    this.keyStyle,
+    this.valueStyle,
+  }) : value = null;
 
   final String label;
-  final int value;
+  final int? value;
+  final String? formattedValue;
   final TextStyle? keyStyle;
   final TextStyle? valueStyle;
 
@@ -1828,10 +1764,13 @@ class _PopupRowState extends State<_PopupRow> {
               ),
             ),
             const SizedBox(width: 8),
-            RollingText(
-              text: _formatThousands(widget.value),
-              style: widget.valueStyle ?? const TextStyle(),
-            ),
+            if (widget.formattedValue case final formattedValue?)
+              Text(formattedValue, style: widget.valueStyle)
+            else
+              RollingText(
+                text: _formatThousands(widget.value!),
+                style: widget.valueStyle ?? const TextStyle(),
+              ),
           ],
         ),
       ),

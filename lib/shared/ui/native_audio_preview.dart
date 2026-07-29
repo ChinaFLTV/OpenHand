@@ -413,6 +413,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   bool _pollInFlight = false;
   int _seekSerial = 0;
   bool _handlingComplete = false;
+  Future<void> _bootstrapQueue = Future<void>.value();
   Future<void> _seekCommandChain = Future<void>.value();
   Duration? _recentSeekTarget;
   DateTime? _recentSeekAt;
@@ -494,6 +495,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   @override
   void dispose() {
     _disposed = true;
+    _bootstrapSerial++;
+    _seekSerial++;
     _progressPollTimer?.cancel();
     if (widget.controller?._state == this) widget.controller?._state = null;
     for (final subscription in _subscriptions) {
@@ -509,9 +512,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     super.dispose();
   }
 
-  Future<void> _bootstrap() async {
-    if (_disposed) return;
+  Future<void> _bootstrap() {
+    if (_disposed) return Future<void>.value();
     final serial = ++_bootstrapSerial;
+    final source = widget.source;
     _seekSerial++;
     setState(() {
       _loading = true;
@@ -525,33 +529,53 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       _recentSeekTarget = null;
       _recentSeekAt = null;
     });
+
+    final operation = _bootstrapQueue.then(
+      (_) => _runBootstrap(serial: serial, source: source),
+    );
+    _bootstrapQueue = operation;
+    return operation;
+  }
+
+  Future<void> _runBootstrap({
+    required int serial,
+    required NativeAudioPreviewSource source,
+  }) async {
+    if (!_isBootstrapActive(serial)) return;
     try {
       await _stopForSourceReset();
+      if (!_isBootstrapActive(serial)) return;
       await _deleteTempAudioFile();
+      if (!_isBootstrapActive(serial)) return;
       await _player
           .setVolume(_effectiveVolume)
           .timeout(kNativeAudioControlTimeout);
-      final source = await _resolveAudioSource();
+      if (!_isBootstrapActive(serial)) return;
+      final resolvedSource = await _resolveAudioSource(source, serial: serial);
+      if (!_isBootstrapActive(serial)) return;
       final loadedDuration = await _player
-          .setSource(source)
+          .setSource(resolvedSource)
           .timeout(kNativeAudioLoadTimeout);
+      if (!_isBootstrapActive(serial)) return;
       final duration = loadedDuration != null && loadedDuration > Duration.zero
           ? loadedDuration
-          : await _resolveBestDuration();
-      _restartProgressPolling();
-      if (_disposed || !mounted || serial != _bootstrapSerial) return;
+          : await _resolveBestDuration(source, serial: serial);
+      if (!_isBootstrapActive(serial)) return;
       setState(() {
         _duration = duration;
         _loading = false;
         _sourceReady = true;
         _loadError = null;
       });
+      _restartProgressPolling();
       if (duration <= Duration.zero) {
-        unawaited(_refreshDurationWhenAvailable(serial));
+        unawaited(_refreshDurationWhenAvailable(serial, source));
       }
       unawaited(_pollPlaybackState());
       if (widget.autoplay) {
-        await _play().timeout(kNativeAudioControlTimeout);
+        await _play(
+          bootstrapSerial: serial,
+        ).timeout(kNativeAudioControlTimeout);
       }
     } on TimeoutException catch (error, stack) {
       _handleLoadFailure(error, stack, serial);
@@ -560,11 +584,16 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     }
   }
 
-  Future<Duration> _resolveDuration() async {
+  bool _isBootstrapActive(int serial) {
+    return !_disposed && mounted && serial == _bootstrapSerial;
+  }
+
+  Future<Duration> _resolveDuration(int serial) async {
     final initial = await _player.getDuration().timeout(
       _kNativeAudioMetadataPollTimeout,
       onTimeout: () => null,
     );
+    if (!_isBootstrapActive(serial)) return Duration.zero;
     if (initial != null && initial > Duration.zero) return initial;
     for (
       var attempt = 0;
@@ -572,43 +601,50 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       attempt++
     ) {
       await Future<void>.delayed(_kNativeAudioDurationProbeInterval);
+      if (!_isBootstrapActive(serial)) return Duration.zero;
       final next = await _player.getDuration().timeout(
         _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
       );
+      if (!_isBootstrapActive(serial)) return Duration.zero;
       if (next != null && next > Duration.zero) return next;
     }
     return Duration.zero;
   }
 
-  Future<Duration> _resolveBestDuration() async {
-    final localDuration = await _resolveLocalDurationHint();
+  Future<Duration> _resolveBestDuration(
+    NativeAudioPreviewSource source, {
+    required int serial,
+  }) async {
+    final localDuration = await _resolveLocalDurationHint(source);
+    if (!_isBootstrapActive(serial)) return Duration.zero;
     if (localDuration != null && localDuration > Duration.zero) {
       return localDuration;
     }
-    return _resolveDuration();
+    return _resolveDuration(serial);
   }
 
-  Future<void> _refreshDurationWhenAvailable(int serial) async {
-    final duration = await _resolveBestDuration();
-    if (_disposed ||
-        !mounted ||
-        serial != _bootstrapSerial ||
-        duration <= Duration.zero) {
+  Future<void> _refreshDurationWhenAvailable(
+    int serial,
+    NativeAudioPreviewSource source,
+  ) async {
+    final duration = await _resolveBestDuration(source, serial: serial);
+    if (!_isBootstrapActive(serial) || duration <= Duration.zero) {
       return;
     }
     _setKnownDuration(duration);
   }
 
-  Future<Duration?> _resolveLocalDurationHint() async {
+  Future<Duration?> _resolveLocalDurationHint(
+    NativeAudioPreviewSource source,
+  ) async {
     if (kIsWeb) return null;
-    final path =
-        nullIfBlank(widget.source.filePath) ?? nullIfBlank(_tempAudioPath);
+    final path = nullIfBlank(source.filePath) ?? nullIfBlank(_tempAudioPath);
     if (path == null) return null;
     try {
       return await estimateNativeAudioFileDuration(
         path,
-        widget.source.mimeType,
+        source.mimeType,
       ).timeout(kNativeAudioControlTimeout, onTimeout: () => null);
     } catch (error, stack) {
       silentLog('native_audio_preview', '解析本地音频时长', error, stack);
@@ -705,13 +741,16 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     return value + _kNativeAudioCompletionTolerance >= _duration;
   }
 
-  Future<_NativeAudioResolvedSource> _resolveAudioSource() async {
-    final mimeType = widget.source.mimeType;
-    final filePath = widget.source.filePath;
+  Future<_NativeAudioResolvedSource> _resolveAudioSource(
+    NativeAudioPreviewSource source, {
+    required int serial,
+  }) async {
+    final mimeType = source.mimeType;
+    final filePath = source.filePath;
     if (filePath != null && filePath.trim().isNotEmpty) {
       return _resolveLocalAudioSource(filePath, mimeType: mimeType);
     }
-    final url = widget.source.networkUrl;
+    final url = source.networkUrl;
     if (url != null && url.trim().isNotEmpty) {
       final uri = Uri.tryParse(url.trim());
       final scheme = uri?.scheme.toLowerCase();
@@ -727,10 +766,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         mimeType: mimeType,
       );
     }
-    final bytes = widget.source.bytes;
+    final bytes = source.bytes;
     if (bytes != null && bytes.isNotEmpty) {
       if (!kIsWeb) {
-        final ext = _extensionForAudioMime(widget.source.mimeType);
+        final ext = _extensionForAudioMime(source.mimeType);
         final file = File(
           '${Directory.systemTemp.path}/openhand-audio-${DateTime.now().microsecondsSinceEpoch}.$ext',
         );
@@ -741,7 +780,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           onSecondaryError: (error, stack) =>
               silentLog('native_audio_preview', '清理音频临时文件', error, stack),
         );
-        _tempAudioPath = file.path;
+        if (_isBootstrapActive(serial)) {
+          _tempAudioPath = file.path;
+        } else {
+          await _deleteAudioTempFile(file.path);
+        }
         return _NativeAudioResolvedSource(
           filePath: file.path,
           mimeType: mimeType,
@@ -827,15 +870,20 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     }
   }
 
-  Future<void> _play() async {
-    if (!_sourceReady) return;
+  Future<void> _play({int? bootstrapSerial}) async {
+    bool isActive() =>
+        bootstrapSerial == null || _isBootstrapActive(bootstrapSerial);
+
+    if (!_sourceReady || !isActive()) return;
     if (_playerState == _NativeAudioPlaybackState.completed &&
         _isNearAudioEnd(_position)) {
       await _seekTo(Duration.zero);
+      if (!isActive()) return;
     }
     await _applyEffectToPlayer();
+    if (!isActive()) return;
     await _player.play();
-    _restartProgressPolling();
+    if (isActive()) _restartProgressPolling();
   }
 
   Future<void> _seekBy(Duration delta) async {
@@ -1458,9 +1506,15 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final path = _tempAudioPath;
     _tempAudioPath = null;
     if (path == null) return;
+    await _deleteAudioTempFile(path);
+  }
+
+  Future<void> _deleteAudioTempFile(String path) async {
     try {
       final file = File(path);
-      if (await file.exists()) await file.delete();
+      if (await file.exists().timeout(kNativeAudioControlTimeout)) {
+        await file.delete().timeout(kNativeAudioControlTimeout);
+      }
     } catch (error, stack) {
       silentLog('native_audio_preview', '删除临时音频失败', error, stack);
     }
