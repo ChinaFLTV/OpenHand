@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -30,8 +31,8 @@ class WebReverseSessionArtifacts {
   final String rootDir;
   final Duration _flushInterval;
 
-  IOSink? _networkSink;
-  IOSink? _consoleSink;
+  BoundedRandomAccessFileLease? _networkSink;
+  BoundedRandomAccessFileLease? _consoleSink;
   bool _ready = false;
   bool _closed = false;
   Timer? _flushTimer;
@@ -69,8 +70,8 @@ class WebReverseSessionArtifacts {
   }
 
   Future<void> _initialize() async {
-    IOSink? networkSink;
-    IOSink? consoleSink;
+    BoundedRandomAccessFileLease? networkSink;
+    BoundedRandomAccessFileLease? consoleSink;
     try {
       await Future.wait<Directory>(
         <String>['network', 'scripts', 'screenshots', 'har'].map(
@@ -80,12 +81,16 @@ class WebReverseSessionArtifacts {
         ),
       );
       if (_closed) return;
-      networkSink = File(
-        '$rootDir/network.jsonl',
-      ).openWrite(mode: FileMode.append);
-      consoleSink = File(
-        '$rootDir/console.jsonl',
-      ).openWrite(mode: FileMode.append);
+      networkSink = await openBoundedRandomAccessFileLease(
+        File('$rootDir/network.jsonl'),
+        mode: FileMode.append,
+        timeout: _fileIoTimeout,
+      );
+      consoleSink = await openBoundedRandomAccessFileLease(
+        File('$rootDir/console.jsonl'),
+        mode: FileMode.append,
+        timeout: _fileIoTimeout,
+      );
       if (_closed) {
         await Future.wait<bool>(<Future<bool>>[
           _closeSink(networkSink, '延迟网络'),
@@ -249,15 +254,19 @@ class WebReverseSessionArtifacts {
 
   Future<void> _flushBuffer(
     StringBuffer buffer,
-    IOSink? sink,
+    BoundedRandomAccessFileLease? sink,
     String streamName,
   ) async {
     if (buffer.isEmpty) return;
     final pending = buffer.toString();
     buffer.clear();
     _reportedBufferDrops.removeWhere((key) => key.startsWith('$streamName:'));
-    sink?.write(pending);
-    await sink?.flush().timeout(_fileIoTimeout);
+    if (sink == null) throw StateError('$streamName 产物流未就绪。');
+    final bytes = utf8.encode(pending);
+    await sink.run<void>((file) async {
+      await file.writeFrom(bytes);
+      await file.flush();
+    }, timeout: _fileIoTimeout);
   }
 
   Future<void> _disableWriting() async {
@@ -373,16 +382,18 @@ class WebReverseSessionArtifacts {
     _reportedBufferDrops.clear();
     _harDrafts.clear();
     await Future.wait<bool>(<Future<bool>>[
-      _closeSink(networkSink, 'network'),
-      _closeSink(consoleSink, 'console'),
+      _closeSink(networkSink, '网络'),
+      _closeSink(consoleSink, '控制台'),
     ]);
   }
 
-  Future<bool> _closeSink(IOSink? sink, String streamName) {
+  Future<bool> _closeSink(
+    BoundedRandomAccessFileLease? sink,
+    String streamName,
+  ) {
     if (sink == null) return Future<bool>.value(true);
-    // IOSink.close 会先刷新缓冲数据，再释放文件句柄。
     return runAsyncCleanupBounded(
-      sink.close,
+      sink.cleanup,
       onError: (error, stack) => silentLog(
         'web_reverse_artifacts',
         '关闭 $streamName 输出流',
