@@ -8212,44 +8212,23 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
   }
 
   Future<void> _persistThumbnail(String encoded) async {
-    String? stagingPath;
     try {
       final bytes = decodeBase64Bounded(
         encoded,
         maxDecodedBytes: _maxThumbnailBytes,
       );
-      final outPath = _VideoThumbnailManager.thumbnailPathFor(widget.videoPath);
-      stagingPath =
-          '$outPath.${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.tmp';
-      final stagingFile = File(stagingPath);
-      await writeTemporaryFileBytesBounded(
-        stagingFile,
-        bytes,
-        timeout: _thumbnailFileOperationTimeout,
-        onSecondaryError: (error, stack) =>
-            silentLog('home_message_bubble', '清理视频缩略图临时文件', error, stack),
-      );
       if (_done || !mounted) return;
+      final outPath = _VideoThumbnailManager.thumbnailPathFor(widget.videoPath);
       final outputFile = File(outPath);
-      if (await outputFile.exists().timeout(_thumbnailFileOperationTimeout)) {
-        await _deleteThumbnailTempFile(stagingFile.path);
-      } else {
-        await stagingFile
-            .rename(outPath)
-            .timeout(_thumbnailFileOperationTimeout);
+      if (!await outputFile.exists().timeout(_thumbnailFileOperationTimeout)) {
+        await writeBytesFileAtomically(outputFile, bytes);
       }
-      stagingPath = null;
       _finish(outPath);
     } catch (error, stack) {
       if (!_done) {
         silentLog('home_message_bubble', '视频缩略图写入失败', error, stack);
       }
       _finish(null);
-    } finally {
-      final pendingPath = stagingPath;
-      if (pendingPath != null) {
-        unawaited(_deleteThumbnailTempFile(pendingPath));
-      }
     }
   }
 
