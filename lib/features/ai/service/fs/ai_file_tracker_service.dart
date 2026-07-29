@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 
 /// 文件追踪器服务，用于检测脏写（dirty write）
@@ -149,8 +150,8 @@ class AiFileTrackerService {
   }
 
   Future<_TrackedFileSnapshot> _snapshotFile(File file) async {
-    final stat = await file.stat();
-    final digest = await _fingerprintFile(file, stat.size);
+    final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
+    final digest = await _fingerprintFile(file, stat);
     return _TrackedFileSnapshot(
       modified: stat.modified,
       size: stat.size,
@@ -158,12 +159,26 @@ class AiFileTrackerService {
     );
   }
 
-  Future<String?> _fingerprintFile(File file, int byteSize) async {
-    if (byteSize > _maxFingerprintBytes) return null;
+  Future<String?> _fingerprintFile(File file, FileStat expectedStat) async {
+    if (expectedStat.size > _maxFingerprintBytes) return null;
     try {
-      return (await sha256.bind(file.openRead()).first).toString();
-    } on FileSystemException {
-      return null;
+      final bytes = await readBoundedFileBytes(
+        file,
+        maxBytes: _maxFingerprintBytes,
+        idleTimeout: defaultBoundedFileReadIdleTimeout,
+        totalTimeout: defaultBoundedFileReadTotalTimeout,
+      );
+      final currentStat = await file.stat().timeout(
+        defaultBoundedFileReadIdleTimeout,
+      );
+      if (currentStat.size != expectedStat.size ||
+          currentStat.modified != expectedStat.modified ||
+          currentStat.changed != expectedStat.changed) {
+        throw AiFileChangedDuringReadException(file.path);
+      }
+      return sha256.convert(bytes).toString();
+    } on BoundedFileReadException {
+      throw AiFileChangedDuringReadException(file.path);
     }
   }
 
