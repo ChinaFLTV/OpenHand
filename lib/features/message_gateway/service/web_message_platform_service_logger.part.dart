@@ -45,6 +45,7 @@ typedef _LogFileSnapshot = ({File file, FileStat stat});
 /// - `readBundle` 把所有日志文件按修改时间倒序读出，供离线导出/Web 端 ops 拉取。
 /// - 文件写入有条数与字节双上限；慢盘时拒绝新增写入并在下一条落盘日志中
 ///   汇总丢弃数量，避免异步任务链无限增长。
+/// - 单次文件操作超时后停止继续落盘，避免迟到写入与后续追加并发破坏顺序。
 /// - 所有 IO 异常通过 `silentLog` 记录，日志系统自身故障不拖垮 Web 服务。
 class _WebGatewayRotatingLogger {
   _WebGatewayRotatingLogger({String? logsDirectoryPath})
@@ -60,6 +61,7 @@ class _WebGatewayRotatingLogger {
   int _pendingWriteBytes = 0;
   int _droppedWriteCount = 0;
   int _unreportedDroppedWrites = 0;
+  bool _writeTimedOut = false;
   bool _closing = false;
   Future<void>? _closeFuture;
   WebGatewayLogConfig _lastConfig = const WebGatewayLogConfig();
@@ -72,6 +74,7 @@ class _WebGatewayRotatingLogger {
   static const Duration _exportReadTotalTimeout = Duration(seconds: 10);
   static const Duration _metadataTimeout = Duration(seconds: 2);
   static const Duration _metadataTotalTimeout = Duration(seconds: 10);
+  static const Duration _writeIoTimeout = Duration(seconds: 3);
   static const int _maxPendingWrites = 1024;
   static const int _maxPendingWriteBytes = 4 * 1024 * 1024;
   static const Duration _closeTimeout = Duration(seconds: 5);
@@ -86,7 +89,7 @@ class _WebGatewayRotatingLogger {
 
   Future<void> write(WebGatewayLogEntry entry, WebGatewayLogConfig config) {
     _lastConfig = config;
-    if (_closing) {
+    if (_closing || _writeTimedOut) {
       _recordDroppedWrite();
       return Future<void>.value();
     }
@@ -107,34 +110,66 @@ class _WebGatewayRotatingLogger {
       _recordDroppedWrite();
       return Future<void>.value();
     }
-    final droppedBefore = _unreportedDroppedWrites;
-    if (droppedBefore > 0) {
-      final annotated = _encodeEntry(entry, droppedBefore: droppedBefore);
+    var reservedDroppedWrites = 0;
+    if (_unreportedDroppedWrites > 0) {
+      final annotated = _encodeEntry(
+        entry,
+        droppedBefore: _unreportedDroppedWrites,
+      );
       if (_canAccept(annotated.length)) {
         bytes = annotated;
+        reservedDroppedWrites = _unreportedDroppedWrites;
         _unreportedDroppedWrites = 0;
       }
     }
     _pendingWriteCount++;
     _pendingWriteBytes += bytes.length;
     final byteCount = bytes.length;
-    return _operations.enqueue(() => _writeBytes(bytes, config)).whenComplete(
-      () {
-        _pendingWriteCount--;
-        _pendingWriteBytes -= byteCount;
-      },
-    );
+    return _operations
+        .enqueue(() => _writeBytes(bytes, config))
+        .then<void>(
+          (written) {
+            if (!written) _recordDroppedWrite(reservedDroppedWrites);
+          },
+          onError: (Object error, StackTrace stack) {
+            _recordDroppedWrite(reservedDroppedWrites);
+            silentLog('web_gateway_logger', '提交日志写入任务', error, stack);
+          },
+        )
+        .whenComplete(() {
+          _pendingWriteCount--;
+          _pendingWriteBytes -= byteCount;
+        });
   }
 
-  Future<void> _writeBytes(Uint8List bytes, WebGatewayLogConfig config) async {
+  Future<bool> _writeBytes(Uint8List bytes, WebGatewayLogConfig config) async {
+    if (_writeTimedOut) return false;
     try {
       final dir = Directory(directoryPath);
-      await dir.create(recursive: true);
+      await dir.create(recursive: true).timeout(_writeIoTimeout);
       await _rotateIfNeeded(config);
-      await File(filePath).writeAsBytes(bytes, mode: FileMode.append);
+      final output = await openBoundedRandomAccessFileLease(
+        File(filePath),
+        mode: FileMode.append,
+        timeout: _writeIoTimeout,
+      );
+      try {
+        await output.run<void>((file) async {
+          await file.writeFrom(bytes);
+        }, timeout: _writeIoTimeout);
+        await output.close(timeout: _writeIoTimeout);
+      } finally {
+        await output.cleanup();
+      }
       _currentSizeBytes += bytes.length;
+      return true;
+    } on TimeoutException catch (error, stack) {
+      _writeTimedOut = true;
+      silentLog('web_gateway_logger', '写入日志文件超时，已停止后续落盘', error, stack);
+      return false;
     } catch (error, stack) {
       silentLog('web_gateway_logger', '写入日志文件', error, stack);
+      return false;
     }
   }
 
@@ -155,9 +190,9 @@ class _WebGatewayRotatingLogger {
     return Uint8List.fromList(utf8.encode('${jsonEncode(json)}\n'));
   }
 
-  void _recordDroppedWrite() {
+  void _recordDroppedWrite([int reservedDroppedWrites = 0]) {
     _droppedWriteCount++;
-    _unreportedDroppedWrites++;
+    _unreportedDroppedWrites += reservedDroppedWrites + 1;
   }
 
   Future<void> close() {
@@ -176,6 +211,7 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<void> _flushDroppedWrites() async {
+    if (_writeTimedOut) return;
     final dropped = _unreportedDroppedWrites;
     if (dropped <= 0) return;
     _unreportedDroppedWrites = 0;
@@ -187,7 +223,9 @@ class _WebGatewayRotatingLogger {
       message: '文件日志写入达到容量上限',
       data: <String, Object?>{'dropped_count': dropped},
     );
-    await _writeBytes(_encodeEntry(summary), _lastConfig);
+    if (!await _writeBytes(_encodeEntry(summary), _lastConfig)) {
+      _unreportedDroppedWrites += dropped;
+    }
   }
 
   Future<_CleanupStats> clear() {
@@ -330,11 +368,11 @@ class _WebGatewayRotatingLogger {
 
   Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
     final file = File(filePath);
-    if (!await file.exists()) {
+    if (!await file.exists().timeout(_writeIoTimeout)) {
       _currentSizeBytes = 0;
       return;
     }
-    final stat = await file.stat();
+    final stat = await file.stat().timeout(_writeIoTimeout);
     _currentSizeBytes = stat.size;
     final tooLarge = stat.size >= config.fileMaxBytes;
     final tooOld =
@@ -345,12 +383,16 @@ class _WebGatewayRotatingLogger {
         .toIso8601String()
         .replaceAll(':', '-')
         .replaceAll('.', '-');
-    await file.rename(p.join(directoryPath, 'web-platform-$stamp.log'));
+    await file
+        .rename(p.join(directoryPath, 'web-platform-$stamp.log'))
+        .timeout(_writeIoTimeout);
     _currentSizeBytes = 0;
     final logs = await _logFilesNewestFirst(Directory(directoryPath));
     for (final old in logs.skip(config.maxFiles)) {
       try {
-        await old.file.delete();
+        await old.file.delete().timeout(_writeIoTimeout);
+      } on TimeoutException {
+        rethrow;
       } catch (error, stack) {
         silentLog(
           'web_gateway_logger',
