@@ -9,6 +9,7 @@ import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -44,6 +45,7 @@ class AiAttachmentService {
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
+  static const int _maxPdfTextSpanMatches = 10000;
   static const int _maxAttachmentCleanupEntries = 100000;
   static const BoundedDeletePolicy _attachmentDeletePolicy =
       BoundedDeletePolicy(
@@ -366,12 +368,15 @@ class AiAttachmentService {
       mimeType: kind == AiAttachmentKind.pdf ? _pdfMimeType : null,
       // 兜底摘要只在无法提取正文时使用；未识别的新类型一律按不透明二进制描述。
       fallbackSummary: switch (kind) {
-        AiAttachmentKind.video => 'Video attachment: $normalizedName '
-            '($sizeLabel).',
-        AiAttachmentKind.audio => 'Audio attachment: $normalizedName '
-            '($sizeLabel).',
-        _ => 'Binary attachment: $normalizedName ($sizeLabel). '
-            'No structured preview is available in this runtime.',
+        AiAttachmentKind.video =>
+          'Video attachment: $normalizedName '
+              '($sizeLabel).',
+        AiAttachmentKind.audio =>
+          'Audio attachment: $normalizedName '
+              '($sizeLabel).',
+        _ =>
+          'Binary attachment: $normalizedName ($sizeLabel). '
+              'No structured preview is available in this runtime.',
       },
       describe: switch (kind) {
         AiAttachmentKind.text => () async => (
@@ -708,27 +713,20 @@ class AiAttachmentService {
   }
 
   Future<String> _readTextFile(File file, {required int characterLimit}) async {
-    final fileLength = await file.length();
-    final readLength = math.min(fileLength, maxTextRawBytes);
-    final raf = await file.open();
-    try {
-      final bytes = await raf.read(readLength);
-      final decoded = _decodeTextBytes(bytes);
-      final buffer = StringBuffer(decoded.trim());
-      if (fileLength > readLength) {
-        if (buffer.isNotEmpty) {
-          buffer
-            ..writeln()
-            ..writeln();
-        }
-        buffer.write(
-          '[preview truncated: read ${aiFormatBytes(readLength)} from ${aiFormatBytes(fileLength)}]',
-        );
+    final preview = await _readAttachmentPrefix(file, maxTextRawBytes);
+    final decoded = _decodeTextBytes(preview.bytes);
+    final buffer = StringBuffer(decoded.trim());
+    if (preview.totalBytes > preview.bytes.length) {
+      if (buffer.isNotEmpty) {
+        buffer
+          ..writeln()
+          ..writeln();
       }
-      return _truncateText(buffer.toString().trim(), characterLimit);
-    } finally {
-      await raf.close();
+      buffer.write(
+        '[preview truncated: read ${aiFormatBytes(preview.bytes.length)} from ${aiFormatBytes(preview.totalBytes)}]',
+      );
     }
+    return _truncateText(buffer.toString().trim(), characterLimit);
   }
 
   String _decodeTextBytes(List<int> bytes) {
@@ -740,53 +738,68 @@ class AiAttachmentService {
   }
 
   Future<String> _readPdfPreview(File file, int characterLimit) async {
-    final fileLength = await file.length();
-    final readLength = math.min(fileLength, maxPdfRawBytes);
-    final raf = await file.open();
+    final preview = await _readAttachmentPrefix(file, maxPdfRawBytes);
+    final latin = latin1.decode(preview.bytes, allowInvalid: true);
+    final buffer = StringBuffer();
+    var matchCount = 0;
+    for (final match in _pdfTextSpanPattern.allMatches(latin)) {
+      matchCount += 1;
+      if (matchCount > _maxPdfTextSpanMatches) break;
+      final text = _decodePdfString(match.group(1) ?? '');
+      if (text.isEmpty) continue;
+      if (buffer.isNotEmpty) {
+        buffer.writeln();
+      }
+      buffer.write(text);
+      if (buffer.length >= characterLimit) break;
+    }
+    if (buffer.isEmpty) {
+      final fallback = latin
+          .replaceAll(_pdfFallbackUnsupportedCharsPattern, ' ')
+          .replaceAll(_pdfFallbackWhitespacePattern, ' ')
+          .trim();
+      if (fallback.isNotEmpty) {
+        buffer.write(fallback);
+      }
+    }
+    if (preview.totalBytes > preview.bytes.length) {
+      buffer
+        ..writeln()
+        ..writeln()
+        ..write(
+          '[preview truncated: read ${aiFormatBytes(preview.bytes.length)} from ${aiFormatBytes(preview.totalBytes)}]',
+        );
+    }
+    return _truncateText(buffer.toString().trim(), characterLimit);
+  }
+
+  Future<({Uint8List bytes, int totalBytes})> _readAttachmentPrefix(
+    File file,
+    int maxBytes,
+  ) async {
+    final deadline = MonotonicDeadline(
+      defaultBoundedFileReadTotalTimeout,
+      timeoutMessage: '附件读取超过总时限。',
+    );
     try {
-      final bytes = await raf.read(readLength);
-      final latin = latin1.decode(bytes, allowInvalid: true);
-      final buffer = StringBuffer();
-      var matchCount = 0;
-      for (final match in _pdfTextSpanPattern.allMatches(latin)) {
-        matchCount += 1;
-        // Limit the number of regex matches to prevent excessive memory
-        // usage on maliciously crafted PDFs with thousands of text spans.
-        if (matchCount > 10000) {
-          break;
-        }
-        final text = _decodePdfString(match.group(1) ?? '');
-        if (text.isEmpty) {
-          continue;
-        }
-        if (buffer.isNotEmpty) {
-          buffer.writeln();
-        }
-        buffer.write(text);
-        if (buffer.length >= characterLimit) {
-          break;
-        }
+      final initialLength = await file.length().timeout(
+        deadline.limit(defaultBoundedFileReadIdleTimeout),
+      );
+      final remaining = deadline.remaining();
+      final bytes = await readBoundedFilePrefixBytes(
+        file,
+        maxBytes: maxBytes,
+        totalTimeout: remaining,
+      );
+      final finalLength = await file.length().timeout(
+        deadline.limit(defaultBoundedFileReadIdleTimeout),
+      );
+      if (finalLength != initialLength) {
+        throw FileSystemException('附件读取期间发生变化。', file.path);
       }
-      if (buffer.isEmpty) {
-        final fallback = latin
-            .replaceAll(_pdfFallbackUnsupportedCharsPattern, ' ')
-            .replaceAll(_pdfFallbackWhitespacePattern, ' ')
-            .trim();
-        if (fallback.isNotEmpty) {
-          buffer.write(fallback);
-        }
-      }
-      if (fileLength > readLength) {
-        buffer
-          ..writeln()
-          ..writeln()
-          ..write(
-            '[preview truncated: read ${aiFormatBytes(readLength)} from ${aiFormatBytes(fileLength)}]',
-          );
-      }
-      return _truncateText(buffer.toString().trim(), characterLimit);
+      return (bytes: bytes, totalBytes: initialLength);
     } finally {
-      await raf.close();
+      deadline.stop();
     }
   }
 
