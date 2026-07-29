@@ -422,12 +422,6 @@ class AiFileMutationLedger {
         maxEntries: _maxSessionScanEntries + _maxBlobScanEntries,
         maxDepth: 32,
       );
-  static const BoundedDeletePolicy _legacyTreeDeletePolicy =
-      BoundedDeletePolicy(
-        maxEntries: _maxLegacyMigrationEntries + 1,
-        maxDepth: 32,
-        totalTimeout: _ledgerTreeScanTimeout,
-      );
 
   /// 旧版 Blob 恢复失败记录的缓存上限，避免长会话持续增长。
   static const int _maxLegacyBlobRecoveryMisses = 4096;
@@ -557,19 +551,25 @@ class AiFileMutationLedger {
   Directory _sessionDir(String sessionId) =>
       Directory(p.join(_sessionsDir().path, _safeSessionId(sessionId)));
 
-  Future<BoundedDirectoryListing> _listSessionEntries() {
+  Future<BoundedDirectoryListing> _listSessionEntries({
+    MonotonicDeadline? deadline,
+  }) {
     return listDirectoryBounded(
       _sessionsDir(),
       maxEntries: _maxSessionScanEntries,
+      totalTimeout:
+          deadline?.remaining() ?? defaultBoundedDirectoryTotalTimeout,
     );
   }
 
-  Future<BoundedDirectoryListing> _listBlobEntries() {
+  Future<BoundedDirectoryListing> _listBlobEntries({
+    MonotonicDeadline? deadline,
+  }) {
     return listDirectoryBounded(
       _blobsDir(),
       maxEntries: _maxBlobScanEntries,
       recursive: true,
-      totalTimeout: _ledgerTreeScanTimeout,
+      totalTimeout: deadline?.remaining() ?? _ledgerTreeScanTimeout,
     );
   }
 
@@ -578,17 +578,47 @@ class AiFileMutationLedger {
   File _stateFile(String sessionId) =>
       File(p.join(_sessionDir(sessionId).path, 'state.json'));
 
-  Future<bool> _entityExists(FileSystemEntity entity) {
-    return entity.exists().timeout(_ledgerFileIoTimeout);
+  Future<bool> _entityExists(
+    FileSystemEntity entity, {
+    MonotonicDeadline? deadline,
+  }) {
+    return entity.exists().timeout(_fileIoTimeout(deadline));
   }
 
-  Future<FileStat> _entityStat(FileSystemEntity entity) {
-    return entity.stat().timeout(_ledgerFileIoTimeout);
+  Future<FileStat> _entityStat(
+    FileSystemEntity entity, {
+    MonotonicDeadline? deadline,
+  }) {
+    return entity.stat().timeout(_fileIoTimeout(deadline));
   }
 
-  Future<void> _ensureDirectory(Directory directory) async {
-    if (await _entityExists(directory)) return;
-    await directory.create(recursive: true).timeout(_ledgerFileIoTimeout);
+  Future<void> _ensureDirectory(
+    Directory directory, {
+    MonotonicDeadline? deadline,
+  }) async {
+    if (await _entityExists(directory, deadline: deadline)) return;
+    await directory.create(recursive: true).timeout(_fileIoTimeout(deadline));
+  }
+
+  Duration _fileIoTimeout(MonotonicDeadline? deadline) {
+    return deadline?.limit(_ledgerFileIoTimeout) ?? _ledgerFileIoTimeout;
+  }
+
+  Future<String> _readTextFile(
+    File file, {
+    required int maxBytes,
+    MonotonicDeadline? deadline,
+  }) {
+    if (deadline == null) {
+      return readBoundedFileString(file, maxBytes: maxBytes);
+    }
+    final totalTimeout = deadline.remaining();
+    return readBoundedFileString(
+      file,
+      maxBytes: maxBytes,
+      idleTimeout: _fileIoTimeout(deadline),
+      totalTimeout: totalTimeout,
+    );
   }
 
   /// 暴露给 UI 用：点击卡片 header 时把 ledger.jsonl 在系统
@@ -712,45 +742,67 @@ class AiFileMutationLedger {
 
   /// 一次性把 [Directory.systemTemp]/.openhand-file-history 的旧扁平结构
   /// 拷贝为 ledger 友好的 blob，丢失的元数据用合成 record 兜底。失败不
-  /// 影响主流程；仅在完整扫描后删除旧目录。
+  /// 影响主流程；仅在完整扫描且全部内容迁移成功后删除旧目录。
   Future<void> _migrateLegacyTempStorage() async {
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '迁移旧版文件历史超过总时限。',
+    );
     try {
       final legacyDir = Directory(
         p.join(Directory.systemTemp.path, '.openhand-file-history'),
       );
-      if (!await _entityExists(legacyDir)) return;
+      if (!await _entityExists(legacyDir, deadline: deadline)) return;
       // 旧布局：<hash>/<versionId>.{content,meta.json}
       final listing = await listDirectoryBounded(
         legacyDir,
         maxEntries: _maxLegacyMigrationEntries,
         recursive: true,
-        totalTimeout: _ledgerTreeScanTimeout,
+        totalTimeout: deadline.remaining(),
       );
+      var migrationComplete = !listing.truncated;
       for (final file in listing.entries.whereType<File>()) {
         if (!file.path.endsWith('.content')) continue;
+        if (deadline.isExpired) {
+          migrationComplete = false;
+          break;
+        }
         try {
-          final content = await readBoundedFileString(
+          final content = await _readTextFile(
             file,
             maxBytes: _blobRecoveryMaxBytes,
+            deadline: deadline,
           );
           await _writeBlobIfMissing(_sha256Of(content), content);
+        } on TimeoutException {
+          migrationComplete = false;
+          break;
         } catch (error, stack) {
+          migrationComplete = false;
           _logFileErrorUnlessMissing('迁移 blob', error, stack);
         }
       }
-      if (!listing.truncated) {
+      if (migrationComplete && !deadline.isExpired) {
         try {
           await deletePathBounded(
             p.absolute(legacyDir.path),
-            policy: _legacyTreeDeletePolicy,
+            policy: BoundedDeletePolicy(
+              maxEntries: _maxLegacyMigrationEntries + 1,
+              maxDepth: 32,
+              totalTimeout: deadline.remaining(),
+            ),
             allowedRoot: p.absolute(Directory.systemTemp.path),
           );
         } catch (error, stack) {
           silentLog('ai_file_mutation_ledger', '删除旧版目录', error, stack);
         }
       }
+    } on TimeoutException {
+      // 保留旧目录，后续初始化时继续迁移。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', '迁移旧版数据', error, stack);
+    } finally {
+      deadline.stop();
     }
   }
 
@@ -930,7 +982,11 @@ class AiFileMutationLedger {
   }
 
   Future<({List<FileMutationRecord> records, bool succeeded})>
-  _recordsForSessionResult(String sessionId, {bool initialize = true}) async {
+  _recordsForSessionResult(
+    String sessionId, {
+    bool initialize = true,
+    MonotonicDeadline? deadline,
+  }) async {
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) {
       return (records: const <FileMutationRecord>[], succeeded: false);
@@ -942,13 +998,14 @@ class AiFileMutationLedger {
     final ledger = _ledgerFile(normalizedSessionId);
     final records = <FileMutationRecord>[];
     try {
-      if (!await _entityExists(ledger)) {
+      if (!await _entityExists(ledger, deadline: deadline)) {
         _recordsCache.put(cacheKey, const <FileMutationRecord>[]);
         return (records: const <FileMutationRecord>[], succeeded: true);
       }
-      final content = await readBoundedFileString(
+      final content = await _readTextFile(
         ledger,
         maxBytes: _maxLedgerBytes,
+        deadline: deadline,
       );
       var hitRecordLimit = false;
       var malformedLines = 0;
@@ -991,6 +1048,8 @@ class AiFileMutationLedger {
           firstMalformedStack,
         );
       }
+    } on TimeoutException {
+      return (records: const <FileMutationRecord>[], succeeded: false);
     } catch (error, stack) {
       _logFileErrorUnlessMissing('读取账本', error, stack);
       return (records: const <FileMutationRecord>[], succeeded: false);
@@ -1376,40 +1435,54 @@ class AiFileMutationLedger {
     var sessionCount = 0;
     var recordCount = 0;
     var blobCount = 0;
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '统计文件变更账本超过总时限。',
+    );
     try {
       final sessionsRoot = Directory(p.join(_root, 'sessions'));
-      if (await _entityExists(sessionsRoot)) {
-        final listing = await _listSessionEntries();
+      if (await _entityExists(sessionsRoot, deadline: deadline)) {
+        final listing = await _listSessionEntries(deadline: deadline);
         for (final entity in listing.entries) {
+          if (deadline.isExpired) break;
           if (entity is! Directory) continue;
           sessionCount += 1;
           try {
             final ledgerFile = File(p.join(entity.path, 'ledger.jsonl'));
-            if (!await _entityExists(ledgerFile)) continue;
-            final content = await readBoundedFileString(
+            if (!await _entityExists(ledgerFile, deadline: deadline)) continue;
+            final content = await _readTextFile(
               ledgerFile,
               maxBytes: _maxLedgerBytes,
+              deadline: deadline,
             );
             for (final line in _ledgerLines(content)) {
               if (nullIfBlank(line) != null) recordCount += 1;
             }
+          } on TimeoutException {
+            break;
           } catch (error, stack) {
             _logFileErrorUnlessMissing('统计会话快照', error, stack);
           }
         }
       }
       final blobsRoot = Directory(p.join(_root, 'blobs'));
-      if (await _entityExists(blobsRoot)) {
-        final listing = await _listBlobEntries();
+      if (!deadline.isExpired &&
+          await _entityExists(blobsRoot, deadline: deadline)) {
+        final listing = await _listBlobEntries(deadline: deadline);
         for (final entity in listing.entries) {
+          if (deadline.isExpired) break;
           if (entity is File &&
               _blobShaFromFile(blob: entity, shard: entity.parent) != null) {
             blobCount += 1;
           }
         }
       }
+    } on TimeoutException {
+      // 返回时限内完成的部分统计。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', '统计账本快照', error, stack);
+    } finally {
+      deadline.stop();
     }
     return LedgerStatsSnapshot(
       sessionCount: sessionCount,
@@ -1484,21 +1557,30 @@ class AiFileMutationLedger {
   Future<int> _pruneOlderThan(Duration retention) async {
     var removed = 0;
     final pruned = <String>{};
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '清理过期文件变更记录超过总时限。',
+    );
     try {
       final cutoff = DateTime.now().subtract(retention);
       final sessions = _sessionsDir();
-      if (!await _entityExists(sessions)) return 0;
-      final listing = await _listSessionEntries();
+      if (!await _entityExists(sessions, deadline: deadline)) return 0;
+      final listing = await _listSessionEntries(deadline: deadline);
       for (final entity in listing.entries) {
+        if (deadline.isExpired) break;
         if (entity is! Directory) continue;
         final sessionId = p.basename(entity.path);
         try {
           final didPrune = await _enqueueSessionMutation(sessionId, () async {
-            final stat = await _entityStat(entity);
+            final stat = await _entityStat(entity, deadline: deadline);
             if (!stat.modified.isBefore(cutoff)) return false;
             await deletePathBounded(
               p.absolute(entity.path),
-              policy: _ledgerTreeDeletePolicy,
+              policy: BoundedDeletePolicy(
+                maxEntries: _maxSessionScanEntries + _maxBlobScanEntries,
+                maxDepth: 32,
+                totalTimeout: deadline.remaining(),
+              ),
               allowedRoot: p.absolute(sessions.path),
             );
             return true;
@@ -1507,12 +1589,18 @@ class AiFileMutationLedger {
             pruned.add(sessionId);
             removed++;
           }
+        } on TimeoutException {
+          break;
         } catch (error, stack) {
           silentLog('ai_file_mutation_ledger', '清理旧版本记录', error, stack);
         }
       }
+    } on TimeoutException {
+      // 已完成的清理保留，剩余内容下次继续处理。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', '清理旧版本记录', error, stack);
+    } finally {
+      deadline.stop();
     }
     for (final sid in pruned) {
       _invalidateSessionCache(sid);
@@ -1579,11 +1667,16 @@ class AiFileMutationLedger {
   }) async {
     if (maxVersionsPerFile <= 0) return 0;
     var removed = 0;
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '按版本上限清理文件变更记录超过总时限。',
+    );
     try {
       final sessions = _sessionsDir();
-      if (!await _entityExists(sessions)) return 0;
-      final listing = await _listSessionEntries();
+      if (!await _entityExists(sessions, deadline: deadline)) return 0;
+      final listing = await _listSessionEntries(deadline: deadline);
       for (final entity in listing.entries) {
+        if (deadline.isExpired) break;
         if (entity is! Directory) continue;
         final sessionId = p.basename(entity.path);
         removed += await _enqueueSessionMutation(
@@ -1592,11 +1685,16 @@ class AiFileMutationLedger {
             sessionId,
             maxVersionsPerFile,
             initializeRecordReads: initializeRecordReads,
+            deadline: deadline,
           ),
         );
       }
+    } on TimeoutException {
+      // 已完成的清理保留，剩余会话下次继续处理。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', '按文件版本上限清理', error, stack);
+    } finally {
+      deadline.stop();
     }
     return removed;
   }
@@ -1605,10 +1703,12 @@ class AiFileMutationLedger {
     String sessionId,
     int maxVersionsPerFile, {
     required bool initializeRecordReads,
+    MonotonicDeadline? deadline,
   }) async {
     final loaded = await _recordsForSessionResult(
       sessionId,
       initialize: initializeRecordReads,
+      deadline: deadline,
     );
     if (!loaded.succeeded) return 0;
     final records = loaded.records;
@@ -1629,6 +1729,7 @@ class AiFileMutationLedger {
         .where((record) => keepIds.contains(record.recordId))
         .toList(growable: false);
     final ledger = _ledgerFile(sessionId);
+    if (deadline?.isExpired ?? false) return 0;
     if (survivors.isEmpty) {
       await _deleteFileIfPresent(ledger, '清理账本');
     } else {
@@ -1659,19 +1760,27 @@ class AiFileMutationLedger {
   }) async {
     var removed = 0;
     var bytesFreed = 0;
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '回收文件变更 Blob 超过总时限。',
+    );
     try {
       final referenced = <String>{};
       final sessions = _sessionsDir();
-      if (await _entityExists(sessions)) {
-        final sessionListing = await _listSessionEntries();
+      if (await _entityExists(sessions, deadline: deadline)) {
+        final sessionListing = await _listSessionEntries(deadline: deadline);
         if (sessionListing.truncated) {
           return (removed: 0, bytesFreed: 0);
         }
         for (final entity in sessionListing.entries) {
+          if (deadline.isExpired) {
+            return (removed: 0, bytesFreed: 0);
+          }
           if (entity is! Directory) continue;
           final loaded = await _recordsForSessionResult(
             p.basename(entity.path),
             initialize: initializeRecordReads,
+            deadline: deadline,
           );
           if (!loaded.succeeded) {
             return (removed: 0, bytesFreed: 0);
@@ -1684,14 +1793,15 @@ class AiFileMutationLedger {
         }
       }
       final blobs = _blobsDir();
-      if (!await _entityExists(blobs)) {
+      if (!await _entityExists(blobs, deadline: deadline)) {
         return (removed: 0, bytesFreed: 0);
       }
-      final blobListing = await _listBlobEntries();
+      final blobListing = await _listBlobEntries(deadline: deadline);
       for (final blob in blobListing.entries.whereType<File>()) {
+        if (deadline.isExpired) break;
         final sha = _blobShaFromFile(blob: blob, shard: blob.parent);
         if (sha == null) {
-          final bytes = await _deleteStaleAtomicBlobArtifact(blob);
+          final bytes = await _deleteStaleAtomicBlobArtifact(blob, deadline);
           if (bytes > 0) {
             removed += 1;
             bytesFreed += bytes;
@@ -1700,7 +1810,7 @@ class AiFileMutationLedger {
         }
         if (!referenced.contains(sha)) {
           try {
-            final stat = await _entityStat(blob);
+            final stat = await _entityStat(blob, deadline: deadline);
             await blob.delete();
             removed += 1;
             bytesFreed += stat.size;
@@ -1709,8 +1819,12 @@ class AiFileMutationLedger {
           }
         }
       }
+    } on TimeoutException {
+      // 返回已完成的回收结果，剩余 Blob 下次继续处理。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', '回收未引用 blob', error, stack);
+    } finally {
+      deadline.stop();
     }
     return (removed: removed, bytesFreed: bytesFreed);
   }
@@ -1730,7 +1844,10 @@ class AiFileMutationLedger {
     return sha;
   }
 
-  Future<int> _deleteStaleAtomicBlobArtifact(File file) async {
+  Future<int> _deleteStaleAtomicBlobArtifact(
+    File file,
+    MonotonicDeadline deadline,
+  ) async {
     final fileName = p.basename(file.path);
     final isAtomicArtifact =
         fileName.endsWith('.txt.tmp') || fileName.endsWith('.txt.bak');
@@ -1738,7 +1855,7 @@ class AiFileMutationLedger {
       return 0;
     }
     try {
-      final stat = await _entityStat(file);
+      final stat = await _entityStat(file, deadline: deadline);
       final age = DateTime.now().difference(stat.modified);
       if (age < _staleAtomicArtifactAge) {
         return 0;
@@ -1905,10 +2022,10 @@ class AiFileMutationLedger {
     if (!_sha256HexPattern.hasMatch(sha)) return null;
     if (_legacyBlobRecoveryMisses.contains(sha)) return null;
     try {
-      final index = await _legacyBlobIndex();
-      final path = nullIfBlank(index[sha]);
+      final indexResult = await _legacyBlobIndex();
+      final path = nullIfBlank(indexResult.paths[sha]);
       if (path == null) {
-        _recordLegacyBlobRecoveryMiss(sha);
+        if (indexResult.complete) _recordLegacyBlobRecoveryMiss(sha);
         return null;
       }
       final file = File(path);
@@ -1947,47 +2064,68 @@ class AiFileMutationLedger {
     _legacyBlobRecoveryMisses.add(sha);
   }
 
-  Future<Map<String, String>> _legacyBlobIndex() async {
+  Future<({Map<String, String> paths, bool complete})>
+  _legacyBlobIndex() async {
     final cached = _legacyBlobPathIndex;
-    if (cached != null) return cached;
+    if (cached != null) return (paths: cached, complete: true);
     final index = <String, String>{};
     final legacyRoot = Directory(p.join(_root, 'legacy_versions'));
+    final deadline = MonotonicDeadline(
+      _ledgerTreeScanTimeout,
+      timeoutMessage: '索引旧版文件历史超过总时限。',
+    );
+    var complete = false;
     try {
-      if (!await _entityExists(legacyRoot)) {
+      if (!await _entityExists(legacyRoot, deadline: deadline)) {
         _legacyBlobPathIndex = const <String, String>{};
-        return _legacyBlobPathIndex!;
+        return (paths: _legacyBlobPathIndex!, complete: true);
       }
       var scanned = 0;
       final listing = await listDirectoryBounded(
         legacyRoot,
         maxEntries: _maxLegacyMigrationEntries,
         recursive: true,
-        totalTimeout: _ledgerTreeScanTimeout,
+        totalTimeout: deadline.remaining(),
       );
+      complete = !listing.truncated;
       for (final entity in listing.entries) {
-        if (scanned >= _legacyBlobRecoveryMaxFiles) break;
+        if (scanned >= _legacyBlobRecoveryMaxFiles || deadline.isExpired) {
+          complete = false;
+          break;
+        }
         if (entity is! File || !entity.path.endsWith('.content')) continue;
         scanned += 1;
         try {
-          final stat = await _entityStat(entity);
+          final stat = await _entityStat(entity, deadline: deadline);
           if (stat.type != FileSystemEntityType.file ||
               stat.size > _blobRecoveryMaxBytes) {
             continue;
           }
-          final content = await readBoundedFileString(
+          final content = await _readTextFile(
             entity,
             maxBytes: _blobRecoveryMaxBytes,
+            deadline: deadline,
           );
           index.putIfAbsent(_sha256Of(content), () => entity.path);
+        } on TimeoutException {
+          complete = false;
+          break;
         } catch (error, stack) {
+          complete = false;
           _logFileErrorUnlessMissing('索引旧版 blob', error, stack);
         }
       }
+    } on TimeoutException {
+      complete = false;
     } catch (error, stack) {
+      complete = false;
       silentLog('ai_file_mutation_ledger', '索引旧版 blob', error, stack);
+    } finally {
+      deadline.stop();
     }
-    _legacyBlobPathIndex = Map<String, String>.unmodifiable(index);
-    return _legacyBlobPathIndex!;
+    final immutable = Map<String, String>.unmodifiable(index);
+    if (complete) _legacyBlobPathIndex = immutable;
+    return (paths: immutable, complete: complete);
   }
 
   Future<void> _cacheRecoveredBlob(
