@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/silent_log.dart';
+import '../util/bounded_file_io.dart';
 
 /// 应用级 SQLite 持久化服务。
 class DatabaseService {
@@ -13,13 +16,16 @@ class DatabaseService {
   static Future<DatabaseService>? _initializationFuture;
   static Future<void>? _closingFuture;
   Database? _database;
-  RandomAccessFile? _instanceLock;
+  BoundedRandomAccessFileLease? _instanceLock;
 
   static const int schemaVersion = 12;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
   static const String _harnessConfigMetadataKey = 'harness_config';
+  static const Duration _fileIoTimeout = Duration(seconds: 3);
+  static const Duration _databaseOpenTimeout = Duration(minutes: 2);
+  static const Duration _databaseCloseTimeout = Duration(seconds: 10);
   static const String _createUserInstructionsTableSql = '''
     CREATE TABLE IF NOT EXISTS user_instructions (
       id              TEXT PRIMARY KEY,
@@ -64,7 +70,7 @@ class DatabaseService {
   static DatabaseService get instance {
     final inst = _instance;
     if (inst == null) {
-      throw StateError('DatabaseService has not been initialized.');
+      throw StateError('数据库服务尚未初始化。');
     }
     return inst;
   }
@@ -76,7 +82,7 @@ class DatabaseService {
   Database get database {
     final db = _database;
     if (db == null) {
-      throw StateError('Database has not been opened.');
+      throw StateError('数据库尚未打开。');
     }
     return db;
   }
@@ -130,16 +136,23 @@ class DatabaseService {
 
     final effectivePath = databasePath ?? defaultDatabasePath();
     final dbDirectory = Directory(p.dirname(effectivePath));
-    if (!await dbDirectory.exists()) {
-      await dbDirectory.create(recursive: true);
+    if (!await dbDirectory.exists().timeout(_fileIoTimeout)) {
+      await dbDirectory.create(recursive: true).timeout(_fileIoTimeout);
     }
 
     final service = DatabaseService._();
-    final lock = await File('$effectivePath.lock').open(mode: FileMode.append);
+    final lock = await openBoundedRandomAccessFileLease(
+      File('$effectivePath.lock'),
+      mode: FileMode.append,
+      timeout: _fileIoTimeout,
+    );
+    var releaseLockOnFailure = true;
     try {
-      await lock.lock();
+      await lock.run<void>((file) async {
+        await file.lock();
+      }, timeout: _fileIoTimeout);
       service._instanceLock = lock;
-      service._database = await effectiveFactory.openDatabase(
+      final opening = effectiveFactory.openDatabase(
         effectivePath,
         options: OpenDatabaseOptions(
           version: schemaVersion,
@@ -148,20 +161,35 @@ class DatabaseService {
           onConfigure: _onConfigure,
         ),
       );
+      try {
+        service._database = await opening.timeout(_databaseOpenTimeout);
+      } on TimeoutException {
+        releaseLockOnFailure = false;
+        unawaited(_cleanupLateDatabaseOpen(opening, lock));
+        rethrow;
+      }
       _instance = service;
       return service;
-    } catch (error) {
-      try {
-        await lock.close();
-      } catch (_) {
-        // 保留首次初始化异常，避免后续调用误判成功。
-      }
+    } catch (error, stack) {
+      if (releaseLockOnFailure) await lock.cleanup();
       if (service._instanceLock == null && error is FileSystemException) {
-        throw StateError(
-          'Another OpenHand instance is already using $effectivePath.',
-        );
+        throw StateError('另一个 OpenHand 实例正在使用数据库：$effectivePath');
       }
-      rethrow;
+      Error.throwWithStackTrace(error, stack);
+    }
+  }
+
+  static Future<void> _cleanupLateDatabaseOpen(
+    Future<Database> opening,
+    BoundedRandomAccessFileLease lock,
+  ) async {
+    try {
+      final database = await opening;
+      await database.close();
+    } catch (error, stack) {
+      silentLog('database_service', '清理延迟打开的数据库', error, stack);
+    } finally {
+      await lock.cleanup();
     }
   }
 
@@ -183,22 +211,58 @@ class DatabaseService {
   Future<void> _close() async {
     final database = _database;
     final lock = _instanceLock;
+    var releaseLockImmediately = true;
     try {
-      await database?.close();
+      if (database != null) {
+        final closing = database.close();
+        try {
+          await closing.timeout(_databaseCloseTimeout);
+        } on TimeoutException {
+          releaseLockImmediately = false;
+          unawaited(_releaseLockAfterDatabaseClose(closing, lock));
+          rethrow;
+        }
+      }
     } finally {
       try {
-        if (lock != null) {
-          try {
-            await lock.unlock();
-          } finally {
-            await lock.close();
-          }
+        if (releaseLockImmediately) {
+          await _releaseInstanceLock(lock);
         }
       } finally {
         _database = null;
         _instanceLock = null;
         if (identical(_instance, this)) _instance = null;
       }
+    }
+  }
+
+  static Future<void> _releaseLockAfterDatabaseClose(
+    Future<void> closing,
+    BoundedRandomAccessFileLease? lock,
+  ) async {
+    try {
+      await closing;
+    } catch (error, stack) {
+      silentLog('database_service', '等待延迟关闭的数据库', error, stack);
+    }
+    try {
+      await _releaseInstanceLock(lock);
+    } catch (error, stack) {
+      silentLog('database_service', '释放延迟关闭的数据库锁', error, stack);
+    }
+  }
+
+  static Future<void> _releaseInstanceLock(
+    BoundedRandomAccessFileLease? lock,
+  ) async {
+    if (lock == null) return;
+    try {
+      await lock.run<void>((file) async {
+        await file.unlock();
+      }, timeout: _fileIoTimeout);
+      await lock.close(timeout: _fileIoTimeout);
+    } finally {
+      await lock.cleanup();
     }
   }
 
