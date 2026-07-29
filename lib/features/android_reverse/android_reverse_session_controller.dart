@@ -9,6 +9,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -39,6 +40,8 @@ const Duration _kStaticStringsTimeout = Duration(seconds: 24);
 const Duration _kStaticDecompileTimeout = Duration(minutes: 3);
 const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
+const int _kStaticQuickScanPreviewMaxBytes = 256 * 1024;
+const int _kStaticQuickScanPreviewLineMaxCharacters = 4000;
 const int _kNetworkCaptureTranscriptMaxChars = 24000;
 const List<String> _kAndroidReverseMcpVisibleTemplateIds = <String>[
   'android_reverse_expert',
@@ -2185,6 +2188,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final buffer = StringBuffer()
       ..writeln('Static quick scan output: ${outputDir.path}')
       ..writeln('exit: ${result.exitCode}');
+    final deadline = MonotonicDeadline(
+      _kStaticArtifactReadTimeout,
+      timeoutMessage: '静态快速扫描摘要读取超时。',
+    );
     if (timedOut) {
       buffer.writeln(
         'status: timed out; partial artifacts may still be useful',
@@ -2211,24 +2218,49 @@ class AndroidReverseSessionController extends ChangeNotifier {
       'network_sources.txt',
       'interesting_strings.txt',
     ];
-    for (final name in files) {
-      final file = File('${outputDir.path}/$name');
-      if (!await file.exists()) continue;
-      final lines = await file
-          .openRead()
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .take(_kStaticQuickScanPreviewLines)
-          .toList();
+    try {
+      for (final name in files) {
+        final file = File('${outputDir.path}/$name');
+        if (!await file.exists().timeout(
+          deadline.limit(defaultBoundedFileReadIdleTimeout),
+        )) {
+          continue;
+        }
+        buffer
+          ..writeln()
+          ..writeln('## $name');
+        try {
+          final preview = await readBoundedUtf8Lines(
+            file,
+            startLine: 1,
+            maxLines: _kStaticQuickScanPreviewLines,
+            maxScanBytes: _kStaticQuickScanPreviewMaxBytes,
+            maxLineCharacters: _kStaticQuickScanPreviewLineMaxCharacters,
+            idleTimeout: deadline.limit(defaultBoundedFileReadIdleTimeout),
+            totalTimeout: deadline.remaining(),
+          );
+          if (preview.lines.isEmpty) {
+            buffer.writeln('(empty)');
+          } else {
+            buffer
+              ..write(preview.lines.join('\n'))
+              ..writeln();
+          }
+        } on FileSystemException catch (error, stack) {
+          silentLog(_kTag, '读取静态快速扫描摘要文件失败', error, stack);
+          buffer.writeln('(unavailable)');
+        } on BoundedFileReadException catch (error, stack) {
+          silentLog(_kTag, '读取静态快速扫描摘要文件失败', error, stack);
+          buffer.writeln('(unavailable)');
+        }
+      }
+    } on TimeoutException catch (error, stack) {
+      silentLog(_kTag, '读取静态快速扫描摘要超时', error, stack);
       buffer
         ..writeln()
-        ..writeln('## $name');
-      if (lines.isEmpty) {
-        buffer.writeln('(empty)');
-      } else {
-        buffer.write(lines.join('\n'));
-        buffer.writeln();
-      }
+        ..writeln('(remaining previews unavailable)');
+    } finally {
+      deadline.stop();
     }
     final stderr = result.stderr.toString().trim();
     if (stderr.isNotEmpty) {

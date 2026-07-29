@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'byte_size_format.dart';
+import 'text_clip.dart';
 
 const int _boundedFileReadChunkBytes = 64 * 1024;
 const Duration _boundedFileCleanupTimeout = Duration(seconds: 2);
@@ -448,6 +449,59 @@ Future<Uint8List> readBoundedFilePrefixBytes(
     truncateToMaxBytes: true,
     handleOwner: handleOwner,
   );
+}
+
+final class BoundedTextLineReadResult {
+  const BoundedTextLineReadResult({
+    required this.lines,
+    required this.truncated,
+  });
+
+  final List<String> lines;
+  final bool truncated;
+}
+
+/// 在文件前缀、行数、单行长度和时间限制内读取 UTF-8 行范围。
+Future<BoundedTextLineReadResult> readBoundedUtf8Lines(
+  File file, {
+  required int startLine,
+  required int maxLines,
+  required int maxScanBytes,
+  required int maxLineCharacters,
+  Duration idleTimeout = defaultBoundedFileReadIdleTimeout,
+  Duration totalTimeout = defaultBoundedFileReadTotalTimeout,
+}) async {
+  requirePositiveInt(startLine, 'startLine');
+  requirePositiveInt(maxLines, 'maxLines');
+  requirePositiveInt(maxScanBytes, 'maxScanBytes');
+  requirePositiveInt(maxLineCharacters, 'maxLineCharacters');
+
+  final bytes = await readBoundedFilePrefixBytes(
+    file,
+    maxBytes: maxScanBytes + 1,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
+  final scanLimitReached = bytes.length > maxScanBytes;
+  final retainedBytes = scanLimitReached
+      ? Uint8List.sublistView(bytes, 0, maxScanBytes)
+      : bytes;
+  final decoded = utf8.decode(retainedBytes, allowMalformed: true);
+  final lines = <String>[];
+  var lineNumber = 0;
+  var truncated = scanLimitReached;
+  for (final line in LineSplitter.split(decoded)) {
+    lineNumber += 1;
+    if (lineNumber < startLine) continue;
+    if (lines.length >= maxLines) {
+      truncated = true;
+      break;
+    }
+    final clipped = clipText(line, maxLineCharacters, suffix: '');
+    if (clipped.length != line.length) truncated = true;
+    lines.add(clipped);
+  }
+  return BoundedTextLineReadResult(lines: lines, truncated: truncated);
 }
 
 /// Reads and decodes a bounded text file without first allowing an arbitrary

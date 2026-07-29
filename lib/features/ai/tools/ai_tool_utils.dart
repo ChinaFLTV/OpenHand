@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -1420,12 +1419,7 @@ class AiToolUtils {
   static Future<List<int>> readFilePrefix(File file, int fileLength) async {
     final byteLimit = fileLength < maxReadBytes ? fileLength : maxReadBytes;
     if (byteLimit <= 0) return const <int>[];
-    final builder = BytesBuilder(copy: false);
-    await for (final chunk in file.openRead(0, byteLimit)) {
-      builder.add(chunk);
-      if (builder.length >= byteLimit) break;
-    }
-    return builder.takeBytes();
+    return readBoundedFilePrefixBytes(file, maxBytes: byteLimit);
   }
 
   static String decodeTextBytes(List<int> bytes) {

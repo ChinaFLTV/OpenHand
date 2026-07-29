@@ -146,30 +146,20 @@ class AiFileReadRenderer {
     required int limit,
   }) async {
     final startLine = offset <= 1 ? 1 : offset;
-    final visibleLines = <String>[];
-    var lineNumber = 0;
-    var hasMoreLines = false;
-    await for (final line
-        in file
-            .openRead()
-            .transform(const Utf8Decoder(allowMalformed: true))
-            .transform(const LineSplitter())) {
-      lineNumber += 1;
-      if (lineNumber < startLine) continue;
-      if (visibleLines.length < limit) {
-        visibleLines.add(line);
-        continue;
-      }
-      hasMoreLines = true;
-      break;
-    }
+    final result = await readBoundedUtf8Lines(
+      file,
+      startLine: startLine,
+      maxLines: limit,
+      maxScanBytes: AiToolUtils.maxReadBytes,
+      maxLineCharacters: AiToolUtils.maxReadLineLength + 1,
+    );
 
     return RenderedReadContent(
-      content: visibleLines.join('\n'),
+      content: result.lines.join('\n'),
       fileKind: extension.isEmpty ? 'text' : extension,
       renderMode: 'text',
       lineAddressable: true,
-      truncated: startLine > 1 || hasMoreLines,
+      truncated: startLine > 1 || result.truncated,
       lineRangeApplied: true,
       lineNumberStart: startLine,
     );
