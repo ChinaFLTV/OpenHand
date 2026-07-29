@@ -858,9 +858,9 @@ class AiTransportClient {
     required int responseLimit,
     required Duration Function() remainingBudget,
   }) async {
-    RandomAccessFile? output;
-    Future<void>? outputClose;
+    BoundedRandomAccessFileLease? output;
     var removeDestinationOnExit = false;
+    var deleteOnRelease = true;
     try {
       final destinationExists = await _runWithinBudget(
         remainingBudget,
@@ -878,57 +878,71 @@ class AiTransportClient {
         () => destination.parent.create(recursive: true),
         'Creating the download directory timed out.',
       );
-      final openedOutput = await _openDownloadDestination(
+      final openedOutput = await openBoundedRandomAccessFileLease(
         destination,
-        remainingBudget,
+        mode: FileMode.writeOnly,
+        timeout: _requireRemainingBudget(remainingBudget),
+        deleteIfOpenCompletesLate: true,
+        release: (file) async {
+          await file.close();
+          if (deleteOnRelease &&
+              await destination.exists().timeout(_fileCleanupTimeout)) {
+            await destination.delete().timeout(_fileCleanupTimeout);
+          }
+        },
       );
       output = openedOutput;
       removeDestinationOnExit = true;
       final remaining = _requireRemainingBudget(remainingBudget);
       final bytesWritten = await writeBoundedByteStream(
         response.stream,
-        writeChunk: openedOutput.writeFrom,
+        writeChunk: (chunk) => openedOutput.run<void>(
+          (file) async {
+            await file.writeFrom(chunk);
+          },
+          timeout: shorterDuration(
+            _responseIdleTimeout,
+            _requireRemainingBudget(remainingBudget),
+          ),
+        ),
         maxBytes: responseLimit,
         idleTimeout: shorterDuration(_responseIdleTimeout, remaining),
         totalTimeout: remaining,
       );
-      await _runWithinBudget(
-        remainingBudget,
-        openedOutput.flush,
-        'Flushing the downloaded file timed out.',
+      await openedOutput.run<void>(
+        (file) async {
+          await file.flush();
+        },
+        timeout: shorterDuration(
+          _responseIdleTimeout,
+          _requireRemainingBudget(remainingBudget),
+        ),
       );
-      final closeFuture = openedOutput.close();
-      outputClose = closeFuture;
-      await closeFuture.timeout(
-        _requireRemainingBudget(remainingBudget),
-        onTimeout: () =>
-            throw TimeoutException('Closing the downloaded file timed out.'),
-      );
+      deleteOnRelease = false;
+      try {
+        await openedOutput.close(
+          timeout: _requireRemainingBudget(remainingBudget),
+        );
+      } catch (_) {
+        deleteOnRelease = true;
+        rethrow;
+      }
       output = null;
-      outputClose = null;
       removeDestinationOnExit = false;
       return bytesWritten;
     } catch (_) {
       _cancelResponseStream(response.stream);
       rethrow;
     } finally {
-      final activeOutput = output;
-      if (activeOutput != null) {
-        try {
-          await (outputClose ?? activeOutput.close()).timeout(
-            _fileCleanupTimeout,
-          );
-        } catch (_) {
-          // Preserve the primary transport or file error.
-        }
-      }
+      deleteOnRelease = output != null;
+      await output?.cleanup();
       if (removeDestinationOnExit) {
         try {
           if (await destination.exists().timeout(_fileCleanupTimeout)) {
             await destination.delete().timeout(_fileCleanupTimeout);
           }
         } catch (_) {
-          // Partial-file cleanup is best effort and must remain bounded.
+          // 半成品清理保持有界，不能覆盖主要下载错误。
         }
       }
     }
@@ -958,46 +972,6 @@ class AiTransportClient {
       remaining,
       onTimeout: () => throw TimeoutException(timeoutMessage, remaining),
     );
-  }
-
-  Future<RandomAccessFile> _openDownloadDestination(
-    File destination,
-    Duration Function() remainingBudget,
-  ) async {
-    final remaining = _requireRemainingBudget(remainingBudget);
-    final openFuture = destination.open(mode: FileMode.writeOnly);
-    try {
-      return await openFuture.timeout(
-        remaining,
-        onTimeout: () => throw TimeoutException(
-          'Opening the download destination timed out.',
-          remaining,
-        ),
-      );
-    } on TimeoutException {
-      unawaited(_cleanupLateOpenedDestination(openFuture, destination));
-      rethrow;
-    }
-  }
-
-  Future<void> _cleanupLateOpenedDestination(
-    Future<RandomAccessFile> openFuture,
-    File destination,
-  ) async {
-    try {
-      final output = await openFuture;
-      await output.close().timeout(_fileCleanupTimeout);
-    } catch (_) {
-      // A timed-out resource acquisition must never surface a late cleanup
-      // failure or retain an open handle indefinitely.
-    }
-    try {
-      if (await destination.exists().timeout(_fileCleanupTimeout)) {
-        await destination.delete().timeout(_fileCleanupTimeout);
-      }
-    } catch (_) {
-      // The caller has already received the timeout; cleanup stays best effort.
-    }
   }
 
   Duration _requireRemainingBudget(Duration Function() remainingBudget) {
