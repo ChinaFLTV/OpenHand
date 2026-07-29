@@ -3297,6 +3297,35 @@ _ComposerOverlayLayout _resolveComposerOverlayLayout(
   );
 }
 
+void _scrollComposerOverlaySelectionIntoView({
+  required ScrollController controller,
+  required int selectedIndex,
+  required double itemExtent,
+}) {
+  if (!controller.hasClients || selectedIndex < 0 || itemExtent <= 0) return;
+  final position = controller.position;
+  final target = selectedIndex * itemExtent;
+  final viewportStart = controller.offset;
+  final viewportEnd = viewportStart + position.viewportDimension;
+  if (target < viewportStart) {
+    controller.animateTo(
+      target.clamp(0.0, position.maxScrollExtent),
+      duration: kOpenHandMotion120,
+      curve: Curves.easeOutCubic,
+    );
+    return;
+  }
+  if (target + itemExtent <= viewportEnd) return;
+  controller.animateTo(
+    (target + itemExtent - position.viewportDimension).clamp(
+      0.0,
+      position.maxScrollExtent,
+    ),
+    duration: kOpenHandMotion120,
+    curve: Curves.easeOutCubic,
+  );
+}
+
 class _AtMentionOverlayPanel extends StatefulWidget {
   const _AtMentionOverlayPanel({
     required this.link,
@@ -3350,31 +3379,10 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
   void didUpdateWidget(covariant _AtMentionOverlayPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex) {
-      _scrollSelectionIntoView();
-    }
-  }
-
-  void _scrollSelectionIntoView() {
-    if (!_listController.hasClients) return;
-    final target = widget.selectedIndex * _estimatedItemExtent;
-    final viewportStart = _listController.offset;
-    final viewportEnd =
-        viewportStart + _listController.position.viewportDimension;
-    if (target < viewportStart) {
-      _listController.animateTo(
-        target,
-        duration: kOpenHandMotion120,
-        curve: Curves.easeOutCubic,
-      );
-    } else if (target + _estimatedItemExtent > viewportEnd) {
-      final next =
-          target +
-          _estimatedItemExtent -
-          _listController.position.viewportDimension;
-      _listController.animateTo(
-        next.clamp(0.0, _listController.position.maxScrollExtent),
-        duration: kOpenHandMotion120,
-        curve: Curves.easeOutCubic,
+      _scrollComposerOverlaySelectionIntoView(
+        controller: _listController,
+        selectedIndex: widget.selectedIndex,
+        itemExtent: _estimatedItemExtent,
       );
     }
   }
@@ -3788,9 +3796,7 @@ class _SkillPickerOverlayPanel extends StatefulWidget {
 
 class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
   final ScrollController _listController = ScrollController();
-  // Approximate pixel height of a single item in the list so keyboard
-  // navigation can scroll the highlighted entry into view.  Kept in sync
-  // with the `Padding` values used in `itemBuilder` below.
+  // 单项估算高度需与列表项内边距同步，用于键盘选中项自动滚入视口。
   static const double _estimatedItemExtent = 54.0;
 
   @override
@@ -3803,31 +3809,10 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
   void didUpdateWidget(covariant _SkillPickerOverlayPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex) {
-      _scrollSelectionIntoView();
-    }
-  }
-
-  void _scrollSelectionIntoView() {
-    if (!_listController.hasClients) return;
-    final target = widget.selectedIndex * _estimatedItemExtent;
-    final viewportStart = _listController.offset;
-    final viewportEnd =
-        viewportStart + _listController.position.viewportDimension;
-    if (target < viewportStart) {
-      _listController.animateTo(
-        target,
-        duration: kOpenHandMotion120,
-        curve: Curves.easeOutCubic,
-      );
-    } else if (target + _estimatedItemExtent > viewportEnd) {
-      final next =
-          target +
-          _estimatedItemExtent -
-          _listController.position.viewportDimension;
-      _listController.animateTo(
-        next.clamp(0.0, _listController.position.maxScrollExtent),
-        duration: kOpenHandMotion120,
-        curve: Curves.easeOutCubic,
+      _scrollComposerOverlaySelectionIntoView(
+        controller: _listController,
+        selectedIndex: widget.selectedIndex,
+        itemExtent: _estimatedItemExtent,
       );
     }
   }

@@ -1505,11 +1505,11 @@ class AiAgentTool extends AiTool {
     );
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
-    final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
-    final state = _taskStateJson(
+    final tracking = _taskTrackingFields(
+      resolved.agent!,
       task,
-      agent: resolved.agent,
+      recovery: resolved.recovery,
       callableAgentToolNames: callableAgentToolNames,
     );
     return _success(
@@ -1523,29 +1523,11 @@ class AiAgentTool extends AiTool {
           agent: resolved.agent,
           callableAgentToolNames: callableAgentToolNames,
         ),
-        if (resolved.recovery != null) 'resolution': resolved.recovery,
-        'state': state,
-        'next_action': state['next_action'],
-        'allowed_tools': state['allowed_tools'],
-        if (state['terminal_reason'] != null)
-          'terminal_reason': state['terminal_reason'],
-        'result_available': task.hasResult,
+        ...tracking,
         'handoff': _taskHandoffJson(
           task,
           agent: resolved.agent,
           callableAgentToolNames: callableAgentToolNames,
-        ),
-        if (_taskNextPollJson(
-              task,
-              agent: resolved.agent,
-              callableAgentToolNames: callableAgentToolNames,
-            )
-            case final nextPoll?)
-          'next_poll': nextPoll,
-        if (assignedWorker != null) 'assigned_worker': assignedWorker,
-        'operational_summary': _taskOperationalSummaryJson(
-          resolved.agent!,
-          task,
         ),
       },
       stopwatch,
@@ -1572,38 +1554,20 @@ class AiAgentTool extends AiTool {
     );
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
-    final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
-    final state = _taskStateJson(
+    final tracking = _taskTrackingFields(
+      resolved.agent!,
       task,
-      agent: resolved.agent,
+      recovery: resolved.recovery,
       callableAgentToolNames: callableAgentToolNames,
     );
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
         'task_id': task.id,
-        if (resolved.recovery != null) 'resolution': resolved.recovery,
         'status': task.status.storageValue,
         'progress': task.progress,
-        'state': state,
-        'next_action': state['next_action'],
-        'allowed_tools': state['allowed_tools'],
-        if (state['terminal_reason'] != null)
-          'terminal_reason': state['terminal_reason'],
-        'result_available': task.hasResult,
-        if (_taskNextPollJson(
-              task,
-              agent: resolved.agent,
-              callableAgentToolNames: callableAgentToolNames,
-            )
-            case final nextPoll?)
-          'next_poll': nextPoll,
-        if (assignedWorker != null) 'assigned_worker': assignedWorker,
-        'operational_summary': _taskOperationalSummaryJson(
-          resolved.agent!,
-          task,
-        ),
+        ...tracking,
         'updated_at': _iso(task.updatedAt),
       },
       stopwatch,
@@ -3508,6 +3472,38 @@ Map<String, Object?> _taskStateJson(
     if (_taskRetryJson(task) case final retry?) 'retry': retry,
     if (terminalReason != null) 'terminal_reason': terminalReason,
     if (canPoll) 'recommended_poll_ms': agentTaskRecommendedPollMs,
+  };
+}
+
+Map<String, Object?> _taskTrackingFields(
+  AgentProfile agent,
+  AgentTask task, {
+  required Map<String, Object?>? recovery,
+  required Set<String> callableAgentToolNames,
+}) {
+  final state = _taskStateJson(
+    task,
+    agent: agent,
+    callableAgentToolNames: callableAgentToolNames,
+  );
+  final assignedWorker = _assignedWorkerJson(agent, task);
+  return <String, Object?>{
+    if (recovery != null) 'resolution': recovery,
+    'state': state,
+    'next_action': state['next_action'],
+    'allowed_tools': state['allowed_tools'],
+    if (state['terminal_reason'] != null)
+      'terminal_reason': state['terminal_reason'],
+    'result_available': task.hasResult,
+    if (_taskNextPollJson(
+          task,
+          agent: agent,
+          callableAgentToolNames: callableAgentToolNames,
+        )
+        case final nextPoll?)
+      'next_poll': nextPoll,
+    if (assignedWorker != null) 'assigned_worker': assignedWorker,
+    'operational_summary': _taskOperationalSummaryJson(agent, task),
   };
 }
 

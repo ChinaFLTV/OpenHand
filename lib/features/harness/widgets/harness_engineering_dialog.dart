@@ -1385,6 +1385,64 @@ String? _harnessResolvedDropdownModelValue(
       : null;
 }
 
+List<DropdownMenuItem<String>> _harnessCliDropdownItems(
+  BuildContext context, {
+  required List<CliScanEntry> scanResults,
+  required bool isCheckingAuth,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return scanResults
+      .where((entry) => entry.cli.supportsHeadless)
+      .map((entry) {
+        Widget? loginIcon;
+        if (entry.installed && entry.cli.hasLoginCheck) {
+          if (isCheckingAuth) {
+            loginIcon = const SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            );
+          } else if (entry.isLoggedIn == true) {
+            loginIcon = Icon(
+              Icons.check_circle_rounded,
+              size: 11,
+              color: Colors.green.shade600,
+            );
+          } else if (entry.isLoggedIn == false) {
+            loginIcon = Icon(
+              Icons.cancel_rounded,
+              size: 11,
+              color: Colors.orange.shade700,
+            );
+          }
+        }
+        return DropdownMenuItem<String>(
+          value: entry.cli.name,
+          child: Row(
+            children: [
+              Icon(
+                entry.installed ? Icons.circle_rounded : Icons.circle_outlined,
+                size: 10,
+                color: entry.installed
+                    ? colorScheme.primary
+                    : colorScheme.outline,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  entry.cli.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              if (loginIcon != null) ...[const SizedBox(width: 4), loginIcon],
+            ],
+          ),
+        );
+      })
+      .toList(growable: false);
+}
+
 class _RoleConfigRow extends StatelessWidget {
   const _RoleConfigRow({
     super.key,
@@ -1439,62 +1497,6 @@ class _RoleConfigRow extends StatelessWidget {
   CliScanEntry? get _selectedEntry => selectedCli == null
       ? null
       : scanResults.where((r) => r.cli.name == selectedCli).firstOrNull;
-
-  List<DropdownMenuItem<String>> _buildCliItems(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return scanResults
-        .where((e) => e.cli.supportsHeadless)
-        .map((entry) {
-          Widget? loginIcon;
-          if (entry.installed && entry.cli.hasLoginCheck) {
-            if (isCheckingAuth) {
-              loginIcon = const SizedBox(
-                width: 10,
-                height: 10,
-                child: CircularProgressIndicator(strokeWidth: 1.5),
-              );
-            } else if (entry.isLoggedIn == true) {
-              loginIcon = Icon(
-                Icons.check_circle_rounded,
-                size: 11,
-                color: Colors.green.shade600,
-              );
-            } else if (entry.isLoggedIn == false) {
-              loginIcon = Icon(
-                Icons.cancel_rounded,
-                size: 11,
-                color: Colors.orange.shade700,
-              );
-            }
-          }
-          return DropdownMenuItem<String>(
-            value: entry.cli.name,
-            child: Row(
-              children: [
-                Icon(
-                  entry.installed
-                      ? Icons.circle_rounded
-                      : Icons.circle_outlined,
-                  size: 10,
-                  color: entry.installed
-                      ? colorScheme.primary
-                      : colorScheme.outline,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    entry.cli.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-                if (loginIcon != null) ...[const SizedBox(width: 4), loginIcon],
-              ],
-            ),
-          );
-        })
-        .toList(growable: false);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1593,7 +1595,11 @@ class _RoleConfigRow extends StatelessWidget {
                   child: _CompactDropdown<String>(
                     label: _harnessEngineeCliClientLabel(context),
                     value: selectedCli,
-                    items: _buildCliItems(context),
+                    items: _harnessCliDropdownItems(
+                      context,
+                      scanResults: scanResults,
+                      isCheckingAuth: isCheckingAuth,
+                    ),
                     onChanged: onCliChanged,
                   ),
                 ),
@@ -1942,61 +1948,11 @@ class _QuickApplyBar extends StatelessWidget {
     final isUrlMode = executionMode == HarnessExecutionMode.url;
     final cliItems = isUrlMode
         ? const <DropdownMenuItem<String>>[]
-        : scanResults
-              .where((e) => e.cli.supportsHeadless)
-              .map((entry) {
-                Widget? loginIcon;
-                if (entry.installed && entry.cli.hasLoginCheck) {
-                  if (isCheckingAuth) {
-                    loginIcon = const SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
-                    );
-                  } else if (entry.isLoggedIn == true) {
-                    loginIcon = Icon(
-                      Icons.check_circle_rounded,
-                      size: 11,
-                      color: Colors.green.shade600,
-                    );
-                  } else if (entry.isLoggedIn == false) {
-                    loginIcon = Icon(
-                      Icons.cancel_rounded,
-                      size: 11,
-                      color: Colors.orange.shade700,
-                    );
-                  }
-                }
-                return DropdownMenuItem<String>(
-                  value: entry.cli.name,
-                  child: Row(
-                    children: [
-                      Icon(
-                        entry.installed
-                            ? Icons.circle_rounded
-                            : Icons.circle_outlined,
-                        size: 10,
-                        color: entry.installed
-                            ? colorScheme.primary
-                            : colorScheme.outline,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          entry.cli.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      if (loginIcon != null) ...[
-                        const SizedBox(width: 4),
-                        loginIcon,
-                      ],
-                    ],
-                  ),
-                );
-              })
-              .toList(growable: false);
+        : _harnessCliDropdownItems(
+            context,
+            scanResults: scanResults,
+            isCheckingAuth: isCheckingAuth,
+          );
 
     // 提前构建下拉数据，避免在组件树内重复创建临时组件。
     final cliModels = isUrlMode ? const <String>[] : modelsForCli(selectedCli);
