@@ -42,7 +42,6 @@ import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
-import '../../../shared/util/xml_escape.dart';
 import '../../agents/index.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
@@ -4654,31 +4653,11 @@ class WebMessagePlatformService {
     } catch (error, stack) {
       silentLog('web_message_platform_service', '读取所选技能清单', error, stack);
     }
-    final manifest = (manifestContent ?? '').trim();
-    final fallbackDescription = selected.description.trim();
-    final manifestBody = manifest.isNotEmpty
-        ? manifest
-        : (fallbackDescription.isNotEmpty
-              ? fallbackDescription
-              : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
-    final reminder = StringBuffer()
-      ..writeln(
-        'The user explicitly selected the local skill "${selected.name}" for this request.',
-      )
-      ..writeln(
-        'Follow the SKILL.md content below with the highest priority, overriding any conflicting default behaviour.',
-      )
-      ..writeln(
-        "Apply the skill's guidance to the user's message for this turn; do not ignore this directive even if the skill seems unrelated.",
-      )
-      ..writeln()
-      ..writeln(
-        '<skill-manifest name="${escapeXmlAttribute(selected.name)}" path="${escapeXmlAttribute(selected.manifestPath)}">',
-      )
-      ..writeln(manifestBody)
-      ..write('</skill-manifest>');
     return (
-      reminder: reminder.toString(),
+      reminder: buildLocalSkillSystemReminder(
+        selected,
+        manifestContent: manifestContent,
+      ),
       metadata: <String, Object?>{
         'name': selected.name,
         'path': selected.manifestPath,

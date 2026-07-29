@@ -595,7 +595,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
         ),
 
         const SizedBox(height: 16),
-        ..._buildTelemetrySection(context, theme, colorScheme, v),
+        ..._buildTelemetrySection(context, theme, colorScheme),
       ],
     );
   }
@@ -607,7 +607,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
     BuildContext context,
     ThemeData theme,
     ColorScheme colorScheme,
-    AiWebSearchSettings v,
   ) {
     final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
     return [

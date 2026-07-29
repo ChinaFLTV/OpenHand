@@ -216,27 +216,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   int _atMentionTriggerOffset = -1;
   String _atMentionCurrentDirectory = '';
   String? _atMentionRestoreSelectionRelativePath;
-  // Breadcrumb path segments for directory drilling.
+  // 目录下钻的面包屑路径。
   List<String> _atMentionBreadcrumbs = const [];
   bool _atMentionLoading = false;
   bool _atMentionSuppressListener = false;
   int _atMentionSearchGeneration = 0;
   _AtMentionOverlayMode _atMentionOverlayMode =
       _AtMentionOverlayMode.projectFiles;
-  // Remembers the active '@query' prefix that the user explicitly dismissed,
-  // so continuing to type within the same trigger cycle will not immediately
-  // reopen the overlay.
+  // 记住主动关闭的查询，避免继续输入时立即重开浮层。
   _ComposerTriggerDismissal? _atMentionDismissal;
-  // Project file/directory references selected via the @ mention overlay.
+  // 通过 @ 浮层选择的项目路径。
   List<_AtMentionItem> _projectFileReferences = [];
 
-  // ── Skill picker (leading `/` slash trigger) ──
-  // When the text in the composer begins with '/', a picker overlay is
-  // presented that lists locally installed skills. Selecting a skill strips
-  // the leading '/…' token from the composer and attaches the skill as a
-  // removable chip.  When sending, the skill's SKILL.md content is injected
-  // as a `<system-reminder>`/`<skill-manifest>` block ahead of the user's
-  // prompt so every thread template can honour the explicit selection.
+  // 输入以 `/` 开头时展示技能选择器，发送时通过隐藏提醒注入技能清单。
   LocalSkill? _selectedSkill;
   String? _selectedSkillManifest;
   int _slashTriggerOffset = -1;
@@ -1187,40 +1179,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     );
   }
 
-  /// Consumes the currently-selected skill (if any) and returns a single
-  /// `<system-reminder>` payload string that should be appended to the
-  /// outgoing LLM prompt.  The selection chip is cleared as a side effect so
-  /// the skill applies only to the turn being submitted.  The visible
-  /// composer text is **never** mutated, ensuring the stored user message
-  /// rendered in the transcript bubble stays free of injected manifest XML.
+  /// 消费当前技能并生成本轮隐藏提醒，不修改输入框与会话展示文本。
   String? consumePendingSkillReminder() {
     final skill = _selectedSkill;
     if (skill == null) return null;
-    final manifest = (_selectedSkillManifest ?? '').trim();
-    final fallbackDescription = skill.description.trim();
-    final manifestBody = manifest.isNotEmpty
-        ? manifest
-        : (fallbackDescription.isNotEmpty
-              ? fallbackDescription
-              : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
-    final buffer = StringBuffer()
-      ..writeln(
-        'The user explicitly selected the local skill "${skill.name}" for this request.',
-      )
-      ..writeln(
-        'Follow the SKILL.md content below with the highest priority, overriding any conflicting default behaviour.',
-      )
-      ..writeln(
-        "Apply the skill's guidance to the user's message for this turn; do not ignore this directive even if the skill seems unrelated.",
-      )
-      ..writeln()
-      ..writeln(
-        '<skill-manifest name="${escapeXmlAttribute(skill.name)}" path="${escapeXmlAttribute(skill.manifestPath)}">',
-      )
-      ..writeln(manifestBody)
-      ..write('</skill-manifest>');
+    final reminder = buildLocalSkillSystemReminder(
+      skill,
+      manifestContent: _selectedSkillManifest,
+    );
     _clearSelectedSkill();
-    return buffer.toString();
+    return reminder;
   }
 
   bool get hasPendingProjectFileReferences => _projectFileReferences.isNotEmpty;

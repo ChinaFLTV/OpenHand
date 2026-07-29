@@ -655,7 +655,6 @@ class CronsStore {
   }
 }
 
-// Helpers
 List<String> _parseTags(String raw) {
   return splitTrimmedNonEmpty(raw);
 }

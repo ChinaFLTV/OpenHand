@@ -89,7 +89,10 @@ class SettingsStore {
           }
           final snapshot = _snapshotFromJson(stringKeyedMapFromValue(decoded));
           try {
-            await _markLegacyMigrationSatisfied();
+            await markLegacyTargetPresentIfAbsent(
+              _db,
+              key: _legacyMigrationKey,
+            );
           } catch (error, stack) {
             silentLog('settings_store', '标记旧版设置迁移', error, stack);
           }
@@ -134,7 +137,7 @@ class SettingsStore {
     var issuePath = settingsFilePath;
     try {
       final markerRows = await _db.query(
-        'migration_meta',
+        legacyMigrationMetaTable,
         where: 'key = ?',
         whereArgs: <Object?>[_legacyMigrationKey],
         limit: 1,
@@ -168,7 +171,7 @@ class SettingsStore {
         if (currentRows.isNotEmpty) return null;
 
         final currentMarkerRows = await txn.query(
-          'migration_meta',
+          legacyMigrationMetaTable,
           columns: const <String>['value'],
           where: 'key = ?',
           whereArgs: <Object?>[_legacyMigrationKey],
@@ -183,15 +186,15 @@ class SettingsStore {
           'value': jsonEncode(_snapshotToJson(snapshot)),
         }, conflictAlgorithm: ConflictAlgorithm.abort);
         if (currentMarkerRows.isEmpty) {
-          await txn.insert('migration_meta', <String, Object?>{
+          await txn.insert(legacyMigrationMetaTable, <String, Object?>{
             'key': _legacyMigrationKey,
-            'value': jsonEncode(<String, Object?>{
-              'status': legacyFile == null ? 'not_found' : 'imported',
-              if (legacyFile != null) 'source_path': legacyFile.path,
-              if (document?.configuredMemoryFilePath case final path?)
-                'memory_file_path': path,
-              'completed_at': DateTime.now().toUtc().toIso8601String(),
-            }),
+            'value': encodeLegacyMigrationMarker(
+              status: legacyFile == null
+                  ? legacyMigrationStatusNotFound
+                  : legacyMigrationStatusImported,
+              sourcePath: legacyFile?.path,
+              memoryFilePath: document?.configuredMemoryFilePath,
+            ),
           }, conflictAlgorithm: ConflictAlgorithm.abort);
         }
         return snapshot;
@@ -243,16 +246,6 @@ class SettingsStore {
         ),
       );
     }
-  }
-
-  Future<void> _markLegacyMigrationSatisfied() async {
-    await _db.insert('migration_meta', <String, Object?>{
-      'key': _legacyMigrationKey,
-      'value': jsonEncode(<String, Object?>{
-        'status': 'target_present',
-        'completed_at': DateTime.now().toUtc().toIso8601String(),
-      }),
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   static Map<String, Object?> _legacySettingsJson(
@@ -530,11 +523,10 @@ class SettingsStore {
       min: AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
       max: AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
     );
-    final mcpLazyLoadingThresholdTokens =
-        _migrateMcpLazyLoadingThresholdTokens(
-          persisted: loadedMcpLazyLoadingThresholdTokens,
-          schemaVersion: schemaVersion,
-        );
+    final mcpLazyLoadingThresholdTokens = _migrateMcpLazyLoadingThresholdTokens(
+      persisted: loadedMcpLazyLoadingThresholdTokens,
+      schemaVersion: schemaVersion,
+    );
     final mcpAutoProbeConcurrency = clampedIntFromValue(
       json['mcp_auto_probe_concurrency'],
       fallback: AppSettingsSnapshot.defaultMcpAutoProbeConcurrency,

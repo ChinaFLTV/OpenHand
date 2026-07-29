@@ -5737,9 +5737,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
                   final parsed = optionalIntFromText(value);
                   if (parsed == null) return;
                   onParallelWorkersChanged(
-                    parsed
-                        .clamp(_minWorkers, _maxWorkers)
-                        .toInt(),
+                    parsed.clamp(_minWorkers, _maxWorkers).toInt(),
                   );
                 },
               ),
@@ -5844,13 +5842,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
 // WebSearch / WebFetch 引擎卡片共用外壳
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// WebSearch / WebFetch 设置编辑器共用的遥测面板状态机。
-///
-/// 两个编辑器此前各维护一份同样的七个字段与四个刷新/清空/导出方法，差异只在
-/// 存储单例和调用日志类型上。收敛后新增一个工具只需接上自己的存储：面板的
-/// 忙碌位、重入保护、失败兜底不会再各写各的。
-///
-/// 类型参数依次为：宿主 Widget、调用日志、引擎枚举、引擎统计、引擎采样。
+/// WebSearch 与 WebFetch 共用的遥测面板状态机。
 mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     on State<W> {
   int? _cacheBytesOnDisk;
@@ -5862,23 +5854,18 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
   bool _clearingTelemetry = false;
   bool _exportingTelemetry = false;
 
-  /// silentLog 的组件标签。
   String get _telemetryLogTag;
 
-  /// 确认弹窗与导出文件名里出现的工具名，如 `WebSearch`。
   String get _telemetryToolLabel;
 
-  /// 导出提示里出现的中文工具名，如 `Web 搜索设置`。
   String get _telemetryExportLogTag;
 
-  /// 导出文件名主干，如 `websearch`。
   String get _telemetryFileStem;
 
   Future<int> _loadCacheBytesOnDisk();
 
   Future<void> _clearCacheStore();
 
-  /// 清缓存确认弹窗里「会删掉什么」的说明，两种语言各一份。
   String get _cacheClearContentZh;
 
   String get _cacheClearContentEn;
@@ -5921,9 +5908,21 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
       await _clearCacheStore();
     } catch (e, st) {
       silentLog(_telemetryLogTag, '清空本地缓存', e, st);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '$_telemetryToolLabel 本地缓存清理失败',
+            en: 'Failed to clear $_telemetryToolLabel local cache',
+          ),
+        );
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _clearingCache = false);
     }
     if (!mounted) return;
-    setState(() => _clearingCache = false);
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
     showOpenHandInfoSnack(
@@ -5937,8 +5936,6 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     );
   }
 
-  /// 缓存占用与清理按钮：四个参数全部取自本 mixin 的状态，两个编辑器此前各
-  /// 拼一遍同样的实参。
   Widget _buildCacheActionsRow(BuildContext context) {
     return _buildToolCacheActions(
       context: context,
@@ -5980,9 +5977,21 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
       await _clearTelemetryStore();
     } catch (e, st) {
       silentLog(_telemetryLogTag, '清空遥测数据', e, st);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '$_telemetryToolLabel 遥测数据清理失败',
+            en: 'Failed to clear $_telemetryToolLabel telemetry',
+          ),
+        );
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _clearingTelemetry = false);
     }
     if (!mounted) return;
-    setState(() => _clearingTelemetry = false);
     await _refreshTelemetry();
   }
 

@@ -2142,7 +2142,6 @@ class AiSessionStore {
     };
   }
 
-  // Helpers
   static Map<String, Object?> _decodeJsonMap(Object? raw) {
     if (raw is String && raw.isNotEmpty) {
       try {

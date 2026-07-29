@@ -287,7 +287,6 @@ class AiMemoryTool extends AiTool {
     );
   }
 
-  // Helpers
   static const String _toolName = 'Memory';
   static const Set<String> _actions = <String>{
     'list',

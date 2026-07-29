@@ -44,10 +44,10 @@ class MemoryStore {
     UserMemoryEntry.userProfileType,
   };
   static const Set<String> _legacyMigrationStatuses = <String>{
-    'not_found',
-    'imported',
-    'target_present',
-    'explicit_clear',
+    legacyMigrationStatusNotFound,
+    legacyMigrationStatusImported,
+    legacyMigrationStatusTargetPresent,
+    legacyMigrationStatusExplicitClear,
   };
 
   Database get _db => _database ?? DatabaseService.instance.database;
@@ -82,7 +82,7 @@ class MemoryStore {
 
     if (entries.isNotEmpty) {
       try {
-        await _markLegacyMigrationSatisfied();
+        await markLegacyTargetPresentIfAbsent(_db, key: _legacyMigrationKey);
       } catch (error, stack) {
         silentLog('memory_store', '标记旧版数据迁移', error, stack);
       }
@@ -145,7 +145,7 @@ class MemoryStore {
 
   Future<MemoryLoadResult?> _migrateLegacyMemories() async {
     final markerRows = await _db.query(
-      'migration_meta',
+      legacyMigrationMetaTable,
       columns: const <String>['value'],
       where: 'key = ?',
       whereArgs: <Object?>[_legacyMigrationKey],
@@ -172,7 +172,7 @@ class MemoryStore {
 
     final didMigrate = await _db.transaction<bool>((txn) async {
       final currentMarkerRows = await txn.query(
-        'migration_meta',
+        legacyMigrationMetaTable,
         columns: const <String>['value'],
         where: 'key = ?',
         whereArgs: <Object?>[_legacyMigrationKey],
@@ -196,13 +196,14 @@ class MemoryStore {
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
       }
-      batch.insert('migration_meta', <String, Object?>{
+      batch.insert(legacyMigrationMetaTable, <String, Object?>{
         'key': _legacyMigrationKey,
-        'value': jsonEncode(<String, Object?>{
-          'status': sourceFile == null ? 'not_found' : 'imported',
-          if (sourceFile != null) 'source_path': sourceFile.path,
-          'completed_at': DateTime.now().toUtc().toIso8601String(),
-        }),
+        'value': encodeLegacyMigrationMarker(
+          status: sourceFile == null
+              ? legacyMigrationStatusNotFound
+              : legacyMigrationStatusImported,
+          sourcePath: sourceFile?.path,
+        ),
       }, conflictAlgorithm: ConflictAlgorithm.abort);
       await batch.commit(noResult: true);
       return true;
@@ -214,7 +215,7 @@ class MemoryStore {
 
   Future<String?> _legacyConfiguredMemoryPath() async {
     final rows = await _db.query(
-      'migration_meta',
+      legacyMigrationMetaTable,
       columns: const <String>['value'],
       where: 'key = ?',
       whereArgs: <Object?>[_settingsMigrationKey],
@@ -242,16 +243,6 @@ class MemoryStore {
     final settingsFile = await findLegacySettingsFile();
     if (settingsFile == null) return null;
     return readLegacyConfiguredMemoryFilePath(settingsFile);
-  }
-
-  Future<void> _markLegacyMigrationSatisfied() async {
-    await _db.insert('migration_meta', <String, Object?>{
-      'key': _legacyMigrationKey,
-      'value': jsonEncode(<String, Object?>{
-        'status': 'target_present',
-        'completed_at': DateTime.now().toUtc().toIso8601String(),
-      }),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   List<UserMemoryEntry> _parseLegacyMemories(Object? decoded) {
@@ -341,12 +332,11 @@ class MemoryStore {
   Future<void> clearAll() async {
     await _db.transaction<void>((txn) async {
       await txn.delete(_table);
-      await txn.insert('migration_meta', <String, Object?>{
+      await txn.insert(legacyMigrationMetaTable, <String, Object?>{
         'key': _legacyMigrationKey,
-        'value': jsonEncode(<String, Object?>{
-          'status': 'explicit_clear',
-          'completed_at': DateTime.now().toUtc().toIso8601String(),
-        }),
+        'value': encodeLegacyMigrationMarker(
+          status: legacyMigrationStatusExplicitClear,
+        ),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
@@ -673,7 +663,7 @@ class MemoryStore {
       throw const FormatException('Memory migration marker time is invalid.');
     }
     final expectedKeys = <String>{'status', 'completed_at'};
-    if (status == 'imported') {
+    if (status == legacyMigrationStatusImported) {
       final sourcePath = decoded['source_path'];
       if (sourcePath is! String ||
           sourcePath.isEmpty ||

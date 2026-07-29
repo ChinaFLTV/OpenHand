@@ -2,12 +2,43 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../app/support/openhand_paths.dart';
 import '../util/bounded_file_io.dart';
 
 const int maxLegacySettingsBytes = 8 * 1024 * 1024;
 const int maxLegacyMemoryBytes = 64 * 1024 * 1024;
+const String legacyMigrationMetaTable = 'migration_meta';
+const String legacyMigrationStatusNotFound = 'not_found';
+const String legacyMigrationStatusImported = 'imported';
+const String legacyMigrationStatusTargetPresent = 'target_present';
+const String legacyMigrationStatusExplicitClear = 'explicit_clear';
+
+String encodeLegacyMigrationMarker({
+  required String status,
+  String? sourcePath,
+  String? memoryFilePath,
+}) {
+  return jsonEncode(<String, Object?>{
+    'status': status,
+    if (sourcePath != null) 'source_path': sourcePath,
+    if (memoryFilePath != null) 'memory_file_path': memoryFilePath,
+    'completed_at': DateTime.now().toUtc().toIso8601String(),
+  });
+}
+
+Future<void> markLegacyTargetPresentIfAbsent(
+  DatabaseExecutor database, {
+  required String key,
+}) async {
+  await database.insert(legacyMigrationMetaTable, <String, Object?>{
+    'key': key,
+    'value': encodeLegacyMigrationMarker(
+      status: legacyMigrationStatusTargetPresent,
+    ),
+  }, conflictAlgorithm: ConflictAlgorithm.ignore);
+}
 
 class LegacySettingsDocument {
   const LegacySettingsDocument({

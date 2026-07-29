@@ -512,7 +512,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
         ),
 
         const SizedBox(height: 16),
-        ..._buildTelemetrySection(context, theme, colorScheme, v),
+        ..._buildTelemetrySection(context, theme, colorScheme),
       ],
     );
   }
@@ -524,7 +524,6 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     BuildContext context,
     ThemeData theme,
     ColorScheme colorScheme,
-    AiWebFetchSettings v,
   ) {
     final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
     return [

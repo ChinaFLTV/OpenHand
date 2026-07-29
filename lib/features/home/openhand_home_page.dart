@@ -135,7 +135,6 @@ import '../../shared/util/transcript_list_windowing.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../../shared/util/workspace_root_resolver.dart';
-import '../../shared/util/xml_escape.dart';
 import '../agents/index.dart';
 import '../ai/index.dart';
 import '../android_reverse/index.dart';
@@ -351,9 +350,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _composerAttachmentReadTotalTimeout = Duration(
     seconds: 30,
   );
-  static const Duration _composerAttachmentWriteTimeout = Duration(
-    seconds: 30,
-  );
+  static const Duration _composerAttachmentWriteTimeout = Duration(seconds: 30);
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
   // 桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
@@ -6001,11 +5998,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (targetSessionId == null) {
       return;
     }
-    // Consume any pending skill selection from the composer.  The reminder is
-    // carried as hidden metadata on the outgoing LLM turn (via the existing
-    // `aiHookSystemRemindersMetadataKey` channel) so the stored user message
-    // content shown in the transcript bubble remains exactly what the user
-    // typed, without leaking the `<skill-manifest>` XML block.
+    // 技能提示词通过隐藏元数据发送，避免污染会话中展示的用户原文。
     final composerState = _composerPanelState;
     final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
     final skillReminder = composerState?.consumePendingSkillReminder();

@@ -479,10 +479,6 @@ class AiSkillManagerTool extends AiTool {
     );
   }
 
-  // ──────────────────────────────────────────────────────────────
-  // Helpers
-  // ──────────────────────────────────────────────────────────────
-
   String? _resolveSkillsRoot() {
     final raw = skillsDirProvider().trim();
     if (raw.isEmpty) return null;

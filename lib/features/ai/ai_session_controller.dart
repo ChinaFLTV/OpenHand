@@ -13563,13 +13563,7 @@ $tail''';
     _sessionStopSignals.remove(sessionId);
   }
 
-  // ───────────────────────────────────────────────────────────────────────
-  // Telemetry instrumentation
-  // ───────────────────────────────────────────────────────────────────────
-
-  /// Truncates a long string for audit metadata so a pathological response
-  /// cannot balloon the on-disk session file. The cap is controlled by the
-  /// [AiSessionRuntimeContext.telemetryMaxPayloadChars] setting.
+  /// 截断审计元数据，避免异常响应撑大会话文件。
   String? _clampTelemetryPayload(String? value, int maxChars) {
     if (value == null) return null;
     if (maxChars <= 0 || value.length <= maxChars) return value;
