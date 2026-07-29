@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -47,8 +48,8 @@ class AiToolUtils {
   static const Duration fileTreeScanTotalTimeout = Duration(seconds: 10);
   static const Duration _metadataProcessTimeout = Duration(seconds: 2);
   static const Duration _searchProcessTimeout = Duration(seconds: 30);
+  static const int _maxSymbolicLinkDepth = 40;
 
-  static int _safeWriteArtifactCounter = 0;
   static final Map<String, Future<void>> _fileMutationLocks =
       <String, Future<void>>{};
 
@@ -1087,30 +1088,27 @@ class AiToolUtils {
     final entityType = await FileSystemEntity.type(
       file.path,
       followLinks: false,
-    );
+    ).timeout(defaultBoundedFileReadIdleTimeout);
     if (entityType == FileSystemEntityType.directory) {
       throw FileSystemException(
         'Refusing to write text content to a directory.',
         file.path,
       );
     }
-    await file.parent.create(recursive: true);
-    if (entityType == FileSystemEntityType.link) {
-      await file.writeAsString(content, flush: true);
-      return;
+    final targetFile = entityType == FileSystemEntityType.link
+        ? await _resolveFileMutationTarget(file)
+        : file;
+    if (await FileSystemEntity.type(
+          targetFile.path,
+          followLinks: false,
+        ).timeout(defaultBoundedFileReadIdleTimeout) ==
+        FileSystemEntityType.directory) {
+      throw FileSystemException(
+        'Refusing to write text content to a directory.',
+        file.path,
+      );
     }
-    final tempFile = await _uniqueSafeWriteArtifact(file, 'tmp');
-    await tempFile.writeAsString(content, flush: true);
-    if (await file.exists()) await _copyExistingFileMode(file, tempFile);
-    try {
-      await tempFile.rename(file.path);
-    } on FileSystemException {
-      if (!await tempFile.exists()) rethrow;
-      await _replaceTextFileWithTemporaryBackup(file, tempFile);
-    } catch (_) {
-      await _deleteFileIfExistsBestEffort(tempFile, '清理安全写入临时文件');
-      rethrow;
-    }
+    await writeFileAtomically(targetFile, content, preserveTargetMode: true);
   }
 
   /// 文本落盘的固定三步：加锁写入 → 回读校验 → 记入变更账本。
@@ -1178,7 +1176,7 @@ class AiToolUtils {
       final entityType = await FileSystemEntity.type(
         file.path,
         followLinks: false,
-      );
+      ).timeout(defaultBoundedFileReadIdleTimeout);
       if (entityType == FileSystemEntityType.directory) {
         return invalidResult(
           toolName,
@@ -1261,93 +1259,35 @@ class AiToolUtils {
   }
 
   static Future<String> _fileMutationLockKey(File file) async {
-    final rawPath = p.normalize(file.absolute.path);
     try {
-      final entityType = await FileSystemEntity.type(
-        rawPath,
-        followLinks: false,
-      );
-      if (entityType != FileSystemEntityType.link) return rawPath;
-      final linkTarget = await Link(rawPath).target();
-      final resolved = p.isAbsolute(linkTarget)
-          ? linkTarget
-          : p.join(p.dirname(rawPath), linkTarget);
-      return p.normalize(resolved);
+      return (await _resolveFileMutationTarget(file)).path;
     } on FileSystemException {
-      return rawPath;
+      return p.normalize(file.absolute.path);
     }
   }
 
-  static Future<File> _uniqueSafeWriteArtifact(
-    File targetFile,
-    String role,
-  ) async {
-    for (var attempt = 0; attempt < 16; attempt++) {
-      final counter = _safeWriteArtifactCounter =
-          (_safeWriteArtifactCounter + 1) & 0x3fffffff;
-      final path = p.join(
-        targetFile.parent.path,
-        '.${p.basename(targetFile.path)}.'
-        '${DateTime.now().microsecondsSinceEpoch}.$counter.$role',
-      );
-      final candidate = File(path);
-      final type = await FileSystemEntity.type(
-        path,
+  static Future<File> _resolveFileMutationTarget(File file) async {
+    var currentPath = p.normalize(file.absolute.path);
+    final visited = <String>{};
+    for (var depth = 0; depth < _maxSymbolicLinkDepth; depth++) {
+      final entityType = await FileSystemEntity.type(
+        currentPath,
         followLinks: false,
       ).timeout(defaultBoundedFileReadIdleTimeout);
-      if (type == FileSystemEntityType.notFound) {
-        return candidate;
+      if (entityType != FileSystemEntityType.link) return File(currentPath);
+      if (!visited.add(currentPath)) {
+        throw FileSystemException('符号链接存在循环。', file.path);
       }
+      final linkTarget = await Link(
+        currentPath,
+      ).target().timeout(defaultBoundedFileReadIdleTimeout);
+      currentPath = p.normalize(
+        p.isAbsolute(linkTarget)
+            ? linkTarget
+            : p.join(p.dirname(currentPath), linkTarget),
+      );
     }
-    throw FileSystemException(
-      'Unable to allocate a unique temporary write artifact.',
-      targetFile.path,
-    );
-  }
-
-  static Future<void> _deleteFileIfExistsBestEffort(
-    File file,
-    String where,
-  ) async {
-    try {
-      if (await file.exists()) {
-        await file.delete();
-      }
-    } catch (error, stack) {
-      silentLog('ai_tool_utils', where, error, stack);
-    }
-  }
-
-  static Future<void> _replaceTextFileWithTemporaryBackup(
-    File targetFile,
-    File tempFile,
-  ) async {
-    File? backupFile;
-    var movedExistingFile = false;
-    try {
-      if (await targetFile.exists()) {
-        backupFile = await _uniqueSafeWriteArtifact(targetFile, 'bak');
-        await targetFile.rename(backupFile.path);
-        movedExistingFile = true;
-      }
-      await tempFile.rename(targetFile.path);
-      if (backupFile != null && await backupFile.exists()) {
-        await backupFile.delete();
-      }
-    } catch (_) {
-      await _deleteFileIfExistsBestEffort(tempFile, '清理备份写入临时文件');
-      if (movedExistingFile &&
-          backupFile != null &&
-          await backupFile.exists()) {
-        await _deleteFileIfExistsBestEffort(targetFile, '回滚前清理失败的目标文件');
-        try {
-          await backupFile.rename(targetFile.path);
-        } on FileSystemException catch (error, stack) {
-          silentLog('ai_tool_utils', '回滚安全写入备份', error, stack);
-        }
-      }
-      rethrow;
-    }
+    throw FileSystemException('符号链接层级超过 $_maxSymbolicLinkDepth。', file.path);
   }
 
   /// 删除前执行最终读取校验。
@@ -1369,7 +1309,7 @@ class AiToolUtils {
       final entityType = await FileSystemEntity.type(
         file.path,
         followLinks: false,
-      );
+      ).timeout(defaultBoundedFileReadIdleTimeout);
       if (entityType == FileSystemEntityType.notFound) {
         return invalidResult(
           toolName,
@@ -1390,30 +1330,6 @@ class AiToolUtils {
       );
       return null;
     });
-  }
-
-  static Future<void> _copyExistingFileMode(
-    File sourceFile,
-    File targetFile,
-  ) async {
-    if (Platform.isWindows) return;
-    final sourceStat = await FileStat.stat(sourceFile.path);
-    if (sourceStat.type == FileSystemEntityType.notFound) return;
-    final permissionBits = sourceStat.mode & 0x1FF;
-    final chmodResult = await runTrackedProcessOrFailed(
-      'chmod',
-      <String>[permissionBits.toRadixString(8), targetFile.path],
-      timeout: _metadataProcessTimeout,
-      tag: 'ai_tool_utils.copy_file_mode',
-    );
-    if (chmodResult.exitCode == 0) return;
-    final message = '${chmodResult.stderr}'.trim();
-    throw FileSystemException(
-      message.isEmpty
-          ? 'Unable to preserve existing file permissions.'
-          : message,
-      targetFile.path,
-    );
   }
 
   static Future<List<int>> readFilePrefix(File file, int fileLength) async {

@@ -35,6 +35,7 @@ const int _atomicArtifactScanMaxEntries = 10000;
 const Duration _atomicArtifactScanTimeout = Duration(seconds: 3);
 const Duration _openDirectoryCommandTimeout = Duration(seconds: 6);
 const String _openDirectoryProcessTag = 'atomic_file_ops';
+const String _atomicModeProcessTag = 'atomic_file_ops.mode';
 int _atomicTempSerial = 0;
 
 /// Recovers a file from its atomic-write backup if the target is missing.
@@ -108,10 +109,19 @@ Future<void> _recoverAtomicWriteBackupIfNeededLocked(File targetFile) async {
 /// This avoids data loss when the process crashes mid-write. Concurrent calls
 /// targeting the same normalized path are serialized in-process and across app
 /// instances so two writers cannot race on the `.tmp`/`.bak` files.
-Future<void> writeFileAtomically(File targetFile, String content) {
+/// [preserveTargetMode] 启用时，发布新文件前会保留现有目标的权限位。
+Future<void> writeFileAtomically(
+  File targetFile,
+  String content, {
+  bool preserveTargetMode = false,
+}) {
   return _runWithAtomicWriteLock(
     targetFile,
-    (targetFile) => _writeFileAtomicallyLocked(targetFile, content),
+    (targetFile) => _writeFileAtomicallyLocked(
+      targetFile,
+      content,
+      preserveTargetMode: preserveTargetMode,
+    ),
   );
 }
 
@@ -329,7 +339,11 @@ Future<void> _closeAtomicProcessLockFile(RandomAccessFile file) async {
   }
 }
 
-Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
+Future<void> _writeFileAtomicallyLocked(
+  File targetFile,
+  String content, {
+  required bool preserveTargetMode,
+}) async {
   await _writeAtomicallyLocked(
     targetFile,
     (tempFile, remainingBudget) => _writeAtomicTempFile(
@@ -349,6 +363,7 @@ Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
         }
       },
     ),
+    preserveTargetMode: preserveTargetMode,
   );
 }
 
@@ -582,8 +597,9 @@ Future<void> _closeLateAtomicFile(
 Future<void> _writeAtomicallyLocked(
   File targetFile,
   Future<void> Function(File tempFile, Duration Function() remainingBudget)
-  writeTempFile,
-) async {
+  writeTempFile, {
+  bool preserveTargetMode = false,
+}) async {
   final deadline = MonotonicDeadline(
     _atomicOperationTotalTimeout,
     timeoutMessage: '原子文件操作超过总时限。',
@@ -597,7 +613,23 @@ Future<void> _writeAtomicallyLocked(
   var movedExistingFile = false;
   try {
     await _ensureAtomicParentDirectory(targetFile).timeout(remainingBudget());
+    int? targetMode;
+    if (preserveTargetMode &&
+        !Platform.isWindows &&
+        await targetFile.exists().timeout(remainingBudget())) {
+      final targetStat = await targetFile.stat().timeout(remainingBudget());
+      if (targetStat.type == FileSystemEntityType.file) {
+        targetMode = targetStat.mode & 0x1FF;
+      }
+    }
     await writeTempFile(workingFile, remainingBudget);
+    if (targetMode != null) {
+      await _setAtomicFileMode(
+        workingFile,
+        targetMode,
+        shorterDuration(_atomicIoIdleTimeout, remainingBudget()),
+      );
+    }
     if (!await workingFile.exists().timeout(remainingBudget())) {
       throw FileSystemException(
         'Atomic working file disappeared before it was finalized.',
@@ -670,6 +702,21 @@ Future<void> _writeAtomicallyLocked(
   } finally {
     deadline.stop();
   }
+}
+
+Future<void> _setAtomicFileMode(File file, int mode, Duration timeout) async {
+  final result = await runTrackedProcessOrFailed(
+    'chmod',
+    <String>[mode.toRadixString(8), file.path],
+    timeout: timeout,
+    tag: _atomicModeProcessTag,
+  );
+  if (result.exitCode == 0) return;
+  final message = '${result.stderr}'.trim();
+  throw FileSystemException(
+    message.isEmpty ? '无法保留原文件权限。' : message,
+    file.path,
+  );
 }
 
 Future<void> _ensureAtomicParentDirectory(File targetFile) async {
