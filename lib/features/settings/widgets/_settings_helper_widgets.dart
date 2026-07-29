@@ -5880,6 +5880,46 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
 
   String _callsToCsv(List<L> calls);
 
+  List<Widget> _buildTelemetryPanel({
+    required BuildContext context,
+    required String description,
+    required String emptyMessage,
+    required Widget Function(K kind, S stat) buildEngineRow,
+    required Widget Function(L call) buildCallRow,
+  }) {
+    final engineRows = _engineStats.entries
+        .map((entry) => buildEngineRow(entry.key, entry.value))
+        .toList(growable: false);
+    final callRows = _recentCalls
+        .take(_maxToolTelemetryCallRows)
+        .map(buildCallRow)
+        .toList(growable: false);
+    return <Widget>[
+      ..._buildToolTelemetryHeader(
+        context: context,
+        description: description,
+        hasData: _recentCalls.isNotEmpty || _engineStats.isNotEmpty,
+        hasCalls: _recentCalls.isNotEmpty,
+        loading: _telemetryLoading,
+        clearing: _clearingTelemetry,
+        exporting: _exportingTelemetry,
+        onExportJson: () => _exportTelemetry(asCsv: false),
+        onExportCsv: () => _exportTelemetry(asCsv: true),
+        onRefresh: _refreshTelemetry,
+        onClear: _confirmAndClearTelemetry,
+      ),
+      const SizedBox(height: 8),
+      ..._buildToolTelemetryBody(
+        context: context,
+        loading: _telemetryLoading,
+        emptyMessage: emptyMessage,
+        engineRows: engineRows,
+        callRows: callRows,
+        totalCallCount: _recentCalls.length,
+      ),
+    ];
+  }
+
   Future<void> _refreshCacheBytesOnDisk() async {
     try {
       final bytes = await _loadCacheBytesOnDisk();

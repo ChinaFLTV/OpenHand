@@ -595,7 +595,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
         ),
 
         const SizedBox(height: 16),
-        ..._buildTelemetrySection(context, theme, colorScheme),
+        ..._buildTelemetrySection(context),
       ],
     );
   }
@@ -603,58 +603,29 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
   // ───────────────────────────────────────────────────────────────────────────
   // 遥测界面（调用日志和引擎健康度）
   // ───────────────────────────────────────────────────────────────────────────
-  List<Widget> _buildTelemetrySection(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
-    return [
-      ..._buildToolTelemetryHeader(
-        context: context,
-        description: openHandLocalizedText(
-          context,
-          zh:
-              '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
-              '数据持久化在 ~/.openhand/cache/web_search/telemetry/。',
-          en:
-              'Recent 50 WebSearch invocations plus per-engine cumulative '
-              'success-rate / avg latency / total hits. Persisted under '
-              '~/.openhand/cache/web_search/telemetry/.',
-        ),
-        hasData: hasData,
-        hasCalls: _recentCalls.isNotEmpty,
-        loading: _telemetryLoading,
-        clearing: _clearingTelemetry,
-        exporting: _exportingTelemetry,
-        onExportJson: () => _exportTelemetry(asCsv: false),
-        onExportCsv: () => _exportTelemetry(asCsv: true),
-        onRefresh: _refreshTelemetry,
-        onClear: _confirmAndClearTelemetry,
+  List<Widget> _buildTelemetrySection(BuildContext context) {
+    return _buildTelemetryPanel(
+      context: context,
+      description: openHandLocalizedText(
+        context,
+        zh:
+            '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
+            '数据持久化在 ~/.openhand/cache/web_search/telemetry/。',
+        en:
+            'Recent 50 WebSearch invocations plus per-engine cumulative '
+            'success-rate / avg latency / total hits. Persisted under '
+            '~/.openhand/cache/web_search/telemetry/.',
       ),
-      const SizedBox(height: 8),
-      ..._buildToolTelemetryBody(
-        context: context,
-        loading: _telemetryLoading,
-        emptyMessage: openHandLocalizedText(
-          context,
-          zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
-          en:
-              'No calls recorded yet. The next WebSearch invocation '
-              'will be logged automatically.',
-        ),
-        engineRows: _engineStats.entries
-            .map(
-              (entry) => _buildEngineStatRow(context, entry.key, entry.value),
-            )
-            .toList(growable: false),
-        callRows: _recentCalls
-            .take(_maxToolTelemetryCallRows)
-            .map((call) => _buildCallLogRow(context, call))
-            .toList(growable: false),
-        totalCallCount: _recentCalls.length,
+      emptyMessage: openHandLocalizedText(
+        context,
+        zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
+        en:
+            'No calls recorded yet. The next WebSearch invocation '
+            'will be logged automatically.',
       ),
-    ];
+      buildEngineRow: (kind, stat) => _buildEngineStatRow(context, kind, stat),
+      buildCallRow: (call) => _buildCallLogRow(context, call),
+    );
   }
 
   Widget _buildEngineStatRow(

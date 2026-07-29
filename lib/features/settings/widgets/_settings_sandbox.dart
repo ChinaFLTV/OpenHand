@@ -848,6 +848,38 @@ Widget _buildSandboxMatchModeField(
   );
 }
 
+Widget _buildSandboxRuleDialog<T>({
+  required BuildContext context,
+  required Widget title,
+  required GlobalKey<FormState> formKey,
+  required List<Widget> fields,
+  required T Function() createResult,
+}) {
+  return buildOpenHandAlertDialog(
+    title: title,
+    content: SizedBox(
+      width: 560,
+      child: Form(
+        key: formKey,
+        child: Column(mainAxisSize: MainAxisSize.min, children: fields),
+      ),
+    ),
+    actions: [
+      OpenHandDialogActionButton.secondary(
+        onPressed: () => Navigator.of(context).pop(),
+        label: AppLocalizations.of(context)!.commonCancel,
+      ),
+      OpenHandDialogActionButton.primary(
+        onPressed: () {
+          if (formKey.currentState?.validate() != true) return;
+          Navigator.of(context).pop<T>(createResult());
+        },
+        label: AppLocalizations.of(context)!.commonSave,
+      ),
+    ],
+  );
+}
+
 class _SandboxFileRuleDialog extends StatefulWidget {
   const _SandboxFileRuleDialog({this.initialRule});
 
@@ -887,7 +919,8 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return buildOpenHandAlertDialog(
+    return _buildSandboxRuleDialog<AiSandboxFileRule>(
+      context: context,
       title: Text(
         widget.initialRule == null
             ? openHandLocalizedText(context, zh: '新增文件规则', en: 'Add File Rule')
@@ -897,90 +930,68 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                 en: 'Edit File Rule',
               ),
       ),
-      content: SizedBox(
-        width: 560,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _pathController,
-                decoration: const InputDecoration(
-                  labelText: 'Path / Pattern',
-                  hintText: r'.openhand or ^/Users/.*/cache$',
-                ),
-                validator: (value) => (value ?? '').trim().isEmpty
-                    ? openHandLocalizedText(
-                        context,
-                        zh: '请输入路径。',
-                        en: 'Enter a path.',
-                      )
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              AnimatedDropdownButtonFormField<AiSandboxFileAccessMode>(
-                initialValue: _accessMode,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '读写模式',
-                    en: 'Access Mode',
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: AiSandboxFileAccessMode.readOnly,
-                    child: Text('ro'),
-                  ),
-                  DropdownMenuItem(
-                    value: AiSandboxFileAccessMode.readWrite,
-                    child: Text('rw'),
-                  ),
-                ],
-                onChanged: (value) => setState(() {
-                  _accessMode = value ?? AiSandboxFileAccessMode.readOnly;
-                }),
-              ),
-              const SizedBox(height: 14),
-              _buildSandboxMatchModeField(
-                context,
-                value: _matchMode,
-                onChanged: (value) => setState(() => _matchMode = value),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _noteController,
-                decoration: InputDecoration(
-                  labelText: _settingsSandboNoteLabel(context),
-                ),
-                maxLines: 2,
-              ),
-            ],
+      formKey: _formKey,
+      fields: [
+        TextFormField(
+          controller: _pathController,
+          decoration: const InputDecoration(
+            labelText: 'Path / Pattern',
+            hintText: r'.openhand or ^/Users/.*/cache$',
           ),
+          validator: (value) => (value ?? '').trim().isEmpty
+              ? openHandLocalizedText(
+                  context,
+                  zh: '请输入路径。',
+                  en: 'Enter a path.',
+                )
+              : null,
         ),
-      ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: AppLocalizations.of(context)!.commonCancel,
+        const SizedBox(height: 14),
+        AnimatedDropdownButtonFormField<AiSandboxFileAccessMode>(
+          initialValue: _accessMode,
+          decoration: InputDecoration(
+            labelText: openHandLocalizedText(
+              context,
+              zh: '读写模式',
+              en: 'Access Mode',
+            ),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: AiSandboxFileAccessMode.readOnly,
+              child: Text('ro'),
+            ),
+            DropdownMenuItem(
+              value: AiSandboxFileAccessMode.readWrite,
+              child: Text('rw'),
+            ),
+          ],
+          onChanged: (value) => setState(() {
+            _accessMode = value ?? AiSandboxFileAccessMode.readOnly;
+          }),
         ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            Navigator.of(context).pop(
-              AiSandboxFileRule(
-                id: widget.initialRule?.id ?? _newSandboxRuleId(),
-                path: _pathController.text.trim(),
-                accessMode: _accessMode,
-                matchMode: _matchMode,
-                note: _noteController.text.trim(),
-              ),
-            );
-          },
-          label: AppLocalizations.of(context)!.commonSave,
+        const SizedBox(height: 14),
+        _buildSandboxMatchModeField(
+          context,
+          value: _matchMode,
+          onChanged: (value) => setState(() => _matchMode = value),
+        ),
+        const SizedBox(height: 14),
+        TextFormField(
+          controller: _noteController,
+          decoration: InputDecoration(
+            labelText: _settingsSandboNoteLabel(context),
+          ),
+          maxLines: 2,
         ),
       ],
+      createResult: () => AiSandboxFileRule(
+        id: widget.initialRule?.id ?? _newSandboxRuleId(),
+        path: _pathController.text.trim(),
+        accessMode: _accessMode,
+        matchMode: _matchMode,
+        note: _noteController.text.trim(),
+      ),
     );
   }
 }
@@ -1028,67 +1039,46 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return buildOpenHandAlertDialog(
+    return _buildSandboxRuleDialog<AiSandboxPatternRule>(
+      context: context,
       title: Text(widget.title),
-      content: SizedBox(
-        width: 560,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _patternController,
-                decoration: InputDecoration(
-                  labelText: 'Pattern',
-                  hintText: widget.hint,
-                ),
-                validator: (value) => (value ?? '').trim().isEmpty
-                    ? openHandLocalizedText(
-                        context,
-                        zh: '请输入匹配表达式。',
-                        en: 'Enter a pattern.',
-                      )
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              _buildSandboxMatchModeField(
-                context,
-                value: _matchMode,
-                onChanged: (value) => setState(() => _matchMode = value),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _noteController,
-                decoration: InputDecoration(
-                  labelText: _settingsSandboNoteLabel(context),
-                ),
-                maxLines: 2,
-              ),
-            ],
+      formKey: _formKey,
+      fields: [
+        TextFormField(
+          controller: _patternController,
+          decoration: InputDecoration(
+            labelText: 'Pattern',
+            hintText: widget.hint,
           ),
+          validator: (value) => (value ?? '').trim().isEmpty
+              ? openHandLocalizedText(
+                  context,
+                  zh: '请输入匹配表达式。',
+                  en: 'Enter a pattern.',
+                )
+              : null,
         ),
-      ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: AppLocalizations.of(context)!.commonCancel,
+        const SizedBox(height: 14),
+        _buildSandboxMatchModeField(
+          context,
+          value: _matchMode,
+          onChanged: (value) => setState(() => _matchMode = value),
         ),
-        OpenHandDialogActionButton.primary(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            Navigator.of(context).pop(
-              AiSandboxPatternRule(
-                id: widget.initialRule?.id ?? _newSandboxRuleId(),
-                pattern: _patternController.text.trim(),
-                matchMode: _matchMode,
-                note: _noteController.text.trim(),
-              ),
-            );
-          },
-          label: AppLocalizations.of(context)!.commonSave,
+        const SizedBox(height: 14),
+        TextFormField(
+          controller: _noteController,
+          decoration: InputDecoration(
+            labelText: _settingsSandboNoteLabel(context),
+          ),
+          maxLines: 2,
         ),
       ],
+      createResult: () => AiSandboxPatternRule(
+        id: widget.initialRule?.id ?? _newSandboxRuleId(),
+        pattern: _patternController.text.trim(),
+        matchMode: _matchMode,
+        note: _noteController.text.trim(),
+      ),
     );
   }
 }

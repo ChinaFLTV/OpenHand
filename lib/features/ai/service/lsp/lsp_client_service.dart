@@ -312,7 +312,7 @@ class AiLspPrepareRenameResult {
   final String? placeholder;
 }
 
-/// Represents a single completion item returned by the LSP server.
+/// LSP 服务端返回的单个补全项。
 class AiLspCompletionItem {
   const AiLspCompletionItem({
     required this.label,
@@ -325,7 +325,7 @@ class AiLspCompletionItem {
 
   final String label;
 
-  /// CompletionItemKind (1=Text, 2=Method, 3=Function, 4=Constructor,
+  /// CompletionItemKind 枚举值（1=Text, 2=Method, 3=Function, 4=Constructor,
   /// 5=Field, 6=Variable, 7=Class, 8=Interface, 9=Module, 10=Property,
   /// 11=Unit, 12=Value, 13=Enum, 14=Keyword, 15=Snippet, 16=Color,
   /// 17=File, 18=Reference, 19=Folder, 20=EnumMember, 21=Constant,
@@ -336,10 +336,10 @@ class AiLspCompletionItem {
   final String? filterText;
   final String? sortText;
 
-  /// The text to actually insert when selected.
+  /// 选中后实际插入的文本。
   String get effectiveInsertText => insertText ?? label;
 
-  /// The text used for filtering / matching against typed prefix.
+  /// 用于匹配输入前缀的过滤文本。
   String get effectiveFilterText => filterText ?? label;
 }
 
@@ -422,9 +422,7 @@ class AiLspClientService {
       const <String, AiLspLanguageSettings>{};
   Future<bool> Function(AiLspWorkspaceEdit edit)? _workspaceEditHandler;
 
-  /// Callback invoked whenever the LSP server pushes fresh diagnostics for a
-  /// file.  The editor registers this to apply real-time diagnostic updates
-  /// without polling.
+  /// LSP 服务端推送文件诊断时触发；编辑器通过它实时更新，无需轮询。
   void Function(String filePath, List<AiLspDiagnostic> diagnostics)?
   _diagnosticsPushCallback;
 
@@ -969,7 +967,7 @@ class AiLspClientService {
     }
     final session = await _getOrCreateSession(backend);
 
-    // Sync document first so we know whether content actually changed.
+    // 先同步文档，以确定内容是否实际变化。
     final didChange = await session.ensureDocumentSynced(
       filePath: filePath,
       language: backend.language,
@@ -980,13 +978,12 @@ class AiLspClientService {
       return session.diagnosticsForFile(filePath);
     }
 
-    // If the document content didn't change, return cached diagnostics
-    // immediately — no need to wait for the server.
+    // 内容未变化时直接返回缓存诊断，无需等待服务端。
     if (!didChange) {
       return session.diagnosticsForFile(filePath);
     }
 
-    // Content changed — wait for the server to publish fresh diagnostics.
+    // 内容变化后等待服务端发布最新诊断。
     return session.waitForDiagnostics(filePath, timeout: _diagnosticsWait);
   }
 
@@ -1015,9 +1012,7 @@ class AiLspClientService {
     _sessions.clear();
     _sessionStarts.clear();
 
-    // Calling shutdown before awaiting startup is intentional: a Process.start
-    // Future may still be pending. The session remembers the cancellation and
-    // tears down a process that arrives after disposal instead of leaking it.
+    // 启动 Future 可能仍未完成，因此先请求关闭；会话会记住取消状态并清理迟到进程。
     final shutdowns = sessions
         .map((session) => session.shutdown())
         .toList(growable: false);
@@ -1028,12 +1023,10 @@ class AiLspClientService {
           final session = await start.future.timeout(_startupDisposeWait);
           await session.shutdown();
         } on TimeoutException {
-          // Process.start itself is not cancellable. shutdown() above marked
-          // the session, so a process delivered later is still killed by
-          // initialize(); disposal must not wait without a bound meanwhile.
+          // Process.start 无法主动取消；会话已标记关闭，initialize 会终止迟到进程，
+          // 当前释放流程只做有界等待。
         } catch (_) {
-          // Initialization failures are returned to their original callers.
-          // Disposal only guarantees that their resources have been released.
+          // 初始化异常交给原调用方；释放流程只保证相关资源得到清理。
         }
       }),
     ]);
@@ -1130,9 +1123,7 @@ class AiLspClientService {
         throw StateError('LSP process exited while the session was starting');
       }
 
-      // Only this generation may publish the initialized session. A startup
-      // that completes after disposeAll() can therefore never replace a newer
-      // session created for the same cache key.
+      // 仅当前代次可登记已初始化会话，释放后迟到的启动结果不能覆盖同键新会话。
       _sessions[cacheKey] = session;
       return session;
     } catch (_) {
@@ -1202,7 +1193,7 @@ class AiLspClientService {
 
   static String? _languageFromPath(String filePath) {
     final basename = p.basename(filePath).toLowerCase();
-    // Handle special filenames without standard extensions.
+    // 处理没有标准扩展名的特殊文件名。
     if (basename == 'dockerfile' || basename.startsWith('dockerfile.')) {
       return 'dockerfile';
     }
@@ -1942,8 +1933,8 @@ class _AiLspSession {
   int _openDocumentBytes = 0;
   final Map<String, List<AiLspDiagnostic>> _diagnosticsByUri =
       <String, List<AiLspDiagnostic>>{};
-  final Map<String, Completer<List<AiLspDiagnostic>>> _pendingDiagnostics =
-      <String, Completer<List<AiLspDiagnostic>>>{};
+  final Map<String, _AiLspDiagnosticsWaitGroup> _pendingDiagnostics =
+      <String, _AiLspDiagnosticsWaitGroup>{};
   final ListQueue<Map<String, Object?>> _serverRequestQueue =
       ListQueue<Map<String, Object?>>();
   bool _serverRequestActive = false;
@@ -1955,10 +1946,7 @@ class _AiLspSession {
 
   static const Duration _idleTimeout = Duration(seconds: 30);
   static const Duration _transportCancelTimeout = Duration(seconds: 1);
-  // Backstop against pathological LSP server behavior (never responding but
-  // also never exiting): refuse to enqueue new requests if the pending map
-  // grows beyond this bound. Each request is ≤15s so under normal load it
-  // is exceedingly unlikely to reach this ceiling.
+  // 限制异常 LSP 服务端造成的请求堆积；单次请求最长 15 秒，正常负载不会触及上限。
   static const int _maxPendingRequests = 256;
   static const int _maxOpenDocuments = 64;
   static const int _maxOpenDocumentBytes = 32 * 1024 * 1024;
@@ -2030,10 +2018,7 @@ class _AiLspSession {
       ),
     );
 
-    // Store the subscription so shutdown() can cancel it; otherwise the
-    // listener stays attached after the process is killed and `_onData` may
-    // still fire into a session whose buffers/maps have already been cleared,
-    // and the underlying stream is never released.
+    // 保存订阅供 shutdown 取消，避免进程终止后回调继续访问已清空的会话状态。
     _stdoutSubscription = process.stdout.listen(
       _onData,
       onError: (Object error, StackTrace stack) {
@@ -2050,9 +2035,7 @@ class _AiLspSession {
       cancelOnError: true,
     );
     unawaited(_watchProcessExit(process));
-    // Drain stderr so the LSP server is not blocked writing diagnostics, but
-    // retain the subscription so descendants inheriting the pipe cannot keep
-    // this session alive after shutdown.
+    // 持续排空 stderr，避免服务端写阻塞；同时保留订阅以便关闭时释放继承管道。
     _stderrSubscription = process.stderr.listen(
       (_) {},
       onError: (Object error, StackTrace stack) {
@@ -2153,9 +2136,8 @@ class _AiLspSession {
     }
   }
 
-  /// Syncs the document with the LSP server.  Returns `true` if the content
-  /// was actually changed (a `didOpen` or `didChange` notification was sent),
-  /// `false` if the text was identical and no notification was needed.
+  /// 向 LSP 服务端同步文档。发送 didOpen 或 didChange 时返回 `true`；
+  /// 文本未变化且无需通知时返回 `false`。
   Future<bool> ensureDocumentSynced({
     required String filePath,
     required String language,
@@ -2197,7 +2179,7 @@ class _AiLspSession {
           'text': currentText,
         },
       });
-      // Invalidate cached diagnostics — server will publish fresh ones.
+      // 清除旧诊断，等待服务端发布新结果。
       _diagnosticsByUri.remove(uri);
       touch();
       return true;
@@ -2227,8 +2209,7 @@ class _AiLspSession {
         <String, Object?>{'text': currentText},
       ],
     });
-    // Invalidate cached diagnostics so the next `waitForDiagnostics`
-    // actually waits for fresh results from the server.
+    // 清除旧诊断，确保下一次 waitForDiagnostics 等待新结果。
     _diagnosticsByUri.remove(uri);
     touch();
     return true;
@@ -2264,7 +2245,7 @@ class _AiLspSession {
     if (removed == null) return;
     _openDocumentBytes = math.max(0, _openDocumentBytes - removed.byteLength);
     _diagnosticsByUri.remove(uri);
-    final pendingDiagnostics = _pendingDiagnostics.remove(uri);
+    final pendingDiagnostics = _pendingDiagnostics.remove(uri)?.completer;
     if (pendingDiagnostics != null && !pendingDiagnostics.isCompleted) {
       pendingDiagnostics.complete(const <AiLspDiagnostic>[]);
     }
@@ -2531,19 +2512,23 @@ class _AiLspSession {
     if (_diagnosticsByUri.containsKey(uri)) {
       return diagnosticsForFile(filePath);
     }
-    final completer = _pendingDiagnostics.putIfAbsent(
+    final waitGroup = _pendingDiagnostics.putIfAbsent(
       uri,
-      () => Completer<List<AiLspDiagnostic>>(),
+      _AiLspDiagnosticsWaitGroup.new,
     );
-    return completer.future.timeout(
-      timeout,
-      onTimeout: () {
-        if (identical(_pendingDiagnostics[uri], completer)) {
-          _pendingDiagnostics.remove(uri);
-        }
-        return diagnosticsForFile(filePath);
-      },
-    );
+    waitGroup.waiterCount += 1;
+    try {
+      return await waitGroup.completer.future.timeout(
+        timeout,
+        onTimeout: () => diagnosticsForFile(filePath),
+      );
+    } finally {
+      waitGroup.waiterCount -= 1;
+      if (waitGroup.waiterCount == 0 &&
+          identical(_pendingDiagnostics[uri], waitGroup)) {
+        _pendingDiagnostics.remove(uri);
+      }
+    }
   }
 
   List<AiLspDiagnostic> diagnosticsForFile(String filePath) {
@@ -2918,15 +2903,15 @@ class _AiLspSession {
             .toList(growable: false) ??
         const <AiLspDiagnostic>[];
     _diagnosticsByUri[uri] = diagnostics;
-    final completer = _pendingDiagnostics.remove(uri);
+    final completer = _pendingDiagnostics.remove(uri)?.completer;
     if (completer != null && !completer.isCompleted) {
       completer.complete(List<AiLspDiagnostic>.unmodifiable(diagnostics));
     }
 
-    // Push real-time diagnostics to the editor if a listener is registered.
+    // 已注册监听器时向编辑器推送实时诊断。
     final pushCb = _diagnosticsPushCallbackProvider();
     if (pushCb != null) {
-      // Convert URI back to file path for the editor.
+      // 转回编辑器使用的文件路径。
       final parsed = Uri.tryParse(uri);
       if (parsed != null && parsed.scheme == 'file') {
         pushCb(parsed.toFilePath(), diagnostics);
@@ -3040,7 +3025,8 @@ class _AiLspSession {
         completer.completeError(StateError('LSP session shut down'));
       }
     }
-    for (final completer in _pendingDiagnostics.values) {
+    for (final waitGroup in _pendingDiagnostics.values) {
+      final completer = waitGroup.completer;
       if (!completer.isCompleted) {
         completer.complete(const <AiLspDiagnostic>[]);
       }
@@ -3119,6 +3105,12 @@ class _AiLspOpenDocument {
   String text;
   int byteLength;
   int version;
+}
+
+class _AiLspDiagnosticsWaitGroup {
+  final Completer<List<AiLspDiagnostic>> completer =
+      Completer<List<AiLspDiagnostic>>();
+  int waiterCount = 0;
 }
 
 class _ServerRequestTimeoutToken {
