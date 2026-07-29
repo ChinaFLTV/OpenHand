@@ -229,7 +229,12 @@ class AiTtsPlaybackService {
         lastError = error;
         lastStack = stack;
         if (!isAiTtsConfigurationError(error)) {
-          silentLog('ai_tts_playback_service', '调用供应商 ${provider.storageKey}', error, stack);
+          silentLog(
+            'ai_tts_playback_service',
+            '调用供应商 ${provider.storageKey}',
+            error,
+            stack,
+          );
         }
       }
     }
@@ -390,18 +395,21 @@ class AiTtsPlaybackService {
       await runAsyncCleanupBounded(
         () => _releaseOperation(operation),
         timeout: const Duration(seconds: 8),
-        onError: (error, stack) => silentLog('ai_tts_playback_service', '关闭当前播放任务', error, stack),
+        onError: (error, stack) =>
+            silentLog('ai_tts_playback_service', '关闭当前播放任务', error, stack),
       );
     }
     if (_ownsMediaGenerationService) {
       await runAsyncCleanupBounded(
         _mediaGenerationService.dispose,
-        onError: (error, stack) => silentLog('ai_tts_playback_service', '关闭媒体生成服务', error, stack),
+        onError: (error, stack) =>
+            silentLog('ai_tts_playback_service', '关闭媒体生成服务', error, stack),
       );
     }
     await runAsyncCleanupBounded(
       state.dispose,
-      onError: (error, stack) => silentLog('ai_tts_playback_service', '关闭播放状态', error, stack),
+      onError: (error, stack) =>
+          silentLog('ai_tts_playback_service', '关闭播放状态', error, stack),
     );
   }
 
@@ -927,14 +935,16 @@ class AiTtsPlaybackService {
     }
     final file = File(path);
     final remaining = operation.remainingSynthesisTime();
-    final bytes = await readBoundedFileBytes(
-      file,
-      maxBytes: _mimoMaxVoiceSampleRawBytes,
-      idleTimeout: remaining < _fileReadIdleTimeout
-          ? remaining
-          : _fileReadIdleTimeout,
-      totalTimeout: remaining,
-      handleOwner: operation,
+    final bytes = await operation.runTrackedActivity(
+      () => readBoundedFileBytes(
+        file,
+        maxBytes: _mimoMaxVoiceSampleRawBytes,
+        idleTimeout: remaining < _fileReadIdleTimeout
+            ? remaining
+            : _fileReadIdleTimeout,
+        totalTimeout: remaining,
+        handleOwner: operation,
+      ),
     );
     operation.throwIfCancelled();
     if (bytes.isEmpty) {
@@ -1444,17 +1454,36 @@ class AiTtsPlaybackService {
           'tts_${DateTime.now().microsecondsSinceEpoch}_${_tempFileSerial++}$extension',
         ),
       );
-      RandomAccessFile? output;
+      BoundedRandomAccessFileLease? output;
+      var deleteOnRelease = true;
       try {
         await dir.create(recursive: true).timeout(_playbackFileIoTimeout);
-        final openedOutput = await operation.acquireFile(
+        final openedFile = await operation.acquireFile(
           file.open(mode: FileMode.writeOnly),
           timeout: _playbackFileIoTimeout,
+          deleteIfAcquisitionCompletesLate: file,
+        );
+        final openedOutput = BoundedRandomAccessFileLease(
+          openedFile,
+          release: (activeFile) async {
+            await operation.releaseFile(activeFile);
+            if (deleteOnRelease) await _deletePlaybackFileSilently(file);
+          },
         );
         output = openedOutput;
-        await openedOutput.writeFrom(bytes).timeout(_playbackFileIoTimeout);
-        await openedOutput.flush().timeout(_playbackFileIoTimeout);
-        await operation.releaseFile(openedOutput);
+        await openedOutput.run<void>((activeFile) async {
+          await activeFile.writeFrom(bytes);
+        }, timeout: _playbackFileIoTimeout);
+        await openedOutput.run<void>((activeFile) async {
+          await activeFile.flush();
+        }, timeout: _playbackFileIoTimeout);
+        deleteOnRelease = false;
+        try {
+          await openedOutput.close(timeout: _resourceCloseTimeout);
+        } catch (_) {
+          deleteOnRelease = true;
+          rethrow;
+        }
         output = null;
         operation.throwIfCancelled();
         if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
@@ -1474,19 +1503,23 @@ class AiTtsPlaybackService {
           operation: operation,
         );
       } finally {
-        final activeOutput = output;
-        if (activeOutput != null) {
-          await operation.releaseFile(activeOutput);
-        }
-        try {
-          if (await file.exists().timeout(_resourceCloseTimeout)) {
-            await file.delete().timeout(_resourceCloseTimeout);
-          }
-        } catch (_) {
-          // 缓存清理仅尽力执行，不能覆盖播放失败。
+        deleteOnRelease = output != null;
+        await output?.cleanup();
+        if (output == null) {
+          await _deletePlaybackFileSilently(file);
         }
       }
     });
+  }
+
+  static Future<void> _deletePlaybackFileSilently(File file) async {
+    try {
+      if (await file.exists().timeout(_resourceCloseTimeout)) {
+        await file.delete().timeout(_resourceCloseTimeout);
+      }
+    } catch (_) {
+      // 缓存清理仅尽力执行，不能覆盖播放失败。
+    }
   }
 
   Future<void> _cleanupStalePlaybackFiles(Directory directory) async {
@@ -1630,14 +1663,16 @@ class AiTtsPlaybackService {
   }) async {
     final file = File(path);
     final remaining = operation.remainingSynthesisTime();
-    final bytes = await readBoundedFileBytes(
-      file,
-      maxBytes: _maxAudioResponseBytes,
-      idleTimeout: remaining < _fileReadIdleTimeout
-          ? remaining
-          : _fileReadIdleTimeout,
-      totalTimeout: remaining,
-      handleOwner: operation,
+    final bytes = await operation.runTrackedActivity(
+      () => readBoundedFileBytes(
+        file,
+        maxBytes: _maxAudioResponseBytes,
+        idleTimeout: remaining < _fileReadIdleTimeout
+            ? remaining
+            : _fileReadIdleTimeout,
+        totalTimeout: remaining,
+        handleOwner: operation,
+      ),
     );
     operation.throwIfCancelled();
     return _AiTtsAudioPayload(
@@ -2739,6 +2774,7 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
   Future<RandomAccessFile> acquireFile(
     Future<RandomAccessFile> acquisition, {
     required Duration timeout,
+    File? deleteIfAcquisitionCompletesLate,
   }) {
     final guarded = () async {
       final file = await acquisition.timeout(
@@ -2746,7 +2782,10 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
         onTimeout: () {
           unawaited(
             acquisition.then<void>(
-              _closeFileSilently,
+              (file) => _closeFileSilently(
+                file,
+                deleteAfterClose: deleteIfAcquisitionCompletesLate,
+              ),
               onError: (Object _, StackTrace _) {},
             ),
           );
@@ -2754,7 +2793,10 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
         },
       );
       if (_cancelled) {
-        await _closeFileSilently(file);
+        await _closeFileSilently(
+          file,
+          deleteAfterClose: deleteIfAcquisitionCompletesLate,
+        );
         throw const _AiTtsPlaybackCancelled();
       }
       _files.add(file);
@@ -2854,17 +2896,13 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     _webSockets.clear();
     final processes = _processes.toList(growable: false);
     _processes.clear();
-    final files = _files.toList(growable: false);
-    _files.clear();
     final resourceCloses =
         <Future<void>>{
             for (final socket in sockets) _closeTrackedWebSocket(socket),
             for (final process in processes) _terminateProcessOnce(process),
-            for (final file in files) _closeTrackedFile(file),
           }
           ..addAll(_webSocketCloses.values)
-          ..addAll(_processTerminations.values)
-          ..addAll(_fileCloses.values);
+          ..addAll(_processTerminations.values);
     await Future.wait<void>(resourceCloses).timeout(
       AiTtsPlaybackService._resourceCloseTimeout,
       onTimeout: () => <void>[],
@@ -2883,21 +2921,54 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
         onTimeout: () => <void>[],
       );
     }
+    if (_activeActivities.isEmpty &&
+        (_files.isNotEmpty || _fileCloses.isNotEmpty)) {
+      final files = _files.toList(growable: false);
+      _files.clear();
+      await Future.wait<void>(<Future<void>>{
+        for (final file in files) _closeTrackedFile(file),
+        ..._fileCloses.values,
+      }).timeout(
+        AiTtsPlaybackService._resourceCloseTimeout,
+        onTimeout: () => <void>[],
+      );
+    }
   }
 
-  static Future<void> _closeFileSilently(RandomAccessFile file) async {
+  static Future<void> _closeFileSilently(
+    RandomAccessFile file, {
+    File? deleteAfterClose,
+  }) async {
+    var closed = false;
+    final closeFuture = file
+        .close()
+        .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+        .whenComplete(() => closed = true);
     try {
-      await file.close().timeout(AiTtsPlaybackService._resourceCloseTimeout);
+      await closeFuture.timeout(AiTtsPlaybackService._resourceCloseTimeout);
     } catch (_) {
       // 操作已进入停止流程，清理仍受时限约束。
+    }
+    if (deleteAfterClose == null) return;
+    if (closed) {
+      await AiTtsPlaybackService._deletePlaybackFileSilently(deleteAfterClose);
+    } else {
+      unawaited(
+        closeFuture.then(
+          (_) => AiTtsPlaybackService._deletePlaybackFileSilently(
+            deleteAfterClose,
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _closeTrackedFile(RandomAccessFile file) {
     return _fileCloses.putIfAbsent(file, () {
-      return _closeFileSilently(file).whenComplete(() {
-        _fileCloses.remove(file);
-      });
+      return file
+          .close()
+          .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+          .whenComplete(() => _fileCloses.remove(file));
     });
   }
 
