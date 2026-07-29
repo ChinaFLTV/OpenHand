@@ -34,6 +34,11 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   static const Duration _loginTimeout = Duration(minutes: 15);
   static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
   static const Duration _streamDrainTimeout = Duration(milliseconds: 500);
+  static const List<String> _linuxTerminalCandidates = <String>[
+    'gnome-terminal',
+    'xterm',
+    'konsole',
+  ];
 
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
@@ -60,12 +65,10 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
 
   String get _output => _outputBuffer.text;
 
-  /// Pulses the green top-edge confirmation flash on successful login
-  /// completion (exit 0).
+  /// 登录成功（退出码为 0）时触发顶部绿色确认闪烁。
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
 
-  /// Pulses the red top-edge flash on process startup / runtime failure
-  /// or non-zero exit codes.
+  /// 进程启动、运行失败或返回非零退出码时触发顶部红色闪烁。
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   HarnessCli get _cli => widget.entry.cli;
@@ -153,8 +156,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
         _starting = false;
       });
 
-      // Watchdog: if no output arrives within 8 seconds, show a diagnostic
-      // hint so the user is not left staring at a blank screen.
+      // 超过等待时限仍无输出时显示诊断提示，避免界面长期空白。
       _noOutputTimer = startSafeTimer(_noOutputHintDelay, () {
         if (!_isRunActive(generation) ||
             _output.isNotEmpty ||
@@ -172,8 +174,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       if (!_isRunActive(generation)) return;
       _flushPendingOutput();
 
-      // If the process exited almost instantly with no output, it likely
-      // crashed or was misconfigured.  Run diagnostics and display them.
+      // 进程无输出且异常退出时补充诊断信息。
       if (_output.isEmpty && exitCode != 0) {
         final diags = await collectHarnessCliFailureDiagnostics(_executable);
         if (diags.isNotEmpty && _isRunActive(generation)) {
@@ -182,8 +183,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
         }
       }
 
-      // If the output contains typical "no stdin" warnings, hint the user
-      // to try the external terminal approach instead.
+      // 检测常见的标准输入不可用提示，引导用户改用外部终端。
       if (_output.contains('no stdin data received') ||
           _output.contains('Not logged in') ||
           (_output.contains('Please run /login') && exitCode != 0)) {
@@ -254,7 +254,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
         stderrDone.future,
       ]).timeout(_streamDrainTimeout);
     } on TimeoutException {
-      // A descendant can inherit the pipes after the login process exits.
+      // 子进程可能在登录进程退出后继续持有管道。
     } finally {
       await _cancelOutputSubscriptions();
     }
@@ -367,7 +367,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       process.stdin.write('${_inputController.text}\n');
       await process.stdin.flush();
     } catch (_) {
-      // stdin may already be closed if the process exited.
+      // 进程可能已退出并关闭标准输入。
     }
     _inputController.clear();
   }
@@ -381,7 +381,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       process.stdin.add(<int>[codePoint]);
       await process.stdin.flush();
     } catch (_) {
-      // stdin may already be closed if the process exited.
+      // 进程可能已退出并关闭标准输入。
     }
   }
 
@@ -395,52 +395,77 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     );
   }
 
-  /// Opens the system terminal with the login command pre-injected.
-  /// This is more reliable for CLIs requiring a real TTY (e.g. Claude Code).
+  /// 在系统终端中打开登录命令，为依赖真实 TTY 的 CLI 提供可靠交互环境。
   Future<void> _openInTerminal() async {
     try {
       if (Platform.isMacOS) {
-        // Use osascript to open Terminal.app and run the login command.
+        // 通过 AppleScript 打开系统终端并执行登录命令。
         final escapedCmd = _commandPreview
             .replaceAll('\\', '\\\\')
             .replaceAll('"', '\\"');
-        // safe_subprocess: hard timeout + child kill avoids leaking an
-        // osascript that could disrupt the host app's input-method context
-        // (observed previously as TextFields refusing input/paste).
-        await runProcessWithTimeout('osascript', [
-          '-e',
-          'tell application "Terminal"',
-          '-e',
-          'activate',
-          '-e',
-          'do script "$escapedCmd"',
-          '-e',
-          'end tell',
-        ], tag: 'harness_cli_login_dialog');
-      } else if (Platform.isLinux) {
-        // Try common terminal emulators.
-        final terminals = ['gnome-terminal', 'xterm', 'konsole'];
-        for (final term in terminals) {
+        // 对脚本施加硬超时并在超时后终止，避免残留进程破坏输入法上下文。
+        final result = await runProcessWithTimeout(
+          'osascript',
+          [
+            '-e',
+            'tell application "Terminal"',
+            '-e',
+            'activate',
+            '-e',
+            'do script "$escapedCmd"',
+            '-e',
+            'end tell',
+          ],
+          tag: 'harness_cli_login_dialog',
+          maxStderrBytes: 4096,
+        );
+        if (result == null) {
+          throw TimeoutException('打开系统终端超时或启动失败');
+        }
+        if (result.exitCode != 0) {
+          final stderr = (result.stderr as String).trim();
+          throw StateError(
+            stderr.isEmpty
+                ? '打开系统终端失败，退出码：${result.exitCode}'
+                : '打开系统终端失败，退出码：${result.exitCode}，错误：$stderr',
+          );
+        }
+        return;
+      }
+
+      if (Platform.isLinux) {
+        for (final terminal in _linuxTerminalCandidates) {
           try {
-            await startTrackedProcess(term, [
-              '--',
+            final arguments = <String>[
+              if (terminal == 'gnome-terminal') '--' else '-e',
               'bash',
               '-c',
               '$_commandPreview; exec bash',
-            ], mode: ProcessStartMode.detached);
-            break;
+            ];
+            await startTrackedProcess(
+              terminal,
+              arguments,
+              mode: ProcessStartMode.detached,
+            );
+            return;
           } catch (_) {
             continue;
           }
         }
-      } else if (Platform.isWindows) {
+        throw StateError('未找到可用的 Linux 终端');
+      }
+
+      if (Platform.isWindows) {
         await startTrackedProcess(
           'cmd',
           ['/c', 'start', 'cmd', '/k', _commandPreview],
           runInShell: true,
           mode: ProcessStartMode.detached,
         );
+        return;
       }
+
+      throw UnsupportedError('当前平台不支持打开系统终端');
     } catch (e) {
       if (!mounted) return;
       _appendOutput('${_l10n.harnessCliLoginOpenTerminalError('$e')}\n');
