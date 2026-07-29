@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -45,6 +47,8 @@ class AiFileHistoryService {
     r'[^a-zA-Z0-9_-]',
   );
   static const int _historyPathBasenamePrefixLength = 20;
+  static const String _metadataFileSuffix = '.meta.json';
+  static const String _contentFileSuffix = '.content';
   static const int _maxVersionsPerFile = 1000;
   static const int _maxVersionSuffixCharacters = 80;
   static const int _maxVersionIdCharacters = 160;
@@ -67,7 +71,9 @@ class AiFileHistoryService {
   /// 默认路径从 `Directory.systemTemp/.openhand-file-history`
   /// 切换到 `~/.openhand/file_history/legacy_versions/`，与其他 OpenHand
   /// 应用数据位置保持一致，供全局「数据清理」控制。
-  Future<Directory> _getHistoryDir() async {
+  Future<Directory> _getHistoryDir({
+    required MonotonicDeadline deadline,
+  }) async {
     final baseDir =
         _historyDirectory ??
         p.join(
@@ -76,8 +82,8 @@ class AiFileHistoryService {
           'legacy_versions',
         );
     final dir = Directory(baseDir);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
+    if (!await dir.exists().timeout(_metadataTimeout(deadline))) {
+      await dir.create(recursive: true).timeout(_metadataTimeout(deadline));
     }
     return dir;
   }
@@ -91,12 +97,16 @@ class AiFileHistoryService {
     String? toolCallId,
   }) async {
     final file = File(filePath);
-    if (!await file.exists()) return null;
-
+    final deadline = MonotonicDeadline(
+      _historyScanTimeout,
+      timeoutMessage: '准备文件历史版本超过总时限。',
+    );
     try {
+      if (!await file.exists().timeout(_metadataTimeout(deadline))) return null;
       final location = await _resolveFileHistoryLocation(
         filePath,
         create: true,
+        deadline: deadline,
       );
       final fileHistoryDir = location.directory;
 
@@ -114,9 +124,10 @@ class AiFileHistoryService {
           '${timestamp.microsecondsSinceEpoch}_${_versionSerial++}_$suffix';
 
       // 读取当前内容
-      final content = await readBoundedFileString(
+      final content = await _readHistoryText(
         file,
         maxBytes: _maxHistoryContentBytes,
+        deadline: deadline,
       );
 
       // 保存版本元数据
@@ -141,21 +152,27 @@ class AiFileHistoryService {
 
       // 保存内容文件
       final contentFile = File(
-        p.join(fileHistoryDir.path, '$versionId.content'),
+        p.join(fileHistoryDir.path, '$versionId$_contentFileSuffix'),
       );
       await writeFileAtomically(contentFile, content);
 
       // 保存元数据文件
       final metadataFile = File(
-        p.join(fileHistoryDir.path, '$versionId.meta.json'),
+        p.join(fileHistoryDir.path, '$versionId$_metadataFileSuffix'),
       );
       try {
         await writeFileAtomically(metadataFile, jsonEncode(versionMetadata));
       } catch (_) {
         try {
-          if (await contentFile.exists()) await contentFile.delete();
-        } on FileSystemException {
-          // Preserve the metadata write failure as the primary result.
+          if (await contentFile.exists().timeout(
+            defaultBoundedFileReadIdleTimeout,
+          )) {
+            await contentFile.delete().timeout(
+              defaultBoundedFileReadIdleTimeout,
+            );
+          }
+        } catch (_) {
+          // 保留元数据写入失败作为主结果。
         }
         rethrow;
       }
@@ -167,148 +184,203 @@ class AiFileHistoryService {
     } catch (_) {
       // 历史版本保存失败不应阻断编辑操作
       return null;
+    } finally {
+      deadline.stop();
     }
   }
 
   /// 获取文件的版本历史列表
   Future<List<FileVersionInfo>> getVersionHistory(String filePath) async {
+    final versions = <FileVersionInfo>[];
+    final deadline = MonotonicDeadline(
+      _historyScanTimeout,
+      timeoutMessage: '读取文件历史版本超过总时限。',
+    );
     try {
-      final fileHistoryDir = (await _resolveFileHistoryLocation(
+      final location = await _resolveFileHistoryLocation(
         filePath,
-      )).directory;
+        deadline: deadline,
+      );
+      final fileHistoryDir = location.directory;
 
-      if (!await fileHistoryDir.exists()) {
+      if (!await fileHistoryDir.exists().timeout(_metadataTimeout(deadline))) {
         return const <FileVersionInfo>[];
       }
 
-      final versions = <FileVersionInfo>[];
       final metaFiles = <File>[];
       final contentFiles = <File>[];
       final listing = await listDirectoryBounded(
         fileHistoryDir,
         maxEntries: _maxHistoryDirectoryEntries,
+        totalTimeout: deadline.remaining(),
       );
+      var scannedAllEntries = true;
       for (final entity in listing.entries) {
-        if (entity is File && entity.path.endsWith('.meta.json')) {
+        if (deadline.isExpired) {
+          scannedAllEntries = false;
+          break;
+        }
+        if (entity is File && entity.path.endsWith(_metadataFileSuffix)) {
           metaFiles.add(entity);
           try {
-            final metaContent = await readBoundedFileString(
+            final metaContent = await _readHistoryText(
               entity,
               maxBytes: _maxHistoryMetadataBytes,
+              deadline: deadline,
             );
             final info = _decodeVersionInfo(metaContent);
             if (info != null &&
                 _isSafeVersionId(info.versionId) &&
-                p.basename(entity.path) == '${info.versionId}.meta.json' &&
-                p.equals(info.filePath, p.normalize(filePath))) {
+                p.basename(entity.path) ==
+                    '${info.versionId}$_metadataFileSuffix' &&
+                p.equals(info.filePath, location.normalizedPath)) {
               versions.add(info);
             }
+          } on TimeoutException {
+            scannedAllEntries = false;
+            break;
           } catch (_) {
             // 跳过损坏的元数据文件
           }
-        } else if (entity is File && entity.path.endsWith('.content')) {
+        } else if (entity is File && entity.path.endsWith(_contentFileSuffix)) {
           contentFiles.add(entity);
         }
       }
-      if (!listing.truncated) {
-        await _deleteStaleOrphanContentFiles(metaFiles, contentFiles);
+      if (!listing.truncated && scannedAllEntries && !deadline.isExpired) {
+        await _deleteStaleOrphanContentFiles(metaFiles, contentFiles, deadline);
       }
-
-      // 按时间倒序排列
-      versions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return versions.take(maxVersionsPerFile).toList(growable: false);
     } catch (_) {
-      return const <FileVersionInfo>[];
+      // 返回时限内已解析的版本。
+    } finally {
+      deadline.stop();
     }
+    versions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return versions.take(maxVersionsPerFile).toList(growable: false);
   }
 
   /// 清理超出限制的旧版本
   Future<void> _pruneOldVersions(Directory fileHistoryDir) async {
+    final deadline = MonotonicDeadline(
+      _historyScanTimeout,
+      timeoutMessage: '清理文件历史版本超过总时限。',
+    );
     try {
       final metaFiles = <File>[];
       final contentFiles = <File>[];
       final listing = await listDirectoryBounded(
         fileHistoryDir,
         maxEntries: _maxHistoryDirectoryEntries,
+        totalTimeout: deadline.remaining(),
       );
       if (listing.truncated) return;
       for (final entity in listing.entries) {
-        if (entity is File && entity.path.endsWith('.meta.json')) {
+        if (entity is File && entity.path.endsWith(_metadataFileSuffix)) {
           metaFiles.add(entity);
-        } else if (entity is File && entity.path.endsWith('.content')) {
+        } else if (entity is File && entity.path.endsWith(_contentFileSuffix)) {
           contentFiles.add(entity);
         }
       }
-      await _deleteStaleOrphanContentFiles(metaFiles, contentFiles);
+      await _deleteStaleOrphanContentFiles(metaFiles, contentFiles, deadline);
 
       if (metaFiles.length <= maxVersionsPerFile) return;
 
       // 按修改时间排序
       final fileStats = <File, DateTime>{};
       for (final file in metaFiles) {
-        final stat = await file.stat();
-        fileStats[file] = stat.modified;
+        if (deadline.isExpired) return;
+        try {
+          final stat = await file.stat().timeout(_metadataTimeout(deadline));
+          fileStats[file] = stat.modified;
+        } on TimeoutException {
+          return;
+        } on FileSystemException {
+          return;
+        }
       }
       metaFiles.sort((a, b) => fileStats[b]!.compareTo(fileStats[a]!));
 
       // 删除超出限制的旧版本
       for (var i = maxVersionsPerFile; i < metaFiles.length; i++) {
+        if (deadline.isExpired) return;
         final metaFile = metaFiles[i];
-        final versionId = p.basenameWithoutExtension(
-          metaFile.path.replaceAll('.meta.json', ''),
+        final name = p.basename(metaFile.path);
+        final versionId = name.substring(
+          0,
+          name.length - _metadataFileSuffix.length,
         );
-        await metaFile.delete();
-        final contentFile = File(
-          p.join(fileHistoryDir.path, '$versionId.content'),
-        );
-        if (await contentFile.exists()) {
-          await contentFile.delete();
+        try {
+          await metaFile.delete().timeout(_metadataTimeout(deadline));
+          final contentFile = File(
+            p.join(fileHistoryDir.path, '$versionId$_contentFileSuffix'),
+          );
+          if (await contentFile.exists().timeout(_metadataTimeout(deadline))) {
+            await contentFile.delete().timeout(_metadataTimeout(deadline));
+          }
+        } on TimeoutException {
+          return;
+        } on FileSystemException {
+          // 单个版本可能已被其他进程清理，继续处理剩余版本。
         }
       }
     } catch (_) {
       // 清理失败不影响主流程
+    } finally {
+      deadline.stop();
     }
   }
 
   Future<void> _deleteStaleOrphanContentFiles(
     List<File> metaFiles,
     List<File> contentFiles,
+    MonotonicDeadline deadline,
   ) async {
     final metadataVersionIds = metaFiles.map((file) {
       final name = p.basename(file.path);
-      return name.substring(0, name.length - '.meta.json'.length);
+      return name.substring(0, name.length - _metadataFileSuffix.length);
     }).toSet();
     final orphanCutoff = DateTime.now().subtract(_orphanContentGracePeriod);
-    final contentVersionIds = <String>{
-      for (final file in contentFiles)
-        p
-            .basename(file.path)
-            .substring(0, p.basename(file.path).length - '.content'.length),
-    };
+    final contentVersionIds = contentFiles.map((file) {
+      final name = p.basename(file.path);
+      return name.substring(0, name.length - _contentFileSuffix.length);
+    }).toSet();
     for (final contentFile in contentFiles) {
+      if (deadline.isExpired) return;
       final name = p.basename(contentFile.path);
-      final versionId = name.substring(0, name.length - '.content'.length);
+      final versionId = name.substring(
+        0,
+        name.length - _contentFileSuffix.length,
+      );
       if (metadataVersionIds.contains(versionId)) continue;
       try {
-        final stat = await contentFile.stat();
+        final stat = await contentFile.stat().timeout(
+          _metadataTimeout(deadline),
+        );
         if (stat.modified.isBefore(orphanCutoff)) {
-          await contentFile.delete();
+          await contentFile.delete().timeout(_metadataTimeout(deadline));
         }
+      } on TimeoutException {
+        return;
       } on FileSystemException {
-        // Bounded orphan cleanup is best effort.
+        // 孤儿文件清理仅尽力执行。
       }
     }
     for (final metaFile in metaFiles) {
+      if (deadline.isExpired) return;
       final name = p.basename(metaFile.path);
-      final versionId = name.substring(0, name.length - '.meta.json'.length);
+      final versionId = name.substring(
+        0,
+        name.length - _metadataFileSuffix.length,
+      );
       if (contentVersionIds.contains(versionId)) continue;
       try {
-        final stat = await metaFile.stat();
+        final stat = await metaFile.stat().timeout(_metadataTimeout(deadline));
         if (stat.modified.isBefore(orphanCutoff)) {
-          await metaFile.delete();
+          await metaFile.delete().timeout(_metadataTimeout(deadline));
         }
+      } on TimeoutException {
+        return;
       } on FileSystemException {
-        // Bounded orphan cleanup is best effort.
+        // 孤儿文件清理仅尽力执行。
       }
     }
   }
@@ -318,7 +390,7 @@ class AiFileHistoryService {
     return '${_historyDirectoryPrefix(path)}_$digest';
   }
 
-  /// Retains compatibility with directories created before SHA-256 keys.
+  /// 兼容迁移前使用旧哈希命名的历史目录。
   String _legacyHistoryDirectoryName(String path) {
     final hash = rollingHashPositive31Bit(
       path.codeUnits,
@@ -343,22 +415,31 @@ class AiFileHistoryService {
   }
 
   Future<({Directory directory, String normalizedPath})>
-  _resolveFileHistoryLocation(String filePath, {bool create = false}) async {
-    final historyDir = await _getHistoryDir();
+  _resolveFileHistoryLocation(
+    String filePath, {
+    bool create = false,
+    required MonotonicDeadline deadline,
+  }) async {
+    final historyDir = await _getHistoryDir(deadline: deadline);
     final normalizedPath = p.normalize(filePath);
     final directory = Directory(
       p.join(historyDir.path, _historyDirectoryName(normalizedPath)),
     );
-    if (!await directory.exists()) {
+    final directoryExists = await directory.exists().timeout(
+      _metadataTimeout(deadline),
+    );
+    if (!directoryExists) {
       final legacyDirectory = Directory(
         p.join(historyDir.path, _legacyHistoryDirectoryName(normalizedPath)),
       );
-      if (await legacyDirectory.exists()) {
+      if (await legacyDirectory.exists().timeout(_metadataTimeout(deadline))) {
         return (directory: legacyDirectory, normalizedPath: normalizedPath);
       }
     }
-    if (create && !await directory.exists()) {
-      await directory.create(recursive: true);
+    if (create && !directoryExists) {
+      await directory
+          .create(recursive: true)
+          .timeout(_metadataTimeout(deadline));
     }
     return (directory: directory, normalizedPath: normalizedPath);
   }
@@ -373,26 +454,34 @@ class AiFileHistoryService {
     if (!_isSafeVersionId(versionId)) {
       return (null, null);
     }
+    final deadline = MonotonicDeadline(
+      _historyScanTimeout,
+      timeoutMessage: '读取文件历史内容超过总时限。',
+    );
     try {
-      final location = await _resolveFileHistoryLocation(filePath);
+      final location = await _resolveFileHistoryLocation(
+        filePath,
+        deadline: deadline,
+      );
       final fileHistoryDir = location.directory;
 
       final contentFile = File(
-        p.join(fileHistoryDir.path, '$versionId.content'),
+        p.join(fileHistoryDir.path, '$versionId$_contentFileSuffix'),
       );
-      if (!await contentFile.exists()) {
+      if (!await contentFile.exists().timeout(_metadataTimeout(deadline))) {
         return (null, null);
       }
 
       final metaFile = File(
-        p.join(fileHistoryDir.path, '$versionId.meta.json'),
+        p.join(fileHistoryDir.path, '$versionId$_metadataFileSuffix'),
       );
-      if (!await metaFile.exists()) {
+      if (!await metaFile.exists().timeout(_metadataTimeout(deadline))) {
         return (null, null);
       }
-      final metaContent = await readBoundedFileString(
+      final metaContent = await _readHistoryText(
         metaFile,
         maxBytes: _maxHistoryMetadataBytes,
+        deadline: deadline,
       );
       final metadata = _decodeVersionInfo(metaContent);
       if (metadata == null ||
@@ -400,72 +489,108 @@ class AiFileHistoryService {
           !p.equals(metadata.filePath, location.normalizedPath)) {
         return (null, null);
       }
-      final content = await readBoundedFileString(
+      final content = await _readHistoryText(
         contentFile,
         maxBytes: _maxHistoryContentBytes,
+        deadline: deadline,
       );
 
       return (content, metadata);
+    } on TimeoutException {
+      return (null, null);
     } catch (error, stack) {
       silentLog('ai_file_history_service', '读取版本内容', error, stack);
       return (null, null);
+    } finally {
+      deadline.stop();
     }
   }
 
   /// 清理指定会话的所有历史记录
   Future<void> clearSessionHistory(String sessionId) async {
+    final deadline = MonotonicDeadline(
+      _sessionClearTimeout,
+      timeoutMessage: '清理会话文件历史超过总时限。',
+    );
     try {
-      final historyDir = await _getHistoryDir();
+      final historyDir = await _getHistoryDir(deadline: deadline);
       final rootListing = await listDirectoryBounded(
         historyDir,
         maxEntries: _maxHistoryRootDirectories,
+        totalTimeout: deadline.remaining(),
       );
-      final stopwatch = Stopwatch()..start();
       var scannedEntries = 0;
       for (final pathDir in rootListing.entries) {
-        if (scannedEntries >= _maxSessionClearEntries ||
-            stopwatch.elapsed >= _sessionClearTimeout) {
+        if (scannedEntries >= _maxSessionClearEntries || deadline.isExpired) {
           break;
         }
         if (pathDir is! Directory) continue;
-        final remaining = _sessionClearTimeout - stopwatch.elapsed;
-        if (remaining <= Duration.zero) break;
         final listing = await listDirectoryBounded(
           pathDir,
           maxEntries: _maxHistoryDirectoryEntries,
-          totalTimeout: remaining < _historyScanTimeout
-              ? remaining
-              : _historyScanTimeout,
+          totalTimeout: deadline.limit(_historyScanTimeout),
         );
         for (final file in listing.entries) {
           scannedEntries += 1;
-          if (scannedEntries > _maxSessionClearEntries) break;
-          if (file is! File || !file.path.endsWith('.meta.json')) continue;
+          if (scannedEntries > _maxSessionClearEntries || deadline.isExpired) {
+            break;
+          }
+          if (file is! File || !file.path.endsWith(_metadataFileSuffix)) {
+            continue;
+          }
           try {
-            final content = await readBoundedFileString(
+            final content = await _readHistoryText(
               file,
               maxBytes: _maxHistoryMetadataBytes,
+              deadline: deadline,
             );
             final info = _decodeVersionInfo(content);
             if (info?.sessionId == sessionId &&
                 _isSafeVersionId(info!.versionId) &&
-                p.basename(file.path) == '${info.versionId}.meta.json') {
-              await file.delete();
+                p.basename(file.path) ==
+                    '${info.versionId}$_metadataFileSuffix') {
+              await file.delete().timeout(_metadataTimeout(deadline));
               final contentFile = File(
-                p.join(pathDir.path, '${info.versionId}.content'),
+                p.join(pathDir.path, '${info.versionId}$_contentFileSuffix'),
               );
-              if (await contentFile.exists()) {
-                await contentFile.delete();
+              if (await contentFile.exists().timeout(
+                _metadataTimeout(deadline),
+              )) {
+                await contentFile.delete().timeout(_metadataTimeout(deadline));
               }
             }
+          } on TimeoutException {
+            return;
           } catch (error, stack) {
             silentLog('ai_file_history_service', '清理单个历史文件', error, stack);
           }
         }
       }
+    } on TimeoutException {
+      return;
     } catch (error, stack) {
       silentLog('ai_file_history_service', '遍历待清理历史目录', error, stack);
+    } finally {
+      deadline.stop();
     }
+  }
+
+  Duration _metadataTimeout(MonotonicDeadline deadline) {
+    return deadline.limit(defaultBoundedFileReadIdleTimeout);
+  }
+
+  Future<String> _readHistoryText(
+    File file, {
+    required int maxBytes,
+    required MonotonicDeadline deadline,
+  }) {
+    final totalTimeout = deadline.remaining();
+    return readBoundedFileString(
+      file,
+      maxBytes: maxBytes,
+      idleTimeout: deadline.limit(defaultBoundedFileReadIdleTimeout),
+      totalTimeout: totalTimeout,
+    );
   }
 
   bool _isSafeVersionId(String versionId) {
