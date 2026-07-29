@@ -163,6 +163,10 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   Future<void> _chain = Future.value();
   static const int _maxPersistedCalls = 2000;
   static const int _maxPersistedHistorySamples = 2000;
+  static const String _telemetryDirectoryName = 'telemetry';
+  static const String _callsFileName = 'calls.json';
+  static const String _enginesFileName = 'engines.json';
+  static const String _engineHistoryFileName = 'engine_history.json';
 
   static final RegExp _quotaErrorPattern = RegExp(
     r'\b(429|too many requests|rate[\s_-]?limit|quota|exceeded|throttl)\b',
@@ -175,22 +179,28 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     return _quotaErrorPattern.hasMatch(message);
   }
 
-  String defaultDirectoryPath() =>
-      p.join(OpenHandPaths.defaultCacheDirectoryPath(), subdir, 'telemetry');
+  String defaultDirectoryPath() => p.join(
+    OpenHandPaths.defaultCacheDirectoryPath(),
+    subdir,
+    _telemetryDirectoryName,
+  );
+
+  Future<Object?> _readRawJson(String fileName, String action) async {
+    final file = File(p.join(defaultDirectoryPath(), fileName));
+    try {
+      return await readWebEngineJsonFileIfExists(file);
+    } catch (error, stack) {
+      silentLog(logTag, action, error, stack);
+      return null;
+    }
+  }
 
   /// 读取 `calls.json` 的原始 entry 数组（按 append 时间升序）。
   /// 调用方负责 reverse + take（旧 API 是返回新→旧）。
   Future<List<Map<String, Object?>>> rawCalls() async {
-    final f = File(p.join(defaultDirectoryPath(), 'calls.json'));
-    if (!await f.exists()) return const [];
-    try {
-      final decoded = await readWebEngineJsonFile(f);
-      if (decoded is! List) return const [];
-      return stringKeyedMapListFromValue(decoded);
-    } catch (error, stack) {
-      silentLog(logTag, '读取原始调用记录', error, stack);
-      return const [];
-    }
+    final decoded = await _readRawJson(_callsFileName, '读取原始调用记录');
+    if (decoded is! List) return const [];
+    return stringKeyedMapListFromValue(decoded);
   }
 
   /// 读取最近调用，按新 → 旧排序，并统一处理非正 limit。
@@ -203,42 +213,28 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
 
   /// 读取 `engines.json`，返回 `kind.name → entry`。
   Future<Map<String, Map<String, Object?>>> rawEngineStats() async {
-    final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
-    if (!await f.exists()) return const {};
-    try {
-      final decoded = await readWebEngineJsonFile(f);
-      if (decoded is! Map) return const {};
-      final out = <String, Map<String, Object?>>{};
-      for (final entry in decoded.entries) {
-        if (entry.value is Map) {
-          out['${entry.key}'] = stringKeyedMapFromValue(entry.value);
-        }
+    final decoded = await _readRawJson(_enginesFileName, '读取原始引擎统计');
+    if (decoded is! Map) return const {};
+    final out = <String, Map<String, Object?>>{};
+    for (final entry in decoded.entries) {
+      if (entry.value is Map) {
+        out['${entry.key}'] = stringKeyedMapFromValue(entry.value);
       }
-      return out;
-    } catch (error, stack) {
-      silentLog(logTag, '读取原始引擎统计', error, stack);
-      return const {};
     }
+    return out;
   }
 
   /// 读取 `engine_history.json`，返回 `kind.name → 采样数组（map 形式）`。
   Future<Map<String, List<Map<String, Object?>>>> rawEngineHistory() async {
-    final f = File(p.join(defaultDirectoryPath(), 'engine_history.json'));
-    if (!await f.exists()) return const {};
-    try {
-      final decoded = await readWebEngineJsonFile(f);
-      if (decoded is! Map) return const {};
-      final out = <String, List<Map<String, Object?>>>{};
-      for (final entry in decoded.entries) {
-        if (entry.value is List) {
-          out['${entry.key}'] = stringKeyedMapListFromValue(entry.value);
-        }
+    final decoded = await _readRawJson(_engineHistoryFileName, '读取原始引擎历史');
+    if (decoded is! Map) return const {};
+    final out = <String, List<Map<String, Object?>>>{};
+    for (final entry in decoded.entries) {
+      if (entry.value is List) {
+        out['${entry.key}'] = stringKeyedMapListFromValue(entry.value);
       }
-      return out;
-    } catch (error, stack) {
-      silentLog(logTag, '读取原始引擎历史', error, stack);
-      return const {};
     }
+    return out;
   }
 
   Future<Map<TKind, TStat>> typedEngineStats<TStat>(
@@ -267,7 +263,6 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   Future<void> clearAll() async {
     _chain = _chain.then((_) async {
       final dir = Directory(defaultDirectoryPath());
-      if (!await dir.exists()) return;
       try {
         final complete = await clearWebEngineDirectoryBounded(dir);
         if (!complete) {
@@ -294,10 +289,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   /// 手动清掉某引擎的 cooldown（用于设置 UI 上的"重置"动作）。
   Future<void> clearEngineCooldown(TKind kind) async {
     _chain = _chain.then((_) async {
-      final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
-      if (!await f.exists()) return;
+      final f = File(p.join(defaultDirectoryPath(), _enginesFileName));
       try {
-        final decoded = await readWebEngineJsonFile(f);
+        final decoded = await readWebEngineJsonFileIfExists(f);
         if (decoded is! Map) return;
         final agg = <String, Map<String, Object?>>{};
         for (final entry in decoded.entries) {
@@ -380,33 +374,38 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     required int maxHistorySamples,
   }) async {
     final dir = Directory(defaultDirectoryPath());
-    if (!await dir.exists()) await dir.create(recursive: true);
+    final deadline = WebEngineIoDeadline();
+    try {
+      await ensureWebEngineDirectory(dir, deadline: deadline);
 
-    // 1) calls.json
-    final callsFile = File(p.join(dir.path, 'calls.json'));
-    final calls = <Map<String, Object?>>[];
-    if (await callsFile.exists()) {
+      // 1. 追加调用记录。
+      final callsFile = File(p.join(dir.path, _callsFileName));
+      final calls = <Map<String, Object?>>[];
       try {
-        final decoded = await readWebEngineJsonFile(callsFile);
+        final decoded = await readWebEngineJsonFileIfExists(
+          callsFile,
+          deadline: deadline,
+        );
         if (decoded is List) {
           for (final item in decoded) {
             if (item is Map) calls.add(stringKeyedMapFromValue(item));
           }
         }
-      } catch (_) {
-        /* corrupted: drop */
+      } on FormatException {
+        /* 文件损坏时丢弃旧记录。 */
       }
-    }
-    calls.add(jsonSafeMap(callJson));
-    _keepNewestEntries(calls, maxRecentCalls);
-    await writeWebEngineJsonFile(callsFile, calls);
+      calls.add(jsonSafeMap(callJson));
+      _keepNewestEntries(calls, maxRecentCalls);
+      await writeWebEngineJsonFile(callsFile, calls);
 
-    // 2) engines.json
-    final enginesFile = File(p.join(dir.path, 'engines.json'));
-    final agg = <String, Map<String, Object?>>{};
-    if (await enginesFile.exists()) {
+      // 2. 汇总引擎统计。
+      final enginesFile = File(p.join(dir.path, _enginesFileName));
+      final agg = <String, Map<String, Object?>>{};
       try {
-        final decoded = await readWebEngineJsonFile(enginesFile);
+        final decoded = await readWebEngineJsonFileIfExists(
+          enginesFile,
+          deadline: deadline,
+        );
         if (decoded is Map) {
           for (final entry in decoded.entries) {
             if (entry.value is Map) {
@@ -414,87 +413,89 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
             }
           }
         }
-      } catch (_) {
-        /* corrupted: rebuild */
+      } on FormatException {
+        /* 文件损坏时重建统计。 */
       }
-    }
-    for (final per in perEngine) {
-      final key = per.kindName;
-      final cur = agg[key] ?? <String, Object?>{};
-      final totalCalls =
-          webEngineNonNegativeIntFromValue(cur['total_calls']) + 1;
-      final successCalls =
-          webEngineNonNegativeIntFromValue(cur['success_calls']) +
-          (per.success ? 1 : 0);
-      final safeElapsedMs = webEngineNonNegativeIntFromValue(per.elapsedMs);
-      final totalDur =
-          webEngineNonNegativeIntFromValue(cur['total_duration_ms']) +
-          safeElapsedMs;
+      for (final per in perEngine) {
+        final key = per.kindName;
+        final cur = agg[key] ?? <String, Object?>{};
+        final totalCalls =
+            webEngineNonNegativeIntFromValue(cur['total_calls']) + 1;
+        final successCalls =
+            webEngineNonNegativeIntFromValue(cur['success_calls']) +
+            (per.success ? 1 : 0);
+        final safeElapsedMs = webEngineNonNegativeIntFromValue(per.elapsedMs);
+        final totalDur =
+            webEngineNonNegativeIntFromValue(cur['total_duration_ms']) +
+            safeElapsedMs;
 
-      var consecFail = webEngineNonNegativeIntFromValue(
-        cur['consecutive_failures'],
-      );
-      int? cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
-        cur['cooldown_until_ms'],
-      );
-      String? lastQuotaError = cur['last_quota_error'] as String?;
-      int? lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
-        cur['last_quota_at'],
-      );
-      if (per.success) {
-        consecFail = 0;
-        cooldownUntilMs = null;
-      } else {
-        consecFail += 1;
-        if (looksLikeQuotaError(per.error)) {
-          lastQuotaError = per.error;
-          lastQuotaAt = timestampMs;
-          cooldownUntilMs = timestampMs + cooldownConfig.quotaSeconds * 1000;
-        } else if (consecFail >= cooldownConfig.tier3Failures) {
-          cooldownUntilMs = timestampMs + cooldownConfig.tier3Seconds * 1000;
-        } else if (consecFail >= cooldownConfig.tier2Failures) {
-          cooldownUntilMs = timestampMs + cooldownConfig.tier2Seconds * 1000;
-        } else if (consecFail >= cooldownConfig.tier1Failures) {
-          cooldownUntilMs = timestampMs + cooldownConfig.tier1Seconds * 1000;
-        }
-      }
-
-      final updated = <String, Object?>{
-        'total_calls': totalCalls,
-        'success_calls': successCalls,
-        'total_duration_ms': totalDur,
-        'last_invoked_at': timestampMs,
-        'consecutive_failures': consecFail,
-        if (cooldownUntilMs != null) 'cooldown_until_ms': cooldownUntilMs,
-        if (lastQuotaError != null) 'last_quota_error': lastQuotaError,
-        if (lastQuotaAt != null) 'last_quota_at': lastQuotaAt,
-      };
-      // 累加领域专属计数（total_hits / total_bytes 等）
-      for (final bump in per.aggregateBumps.entries) {
-        final base = webEngineNonNegativeIntFromValue(cur[bump.key]);
-        updated[bump.key] = base + webEngineNonNegativeIntFromValue(bump.value);
-      }
-      if (!per.success) {
-        updated['last_error'] = per.error ?? cur['last_error'];
-        updated['last_failure_at'] = timestampMs;
-      } else {
-        updated['last_error'] = cur['last_error'];
-        final lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
-          cur['last_failure_at'],
+        var consecFail = webEngineNonNegativeIntFromValue(
+          cur['consecutive_failures'],
         );
-        if (lastFailureAt != null) updated['last_failure_at'] = lastFailureAt;
-      }
-      agg[key] = updated;
-    }
-    await writeWebEngineJsonFile(enginesFile, agg);
+        int? cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
+          cur['cooldown_until_ms'],
+        );
+        String? lastQuotaError = cur['last_quota_error'] as String?;
+        int? lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
+          cur['last_quota_at'],
+        );
+        if (per.success) {
+          consecFail = 0;
+          cooldownUntilMs = null;
+        } else {
+          consecFail += 1;
+          if (looksLikeQuotaError(per.error)) {
+            lastQuotaError = per.error;
+            lastQuotaAt = timestampMs;
+            cooldownUntilMs = timestampMs + cooldownConfig.quotaSeconds * 1000;
+          } else if (consecFail >= cooldownConfig.tier3Failures) {
+            cooldownUntilMs = timestampMs + cooldownConfig.tier3Seconds * 1000;
+          } else if (consecFail >= cooldownConfig.tier2Failures) {
+            cooldownUntilMs = timestampMs + cooldownConfig.tier2Seconds * 1000;
+          } else if (consecFail >= cooldownConfig.tier1Failures) {
+            cooldownUntilMs = timestampMs + cooldownConfig.tier1Seconds * 1000;
+          }
+        }
 
-    // 3) engine_history.json
-    if (perEngine.isNotEmpty) {
-      final histFile = File(p.join(dir.path, 'engine_history.json'));
-      final hist = <String, List<Map<String, Object?>>>{};
-      if (await histFile.exists()) {
+        final updated = <String, Object?>{
+          'total_calls': totalCalls,
+          'success_calls': successCalls,
+          'total_duration_ms': totalDur,
+          'last_invoked_at': timestampMs,
+          'consecutive_failures': consecFail,
+          if (cooldownUntilMs != null) 'cooldown_until_ms': cooldownUntilMs,
+          if (lastQuotaError != null) 'last_quota_error': lastQuotaError,
+          if (lastQuotaAt != null) 'last_quota_at': lastQuotaAt,
+        };
+        // 累加领域专属计数（total_hits / total_bytes 等）
+        for (final bump in per.aggregateBumps.entries) {
+          final base = webEngineNonNegativeIntFromValue(cur[bump.key]);
+          updated[bump.key] =
+              base + webEngineNonNegativeIntFromValue(bump.value);
+        }
+        if (!per.success) {
+          updated['last_error'] = per.error ?? cur['last_error'];
+          updated['last_failure_at'] = timestampMs;
+        } else {
+          updated['last_error'] = cur['last_error'];
+          final lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
+            cur['last_failure_at'],
+          );
+          if (lastFailureAt != null) updated['last_failure_at'] = lastFailureAt;
+        }
+        agg[key] = updated;
+      }
+      await writeWebEngineJsonFile(enginesFile, agg);
+
+      // 3. 追加引擎历史采样。
+      if (perEngine.isNotEmpty) {
+        final histFile = File(p.join(dir.path, _engineHistoryFileName));
+        final hist = <String, List<Map<String, Object?>>>{};
         try {
-          final decoded = await readWebEngineJsonFile(histFile);
+          final decoded = await readWebEngineJsonFileIfExists(
+            histFile,
+            deadline: deadline,
+          );
           if (decoded is Map) {
             for (final entry in decoded.entries) {
               if (entry.value is List) {
@@ -505,25 +506,27 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
               }
             }
           }
-        } catch (_) {
-          /* corrupted */
+        } on FormatException {
+          /* 文件损坏时重建历史。 */
         }
+        for (final per in perEngine) {
+          final key = per.kindName;
+          final list = hist[key] ?? <Map<String, Object?>>[];
+          list.add(
+            jsonSafeMap(<String, Object?>{
+              'ts': timestampMs,
+              'dur': webEngineNonNegativeIntFromValue(per.elapsedMs),
+              'ok': per.success,
+              ...per.historyExtras,
+            }),
+          );
+          _keepNewestEntries(list, maxHistorySamples);
+          hist[key] = list;
+        }
+        await writeWebEngineJsonFile(histFile, hist);
       }
-      for (final per in perEngine) {
-        final key = per.kindName;
-        final list = hist[key] ?? <Map<String, Object?>>[];
-        list.add(
-          jsonSafeMap(<String, Object?>{
-            'ts': timestampMs,
-            'dur': webEngineNonNegativeIntFromValue(per.elapsedMs),
-            'ok': per.success,
-            ...per.historyExtras,
-          }),
-        );
-        _keepNewestEntries(list, maxHistorySamples);
-        hist[key] = list;
-      }
-      await writeWebEngineJsonFile(histFile, hist);
+    } finally {
+      deadline.stop();
     }
   }
 }

@@ -23,6 +23,12 @@ class WebEngineCachePrewarmReport {
     required this.removedOrphanEntries,
   });
 
+  static const empty = WebEngineCachePrewarmReport(
+    removedExpired: 0,
+    removedOrphanFiles: 0,
+    removedOrphanEntries: 0,
+  );
+
   final int removedExpired;
   final int removedOrphanFiles;
   final int removedOrphanEntries;
@@ -91,9 +97,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   /// 计算当前缓存目录的总字节数（含 index）。
   Future<int> totalBytesOnDisk() async {
     final dir = Directory(defaultDirectoryPath());
-    if (!await dir.exists()) return 0;
+    final deadline = WebEngineIoDeadline();
     try {
-      final usage = await measureWebEngineDirectoryBounded(dir);
+      if (!await webEngineEntityExists(dir, deadline: deadline)) return 0;
+      final usage = await measureWebEngineDirectoryBounded(
+        dir,
+        deadline: deadline,
+      );
       if (usage.truncated) {
         silentLog(
           logTag,
@@ -106,6 +116,8 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     } catch (error, stack) {
       silentLog(logTag, '统计磁盘总字节数', error, stack);
       return 0;
+    } finally {
+      deadline.stop();
     }
   }
 
@@ -113,7 +125,6 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   Future<void> clearAll() async {
     chain = chain.then((_) async {
       final dir = Directory(defaultDirectoryPath());
-      if (!await dir.exists()) return;
       try {
         final complete = await clearWebEngineDirectoryBounded(dir);
         if (!complete) {
@@ -141,33 +152,28 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           final deadline = WebEngineIoDeadline();
           try {
             final dir = Directory(defaultDirectoryPath());
-            if (!await dir.exists().timeout(deadline.nextOperationTimeout())) {
-              completer.complete(
-                const WebEngineCachePrewarmReport(
-                  removedExpired: 0,
-                  removedOrphanFiles: 0,
-                  removedOrphanEntries: 0,
-                ),
-              );
+            if (!await webEngineEntityExists(dir, deadline: deadline)) {
+              completer.complete(WebEngineCachePrewarmReport.empty);
               return;
             }
-            final indexFile = File(p.join(dir.path, 'index.json'));
+            final indexFile = File(
+              p.join(dir.path, webEngineCacheIndexFileName),
+            );
             Map<String, Object?> root = <String, Object?>{};
-            if (await indexFile.exists().timeout(
-              deadline.nextOperationTimeout(),
-            )) {
-              try {
-                final decoded = await readWebEngineJsonFile(indexFile);
-                if (decoded is Map) root = stringKeyedMapFromValue(decoded);
-              } catch (_) {
-                /* 索引损坏时按空索引处理。 */
-              }
+            try {
+              final decoded = await readWebEngineJsonFileIfExists(
+                indexFile,
+                deadline: deadline,
+              );
+              if (decoded is Map) root = stringKeyedMapFromValue(decoded);
+            } on FormatException {
+              /* 索引损坏时按空索引处理。 */
             }
             final entries = webEngineCacheEntriesFromValue(root['entries']);
 
             final now = DateTime.now().millisecondsSinceEpoch;
             final keysToRemove = <String>[];
-            final keepFileNames = <String>{'index.json'};
+            final keepFileNames = <String>{webEngineCacheIndexFileName};
             for (final entry in entries.entries) {
               final value = entry.value;
               if (value is! Map) {
@@ -187,19 +193,19 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               if (expiresAt <= now) {
                 keysToRemove.add(entry.key);
                 final f = File(p.join(dir.path, payloadRel));
-                if (await f.exists().timeout(deadline.nextOperationTimeout())) {
+                if (await webEngineEntityExists(f, deadline: deadline)) {
                   try {
                     await f.delete().timeout(deadline.nextOperationTimeout());
-                  } catch (_) {
+                  } on TimeoutException {
+                    rethrow;
+                  } on FileSystemException {
                     /* 删除失败不影响其余缓存自愈。 */
                   }
                 }
                 removedExpired++;
               } else {
                 final f = File(p.join(dir.path, payloadRel));
-                if (!await f.exists().timeout(
-                  deadline.nextOperationTimeout(),
-                )) {
+                if (!await webEngineEntityExists(f, deadline: deadline)) {
                   keysToRemove.add(entry.key);
                   removedOrphanEntries++;
                 } else {
@@ -216,21 +222,27 @@ abstract class WebEngineCacheStoreBase<TSettings> {
                 dir,
                 deadline,
               );
-              for (final entity in listing.entries) {
-                if (entity is! File) continue;
-                final name = p.basename(entity.path);
-                if (keepFileNames.contains(name)) continue;
-                if (!name.endsWith('.txt')) continue;
-                try {
-                  await entity.delete().timeout(
-                    deadline.nextOperationTimeout(),
-                  );
-                  removedOrphanFiles++;
-                } catch (_) {
-                  /* 删除失败不影响其余缓存自愈。 */
+              if (!listing.truncated) {
+                for (final entity in listing.entries) {
+                  if (entity is! File) continue;
+                  final name = p.basename(entity.path);
+                  if (keepFileNames.contains(name)) continue;
+                  if (!name.endsWith(webEngineCachePayloadExtension)) continue;
+                  try {
+                    await entity.delete().timeout(
+                      deadline.nextOperationTimeout(),
+                    );
+                    removedOrphanFiles++;
+                  } on TimeoutException {
+                    rethrow;
+                  } on FileSystemException {
+                    /* 删除失败不影响其余缓存自愈。 */
+                  }
                 }
               }
-            } catch (_) {
+            } on TimeoutException {
+              rethrow;
+            } on FileSystemException {
               /* 枚举失败时保留现有索引。 */
             }
 
@@ -254,13 +266,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         .catchError((Object error, StackTrace stack) {
           silentLog(logTag, '预热缓存', error, stack);
           if (!completer.isCompleted) {
-            completer.complete(
-              const WebEngineCachePrewarmReport(
-                removedExpired: 0,
-                removedOrphanFiles: 0,
-                removedOrphanEntries: 0,
-              ),
-            );
+            completer.complete(WebEngineCachePrewarmReport.empty);
           }
         });
     return completer.future;
@@ -276,12 +282,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     if (!isCacheEnabled(settings) || !isValidWebEngineCacheKey(key)) {
       return null;
     }
-    final dir = Directory(defaultDirectoryPath());
-    if (!await dir.exists()) return null;
-    final indexFile = File(p.join(dir.path, 'index.json'));
-    if (!await indexFile.exists()) return null;
+    final deadline = WebEngineIoDeadline();
     try {
-      final decoded = await readWebEngineJsonFile(indexFile);
+      final dir = Directory(defaultDirectoryPath());
+      final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
+      final decoded = await readWebEngineJsonFileIfExists(
+        indexFile,
+        deadline: deadline,
+      );
       if (decoded is! Map) return null;
       final entries = webEngineCacheEntriesFromValue(
         stringKeyedMapFromValue(decoded)['entries'],
@@ -294,8 +302,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       final payloadRel = '${entry[payloadPathField] ?? ''}'.trim();
       if (payloadRel != webEngineCachePayloadFileName(key)) return null;
       final payloadFile = File(p.join(dir.path, payloadRel));
-      if (!await payloadFile.exists()) return null;
-      final payload = await readWebEnginePayloadFile(payloadFile);
+      if (!await webEngineEntityExists(payloadFile, deadline: deadline)) {
+        return null;
+      }
+      final payload = await readWebEnginePayloadFile(
+        payloadFile,
+        deadline: deadline,
+      );
       chain = chain.then((_) => _touchAccess(key)).catchError((_) {});
       return WebEngineCacheRawLookup(
         payload: payload,
@@ -309,6 +322,8 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     } catch (error, stack) {
       silentLog(logTag, '查询缓存', error, stack);
       return null;
+    } finally {
+      deadline.stop();
     }
   }
 
@@ -349,7 +364,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     required Map<String, Object?> extraEntryFields,
   }) async {
     final dir = Directory(defaultDirectoryPath());
-    if (!await dir.exists()) await dir.create(recursive: true);
+    await ensureWebEngineDirectory(dir);
 
     final payloadRel = webEngineCachePayloadFileName(key);
     if (payloadRel == null) return;
@@ -363,15 +378,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     if (encoded.length > payloadLimit) return;
     await writeFileAtomically(payloadFile, payload);
 
-    final indexFile = File(p.join(dir.path, 'index.json'));
+    final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
     Map<String, Object?> root = <String, Object?>{};
-    if (await indexFile.exists()) {
-      try {
-        final decoded = await readWebEngineJsonFile(indexFile);
-        if (decoded is Map) root = stringKeyedMapFromValue(decoded);
-      } catch (_) {
-        /* 索引损坏时按空索引处理。 */
-      }
+    try {
+      final decoded = await readWebEngineJsonFileIfExists(indexFile);
+      if (decoded is Map) root = stringKeyedMapFromValue(decoded);
+    } on FormatException {
+      /* 索引损坏时按空索引处理。 */
     }
     final entries = webEngineCacheEntriesFromValue(root['entries']);
     if (!entries.containsKey(key) &&
@@ -389,9 +402,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         if (oldestPayload == webEngineCachePayloadFileName(oldest.key)) {
           final oldestFile = File(p.join(dir.path, oldestPayload));
           try {
-            if (await oldestFile.exists().timeout(
-              webEngineFileOperationTimeout,
-            )) {
+            if (await webEngineEntityExists(oldestFile)) {
               await oldestFile.delete().timeout(webEngineFileOperationTimeout);
             }
           } catch (error, stack) {
@@ -422,10 +433,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
   Future<void> _touchAccess(String key) async {
     final dir = Directory(defaultDirectoryPath());
-    final indexFile = File(p.join(dir.path, 'index.json'));
-    if (!await indexFile.exists()) return;
+    final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
     try {
-      final decoded = await readWebEngineJsonFile(indexFile);
+      final decoded = await readWebEngineJsonFileIfExists(indexFile);
       if (decoded is! Map) return;
       final root = stringKeyedMapFromValue(decoded);
       final entries = webEngineCacheEntriesFromValue(root['entries']);
@@ -447,87 +457,97 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     // （我们在写入时已经把 payloadBytesField 落库），仅在估算超过阈值后再去
     // 走真实磁盘大小做精确判断 + LRU 淘汰。
     final dir = Directory(defaultDirectoryPath());
-    final indexFile = File(p.join(dir.path, 'index.json'));
-    if (!await indexFile.exists()) return;
-    Map<String, Object?> root;
-    try {
-      final decoded = await readWebEngineJsonFile(indexFile);
-      root = decoded is Map ? stringKeyedMapFromValue(decoded) : {};
-    } catch (_) {
-      return;
-    }
-    final entries = webEngineCacheEntriesFromValue(root['entries']);
-
-    var estimatedTotal = 0;
-    for (final entry in entries.values) {
-      if (entry is! Map) continue;
-      estimatedTotal += webEngineNonNegativeIntFromValue(
-        entry[payloadBytesField],
-      );
-    }
-    estimatedTotal += utf8.encode(jsonEncode(jsonSafeMap(root))).length;
-    if (estimatedTotal <= maxBytes) return;
-
-    // 估算超阈值，再做真实磁盘读用于淘汰决策（孤儿文件 / index 字节字段缺失
-    // 时仍需要兜底）。
-    final usage = await measureWebEngineDirectoryBounded(dir);
-    if (usage.truncated) {
-      silentLog(
-        logTag,
-        '执行容量限制并测量缓存',
-        StateError('Web 引擎缓存空间统计已达到安全上限。'),
-        StackTrace.current,
-      );
-      return;
-    }
-    final total = usage.totalBytes;
-    if (total <= maxBytes) return;
-
-    final ordered = entries.entries.toList()
-      ..sort((a, b) {
-        final av = a.value is Map
-            ? webEngineNonNegativeIntFromValue(
-                (a.value as Map)['last_accessed_at'],
-              )
-            : 0;
-        final bv = b.value is Map
-            ? webEngineNonNegativeIntFromValue(
-                (b.value as Map)['last_accessed_at'],
-              )
-            : 0;
-        return av.compareTo(bv);
-      });
-
-    var current = total;
+    final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
     final deadline = WebEngineIoDeadline();
-    for (final entry in ordered) {
-      if (current <= maxBytes) break;
-      final value = entry.value;
-      if (value is! Map) {
-        entries.remove(entry.key);
-        continue;
+    late Map<String, Object?> root;
+    late Map<String, Object?> entries;
+    try {
+      Object? decoded;
+      try {
+        decoded = await readWebEngineJsonFileIfExists(
+          indexFile,
+          deadline: deadline,
+        );
+      } on FormatException {
+        return;
       }
-      final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
-      if (payloadRel == webEngineCachePayloadFileName(entry.key)) {
-        final f = File(p.join(dir.path, payloadRel));
-        try {
-          if (await f.exists().timeout(deadline.nextOperationTimeout())) {
-            current -= await f.length().timeout(
-              deadline.nextOperationTimeout(),
-            );
-            await f.delete().timeout(deadline.nextOperationTimeout());
-          }
-        } on TimeoutException {
-          break;
-        } catch (error, stack) {
-          silentLog(logTag, '执行容量限制并删除缓存', error, stack);
-        }
-      }
-      entries.remove(entry.key);
-    }
-    deadline.stop();
+      root = decoded is Map ? stringKeyedMapFromValue(decoded) : {};
+      entries = webEngineCacheEntriesFromValue(root['entries']);
 
-    root['entries'] = entries;
+      var estimatedTotal = 0;
+      for (final entry in entries.values) {
+        if (entry is! Map) continue;
+        estimatedTotal += webEngineNonNegativeIntFromValue(
+          entry[payloadBytesField],
+        );
+      }
+      estimatedTotal += utf8.encode(jsonEncode(jsonSafeMap(root))).length;
+      if (estimatedTotal <= maxBytes) return;
+
+      // 估算超阈值，再做真实磁盘读用于淘汰决策（孤儿文件 / index 字节字段缺失
+      // 时仍需要兜底）。
+      final usage = await measureWebEngineDirectoryBounded(
+        dir,
+        deadline: deadline,
+      );
+      if (usage.truncated) {
+        silentLog(
+          logTag,
+          '执行容量限制并测量缓存',
+          StateError('Web 引擎缓存空间统计已达到安全上限。'),
+          StackTrace.current,
+        );
+        return;
+      }
+      final total = usage.totalBytes;
+      if (total <= maxBytes) return;
+
+      final ordered = entries.entries.toList()
+        ..sort((a, b) {
+          final av = a.value is Map
+              ? webEngineNonNegativeIntFromValue(
+                  (a.value as Map)['last_accessed_at'],
+                )
+              : 0;
+          final bv = b.value is Map
+              ? webEngineNonNegativeIntFromValue(
+                  (b.value as Map)['last_accessed_at'],
+                )
+              : 0;
+          return av.compareTo(bv);
+        });
+
+      var current = total;
+      for (final entry in ordered) {
+        if (current <= maxBytes) break;
+        final value = entry.value;
+        if (value is! Map) {
+          entries.remove(entry.key);
+          continue;
+        }
+        final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
+        if (payloadRel == webEngineCachePayloadFileName(entry.key)) {
+          final f = File(p.join(dir.path, payloadRel));
+          try {
+            if (await webEngineEntityExists(f, deadline: deadline)) {
+              current -= await f.length().timeout(
+                deadline.nextOperationTimeout(),
+              );
+              await f.delete().timeout(deadline.nextOperationTimeout());
+            }
+          } on TimeoutException {
+            break;
+          } catch (error, stack) {
+            silentLog(logTag, '执行容量限制并删除缓存', error, stack);
+          }
+        }
+        entries.remove(entry.key);
+      }
+      root['entries'] = entries;
+    } finally {
+      deadline.stop();
+    }
+
     try {
       await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
     } catch (error, stack) {

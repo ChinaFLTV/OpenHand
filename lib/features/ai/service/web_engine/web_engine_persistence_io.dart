@@ -14,6 +14,8 @@ const int webEngineMaxJsonFileBytes = 16 * kBytesPerMiB;
 const int webEngineMaxPayloadFileBytes = 64 * kBytesPerMiB;
 const int webEngineMaxIndexEntries = 10000;
 const int webEngineMaxDirectoryEntries = 10000;
+const String webEngineCacheIndexFileName = 'index.json';
+const String webEngineCachePayloadExtension = '.txt';
 const Duration webEngineDirectoryIdleTimeout = Duration(seconds: 2);
 const Duration webEngineDirectoryTotalTimeout = Duration(seconds: 15);
 const Duration webEngineFileOperationTimeout = Duration(seconds: 2);
@@ -25,7 +27,9 @@ bool isValidWebEngineCacheKey(String key) {
 }
 
 String? webEngineCachePayloadFileName(String key) {
-  return isValidWebEngineCacheKey(key) ? '$key.txt' : null;
+  return isValidWebEngineCacheKey(key)
+      ? '$key$webEngineCachePayloadExtension'
+      : null;
 }
 
 Map<String, Object?> webEngineCacheEntriesFromValue(Object? value) {
@@ -61,6 +65,27 @@ final class WebEngineIoDeadline {
   void stop() => _deadline.stop();
 }
 
+Future<bool> webEngineEntityExists(
+  FileSystemEntity entity, {
+  WebEngineIoDeadline? deadline,
+}) {
+  return entity.exists().timeout(
+    deadline?.nextOperationTimeout() ?? webEngineFileOperationTimeout,
+  );
+}
+
+Future<void> ensureWebEngineDirectory(
+  Directory directory, {
+  WebEngineIoDeadline? deadline,
+}) async {
+  if (await webEngineEntityExists(directory, deadline: deadline)) return;
+  await directory
+      .create(recursive: true)
+      .timeout(
+        deadline?.nextOperationTimeout() ?? webEngineFileOperationTimeout,
+      );
+}
+
 Future<BoundedDirectoryListing> listWebEngineDirectoryBounded(
   Directory directory,
   WebEngineIoDeadline deadline, {
@@ -80,20 +105,26 @@ Future<BoundedDirectoryListing> listWebEngineDirectoryBounded(
 }
 
 Future<BoundedDirectoryUsage> measureWebEngineDirectoryBounded(
-  Directory directory,
-) {
+  Directory directory, {
+  WebEngineIoDeadline? deadline,
+}) {
+  final totalTimeout = deadline?.remaining() ?? webEngineDirectoryTotalTimeout;
+  final idleTimeout = totalTimeout < webEngineDirectoryIdleTimeout
+      ? totalTimeout
+      : webEngineDirectoryIdleTimeout;
+  final operationTimeout =
+      deadline?.nextOperationTimeout() ?? webEngineFileOperationTimeout;
   return measureDirectoryBounded(
     directory,
     maxEntries: webEngineMaxDirectoryEntries,
-    idleTimeout: webEngineDirectoryIdleTimeout,
-    totalTimeout: webEngineDirectoryTotalTimeout,
-    operationTimeout: webEngineFileOperationTimeout,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+    operationTimeout: operationTimeout,
   );
 }
 
-/// Deletes only entries observed by a bounded, non-link-following scan.
-/// Directories are removed deepest-first and non-recursively, so a truncated
-/// scan cannot accidentally delete unvisited content.
+/// 仅删除有界且不跟随链接的扫描实际发现的条目。
+/// 目录按深度倒序进行非递归删除，扫描截断时不会误删未访问内容。
 Future<bool> clearWebEngineDirectoryBounded(Directory directory) async {
   final deadline = WebEngineIoDeadline();
   var complete = true;
@@ -154,21 +185,59 @@ Future<bool> clearWebEngineDirectoryBounded(Directory directory) async {
 Future<Object?> readWebEngineJsonFile(
   File file, {
   int maxBytes = webEngineMaxJsonFileBytes,
+  WebEngineIoDeadline? deadline,
 }) async {
-  final raw = await readBoundedFileString(file, maxBytes: maxBytes);
+  final totalTimeout = deadline?.remaining() ?? webEngineDirectoryTotalTimeout;
+  final idleTimeout =
+      deadline?.nextOperationTimeout() ?? webEngineFileOperationTimeout;
+  final raw = await readBoundedFileString(
+    file,
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
   return jsonDecode(raw);
 }
 
-Future<String> readWebEnginePayloadFile(File file) {
-  return readBoundedFileString(file, maxBytes: webEngineMaxPayloadFileBytes);
+Future<Object?> readWebEngineJsonFileIfExists(
+  File file, {
+  int maxBytes = webEngineMaxJsonFileBytes,
+  WebEngineIoDeadline? deadline,
+}) async {
+  final effectiveDeadline = deadline ?? WebEngineIoDeadline();
+  try {
+    if (!await webEngineEntityExists(file, deadline: effectiveDeadline)) {
+      return null;
+    }
+    return readWebEngineJsonFile(
+      file,
+      maxBytes: maxBytes,
+      deadline: effectiveDeadline,
+    );
+  } finally {
+    if (deadline == null) effectiveDeadline.stop();
+  }
+}
+
+Future<String> readWebEnginePayloadFile(
+  File file, {
+  WebEngineIoDeadline? deadline,
+}) {
+  final totalTimeout = deadline?.remaining() ?? webEngineDirectoryTotalTimeout;
+  final idleTimeout =
+      deadline?.nextOperationTimeout() ?? webEngineFileOperationTimeout;
+  return readBoundedFileString(
+    file,
+    maxBytes: webEngineMaxPayloadFileBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
 }
 
 Future<void> writeWebEngineJsonFile(File file, Object? value) async {
   final content = jsonEncode(value);
   if (utf8.encode(content).length > webEngineMaxJsonFileBytes) {
-    throw const FileSystemException(
-      'Web engine JSON exceeds the 16 MiB persistence limit.',
-    );
+    throw const FileSystemException('Web 引擎 JSON 超过 16 MiB 持久化上限。');
   }
   await writeFileAtomically(file, content);
 }
