@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
-import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -1434,24 +1433,19 @@ class AiImageGenerationService {
   ) async {
     final file = File(filePath);
     try {
-      final size = await file.length().timeout(_referenceImageReadIdleTimeout);
-      if (size > _referenceImageMaxBytes) {
-        throw AiMediaGenerationException(
-          'Reference image exceeds the ${formatByteSize(_referenceImageMaxBytes)} per-file limit.',
-        );
-      }
-      return await readBoundedByteStream(
-        file.openRead(),
+      return await readBoundedFileBytes(
+        file,
         maxBytes: _referenceImageMaxBytes,
         idleTimeout: _referenceImageReadIdleTimeout,
         totalTimeout: _referenceImageReadTotalTimeout,
       );
     } on AiMediaGenerationException {
       rethrow;
-    } on HttpException {
-      throw AiMediaGenerationException(
-        'Reference image grew beyond the ${formatByteSize(_referenceImageMaxBytes)} per-file limit while reading.',
-      );
+    } on BoundedFileReadException catch (error) {
+      final detail = error.failure == BoundedFileReadFailure.tooLarge
+          ? 'exceeds the ${formatByteSize(_referenceImageMaxBytes)} per-file limit'
+          : 'changed while it was being read';
+      throw AiMediaGenerationException('Reference image $detail.');
     } on TimeoutException {
       throw AiMediaGenerationException(
         'Reference image read timed out for ${kind.storageValue} generation.',
