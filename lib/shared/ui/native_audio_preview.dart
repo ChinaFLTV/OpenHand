@@ -642,10 +642,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final path = nullIfBlank(source.filePath) ?? nullIfBlank(_tempAudioPath);
     if (path == null) return null;
     try {
-      return await estimateNativeAudioFileDuration(
-        path,
-        source.mimeType,
-      ).timeout(kNativeAudioControlTimeout, onTimeout: () => null);
+      return await estimateNativeAudioFileDuration(path, source.mimeType);
     } catch (error, stack) {
       silentLog('native_audio_preview', '解析本地音频时长', error, stack);
       return null;
@@ -2121,21 +2118,62 @@ Future<Duration?> estimateNativeAudioFileDuration(
   String? mimeType,
 ) async {
   final file = File(filePath);
-  if (!await file.exists()) return null;
-  final length = await file.length();
-  if (length <= 0) return null;
-  final normalizedMime = mimeType?.split(';').first.trim().toLowerCase();
-  final extension = p.extension(filePath).toLowerCase();
-  final kind = _nativeAudioContainerKind(extension, normalizedMime);
-  if (kind != null) {
-    final duration = await _estimateNativeAudioDurationByKind(
+  final deadline = MonotonicDeadline(
+    kNativeAudioControlTimeout,
+    timeoutMessage: '音频时长探测超过总时限。',
+  );
+  BoundedRandomAccessFileLease? input;
+  try {
+    final initialStat = await file.stat().timeout(deadline.remaining());
+    if (!isRegularFileStat(initialStat) || initialStat.size <= 0) return null;
+    final openedInput = await openBoundedRandomAccessFileLease(
       file,
-      length,
-      kind,
+      mode: FileMode.read,
+      timeout: deadline.remaining(),
     );
-    if (duration != null) return duration;
+    input = openedInput;
+    final length = await openedInput.run<int>(
+      (activeFile) => activeFile.length(),
+      timeout: deadline.remaining(),
+    );
+    if (length != initialStat.size) return null;
+
+    final normalizedMime = mimeType?.split(';').first.trim().toLowerCase();
+    final extension = p.extension(filePath).toLowerCase();
+    final kind = _nativeAudioContainerKind(extension, normalizedMime);
+    var duration = kind == null
+        ? null
+        : await _estimateNativeAudioDurationByKind(
+            openedInput,
+            length,
+            kind,
+            deadline,
+          );
+    duration ??= await _estimateNativeAudioDurationBySniffing(
+      openedInput,
+      length,
+      deadline,
+    );
+
+    final finalLength = await openedInput.run<int>(
+      (activeFile) => activeFile.length(),
+      timeout: deadline.remaining(),
+    );
+    final finalStat = await file.stat().timeout(deadline.remaining());
+    if (!isRegularFileStat(finalStat) ||
+        finalLength != length ||
+        finalStat.size != initialStat.size ||
+        finalStat.modified != initialStat.modified ||
+        finalStat.changed != initialStat.changed) {
+      return null;
+    }
+    await openedInput.close(timeout: deadline.remaining());
+    input = null;
+    return duration;
+  } finally {
+    deadline.stop();
+    await input?.cleanup();
   }
-  return _estimateNativeAudioDurationBySniffing(file, length);
 }
 
 String? _nativeAudioContainerKind(String extension, String? mimeType) {
@@ -2161,71 +2199,71 @@ String? _nativeAudioContainerKind(String extension, String? mimeType) {
 }
 
 Future<Duration?> _estimateNativeAudioDurationByKind(
-  File file,
+  BoundedRandomAccessFileLease input,
   int length,
   String kind,
+  MonotonicDeadline deadline,
 ) {
   return switch (kind) {
-    'mp3' => _estimateMp3Duration(file, length),
-    'wav' => _estimateWavDuration(file, length),
-    'mp4' => _estimateMp4Duration(file, length),
+    'mp3' => _estimateMp3Duration(input, length, deadline),
+    'wav' => _estimateWavDuration(input, length, deadline),
+    'mp4' => _estimateMp4Duration(input, length, deadline),
     _ => Future<Duration?>.value(),
   };
 }
 
 Future<Duration?> _estimateNativeAudioDurationBySniffing(
-  File file,
+  BoundedRandomAccessFileLease input,
   int length,
+  MonotonicDeadline deadline,
 ) async {
-  final raf = await file.open();
-  try {
-    final header = await _readAt(raf, 0, math.min(16, length).toInt());
-    if (_asciiEquals(header, 0, 'ID3') ||
-        (header.length >= 2 &&
-            header[0] == 0xFF &&
-            (header[1] & 0xE0) == 0xE0)) {
-      return _estimateMp3Duration(file, length);
-    }
-    if (_asciiEquals(header, 0, 'RIFF') && _asciiEquals(header, 8, 'WAVE')) {
-      return _estimateWavDuration(file, length);
-    }
-    if (_asciiEquals(header, 4, 'ftyp')) {
-      return _estimateMp4Duration(file, length);
-    }
-    return null;
-  } finally {
-    await raf.close();
+  final header = await _readAt(
+    input,
+    0,
+    math.min(16, length).toInt(),
+    deadline,
+  );
+  if (_asciiEquals(header, 0, 'ID3') ||
+      (header.length >= 2 && header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)) {
+    return _estimateMp3Duration(input, length, deadline);
   }
+  if (_asciiEquals(header, 0, 'RIFF') && _asciiEquals(header, 8, 'WAVE')) {
+    return _estimateWavDuration(input, length, deadline);
+  }
+  if (_asciiEquals(header, 4, 'ftyp')) {
+    return _estimateMp4Duration(input, length, deadline);
+  }
+  return null;
 }
 
-Future<Duration?> _estimateMp3Duration(File file, int length) async {
-  final raf = await file.open();
-  try {
-    final probe = await _readAt(
-      raf,
-      0,
-      math.min(_kNativeAudioHeaderProbeBytes, length).toInt(),
-    );
-    final start = _mp3AudioStartOffset(probe);
-    final frameOffset = _findMp3FrameOffset(probe, start);
-    if (frameOffset == null) return null;
-    final frame = _parseMp3FrameHeader(probe, frameOffset);
-    if (frame == null) return null;
-    final xingDuration = _readMp3XingDuration(probe, frameOffset, frame);
-    if (xingDuration != null) return xingDuration;
+Future<Duration?> _estimateMp3Duration(
+  BoundedRandomAccessFileLease input,
+  int length,
+  MonotonicDeadline deadline,
+) async {
+  final probe = await _readAt(
+    input,
+    0,
+    math.min(_kNativeAudioHeaderProbeBytes, length).toInt(),
+    deadline,
+  );
+  final start = _mp3AudioStartOffset(probe);
+  final frameOffset = _findMp3FrameOffset(probe, start);
+  if (frameOffset == null) return null;
+  final frame = _parseMp3FrameHeader(probe, frameOffset);
+  if (frame == null) return null;
+  final xingDuration = _readMp3XingDuration(probe, frameOffset, frame);
+  if (xingDuration != null) return xingDuration;
 
-    var audioBytes = math.max(0, length - frameOffset);
-    if (length >= 128) {
-      final tail = await _readAt(raf, length - 128, 128);
-      if (_asciiEquals(tail, 0, 'TAG')) {
-        audioBytes = math.max(0, audioBytes - 128);
-      }
+  var audioBytes = math.max(0, length - frameOffset);
+  if (length >= 128) {
+    final tail = await _readAt(input, length - 128, 128, deadline);
+    if (_asciiEquals(tail, 0, 'TAG')) {
+      audioBytes = math.max(0, audioBytes - 128);
     }
-    if (audioBytes <= 0 || frame.bitrate <= 0) return null;
-    return _durationFromSeconds((audioBytes * 8) / frame.bitrate);
-  } finally {
-    await raf.close();
   }
+  if (audioBytes <= 0 || frame.bitrate <= 0) return null;
+  return _durationFromSeconds((audioBytes * 8) / frame.bitrate);
 }
 
 int _mp3AudioStartOffset(Uint8List bytes) {
@@ -2416,74 +2454,85 @@ Duration? _readMp3XingDuration(
   );
 }
 
-Future<Duration?> _estimateWavDuration(File file, int length) async {
-  final raf = await file.open();
-  try {
-    final header = await _readAt(raf, 0, math.min(12, length).toInt());
-    if (!_asciiEquals(header, 0, 'RIFF') || !_asciiEquals(header, 8, 'WAVE')) {
-      return null;
-    }
-    var offset = 12;
-    int? byteRate;
-    int? dataBytes;
-    while (offset + 8 <= length) {
-      final chunkHeader = await _readAt(raf, offset, 8);
-      if (chunkHeader.length < 8) break;
-      final type = String.fromCharCodes(chunkHeader.sublist(0, 4));
-      final chunkSize = _readUint32LE(chunkHeader, 4);
-      final contentOffset = offset + 8;
-      if (type == 'fmt ' && chunkSize >= 16) {
-        final fmt = await _readAt(raf, contentOffset, 16);
-        if (fmt.length >= 12) {
-          byteRate = _readUint32LE(fmt, 8);
-        }
-      } else if (type == 'data') {
-        dataBytes = math.min(chunkSize, math.max(0, length - contentOffset));
-      }
-      if (byteRate != null && byteRate > 0 && dataBytes != null) {
-        return _durationFromSeconds(dataBytes * 1.0 / byteRate);
-      }
-      final nextOffset = contentOffset + chunkSize + (chunkSize.isOdd ? 1 : 0);
-      if (nextOffset <= offset) break;
-      offset = nextOffset;
-    }
+Future<Duration?> _estimateWavDuration(
+  BoundedRandomAccessFileLease input,
+  int length,
+  MonotonicDeadline deadline,
+) async {
+  final header = await _readAt(
+    input,
+    0,
+    math.min(12, length).toInt(),
+    deadline,
+  );
+  if (!_asciiEquals(header, 0, 'RIFF') || !_asciiEquals(header, 8, 'WAVE')) {
     return null;
-  } finally {
-    await raf.close();
   }
+  var offset = 12;
+  int? byteRate;
+  int? dataBytes;
+  while (offset + 8 <= length) {
+    final chunkHeader = await _readAt(input, offset, 8, deadline);
+    if (chunkHeader.length < 8) break;
+    final type = String.fromCharCodes(chunkHeader.sublist(0, 4));
+    final chunkSize = _readUint32LE(chunkHeader, 4);
+    final contentOffset = offset + 8;
+    if (type == 'fmt ' && chunkSize >= 16) {
+      final fmt = await _readAt(input, contentOffset, 16, deadline);
+      if (fmt.length >= 12) {
+        byteRate = _readUint32LE(fmt, 8);
+      }
+    } else if (type == 'data') {
+      dataBytes = math.min(chunkSize, math.max(0, length - contentOffset));
+    }
+    if (byteRate != null && byteRate > 0 && dataBytes != null) {
+      return _durationFromSeconds(dataBytes * 1.0 / byteRate);
+    }
+    final nextOffset = contentOffset + chunkSize + (chunkSize.isOdd ? 1 : 0);
+    if (nextOffset <= offset) break;
+    offset = nextOffset;
+  }
+  return null;
 }
 
-Future<Duration?> _estimateMp4Duration(File file, int length) async {
-  final raf = await file.open();
-  try {
-    return _findMp4DurationInRange(raf, 0, length, depth: 0);
-  } finally {
-    await raf.close();
-  }
+Future<Duration?> _estimateMp4Duration(
+  BoundedRandomAccessFileLease input,
+  int length,
+  MonotonicDeadline deadline,
+) {
+  return _findMp4DurationInRange(
+    input,
+    0,
+    length,
+    depth: 0,
+    deadline: deadline,
+  );
 }
 
 Future<Duration?> _findMp4DurationInRange(
-  RandomAccessFile raf,
+  BoundedRandomAccessFileLease input,
   int start,
   int end, {
   required int depth,
+  required MonotonicDeadline deadline,
 }) async {
   if (depth > 3) return null;
   var offset = start;
   while (offset + 8 <= end) {
-    final box = await _readMp4BoxHeader(raf, offset, end);
+    final box = await _readMp4BoxHeader(input, offset, end, deadline);
     if (box == null || box.size <= box.headerSize) break;
     final contentStart = offset + box.headerSize;
     final boxEnd = math.min(offset + box.size, end);
     if (box.type == 'mvhd') {
-      return _readMvhdDuration(raf, contentStart, boxEnd);
+      return _readMvhdDuration(input, contentStart, boxEnd, deadline);
     }
     if (box.type == 'moov') {
       final duration = await _findMp4DurationInRange(
-        raf,
+        input,
         contentStart,
         boxEnd,
         depth: depth + 1,
+        deadline: deadline,
       );
       if (duration != null) return duration;
     }
@@ -2494,18 +2543,19 @@ Future<Duration?> _findMp4DurationInRange(
 }
 
 Future<_Mp4Box?> _readMp4BoxHeader(
-  RandomAccessFile raf,
+  BoundedRandomAccessFileLease input,
   int offset,
   int end,
+  MonotonicDeadline deadline,
 ) async {
-  final header = await _readAt(raf, offset, 8);
+  final header = await _readAt(input, offset, 8, deadline);
   if (header.length < 8) return null;
   final smallSize = _readUint32BE(header, 0);
   final type = String.fromCharCodes(header.sublist(4, 8));
   var headerSize = 8;
   var size = smallSize;
   if (smallSize == 1) {
-    final large = await _readAt(raf, offset + 8, 8);
+    final large = await _readAt(input, offset + 8, 8, deadline);
     if (large.length < 8) return null;
     size = _readUint64BE(large, 0);
     headerSize = 16;
@@ -2517,14 +2567,16 @@ Future<_Mp4Box?> _readMp4BoxHeader(
 }
 
 Future<Duration?> _readMvhdDuration(
-  RandomAccessFile raf,
+  BoundedRandomAccessFileLease input,
   int contentStart,
   int boxEnd,
+  MonotonicDeadline deadline,
 ) async {
   final header = await _readAt(
-    raf,
+    input,
     contentStart,
     math.min(32, boxEnd - contentStart).toInt(),
+    deadline,
   );
   if (header.length < 20) return null;
   final version = header[0];
@@ -2541,10 +2593,17 @@ Future<Duration?> _readMvhdDuration(
   return _durationFromSeconds(durationUnits / timescale);
 }
 
-Future<Uint8List> _readAt(RandomAccessFile raf, int offset, int count) async {
+Future<Uint8List> _readAt(
+  BoundedRandomAccessFileLease input,
+  int offset,
+  int count,
+  MonotonicDeadline deadline,
+) async {
   if (count <= 0) return Uint8List(0);
-  await raf.setPosition(offset);
-  return raf.read(count);
+  return input.run<Uint8List>((activeFile) async {
+    await activeFile.setPosition(offset);
+    return activeFile.read(count);
+  }, timeout: deadline.remaining());
 }
 
 Duration? _durationFromSeconds(num seconds) {
