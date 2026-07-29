@@ -416,6 +416,7 @@ class AiFileMutationLedger {
   static const int _maxBlobScanEntries = 100000;
   static const int _maxLegacyMigrationEntries = 10000;
   static const Duration _ledgerTreeScanTimeout = Duration(seconds: 30);
+  static const Duration _ledgerFileIoTimeout = Duration(seconds: 3);
   static const BoundedDeletePolicy _ledgerTreeDeletePolicy =
       BoundedDeletePolicy(
         maxEntries: _maxSessionScanEntries + _maxBlobScanEntries,
@@ -443,6 +444,7 @@ class AiFileMutationLedger {
   final Set<String> _legacyBlobRecoveryMisses = <String>{};
   final Map<String, _LedgerSessionMutationLane> _sessionMutationLanes =
       <String, _LedgerSessionMutationLane>{};
+  final Map<String, Future<void>> _lateLedgerAppends = <String, Future<void>>{};
   Completer<void>? _maintenanceGate;
 
   // 按会话缓存记录和撤销集合；本类写入后统一失效，避免恢复会话时重复扫描磁盘。
@@ -490,12 +492,21 @@ class AiFileMutationLedger {
     }
     if (ensureInitialized) await _ensureInitialized();
     final key = _safeSessionId(sessionId);
+    if (waitForMaintenance) {
+      // 初始化期间可能启动维护，入队前必须再次原子检查门闩。
+      while (_maintenanceGate != null) {
+        await _maintenanceGate!.future;
+      }
+    }
     final lane = _sessionMutationLanes.putIfAbsent(
       key,
       _LedgerSessionMutationLane.new,
     );
     lane.pending += 1;
-    final future = lane.queue.enqueue(mutation);
+    final future = lane.queue.enqueue(() async {
+      await _waitForLateLedgerAppend(key);
+      return mutation();
+    });
     lane.tail = future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return future.whenComplete(() {
       lane.pending -= 1;
@@ -516,6 +527,10 @@ class AiFileMutationLedger {
         .toList(growable: false);
     try {
       await Future.wait<void>(pendingMutations);
+      final lateAppends = _lateLedgerAppends.values.toList(growable: false);
+      if (lateAppends.isNotEmpty) {
+        await Future.wait<void>(lateAppends).timeout(_ledgerFileIoTimeout);
+      }
       return await operation();
     } finally {
       if (!maintenance.isCompleted) maintenance.complete();
@@ -523,6 +538,16 @@ class AiFileMutationLedger {
         _maintenanceGate = null;
       }
     }
+  }
+
+  Future<void> _waitForLateLedgerAppend(String sessionKey) async {
+    final pending = _lateLedgerAppends[sessionKey];
+    if (pending == null) return;
+    await pending.timeout(
+      _ledgerFileIoTimeout,
+      onTimeout: () =>
+          throw TimeoutException('等待延迟账本写入完成超时。', _ledgerFileIoTimeout),
+    );
   }
 
   String get _root => _rootDirectory;
@@ -761,21 +786,21 @@ class AiFileMutationLedger {
     final normalizedToolName = nullIfBlank(toolName) ?? '';
     try {
       final sessionDir = _sessionDir(normalizedSessionId);
-      if (!await sessionDir.exists()) await sessionDir.create(recursive: true);
+      if (!await sessionDir.exists().timeout(_ledgerFileIoTimeout)) {
+        await sessionDir.create(recursive: true).timeout(_ledgerFileIoTimeout);
+      }
 
       String? beforeSha;
       int beforeSize = 0;
       if (beforeContent != null) {
         beforeSha = _sha256Of(beforeContent);
         beforeSize = utf8.encode(beforeContent).length;
-        await _writeBlobIfMissing(beforeSha, beforeContent);
       }
       String? afterSha;
       int afterSize = 0;
       if (afterContent != null) {
         afterSha = _sha256Of(afterContent);
         afterSize = utf8.encode(afterContent).length;
-        await _writeBlobIfMissing(afterSha, afterContent);
       }
 
       final recordId =
@@ -795,15 +820,35 @@ class AiFileMutationLedger {
       );
       final ledger = _ledgerFile(normalizedSessionId);
       final line = '${jsonEncode(record.toJson())}\n';
-      await ledger.writeAsString(line, mode: FileMode.append, flush: true);
+      final config = await loadConfig();
+      final lineBytes = utf8.encode(line).length;
+      if (!await _ensureLedgerCapacity(
+        normalizedSessionId,
+        ledger,
+        lineBytes,
+        config.maxVersionsPerFile,
+      )) {
+        silentLog(
+          'ai_file_mutation_ledger',
+          '账本达到容量上限，已拒绝新增记录',
+          normalizedSessionId,
+        );
+        return null;
+      }
+      if (beforeContent != null) {
+        await _writeBlobIfMissing(beforeSha!, beforeContent);
+      }
+      if (afterContent != null) {
+        await _writeBlobIfMissing(afterSha!, afterContent);
+      }
+      await _appendLedgerLine(normalizedSessionId, ledger, line);
       _invalidateSessionCache(normalizedSessionId);
       // 写入后按当前配置即时收紧每文件历史数。autoCleanupDays 在启动时已处理。
       try {
-        final cfg = await loadConfig();
         await _trimSessionFileVersions(
           normalizedSessionId,
           record.filePath,
-          cfg.maxVersionsPerFile,
+          config.maxVersionsPerFile,
         );
       } catch (error, stack) {
         silentLog('ai_file_mutation_ledger', '记录后裁剪', error, stack);
@@ -813,6 +858,62 @@ class AiFileMutationLedger {
       silentLog('ai_file_mutation_ledger', '记录文件变更', error, stack);
       return null;
     }
+  }
+
+  Future<bool> _ensureLedgerCapacity(
+    String sessionId,
+    File ledger,
+    int appendBytes,
+    int maxVersionsPerFile,
+  ) async {
+    if (appendBytes > _maxLedgerBytes) return false;
+    if (!await ledger.exists().timeout(_ledgerFileIoTimeout)) return true;
+    var size = (await ledger.stat().timeout(_ledgerFileIoTimeout)).size;
+    if (size <= _maxLedgerBytes - appendBytes) return true;
+    await _pruneSessionToMaxVersionsLocked(
+      sessionId,
+      maxVersionsPerFile,
+      initializeRecordReads: true,
+    );
+    if (!await ledger.exists().timeout(_ledgerFileIoTimeout)) return true;
+    size = (await ledger.stat().timeout(_ledgerFileIoTimeout)).size;
+    return size <= _maxLedgerBytes - appendBytes;
+  }
+
+  Future<void> _appendLedgerLine(
+    String sessionId,
+    File ledger,
+    String line,
+  ) async {
+    final append = ledger.writeAsString(
+      line,
+      mode: FileMode.append,
+      flush: true,
+    );
+    try {
+      await append.timeout(_ledgerFileIoTimeout);
+    } on TimeoutException {
+      _trackLateLedgerAppend(sessionId, append);
+      rethrow;
+    }
+  }
+
+  void _trackLateLedgerAppend(String sessionId, Future<File> append) {
+    final key = _safeSessionId(sessionId);
+    late final Future<void> barrier;
+    barrier = append
+        .then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) =>
+              silentLog('ai_file_mutation_ledger', '延迟账本写入失败', error, stack),
+        )
+        .whenComplete(() {
+          _invalidateSessionCache(sessionId);
+          if (identical(_lateLedgerAppends[key], barrier)) {
+            _lateLedgerAppends.remove(key);
+          }
+        });
+    _lateLedgerAppends[key] = barrier;
   }
 
   Future<List<FileMutationRecord>> recordsForSession(String sessionId) async {
@@ -1166,7 +1267,12 @@ class AiFileMutationLedger {
             await outFile.delete();
           } catch (error, stack) {
             if (!_isMissingFileError(error)) {
-              silentLog('ai_file_mutation_ledger', '$logAction删除', error, stack);
+              silentLog(
+                'ai_file_mutation_ledger',
+                '$logAction删除',
+                error,
+                stack,
+              );
               return FileMutationOutcome.fail('delete-failed:$error');
             }
           }
@@ -1736,8 +1842,10 @@ class AiFileMutationLedger {
     final shard = sha.substring(0, 2);
     final dir = Directory(p.join(_blobsDir().path, shard));
     final file = File(p.join(dir.path, '$sha.txt'));
-    if (await file.exists()) return;
-    if (!await dir.exists()) await dir.create(recursive: true);
+    if (await file.exists().timeout(_ledgerFileIoTimeout)) return;
+    if (!await dir.exists().timeout(_ledgerFileIoTimeout)) {
+      await dir.create(recursive: true).timeout(_ledgerFileIoTimeout);
+    }
     await writeFileAtomically(file, content);
   }
 
