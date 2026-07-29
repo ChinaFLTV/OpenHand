@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/stable_hash.dart';
@@ -66,6 +68,7 @@ Future<void> _yieldToEventLoop() => Future<void>.delayed(Duration.zero);
 
 /// 每批写入行数。
 const int _flushEvery = 32;
+const Duration _exportFileIoTimeout = Duration(seconds: 10);
 
 File _temporaryExportFile(File targetFile) {
   final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -74,53 +77,36 @@ File _temporaryExportFile(File targetFile) {
 
 Future<void> _prepareExportTempFile(File targetFile, File tempFile) async {
   final parent = targetFile.parent;
-  if (!await parent.exists()) {
-    await parent.create(recursive: true);
+  if (!await parent.exists().timeout(_exportFileIoTimeout)) {
+    await parent.create(recursive: true).timeout(_exportFileIoTimeout);
   }
-  if (await tempFile.exists()) {
-    await tempFile.delete();
+  if (await tempFile.exists().timeout(_exportFileIoTimeout)) {
+    await tempFile.delete().timeout(_exportFileIoTimeout);
   }
 }
 
 Future<void> _deleteExportTempFile(File tempFile) async {
   try {
-    if (await tempFile.exists()) {
-      await tempFile.delete();
+    if (await tempFile.exists().timeout(_exportFileIoTimeout)) {
+      await tempFile.delete().timeout(_exportFileIoTimeout);
     }
   } catch (error, stack) {
     silentLog('ai_session_jsonl_exporter', '删除临时文件', error, stack);
   }
 }
 
-Future<void> _commitExportTempFile(File tempFile, File targetFile) async {
-  final backupFile = File('${targetFile.path}.bak');
-  var movedExistingFile = false;
+Future<void> _commitExportTempFile(
+  File tempFile,
+  File targetFile,
+  int maxBytes,
+) async {
   try {
-    if (await backupFile.exists()) {
-      await backupFile.delete();
-    }
-    if (await targetFile.exists()) {
-      await targetFile.rename(backupFile.path);
-      movedExistingFile = true;
-    }
-    await tempFile.rename(targetFile.path);
-    if (await backupFile.exists()) {
-      await backupFile.delete();
-    }
+    await copyFileAtomically(tempFile, targetFile, maxBytes: maxBytes);
   } catch (_) {
     await _deleteExportTempFile(tempFile);
-    if (movedExistingFile && await backupFile.exists()) {
-      try {
-        if (await targetFile.exists()) {
-          await targetFile.delete();
-        }
-        await backupFile.rename(targetFile.path);
-      } catch (error, stack) {
-        silentLog('ai_session_jsonl_exporter', '提交失败后恢复备份', error, stack);
-      }
-    }
     rethrow;
   }
+  await _deleteExportTempFile(tempFile);
 }
 
 class _SelectedAiSessionMessage {
@@ -989,20 +975,30 @@ Future<ExportResult> _writeJsonlExport({
 }) async {
   final targetFile = File(destinationPath);
   final tempFile = _temporaryExportFile(targetFile);
-  IOSink? sink;
+  BoundedRandomAccessFileLease? output;
+  var deleteOnRelease = false;
   var lines = 0;
   var bytes = 0;
   try {
     await _prepareExportTempFile(targetFile, tempFile);
-    final localSink = tempFile.openWrite();
-    sink = localSink;
+    final openedOutput = await openBoundedRandomAccessFileLease(
+      tempFile,
+      mode: FileMode.write,
+      timeout: _exportFileIoTimeout,
+      deleteIfOpenCompletesLate: true,
+      release: (file) async {
+        await file.close();
+        if (deleteOnRelease) await _deleteExportTempFile(tempFile);
+      },
+    );
+    output = openedOutput;
     final source = sourceBuilder();
     final total = source.itemCount + 1;
+    final buffer = StringBuffer();
 
     void emit(Map<String, Object?> payload) {
       final encoded = _encodePayload(payload);
-      localSink.write(encoded);
-      localSink.write('\n');
+      buffer.writeln(encoded);
       bytes += utf8.encode(encoded).length + 1;
       lines += 1;
     }
@@ -1012,9 +1008,9 @@ Future<ExportResult> _writeJsonlExport({
 
     for (var i = 0; i < source.itemCount; i++) {
       if (cancelToken.isCancelled) {
-        await localSink.flush();
-        await localSink.close();
-        sink = null;
+        deleteOnRelease = true;
+        await openedOutput.close(timeout: _exportFileIoTimeout);
+        output = null;
         await _deleteExportTempFile(tempFile);
         return ExportResult(
           kind: ExportResultKind.cancelled,
@@ -1024,16 +1020,16 @@ Future<ExportResult> _writeJsonlExport({
       }
       emit(source.itemAt(i));
       if ((i + 1) % _flushEvery == 0) {
-        await localSink.flush();
+        await _writeExportBuffer(openedOutput, buffer);
         onProgress?.call(ExportProgress(processed: lines, total: total));
         await _yieldToEventLoop();
       }
     }
 
-    await localSink.flush();
-    await localSink.close();
-    sink = null;
-    await _commitExportTempFile(tempFile, targetFile);
+    await _writeExportBuffer(openedOutput, buffer);
+    await openedOutput.close(timeout: _exportFileIoTimeout);
+    output = null;
+    await _commitExportTempFile(tempFile, targetFile, bytes);
     onProgress?.call(ExportProgress(processed: lines, total: total));
     return ExportResult(
       kind: ExportResultKind.success,
@@ -1042,17 +1038,9 @@ Future<ExportResult> _writeJsonlExport({
     );
   } catch (error, stack) {
     silentLog('ai_session_jsonl_exporter', '导出 $logLabel', error, stack);
-    try {
-      await sink?.close();
-    } catch (closeError, closeStack) {
-      silentLog(
-        'ai_session_jsonl_exporter',
-        '$logLabel导出失败后关闭输出流',
-        closeError,
-        closeStack,
-      );
-    }
-    sink = null;
+    deleteOnRelease = true;
+    await output?.cleanup();
+    output = null;
     await _deleteExportTempFile(tempFile);
     return ExportResult(
       kind: ExportResultKind.failure,
@@ -1061,17 +1049,20 @@ Future<ExportResult> _writeJsonlExport({
       error: error,
     );
   } finally {
-    if (sink != null) {
-      try {
-        await sink.close();
-      } catch (closeError, closeStack) {
-        silentLog(
-          'ai_session_jsonl_exporter',
-          '$logLabel导出最终关闭输出流',
-          closeError,
-          closeStack,
-        );
-      }
-    }
+    deleteOnRelease = true;
+    await output?.cleanup();
   }
+}
+
+Future<void> _writeExportBuffer(
+  BoundedRandomAccessFileLease output,
+  StringBuffer buffer,
+) async {
+  if (buffer.isEmpty) return;
+  final chunk = utf8.encode(buffer.toString());
+  buffer.clear();
+  await output.run<void>((file) async {
+    await file.writeFrom(chunk);
+    await file.flush();
+  }, timeout: _exportFileIoTimeout);
 }
