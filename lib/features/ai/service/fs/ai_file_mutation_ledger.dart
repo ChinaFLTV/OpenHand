@@ -578,6 +578,19 @@ class AiFileMutationLedger {
   File _stateFile(String sessionId) =>
       File(p.join(_sessionDir(sessionId).path, 'state.json'));
 
+  Future<bool> _entityExists(FileSystemEntity entity) {
+    return entity.exists().timeout(_ledgerFileIoTimeout);
+  }
+
+  Future<FileStat> _entityStat(FileSystemEntity entity) {
+    return entity.stat().timeout(_ledgerFileIoTimeout);
+  }
+
+  Future<void> _ensureDirectory(Directory directory) async {
+    if (await _entityExists(directory)) return;
+    await directory.create(recursive: true).timeout(_ledgerFileIoTimeout);
+  }
+
   /// 暴露给 UI 用：点击卡片 header 时把 ledger.jsonl 在系统
   /// 文件管理器里高亮。返回的文件可能尚未存在（会话尚未发生过 mutation）。
   File ledgerFileFor(String sessionId) => _ledgerFile(sessionId);
@@ -589,7 +602,7 @@ class AiFileMutationLedger {
     if (_cachedConfig != null) return _cachedConfig!;
     try {
       final f = _configFile();
-      if (await f.exists()) {
+      if (await _entityExists(f)) {
         final raw = await readBoundedFileString(f, maxBytes: _maxConfigBytes);
         final text = nullIfBlank(raw);
         if (text != null) {
@@ -648,10 +661,8 @@ class AiFileMutationLedger {
 
   Future<void> _initializeOnce() async {
     try {
-      final blobs = _blobsDir();
-      if (!await blobs.exists()) await blobs.create(recursive: true);
-      final sessions = _sessionsDir();
-      if (!await sessions.exists()) await sessions.create(recursive: true);
+      await _ensureDirectory(_blobsDir());
+      await _ensureDirectory(_sessionsDir());
       await _migrateLegacyTempStorage();
       await _runAutoCleanupOnce();
       _initialized = true;
@@ -707,7 +718,7 @@ class AiFileMutationLedger {
       final legacyDir = Directory(
         p.join(Directory.systemTemp.path, '.openhand-file-history'),
       );
-      if (!await legacyDir.exists()) return;
+      if (!await _entityExists(legacyDir)) return;
       // 旧布局：<hash>/<versionId>.{content,meta.json}
       final listing = await listDirectoryBounded(
         legacyDir,
@@ -786,9 +797,7 @@ class AiFileMutationLedger {
     final normalizedToolName = nullIfBlank(toolName) ?? '';
     try {
       final sessionDir = _sessionDir(normalizedSessionId);
-      if (!await sessionDir.exists().timeout(_ledgerFileIoTimeout)) {
-        await sessionDir.create(recursive: true).timeout(_ledgerFileIoTimeout);
-      }
+      await _ensureDirectory(sessionDir);
 
       String? beforeSha;
       int beforeSize = 0;
@@ -867,16 +876,16 @@ class AiFileMutationLedger {
     int maxVersionsPerFile,
   ) async {
     if (appendBytes > _maxLedgerBytes) return false;
-    if (!await ledger.exists().timeout(_ledgerFileIoTimeout)) return true;
-    var size = (await ledger.stat().timeout(_ledgerFileIoTimeout)).size;
+    if (!await _entityExists(ledger)) return true;
+    var size = (await _entityStat(ledger)).size;
     if (size <= _maxLedgerBytes - appendBytes) return true;
     await _pruneSessionToMaxVersionsLocked(
       sessionId,
       maxVersionsPerFile,
       initializeRecordReads: true,
     );
-    if (!await ledger.exists().timeout(_ledgerFileIoTimeout)) return true;
-    size = (await ledger.stat().timeout(_ledgerFileIoTimeout)).size;
+    if (!await _entityExists(ledger)) return true;
+    size = (await _entityStat(ledger)).size;
     return size <= _maxLedgerBytes - appendBytes;
   }
 
@@ -933,7 +942,7 @@ class AiFileMutationLedger {
     final ledger = _ledgerFile(normalizedSessionId);
     final records = <FileMutationRecord>[];
     try {
-      if (!await ledger.exists()) {
+      if (!await _entityExists(ledger)) {
         _recordsCache.put(cacheKey, const <FileMutationRecord>[]);
         return (records: const <FileMutationRecord>[], succeeded: true);
       }
@@ -1262,7 +1271,7 @@ class AiFileMutationLedger {
       final outFile = File(target.filePath);
       final sha = targetSha(target);
       if (sha == null) {
-        if (await outFile.exists()) {
+        if (await _entityExists(outFile)) {
           try {
             await outFile.delete();
           } catch (error, stack) {
@@ -1283,7 +1292,7 @@ class AiFileMutationLedger {
           return FileMutationOutcome.fail(missingBlobReason);
         }
         try {
-          await outFile.parent.create(recursive: true);
+          await _ensureDirectory(outFile.parent);
           await writeFileAtomically(outFile, content);
         } catch (error, stack) {
           silentLog('ai_file_mutation_ledger', '$logAction写入', error, stack);
@@ -1369,14 +1378,14 @@ class AiFileMutationLedger {
     var blobCount = 0;
     try {
       final sessionsRoot = Directory(p.join(_root, 'sessions'));
-      if (await sessionsRoot.exists()) {
+      if (await _entityExists(sessionsRoot)) {
         final listing = await _listSessionEntries();
         for (final entity in listing.entries) {
           if (entity is! Directory) continue;
           sessionCount += 1;
           try {
             final ledgerFile = File(p.join(entity.path, 'ledger.jsonl'));
-            if (!await ledgerFile.exists()) continue;
+            if (!await _entityExists(ledgerFile)) continue;
             final content = await readBoundedFileString(
               ledgerFile,
               maxBytes: _maxLedgerBytes,
@@ -1390,7 +1399,7 @@ class AiFileMutationLedger {
         }
       }
       final blobsRoot = Directory(p.join(_root, 'blobs'));
-      if (await blobsRoot.exists()) {
+      if (await _entityExists(blobsRoot)) {
         final listing = await _listBlobEntries();
         for (final entity in listing.entries) {
           if (entity is File &&
@@ -1478,14 +1487,14 @@ class AiFileMutationLedger {
     try {
       final cutoff = DateTime.now().subtract(retention);
       final sessions = _sessionsDir();
-      if (!await sessions.exists()) return 0;
+      if (!await _entityExists(sessions)) return 0;
       final listing = await _listSessionEntries();
       for (final entity in listing.entries) {
         if (entity is! Directory) continue;
         final sessionId = p.basename(entity.path);
         try {
           final didPrune = await _enqueueSessionMutation(sessionId, () async {
-            final stat = await entity.stat();
+            final stat = await _entityStat(entity);
             if (!stat.modified.isBefore(cutoff)) return false;
             await deletePathBounded(
               p.absolute(entity.path),
@@ -1572,7 +1581,7 @@ class AiFileMutationLedger {
     var removed = 0;
     try {
       final sessions = _sessionsDir();
-      if (!await sessions.exists()) return 0;
+      if (!await _entityExists(sessions)) return 0;
       final listing = await _listSessionEntries();
       for (final entity in listing.entries) {
         if (entity is! Directory) continue;
@@ -1653,7 +1662,7 @@ class AiFileMutationLedger {
     try {
       final referenced = <String>{};
       final sessions = _sessionsDir();
-      if (await sessions.exists()) {
+      if (await _entityExists(sessions)) {
         final sessionListing = await _listSessionEntries();
         if (sessionListing.truncated) {
           return (removed: 0, bytesFreed: 0);
@@ -1675,7 +1684,9 @@ class AiFileMutationLedger {
         }
       }
       final blobs = _blobsDir();
-      if (!await blobs.exists()) return (removed: 0, bytesFreed: 0);
+      if (!await _entityExists(blobs)) {
+        return (removed: 0, bytesFreed: 0);
+      }
       final blobListing = await _listBlobEntries();
       for (final blob in blobListing.entries.whereType<File>()) {
         final sha = _blobShaFromFile(blob: blob, shard: blob.parent);
@@ -1689,7 +1700,7 @@ class AiFileMutationLedger {
         }
         if (!referenced.contains(sha)) {
           try {
-            final stat = await blob.stat();
+            final stat = await _entityStat(blob);
             await blob.delete();
             removed += 1;
             bytesFreed += stat.size;
@@ -1727,7 +1738,7 @@ class AiFileMutationLedger {
       return 0;
     }
     try {
-      final stat = await file.stat();
+      final stat = await _entityStat(file);
       final age = DateTime.now().difference(stat.modified);
       if (age < _staleAtomicArtifactAge) {
         return 0;
@@ -1766,7 +1777,7 @@ class AiFileMutationLedger {
 
   Future<void> _deleteFileIfPresent(File file, String where) async {
     try {
-      if (await file.exists()) await file.delete();
+      if (await _entityExists(file)) await file.delete();
     } catch (error, stack) {
       _logFileErrorUnlessMissing(where, error, stack);
     }
@@ -1780,7 +1791,7 @@ class AiFileMutationLedger {
     if (cached != null) return Set<String>.from(cached);
     try {
       final state = _stateFile(sessionId);
-      if (!await state.exists()) {
+      if (!await _entityExists(state)) {
         _undoneCache.put(cacheKey, const <String>{});
         return <String>{};
       }
@@ -1815,8 +1826,7 @@ class AiFileMutationLedger {
         _undoneCache.put(cacheKey, const <String>{});
         return;
       }
-      final dir = _sessionDir(sessionId);
-      if (!await dir.exists()) await dir.create(recursive: true);
+      await _ensureDirectory(_sessionDir(sessionId));
       await writeFileAtomically(
         state,
         jsonEncode(<String, Object?>{'undone': undone.toList()..sort()}),
@@ -1842,10 +1852,8 @@ class AiFileMutationLedger {
     final shard = sha.substring(0, 2);
     final dir = Directory(p.join(_blobsDir().path, shard));
     final file = File(p.join(dir.path, '$sha.txt'));
-    if (await file.exists().timeout(_ledgerFileIoTimeout)) return;
-    if (!await dir.exists().timeout(_ledgerFileIoTimeout)) {
-      await dir.create(recursive: true).timeout(_ledgerFileIoTimeout);
-    }
+    if (await _entityExists(file)) return;
+    await _ensureDirectory(dir);
     await writeFileAtomically(file, content);
   }
 
@@ -1854,7 +1862,7 @@ class AiFileMutationLedger {
     try {
       final shard = sha.substring(0, 2);
       final file = File(p.join(_blobsDir().path, shard, '$sha.txt'));
-      if (!await file.exists()) {
+      if (!await _entityExists(file)) {
         return _recoverBlobFromLegacyVersions(sha);
       }
       return await readBoundedFileString(file, maxBytes: _blobRecoveryMaxBytes);
@@ -1875,8 +1883,8 @@ class AiFileMutationLedger {
     }
     try {
       final file = File(filePath);
-      if (!await file.exists()) return null;
-      final stat = await file.stat();
+      if (!await _entityExists(file)) return null;
+      final stat = await _entityStat(file);
       if (stat.type != FileSystemEntityType.file) return null;
       if (expectedSize > 0 && stat.size != expectedSize) return null;
       if (stat.size > _blobRecoveryMaxBytes) return null;
@@ -1904,11 +1912,11 @@ class AiFileMutationLedger {
         return null;
       }
       final file = File(path);
-      if (!await file.exists()) {
+      if (!await _entityExists(file)) {
         _recordLegacyBlobRecoveryMiss(sha);
         return null;
       }
-      final stat = await file.stat();
+      final stat = await _entityStat(file);
       if (stat.type != FileSystemEntityType.file ||
           stat.size > _blobRecoveryMaxBytes) {
         _recordLegacyBlobRecoveryMiss(sha);
@@ -1945,7 +1953,7 @@ class AiFileMutationLedger {
     final index = <String, String>{};
     final legacyRoot = Directory(p.join(_root, 'legacy_versions'));
     try {
-      if (!await legacyRoot.exists()) {
+      if (!await _entityExists(legacyRoot)) {
         _legacyBlobPathIndex = const <String, String>{};
         return _legacyBlobPathIndex!;
       }
@@ -1961,7 +1969,7 @@ class AiFileMutationLedger {
         if (entity is! File || !entity.path.endsWith('.content')) continue;
         scanned += 1;
         try {
-          final stat = await entity.stat();
+          final stat = await _entityStat(entity);
           if (stat.type != FileSystemEntityType.file ||
               stat.size > _blobRecoveryMaxBytes) {
             continue;
@@ -2034,7 +2042,7 @@ class AiFileMutationLedger {
     final out = <String>[];
     try {
       final sessions = _sessionsDir();
-      if (!await sessions.exists()) return out;
+      if (!await _entityExists(sessions)) return out;
       final listing = await _listSessionEntries();
       for (final entity in listing.entries) {
         if (entity is Directory) {
@@ -2284,15 +2292,14 @@ class AiFileMutationLedger {
       if (records is! List) continue;
       try {
         final sessionImported = await _enqueueSessionMutation(sid, () async {
-          final dir = _sessionDir(sid);
-          if (!await dir.exists()) await dir.create(recursive: true);
+          await _ensureDirectory(_sessionDir(sid));
           final ledger = _ledgerFile(sid);
           final loaded = await _recordsForSessionResult(sid);
           if (!loaded.succeeded) return 0;
           final existingIds = loaded.records.map((r) => r.recordId).toSet();
           final buffer = StringBuffer();
           try {
-            if (await ledger.exists()) {
+            if (await _entityExists(ledger)) {
               final existing = await readBoundedFileString(
                 ledger,
                 maxBytes: _maxLedgerBytes,
