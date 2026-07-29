@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -34,7 +35,7 @@ class AiFileTrackerService {
   Future<void> recordFileRead(String filePath) async {
     final normalizedPath = p.normalize(filePath);
     final file = File(normalizedPath);
-    if (!await file.exists()) return;
+    if (!await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) return;
     _readSnapshots.put(normalizedPath, await _snapshotFile(file));
     _readResultSnapshots.remove(normalizedPath);
   }
@@ -85,10 +86,20 @@ class AiFileTrackerService {
         previousRead.limit != limit) {
       return false;
     }
-    final file = File(normalizedPath);
-    if (!await file.exists()) return false;
-    final current = await _snapshotFile(file);
-    return previousRead.snapshot.hasSameContentAs(current);
+    try {
+      final file = File(normalizedPath);
+      if (!await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) {
+        return false;
+      }
+      final current = await _snapshotFile(file);
+      return previousRead.snapshot.hasSameContentAs(current);
+    } on FileSystemException {
+      return false;
+    } on TimeoutException {
+      return false;
+    } on AiFileChangedDuringReadException {
+      return false;
+    }
   }
 
   /// 检查文件是否可以安全写入（未被外部修改）
@@ -101,7 +112,9 @@ class AiFileTrackerService {
     final file = File(normalizedPath);
 
     // 文件不存在 → 新文件，可以写入
-    if (!await file.exists()) return null;
+    if (!await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) {
+      return null;
+    }
 
     // 从未读取过 → 不应该直接修改
     final lastRead = _readSnapshots.get(normalizedPath);
@@ -142,11 +155,21 @@ class AiFileTrackerService {
   Future<void> updateAfterWrite(String filePath) async {
     // 写入后重新记录快照，因为我们自己的写入是可信的；如果本次 mutation
     // 删除了文件，则清除旧快照，避免后续工具复用已不存在文件的读取状态。
-    if (!await File(p.normalize(filePath)).exists()) {
+    try {
+      if (!await File(
+        p.normalize(filePath),
+      ).exists().timeout(defaultBoundedFileReadIdleTimeout)) {
+        clearFileTracking(filePath);
+        return;
+      }
+      await recordFileRead(filePath);
+    } on FileSystemException {
       clearFileTracking(filePath);
-      return;
+    } on TimeoutException {
+      clearFileTracking(filePath);
+    } on AiFileChangedDuringReadException {
+      clearFileTracking(filePath);
     }
-    await recordFileRead(filePath);
   }
 
   Future<_TrackedFileSnapshot> _snapshotFile(File file) async {
