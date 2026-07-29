@@ -54,7 +54,8 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   final List<_QdrantMetricSample> _samples = <_QdrantMetricSample>[];
   Map<String, Object?>? _operationResult;
   String? _error;
-  bool _refreshInFlight = false;
+  bool _refreshPending = false;
+  Future<void>? _refreshTask;
   bool _refreshing = false;
   bool _operating = false;
   AppLocalizations get _l10n => AppLocalizations.of(context)!;
@@ -71,6 +72,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
 
   @override
   void dispose() {
+    _refreshPending = false;
     _refreshTimer?.cancel();
     _pointIds.dispose();
     _sourceId.dispose();
@@ -90,7 +92,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     _refreshTimer = startNonOverlappingPeriodicTimer(
       Duration(seconds: seconds),
       (_) async {
-        if (!_refreshInFlight && !_operating) {
+        if (_refreshTask == null && !_operating) {
           await _refresh(silent: true);
         }
       },
@@ -99,51 +101,63 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     );
   }
 
-  Future<void> _refresh({bool silent = false}) async {
-    if (_refreshInFlight) {
-      return;
-    }
-    _refreshInFlight = true;
-    if (!silent) {
+  Future<void> _refresh({bool silent = false}) {
+    if (!mounted) return Future<void>.value();
+    _refreshPending = true;
+    if (!silent && !_refreshing) {
       setState(() {
         _refreshing = true;
         _error = null;
       });
     }
-    try {
-      final controller = context.read<KnowledgeBaseController>();
-      QdrantMonitoringSnapshot? snapshot;
-      List<Map<String, Object?>>? collections;
-      await Future.wait<void>(<Future<void>>[
-        controller.loadMonitoringSnapshot().then((value) => snapshot = value),
-        controller.listQdrantCollections().then((value) => collections = value),
-      ]).timeout(_qdrantRefreshTimeout);
-      final loadedSnapshot = snapshot;
-      final loadedCollections = collections;
-      if (loadedSnapshot == null || loadedCollections == null) {
-        if (mounted) {
-          setState(() => _error = _l10n.qdrantStatusRefreshIncomplete);
-        }
-        return;
-      }
-      if (!mounted) return;
-      setState(() {
-        _snapshot = loadedSnapshot;
-        _collections = loadedCollections;
-        _samples.add(_QdrantMetricSample.fromSnapshot(loadedSnapshot));
-        if (_samples.length > _qdrantTrendSampleCap) {
-          _samples.removeRange(0, _samples.length - _qdrantTrendSampleCap);
-        }
-        _error = null;
-      });
-    } catch (error) {
-      if (mounted) {
-        setState(() => _error = '$error');
-      }
-    } finally {
-      _refreshInFlight = false;
-      if (mounted && !silent) {
+    final activeTask = _refreshTask;
+    if (activeTask != null) return activeTask;
+    late final Future<void> task;
+    task = _drainRefreshRequests().whenComplete(() {
+      if (!identical(_refreshTask, task)) return;
+      _refreshTask = null;
+      if (mounted && _refreshing) {
         setState(() => _refreshing = false);
+      }
+    });
+    _refreshTask = task;
+    return task;
+  }
+
+  Future<void> _drainRefreshRequests() async {
+    while (mounted && _refreshPending) {
+      _refreshPending = false;
+      try {
+        final controller = context.read<KnowledgeBaseController>();
+        QdrantMonitoringSnapshot? snapshot;
+        List<Map<String, Object?>>? collections;
+        await Future.wait<void>(<Future<void>>[
+          controller.loadMonitoringSnapshot().then((value) => snapshot = value),
+          controller.listQdrantCollections().then(
+            (value) => collections = value,
+          ),
+        ]).timeout(_qdrantRefreshTimeout);
+        if (!mounted) return;
+        if (_refreshPending) continue;
+        final loadedSnapshot = snapshot;
+        final loadedCollections = collections;
+        if (loadedSnapshot == null || loadedCollections == null) {
+          setState(() => _error = _l10n.qdrantStatusRefreshIncomplete);
+          continue;
+        }
+        setState(() {
+          _snapshot = loadedSnapshot;
+          _collections = loadedCollections;
+          _samples.add(_QdrantMetricSample.fromSnapshot(loadedSnapshot));
+          if (_samples.length > _qdrantTrendSampleCap) {
+            _samples.removeRange(0, _samples.length - _qdrantTrendSampleCap);
+          }
+          _error = null;
+        });
+      } catch (error) {
+        if (!mounted) return;
+        if (_refreshPending) continue;
+        setState(() => _error = '$error');
       }
     }
   }
