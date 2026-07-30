@@ -62,6 +62,7 @@ class WebReverseMitmproxyBridge {
   static const Duration _kCallbackBodyIdleTimeout = Duration(seconds: 5);
   static const Duration _kCallbackBodyTotalTimeout = Duration(seconds: 20);
   static const Duration _kAddonFileOperationTimeout = Duration(seconds: 5);
+  static const int _kMaxConcurrentCallbackRequests = 16;
 
   final Process _process;
   final HttpServer _server;
@@ -122,62 +123,25 @@ class WebReverseMitmproxyBridge {
     }
     final actualCbPort = cbServer.port;
     final controller = StreamController<Map<String, Object?>>.broadcast();
-    final serverSub = cbServer.listen((req) async {
-      try {
-        if (req.method == 'POST') {
-          final raw = await _readCallbackBody(req);
-          if (raw == null) {
-            req.response.statusCode = 413;
-            await req.response.close();
-            return;
-          }
-          for (final line in raw.split('\n')) {
-            final t = line.trim();
-            if (t.isEmpty) continue;
-            try {
-              final m = jsonDecode(t);
-              if (m is Map && !controller.isClosed) {
-                controller.add(stringKeyedMapFromValue(m));
-              }
-            } catch (error, stack) {
-              silentLog(
-                'web_reverse_mitmproxy_bridge',
-                '解码回调数据行',
-                error,
-                stack,
-              );
-            }
-          }
+    var activeCallbackRequests = 0;
+    final serverSub = cbServer.listen(
+      (req) async {
+        if (activeCallbackRequests >= _kMaxConcurrentCallbackRequests) {
+          req.response.statusCode = HttpStatus.tooManyRequests;
+          await _closeCallbackResponse(req.response, '关闭过载回调响应');
+          return;
         }
-        req.response.statusCode = 204;
-        await req.response.close();
-      } on TimeoutException catch (error, stack) {
-        silentLog('web_reverse_mitmproxy_bridge', '读取回调请求体超时', error, stack);
-        req.response.statusCode = HttpStatus.requestTimeout;
+        activeCallbackRequests += 1;
         try {
-          await req.response.close();
-        } catch (closeError, closeStack) {
-          silentLog(
-            'web_reverse_mitmproxy_bridge',
-            '关闭超时回调响应',
-            closeError,
-            closeStack,
-          );
+          await _handleCallbackRequest(req, controller);
+        } finally {
+          activeCallbackRequests -= 1;
         }
-      } catch (error, stack) {
-        silentLog('web_reverse_mitmproxy_bridge', '处理回调请求', error, stack);
-        try {
-          await req.response.close();
-        } catch (closeError, closeStack) {
-          silentLog(
-            'web_reverse_mitmproxy_bridge',
-            '关闭回调响应',
-            closeError,
-            closeStack,
-          );
-        }
-      }
-    });
+      },
+      onError: (Object error, StackTrace stack) {
+        silentLog('web_reverse_mitmproxy_bridge', '监听回调请求', error, stack);
+      },
+    );
 
     late final String addonPath;
     try {
@@ -247,7 +211,7 @@ class WebReverseMitmproxyBridge {
       return null;
     }
 
-    return WebReverseMitmproxyBridge._(
+    final bridge = WebReverseMitmproxyBridge._(
       mitmPort: mitmPort,
       callbackPort: actualCbPort,
       process: p,
@@ -257,6 +221,55 @@ class WebReverseMitmproxyBridge {
       stdoutSub: stdoutSub,
       stderrSub: stderrSub,
       addonPath: addonPath,
+    );
+    unawaited(bridge._closeAfterProcessExit());
+    return bridge;
+  }
+
+  static Future<void> _handleCallbackRequest(
+    HttpRequest request,
+    StreamController<Map<String, Object?>> controller,
+  ) async {
+    try {
+      if (request.method == 'POST') {
+        final raw = await _readCallbackBody(request);
+        if (raw == null) {
+          request.response.statusCode = HttpStatus.requestEntityTooLarge;
+          return;
+        }
+        for (final line in raw.split('\n')) {
+          final text = line.trim();
+          if (text.isEmpty) continue;
+          try {
+            final decoded = jsonDecode(text);
+            if (decoded is Map && !controller.isClosed) {
+              controller.add(stringKeyedMapFromValue(decoded));
+            }
+          } catch (error, stack) {
+            silentLog('web_reverse_mitmproxy_bridge', '解码回调数据行', error, stack);
+          }
+        }
+      }
+      request.response.statusCode = HttpStatus.noContent;
+    } on TimeoutException catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', '读取回调请求体超时', error, stack);
+      request.response.statusCode = HttpStatus.requestTimeout;
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', '处理回调请求', error, stack);
+      request.response.statusCode = HttpStatus.internalServerError;
+    } finally {
+      await _closeCallbackResponse(request.response, '关闭回调响应');
+    }
+  }
+
+  static Future<void> _closeCallbackResponse(
+    HttpResponse response,
+    String action,
+  ) async {
+    await runAsyncCleanupBounded(
+      response.close,
+      onError: (error, stack) =>
+          silentLog('web_reverse_mitmproxy_bridge', action, error, stack),
     );
   }
 
@@ -412,6 +425,15 @@ def response(flow):
   }
 
   Future<void> close() => _closeFuture ??= _performClose();
+
+  Future<void> _closeAfterProcessExit() async {
+    try {
+      await _process.exitCode;
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', '等待 mitmdump 退出', error, stack);
+    }
+    await close();
+  }
 
   Future<void> _performClose() async {
     await _closeResource(
