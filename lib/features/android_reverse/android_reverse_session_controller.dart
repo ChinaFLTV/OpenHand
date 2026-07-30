@@ -9,6 +9,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -27,6 +28,7 @@ const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
 const Duration _kStaticQuickScanWarmTimeout = Duration(seconds: 18);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
+const Duration _kArtifactFileOperationTimeout = Duration(seconds: 10);
 const Duration _kEvidenceBundleTimeout = Duration(seconds: 20);
 const Duration _kLocalScriptTimeout = Duration(seconds: 30);
 const Duration _kLocalShellActionTimeout = Duration(seconds: 20);
@@ -413,7 +415,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final markdownPath = '${targetDir.path}/package_report_$stamp.md';
     final jsonPath = '${targetDir.path}/package_report_$stamp.json';
     try {
-      await targetDir.create(recursive: true);
+      await createDirectoryBounded(targetDir);
       final pathsFuture = client.getPackagePaths(normalizedPackage);
       final versionFuture = client.getPackageVersion(normalizedPackage);
       final launcherFuture = client.resolveLauncherActivity(normalizedPackage);
@@ -515,7 +517,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final txtPath = '$logcatDir/logcat_snapshot_$stamp.txt';
     final jsonPath = '$logcatDir/logcat_snapshot_$stamp.json';
     try {
-      await Directory(logcatDir).create(recursive: true);
+      await createDirectoryBounded(Directory(logcatDir));
       final result = await logcatDetailed(
         tag: tag,
         level: level,
@@ -707,7 +709,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final scriptPath = '$fridaScriptsDir/${target}_${preset}_$stamp.js';
     final jsonPath = '$fridaScriptsDir/${target}_${preset}_$stamp.json';
     try {
-      await Directory(fridaScriptsDir).create(recursive: true);
+      await createDirectoryBounded(Directory(fridaScriptsDir));
       final capturedAt = DateTime.now().toUtc().toIso8601String();
       final metadata = <String, Object?>{
         'captured_at': capturedAt,
@@ -768,7 +770,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final stamp = _artifactTimestamp();
     final remotePath = '/sdcard/OpenHand/screenshots/$stamp.png';
     final localPath = '$screenshotsDir/$stamp.png';
-    await Directory(screenshotsDir).create(recursive: true);
+    await createDirectoryBounded(Directory(screenshotsDir));
     final capture = await client.captureScreenshotDetailed(remotePath);
     if (!capture.ok && !capture.hasUsableStdout) return capture;
     final pull = await client.pullDetailed(remotePath, localPath);
@@ -783,7 +785,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final stamp = _artifactTimestamp();
     final remotePath = '/sdcard/OpenHand/recordings/$stamp.mp4';
     final localPath = '$recordingsDir/$stamp.mp4';
-    await Directory(recordingsDir).create(recursive: true);
+    await createDirectoryBounded(Directory(recordingsDir));
     final record = await client.screenRecordDetailed(
       remotePath,
       seconds: seconds,
@@ -808,7 +810,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final markdownPath = '${targetDir.path}/device_report_$stamp.md';
     final jsonPath = '${targetDir.path}/device_report_$stamp.json';
     try {
-      await targetDir.create(recursive: true);
+      await createDirectoryBounded(targetDir);
       final devices = await _adbClient.listDevices();
       final propsFuture = client.getProperties();
       final forwardsFuture = client.listForwards();
@@ -918,7 +920,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
     }
     final targetDir = Directory('$apksDir/${_safeArtifactName(packageName)}');
-    await targetDir.create(recursive: true);
+    await createDirectoryBounded(targetDir);
     final results = <AdbCommandResult>[];
     for (final remotePath in packagePaths) {
       final name = remotePath.split('/').last.trim();
@@ -967,7 +969,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       ]),
     );
     final outputDir = Directory('$decompiledDir/$slug/quick_scan');
-    await outputDir.create(recursive: true);
+    await createDirectoryBounded(outputDir);
     final sw = Stopwatch()..start();
     final result = await runTrackedProcessOrFailed(
       '/bin/sh',
@@ -1003,8 +1005,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<String> ensureMitmproxyJsonlAddon() async {
     try {
-      await Directory(networkDir).create(recursive: true);
-      await File(networkJsonlPath).create(recursive: true);
+      await createDirectoryBounded(Directory(networkDir));
+      await File(
+        networkJsonlPath,
+      ).create(recursive: true).timeout(_kArtifactFileOperationTimeout);
       final file = File(mitmproxyAddonPath);
       await Future.wait(<Future<void>>[
         writeFileAtomically(file, _mitmproxyJsonlAddon),
@@ -1033,8 +1037,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<String> ensureCertificateArtifacts({String? packageName}) async {
     try {
-      final resXmlDir = Directory('$certsDir/res/xml');
-      await resXmlDir.create(recursive: true);
       final pkg = packageName?.trim();
       await Future.wait(<Future<void>>[
         writeFileAtomically(
@@ -1325,8 +1327,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
       if (!_canContinueNetworkCaptureStart(generation)) {
         return _networkCaptureStartCancelledResult();
       }
-      await Directory(networkDir).create(recursive: true);
-      await File(networkJsonlPath).create(recursive: true);
+      await createDirectoryBounded(Directory(networkDir));
+      await File(
+        networkJsonlPath,
+      ).create(recursive: true).timeout(_kArtifactFileOperationTimeout);
       if (!_canContinueNetworkCaptureStart(generation)) {
         return _networkCaptureStartCancelledResult();
       }
@@ -1672,7 +1676,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final outputDir = Directory(
       '$decompiledDir/${resolved.slug}/$outputCategory',
     );
-    await outputDir.create(recursive: true);
+    await createDirectoryBounded(outputDir);
     return _runLocalShellDetailed(
       actionName: actionName,
       command: command,
@@ -1879,12 +1883,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<String> _writeMcpLinkageArtifacts({required bool updateError}) async {
     try {
       await Future.wait(<Future<void>>[
-        Directory(mcpDir).create(recursive: true),
-        Directory(fridaScriptsDir).create(recursive: true),
-        Directory(fridaOutputDir).create(recursive: true),
-        Directory(networkDir).create(recursive: true),
-        Directory(scriptsDir).create(recursive: true),
-        Directory(toolchainDir).create(recursive: true),
+        createDirectoryBounded(Directory(mcpDir)),
+        createDirectoryBounded(Directory(fridaScriptsDir)),
+        createDirectoryBounded(Directory(fridaOutputDir)),
+        createDirectoryBounded(Directory(networkDir)),
+        createDirectoryBounded(Directory(scriptsDir)),
+        createDirectoryBounded(Directory(toolchainDir)),
       ]);
       final generatedAt = DateTime.now().toUtc().toIso8601String();
       await Future.wait(<Future<void>>[
@@ -1974,16 +1978,20 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<void> _ensureArtifactDirectories() async {
     try {
-      await Directory(artifactsRootDir).create(recursive: true);
-      await Future.wait(
+      await createDirectoryBounded(Directory(artifactsRootDir));
+      await Future.wait<Directory>(
         _kAndroidReverseArtifactSubdirs.map(
           (name) =>
-              Directory('$artifactsRootDir/$name').create(recursive: true),
+              createDirectoryBounded(Directory('$artifactsRootDir/$name')),
         ),
       );
       await Future.wait(<Future<File>>[
-        File(logcatJsonlPath).create(recursive: true),
-        File(networkJsonlPath).create(recursive: true),
+        File(
+          logcatJsonlPath,
+        ).create(recursive: true).timeout(_kArtifactFileOperationTimeout),
+        File(
+          networkJsonlPath,
+        ).create(recursive: true).timeout(_kArtifactFileOperationTimeout),
       ]);
     } catch (e, st) {
       silentLog(_kTag, '准备产物目录', e, st);
