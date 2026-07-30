@@ -39,6 +39,8 @@ const int _agentWorkerMaxToolRounds = 8;
 const int _agentWorkerMaxToolCallsPerRound = 8;
 const int _agentWorkerMaxTotalToolCalls = 32;
 const int _agentWorkerMaxToolArgumentChars = 256 * kBytesPerKiB;
+const int _agentWorkerMaxToolOutputChars = 64 * kBytesPerKiB;
+const int _agentWorkerMaxTotalToolOutputChars = 256 * kBytesPerKiB;
 const int _agentWorkerResultMaxChars = 24000;
 const int _agentWorkerResultPreviewMaxChars = 1200;
 const int _agentListDefaultLimit = 100;
@@ -1752,14 +1754,16 @@ class AiAgentTool extends AiTool {
     );
     if (resolved.error != null) return resolved.error!;
     final wait = _resultWaitOptions(args);
-    final waitStartedAt = DateTime.now().toUtc();
+    final waitStartedAt = Stopwatch()..start();
     var waitedMs = 0;
     while (!_taskResultTerminalEnough(resolved.task!) &&
         waitedMs < wait.maxMs) {
       // 必须区分「轮询间隔到期」与「用户取消」：取消信号会让等待立即返回，
-      // 若继续循环就会退化成无间隔空转，一直烧到墙钟走满 maxMs（最长 90s）。
+      // 若继续循环就会退化成无间隔空转，持续占用执行线程直到总时限。
+      final remainingMs = wait.maxMs - waitedMs;
+      final delayMs = remainingMs < wait.pollMs ? remainingMs : wait.pollMs;
       final cancelled = await delayUntilCancelled(
-        Duration(milliseconds: wait.pollMs),
+        Duration(milliseconds: delayMs),
         cancelSignal: context.cancelSignal,
       );
       if (cancelled) {
@@ -1773,10 +1777,7 @@ class AiAgentTool extends AiTool {
           },
         );
       }
-      waitedMs = DateTime.now()
-          .toUtc()
-          .difference(waitStartedAt)
-          .inMilliseconds;
+      waitedMs = waitStartedAt.elapsedMilliseconds;
       final refreshed = _resolveTask(
         controller,
         <String, Object?>{
@@ -1785,10 +1786,9 @@ class AiAgentTool extends AiTool {
           'task_id': resolved.task!.id,
         },
         sessionId: context.sessionId,
-        allowHeuristicRecovery: true,
         accessPolicy: accessPolicy,
       );
-      if (refreshed.error != null) break;
+      if (refreshed.error != null) return refreshed.error!;
       resolved = refreshed;
     }
     final task = resolved.task!;
@@ -1817,7 +1817,7 @@ class AiAgentTool extends AiTool {
           'requested_ms': wait.maxMs,
           'poll_ms': wait.pollMs,
           'elapsed_ms': waitedMs,
-          'completed_during_wait': task.hasResult,
+          'completed_during_wait': waitedMs > 0 && task.hasResult,
         },
         'handoff': _taskHandoffJson(
           task,
@@ -1855,7 +1855,10 @@ class AiAgentTool extends AiTool {
     if (_backgroundChatClient == null || _subToolExecutor == null) {
       return false;
     }
-    if (task.status.isTerminal) return false;
+    if (task.status != AgentTaskStatus.running ||
+        '${task.extra[agentTaskAssignmentIdExtraKey] ?? ''}'.trim().isEmpty) {
+      return false;
+    }
     if (_agentWorkerWaitMs(args) <= 0) return false;
     final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
     if (rawExtra != null &&
@@ -1893,6 +1896,24 @@ class AiAgentTool extends AiTool {
     final toolCalls = <Map<String, Object?>>[];
     AiTokenUsage? usage;
     var completedRounds = 0;
+    var toolOutputChars = 0;
+    String boundedToolOutput(String value) {
+      final remaining = _agentWorkerMaxTotalToolOutputChars - toolOutputChars;
+      if (remaining <= 0) {
+        return '[tool output omitted: total output limit reached]';
+      }
+      final limit = remaining < _agentWorkerMaxToolOutputChars
+          ? remaining
+          : _agentWorkerMaxToolOutputChars;
+      final bounded = clipTextByCodeUnits(
+        value,
+        limit,
+        suffix: '\n\n[tool output truncated]',
+      );
+      toolOutputChars += bounded.length;
+      return bounded;
+    }
+
     Future<_AgentWorkerRunResult> finishFailure(String status, Object error) {
       return _writeWorkerFailure(
         controller,
@@ -1933,19 +1954,23 @@ class AiAgentTool extends AiTool {
           ),
         );
       }
-      final promptSnapshot = await _promptRenderer
-          .render(
-            agent: agent,
-            task: task,
-            callableAgentToolNames: callableAgentToolNames,
-            boundInstructions: _boundInstructionsForAgent(agent),
-            taskContext: <String, Object?>{
-              'execution_mode': 'automatic_worker',
-              'worker_session_id': workerSessionId,
-              if (workerId.isNotEmpty) 'worker_id': workerId,
-            },
-          )
-          .timeout(promptBudget);
+      final promptSnapshot = await AiToolUtils.awaitWithCancellation(
+        _promptRenderer
+            .render(
+              agent: agent,
+              task: task,
+              callableAgentToolNames: callableAgentToolNames,
+              boundInstructions: _boundInstructionsForAgent(agent),
+              taskContext: <String, Object?>{
+                'execution_mode': 'automatic_worker',
+                'worker_session_id': workerSessionId,
+                if (workerId.isNotEmpty) 'worker_id': workerId,
+              },
+            )
+            .timeout(promptBudget),
+        cancelSignal: context.cancelSignal,
+      );
+      if (promptSnapshot == null) return finishCancelled();
       final turns = <AiChatTurn>[
         AiChatTurn(
           role: AiChatRole.system,
@@ -2002,9 +2027,9 @@ class AiAgentTool extends AiTool {
             : completion.usage == null
             ? usage
             : usage.merge(completion.usage!);
-        final reply = completion.reply.trim();
+        final reply = _boundedWorkerResult(completion.reply);
         if (completion.toolCalls.isEmpty) {
-          final finalResult = _boundedWorkerResult(reply);
+          final finalResult = reply;
           final result = _AgentWorkerRunResult(
             status: finalResult.isEmpty ? 'failed' : 'completed',
             rounds: round + 1,
@@ -2059,7 +2084,7 @@ class AiAgentTool extends AiTool {
               AiChatTurn(
                 role: AiChatRole.tool,
                 toolCallId: toolCall.id,
-                content: result.toToolOutput(),
+                content: boundedToolOutput(result.toToolOutput()),
               ),
             );
             toolCalls.add(_workerToolCallJson(toolCall, result));
@@ -2120,7 +2145,7 @@ class AiAgentTool extends AiTool {
             AiChatTurn(
               role: AiChatRole.tool,
               toolCallId: toolCall.id,
-              content: toolResult.toToolOutput(),
+              content: boundedToolOutput(toolResult.toToolOutput()),
             ),
           );
           toolCalls.add(_workerToolCallJson(toolCall, toolResult));
@@ -2203,6 +2228,8 @@ class AiAgentTool extends AiTool {
       agent.id,
       task.id,
       status: AgentTaskStatus.completed,
+      expectedAssignmentId:
+          '${task.extra[agentTaskAssignmentIdExtraKey] ?? ''}',
       progress: 1,
       result: result.result ?? '',
       extra: _workerTaskExtra(result, retryable: false),
@@ -2225,16 +2252,23 @@ class AiAgentTool extends AiTool {
     AgentTask task,
     _AgentWorkerRunResult result,
   ) async {
+    final cancelled = result.status == 'cancelled';
     final updated = await controller.updateTaskState(
       agent.id,
       task.id,
-      status: AgentTaskStatus.failed,
+      status: cancelled ? AgentTaskStatus.canceled : AgentTaskStatus.failed,
+      expectedAssignmentId:
+          '${task.extra[agentTaskAssignmentIdExtraKey] ?? ''}',
       progress: task.progress,
-      note: result.error ?? 'Agent worker execution failed.',
+      note:
+          result.error ??
+          (cancelled
+              ? 'Agent worker execution was cancelled.'
+              : 'Agent worker execution failed.'),
       result: result.result ?? '',
       extra: _workerTaskExtra(result, retryable: false),
-      activityKind: 'task_failed',
-      activityTitle: 'task_failed',
+      activityKind: cancelled ? 'task_canceled' : 'task_failed',
+      activityTitle: cancelled ? 'task_canceled' : 'task_failed',
       auditToolName: _agentTaskAutoWorkerToolName,
     );
     return _recordWorkerExecution(

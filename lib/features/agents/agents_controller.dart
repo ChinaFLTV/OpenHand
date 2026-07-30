@@ -317,6 +317,7 @@ class AgentsController extends ManagedChangeNotifier {
     String agentId,
     String taskId, {
     AgentTaskStatus? status,
+    String? expectedAssignmentId,
     double? progress,
     String? note,
     String? result,
@@ -327,7 +328,12 @@ class AgentsController extends ManagedChangeNotifier {
   }) async {
     AgentTask? updatedTask;
     final normalizedTaskId = taskId.trim();
-    if (normalizedTaskId.isEmpty) return null;
+    final normalizedExpectedAssignmentId = expectedAssignmentId?.trim();
+    if (normalizedTaskId.isEmpty ||
+        (normalizedExpectedAssignmentId != null &&
+            normalizedExpectedAssignmentId.isEmpty)) {
+      return null;
+    }
     final changed = await _commitMutation(() async {
       final index = _agentIndexById(agentId);
       if (index < 0) return false;
@@ -339,6 +345,13 @@ class AgentsController extends ManagedChangeNotifier {
           .map((task) {
             if (task.id != normalizedTaskId) return task;
             found = true;
+            if (normalizedExpectedAssignmentId != null &&
+                (task.status != AgentTaskStatus.running ||
+                    '${task.extra[agentTaskAssignmentIdExtraKey] ?? ''}'
+                            .trim() !=
+                        normalizedExpectedAssignmentId)) {
+              return task;
+            }
             if (!_canUpdateTaskState(task, status)) return task;
             final nextProgress = progress == null
                 ? status == AgentTaskStatus.completed
@@ -1477,6 +1490,7 @@ class AgentsController extends ManagedChangeNotifier {
           'assigned_worker_id': worker.id,
           'assigned_worker_name': workerName,
           'assigned_at': now.toIso8601String(),
+          agentTaskAssignmentIdExtraKey: _uuid.v4(),
         },
       );
       tasks[taskIndex] = assigned;

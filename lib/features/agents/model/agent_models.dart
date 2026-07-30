@@ -13,6 +13,7 @@ const int agentTaskRecommendedPollMs = 1500;
 const String agentTaskTrackToolName = 'AgentTaskTrack';
 const String agentTaskProgressToolName = 'AgentTaskProgress';
 const String agentTaskResultToolName = 'AgentTaskResult';
+const String agentTaskAssignmentIdExtraKey = 'assignment_id';
 const String agentTaskTrackToolLookupKey = 'agenttasktrack';
 const String agentTaskProgressToolLookupKey = 'agenttaskprogress';
 const String agentTaskResultToolLookupKey = 'agenttaskresult';
