@@ -169,11 +169,28 @@ const int _agentRoutePreviewKeywordLimit = 10;
 const int _agentStructuredFieldMaxItems = 256;
 const int _agentStructuredFieldKeyMaxChars = 256;
 const int _agentStructuredFieldValueMaxChars = 32768;
+const int _agentStructuredFieldMaxDepth = 16;
+const int _agentStructuredFieldMaxNodes = 4096;
+const int _agentMetricInputMaxChars = 20;
+const Set<String> _agentRouteReservedKeys = <String>{
+  'route',
+  'routes',
+  'priority',
+  'description',
+  'keywords',
+  'keyword',
+  'triggers',
+  'trigger',
+  'domains',
+  'domain',
+  'intents',
+  'intent',
+};
 const BoundedJsonConversionConfig _agentStructuredValueConversionConfig =
     BoundedJsonConversionConfig(
-      maxDepth: 16,
+      maxDepth: _agentStructuredFieldMaxDepth,
       maxContainerItems: _agentStructuredFieldMaxItems,
-      maxTotalNodes: 4096,
+      maxTotalNodes: _agentStructuredFieldMaxNodes,
       maxStringCodeUnits: _agentStructuredFieldValueMaxChars,
       maxDepthPlaceholder: '<层级过深>',
       cyclicMapPlaceholder: '<循环映射>',
@@ -243,6 +260,21 @@ void _showAgentErrorSnack(
     duration: duration,
     action: action,
     maxLines: maxLines,
+  );
+}
+
+void _showAgentMutationError(
+  BuildContext context,
+  AgentsController controller, {
+  required String zh,
+  required String en,
+}) {
+  final summary = openHandLocalizedText(context, zh: zh, en: en);
+  final detail = controller.errorMessage?.trim();
+  _showAgentErrorSnack(
+    context,
+    detail == null || detail.isEmpty ? summary : '$summary\n$detail',
+    maxLines: 4,
   );
 }
 
@@ -4210,10 +4242,16 @@ Future<void> _showAgentKpiDialog(BuildContext context, AgentProfile agent) {
           onPressed: () async {
             final draft = await _showAgentKpiEditorDialog(context);
             if (draft == null || !context.mounted) return;
-            await context.read<AgentsController>().saveKpi(
-              currentAgent.id,
-              draft,
-            );
+            final controller = context.read<AgentsController>();
+            final saved = await controller.saveKpi(currentAgent.id, draft);
+            if (saved == null && context.mounted) {
+              _showAgentMutationError(
+                context,
+                controller,
+                zh: 'KPI 保存失败，请重试。',
+                en: 'Failed to save KPI. Try again.',
+              );
+            }
           },
           label: _agentsViewAddKpiLabel(context),
         ),
@@ -4472,7 +4510,16 @@ Future<void> _editAgentKpi(
 ) async {
   final draft = await _showAgentKpiEditorDialog(context, initial: item);
   if (draft == null || !context.mounted) return;
-  await context.read<AgentsController>().saveKpi(agent.id, draft);
+  final controller = context.read<AgentsController>();
+  final saved = await controller.saveKpi(agent.id, draft);
+  if (saved == null && context.mounted) {
+    _showAgentMutationError(
+      context,
+      controller,
+      zh: 'KPI 保存失败，请重试。',
+      en: 'Failed to save KPI. Try again.',
+    );
+  }
 }
 
 Future<void> _deleteAgentKpi(
@@ -4492,7 +4539,16 @@ Future<void> _deleteAgentKpi(
     destructive: true,
   );
   if (confirmed && context.mounted) {
-    await context.read<AgentsController>().deleteKpi(agent.id, item.id);
+    final controller = context.read<AgentsController>();
+    final deleted = await controller.deleteKpi(agent.id, item.id);
+    if (!deleted && context.mounted) {
+      _showAgentMutationError(
+        context,
+        controller,
+        zh: 'KPI 删除失败，请刷新后重试。',
+        en: 'Failed to delete KPI. Refresh and try again.',
+      );
+    }
   }
 }
 
@@ -4564,17 +4620,26 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
           children: [
             TextField(
               controller: _name,
+              maxLength: _agentStructuredFieldKeyMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(labelText: l10n.agentsFieldName),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _target,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsFieldTarget),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _plan,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               minLines: 3,
               maxLines: 6,
               decoration: InputDecoration(
@@ -4660,6 +4725,19 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
   }
 
   void _submitKpi() {
+    if (_name.text.length > _agentStructuredFieldKeyMaxChars ||
+        _target.text.length > _agentStructuredFieldValueMaxChars ||
+        _plan.text.length > _agentStructuredFieldValueMaxChars) {
+      _showAgentErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: 'KPI 文本超过长度限制。',
+          en: 'KPI text exceeds the length limit.',
+        ),
+      );
+      return;
+    }
     final duplicate = _agentFirstDuplicateKey(_extraEntries);
     if (duplicate != null) {
       _showAgentErrorSnack(
@@ -4668,6 +4746,17 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
           context,
           zh: 'KPI 元数据字段重复：$duplicate',
           en: 'Duplicate KPI metadata field: $duplicate',
+        ),
+      );
+      return;
+    }
+    if (!_agentStructuredFieldsWithinLimits(_extraEntries)) {
+      _showAgentErrorSnack(
+        context,
+        _agentStructuredFieldsLimitMessage(
+          context,
+          zhSubject: 'KPI 元数据',
+          enSubject: 'KPI metadata',
         ),
       );
       return;
@@ -4786,10 +4875,19 @@ Future<void> _showAgentResourcesDialog(
                       resource,
                     );
                     if (updated == null || !context.mounted) return;
-                    await context.read<AgentsController>().saveResourceUsage(
+                    final controller = context.read<AgentsController>();
+                    final saved = await controller.saveResourceUsage(
                       currentAgent.id,
                       updated,
                     );
+                    if (!saved && context.mounted) {
+                      _showAgentMutationError(
+                        context,
+                        controller,
+                        zh: '资源数据保存失败，请重试。',
+                        en: 'Failed to save resource data. Try again.',
+                      );
+                    }
                   },
                   label: _agentsViewEditResourcesLabel(context),
                 ),
@@ -6293,6 +6391,9 @@ class _AgentResourceEditorDialogState
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,
+        maxLength: _agentMetricInputMaxChars,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        buildCounter: openHandHiddenTextFieldCounter,
         decoration: InputDecoration(labelText: label),
       ),
     );
@@ -6314,6 +6415,17 @@ class _AgentResourceEditorDialogState
           context,
           zh: '资源元数据字段重复：$duplicate',
           en: 'Duplicate resource metadata field: $duplicate',
+        ),
+      );
+      return;
+    }
+    if (!_agentStructuredFieldsWithinLimits(_extraEntries)) {
+      _showAgentErrorSnack(
+        context,
+        _agentStructuredFieldsLimitMessage(
+          context,
+          zhSubject: '资源元数据',
+          enSubject: 'Resource metadata',
         ),
       );
       return;
@@ -7666,13 +7778,22 @@ Future<void> _showAgentApprovalRequestDialog(
     builder: (_) => const _AgentApprovalRequestDialog(),
   );
   if (draft != null && context.mounted) {
-    await context.read<AgentsController>().requestApproval(
+    final controller = context.read<AgentsController>();
+    final approval = await controller.requestApproval(
       agent.id,
       title: draft.title,
       reason: draft.reason,
       requestedAction: draft.requestedAction,
       extra: draft.extra,
     );
+    if (approval == null && context.mounted) {
+      _showAgentMutationError(
+        context,
+        controller,
+        zh: '审批请求保存失败，请重试。',
+        en: 'Failed to save the approval request. Try again.',
+      );
+    }
   }
 }
 
@@ -7748,11 +7869,17 @@ class _AgentApprovalRequestDialogState
           children: [
             TextField(
               controller: _title,
+              maxLength: _agentStructuredFieldKeyMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsFieldName),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _reason,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               minLines: 3,
               maxLines: 6,
               decoration: InputDecoration(
@@ -7766,6 +7893,9 @@ class _AgentApprovalRequestDialogState
             const SizedBox(height: 12),
             TextField(
               controller: _requestedAction,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(
                 labelText: openHandLocalizedText(
                   context,
@@ -7819,6 +7949,19 @@ class _AgentApprovalRequestDialogState
       );
       return;
     }
+    if (_title.text.length > _agentStructuredFieldKeyMaxChars ||
+        _reason.text.length > _agentStructuredFieldValueMaxChars ||
+        _requestedAction.text.length > _agentStructuredFieldValueMaxChars) {
+      _showAgentErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '审批文本超过长度限制。',
+          en: 'Approval text exceeds the length limit.',
+        ),
+      );
+      return;
+    }
     final duplicate = _agentFirstDuplicateKey(_extraEntries);
     if (duplicate != null) {
       _showAgentErrorSnack(
@@ -7827,6 +7970,17 @@ class _AgentApprovalRequestDialogState
           context,
           zh: '审批元数据字段重复：$duplicate',
           en: 'Duplicate approval metadata field: $duplicate',
+        ),
+      );
+      return;
+    }
+    if (!_agentStructuredFieldsWithinLimits(_extraEntries)) {
+      _showAgentErrorSnack(
+        context,
+        _agentStructuredFieldsLimitMessage(
+          context,
+          zhSubject: '审批元数据',
+          enSubject: 'Approval metadata',
         ),
       );
       return;
@@ -8061,11 +8215,17 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
           children: [
             TextField(
               controller: _title,
+              maxLength: _agentStructuredFieldKeyMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsTaskTitleLabel),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _description,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(
                 labelText: l10n.agentsDescriptionLabel,
               ),
@@ -8073,6 +8233,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
             const SizedBox(height: 12),
             TextField(
               controller: _content,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               minLines: 4,
               maxLines: 8,
               decoration: InputDecoration(labelText: l10n.agentsContentLabel),
@@ -8080,6 +8243,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
             const SizedBox(height: 12),
             TextField(
               controller: _note,
+              maxLength: _agentStructuredFieldValueMaxChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
             ),
             const SizedBox(height: 12),
@@ -8125,6 +8291,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               Expanded(
                 child: TextField(
                   controller: _labelInput,
+                  maxLength: _agentStructuredFieldKeyMaxChars,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  buildCounter: openHandHiddenTextFieldCounter,
                   decoration: InputDecoration(
                     hintText: openHandLocalizedText(
                       context,
@@ -8139,7 +8308,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               IconButton.filledTonal(
                 key: const ValueKey<String>('agent-publish-task-label-add'),
                 tooltip: openHandAddLabel(context),
-                onPressed: _addLabel,
+                onPressed: _labels.length >= _agentStructuredFieldMaxItems
+                    ? null
+                    : _addLabel,
                 icon: const Icon(Icons.add_rounded),
               ),
             ],
@@ -8160,7 +8331,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
 
   void _addLabel() {
     final value = _labelInput.text.trim();
-    if (value.isEmpty) return;
+    if (value.isEmpty || _labels.length >= _agentStructuredFieldMaxItems) {
+      return;
+    }
     setState(() {
       if (!_labels.any((item) => item.toLowerCase() == value.toLowerCase())) {
         _labels.add(value);
@@ -8197,6 +8370,61 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
       );
       return;
     }
+    if (_title.text.length > _agentStructuredFieldKeyMaxChars ||
+        <TextEditingController>[_description, _content, _note].any(
+          (field) => field.text.length > _agentStructuredFieldValueMaxChars,
+        ) ||
+        _labels.length > _agentStructuredFieldMaxItems ||
+        _labels.any(
+          (label) => label.length > _agentStructuredFieldKeyMaxChars,
+        )) {
+      _showAgentErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '任务文本或标签超过长度限制。',
+          en: 'Task text or labels exceed the length limits.',
+        ),
+      );
+      return;
+    }
+    final duplicate = _agentFirstDuplicateKey(_extraEntries);
+    if (duplicate != null) {
+      _showAgentErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '扩展字段重复：$duplicate',
+          en: 'Duplicate extra field: $duplicate',
+        ),
+      );
+      return;
+    }
+    final labelsConflict = _labels.isEmpty
+        ? null
+        : _agentFirstReservedKey(_extraEntries, const <String>{'labels'});
+    if (labelsConflict != null) {
+      _showAgentErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '扩展字段 $labelsConflict 与任务标签冲突。',
+          en: 'Extra field $labelsConflict conflicts with task labels.',
+        ),
+      );
+      return;
+    }
+    if (!_agentStructuredFieldsWithinLimits(_extraEntries)) {
+      _showAgentErrorSnack(
+        context,
+        _agentStructuredFieldsLimitMessage(
+          context,
+          zhSubject: '任务扩展字段',
+          enSubject: 'Task extra fields',
+        ),
+      );
+      return;
+    }
     final extra = _agentKeyValueDraftMapFromEntries(_extraEntries);
     if (_labels.isNotEmpty) {
       extra['labels'] = List<String>.unmodifiable(_labels);
@@ -8228,9 +8456,21 @@ Future<void> _confirmDeleteAgent(
   );
   if (confirmed && context.mounted) {
     final controller = context.read<AgentsController>();
-    Future<void> delete() => controller.deleteAgent(agent.id);
+    var deleted = false;
+    Future<void> delete() async {
+      deleted = await controller.deleteAgent(agent.id);
+    }
+
     // 从列表卡片触发时先播收起动效；从弹窗等入口触发时没有列表可收，直接删。
     await (removal == null ? delete() : removal.run(agent.id, delete));
+    if (!deleted && context.mounted) {
+      _showAgentMutationError(
+        context,
+        controller,
+        zh: '智能体删除失败，请刷新后重试。',
+        en: 'Failed to delete the agent. Refresh and try again.',
+      );
+    }
   }
 }
 
@@ -8405,8 +8645,15 @@ Future<void> _showAgentEditor(
     context: context,
     builder: (dialogContext) => _AgentEditorDialog(initialAgent: initialAgent),
   );
-  if (result != null) {
-    await controller.saveAgent(result);
+  if (result == null || !context.mounted) return;
+  final saved = await controller.saveAgent(result);
+  if (!saved && context.mounted) {
+    _showAgentMutationError(
+      context,
+      controller,
+      zh: '智能体保存失败，请重试。',
+      en: 'Failed to save the agent. Try again.',
+    );
   }
 }
 
@@ -9285,6 +9532,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             Expanded(
               child: TextField(
                 controller: _kpiName,
+                maxLength: _agentStructuredFieldKeyMaxChars,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                buildCounter: openHandHiddenTextFieldCounter,
                 decoration: InputDecoration(labelText: l10n.agentsFieldName),
               ),
             ),
@@ -9292,12 +9542,17 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             Expanded(
               child: TextField(
                 controller: _kpiTarget,
+                maxLength: _agentStructuredFieldValueMaxChars,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                buildCounter: openHandHiddenTextFieldCounter,
                 decoration: InputDecoration(labelText: l10n.agentsFieldTarget),
               ),
             ),
             const SizedBox(width: 12),
             IconButton.filledTonal(
-              onPressed: _addKpi,
+              onPressed: _kpis.length >= _agentStructuredFieldMaxItems
+                  ? null
+                  : _addKpi,
               icon: const Icon(Icons.add_rounded),
             ),
           ],
@@ -9473,6 +9728,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onReorder: (oldIndex, newIndex) => setState(
               () => _reorderStringList(_routeKeywords, oldIndex, newIndex),
             ),
+            maxItems: agentRouteKeywordMaxItems,
             keyPrefix: 'agent-route-keyword',
           ),
           const SizedBox(height: 12),
@@ -9491,6 +9747,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onReorder: (oldIndex, newIndex) => setState(
               () => _reorderStringList(_routeDomains, oldIndex, newIndex),
             ),
+            maxItems: agentRouteKeywordMaxItems,
             keyPrefix: 'agent-route-domain',
           ),
           const SizedBox(height: 12),
@@ -9509,6 +9766,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onReorder: (oldIndex, newIndex) => setState(
               () => _reorderStringList(_routeIntents, oldIndex, newIndex),
             ),
+            maxItems: agentRouteKeywordMaxItems,
             keyPrefix: 'agent-route-intent',
           ),
           const SizedBox(height: 12),
@@ -9642,6 +9900,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required ValueChanged<String> onRemove,
     required void Function(int oldIndex, int newIndex) onReorder,
     IconData addIcon = Icons.add_rounded,
+    int maxItems = _agentStructuredFieldMaxItems,
     String keyPrefix = 'agent-chip',
   }) {
     return InputDecorator(
@@ -9654,6 +9913,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               Expanded(
                 child: TextField(
                   controller: inputController,
+                  maxLength: _agentStructuredFieldKeyMaxChars,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  buildCounter: openHandHiddenTextFieldCounter,
                   decoration: InputDecoration(
                     hintText: _agentsViewEnterTextThenAddLabel(context),
                   ),
@@ -9663,7 +9925,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               const SizedBox(width: 10),
               IconButton.filledTonal(
                 tooltip: openHandAddLabel(context),
-                onPressed: onAdd,
+                onPressed: values.length >= maxItems ? null : onAdd,
                 icon: Icon(addIcon),
               ),
             ],
@@ -9730,12 +9992,20 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     int maxLines = 1,
     bool fullWidth = false,
     ValueChanged<String>? onChanged,
+    int? maxLength,
   }) {
     return _FormGridItem(
       fullWidth: fullWidth,
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        maxLength:
+            maxLength ??
+            (maxLines == 1
+                ? _agentStructuredFieldKeyMaxChars
+                : _agentStructuredFieldValueMaxChars),
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        buildCounter: openHandHiddenTextFieldCounter,
         onChanged: onChanged,
         decoration: InputDecoration(labelText: label, hintText: hint),
       ),
@@ -9964,15 +10234,27 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   void _addRouteKeyword() {
-    _addStringFromController(_routeKeywords, _routeKeywordInput);
+    _addStringFromController(
+      _routeKeywords,
+      _routeKeywordInput,
+      maxItems: agentRouteKeywordMaxItems,
+    );
   }
 
   void _addRouteDomain() {
-    _addStringFromController(_routeDomains, _routeDomainInput);
+    _addStringFromController(
+      _routeDomains,
+      _routeDomainInput,
+      maxItems: agentRouteKeywordMaxItems,
+    );
   }
 
   void _addRouteIntent() {
-    _addStringFromController(_routeIntents, _routeIntentInput);
+    _addStringFromController(
+      _routeIntents,
+      _routeIntentInput,
+      maxItems: agentRouteKeywordMaxItems,
+    );
   }
 
   void _addTaskLabel() {
@@ -9985,10 +10267,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   void _addStringFromController(
     List<String> values,
-    TextEditingController controller,
-  ) {
+    TextEditingController controller, {
+    int maxItems = _agentStructuredFieldMaxItems,
+  }) {
     final value = controller.text.trim();
-    if (value.isEmpty) return;
+    if (value.isEmpty || values.length >= maxItems) return;
     setState(() {
       _addUniqueString(values, value);
       controller.clear();
@@ -10019,7 +10302,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   void _addKpi() {
     final name = _kpiName.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty || _kpis.length >= _agentStructuredFieldMaxItems) return;
     setState(() {
       _kpis.add(
         AgentKpiItem(
@@ -10056,6 +10339,96 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   String? _validateDraft(String routeFrontMatter) {
+    final shortFields = <TextEditingController>[
+      _name,
+      _position,
+      _department,
+      _mentor,
+      _level,
+      _routeName,
+      _routePriority,
+    ];
+    if (shortFields.any(
+      (field) => field.text.length > _agentStructuredFieldKeyMaxChars,
+    )) {
+      return openHandLocalizedText(
+        context,
+        zh:
+            '名称、职位、部门、导师、级别和路由短字段不能超过 '
+            '$_agentStructuredFieldKeyMaxChars 个字符。',
+        en:
+            'Name, position, department, mentor, level, and short routing fields '
+            'cannot exceed $_agentStructuredFieldKeyMaxChars characters.',
+      );
+    }
+    final longFields = <TextEditingController>[
+      _introduction,
+      _archive,
+      _routeDescription,
+      _welcomeMessage,
+      _persona,
+      _boundary,
+    ];
+    if (longFields.any(
+      (field) => field.text.length > _agentStructuredFieldValueMaxChars,
+    )) {
+      return openHandLocalizedText(
+        context,
+        zh: '智能体长文本字段不能超过 $_agentStructuredFieldValueMaxChars 个字符。',
+        en:
+            'Agent long-text fields cannot exceed '
+            '$_agentStructuredFieldValueMaxChars characters.',
+      );
+    }
+    for (final values in <List<String>>[_taskLabelValues, _workerTagValues]) {
+      if (values.length > _agentStructuredFieldMaxItems ||
+          values.any(
+            (value) => value.length > _agentStructuredFieldKeyMaxChars,
+          )) {
+        return openHandLocalizedText(
+          context,
+          zh:
+              '任务标签和 Worker 标签最多 $_agentStructuredFieldMaxItems 项，'
+              '每项不超过 $_agentStructuredFieldKeyMaxChars 个字符。',
+          en:
+              'Task and worker labels are limited to '
+              '$_agentStructuredFieldMaxItems items and '
+              '$_agentStructuredFieldKeyMaxChars characters per item.',
+        );
+      }
+    }
+    if (_kpis.length > _agentStructuredFieldMaxItems ||
+        _kpis.any(
+          (item) =>
+              item.name.length > _agentStructuredFieldKeyMaxChars ||
+              item.target.length > _agentStructuredFieldValueMaxChars ||
+              item.plan.length > _agentStructuredFieldValueMaxChars,
+        )) {
+      return openHandLocalizedText(
+        context,
+        zh: 'KPI 最多 $_agentStructuredFieldMaxItems 项，且文本不能超过长度限制。',
+        en:
+            'KPI items are limited to $_agentStructuredFieldMaxItems and their text '
+            'must remain within the length limits.',
+      );
+    }
+    if (!_agentJsonValueWithinLimits(
+      _kpis.map((item) => item.extra).toList(growable: false),
+      maxDepth: _agentStructuredFieldMaxDepth + 1,
+    )) {
+      return _agentStructuredFieldsLimitMessage(
+        context,
+        zhSubject: 'KPI 元数据',
+        enSubject: 'KPI metadata',
+      );
+    }
+    if (!_agentStructuredTextWithinLimits(_routePriority.text)) {
+      return _agentStructuredFieldsLimitMessage(
+        context,
+        zhSubject: '路由优先级',
+        enSubject: 'Routing priority',
+      );
+    }
     final duplicateMetadata = _firstDuplicateKey(_metadataEntries);
     if (duplicateMetadata != null) {
       return openHandLocalizedText(
@@ -10070,6 +10443,31 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         context,
         zh: '路由扩展字段重复：$duplicateRoute',
         en: 'Duplicate routing field: $duplicateRoute',
+      );
+    }
+    final reservedRoute = _agentFirstReservedKey(
+      _routeExtraFields,
+      _agentRouteReservedKeys,
+    );
+    if (reservedRoute != null) {
+      return openHandLocalizedText(
+        context,
+        zh: '路由扩展字段 $reservedRoute 与内置路由字段冲突。',
+        en: 'Routing field $reservedRoute conflicts with a built-in routing field.',
+      );
+    }
+    if (!_agentStructuredFieldsWithinLimits(_metadataEntries)) {
+      return _agentStructuredFieldsLimitMessage(
+        context,
+        zhSubject: '智能体元数据',
+        enSubject: 'Agent metadata',
+      );
+    }
+    if (!_agentStructuredFieldsWithinLimits(_routeExtraFields)) {
+      return _agentStructuredFieldsLimitMessage(
+        context,
+        zhSubject: '路由扩展字段',
+        enSubject: 'Routing fields',
       );
     }
     if (routeFrontMatter.length > agentRouteFrontMatterMaxChars) {
@@ -10258,23 +10656,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   List<_KeyValueDraft> _routeExtraEntries(Map<String, Object?> route) {
-    const reserved = <String>{
-      'route',
-      'routes',
-      'priority',
-      'description',
-      'keywords',
-      'keyword',
-      'triggers',
-      'trigger',
-      'domains',
-      'domain',
-      'intents',
-      'intent',
-    };
     final entries = <_KeyValueDraft>[];
     for (final entry in route.entries) {
-      if (reserved.contains(entry.key.toLowerCase())) continue;
+      if (_agentRouteReservedKeys.contains(entry.key.toLowerCase())) continue;
       entries.add(_KeyValueDraft(key: entry.key, value: entry.value));
     }
     return entries;
@@ -10509,6 +10893,8 @@ class _AgentKeyValueEditor extends StatelessWidget {
                             child: TextField(
                               controller: entry.key,
                               maxLength: _agentStructuredFieldKeyMaxChars,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
                               buildCounter: openHandHiddenTextFieldCounter,
                               decoration: InputDecoration(labelText: keyLabel),
                               onChanged: (_) => onChanged?.call(),
@@ -10520,6 +10906,8 @@ class _AgentKeyValueEditor extends StatelessWidget {
                             child: TextField(
                               controller: entry.value,
                               maxLength: _agentStructuredFieldValueMaxChars,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
                               buildCounter: openHandHiddenTextFieldCounter,
                               decoration: InputDecoration(
                                 labelText: valueLabel,
@@ -12195,6 +12583,95 @@ String? _agentFirstDuplicateKey(Iterable<_KeyValueDraft> entries) {
     if (!seen.add(normalized)) return key;
   }
   return null;
+}
+
+String? _agentFirstReservedKey(
+  Iterable<_KeyValueDraft> entries,
+  Set<String> reservedKeys,
+) {
+  for (final entry in entries) {
+    final key = entry.key.text.trim();
+    if (reservedKeys.contains(key.toLowerCase())) return key;
+  }
+  return null;
+}
+
+bool _agentStructuredFieldsWithinLimits(Iterable<_KeyValueDraft> entries) {
+  final values = <String, Object?>{};
+  for (final entry in entries) {
+    final key = entry.key.text.trim();
+    if (key.isEmpty) continue;
+    final raw = entry.value.text.trim();
+    if (key.length > _agentStructuredFieldKeyMaxChars ||
+        raw.length > _agentStructuredFieldValueMaxChars) {
+      return false;
+    }
+    Object? value = raw;
+    if (raw.isEmpty || raw.toLowerCase() == 'null') {
+      value = '';
+    } else {
+      try {
+        value = jsonDecode(raw);
+      } on FormatException {
+        value = raw;
+      }
+    }
+    values[key] = value;
+  }
+  return _agentJsonValueWithinLimits(
+    values,
+    maxDepth: _agentStructuredFieldMaxDepth + 1,
+  );
+}
+
+bool _agentStructuredTextWithinLimits(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty || text.toLowerCase() == 'null') return true;
+  Object? value;
+  try {
+    value = jsonDecode(text);
+  } on FormatException {
+    return true;
+  }
+  return _agentJsonValueWithinLimits(value);
+}
+
+bool _agentJsonValueWithinLimits(
+  Object? value, {
+  int maxDepth = _agentStructuredFieldMaxDepth,
+}) {
+  try {
+    validateCanonicalJsonSubset(
+      value,
+      value,
+      maxDepth: maxDepth,
+      maxContainerItems: _agentStructuredFieldMaxItems,
+      maxTotalNodes: _agentStructuredFieldMaxNodes,
+    );
+    return true;
+  } on FormatException {
+    return false;
+  }
+}
+
+String _agentStructuredFieldsLimitMessage(
+  BuildContext context, {
+  required String zhSubject,
+  required String enSubject,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh:
+        '$zhSubject 超过限制：键最多 $_agentStructuredFieldKeyMaxChars 个字符、'
+        '值最多 $_agentStructuredFieldValueMaxChars 个字符，结构最多 '
+        '$_agentStructuredFieldMaxDepth 层、$_agentStructuredFieldMaxItems 个集合项和 '
+        '$_agentStructuredFieldMaxNodes 个节点。',
+    en:
+        '$enSubject exceeds the limits: keys $_agentStructuredFieldKeyMaxChars characters, '
+        'values $_agentStructuredFieldValueMaxChars characters, and structures '
+        '$_agentStructuredFieldMaxDepth levels, $_agentStructuredFieldMaxItems collection items, '
+        'and $_agentStructuredFieldMaxNodes nodes.',
+  );
 }
 
 Object? _agentParseStructuredValue(String raw) {
