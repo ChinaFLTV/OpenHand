@@ -275,6 +275,7 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         PluginCatalogIds.docker => _lifecycle.installDocker(
           onProgress: _addLog,
+          shouldContinue: () => !isDisposed,
         ),
         PluginCatalogIds.qdrant => _lifecycle.installQdrant(
           onProgress: _addLog,
@@ -429,8 +430,10 @@ class PluginServiceController extends ManagedChangeNotifier {
     notifyListeners();
     try {
       final result = await operation();
+      if (isDisposed) return false;
       if (result.success) {
         await _refreshAllPlugins();
+        if (isDisposed) return false;
         final expectedVersion = result.newVersion?.trim();
         final verificationError = _pluginOperationVerificationError(
           pluginId: pluginId,
@@ -596,6 +599,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   }
 
   void _addLog(String line) {
+    if (isDisposed) return;
     _operationLogs.add(line);
     notifyListeners();
   }

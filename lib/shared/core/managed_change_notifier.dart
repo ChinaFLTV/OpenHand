@@ -9,6 +9,9 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   bool _isDisposed = false;
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
 
+  @protected
+  bool get isDisposed => _isDisposed;
+
   StateError get _disposedError => StateError('$runtimeType 已释放');
 
   @override

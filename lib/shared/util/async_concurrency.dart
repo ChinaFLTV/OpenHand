@@ -357,7 +357,7 @@ Future<void> _runIndexedWithConcurrencyLimit({
         if (delayBetweenItems > Duration.zero &&
             index < itemCount - 1 &&
             nextIndex < itemCount) {
-          final stillActive = await _delayWhileContinuing(
+          final stillActive = await delayWhileContinuing(
             delayBetweenItems,
             () => !failed && keepGoing(),
           );
@@ -381,7 +381,8 @@ Future<void> _runIndexedWithConcurrencyLimit({
   }
 }
 
-Future<bool> _delayWhileContinuing(
+/// 等待指定时长，并在等待期间定期检查调用方是否仍需继续。
+Future<bool> delayWhileContinuing(
   Duration delay,
   OpenHandAsyncContinuePredicate shouldContinue,
 ) async {

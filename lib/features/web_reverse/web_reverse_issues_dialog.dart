@@ -19,6 +19,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
@@ -30,6 +31,10 @@ import 'web_reverse_session_controller.dart';
 final ListQueue<_IssueEntry> _issueBuffer = ListQueue<_IssueEntry>();
 StreamSubscription<CdpEvent>? _issueGlobalSub;
 String? _issueBindingKey;
+const int _maxPendingIssueBindings = 16;
+final SerialTaskQueue _issueBindingQueue = SerialTaskQueue(
+  maxPendingTasks: _maxPendingIssueBindings,
+);
 bool _issueDomainEnabled = false;
 const Duration _issueEnableTimeout = Duration(seconds: 5);
 const int _maxIssueEntries = 500;
@@ -43,19 +48,20 @@ Future<void> showWebReverseIssuesDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) async {
-  await _bindIssueStream(controller);
+  final bindingKey = await _bindIssueStream(controller);
+  var domainEnabled = false;
   if (controller.isBrowserAlive) {
     try {
       final res = await controller
           .sendRawCdp(method: 'Audits.enable')
           .timeout(_issueEnableTimeout);
-      _issueDomainEnabled = res?['error'] == null;
+      domainEnabled = res?['error'] == null;
     } catch (error, stack) {
-      _issueDomainEnabled = false;
       silentLog('web_reverse_issues_dialog', '启用 Audits 域', error, stack);
     }
-  } else {
-    _issueDomainEnabled = false;
+  }
+  if (_issueBindingKey == bindingKey) {
+    _issueDomainEnabled = domainEnabled;
   }
 
   if (!context.mounted) return;
@@ -65,24 +71,27 @@ Future<void> showWebReverseIssuesDialog(
   );
 }
 
-Future<void> _bindIssueStream(WebReverseSessionController controller) async {
+Future<String> _bindIssueStream(WebReverseSessionController controller) {
   final bindingKey =
       '${identityHashCode(controller)}:${controller.artifactsRootDir}:${controller.cdpConnectionGeneration}';
-  if (_issueBindingKey != bindingKey) {
-    await _cancelIssueSubscription(_issueGlobalSub, '替换全局页面问题订阅');
-    _issueGlobalSub = null;
-    _issueBindingKey = bindingKey;
-    _issueDomainEnabled = false;
-  }
-  _issueGlobalSub ??= controller.rawCdpEvents.listen(
-    _handleIssueEvent,
-    onDone: () => _resetIssueBinding(bindingKey),
-    onError: (Object error, StackTrace stack) {
-      silentLog('web_reverse_issues_dialog', '读取页面问题事件流', error, stack);
-      _resetIssueBinding(bindingKey);
-    },
-    cancelOnError: true,
-  );
+  return _issueBindingQueue.enqueue(() async {
+    if (_issueBindingKey != bindingKey) {
+      await _cancelIssueSubscription(_issueGlobalSub, '替换全局页面问题订阅');
+      _issueGlobalSub = null;
+      _issueBindingKey = bindingKey;
+      _issueDomainEnabled = false;
+    }
+    _issueGlobalSub ??= controller.rawCdpEvents.listen(
+      _handleIssueEvent,
+      onDone: () => _resetIssueBinding(bindingKey),
+      onError: (Object error, StackTrace stack) {
+        silentLog('web_reverse_issues_dialog', '读取页面问题事件流', error, stack);
+        _resetIssueBinding(bindingKey);
+      },
+      cancelOnError: true,
+    );
+    return bindingKey;
+  });
 }
 
 void _resetIssueBinding(String bindingKey) {

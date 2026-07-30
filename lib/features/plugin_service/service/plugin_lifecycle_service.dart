@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -18,6 +19,8 @@ const Duration _pluginLifecycleTlsProbeTimeout = Duration(milliseconds: 500);
 const Duration _pluginLifecycleVerifyTimeout = Duration(seconds: 8);
 const Duration _fnmSetDefaultTimeout = Duration(seconds: 10);
 const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
+const Duration _dockerDaemonPollInterval = Duration(seconds: 5);
+const int _dockerDaemonMaxPollAttempts = 24;
 const int _pluginLifecycleMaxCapturedLines = 500;
 const int _pluginLifecycleMaxErrorMessageChars = 20000;
 const String _hermesAgentNpmPackage = 'hermes-agent';
@@ -2223,6 +2226,7 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
 
   Future<PluginOperationResult> installDocker({
     void Function(String line)? onProgress,
+    OpenHandAsyncContinuePredicate? shouldContinue,
   }) async {
     onProgress?.call('正在检测 Docker…');
     if (await _isExecutableAvailable('docker')) {
@@ -2240,15 +2244,37 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
           onProgress: onProgress,
           timeout: const Duration(seconds: 20),
         );
-        for (var attempt = 0; attempt < 24; attempt++) {
+        for (
+          var attempt = 1;
+          attempt <= _dockerDaemonMaxPollAttempts;
+          attempt++
+        ) {
+          if (shouldContinue?.call() == false) {
+            return const PluginOperationResult(
+              success: false,
+              message: 'Docker 启动等待已取消。',
+            );
+          }
           if (await _isDockerDaemonAvailable()) {
             return const PluginOperationResult(
               success: true,
               message: 'Docker Desktop 已启动，daemon 可用。',
             );
           }
-          await Future<void>.delayed(const Duration(seconds: 5));
-          onProgress?.call('等待 Docker daemon 启动… ${attempt + 1}/24');
+          if (attempt == _dockerDaemonMaxPollAttempts) break;
+          onProgress?.call(
+            '等待 Docker daemon 启动… $attempt/$_dockerDaemonMaxPollAttempts',
+          );
+          final stillActive = await delayWhileContinuing(
+            _dockerDaemonPollInterval,
+            () => shouldContinue?.call() ?? true,
+          );
+          if (!stillActive) {
+            return const PluginOperationResult(
+              success: false,
+              message: 'Docker 启动等待已取消。',
+            );
+          }
         }
       }
       return const PluginOperationResult(

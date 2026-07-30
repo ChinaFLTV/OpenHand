@@ -8,6 +8,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
@@ -20,6 +21,7 @@ import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
 import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/serial_task_queue.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
 import 'mcp_ops_endpoint.dart';
@@ -248,9 +250,8 @@ class McpServerOpsRuntime {
 
   /// 已占用 SSE 槽位但生成器尚未开始执行的 token → 占位时刻。
   ///
-  /// `async*` 的函数体只有被 listen 时才开始执行，客户端若在订阅响应体之前
-  /// 断开（或响应头写失败），生成器的 finally 永远不会运行。若只依赖 finally
-  /// 释放，槽位就会永久泄漏——累计 [_maxSseStreams] 次之后再也建不起事件流。
+  /// 响应流只有被 listen 后才会触发取消回调；客户端若在订阅响应体之前
+  /// 断开（或响应头写失败），仍需通过宽限期回收槽位。
   final Map<Object, DateTime> _reservedSseTokens = <Object, DateTime>{};
   int _requestTotal = 0;
   int _blockedTotal = 0;
@@ -804,23 +805,66 @@ class McpServerOpsRuntime {
     );
   }
 
-  Stream<List<int>> _sseKeepAliveStream(Object streamToken) async* {
-    // 生成器真正开始执行，说明客户端已订阅响应体，finally 一定会跑到，
-    // 槽位交由 finally 释放，不再需要占位回收。
-    _reservedSseTokens.remove(streamToken);
-    try {
-      yield utf8.encode(': OpenHand MCP stream ready\n\n');
-      for (var index = 0; index < _sseKeepAliveTicks; index++) {
-        await Future<void>.delayed(_sseKeepAliveInterval);
-        yield utf8.encode(
-          ': keepalive ${DateTime.now().toUtc().toIso8601String()}\n\n',
-        );
-      }
-    } finally {
+  Stream<List<int>> _sseKeepAliveStream(Object streamToken) {
+    Timer? timer;
+    var ticks = 0;
+    var released = false;
+    late final StreamController<List<int>> controller;
+
+    void release() {
+      if (released) return;
+      released = true;
+      timer?.cancel();
+      timer = null;
       _reservedSseTokens.remove(streamToken);
       _activeSseTokens.remove(streamToken);
       _publishConnectionSnapshot();
     }
+
+    void scheduleKeepAlive() {
+      if (released || timer != null) return;
+      timer = startSafePeriodicTimer(
+        _sseKeepAliveInterval,
+        (_) {
+          if (released || controller.isClosed) return;
+          ticks += 1;
+          controller.add(
+            utf8.encode(
+              ': keepalive ${DateTime.now().toUtc().toIso8601String()}\n\n',
+            ),
+          );
+          if (ticks < _sseKeepAliveTicks) return;
+          release();
+          unawaited(controller.close());
+        },
+        onError: (error, stack) {
+          silentLog('mcp_server_ops_runtime', '发送 SSE 保活消息', error, stack);
+          release();
+          unawaited(controller.close());
+        },
+      );
+    }
+
+    controller = StreamController<List<int>>(
+      sync: true,
+      onListen: () {
+        if (!_activeSseTokens.contains(streamToken)) {
+          release();
+          unawaited(Future<void>.microtask(controller.close));
+          return;
+        }
+        _reservedSseTokens.remove(streamToken);
+        controller.add(utf8.encode(': OpenHand MCP stream ready\n\n'));
+        scheduleKeepAlive();
+      },
+      onPause: () {
+        timer?.cancel();
+        timer = null;
+      },
+      onResume: scheduleKeepAlive,
+      onCancel: release,
+    );
+    return controller.stream;
   }
 
   /// 回收占位后迟迟没有开始推流的 SSE 槽位。

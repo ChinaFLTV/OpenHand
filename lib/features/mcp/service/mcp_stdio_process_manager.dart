@@ -125,6 +125,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     seconds: 90,
   );
   static const Duration _borrowReleaseTimeout = Duration(seconds: 2);
+  static const Duration _handshakePollInterval = Duration(milliseconds: 200);
   static const Duration _borrowPollInterval = Duration(milliseconds: 80);
   static const Duration _shutdownGracefulStopTimeout = Duration(
     milliseconds: 250,
@@ -668,15 +669,30 @@ class McpStdioProcessManager extends ChangeNotifier {
     if (managed.info.isStopped && managed.process == null) {
       return null;
     }
+    final generation = managed.generation;
 
     // 轮询等待进程启动并完成握手，覆盖同步占位和初始化回环阶段。
     final deadline = MonotonicDeadline(_handshakeWaitTimeout);
     try {
       while (!managed!.handshakeCompleted || managed.process == null) {
         if (deadline.isExpired) return null;
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        final stillActive = await delayWhileContinuing(
+          _handshakePollInterval,
+          () {
+            final current = _processes[serverName];
+            return !_isDisposed &&
+                !_isShuttingDown &&
+                !deadline.isExpired &&
+                current != null &&
+                current.generation == generation &&
+                current.info.state != StdioProcessState.stopping &&
+                !(current.info.isStopped && current.process == null);
+          },
+        );
+        if (!stillActive) return null;
         managed = _processes[serverName];
         if (managed == null ||
+            managed.generation != generation ||
             managed.info.state == StdioProcessState.stopping ||
             managed.info.isStopped && managed.process == null) {
           return null;
@@ -695,6 +711,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         (_sessionBorrowCount[serverName] ?? 0) + 1;
     final latest = _processes[serverName];
     if (latest == null ||
+        latest.generation != generation ||
         latest.info.state != StdioProcessState.running ||
         latest.process != managed.process ||
         latest.responseRouter != managed.responseRouter ||
@@ -734,7 +751,15 @@ class McpStdioProcessManager extends ChangeNotifier {
           );
           return;
         }
-        await Future<void>.delayed(_borrowPollInterval);
+        final stillWaiting = await delayWhileContinuing(
+          _borrowPollInterval,
+          () =>
+              (_sessionBorrowCount[serverName] ?? 0) > 0 &&
+              !deadline.isExpired &&
+              !_immediateStopRequests.contains(serverName) &&
+              _processes[serverName]?.generation == generation,
+        );
+        if (!stillWaiting) return;
       }
     } finally {
       deadline.stop();
@@ -917,7 +942,21 @@ class McpStdioProcessManager extends ChangeNotifier {
     final responseCompleter = Completer<Map<String, Object?>?>();
     try {
       // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
-      await Future.delayed(_initializeStartupDelay);
+      final startupStillActive = await delayWhileContinuing(
+        _initializeStartupDelay,
+        () {
+          final current = _processes[serverName];
+          return !_isDisposed &&
+              !_isShuttingDown &&
+              current != null &&
+              current.generation == generation &&
+              identical(current.process, process) &&
+              current.info.isRunning &&
+              identical(current.responseRouter, responseRouter) &&
+              !responseRouter.isClosed;
+        },
+      );
+      if (!startupStillActive) return;
       final managed = _processes[serverName];
       if (managed == null ||
           managed.generation != generation ||
