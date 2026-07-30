@@ -13359,9 +13359,11 @@ Map<String, Object?> _agentLogEnvironmentSnapshot(AgentProfile agent) {
 
 String _agentPrettyJsonForDisplay(Object? value) {
   final encoded = prettyPrintJson(_agentJsonDisplayValue(value));
-  if (encoded.length <= _agentLogDetailMaxJsonChars) return encoded;
-  final preview = encoded.substring(0, _agentLogDetailMaxJsonChars);
-  return '$preview\n... [truncated ${encoded.length - preview.length} chars]';
+  return clipTextWithOmissionMarker(
+    encoded,
+    maxCodeUnits: _agentLogDetailMaxJsonChars,
+    marker: 'truncated',
+  ).text;
 }
 
 Object? _agentJsonDisplayValue(Object? value, {int depth = 0}) {
@@ -13411,7 +13413,11 @@ Object? _agentJsonDisplayValue(Object? value, {int depth = 0}) {
 Object _agentJsonDisplayString(String value) {
   if (value.length <= _agentLogDetailMaxStringChars) return value;
   return <String, Object?>{
-    'preview': clipText(value, _agentLogDetailMaxStringChars),
+    'preview': clipTextByCodeUnits(
+      value,
+      _agentLogDetailMaxStringChars,
+      suffix: '...[已截断]',
+    ),
     'chars': value.length,
   };
 }

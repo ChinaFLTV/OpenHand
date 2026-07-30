@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../model/agent_models.dart';
@@ -53,7 +54,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.19';
+  static const String promptVersion = '1.2.20';
 
   final Future<String> Function(String path) _loader;
 
@@ -522,9 +523,7 @@ const BoundedJsonConversionConfig _agentPromptSectionConversionConfig =
     );
 
 String _boundedPromptText(String value, {required int maxChars}) {
-  if (value.length <= maxChars) return value;
-  final omitted = value.length - maxChars;
-  return '${value.substring(0, maxChars).trimRight()}\n[truncated: $omitted chars omitted]';
+  return clipTextByCodeUnits(value, maxChars, suffix: '\n[truncated]');
 }
 
 Map<String, Object?> _boundedPromptMap(Map<String, Object?> value) {
