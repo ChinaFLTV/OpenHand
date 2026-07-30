@@ -254,28 +254,32 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         paramsJson: jsonEncode({'source': _kInstallScript}),
       );
       _scriptIdentifier = reg?['identifier']?.toString();
+      if (!mounted) {
+        await _cleanupInstalledScript(notify: false);
+        return;
+      }
       // 当前页面立即装一次。
       await widget.controller.evaluateJavaScript(
         _kInstallScript,
         returnByValue: false,
       );
+      if (!mounted) {
+        await _cleanupInstalledScript(notify: false);
+        return;
+      }
       _drainTimer = startNonOverlappingPeriodicTimer(
         const Duration(milliseconds: 800),
-        (_) => _drain(),
+        (timer) => _drain(timer),
       );
-      if (mounted) {
-        setState(() {
-          _recording = true;
-          _installing = false;
-        });
-      }
-      if (mounted) {
-        showOpenHandSuccessSnack(
-          context,
-          AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ??
-              'Recording DOM mutations',
-        );
-      }
+      setState(() {
+        _recording = true;
+        _installing = false;
+      });
+      showOpenHandSuccessSnack(
+        context,
+        AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ??
+            'Recording DOM mutations',
+      );
     } catch (e, st) {
       silentLog('web_reverse_dom_mutation', '安装 DOM 变更监听', e, st);
       if (mounted) {
@@ -351,11 +355,14 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     }
   }
 
-  Future<void> _drain() async {
+  Future<void> _drain(Timer timer) async {
     try {
       final r = await widget.controller.evaluateJavaScript(
         '(window.__OH_DOM_MUT_DRAIN__ && JSON.stringify(window.__OH_DOM_MUT_DRAIN__($_kMaxMutationDrainRecords))) || "[]"',
       );
+      if (!mounted || !_recording || !identical(_drainTimer, timer)) {
+        return;
+      }
       final v = cdpStringResultValue(r);
       if (v == null || v.length > _kMaxMutationDrainJsonChars) return;
       final list = decodeStringKeyedJsonMapList(v);
@@ -364,7 +371,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       for (final item in list.take(_kMaxMutationDrainRecords)) {
         dirty = _appendRecord(item) || dirty;
       }
-      if (dirty && mounted) {
+      if (dirty) {
         setState(() {});
         if (_autoFollow) {
           _scrollGuard.scheduleFollowToBottom(_scroll, animated: true);

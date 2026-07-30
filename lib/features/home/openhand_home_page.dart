@@ -8615,10 +8615,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _editMessage(AiSessionMessage message) async {
-    final result = await context
-        .read<AiSessionController>()
-        .beginEditingMessage(message.id);
-    if (!mounted || result == null) {
+    final controller = context.read<AiSessionController>();
+    final sessionId = controller.currentSessionId;
+    final result = await controller.beginEditingMessage(message.id);
+    if (!mounted ||
+        result == null ||
+        controller.currentSessionId != sessionId ||
+        controller.editingMessageId != message.id) {
       return;
     }
     _replaceComposerText(result.content);
@@ -8638,6 +8641,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           ),
         );
       }
+    }
+    if (!mounted ||
+        controller.currentSessionId != sessionId ||
+        controller.editingMessageId != message.id) {
+      return;
     }
     final creationState = _composerCreationStateFromRequest(
       result.creationRequest,

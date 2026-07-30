@@ -301,10 +301,14 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     _thresholdCtrl.text = '$threshold';
     _timer = startNonOverlappingPeriodicTimer(
       Duration(seconds: interval),
-      (_) async {
-        if (!mounted || !_autoRefresh) return;
+      (timer) async {
+        if (!mounted || !_autoRefresh || !identical(_timer, timer)) {
+          return;
+        }
         await _doScan();
-        if (!mounted || !_autoRefresh) return;
+        if (!mounted || !_autoRefresh || !identical(_timer, timer)) {
+          return;
+        }
         final now = DateTime.now();
         final needsRefresh = _samples.any((s) {
           final rem = s.remaining(now);
@@ -312,9 +316,13 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
         });
         if (needsRefresh) {
           await _runRefresh();
-          if (!mounted || !_autoRefresh) return;
+          if (!mounted || !_autoRefresh || !identical(_timer, timer)) {
+            return;
+          }
           await _doScan();
-          if (mounted) setState(() {});
+          if (mounted && _autoRefresh && identical(_timer, timer)) {
+            setState(() {});
+          }
         }
       },
       min: const Duration(seconds: _minAutoIntervalSeconds),

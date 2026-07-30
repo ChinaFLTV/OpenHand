@@ -254,17 +254,23 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     _autoRotate.folder = folder;
     _autoRotate.nextAt = DateTime.now().add(interval);
     final ctrl = widget.controller;
-    _autoRotate.timer = startNonOverlappingPeriodicTimer(interval, (_) async {
+    _autoRotate.timer = startNonOverlappingPeriodicTimer(interval, (
+      timer,
+    ) async {
+      if (!identical(_autoRotate.timer, timer)) return;
+      final activeFolder = _autoRotate.folder;
+      if (activeFolder == null || activeFolder.isEmpty) return;
       try {
         final ts = DateTime.now()
             .toIso8601String()
             .replaceAll(':', '-')
             .replaceAll('.', '-');
         final dest =
-            '${_autoRotate.folder}${Platform.pathSeparator}web-reverse-$ts.har';
+            '$activeFolder${Platform.pathSeparator}web-reverse-$ts.har';
         final written = await ctrl
             .exportHarToPath(dest)
             .timeout(const Duration(seconds: 20));
+        if (!identical(_autoRotate.timer, timer)) return;
         if (written != null) {
           _autoRotate.rotations += 1;
           _autoRotate.lastFile = written;

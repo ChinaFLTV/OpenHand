@@ -181,24 +181,31 @@ class _PmDialogState extends State<_PmDialog> {
           method: 'Page.addScriptToEvaluateOnNewDocument',
           paramsJson: jsonEncode({'source': _kHookSource}),
         );
-        if (addRes != null && addRes['identifier'] != null) {
-          _hookScriptId = addRes['identifier'].toString();
+        final hookScriptId = addRes?['identifier']?.toString();
+        if (!mounted) {
+          if (hookScriptId != null) {
+            await removeWebReverseNewDocumentScriptBestEffort(
+              controller: widget.controller,
+              identifier: hookScriptId,
+            );
+          }
+          return;
         }
+        _hookScriptId = hookScriptId;
         // 2. 当前 document 也直接 eval 一次
         await widget.controller.evaluateJavaScript(_kHookSource);
+        if (!mounted) return;
         _pollTimer?.cancel();
         _pollTimer = startNonOverlappingPeriodicTimer(
           const Duration(milliseconds: 800),
-          (_) => _drain(),
+          (timer) => _drain(timer),
         );
-        if (mounted) {
-          setState(() {
-            _hooked = true;
-            _status =
-                AppLocalizations.of(context)?.webReversePmHookInjected ??
-                'Hook injected';
-          });
-        }
+        setState(() {
+          _hooked = true;
+          _status =
+              AppLocalizations.of(context)?.webReversePmHookInjected ??
+              'Hook injected';
+        });
       } else {
         _pollTimer?.cancel();
         _pollTimer = null;
@@ -227,18 +234,18 @@ class _PmDialogState extends State<_PmDialog> {
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _drain() async {
+  Future<void> _drain(Timer timer) async {
     try {
       final r = await widget.controller.evaluateJavaScript(
         'window.__OH_PM_drain__ ? window.__OH_PM_drain__() : "[]"',
       );
+      if (!mounted || !_hooked || !identical(_pollTimer, timer)) return;
       if (r == null || r['error'] != null) return;
       final value = cdpStringResultValue(r);
       if (value == null || value.isEmpty) return;
       final parsed = jsonDecode(value);
       if (parsed is! List) return;
       if (parsed.isEmpty) return;
-      if (!mounted) return;
       setState(() {
         for (final m in parsed) {
           if (m is Map) {

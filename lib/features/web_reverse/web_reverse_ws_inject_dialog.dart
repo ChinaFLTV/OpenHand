@@ -181,13 +181,24 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
         method: 'Page.addScriptToEvaluateOnNewDocument',
         paramsJson: jsonEncode(<String, Object?>{'source': _kBootstrap}),
       );
+      final scriptId = addRes?['identifier']?.toString();
+      if (!mounted) {
+        if (scriptId != null) {
+          await removeWebReverseNewDocumentScriptBestEffort(
+            controller: widget.controller,
+            identifier: scriptId,
+          );
+        }
+        return;
+      }
       if (addRes != null && addRes['error'] != null) {
         _installError = '${addRes['error']}';
-      } else if (addRes != null && addRes['identifier'] != null) {
-        _scriptId = '${addRes['identifier']}';
+      } else {
+        _scriptId = scriptId;
       }
       // 立即在当前 document 应用一次。
       final evalRes = await widget.controller.evaluateJavaScript(_kBootstrap);
+      if (!mounted) return;
       if (evalRes != null && evalRes['error'] != null) {
         _installError = '${evalRes['error']}';
       } else {

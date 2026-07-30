@@ -3131,8 +3131,10 @@ class WebReverseSessionController extends ChangeNotifier {
     _stopAliveWatchdog();
     _aliveWatchdog = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 2),
-      (_) async {
-        if (_stopped || _disposed) return;
+      (timer) async {
+        if (_stopped || _disposed || !identical(_aliveWatchdog, timer)) {
+          return;
+        }
         final port = _launchResult?.cdpPort;
         if (port == null) return;
         final cdp = _browserCdp;
@@ -3149,8 +3151,16 @@ class WebReverseSessionController extends ChangeNotifier {
               await res.drain<void>().timeout(const Duration(seconds: 1));
             },
           );
+          if (!identical(_aliveWatchdog, timer) ||
+              !identical(_browserCdp, cdp)) {
+            return;
+          }
           _aliveWatchdogFailureCount = 0;
         } catch (error, stack) {
+          if (!identical(_aliveWatchdog, timer) ||
+              !identical(_browserCdp, cdp)) {
+            return;
+          }
           _aliveWatchdogFailureCount += 1;
           silentLog('web_reverse_session_controller', '浏览器存活探测', error, stack);
           if (_aliveWatchdogFailureCount < _aliveWatchdogFailureThreshold) {
@@ -3158,7 +3168,7 @@ class WebReverseSessionController extends ChangeNotifier {
           }
           _stopAliveWatchdog();
           try {
-            await _browserCdp?.close();
+            await cdp.close();
           } catch (closeError, closeStack) {
             silentLog(
               'web_reverse_session_controller',
@@ -3166,6 +3176,12 @@ class WebReverseSessionController extends ChangeNotifier {
               closeError,
               closeStack,
             );
+          }
+          if (_disposed ||
+              _stopped ||
+              _aliveWatchdog != null ||
+              !identical(_browserCdp, cdp)) {
+            return;
           }
           _resetScreencastRuntimeState(resetRefCount: false);
           _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
@@ -3694,7 +3710,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final dur = Duration(seconds: c.intervalSeconds);
     _cronTimers[c.id] = startNonOverlappingPeriodicTimer(
       dur,
-      (_) => _executeCronOnce(c),
+      (timer) => _executeCronOnce(c, scheduledTimer: timer),
       onError: (error, stack) => silentLog(
         'web_reverse_session_controller',
         '定时任务计时器：${c.name}',
@@ -3704,10 +3720,22 @@ class WebReverseSessionController extends ChangeNotifier {
     );
   }
 
-  Future<String?> _executeCronOnce(WebReverseCron c) async {
+  Future<String?> _executeCronOnce(
+    WebReverseCron c, {
+    Timer? scheduledTimer,
+  }) async {
     if (c.code.length > maxSavedScriptCodeChars) return null;
+    if (scheduledTimer != null &&
+        !identical(_cronTimers[c.id], scheduledTimer)) {
+      return null;
+    }
     try {
       final r = await runReplExpression(c.code);
+      if (!_crons.any((cron) => cron.id == c.id) ||
+          (scheduledTimer != null &&
+              !identical(_cronTimers[c.id], scheduledTimer))) {
+        return r;
+      }
       _cronLastRun[c.id] = DateTime.now();
       _safeNotify();
       return r;

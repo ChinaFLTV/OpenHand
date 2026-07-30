@@ -117,7 +117,10 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   void _start() {
     _timer?.cancel();
-    _timer = startNonOverlappingPeriodicTimer(_interval, (_) => _tick());
+    _timer = startNonOverlappingPeriodicTimer(
+      _interval,
+      (timer) => _tick(timer),
+    );
     setState(() => _running = true);
   }
 
@@ -127,19 +130,20 @@ class _WatchDialogState extends State<_WatchDialog> {
     setState(() => _running = false);
   }
 
-  Future<void> _tick() async {
-    if (!mounted || _exprs.isEmpty) return;
-    for (final e in _exprs) {
-      await _evalOne(e);
-      if (!mounted) return;
+  Future<void> _tick(Timer timer) async {
+    if (!mounted || !_running || !identical(_timer, timer)) return;
+    final expressions = List<_WatchExpr>.of(_exprs);
+    for (final expression in expressions) {
+      await _evalOne(expression, timer);
+      if (!mounted || !_running || !identical(_timer, timer)) return;
     }
-    if (mounted) setState(() {});
+    setState(() {});
   }
 
-  Future<void> _evalOne(_WatchExpr e) async {
+  Future<void> _evalOne(_WatchExpr expression, Timer timer) async {
     try {
       final r = await widget.controller.evaluateJavaScript(
-        e.code,
+        expression.code,
         allowUnsafeEvalBlockedByCsp: true,
         evaluationTimeout: _kWatchEvaluationTimeout,
         timeout: const Duration(seconds: 2),
@@ -164,10 +168,12 @@ class _WatchDialogState extends State<_WatchDialog> {
           text = '${result['description'] ?? result['type'] ?? 'undefined'}';
         }
       }
-      _pushWatchSample(e, text, err);
+      if (!mounted || !_running || !identical(_timer, timer)) return;
+      _pushWatchSample(expression, text, err);
     } catch (err, st) {
       silentLog('web_reverse_watch', '执行单项监视表达式', err, st);
-      _pushWatchSample(e, '$err', true);
+      if (!mounted || !_running || !identical(_timer, timer)) return;
+      _pushWatchSample(expression, '$err', true);
     }
   }
 

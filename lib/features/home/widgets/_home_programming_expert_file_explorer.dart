@@ -476,10 +476,12 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _expandRecursive(_FileNode node, int depth) async {
-    if (!node.isDirectory || depth > 12) return;
+    if (!mounted || !node.isDirectory || depth > 12) return;
     if (!node.childrenLoaded) await _loadChildren(node);
+    if (!mounted) return;
     node.isExpanded = true;
     for (final child in node.children) {
+      if (!mounted) return;
       if (child.isDirectory) {
         await _expandRecursive(child, depth + 1);
       }
