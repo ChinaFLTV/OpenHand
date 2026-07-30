@@ -46,6 +46,8 @@ function emit(next: AuthState): void {
 }
 
 let bootPromise: Promise<void> | null = null;
+let bootController: AbortController | null = null;
+let bootGeneration = 0;
 let syncListenersInstalled = false;
 let lastForegroundMetaRefreshAt = 0;
 
@@ -85,9 +87,15 @@ function installForegroundMetaSync(): void {
 /// 第一次调用会拉取 /api/meta + 应用主题 + 检查 token；后续 useAuth 复用结果。
 function bootOnce(): Promise<void> {
   if (bootPromise) return bootPromise;
+  installForegroundMetaSync();
+  const generation = ++bootGeneration;
+  const controller = new AbortController();
+  bootController?.abort();
+  bootController = controller;
   bootPromise = (async () => {
     try {
-      const meta = await fetchApiMeta();
+      const meta = await fetchApiMeta(controller.signal);
+      if (generation !== bootGeneration) return;
       const tokens = applyMetaSideEffects(meta);
       const authRequired = Boolean(meta.service?.auth_enabled);
       const token = readToken();
@@ -101,11 +109,14 @@ function bootOnce(): Promise<void> {
         profile,
         themeTokens: tokens,
         themeSource: 'api',
+        error: undefined,
       });
-      installForegroundMetaSync();
     } catch (e: unknown) {
+      if (controller.signal.aborted || generation !== bootGeneration) return;
       const msg = e instanceof Error ? e.message : String(e);
       emit({ ...current, loading: false, error: msg });
+    } finally {
+      if (generation === bootGeneration) bootController = null;
     }
   })();
   return bootPromise;
