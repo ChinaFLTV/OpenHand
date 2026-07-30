@@ -150,8 +150,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
 
   static String _previewContent(String content) {
     final flat = collapseInlineWhitespace(content);
-    if (flat.length <= 160) return flat;
-    return '${flat.substring(0, 157)}…';
+    return clipTextByCodeUnits(flat, 160, suffix: '…');
   }
 
   static Future<void> _showUserProfileDialog(BuildContext context) async {

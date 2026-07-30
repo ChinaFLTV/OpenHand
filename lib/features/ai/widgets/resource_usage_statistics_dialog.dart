@@ -9,6 +9,7 @@ import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../ai_session_controller.dart';
 import '../service/runtime/ai_tool_usage_promotion_store.dart';
 
@@ -1726,13 +1727,15 @@ String _shortBucket(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return '—';
   if (trimmed.length <= 14) return trimmed;
-  return '…${trimmed.substring(trimmed.length - 12)}';
+  final start = safeUtf16SuffixStart(trimmed, trimmed.length - 12);
+  return '…${trimmed.substring(start)}';
 }
 
 String _shortIdentifier(String value) {
   final trimmed = value.trim();
   if (trimmed.length <= 16) return trimmed;
-  return '…${trimmed.substring(trimmed.length - 14)}';
+  final start = safeUtf16SuffixStart(trimmed, trimmed.length - 14);
+  return '…${trimmed.substring(start)}';
 }
 
 String _formatDuration(int milliseconds) {

@@ -8,6 +8,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 class AiWorkspaceInstructionService {
@@ -208,10 +209,11 @@ class AiWorkspaceInstructionService {
   }
 
   String _truncate(String content) {
-    if (content.length <= maxDocumentCharacters) {
-      return content;
-    }
-    return '${content.substring(0, maxDocumentCharacters)}\n\n...[truncated]';
+    return clipTextByCodeUnits(
+      content,
+      maxDocumentCharacters,
+      suffix: '\n\n...[内容已截断]',
+    );
   }
 }
 

@@ -1,3 +1,5 @@
+import 'package:characters/characters.dart';
+
 enum McpServerType {
   streamableHttp('streamable_http'),
   sse('sse'),
@@ -109,7 +111,7 @@ class McpServer {
     if (trimmed.isEmpty) {
       return 'M';
     }
-    return trimmed.substring(0, 1).toUpperCase();
+    return trimmed.characters.first.toUpperCase();
   }
 
   String get summary {

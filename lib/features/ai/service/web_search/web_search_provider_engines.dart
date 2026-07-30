@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_http_utils.dart';
 import 'web_search_engine.dart';
@@ -53,9 +54,17 @@ class WebSearchGrokEngine extends WebSearchProviderKeyEngine {
     if (reply.isEmpty) return '';
     if (reply.length <= maxLen) return reply;
     final idx = reply.indexOf(citation);
-    if (idx < 0) return reply.substring(0, maxLen);
-    final start = (idx - 200).clamp(0, reply.length);
-    final end = (idx + 400).clamp(0, reply.length);
+    if (idx < 0) {
+      return clipTextByCodeUnits(reply, maxLen, suffix: '');
+    }
+    final start = safeUtf16SuffixStart(
+      reply,
+      (idx - 200).clamp(0, reply.length),
+    );
+    final end = safeUtf16PrefixCodeUnits(
+      reply,
+      (idx + 400).clamp(0, reply.length),
+    );
     return reply.substring(start, end);
   }
 }

@@ -1,3 +1,5 @@
+import 'package:characters/characters.dart';
+
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -38,7 +40,7 @@ class LocalSkill {
     if (sanitized == null) {
       return 'S';
     }
-    return sanitized.substring(0, 1).toUpperCase();
+    return sanitized.characters.first.toUpperCase();
   }
 
   bool get hasIcon => nullIfBlank(iconPath) != null && iconKind != null;

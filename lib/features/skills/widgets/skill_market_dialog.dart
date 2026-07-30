@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../data/skill_market_client.dart';
@@ -1519,7 +1520,7 @@ class _SkillMarketAvatarFallback extends StatelessWidget {
     final trimmed = name.trim();
     final initial = trimmed.isEmpty
         ? 'S'
-        : trimmed.substring(0, 1).toUpperCase();
+        : trimmed.characters.first.toUpperCase();
     return Text(
       initial,
       style: Theme.of(
@@ -1778,7 +1779,7 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
     de: '\n\n---\nVorschau gekürzt. Installiere den Skill, um die vollständige lokale SKILL.md zu lesen.',
     ja: '\n\n---\nプレビューを切り詰めました。インストール後、ローカルの SKILL.md で全文を確認できます。',
   );
-  return '${markdown.substring(0, maxChars)}$suffix';
+  return clipTextByCodeUnits(markdown, maxChars, suffix: suffix);
 }
 
 // ── 本文件内复用的文案 ──

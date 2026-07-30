@@ -749,9 +749,11 @@ class AiTranslationService {
 
   String _youdaoInput(String input) {
     if (input.length <= 20) return input;
-    return input.substring(0, 10) +
+    final headEnd = safeUtf16PrefixCodeUnits(input, 10);
+    final tailStart = safeUtf16SuffixStart(input, input.length - 10);
+    return input.substring(0, headEnd) +
         input.length.toString() +
-        input.substring(input.length - 10);
+        input.substring(tailStart);
   }
 
   String _readTranslatedText(Map<String, Object?> json) {

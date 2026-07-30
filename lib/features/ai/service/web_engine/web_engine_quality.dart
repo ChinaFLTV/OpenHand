@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 
 const Set<String> _webQualityStopWords = <String>{
@@ -240,14 +241,13 @@ String webPromptExcerpt(String input, int maxChars) {
   final cleaned = lines.isEmpty
       ? input.trim().replaceAll(_webQualityWhitespacePattern, ' ')
       : lines.join('\n');
-  if (cleaned.length <= maxChars) return cleaned;
-  return '${cleaned.substring(0, maxChars)}…';
+  return clipTextByCodeUnits(cleaned, maxChars, suffix: '…');
 }
 
 double webContentQualityScore(String content) {
   final sample = content.trim();
   if (sample.isEmpty) return -400;
-  final capped = sample.length > 20000 ? sample.substring(0, 20000) : sample;
+  final capped = clipTextByCodeUnits(sample, 20000, suffix: '');
   var score = 0.0;
 
   if (capped.length < 200) {

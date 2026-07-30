@@ -965,8 +965,12 @@ _ToolOutputPreview _buildToolOutputPreview(String content) {
     final remainingChars = _toolOutputPreviewMaxChars - writtenChars;
     final lineLength = lineEnd - lineStart;
     if (lineLength > remainingChars) {
-      buffer.write(content.substring(lineStart, lineStart + remainingChars));
-      writtenChars += remainingChars;
+      final safeEnd = safeUtf16PrefixCodeUnits(
+        content,
+        lineStart + remainingChars,
+      );
+      buffer.write(content.substring(lineStart, safeEnd));
+      writtenChars += safeEnd - lineStart;
       truncatedByChars = true;
       break;
     }

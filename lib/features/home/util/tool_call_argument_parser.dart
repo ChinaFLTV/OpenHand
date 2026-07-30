@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 
 String parseBashToolCommandFromArguments(String rawArguments) {
@@ -160,7 +161,7 @@ int _findBalancedObjectEnd(String source, int start) {
 
 String _truncateForLog(String value, {int max = 160}) {
   if (value.length <= max) return value;
-  return '${value.substring(0, max)}…(+${value.length - max} chars)';
+  return clipTextByCodeUnits(value, max, suffix: '…（原文 ${value.length} 个字符）');
 }
 
 String _readPartialJsonStringField(String source, List<String> preferredKeys) {

@@ -10,6 +10,7 @@ import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../chat/ai_protocol_adapter.dart';
 import 'ai_tool_runtime_service.dart';
@@ -1348,8 +1349,7 @@ final class AiToolUsagePromotionStore {
         .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
         .replaceAll(RegExp(r' {2,}'), ' ')
         .trim();
-    if (normalized.length <= limit) return normalized;
-    return '${normalized.substring(0, limit - 1)}…';
+    return clipTextByCodeUnits(normalized, limit, suffix: '…');
   }
 
   static final RegExp _sensitiveKeyPattern = RegExp(

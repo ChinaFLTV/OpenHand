@@ -18,6 +18,7 @@ import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/storage_identifier.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -1030,13 +1031,9 @@ class AiAttachmentService {
       return trimmed;
     }
     if (characterLimit <= 18) {
-      return trimmed.substring(0, math.min(characterLimit, trimmed.length));
+      return clipTextByCodeUnits(trimmed, characterLimit, suffix: '');
     }
-    final safeLimit = math.min(
-      trimmed.length,
-      math.max(1, characterLimit - 18),
-    );
-    return '${trimmed.substring(0, safeLimit).trimRight()}\n\n[truncated]';
+    return clipTextByCodeUnits(trimmed, characterLimit, suffix: '\n\n[内容已截断]');
   }
 }
 

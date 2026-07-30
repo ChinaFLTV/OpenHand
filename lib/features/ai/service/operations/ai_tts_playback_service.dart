@@ -2563,7 +2563,9 @@ class AiTtsPlaybackService {
 
   static String _youdaoSignInput(String text) {
     if (text.length <= 20) return text;
-    return '${text.substring(0, 10)}${text.length}${text.substring(text.length - 10)}';
+    final headEnd = safeUtf16PrefixCodeUnits(text, 10);
+    final tailStart = safeUtf16SuffixStart(text, text.length - 10);
+    return '${text.substring(0, headEnd)}${text.length}${text.substring(tailStart)}';
   }
 
   static String _shortBody(http.Response response) {
