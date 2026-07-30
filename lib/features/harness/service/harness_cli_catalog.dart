@@ -3,18 +3,28 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show Locale;
 
+import 'package:path/path.dart' as p;
+
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/path_safety.dart';
 
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
 const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
+const BoundedDeletePolicy _localAuthStateDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 1,
+  maxDepth: 0,
+  operationTimeout: Duration(seconds: 3),
+  totalTimeout: Duration(seconds: 5),
+);
 
 /// 直接执行 CLI 做能力探测，可能触发首次初始化。
 const Duration _kHarnessCliProbeTimeout = Duration(seconds: 10);
@@ -560,13 +570,13 @@ Future<bool?> _probeCliAuthFromLocalState(HarnessCli cli) async {
   if (homeDirectory == null) {
     return null;
   }
-  final absolutePath = _resolveHomeRelativePath(homeDirectory, relativePath);
-  final file = File(absolutePath);
-  if (!await file.exists()) {
-    return false;
-  }
-
   try {
+    final absolutePath = _resolveHomeRelativePath(homeDirectory, relativePath);
+    if (absolutePath == null) return null;
+    final file = File(absolutePath);
+    if (!await regularFileExistsBounded(file, followLinks: false)) {
+      return false;
+    }
     final raw = await readBoundedFileString(
       file,
       maxBytes: _localAuthStateMaxBytes,
@@ -604,13 +614,10 @@ Future<({bool success, String message})> performCliLogout(
 ) async {
   final cli = entry.cli;
   if (!cli.hasLogoutTrigger) {
-    return (
-      success: false,
-      message: 'No logout method defined for ${cli.name}.',
-    );
+    return (success: false, message: '${cli.name} 未配置登出方式。');
   }
   if (!entry.installed) {
-    return (success: false, message: '${cli.name} is not installed.');
+    return (success: false, message: '尚未安装 ${cli.name}。');
   }
 
   if (cli.logoutLocalStateFilePaths != null) {
@@ -621,7 +628,7 @@ Future<({bool success, String message})> performCliLogout(
     return _performCommandLogout(entry);
   }
 
-  return (success: false, message: 'No logout method defined for ${cli.name}.');
+  return (success: false, message: '${cli.name} 未配置登出方式。');
 }
 
 Future<({bool success, String message})> _performLocalStateLogout(
@@ -629,47 +636,48 @@ Future<({bool success, String message})> _performLocalStateLogout(
 ) async {
   final paths = cli.logoutLocalStateFilePaths;
   if (paths == null || paths.isEmpty) {
-    return (success: false, message: 'No local auth state files configured.');
+    return (success: false, message: '未配置本地认证状态文件。');
   }
 
   final homeDirectory = nullIfBlank(
     Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'],
   );
   if (homeDirectory == null) {
-    return (success: false, message: 'Cannot determine home directory.');
+    return (success: false, message: '无法确定用户目录。');
   }
 
   final deletedFiles = <String>[];
-  final errors = <String>[];
+  final failedFiles = <String>[];
 
   for (final relativePath in paths) {
     final absolutePath = _resolveHomeRelativePath(homeDirectory, relativePath);
-    final file = File(absolutePath);
+    if (absolutePath == null) {
+      failedFiles.add(relativePath);
+      continue;
+    }
     try {
-      if (await file.exists()) {
-        await file.delete();
-        deletedFiles.add(relativePath);
-      }
-    } catch (e) {
-      errors.add('$relativePath: $e');
+      final file = File(absolutePath);
+      if (!await regularFileExistsBounded(file, followLinks: false)) continue;
+      await deletePathBounded(
+        absolutePath,
+        policy: _localAuthStateDeletePolicy,
+        allowedRoot: homeDirectory,
+      );
+      deletedFiles.add(relativePath);
+    } catch (_) {
+      failedFiles.add(relativePath);
     }
   }
 
-  if (errors.isNotEmpty) {
-    return (
-      success: false,
-      message: 'Failed to remove auth files: ${errors.join('; ')}',
-    );
+  if (failedFiles.isNotEmpty) {
+    return (success: false, message: '以下认证状态文件删除失败：${failedFiles.join('、')}');
   }
 
   if (deletedFiles.isEmpty) {
-    return (
-      success: true,
-      message: 'No auth state files found (already logged out).',
-    );
+    return (success: true, message: '未发现认证状态文件，当前已处于登出状态。');
   }
 
-  return (success: true, message: 'Removed: ${deletedFiles.join(', ')}');
+  return (success: true, message: '已删除：${deletedFiles.join('、')}');
 }
 
 Future<({bool success, String message})> _performCommandLogout(
@@ -690,7 +698,7 @@ Future<({bool success, String message})> _performCommandLogout(
         tag: 'harness_cli_catalog',
       );
       if (result == null) {
-        return (success: false, message: 'Logout command timed out.');
+        return (success: false, message: '登出命令执行超时。');
       }
       r = result;
     } else {
@@ -703,21 +711,16 @@ Future<({bool success, String message})> _performCommandLogout(
 
     final output = '${r.stdout}${r.stderr}'.trim();
     if (r.exitCode == 0) {
-      return (
-        success: true,
-        message: output.isNotEmpty ? output : 'Logged out successfully.',
-      );
+      return (success: true, message: output.isNotEmpty ? output : '登出成功。');
     }
     return (
       success: false,
-      message: output.isNotEmpty
-          ? output
-          : 'Logout failed (exit code ${r.exitCode}).',
+      message: output.isNotEmpty ? output : '登出失败，退出码：${r.exitCode}。',
     );
   } on TimeoutException {
-    return (success: false, message: 'Logout command timed out.');
+    return (success: false, message: '登出命令执行超时。');
   } catch (e) {
-    return (success: false, message: 'Logout failed: $e');
+    return (success: false, message: '登出失败：$e');
   }
 }
 
@@ -979,15 +982,18 @@ String _lastNonEmptyLine(String value) {
   return lines.isEmpty ? '' : lines.last;
 }
 
-String _resolveHomeRelativePath(String homeDirectory, String relativePath) {
-  final normalizedSegments = relativePath
-      .split('/')
-      .where((segment) => segment.isNotEmpty)
-      .toList(growable: false);
-  return <String>[
-    homeDirectory,
-    ...normalizedSegments,
-  ].join(Platform.pathSeparator);
+String? _resolveHomeRelativePath(String homeDirectory, String relativePath) {
+  final root = homeDirectory.trim();
+  if (!p.isAbsolute(root) ||
+      root.contains('\u0000') ||
+      safeRelativePathError(relativePath) != null) {
+    return null;
+  }
+  final normalizedRoot = p.normalize(root);
+  final resolved = p.normalize(
+    p.joinAll(<String>[normalizedRoot, ...p.url.split(relativePath)]),
+  );
+  return isPathWithinOrEqual(normalizedRoot, resolved) ? resolved : null;
 }
 
 /// 使用 POSIX 单引号转义 Shell 参数。
