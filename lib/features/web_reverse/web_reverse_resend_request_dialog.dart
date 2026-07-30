@@ -536,6 +536,9 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     let total = 0;
     let truncated = false;
     const reader = response.body && response.body.getReader ? response.body.getReader() : null;
+    if (response.body && !reader) {
+      throw new Error('无法流式读取响应体');
+    }
     if (reader) {
       try {
         while (true) {
@@ -561,11 +564,6 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       } finally {
         try { reader.releaseLock(); } catch (_) {}
       }
-    } else {
-      const all = new Uint8Array(await response.arrayBuffer());
-      truncated = all.length > maxBytes;
-      chunks.push(truncated ? all.slice(0, maxBytes) : all);
-      total = chunks[0].length;
     }
     const bytes = new Uint8Array(total);
     let offset = 0;

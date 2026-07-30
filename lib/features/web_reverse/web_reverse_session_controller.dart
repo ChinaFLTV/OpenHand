@@ -184,6 +184,8 @@ class WebReverseSessionController extends ChangeNotifier {
       _maxSourceMapResponseBytes + 64 * kBytesPerKiB;
   static const int _maxSourceMapListEntries = 100000;
   static const Duration _sourceMapFetchTimeout = Duration(seconds: 25);
+  static const int _maxReplayResponsePreviewBytes = 4096;
+  static const Duration _replayRequestTimeout = Duration(seconds: 25);
   static const int _maxParsedScripts = 4096;
   static const int _maxScriptSourceChars = 6 * kBytesPerMiB;
   static const int _maxScriptSourceCacheEntries = 32;
@@ -6180,12 +6182,52 @@ class WebReverseSessionController extends ChangeNotifier {
     final js =
         '''
 (async () => {
+  const maxBytes = $_maxReplayResponsePreviewBytes;
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort('timeout'),
+    ${_replayRequestTimeout.inMilliseconds},
+  );
   try {
-    const r = await fetch(${jsonEncode(url)}, ${jsonEncode(init)});
-    const text = await r.text();
-    return JSON.stringify({ status: r.status, body: text.slice(0, 4096) });
+    const init = ${jsonEncode(init)};
+    init.signal = controller.signal;
+    const r = await fetch(${jsonEncode(url)}, init);
+    if (!r.body) return JSON.stringify({ status: r.status, body: '' });
+    const reader = r.body.getReader ? r.body.getReader() : null;
+    if (!reader) throw new Error('无法流式读取响应体');
+    const chunks = [];
+    let total = 0;
+    try {
+      while (total < maxBytes) {
+        const part = await reader.read();
+        if (part.done) break;
+        const value = part.value || new Uint8Array();
+        const retained = value.slice(0, maxBytes - total);
+        chunks.push(retained);
+        total += retained.byteLength;
+        if (retained.byteLength < value.byteLength || total >= maxBytes) {
+          try { await reader.cancel(); } catch (_) {}
+          break;
+        }
+      }
+    } finally {
+      try { reader.releaseLock(); } catch (_) {}
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const body = new TextDecoder('utf-8').decode(bytes);
+    return JSON.stringify({ status: r.status, body });
   } catch (err) {
-    return JSON.stringify({ status: -1, body: String(err) });
+    return JSON.stringify({
+      status: -1,
+      body: String(err).slice(0, maxBytes),
+    });
+  } finally {
+    clearTimeout(timer);
   }
 })()
 ''';
@@ -6198,7 +6240,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'returnByValue': true,
         },
         sessionId: _pageSessionId,
-        timeout: _cdpScreenshotTimeout,
+        timeout: _replayRequestTimeout + const Duration(seconds: 2),
       );
       final raw = cdpStringResultValue(r);
       if (raw == null) return null;
