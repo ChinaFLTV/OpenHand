@@ -545,7 +545,6 @@ class AgentTask {
 
   factory AgentTask.fromJson(Object? raw) {
     final json = stringKeyedMapFromValue(raw);
-    final now = DateTime.now().toUtc();
     return AgentTask(
       id: _nonEmpty(json['id'], ''),
       title: _nonEmpty(json['title'], 'Untitled task'),
@@ -556,7 +555,7 @@ class AgentTask {
       status: AgentTaskStatus.fromStorage(stringFromValue(json['status'])),
       note: stringFromValue(json['note']),
       extra: stringKeyedMapFromValue(json['extra']),
-      createdAt: _dateFromValue(json['created_at']) ?? now,
+      createdAt: _dateFromValue(json['created_at']),
       updatedAt: _dateFromValue(json['updated_at']),
     );
   }
@@ -1058,7 +1057,6 @@ class AgentProfile {
 
   factory AgentProfile.fromJson(Object? raw) {
     final json = stringKeyedMapFromValue(raw);
-    final now = DateTime.now().toUtc();
     final workspaceScope = stringFromValue(json['workspace_scope']);
     final workspaceScopePaths = _workspaceScopePathsFromValue(
       json['workspace_scope_paths'],
@@ -1125,8 +1123,8 @@ class AgentProfile {
       workers: _listFromValue(json['workers'], AgentWorker.fromJson),
       resourceUsage: AgentResourceUsage.fromJson(json['resource_usage']),
       metadata: stringKeyedMapFromValue(json['metadata']),
-      createdAt: _dateFromValue(json['created_at']) ?? now,
-      updatedAt: _dateFromValue(json['updated_at']) ?? now,
+      createdAt: _dateFromValue(json['created_at']),
+      updatedAt: _dateFromValue(json['updated_at']),
     );
   }
 

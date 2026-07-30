@@ -86,11 +86,11 @@ class AgentsStore {
     final content = prettyPrintJson(<String, Object?>{
       _rootKey: agents.map((agent) => agent.toJson()).toList(growable: false),
     });
-    final output = '$content\n';
-    if (utf8.encode(output).length > _maxStoreBytes) {
+    final output = utf8.encode('$content\n');
+    if (output.length > _maxStoreBytes) {
       throw const FileSystemException('智能体数据超过大小上限。');
     }
-    await writeFileAtomically(file, output);
+    await writeBytesFileAtomically(file, output);
   }
 
   int _listLength(Object? value) => value is List ? value.length : 0;
