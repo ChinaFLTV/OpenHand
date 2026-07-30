@@ -8,28 +8,23 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../../mcp/index.dart';
 import '../model/harness_phase.dart';
-import '../service/harness_orchestrator.dart';
 import '../service/harness_prompt_builder.dart';
 
 const String _harnessTemplateId =
     AiPromptTemplatePolicies.harnessEngineeringTemplateId;
 
 class HarnessApiPhaseResult {
-  const HarnessApiPhaseResult({
-    required this.success,
-    required this.outputLines,
-    this.changedFiles = const <HarnessChangedFile>[],
-    this.errorMessage,
-  });
+  const HarnessApiPhaseResult.success() : success = true, errorMessage = null;
+
+  const HarnessApiPhaseResult.failure(this.errorMessage) : success = false;
 
   final bool success;
-  final List<String> outputLines;
-  final List<HarnessChangedFile> changedFiles;
   final String? errorMessage;
 }
 
@@ -185,16 +180,17 @@ class HarnessApiPhaseRunner {
   final Map<String, Set<String>> _matchedToolsBySession =
       <String, Set<String>>{};
 
-  /// Rough characters-per-token estimate for context size tracking.
+  /// 上下文 Token 粗略估算参数。
   static const int _estimatedCharsPerToken = 4;
-
-  /// Reserve tokens for the model's response.
   static const int _responseReserveTokens = 4096;
-
-  /// Minimum conversation turns to keep (system + user + at least 1 exchange).
   static const int _minConversationTurns = 4;
+  static const int _maxToolRoundsPerPhase = 64;
+  static const int _maxToolCallsPerRound = 64;
+  static const int _maxToolCallsPerPhase = 256;
+  static const int _maxToolArgumentsCharacters = 256 * kBytesPerKiB;
+  static const int _maxErrorCharacters = 2000;
 
-  /// Handoff session counter for unique naming.
+  /// 交接会话编号，用于生成唯一文件名。
   int _handoffSessionCounter = 0;
 
   /// Executes a harness phase via API call with full tool loop.
@@ -252,9 +248,21 @@ class HarnessApiPhaseRunner {
     required String phaseSessionId,
   }) async {
     _handoffSessionCounter = 0;
-    final outputLines = <String>[];
+    var hasSubstantiveOutput = false;
+    var mcpNoticeCount = 0;
     void emit(String line) {
-      outputLines.add(line);
+      final trimmed = line.trim();
+      if (trimmed.startsWith('ℹ MCP ')) mcpNoticeCount += 1;
+      if (trimmed.isNotEmpty &&
+          trimmed != 'thinking' &&
+          trimmed != 'assistant' &&
+          !trimmed.startsWith('ℹ ') &&
+          !trimmed.startsWith('⚙ ') &&
+          !trimmed.startsWith('⚠ ') &&
+          !trimmed.startsWith('✓ ') &&
+          !trimmed.startsWith('✗ ')) {
+        hasSubstantiveOutput = true;
+      }
       onLine(line);
     }
 
@@ -424,11 +432,14 @@ class HarnessApiPhaseRunner {
       AiChatTurn(role: AiChatRole.user, content: phasePrompt),
     ];
 
-    // Agentic tool loop — mirrors AiSessionController._runAssistantConversation.
-    final maxToolRounds = math.max(1, runtimeContext.sequentialToolRoundLimit);
-    final maxToolCallsPerRound = math.max(
-      1,
-      runtimeContext.singleRoundToolCallLimit,
+    // 阶段执行保留用户配置，同时设置不可突破的资源边界。
+    final maxToolRounds = math.min(
+      _maxToolRoundsPerPhase,
+      math.max(1, runtimeContext.sequentialToolRoundLimit),
+    );
+    final maxToolCallsPerRound = math.min(
+      _maxToolCallsPerRound,
+      math.max(1, runtimeContext.singleRoundToolCallLimit),
     );
     final contextWindowTokens = (model.maxContextTokens ?? 0) > 0
         ? model.maxContextTokens!
@@ -442,6 +453,7 @@ class HarnessApiPhaseRunner {
       contextWindowTokens - _responseReserveTokens,
     );
     var toolRound = 0;
+    var totalToolCalls = 0;
     final previouslyReadFiles = <String>{};
     // Phase-specific deny rules: read-only phases should not allow file writes.
     final denyRules = _denyRulesForPhase(phase);
@@ -452,11 +464,7 @@ class HarnessApiPhaseRunner {
         if (await isCancelSignalCompleted(cancelSignal)) {
           emit('');
           emit('⚠ 已中止');
-          return HarnessApiPhaseResult(
-            success: false,
-            outputLines: outputLines,
-            errorMessage: '执行被用户中止。',
-          );
+          return const HarnessApiPhaseResult.failure('执行被用户中止。');
         }
 
         // Handoff if approaching context window limit: generate a handoff
@@ -510,11 +518,7 @@ class HarnessApiPhaseRunner {
           final safeError = _sanitizeError('$e', model);
           emit('');
           emit('✗ API 请求失败：$safeError');
-          return HarnessApiPhaseResult(
-            success: false,
-            outputLines: outputLines,
-            errorMessage: 'API 请求失败：$safeError',
-          );
+          return HarnessApiPhaseResult.failure('API 请求失败：$safeError');
         }
 
         // Emit the model's text reply.
@@ -566,18 +570,31 @@ class HarnessApiPhaseRunner {
           }
         }
 
-        // No tool calls → phase complete.
+        // 没有工具调用，当前阶段完成。
         if (toolCalls.isEmpty) {
           break;
         }
 
-        // Round limit check.
+        // 在写入上下文和执行工具前统一校验阶段资源边界。
         toolRound++;
         if (toolRound > maxToolRounds) {
           emit('');
-          emit('ℹ 已达到最大工具轮次限制（$maxToolRounds），停止工具调用循环。');
-          break;
+          emit('✗ 已达到最大工具轮次限制（$maxToolRounds），阶段尚未完成。');
+          return const HarnessApiPhaseResult.failure('达到最大工具轮次限制，阶段尚未完成。');
         }
+        if (toolCalls.any(
+          (call) => call.arguments.length > _maxToolArgumentsCharacters,
+        )) {
+          emit('');
+          emit('✗ 工具参数超过安全上限，阶段已停止。');
+          return const HarnessApiPhaseResult.failure('工具参数超过安全上限。');
+        }
+        if (totalToolCalls + toolCalls.length > _maxToolCallsPerPhase) {
+          emit('');
+          emit('✗ 工具调用总数超过安全上限（$_maxToolCallsPerPhase），阶段已停止。');
+          return const HarnessApiPhaseResult.failure('工具调用总数超过安全上限。');
+        }
+        totalToolCalls += toolCalls.length;
 
         // Add assistant message (text + tool calls) to conversation.
         conversation.add(
@@ -739,8 +756,7 @@ class HarnessApiPhaseRunner {
             conversation.add(
               AiChatTurn(
                 role: AiChatRole.tool,
-                content:
-                    'Tool call skipped: per-round tool call limit reached.',
+                content: '工具调用已跳过：达到单轮工具调用上限。',
                 toolCallId: toolCalls[i].id,
               ),
             );
@@ -751,43 +767,11 @@ class HarnessApiPhaseRunner {
       final safeError = _sanitizeError('$e', model);
       emit('');
       emit('✗ 执行错误：$safeError');
-      return HarnessApiPhaseResult(
-        success: false,
-        outputLines: outputLines,
-        errorMessage: safeError,
-      );
+      return HarnessApiPhaseResult.failure(safeError);
     }
-
-    // Enhanced substantive output detection:
-    // - Tool execution outputs (indented with "  ") count as substantive
-    // - Pure status lines (ℹ, ⚙, ⚠) alone do not count
-    // - Empty or whitespace-only lines do not count
-    // - Any other text from the model counts as substantive
-    final hasSubstantiveOutput = outputLines.any((line) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) return false;
-      // System status markers are not substantive on their own
-      if (trimmed.startsWith('ℹ ') ||
-          trimmed.startsWith('⚙ ') ||
-          trimmed.startsWith('⚠ ') ||
-          trimmed.startsWith('✓ ') ||
-          trimmed.startsWith('✗ ')) {
-        return false;
-      }
-      // Tool execution output (indented) containing actual content counts
-      if (line.startsWith('  ')) {
-        return trimmed.isNotEmpty;
-      }
-      // Regular model text output is substantive
-      return true;
-    });
 
     if (!hasSubstantiveOutput) {
       emit('');
-      // Enhanced diagnostic message
-      final mcpNoticeCount = outputLines
-          .where((l) => l.trim().startsWith('ℹ MCP '))
-          .length;
       if (mcpNoticeCount > 0) {
         emit('⚠ 检测到 $mcpNoticeCount 条 MCP 服务异常提示，但这不是导致失败的直接原因。');
       }
@@ -796,14 +780,10 @@ class HarnessApiPhaseRunner {
       emit('  • 网络连接问题或 API 端点不可达');
       emit('  • 模型响应超时或返回了空内容');
       emit('  • 检查上方日志获取更多诊断信息');
-      return HarnessApiPhaseResult(
-        success: false,
-        outputLines: outputLines,
-        errorMessage: 'API 会话未产生有效输出。',
-      );
+      return const HarnessApiPhaseResult.failure('API 会话未产生有效输出。');
     }
 
-    return HarnessApiPhaseResult(success: true, outputLines: outputLines);
+    return const HarnessApiPhaseResult.success();
   }
 
   /// Returns deny rules appropriate for the phase.
@@ -889,7 +869,7 @@ class HarnessApiPhaseRunner {
       ),
       '',
     );
-    return sanitized;
+    return clipTextWithEllipsis(sanitized, _maxErrorCharacters);
   }
 
   /// Estimates the total token count of the conversation.
