@@ -355,267 +355,231 @@ class _NavigationPaneState extends State<_NavigationPane> {
         if (threadTiles[index].key case final key?) key: index,
     };
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availablePanelHeight = math.max(
-          0,
-          constraints.maxHeight - _contentPaneGap,
-        );
-        final featurePanelHeight = math.min(
-          _kFeaturePanelPreferredHeight,
-          availablePanelHeight * _kFeaturePanelMaxShare,
-        );
-        return Column(
-          children: [
-            SizedBox(
-              height: featurePanelHeight,
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: OpenHandSafeScrollbar(
-                  controller: _featureScrollController,
-                  child: CustomScrollView(
-                    controller: _featureScrollController,
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        sliver: SliverList(
-                          delegate: SliverChildListDelegate.fixed([
-                            for (final destination
-                                in _kSystemNavigationDestinations)
-                              _AdaptiveNavigationDestination(
-                                destination: destination,
-                                isSelected:
-                                    widget.selectedSection ==
-                                    destination.section,
-                                onSelected: widget.onSectionSelected,
-                              ),
-                          ]),
+    return Column(
+      children: [
+        Expanded(
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: OpenHandSafeScrollbar(
+              controller: _featureScrollController,
+              child: CustomScrollView(
+                controller: _featureScrollController,
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate.fixed([
+                        for (final destination
+                            in _kSystemNavigationDestinations)
+                          _AdaptiveNavigationDestination(
+                            destination: destination,
+                            isSelected:
+                                widget.selectedSection == destination.section,
+                            onSelected: widget.onSectionSelected,
+                          ),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: _contentPaneGap),
+        Expanded(
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.forum_outlined,
+                        size: 15,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.88,
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.threads,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                      MicroPressFeedback(
+                        scale: 0.94,
+                        enabled: !_creatingThread,
+                        child: IconButton(
+                          tooltip: l10n.newThread,
+                          onPressed: _creatingThread
+                              ? null
+                              : _requestCreateThread,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size.square(
+                              _kCreateThreadButtonSize,
+                            ),
+                            maximumSize: const Size.square(
+                              _kCreateThreadButtonSize,
+                            ),
+                            padding: EdgeInsets.zero,
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: colorScheme.onSurfaceVariant,
+                            disabledBackgroundColor: Colors.transparent,
+                            disabledForegroundColor: colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.48),
+                            hoverColor: colorScheme.onSurface.withValues(
+                              alpha: 0.05,
+                            ),
+                            focusColor: colorScheme.onSurface.withValues(
+                              alpha: 0.07,
+                            ),
+                            highlightColor: colorScheme.onSurface.withValues(
+                              alpha: 0.09,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                          icon: AnimatedSwitcher(
+                            duration: openHandMotionDuration(
+                              context,
+                              _kHomeSidebarTileMotionDuration,
+                            ),
+                            child: _creatingThread
+                                ? SizedBox.square(
+                                    key: const ValueKey<String>(
+                                      'creating-thread-progress',
+                                    ),
+                                    dimension: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.edit_outlined,
+                                    key: ValueKey<String>('create-thread-icon'),
+                                    size: 18,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      if (hasThreads) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          constraints: const BoxConstraints(minWidth: 22),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.72),
+                            borderRadius: kOpenHandPillBorderRadius,
+                          ),
+                          child: Text(
+                            '$threadCount',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: _contentPaneGap),
-            Expanded(
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.forum_outlined,
-                            size: 15,
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.88,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l10n.threads,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                          MicroPressFeedback(
-                            scale: 0.94,
-                            enabled: !_creatingThread,
-                            child: IconButton(
-                              tooltip: l10n.newThread,
-                              onPressed: _creatingThread
-                                  ? null
-                                  : _requestCreateThread,
-                              style: IconButton.styleFrom(
-                                minimumSize: const Size.square(
-                                  _kCreateThreadButtonSize,
+                Expanded(
+                  child: OpenHandSafeScrollbar(
+                    controller: _threadScrollController,
+                    child: CustomScrollView(
+                      controller: _threadScrollController,
+                      slivers: [
+                        if (!hasThreads)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerLowest
+                                      .withValues(alpha: 0.55),
+                                  borderRadius: _borderRadius18,
+                                  border: Border.all(
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.45),
+                                  ),
                                 ),
-                                maximumSize: const Size.square(
-                                  _kCreateThreadButtonSize,
-                                ),
-                                padding: EdgeInsets.zero,
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: colorScheme.onSurfaceVariant,
-                                disabledBackgroundColor: Colors.transparent,
-                                disabledForegroundColor: colorScheme
-                                    .onSurfaceVariant
-                                    .withValues(alpha: 0.48),
-                                hoverColor: colorScheme.onSurface.withValues(
-                                  alpha: 0.05,
-                                ),
-                                focusColor: colorScheme.onSurface.withValues(
-                                  alpha: 0.07,
-                                ),
-                                highlightColor: colorScheme.onSurface
-                                    .withValues(alpha: 0.09),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(11),
-                                ),
-                              ),
-                              icon: AnimatedSwitcher(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  _kHomeSidebarTileMotionDuration,
-                                ),
-                                child: _creatingThread
-                                    ? SizedBox.square(
-                                        key: const ValueKey<String>(
-                                          'creating-thread-progress',
-                                        ),
-                                        dimension: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.edit_square,
-                                        key: ValueKey<String>(
-                                          'create-thread-icon',
-                                        ),
-                                        size: 18,
-                                      ),
-                              ),
-                            ),
-                          ),
-                          if (hasThreads) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              constraints: const BoxConstraints(minWidth: 22),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.72),
-                                borderRadius: kOpenHandPillBorderRadius,
-                              ),
-                              child: Text(
-                                '$threadCount',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w700,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: OpenHandSafeScrollbar(
-                        controller: _threadScrollController,
-                        child: CustomScrollView(
-                          controller: _threadScrollController,
-                          slivers: [
-                            if (!hasThreads)
-                              SliverToBoxAdapter(
                                 child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    4,
-                                    16,
-                                    20,
-                                  ),
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.surfaceContainerLowest
-                                          .withValues(alpha: 0.55),
-                                      borderRadius: _borderRadius18,
-                                      border: Border.all(
-                                        color: colorScheme.outlineVariant
-                                            .withValues(alpha: 0.45),
-                                      ),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(14),
-                                      child: Text(
-                                        l10n.threadsEmptyBody,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color:
-                                                  colorScheme.onSurfaceVariant,
-                                              height: 1.45,
-                                            ),
-                                      ),
+                                  padding: const EdgeInsets.all(14),
+                                  child: Text(
+                                    l10n.threadsEmptyBody,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      height: 1.45,
                                     ),
                                   ),
                                 ),
                               ),
-                            if (hasThreads)
-                              SliverPadding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  0,
-                                  12,
-                                  16,
-                                ),
-                                sliver: SliverList(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (_, index) => threadTiles[index],
-                                    childCount: threadTiles.length,
-                                    addAutomaticKeepAlives: false,
-                                    addRepaintBoundaries: false,
-                                    findChildIndexCallback: (key) =>
-                                        threadTileIndexByKey[key],
+                            ),
+                          ),
+                        if (hasThreads)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (_, index) => threadTiles[index],
+                                childCount: threadTiles.length,
+                                addAutomaticKeepAlives: false,
+                                addRepaintBoundaries: false,
+                                findChildIndexCallback: (key) =>
+                                    threadTileIndexByKey[key],
+                              ),
+                            ),
+                          ),
+                        if (widget.hasMoreSessions)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: MicroPressFeedback(
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: TextButton.icon(
+                                    onPressed: widget.onLoadMoreSessions,
+                                    icon: const Icon(Icons.expand_more_rounded),
+                                    label: Text(l10n.threadsLoadMore),
                                   ),
                                 ),
                               ),
-                            if (widget.hasMoreSessions)
-                              SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    16,
-                                  ),
-                                  child: MicroPressFeedback(
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: TextButton.icon(
-                                        onPressed: widget.onLoadMoreSessions,
-                                        icon: const Icon(
-                                          Icons.expand_more_rounded,
-                                        ),
-                                        label: Text(l10n.threadsLoadMore),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }
 
 const double _kThreadTileGap = 4;
-const double _kFeaturePanelPreferredHeight = 510;
-const double _kFeaturePanelMaxShare = 0.64;
 const double _kCreateThreadButtonSize = 32;
 const EdgeInsets _kSidebarTileOuterPadding = EdgeInsets.fromLTRB(
   12,
