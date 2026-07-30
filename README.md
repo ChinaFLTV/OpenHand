@@ -137,7 +137,7 @@ flutter build windows
 scripts/build_web.sh
 ```
 
-该脚本会安装 Web 依赖、清理旧产物、执行 Vite 构建、校验 `assets/web/{index.html,app.js,app.css}`，并运行 `scripts/check_imports.dart` 检查跨 feature import 边界。
+该脚本会安装 Web 依赖、清理旧产物、执行 Vite 构建、校验 `assets/web/{index.html,app.js,app.css}`，并运行 `scripts/check_imports.dart` 检查跨 feature import 与统一弹窗入口等架构边界。
 
 Web 端单独开发：
 

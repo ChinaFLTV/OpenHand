@@ -2561,6 +2561,7 @@ class _AgentClusterDialogContentState
   final GlobalKey<_AgentClusterSettingsEditorState> _clusterEditorKey =
       GlobalKey<_AgentClusterSettingsEditorState>();
   bool _editing = false;
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -2579,20 +2580,31 @@ class _AgentClusterDialogContentState
               l10n.agentsCluster,
               currentAgent.name,
             ),
+            footerAnimationKey: _editing ? 'cluster-edit' : 'cluster-status',
             footer: _editing
-                ? _agentDialogActionsFooter(
-                    actions: [
-                      OpenHandDialogActionButton.secondary(
-                        onPressed: () => setState(() => _editing = false),
-                        label: l10n.commonCancel,
-                      ),
-                      OpenHandDialogActionButton.primary(
-                        onPressed: () => _saveClusterSettings(
-                          context,
-                          controller,
-                          currentAgent,
-                        ),
-                        label: l10n.commonSave,
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OpenHandDialogBusyBar(busy: _saving, topGap: 0),
+                      _agentDialogActionsFooter(
+                        actions: [
+                          OpenHandDialogActionButton.secondary(
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() => _editing = false),
+                            label: l10n.commonCancel,
+                          ),
+                          OpenHandDialogActionButton.primary(
+                            onPressed: _saving
+                                ? null
+                                : () => _saveClusterSettings(
+                                    context,
+                                    controller,
+                                    currentAgent,
+                                  ),
+                            label: l10n.commonSave,
+                          ),
+                        ],
                       ),
                     ],
                   )
@@ -2637,6 +2649,7 @@ class _AgentClusterDialogContentState
     AgentsController controller,
     AgentProfile currentAgent,
   ) async {
+    if (_saving) return;
     FocusScope.of(context).unfocus();
     final updated = _clusterEditorKey.currentState?.buildSettings();
     if (updated == null) return;
@@ -2645,13 +2658,17 @@ class _AgentClusterDialogContentState
       zh: '集群设置保存失败，请稍后重试。',
       en: 'Failed to save cluster settings. Try again.',
     );
+    setState(() => _saving = true);
     final saved = await controller.saveScaleSettings(currentAgent.id, updated);
     if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (saved) _editing = false;
+    });
     if (saved) {
-      setState(() => _editing = false);
-    } else {
-      _showAgentErrorSnack(this.context, failureMessage);
+      return;
     }
+    _showAgentErrorSnack(this.context, failureMessage);
   }
 
   Widget _buildClusterStatus(BuildContext context, AgentProfile currentAgent) {
@@ -8223,6 +8240,7 @@ class _AgentDialogScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.footer,
+    this.footerAnimationKey,
     this.scrollable = true,
   });
 
@@ -8230,6 +8248,7 @@ class _AgentDialogScaffold extends StatelessWidget {
   final String title;
   final Widget child;
   final Widget? footer;
+  final Object? footerAnimationKey;
   final bool scrollable;
 
   @override
@@ -8271,7 +8290,11 @@ class _AgentDialogScaffold extends StatelessWidget {
                   )
                 : child,
           ),
-          _AgentDialogFooterSlot(footer: footer, settings: motionSettings),
+          _AgentDialogFooterSlot(
+            footer: footer,
+            animationKey: footerAnimationKey,
+            settings: motionSettings,
+          ),
         ],
       ),
     );
@@ -8279,9 +8302,14 @@ class _AgentDialogScaffold extends StatelessWidget {
 }
 
 class _AgentDialogFooterSlot extends StatelessWidget {
-  const _AgentDialogFooterSlot({required this.footer, required this.settings});
+  const _AgentDialogFooterSlot({
+    required this.footer,
+    required this.animationKey,
+    required this.settings,
+  });
 
   final Widget? footer;
+  final Object? animationKey;
   final DialogAnimationSettings settings;
 
   @override
@@ -8299,7 +8327,9 @@ class _AgentDialogFooterSlot extends StatelessWidget {
               key: ValueKey<String>('agent-dialog-footer-empty'),
             )
           : Padding(
-              key: const ValueKey<String>('agent-dialog-footer-content'),
+              key: ValueKey<Object?>(
+                animationKey ?? 'agent-dialog-footer-content',
+              ),
               padding: const EdgeInsets.only(top: _agentDialogSectionGap),
               child: footer,
             ),

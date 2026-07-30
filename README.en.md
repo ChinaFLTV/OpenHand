@@ -137,7 +137,7 @@ Rebuild the bundled Web console:
 scripts/build_web.sh
 ```
 
-The script installs Web dependencies, clears old output, runs the Vite build, verifies `assets/web/{index.html,app.js,app.css}`, and runs `scripts/check_imports.dart` to enforce cross-feature import boundaries.
+The script installs Web dependencies, clears old output, runs the Vite build, verifies `assets/web/{index.html,app.js,app.css}`, and runs `scripts/check_imports.dart` to enforce cross-feature imports and the shared animated-dialog entry point.
 
 Web-only development:
 
