@@ -372,6 +372,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                         for (final destination
                             in _kSystemNavigationDestinations)
                           _AdaptiveNavigationDestination(
+                            key: ValueKey<AppSection>(destination.section),
                             destination: destination,
                             isSelected:
                                 widget.selectedSection == destination.section,
@@ -675,6 +676,7 @@ class _NavigationDestinationSpec {
 
 class _AdaptiveNavigationDestination extends StatelessWidget {
   const _AdaptiveNavigationDestination({
+    super.key,
     required this.destination,
     required this.isSelected,
     required this.onSelected,
@@ -782,13 +784,11 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
                       ),
                       const SizedBox(width: _kSidebarTileIconGap),
                       Expanded(
-                        child: AnimatedDefaultTextStyle(
-                          duration: duration,
-                          curve: curve,
-                          style: textStyle ?? const TextStyle(),
+                        child: Text(
+                          label,
+                          style: textStyle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          child: Text(label),
                         ),
                       ),
                     ],
