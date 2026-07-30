@@ -2318,10 +2318,10 @@ class _UnifiedBodyDiff extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final aTrim = bodyA.length > _kMaxBodyChars
-        ? '${bodyA.substring(0, _kMaxBodyChars)}…'
+        ? clipTextByCodeUnitsWithEllipsis(bodyA, _kMaxBodyChars)
         : bodyA;
     final bTrim = bodyB.length > _kMaxBodyChars
-        ? '${bodyB.substring(0, _kMaxBodyChars)}…'
+        ? clipTextByCodeUnitsWithEllipsis(bodyB, _kMaxBodyChars)
         : bodyB;
     final aLines = aTrim.split('\n');
     final bLines = bTrim.split('\n');

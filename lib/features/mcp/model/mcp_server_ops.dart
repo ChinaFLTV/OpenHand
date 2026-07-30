@@ -1,5 +1,6 @@
 import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 
 const String mcpOpsDefaultListenHost = '127.0.0.1';
 const int mcpOpsDefaultListenPort = 8765;
@@ -935,7 +936,7 @@ String mcpOpsClipAuditText(Object? value) {
       ? prettyPrintJson(value)
       : '$value'.trim();
   if (text.length <= mcpOpsAuditPreviewMaxChars) return text;
-  return '${text.substring(0, mcpOpsAuditPreviewMaxChars)}...';
+  return clipTextByCodeUnits(text, mcpOpsAuditPreviewMaxChars);
 }
 
 String _normalizeOpsEnumValue(String value) {

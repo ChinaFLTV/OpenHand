@@ -2082,7 +2082,7 @@ class AiPromptBuilder {
     if (normalized.length <= maxCharacters) {
       return normalized;
     }
-    return '${normalized.substring(0, maxCharacters).trimRight()}...';
+    return clipTextByCodeUnits(normalized, maxCharacters);
   }
 
   String _normalizeToolNameForPromptCatalog(String value) {
@@ -2921,7 +2921,7 @@ class AiPromptBuilder {
     if (value is String) {
       const maxChars = 2000;
       if (value.length <= maxChars) return value;
-      return '${value.substring(0, maxChars)}...[truncated]';
+      return clipTextByCodeUnits(value, maxChars, suffix: '...[truncated]');
     }
     if (depth >= 3) {
       return '$value';
@@ -3595,9 +3595,11 @@ $identity''';
       _historyAssistantContentEdgeChars,
       _historyAssistantContentMaxChars ~/ 2,
     );
-    final omitted = trimmed.length - edge - edge;
-    final head = trimmed.substring(0, edge).trimRight();
-    final tail = trimmed.substring(trimmed.length - edge).trimLeft();
+    final headEnd = safeUtf16PrefixCodeUnits(trimmed, edge);
+    final tailStart = safeUtf16SuffixStart(trimmed, trimmed.length - edge);
+    final head = trimmed.substring(0, headEnd).trimRight();
+    final tail = trimmed.substring(tailStart).trimLeft();
+    final omitted = trimmed.length - head.length - tail.length;
     return '''$head
 
 [assistant_message_middle_omitted: $omitted chars]
@@ -4027,7 +4029,9 @@ $tail''';
     if (content.length <= maxChars) {
       return content.trimRight();
     }
-    final head = content.substring(0, maxChars).trimRight();
+    final head = content
+        .substring(0, safeUtf16PrefixCodeUnits(content, maxChars))
+        .trimRight();
     final omitted = content.length - head.length;
     return '$head\n[$marker: omitted $omitted chars]';
   }
@@ -4072,7 +4076,13 @@ $tail''';
       return trimmed;
     }
     final head = trimmed
-        .substring(0, _compressionAttachmentDetailMaxChars)
+        .substring(
+          0,
+          safeUtf16PrefixCodeUnits(
+            trimmed,
+            _compressionAttachmentDetailMaxChars,
+          ),
+        )
         .trimRight();
     final omitted = trimmed.length - head.length;
     return '$head\n[attachment_content_truncated: omitted $omitted chars]';
@@ -4375,10 +4385,17 @@ $tail''';
     if (trimmed.length <= _checkpointPromptMaxChars) {
       return trimmed;
     }
-    final head = trimmed.substring(0, _checkpointPromptEdgeChars).trimRight();
-    final tail = trimmed
-        .substring(trimmed.length - _checkpointPromptEdgeChars)
-        .trimLeft();
+    final head = trimmed
+        .substring(
+          0,
+          safeUtf16PrefixCodeUnits(trimmed, _checkpointPromptEdgeChars),
+        )
+        .trimRight();
+    final tailStart = safeUtf16SuffixStart(
+      trimmed,
+      trimmed.length - _checkpointPromptEdgeChars,
+    );
+    final tail = trimmed.substring(tailStart).trimLeft();
     final omitted = trimmed.length - head.length - tail.length;
     return '''$head
 
@@ -4722,7 +4739,9 @@ $content
     if (content.length <= maxChars) {
       return content.trimRight();
     }
-    final head = content.substring(0, maxChars).trimRight();
+    final head = content
+        .substring(0, safeUtf16PrefixCodeUnits(content, maxChars))
+        .trimRight();
     final omitted = content.length - head.length;
     return '$head\n[$marker: omitted $omitted chars]';
   }
@@ -6213,11 +6232,16 @@ $content
             _looksLikeWriteLikeBashArguments(arguments) ||
             _isWriteLikeToolMetadata(metadata);
         const headTail = 1024;
-        final head = command.substring(0, headTail);
-        final tail = command.substring(command.length - headTail);
+        final headEnd = safeUtf16PrefixCodeUnits(command, headTail);
+        final tailStart = safeUtf16SuffixStart(
+          command,
+          command.length - headTail,
+        );
+        final head = command.substring(0, headEnd);
+        final tail = command.substring(tailStart);
         final summarizedCommand =
             '$head\n…[bash_command_truncated: dropped '
-            '${command.length - headTail * 2} chars; '
+            '${tailStart - headEnd} chars; '
             'full command stored locally]…\n$tail';
         return jsonEncode(<String, Object?>{
           'cmd': summarizedCommand,
@@ -6427,8 +6451,19 @@ $content
         headTailWindowOverride ?? compressionConfig.headTailWindowChars;
     final head = headTail <= 0
         ? ''
-        : original.substring(0, math.min(original.length, headTail)).trim();
-    final tailStart = math.max(0, original.length - headTail);
+        : original
+              .substring(
+                0,
+                safeUtf16PrefixCodeUnits(
+                  original,
+                  math.min(original.length, headTail),
+                ),
+              )
+              .trim();
+    final tailStart = safeUtf16SuffixStart(
+      original,
+      math.max(0, original.length - headTail),
+    );
     final tail = headTail <= 0 ? '' : original.substring(tailStart).trim();
     final lines = <String>[
       '$summaryMarker ${toolName.isEmpty ? 'Tool' : toolName}',
@@ -6475,7 +6510,7 @@ $content
     for (final key in purposeKeys) {
       final value = '${metadata[key] ?? ''}'.trim();
       if (value.isNotEmpty) {
-        return value.length > 240 ? '${value.substring(0, 240)}…' : value;
+        return clipTextByCodeUnitsWithEllipsis(value, 240);
       }
     }
     final argsRaw = metadata['arguments'] ?? metadata['tool_call_arguments'];
@@ -6486,7 +6521,7 @@ $content
           for (final key in purposeKeys) {
             final value = '${decoded[key] ?? ''}'.trim();
             if (value.isNotEmpty) {
-              return value.length > 240 ? '${value.substring(0, 240)}…' : value;
+              return clipTextByCodeUnitsWithEllipsis(value, 240);
             }
           }
         }

@@ -13,6 +13,7 @@ import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
@@ -2108,7 +2109,11 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   static String _boundedRepairSummary(String value) {
     final trimmed = nullIfBlank(value) ?? '';
     if (trimmed.length <= _toolSequenceRepairSummaryMaxChars) return trimmed;
-    return '${trimmed.substring(0, _toolSequenceRepairSummaryMaxChars)}\n$_toolExchangeRepairTruncatedTag';
+    return clipTextByCodeUnits(
+      trimmed,
+      _toolSequenceRepairSummaryMaxChars,
+      suffix: '\n$_toolExchangeRepairTruncatedTag',
+    );
   }
 
   static String _trimmedField(Map<String, Object?> map, String key) {
@@ -4704,7 +4709,7 @@ String sanitizeMarkdownAltText(String text) {
       .replaceAll('\r', ' ')
       .trim();
   if (sanitized.length > 120) {
-    sanitized = '${sanitized.substring(0, 117)}...';
+    sanitized = clipTextByCodeUnits(sanitized, 120);
   }
   return sanitized;
 }

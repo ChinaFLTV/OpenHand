@@ -9386,7 +9386,11 @@ String _truncateMcpOpsPayloadText(String text) {
   if (text.length <= _mcpOpsPayloadMaxScalarChars) {
     return text;
   }
-  return '${text.substring(0, _mcpOpsPayloadMaxScalarChars).trimRight()}\n...';
+  return clipTextByCodeUnits(
+    text,
+    _mcpOpsPayloadMaxScalarChars,
+    suffix: '\n...',
+  );
 }
 
 class _McpOpsApprovalPanel extends StatelessWidget {
@@ -14534,7 +14538,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
     // 超大响应直接跳过格式化，截断展示原始文本
     if (rawText.length > _kSkipFormatThreshold) {
       _applyDisplay(
-        rawText.substring(0, _kMaxDisplaySize),
+        clipTextByCodeUnits(rawText, _kMaxDisplaySize, suffix: ''),
         null,
         _kTruncationNote(rawText.length),
         revision,
@@ -14626,7 +14630,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
   static (String, bool) _capDisplay(String text) {
     if (text.length <= _kMaxDisplaySize) return (text, false);
-    return (text.substring(0, _kMaxDisplaySize), true);
+    return (clipTextByCodeUnits(text, _kMaxDisplaySize, suffix: ''), true);
   }
 
   static String _kTruncationNote(int fullLength) {
