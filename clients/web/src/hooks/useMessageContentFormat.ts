@@ -1,12 +1,11 @@
 // 消息内容格式 hook (与 APP 端 AiMessageContentFormat 对齐)。
 //
 // 因为 web 端没有完整的 SettingsController, 暂用 localStorage 维护用户偏好,
-// 由 SettingsPage 修改。其他订阅者 (MessageCard 等) 通过 hook 读取并响应
-// 「storage」事件 / 自定义事件刷新。
+// 由 SettingsPage 修改。其他订阅者 (MessageCard 等) 通过共享快照响应变更，
+// 其他标签页的修改通过「storage」事件同步。
 import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 import {
-  EVENT_MESSAGE_CONTENT_FORMAT_CHANGED,
   STORAGE_KEY_HTML_RENDER_FALLBACK,
   STORAGE_KEY_MESSAGE_CONTENT_FORMAT,
 } from '../shared/util/storage_keys';
@@ -46,7 +45,7 @@ interface MessageContentFormatSnapshot {
 // 是纯浪费。改为共享快照后，挂载只剩一次 Set 插入，设置项变更时也只重读一次。
 let formatSnapshot: MessageContentFormatSnapshot | null = null;
 const formatListeners = new Set<(value: MessageContentFormatSnapshot) => void>();
-let formatWindowBound = false;
+let formatStorageBound = false;
 
 function currentFormatSnapshot(): MessageContentFormatSnapshot {
   formatSnapshot ??= { format: readFormat(), htmlFallback: readFallback() };
@@ -64,36 +63,41 @@ function refreshFormatSnapshot(): void {
   for (const listener of formatListeners) listener(next);
 }
 
-function bindFormatWindowListeners(): void {
-  if (formatWindowBound || typeof window === 'undefined') return;
-  formatWindowBound = true;
-  window.addEventListener(
-    EVENT_MESSAGE_CONTENT_FORMAT_CHANGED,
-    refreshFormatSnapshot,
-  );
+function bindFormatStorageListener(): void {
+  if (formatStorageBound || typeof window === 'undefined') return;
+  formatStorageBound = true;
   window.addEventListener('storage', refreshFormatSnapshot);
+}
+
+function unbindFormatStorageListenerIfIdle(): void {
+  if (
+    !formatStorageBound
+    || formatListeners.size > 0
+    || typeof window === 'undefined'
+  ) return;
+  window.removeEventListener('storage', refreshFormatSnapshot);
+  formatStorageBound = false;
 }
 
 export function setMessageContentFormat(value: MessageContentFormat): void {
   writeBrowserStorage(STORAGE_KEY_MESSAGE_CONTENT_FORMAT, value);
   refreshFormatSnapshot();
-  window.dispatchEvent(new CustomEvent(EVENT_MESSAGE_CONTENT_FORMAT_CHANGED));
 }
 
 export function setHtmlRenderFallback(value: HtmlRenderFallback): void {
   writeBrowserStorage(STORAGE_KEY_HTML_RENDER_FALLBACK, value);
   refreshFormatSnapshot();
-  window.dispatchEvent(new CustomEvent(EVENT_MESSAGE_CONTENT_FORMAT_CHANGED));
 }
 
 export function useMessageContentFormat(): MessageContentFormatSnapshot {
   const [snapshot, setSnapshot] = useState<MessageContentFormatSnapshot>(currentFormatSnapshot);
   useEffect(() => {
-    bindFormatWindowListeners();
-    setSnapshot(currentFormatSnapshot());
     formatListeners.add(setSnapshot);
+    bindFormatStorageListener();
+    setSnapshot(currentFormatSnapshot());
     return () => {
       formatListeners.delete(setSnapshot);
+      unbindFormatStorageListenerIfIdle();
     };
   }, []);
   return snapshot;

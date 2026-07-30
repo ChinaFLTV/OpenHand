@@ -21,8 +21,6 @@ export const STORAGE_KEY_HTML_RENDER_FALLBACK = 'openhand_html_render_fallback';
 
 // ── window CustomEvent 事件名 ───────────────────────────────────────────
 export const EVENT_TTS_SETTINGS_CHANGED = 'openhand:tts-settings-changed';
-export const EVENT_MESSAGE_CONTENT_FORMAT_CHANGED =
-  'openhand:message-content-format-changed';
 
 // ── Cache API / Service Worker 消息与通知 tag ───────────────────────────
 export const CACHE_NAME_REMOTE_MEDIA = 'openhand-remote-media-v1';
