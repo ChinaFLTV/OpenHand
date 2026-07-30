@@ -94,7 +94,11 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _reattachAfterReconnectQueued = false;
   Future<void>? _startTask;
   Future<void>? _restartBrowserTask;
+  Future<void>? _stopBrowserTask;
   Future<void>? _attachToTargetTask;
+  Future<({String json, int bytes})?>? _heapSnapshotTask;
+  Future<String?>? _traceTask;
+  Completer<void>? _traceStopSignal;
   Future<void>? _safeStopTask;
   Future<void>? _shutdownFuture;
   String? _errorMessage;
@@ -118,7 +122,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// `isRunning` 只在浏览器 CDP 仍可用时为真，断连后 UI / Prompt 都应
   /// 明确进入可重启状态，而不是继续暴露一个已经失效的运行中端口。
   bool get isBrowserAlive {
-    if (_stopped) return false;
+    if (_stopped || _stopBrowserTask != null) return false;
     final cdp = _browserCdp;
     if (cdp == null) return false;
     return !cdp.isClosed;
@@ -142,7 +146,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxConsoleEntries = 2000;
   static const int _maxWebSocketFramesPerEntry = 2000;
   static const int _maxWebSocketFramePayloadChars = 8192;
-  static const int _maxHeapSnapshotChars = 120 * 1024 * 1024;
+  static const int _maxHeapSnapshotBytes = 120 * kBytesPerMiB;
   static const int _maxTraceEvents = 120000;
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
   static const Duration _maxTraceDuration = Duration(minutes: 5);
@@ -1089,6 +1093,7 @@ class WebReverseSessionController extends ChangeNotifier {
         _recorderScriptIdentifier = null;
         _memorySamplingGeneration += 1;
         _samplingProfileRunning = false;
+        _requestTraceStop();
         _errorMessage = '浏览器已断开（CDP 自动重连失败），可点击「重启浏览器」恢复。';
         _safeNotify();
         return;
@@ -1171,26 +1176,52 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// `HeapProfiler.takeHeapSnapshot` 并通过 chunk 事件聚合返回。
   /// 返回字段：(rawJson, totalBytes)；调用方写盘或解析 summary。
-  Future<({String json, int bytes})?> takeHeapSnapshot() async {
+  Future<({String json, int bytes})?> takeHeapSnapshot() {
+    final active = _heapSnapshotTask;
+    if (active != null) return active;
+    late final Future<({String json, int bytes})?> task;
+    task = _takeHeapSnapshotOnce().whenComplete(() {
+      if (identical(_heapSnapshotTask, task)) _heapSnapshotTask = null;
+    });
+    _heapSnapshotTask = task;
+    return task;
+  }
+
+  Future<({String json, int bytes})?> _takeHeapSnapshotOnce() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null ||
+        sessionId == null ||
+        _stopped ||
+        _disposed ||
+        _stopBrowserTask != null) {
+      return null;
+    }
+    bool isCurrentSession() =>
+        !_stopped &&
+        !_disposed &&
+        identical(_browserCdp, cdp) &&
+        _pageSessionId == sessionId;
     final buffer = StringBuffer();
     final completer = Completer<void>();
-    var totalChars = 0;
+    var totalBytes = 0;
     var tooLarge = false;
     StreamSubscription<CdpEvent>? sub;
     try {
-      await cdp.send('HeapProfiler.enable', sessionId: _pageSessionId);
-      sub = cdp.events.where((e) => e.sessionId == _pageSessionId).listen((e) {
+      await cdp.send('HeapProfiler.enable', sessionId: sessionId);
+      if (!isCurrentSession()) return null;
+      sub = cdp.events.where((e) => e.sessionId == sessionId).listen((e) {
         if (e.method == 'HeapProfiler.addHeapSnapshotChunk') {
+          if (tooLarge) return;
           final chunk = '${e.params['chunk'] ?? ''}';
-          totalChars += chunk.length;
-          if (totalChars <= _maxHeapSnapshotChars) {
-            buffer.write(chunk);
-          } else {
+          final chunkBytes = utf8.encode(chunk).length;
+          if (chunkBytes > _maxHeapSnapshotBytes - totalBytes) {
             tooLarge = true;
             if (!completer.isCompleted) completer.complete();
+            return;
           }
+          totalBytes += chunkBytes;
+          buffer.write(chunk);
         } else if (e.method == 'HeapProfiler.reportHeapSnapshotProgress') {
           if (e.params['finished'] == true && !completer.isCompleted) {
             completer.complete();
@@ -1204,17 +1235,18 @@ class WebReverseSessionController extends ChangeNotifier {
           'reportProgress': true,
           'captureNumericValue': false,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: _cdpHeapSnapshotTimeout,
       );
+      if (!isCurrentSession()) return null;
       // takeHeapSnapshot 同步返回时一般 chunk 已 flush 完，等一小段防边界。
       await Future.any<void>([
         completer.future,
         Future<void>.delayed(const Duration(milliseconds: 250)),
       ]);
-      if (tooLarge) return null;
+      if (tooLarge || !isCurrentSession()) return null;
       final raw = buffer.toString();
-      return (json: raw, bytes: raw.length);
+      return (json: raw, bytes: totalBytes);
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '获取堆快照', error, stack);
       return null;
@@ -1235,9 +1267,49 @@ class WebReverseSessionController extends ChangeNotifier {
       'disabled-by-default-devtools.timeline',
     ],
     Future<void>? earlyStop,
+  }) {
+    final active = _traceTask;
+    if (active != null) {
+      if (earlyStop != null) {
+        unawaited(
+          earlyStop.then<void>(
+            (_) => _requestTraceStop(),
+            onError: (Object _, StackTrace _) => _requestTraceStop(),
+          ),
+        );
+      }
+      return active;
+    }
+    final stopSignal = Completer<void>();
+    late final Future<String?> task;
+    task =
+        _recordTraceOnce(
+          duration: duration,
+          categories: categories,
+          earlyStop: earlyStop,
+          lifecycleStop: stopSignal.future,
+        ).whenComplete(() {
+          if (identical(_traceTask, task)) {
+            _traceTask = null;
+            _traceStopSignal = null;
+          }
+        });
+    _traceStopSignal = stopSignal;
+    _traceTask = task;
+    return task;
+  }
+
+  Future<String?> _recordTraceOnce({
+    required Duration duration,
+    required List<String> categories,
+    required Future<void>? earlyStop,
+    required Future<void> lifecycleStop,
   }) async {
     final cdp = _browserCdp;
-    if (cdp == null) return null; // tracing 用 root session
+    // tracing 使用 root session，但仍受当前浏览器生命周期约束。
+    if (cdp == null || _stopped || _disposed || _stopBrowserTask != null) {
+      return null;
+    }
     final effectiveDuration = duration <= Duration.zero
         ? Duration.zero
         : duration > _maxTraceDuration
@@ -1288,12 +1360,15 @@ class WebReverseSessionController extends ChangeNotifier {
           'transferMode': 'ReportEvents',
         },
       );
-      final timeout = Future<void>.delayed(effectiveDuration);
-      if (earlyStop != null) {
-        await Future.any(<Future<void>>[timeout, earlyStop]);
-      } else {
-        await timeout;
-      }
+      final stopSignal = combineCancelSignals(<Future<void>?>[
+        lifecycleStop,
+        earlyStop,
+      ])!;
+      await Future.any(<Future<void>>[
+        Future<void>.delayed(effectiveDuration),
+        stopSignal,
+      ]);
+      if (!identical(_browserCdp, cdp) || cdp.isClosed) return null;
       await cdp.send('Tracing.end');
       await completer.future.timeout(
         const Duration(seconds: 30),
@@ -1303,7 +1378,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'traceEvents': events,
         'metadata': <String, Object?>{
           'source': 'OpenHand WebReverseExpert',
-          'duration_ms': duration.inMilliseconds,
+          'duration_ms': effectiveDuration.inMilliseconds,
           'events_seen': seenEvents,
           'events_recorded': events.length,
           'events_dropped': droppedEvents,
@@ -1318,6 +1393,25 @@ class WebReverseSessionController extends ChangeNotifier {
     } finally {
       await _cancelRuntimeSubscription(sub, '性能跟踪事件');
     }
+  }
+
+  void _requestTraceStop() {
+    final signal = _traceStopSignal;
+    if (signal != null && !signal.isCompleted) signal.complete();
+  }
+
+  Future<void> _stopTraceRecording() async {
+    final active = _traceTask;
+    if (active == null) return;
+    _requestTraceStop();
+    await runAsyncCleanupBounded(
+      () async {
+        await active;
+      },
+      timeout: _browserCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('web_reverse_session_controller', '停止性能跟踪', error, stack),
+    );
   }
 
   // ── Application: Cookies / Storage ───────────────────────────────────
@@ -4393,11 +4487,23 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 用户主动停止调试：杀掉外部浏览器进程并关闭临时桥接服务，保留会话本身。
   /// 后续可调 [restartBrowser] 再起一个新的。会话工作目录 / artifacts /
   /// dashboard 网络/控制台缓冲全部保留以便回看。
-  Future<void> stopBrowser() async {
-    if (_stopped) return;
+  Future<void> stopBrowser() {
+    if (_stopped) return Future<void>.value();
+    final active = _stopBrowserTask;
+    if (active != null) return active;
+    late final Future<void> task;
+    task = _stopBrowserOnce().whenComplete(() {
+      if (identical(_stopBrowserTask, task)) _stopBrowserTask = null;
+    });
+    _stopBrowserTask = task;
+    return task;
+  }
+
+  Future<void> _stopBrowserOnce() async {
     _stopAliveWatchdog();
     await stopRecording();
     await stopMemorySampling();
+    await _stopTraceRecording();
     // 关 screencast → 关 CDP → kill 进程；artifacts / dock 不动。
     if (_screencastActive) {
       try {
@@ -4508,9 +4614,12 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _safeStopUncached() async {
+    final stoppingBrowser = _stopBrowserTask;
+    if (stoppingBrowser != null) await stoppingBrowser;
     _stopAliveWatchdog();
     await stopRecording();
     await stopMemorySampling();
+    await _stopTraceRecording();
     // 主动停 screencast：进程将被 kill，事件流也会断；提前 stop 防止
     // 浏览器侧 ack 队列卡住影响下次拉起。
     if (_screencastActive) {
