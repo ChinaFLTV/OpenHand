@@ -13,6 +13,7 @@ final class BoundedJsonConversionConfig {
     this.maxContainerItems = 10000,
     this.maxTotalNodes = 100000,
     this.maxStringCodeUnits,
+    this.maxTotalStringCodeUnits,
     this.truncatedStringSuffix = '...',
     this.mapValueTransformer,
     this.nonFiniteNumberBehavior = JsonNonFiniteNumberBehavior.stringify,
@@ -23,12 +24,14 @@ final class BoundedJsonConversionConfig {
   }) : assert(maxDepth >= 0),
        assert(maxContainerItems > 0),
        assert(maxTotalNodes > 0),
-       assert(maxStringCodeUnits == null || maxStringCodeUnits >= 0);
+       assert(maxStringCodeUnits == null || maxStringCodeUnits >= 0),
+       assert(maxTotalStringCodeUnits == null || maxTotalStringCodeUnits >= 0);
 
   final int maxDepth;
   final int maxContainerItems;
   final int maxTotalNodes;
   final int? maxStringCodeUnits;
+  final int? maxTotalStringCodeUnits;
   final String truncatedStringSuffix;
   final JsonMapValueTransformer? mapValueTransformer;
   final JsonNonFiniteNumberBehavior nonFiniteNumberBehavior;
@@ -60,6 +63,7 @@ final class _BoundedJsonConverter {
   final BoundedJsonConversionConfig config;
   final Set<Object> _activeContainers = HashSet<Object>.identity();
   int _visitedNodes = 0;
+  int _convertedStringCodeUnits = 0;
 
   Object? convert(Object? value, [int depth = 0]) {
     if (_visitedNodes >= config.maxTotalNodes) {
@@ -100,6 +104,7 @@ final class _BoundedJsonConverter {
       var itemCount = 0;
       while (itemCount < config.maxContainerItems &&
           _visitedNodes < config.maxTotalNodes &&
+          _hasStringBudget &&
           iterator.moveNext()) {
         final entry = iterator.current;
         final key = '${entry.key}';
@@ -111,7 +116,8 @@ final class _BoundedJsonConverter {
         itemCount += 1;
       }
       if ((itemCount >= config.maxContainerItems ||
-              _visitedNodes >= config.maxTotalNodes) &&
+              _visitedNodes >= config.maxTotalNodes ||
+              !_hasStringBudget) &&
           iterator.moveNext()) {
         result[_availableTruncationKey(result)] = config.truncatedPlaceholder;
       }
@@ -131,12 +137,14 @@ final class _BoundedJsonConverter {
       var itemCount = 0;
       while (itemCount < config.maxContainerItems &&
           _visitedNodes < config.maxTotalNodes &&
+          _hasStringBudget &&
           iterator.moveNext()) {
         result.add(convert(iterator.current, depth + 1));
         itemCount += 1;
       }
       if ((itemCount >= config.maxContainerItems ||
-              _visitedNodes >= config.maxTotalNodes) &&
+              _visitedNodes >= config.maxTotalNodes ||
+              !_hasStringBudget) &&
           iterator.moveNext()) {
         result.add(config.truncatedPlaceholder);
       }
@@ -155,12 +163,28 @@ final class _BoundedJsonConverter {
   }
 
   String _convertString(String value) {
-    final maxCodeUnits = config.maxStringCodeUnits;
-    if (maxCodeUnits == null || value.length <= maxCodeUnits) return value;
-    return clipTextByCodeUnits(
-      value,
-      maxCodeUnits,
-      suffix: config.truncatedStringSuffix,
-    );
+    final perStringLimit = config.maxStringCodeUnits;
+    final totalLimit = config.maxTotalStringCodeUnits;
+    if (perStringLimit == null && totalLimit == null) return value;
+
+    var maxCodeUnits = perStringLimit ?? value.length;
+    if (totalLimit != null) {
+      final remaining = totalLimit - _convertedStringCodeUnits;
+      if (maxCodeUnits > remaining) maxCodeUnits = remaining;
+    }
+    final converted = value.length <= maxCodeUnits
+        ? value
+        : clipTextByCodeUnits(
+            value,
+            maxCodeUnits,
+            suffix: config.truncatedStringSuffix,
+          );
+    _convertedStringCodeUnits += converted.length;
+    return converted;
+  }
+
+  bool get _hasStringBudget {
+    final limit = config.maxTotalStringCodeUnits;
+    return limit == null || _convertedStringCodeUnits < limit;
   }
 }

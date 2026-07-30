@@ -53,7 +53,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.17';
+  static const String promptVersion = '1.2.18';
 
   final Future<String> Function(String path) _loader;
 
@@ -69,18 +69,23 @@ class AgentPromptRenderer {
         ? null
         : agentNormalizedCallableToolNames(callableAgentToolNames);
     final template = await _loadTemplate();
-    final profile = _profileJson(agent);
-    final capabilities = _capabilitiesJson(
-      agent,
-      callableAgentToolNames: normalizedCallableAgentToolNames,
-      boundInstructions: boundInstructions,
+    final profile = _boundedPromptSection(_profileJson(agent));
+    final capabilities = _boundedPromptSection(
+      _capabilitiesJson(
+        agent,
+        callableAgentToolNames: normalizedCallableAgentToolNames,
+        boundInstructions: boundInstructions,
+      ),
     );
-    final runtimePolicy = _runtimePolicyJson(agent);
-    final operationalState = _operationalStateJson(agent);
-    final effectiveTaskContext = _promptContextJson(taskContext);
+    final runtimePolicy = _boundedPromptSection(_runtimePolicyJson(agent));
+    final operationalState = _boundedPromptSection(
+      _operationalStateJson(agent),
+    );
+    final rawTaskContext = _promptContextJson(taskContext);
     if (task != null) {
-      effectiveTaskContext['task'] = _taskJson(task);
+      rawTaskContext['task'] = _taskJson(task);
     }
+    final effectiveTaskContext = _boundedPromptSection(rawTaskContext);
     final rendered = template
         .replaceAll('{{AGENT_PROFILE_JSON}}', _json(profile))
         .replaceAll('{{CAPABILITY_BINDINGS_JSON}}', _json(capabilities))
@@ -342,7 +347,10 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     'blocked_tasks': blockedTasks,
     'recent_terminal_tasks': recentTerminalTasks,
     'kpi_state': kpis.take(12).map(_kpiJson).toList(growable: false),
-    'workers': agent.workers.map(_workerJson).toList(growable: false),
+    'workers': agent.workers
+        .take(_agentPromptExtraCollectionMaxItems)
+        .map(_workerJson)
+        .toList(growable: false),
     'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
     'recent_activity': recentActivities
         .take(12)
@@ -466,6 +474,11 @@ const int _agentPromptExtraStringMaxChars = 800;
 const int _agentPromptExtraCollectionMaxItems = 40;
 const int _agentPromptExtraMaxDepth = 4;
 const int _agentPromptExtraMaxNodes = 2048;
+const int _agentPromptSectionMaxDepth = 8;
+const int _agentPromptSectionMaxNodes = 8192;
+const int _agentPromptSectionMaxStringChars =
+    _agentPromptInstructionBodyMaxChars + 128;
+const int _agentPromptSectionMaxTotalStringChars = 65536;
 const BoundedJsonConversionConfig _agentPromptExtraConversionConfig =
     BoundedJsonConversionConfig(
       maxDepth: _agentPromptExtraMaxDepth,
@@ -474,6 +487,19 @@ const BoundedJsonConversionConfig _agentPromptExtraConversionConfig =
       maxStringCodeUnits: _agentPromptExtraStringMaxChars,
       truncatedStringSuffix: '...[已截断]',
       mapValueTransformer: _redactPromptMetadataValue,
+      maxDepthPlaceholder: '<层级过深>',
+      cyclicMapPlaceholder: '<循环映射>',
+      cyclicIterablePlaceholder: '<循环集合>',
+      truncatedPlaceholder: '<已截断>',
+    );
+const BoundedJsonConversionConfig _agentPromptSectionConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: _agentPromptSectionMaxDepth,
+      maxContainerItems: _agentPromptExtraCollectionMaxItems,
+      maxTotalNodes: _agentPromptSectionMaxNodes,
+      maxStringCodeUnits: _agentPromptSectionMaxStringChars,
+      maxTotalStringCodeUnits: _agentPromptSectionMaxTotalStringChars,
+      truncatedStringSuffix: '...[已截断]',
       maxDepthPlaceholder: '<层级过深>',
       cyclicMapPlaceholder: '<循环映射>',
       cyclicIterablePlaceholder: '<循环集合>',
@@ -488,6 +514,13 @@ String _boundedPromptText(String value, {required int maxChars}) {
 
 Map<String, Object?> _boundedPromptMap(Map<String, Object?> value) {
   return convertToJsonSafeMap(value, config: _agentPromptExtraConversionConfig);
+}
+
+Map<String, Object?> _boundedPromptSection(Map<String, Object?> value) {
+  return convertToJsonSafeMap(
+    value,
+    config: _agentPromptSectionConversionConfig,
+  );
 }
 
 Object? _redactPromptMetadataValue(String key, Object? value) {
