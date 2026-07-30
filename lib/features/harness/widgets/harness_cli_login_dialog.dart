@@ -34,6 +34,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   static const Duration _loginTimeout = Duration(minutes: 15);
   static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
   static const Duration _streamDrainTimeout = Duration(milliseconds: 500);
+  static const Duration _terminalStartTimeout = Duration(seconds: 5);
   static const List<String> _linuxTerminalCandidates = <String>[
     'gnome-terminal',
     'xterm',
@@ -442,10 +443,11 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
               '-c',
               '$_commandPreview; exec bash',
             ];
-            await startTrackedProcess(
+            await startDetachedProcessBounded(
               terminal,
               arguments,
-              mode: ProcessStartMode.detached,
+              timeout: _terminalStartTimeout,
+              tag: 'harness_cli_login_dialog.open_terminal',
             );
             return;
           } catch (_) {
@@ -456,11 +458,12 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       }
 
       if (Platform.isWindows) {
-        await startTrackedProcess(
+        await startDetachedProcessBounded(
           'cmd',
           ['/c', 'start', 'cmd', '/k', _commandPreview],
           runInShell: true,
-          mode: ProcessStartMode.detached,
+          timeout: _terminalStartTimeout,
+          tag: 'harness_cli_login_dialog.open_terminal',
         );
         return;
       }

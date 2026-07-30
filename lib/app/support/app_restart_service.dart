@@ -17,6 +17,7 @@ final Duration _kExitRequestTimeout =
     kOpenHandDefaultRuntimeCleanupTotalTimeout + _kExitRequestCleanupGrace;
 const Duration _kRelaunchChmodTimeout = Duration(seconds: 2);
 const Duration _kRelaunchFileOperationTimeout = Duration(seconds: 5);
+const Duration _kRelaunchProcessStartTimeout = Duration(seconds: 5);
 
 enum AppRestartFailure {
   missingExecutable,
@@ -165,16 +166,21 @@ class AppRestartService {
 
   Future<void> _startDetachedHelper(String scriptPath) async {
     if (Platform.isWindows) {
-      await Process.start('cmd.exe', <String>[
-        '/c',
-        scriptPath,
-      ], mode: ProcessStartMode.detached);
+      await startDetachedProcessBounded(
+        'cmd.exe',
+        <String>['/c', scriptPath],
+        timeout: _kRelaunchProcessStartTimeout,
+        tag: 'app_restart.start_helper',
+      );
       return;
     }
     if (Platform.isMacOS || Platform.isLinux) {
-      await Process.start('/bin/sh', <String>[
-        scriptPath,
-      ], mode: ProcessStartMode.detached);
+      await startDetachedProcessBounded(
+        '/bin/sh',
+        <String>[scriptPath],
+        timeout: _kRelaunchProcessStartTimeout,
+        tag: 'app_restart.start_helper',
+      );
       return;
     }
     throw const AppRestartException(AppRestartFailure.unsupportedPlatform);

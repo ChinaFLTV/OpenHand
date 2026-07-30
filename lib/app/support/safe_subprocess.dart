@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
+import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
@@ -265,6 +266,55 @@ Future<Process> startTrackedProcess(
     _registerTrackedChild(process);
   }
   return process;
+}
+
+/// 在有限时长内启动脱离进程；启动超时后回收迟到创建的进程。
+///
+/// 脱离进程不会进入全局子进程簿，适用于重启助手和外部终端等明确需要独立于
+/// 当前应用存活的进程。调用成功后由调用方负责其后续生命周期。
+Future<Process> startDetachedProcessBounded(
+  String executable,
+  List<String> arguments, {
+  required Duration timeout,
+  String tag = 'safe_subprocess.detached',
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+}) async {
+  requirePositiveDuration(timeout, 'timeout');
+  final launchFuture = Process.start(
+    executable,
+    List<String>.of(arguments, growable: false),
+    workingDirectory: workingDirectory,
+    environment: environment == null
+        ? null
+        : Map<String, String>.of(environment),
+    runInShell: runInShell,
+    includeParentEnvironment: includeParentEnvironment,
+    mode: ProcessStartMode.detached,
+  );
+  try {
+    return await launchFuture.timeout(timeout);
+  } on TimeoutException {
+    unawaited(
+      launchFuture.then<void>(
+        (process) {
+          try {
+            process.kill(ProcessSignal.sigkill);
+          } catch (error, stack) {
+            silentLog(tag, '回收迟到启动的脱离进程', error, stack);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!_isMissingExecutableProcessException(error)) {
+            silentLog(tag, '等待迟到脱离进程启动', error, stack);
+          }
+        },
+      ),
+    );
+    rethrow;
+  }
 }
 
 /// 平台提供 `setsid` 时，在新的 POSIX 进程组中启动受跟踪进程，并把包装进程
