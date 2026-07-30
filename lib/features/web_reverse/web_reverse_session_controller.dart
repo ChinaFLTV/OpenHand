@@ -11,6 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_base64.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/lifecycle_cache.dart';
@@ -7697,7 +7698,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 返回输出路径。失败返回 null。
   Future<String?> exportSessionBundle({String? destPath}) async {
     final src = Directory(artifactsRootDir);
-    if (!await src.exists()) return null;
+    if (!await isDirectoryPath(src.path)) return null;
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')

@@ -185,15 +185,15 @@ class SkillsRepository {
   ) async {
     final storageDirectory = await ensureStorageDirectory(storagePath);
     final sourceDirectory = Directory(sourceDirectoryPath);
-    if (!await sourceDirectory.exists()) {
-      throw const FileSystemException('Source directory does not exist.');
+    if (!await isDirectoryPath(sourceDirectory.path, followLinks: true)) {
+      throw const FileSystemException('源技能目录不存在或不可访问。');
     }
 
     final sourceManifest = File(
       p.join(sourceDirectory.path, _manifestFileName),
     );
-    if (!await sourceManifest.exists()) {
-      throw const FileSystemException('Skill manifest does not exist.');
+    if (!await regularFileExistsBounded(sourceManifest, followLinks: false)) {
+      throw const FileSystemException('技能清单文件不存在。');
     }
 
     final normalizedStoragePath = p.normalize(storageDirectory.path);
@@ -413,17 +413,15 @@ class SkillsRepository {
 
   Future<void> deleteSkill(LocalSkill skill, String storagePath) async {
     final directory = Directory(skill.directoryPath);
-    if (!await directory.exists()) {
-      throw const FileSystemException('Skill directory does not exist.');
+    if (!await isDirectoryPath(directory.path)) {
+      throw const FileSystemException('技能目录不存在或不可访问。');
     }
 
     final normalizedDirectoryPath = p.normalize(directory.path);
     final normalizedStoragePath = p.normalize(storagePath);
     if (p.equals(normalizedDirectoryPath, normalizedStoragePath) ||
         !isPathWithinOrEqual(normalizedStoragePath, normalizedDirectoryPath)) {
-      throw const FileSystemException(
-        'Skill directory is outside the storage root.',
-      );
+      throw const FileSystemException('技能目录不在存储根目录内。');
     }
 
     await deletePathBounded(
@@ -550,7 +548,7 @@ class SkillsRepository {
     final metadataFile = File(
       p.join(directoryPath, _openAiMetadataRelativePath),
     );
-    if (!await metadataFile.exists()) {
+    if (!await isRegularFilePath(metadataFile.path)) {
       return null;
     }
 
@@ -619,17 +617,10 @@ class SkillsRepository {
       return null;
     }
 
-    // Reject absolute paths to prevent path traversal attacks.
-    if (p.isAbsolute(sanitizedPath)) {
+    if (safeRelativePathError(sanitizedPath) != null) {
       return null;
     }
-
     final normalizedPath = p.normalize(sanitizedPath);
-
-    // Reject paths containing parent directory references.
-    if (normalizedPath.contains('..')) {
-      return null;
-    }
 
     final extension = p.extension(normalizedPath).toLowerCase();
     final iconKind = switch (extension) {
@@ -655,7 +646,7 @@ class SkillsRepository {
         continue;
       }
       final iconFile = File(candidatePath);
-      if (await iconFile.exists()) {
+      if (await isRegularFilePath(iconFile.path)) {
         return _ResolvedSkillIcon(path: candidatePath, kind: iconKind);
       }
     }
@@ -971,7 +962,8 @@ class SkillsRepository {
       final directory = Directory(
         p.join(rootDirectory.path, '$baseSlug$suffix'),
       );
-      if (!await directory.exists().timeout(_skillScanIdleTimeout)) {
+      if (await probeFileSystemEntityType(directory.path) ==
+          FileSystemEntityType.notFound) {
         await createDirectoryBounded(directory, timeout: _skillScanIdleTimeout);
         return directory;
       }
@@ -1189,7 +1181,7 @@ class SkillsRepository {
 
   Future<Uint8List?> _readOptionalFileBytes(String filePath) async {
     final file = File(filePath);
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(file, followLinks: false)) {
       return null;
     }
     return readBoundedFileBytes(

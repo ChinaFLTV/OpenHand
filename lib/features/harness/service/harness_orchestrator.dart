@@ -8,7 +8,9 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
@@ -26,6 +28,12 @@ const int _kMaxHarnessPhaseLogLines = 4000;
 const int _kMaxHarnessLogLineCharacters = 4000;
 const Duration _kHarnessProcessStartTimeout = Duration(seconds: 10);
 const Duration _kHarnessArtifactIoTimeout = Duration(seconds: 3);
+const BoundedDeletePolicy _kHarnessPromptDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 1,
+  maxDepth: 0,
+  operationTimeout: _kHarnessArtifactIoTimeout,
+  totalTimeout: Duration(seconds: 5),
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase-level status & log
@@ -2422,9 +2430,12 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     if (!shouldRetainPrompt) {
       try {
-        if (promptFile != null &&
-            await promptFile.exists().timeout(_kHarnessArtifactIoTimeout)) {
-          await promptFile.delete().timeout(_kHarnessArtifactIoTimeout);
+        if (promptFile != null) {
+          await deletePathBounded(
+            p.absolute(promptFile.path),
+            policy: _kHarnessPromptDeletePolicy,
+            allowedRoot: p.absolute(promptFile.parent.path),
+          );
         }
       } catch (error, stack) {
         silentLog('harness_orchestrator', '清理 Prompt 文件', error, stack);
@@ -2437,16 +2448,14 @@ class HarnessOrchestrator extends ChangeNotifier {
   void _appendLine(HarnessPhaseLog log, String line) {
     if (log.lines.length >= _kMaxHarnessPhaseLogLines) {
       log.lines.removeRange(0, _kMaxHarnessPhaseLogLines ~/ 4);
-      log.lines.insert(0, '… earlier phase output truncated …');
+      log.lines.insert(0, '… 较早的阶段输出已截断 …');
     }
     log.lines.add(clipTextWithEllipsis(line, _kMaxHarnessLogLineCharacters));
   }
 
-  /// Checks whether the mandatory output artifacts for a phase exist.
+  /// 检查阶段必需产物，返回缺失文件路径。
   ///
-  /// Returns a list of missing file paths (empty list = all present).
-  /// Phases with no mandatory artifacts (reading, implementing) always
-  /// return an empty list.
+  /// 无必需产物的阅读和实施阶段始终返回空列表。
   Future<List<String>> _checkMandatoryArtifacts(HarnessPhase phase) async {
     final steeringDir = p.join(config.persistenceDirectory, 'steering');
     final missing = <String>[];
@@ -2455,8 +2464,12 @@ class HarnessOrchestrator extends ChangeNotifier {
       case HarnessPhase.metaCollection:
         final archPath = p.join(steeringDir, 'meta', 'architecture.md');
         final convPath = p.join(steeringDir, 'meta', 'conventions.md');
-        if (!await File(archPath).exists()) missing.add(archPath);
-        if (!await File(convPath).exists()) missing.add(convPath);
+        if (!await isRegularFilePath(archPath)) {
+          missing.add(archPath);
+        }
+        if (!await isRegularFilePath(convPath)) {
+          missing.add(convPath);
+        }
       case HarnessPhase.planning:
         final planDir = Directory(p.join(steeringDir, 'plan'));
         final hasPlanFile = await _containsMarkdownArtifact(planDir);
@@ -2471,13 +2484,13 @@ class HarnessOrchestrator extends ChangeNotifier {
         }
       case HarnessPhase.reading:
       case HarnessPhase.implementing:
-        break; // No mandatory artifacts
+        break;
     }
     return missing;
   }
 
   Future<bool> _containsMarkdownArtifact(Directory directory) async {
-    if (!await directory.exists()) {
+    if (!await isDirectoryPath(directory.path)) {
       return false;
     }
     try {

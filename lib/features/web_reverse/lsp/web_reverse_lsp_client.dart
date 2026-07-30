@@ -13,6 +13,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
@@ -393,7 +394,7 @@ class WebReverseLspClient {
     if (home.isNotEmpty) {
       try {
         final nvmRoot = Directory('$home/.nvm/versions/node');
-        if (await nvmRoot.exists()) {
+        if (await isDirectoryPath(nvmRoot.path)) {
           final listing = await listDirectoryBounded(
             nvmRoot,
             maxEntries: 256,
