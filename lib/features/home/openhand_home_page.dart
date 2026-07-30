@@ -351,6 +351,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     seconds: 30,
   );
   static const Duration _composerAttachmentWriteTimeout = Duration(seconds: 30);
+  static const BoundedDeletePolicy _composerTempDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: 4,
+        maxDepth: 2,
+        operationTimeout: Duration(seconds: 3),
+        totalTimeout: Duration(seconds: 8),
+      );
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
   // 桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
@@ -362,6 +369,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
+  final Set<String> _ownedComposerTempPaths = <String>{};
   bool _clipboardAttachmentPasteInProgress = false;
   final Map<String, List<_QueuedMessage>> _queuedMessagesBySessionId =
       <String, List<_QueuedMessage>>{};
@@ -1554,7 +1562,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeSubmissionSerialsBySessionId.remove(sessionId);
     _locallyStoppedSubmissionSerialsBySessionId.remove(sessionId);
     _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
-    _queuedMessagesBySessionId.remove(sessionId);
+    final removedQueue = _queuedMessagesBySessionId.remove(sessionId);
+    if (removedQueue != null) {
+      _releaseComposerTempPaths(
+        removedQueue.expand(
+          (message) => message.attachments.map((item) => item.filePath),
+        ),
+      );
+    }
     _autoQueuedMessageDispatchSessionIds.remove(sessionId);
     _queuedGuidanceSessionIds.remove(sessionId);
     _queuedGoalResumeSessionIds.remove(sessionId);
@@ -2185,7 +2200,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _removeComposerDraftForSession(String? sessionId) {
-    _composerDraftsBySessionId.remove(_composerDraftKeyForSessionId(sessionId));
+    final removed = _composerDraftsBySessionId.remove(
+      _composerDraftKeyForSessionId(sessionId),
+    );
+    if (removed != null) {
+      _releaseComposerTempPaths(
+        removed.attachments.map((item) => item.filePath),
+      );
+    }
   }
 
   void _storeComposerDraftForSession(
@@ -2206,13 +2228,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _removeComposerDraftForSession(sessionId);
       return;
     }
-    _composerDraftsBySessionId[_composerDraftKeyForSessionId(
-      sessionId,
-    )] = _ComposerDraftState(
+    final key = _composerDraftKeyForSessionId(sessionId);
+    final previous = _composerDraftsBySessionId[key];
+    _composerDraftsBySessionId[key] = _ComposerDraftState(
       text: resolvedText,
       attachments: resolvedAttachments,
       creationRequest: resolvedCreationRequest,
     );
+    if (previous != null) {
+      _releaseComposerTempPaths(
+        previous.attachments.map((item) => item.filePath),
+      );
+    }
   }
 
   bool _sameComposerAttachments(
@@ -2357,6 +2384,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _composerCollapsed = false;
       }
     });
+    _releaseComposerTempPaths(currentAttachments.map((item) => item.filePath));
   }
 
   bool _armAutoFollowToBottom({bool notifyPausedState = true}) {
@@ -6448,7 +6476,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           exception: error,
           stack: stackTrace,
           library: 'openhand_home_page',
-          context: ErrorDescription('while sending a chat message'),
+          context: ErrorDescription('发送聊天消息时'),
         ),
       );
       if (mounted && (!submissionWasStopped() || restoreDraftOnLocalStop)) {
@@ -6617,24 +6645,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       String tempPath;
       try {
-        final tempDir = await Directory.systemTemp.createTemp(
-          'openhand_paste_',
-        );
         final ts = DateTime.now().microsecondsSinceEpoch;
-        final tempFile = File(p.join(tempDir.path, 'pasted_$ts.png'));
-        await writeTemporaryFileBytesBounded(
-          tempFile,
-          bytes,
+        final tempFile = await writeNewTemporaryFileBytesBounded(
+          directoryPrefix: 'openhand_paste_',
+          fileName: 'pasted_$ts.png',
+          bytes: bytes,
           timeout: _composerAttachmentWriteTimeout,
           onSecondaryError: (error, stack) =>
               silentLog('openhand_home_page', '清理剪贴板图片临时文件', error, stack),
         );
-        tempPath = tempFile.path;
+        tempPath = p.normalize(p.absolute(tempFile.path));
+        _ownedComposerTempPaths.add(tempPath);
       } catch (error, stack) {
         silentLog('openhand_home_page', '写入剪贴板临时文件', error, stack);
         return;
       }
       if (!mounted) {
+        _releaseComposerTempPaths(<String>[tempPath]);
         return;
       }
       final result = await _appendComposerAttachmentPaths(<String>[
@@ -6745,11 +6772,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (nextAttachments.length >= aiMessageAttachmentLimit) {
         limitSkippedCount += 1;
+        _releaseComposerTempPaths(<String>[path]);
         continue;
       }
       final kind = aiAttachmentKindForPath(path);
       if (!capabilities.supportsPath(path)) {
         unsupportedCount += 1;
+        _releaseComposerTempPaths(<String>[path]);
         continue;
       }
       var resolvedPath = path;
@@ -6762,6 +6791,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             totalTimeout: _composerAttachmentReadTotalTimeout,
           );
           if (!mounted) {
+            _releaseComposerTempPaths(<String>[path]);
             return const _AppendComposerAttachmentsResult();
           }
           final editorResult = await showImageEditorDialog(
@@ -6770,27 +6800,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             imageSizeLimitBytes: imageSizeLimitBytes,
           );
           if (!mounted) {
+            _releaseComposerTempPaths(<String>[path]);
             return const _AppendComposerAttachmentsResult();
           }
           if (editorResult == null) {
+            _releaseComposerTempPaths(<String>[path]);
             continue;
           }
-          final tempDir = await Directory.systemTemp.createTemp(
-            'openhand_edit_',
-          );
           final ext = editorResult.format;
           final basename = p.basenameWithoutExtension(path).trim().isEmpty
               ? 'image'
               : p.basenameWithoutExtension(path).trim();
-          final tempFile = File(p.join(tempDir.path, '$basename.$ext'));
-          await writeTemporaryFileBytesBounded(
-            tempFile,
-            editorResult.bytes,
+          final tempFile = await writeNewTemporaryFileBytesBounded(
+            directoryPrefix: 'openhand_edit_',
+            fileName: '$basename.$ext',
+            bytes: editorResult.bytes,
             timeout: _composerAttachmentWriteTimeout,
             onSecondaryError: (error, stack) =>
                 silentLog('openhand_home_page', '清理编辑图片临时文件', error, stack),
           );
-          resolvedPath = tempFile.path;
+          resolvedPath = p.normalize(p.absolute(tempFile.path));
+          _ownedComposerTempPaths.add(resolvedPath);
+          _releaseComposerTempPaths(<String>[path]);
         } on BoundedFileReadException catch (error, stack) {
           silentLog('openhand_home_page', '有界读取图片附件', error, stack);
           if (error.failure == BoundedFileReadFailure.tooLarge) {
@@ -6798,14 +6829,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           } else {
             unreadableCount += 1;
           }
+          _releaseComposerTempPaths(<String>[path]);
           continue;
         } on FileSystemException catch (error, stack) {
           silentLog('openhand_home_page', '读取图片附件文件', error, stack);
           unreadableCount += 1;
+          _releaseComposerTempPaths(<String>[path]);
           continue;
         } on TimeoutException catch (error, stack) {
           silentLog('openhand_home_page', '读取图片附件超时', error, stack);
           unreadableCount += 1;
+          _releaseComposerTempPaths(<String>[path]);
           continue;
         } catch (error, stack) {
           silentLog('openhand_home_page', '编辑图片附件', error, stack);
@@ -6813,6 +6847,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
       if (existingPaths.contains(resolvedPath)) {
+        _releaseComposerTempPaths(<String>[resolvedPath]);
         continue;
       }
       try {
@@ -6820,18 +6855,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (draft.sizeBytes < 0 ||
             draft.sizeBytes > aiMessageAttachmentMaxFileBytes) {
           oversizedCount += 1;
+          _releaseComposerTempPaths(<String>[resolvedPath]);
           continue;
         }
         nextAttachments.add(draft);
       } catch (error, stack) {
         silentLog('openhand_home_page', '创建附件草稿', error, stack);
         unreadableCount += 1;
+        _releaseComposerTempPaths(<String>[resolvedPath]);
         continue;
       }
       existingPaths.add(resolvedPath);
       addedCount += 1;
     }
-    if (mounted && addedCount > 0) {
+    if (!mounted) {
+      _releaseComposerTempPaths(nextAttachments.map((item) => item.filePath));
+    } else if (addedCount > 0) {
       setState(() {
         _pendingAttachments = nextAttachments;
         _composerCollapsed = false;
@@ -6892,12 +6931,54 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
+  bool _composerTempPathIsReferenced(String path) {
+    bool matches(_ComposerAttachmentDraft item) =>
+        p.equals(p.normalize(p.absolute(item.filePath)), path);
+    if (_pendingAttachments.any(matches)) return true;
+    if (_composerDraftsBySessionId.values.any(
+      (draft) => draft.attachments.any(matches),
+    )) {
+      return true;
+    }
+    return _queuedMessagesBySessionId.values.any(
+      (queue) => queue.any((message) => message.attachments.any(matches)),
+    );
+  }
+
+  void _releaseComposerTempPaths(Iterable<String> paths) {
+    final tempRoot = p.absolute(Directory.systemTemp.path);
+    for (final rawPath in paths) {
+      final path = p.normalize(p.absolute(rawPath));
+      if (!_ownedComposerTempPaths.contains(path) ||
+          _composerTempPathIsReferenced(path)) {
+        continue;
+      }
+      _ownedComposerTempPaths.remove(path);
+      unawaited(() async {
+        try {
+          await deletePathBounded(
+            p.absolute(File(path).parent.path),
+            policy: _composerTempDeletePolicy,
+            allowedRoot: tempRoot,
+          );
+        } catch (error, stack) {
+          silentLog('openhand_home_page', '清理输入框临时附件', error, stack);
+        }
+      }());
+    }
+  }
+
   void _removePendingAttachment(String filePath) {
+    final removed = _pendingAttachments
+        .where((item) => item.filePath == filePath)
+        .toList(growable: false);
     setState(() {
       _pendingAttachments = _pendingAttachments
           .where((item) => item.filePath != filePath)
           .toList(growable: false);
     });
+    _storeComposerDraftForSession(_activeComposerSessionId);
+    _releaseComposerTempPaths(removed.map((item) => item.filePath));
   }
 
   void _reorderPendingAttachments(int oldIndex, int newIndex) {
@@ -9391,10 +9472,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               _queuedGuidanceSessionIds.contains(currentSession.id),
           onRemove: (index) {
             if (currentSession != null) {
+              _QueuedMessage? removedMessage;
               setState(() {
                 final q = _queuedMessagesBySessionId[currentSession.id];
                 if (q != null && index >= 0 && index < q.length) {
                   final removed = q[index];
+                  removedMessage = removed;
                   q.removeAt(index);
                   if (_failedQueuedMessageIdsBySessionId[currentSession.id] ==
                       removed.id) {
@@ -9407,6 +9490,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   }
                 }
               });
+              final removed = removedMessage;
+              if (removed != null) {
+                _releaseComposerTempPaths(
+                  removed.attachments.map((item) => item.filePath),
+                );
+              }
             }
           },
           onMove: (from, to) {

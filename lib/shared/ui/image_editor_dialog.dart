@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
-import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
@@ -2099,12 +2098,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       return;
     }
     try {
-      final tempDir = await Directory.systemTemp.createTemp('openhand_clip_');
       final ext = _aspect == _CropAspect.circle ? 'png' : 'jpg';
-      final tempFile = File(p.join(tempDir.path, 'image.$ext'));
-      await writeTemporaryFileBytesBounded(
-        tempFile,
-        outputBytes,
+      final tempFile = await writeNewTemporaryFileBytesBounded(
+        directoryPrefix: 'openhand_clip_',
+        fileName: 'image.$ext',
+        bytes: outputBytes,
         timeout: _imageEditorTempWriteTimeout,
         onSecondaryError: (error, stack) =>
             silentLog('image_editor_dialog', '清理剪贴板图片临时文件', error, stack),

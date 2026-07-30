@@ -3,19 +3,167 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:path/path.dart' as p;
+
 import 'argument_guards.dart';
 import 'async_concurrency.dart';
+import 'bounded_delete.dart';
 import 'byte_size_format.dart';
+import 'path_safety.dart';
 import 'text_clip.dart';
 
 const int _boundedFileReadChunkBytes = 64 * 1024;
 const Duration _boundedFileCleanupTimeout = Duration(seconds: 2);
+const BoundedDeletePolicy _temporaryDirectoryCleanupPolicy =
+    BoundedDeletePolicy(
+      maxEntries: 16,
+      maxDepth: 2,
+      operationTimeout: _boundedFileCleanupTimeout,
+      totalTimeout: Duration(seconds: 6),
+    );
 const Duration defaultBoundedFileReadIdleTimeout = Duration(seconds: 3);
 const Duration defaultBoundedFileReadTotalTimeout = Duration(seconds: 10);
 const int _posixFileTypeMask = 0xF000;
 const int _posixRegularFileType = 0x8000;
 
 enum BoundedFileReadFailure { tooLarge, changedDuringRead }
+
+/// 在系统临时目录中新建私有目录并写入二进制文件。
+///
+/// 创建和写入共享同一总时限；失败时删除整个临时目录，创建操作延迟完成时也会
+/// 在完成后补做清理，避免空目录和半文件残留。
+Future<File> writeNewTemporaryFileBytesBounded({
+  required String directoryPrefix,
+  required String fileName,
+  required List<int> bytes,
+  required Duration timeout,
+  bool flush = true,
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) {
+  return _writeNewTemporaryFileBounded(
+    directoryPrefix: directoryPrefix,
+    fileName: fileName,
+    timeout: timeout,
+    write: (file) async {
+      await file.writeAsBytes(bytes, flush: flush);
+    },
+    onSecondaryError: onSecondaryError,
+  );
+}
+
+/// 文本版本的 [writeNewTemporaryFileBytesBounded]。
+Future<File> writeNewTemporaryFileTextBounded({
+  required String directoryPrefix,
+  required String fileName,
+  required String text,
+  required Duration timeout,
+  Encoding encoding = utf8,
+  bool flush = true,
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) {
+  return _writeNewTemporaryFileBounded(
+    directoryPrefix: directoryPrefix,
+    fileName: fileName,
+    timeout: timeout,
+    write: (file) async {
+      await file.writeAsString(text, encoding: encoding, flush: flush);
+    },
+    onSecondaryError: onSecondaryError,
+  );
+}
+
+Future<File> _writeNewTemporaryFileBounded({
+  required String directoryPrefix,
+  required String fileName,
+  required Duration timeout,
+  required Future<void> Function(File file) write,
+  required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) async {
+  requirePositiveDuration(timeout, 'timeout');
+  final prefix = sanitizePortableFileNamePart(
+    directoryPrefix,
+    fallback: 'openhand-temp-',
+    maxCharacters: 64,
+    collapseReplacement: true,
+  );
+  final name = sanitizePortableFileNamePart(
+    fileName,
+    fallback: 'temporary-file',
+    allowWhitespace: true,
+    collapseReplacement: true,
+  );
+  final deadline = MonotonicDeadline(timeout, timeoutMessage: '临时文件写入超过总时限。');
+  final createFuture = Directory.systemTemp.createTemp(prefix);
+  Directory? directory;
+  try {
+    try {
+      directory = await createFuture.timeout(deadline.remaining());
+    } on TimeoutException {
+      unawaited(
+        createFuture.then<void>(
+          (created) => _deleteTemporaryDirectory(
+            created,
+            onSecondaryError: onSecondaryError,
+          ),
+          onError: (Object error, StackTrace stack) =>
+              _reportSecondaryFileError(onSecondaryError, error, stack),
+        ),
+      );
+      rethrow;
+    }
+    final file = File(p.join(directory.path, name));
+    final writeTimeout = deadline.remaining();
+    final writeFuture = Future<void>.sync(() => write(file));
+    try {
+      await writeFuture.timeout(writeTimeout);
+    } on TimeoutException {
+      final created = directory;
+      directory = null;
+      unawaited(
+        writeFuture
+            .then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stack) =>
+                  _reportSecondaryFileError(onSecondaryError, error, stack),
+            )
+            .whenComplete(
+              () => _deleteTemporaryDirectory(
+                created,
+                onSecondaryError: onSecondaryError,
+              ),
+            ),
+      );
+      rethrow;
+    }
+    return file;
+  } catch (_) {
+    final created = directory;
+    if (created != null) {
+      await _deleteTemporaryDirectory(
+        created,
+        onSecondaryError: onSecondaryError,
+      );
+    }
+    rethrow;
+  } finally {
+    deadline.stop();
+  }
+}
+
+Future<void> _deleteTemporaryDirectory(
+  Directory directory, {
+  required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) async {
+  try {
+    await deletePathBounded(
+      p.absolute(directory.path),
+      policy: _temporaryDirectoryCleanupPolicy,
+      allowedRoot: p.absolute(Directory.systemTemp.path),
+    );
+  } catch (error, stack) {
+    _reportSecondaryFileError(onSecondaryError, error, stack);
+  }
+}
 
 /// 在明确时限内写入临时二进制文件；失败或超时后自动删除残留文件。
 ///

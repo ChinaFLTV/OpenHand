@@ -2465,11 +2465,10 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
 
   Future<void> _openInBrowser(BuildContext context) async {
     try {
-      final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
-      final htmlFile = File(p.join(tempDir.path, 'preview.html'));
-      await writeTemporaryFileTextBounded(
-        htmlFile,
-        widget.htmlContent,
+      final htmlFile = await writeNewTemporaryFileTextBounded(
+        directoryPrefix: 'openhand_html_',
+        fileName: 'preview.html',
+        text: widget.htmlContent,
         timeout: _tempPreviewWriteTimeout,
         onSecondaryError: (error, stack) =>
             silentLog('home_code_highlighting', '清理浏览器预览临时文件', error, stack),
@@ -2826,12 +2825,11 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
 
   Future<void> _tryLoadFromFile() async {
     try {
-      // Create temp HTML file as fallback.
-      final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
-      final htmlFile = File(p.join(tempDir.path, 'preview.html'));
-      await writeTemporaryFileTextBounded(
-        htmlFile,
-        widget.htmlContent,
+      // 创建临时 HTML 文件作为后备加载源。
+      final htmlFile = await writeNewTemporaryFileTextBounded(
+        directoryPrefix: 'openhand_html_',
+        fileName: 'preview.html',
+        text: widget.htmlContent,
         timeout: _tempPreviewWriteTimeout,
         onSecondaryError: (error, stack) =>
             silentLog('home_code_highlighting', '清理 HTML 预览临时文件', error, stack),
@@ -3238,16 +3236,17 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         mermaidJs,
       );
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
-        final tempDir = await Directory.systemTemp.createTemp(
-          'openhand_mermaid_',
-        );
-        final tempFile = File(p.join(tempDir.path, 'index.html'));
-        await writeTemporaryFileTextBounded(
-          tempFile,
-          html,
+        final tempFile = await writeNewTemporaryFileTextBounded(
+          directoryPrefix: 'openhand_mermaid_',
+          fileName: 'index.html',
+          text: html,
           timeout: _tempPreviewWriteTimeout,
-          onSecondaryError: (error, stack) =>
-              silentLog('home_code_highlighting', '清理 Mermaid 临时页面', error, stack),
+          onSecondaryError: (error, stack) => silentLog(
+            'home_code_highlighting',
+            '清理 Mermaid 临时页面',
+            error,
+            stack,
+          ),
         );
         _tempHtmlPath = tempFile.path;
         await controller.loadFile(tempFile.path);
@@ -3678,14 +3677,17 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     String? savedPath;
     try {
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final tempDir = await Directory.systemTemp.createTemp('openhand_svg_');
-      final tempFile = File(p.join(tempDir.path, 'mermaid_$ts.svg'));
-      await writeTemporaryFileTextBounded(
-        tempFile,
-        svg,
+      final tempFile = await writeNewTemporaryFileTextBounded(
+        directoryPrefix: 'openhand_svg_',
+        fileName: 'mermaid_$ts.svg',
+        text: svg,
         timeout: _tempPreviewWriteTimeout,
-        onSecondaryError: (error, stack) =>
-            silentLog('home_code_highlighting', '清理 Mermaid SVG 临时文件', error, stack),
+        onSecondaryError: (error, stack) => silentLog(
+          'home_code_highlighting',
+          '清理 Mermaid SVG 临时文件',
+          error,
+          stack,
+        ),
       );
       savedPath = tempFile.path;
     } catch (error, stack) {
