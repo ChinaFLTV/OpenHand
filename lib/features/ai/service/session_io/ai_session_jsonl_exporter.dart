@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/stable_hash.dart';
@@ -16,7 +16,15 @@ import '../../model/ai_session_message.dart';
 
 const String _aiSessionJsonlSchema = 'openhand.ai_session.jsonl';
 const int _aiSessionJsonlVersion = 2;
-const int _maxJsonSanitizeDepth = 96;
+const BoundedJsonConversionConfig _jsonlConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 96,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+      maxDepthPlaceholder: '<max_depth_exceeded>',
+      cyclicMapPlaceholder: '<cyclic_map>',
+      cyclicIterablePlaceholder: '<cyclic_iterable>',
+    );
 const String _jsonlExtension = '.jsonl';
 const String _defaultJsonlExportFilename = 'session.jsonl';
 final RegExp _jsonlExtensionPattern = RegExp(r'\.jsonl$', caseSensitive: false);
@@ -181,73 +189,9 @@ class HarnessSessionExportConfig {
 }
 
 String _encodePayload(Map<String, Object?> payload) {
-  return jsonEncode(_jsonSafeMap(payload));
-}
-
-Map<String, Object?> _jsonSafeMap(Map<String, Object?> value) {
-  final seen = HashSet<Object>.identity();
-  return Map<String, Object?>.from(
-    _jsonSafeValue(value, depth: 0, seen: seen) as Map<String, Object?>,
+  return jsonEncode(
+    convertToJsonSafeMap(payload, config: _jsonlConversionConfig),
   );
-}
-
-Object? _jsonSafeValue(
-  Object? value, {
-  required int depth,
-  required Set<Object> seen,
-}) {
-  if (value == null || value is String || value is bool) {
-    return value;
-  }
-  if (value is num) {
-    return value.isFinite ? value : value.toString();
-  }
-  if (value is DateTime) {
-    return value.toUtc().toIso8601String();
-  }
-  if (value is Duration) {
-    return value.inMilliseconds;
-  }
-  if (value is Uri || value is BigInt) {
-    return value.toString();
-  }
-  if (value is Enum) {
-    return value.name;
-  }
-  if (depth >= _maxJsonSanitizeDepth) {
-    return '<max_depth_exceeded>';
-  }
-  if (value is Map) {
-    if (!seen.add(value)) {
-      return '<cyclic_map>';
-    }
-    try {
-      final result = <String, Object?>{};
-      for (final entry in value.entries) {
-        result['${entry.key}'] = _jsonSafeValue(
-          entry.value,
-          depth: depth + 1,
-          seen: seen,
-        );
-      }
-      return result;
-    } finally {
-      seen.remove(value);
-    }
-  }
-  if (value is Iterable) {
-    if (!seen.add(value)) {
-      return '<cyclic_iterable>';
-    }
-    try {
-      return value
-          .map((item) => _jsonSafeValue(item, depth: depth + 1, seen: seen))
-          .toList(growable: false);
-    } finally {
-      seen.remove(value);
-    }
-  }
-  return value.toString();
 }
 
 ({

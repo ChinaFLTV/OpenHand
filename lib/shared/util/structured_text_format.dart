@@ -3,13 +3,18 @@ import 'dart:convert';
 import 'package:xml/xml.dart';
 import 'package:yaml/yaml.dart';
 
+import 'bounded_json_conversion.dart';
 import 'input_value_parsing.dart';
 
 enum StructuredTextFormat { json, xml, yaml }
 
-const int _kMaxStructuredTextNestingDepth = 64;
-const String _kCircularStructuredValuePlaceholder = '<circular>';
-const String _kMaxDepthStructuredValuePlaceholder = '<max-depth>';
+const BoundedJsonConversionConfig _structuredTextConversionConfig =
+    BoundedJsonConversionConfig(
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+      cyclicMapPlaceholder: '<circular>',
+      cyclicIterablePlaceholder: '<circular>',
+    );
 
 final class StructuredTextFormatResult {
   const StructuredTextFormatResult({required this.text, this.format});
@@ -119,7 +124,12 @@ final class _YamlTextFormatterStrategy
       final loaded = loadYaml(trimmed);
       if (loaded is! Map && loaded is! List) return null;
       return StructuredTextFormatResult(
-        text: prettyPrintJson(_jsonSafeValue(loaded)),
+        text: prettyPrintJson(
+          convertToJsonSafeValue(
+            loaded,
+            config: _structuredTextConversionConfig,
+          ),
+        ),
         format: StructuredTextFormat.yaml,
       );
     } catch (_) {
@@ -150,53 +160,4 @@ bool _looksLikeYaml(String trimmed) {
     if (colonIndex > 0) structuredLineCount += 1;
   }
   return structuredLineCount > 0;
-}
-
-Object? _jsonSafeValue(Object? value) {
-  return _jsonSafeValueInternal(value, depth: 0, seen: Set<Object>.identity());
-}
-
-Object? _jsonSafeValueInternal(
-  Object? value, {
-  required int depth,
-  required Set<Object> seen,
-}) {
-  if (value == null || value is String || value is bool) {
-    return value;
-  }
-  if (value is num) return value.isFinite ? value : value.toString();
-  if (depth >= _kMaxStructuredTextNestingDepth) {
-    return _kMaxDepthStructuredValuePlaceholder;
-  }
-  if (value is YamlMap || value is Map) {
-    if (!seen.add(value)) return _kCircularStructuredValuePlaceholder;
-    final map = value as Map;
-    try {
-      return <String, Object?>{
-        for (final entry in map.entries)
-          '${entry.key}': _jsonSafeValueInternal(
-            entry.value,
-            depth: depth + 1,
-            seen: seen,
-          ),
-      };
-    } finally {
-      seen.remove(value);
-    }
-  }
-  if (value is YamlList || value is List) {
-    if (!seen.add(value)) return _kCircularStructuredValuePlaceholder;
-    final list = value as List;
-    try {
-      return list
-          .map(
-            (entry) =>
-                _jsonSafeValueInternal(entry, depth: depth + 1, seen: seen),
-          )
-          .toList(growable: false);
-    } finally {
-      seen.remove(value);
-    }
-  }
-  return value.toString();
 }

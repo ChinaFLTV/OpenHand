@@ -6,7 +6,14 @@ library;
 
 import 'dart:convert';
 
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+
+const BoundedJsonConversionConfig _webEngineJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxTotalNodes: 200000,
+      nonFiniteNumberBehavior: JsonNonFiniteNumberBehavior.zero,
+    );
 
 /// JSON 解析容错：忽略空值、自动 trim，统一返回 String。
 String stringOf(Object? raw, {String fallback = ''}) {
@@ -36,23 +43,14 @@ Map<String, Object?> decodeJsonObjectBytes(
   return stringKeyedMapFromValue(decoded);
 }
 
-/// 把 Map 递归收敛为可安全 jsonEncode 的形态：key 一律转 String，非有限的
-/// num（NaN / ±Infinity）替换为 0——这两类值会让 jsonEncode 直接抛异常，
-/// 而缓存索引与遥测都要求落盘不能失败。
+/// 把 Map 有界递归转换为可安全编码的形态：key 转为 String，非有限数值
+/// 替换为 0，并截断循环引用或超限容器。
 Map<String, Object?> jsonSafeMap(Map<Object?, Object?> value) {
-  return <String, Object?>{
-    for (final entry in value.entries)
-      '${entry.key}': jsonSafeValue(entry.value),
-  };
+  return convertToJsonSafeMap(value, config: _webEngineJsonConversionConfig);
 }
 
 Object? jsonSafeValue(Object? value) {
-  if (value is num && !value.isFinite) return 0;
-  if (value is Map) return jsonSafeMap(value);
-  if (value is List) {
-    return value.map(jsonSafeValue).toList(growable: false);
-  }
-  return value;
+  return convertToJsonSafeValue(value, config: _webEngineJsonConversionConfig);
 }
 
 /// 把任意 Map 解码成嵌套 Map / List 安全版本。
