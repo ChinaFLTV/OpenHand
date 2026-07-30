@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 
 /// 限制高开销 HTML WebView 平台视图的并发挂载量。
@@ -73,7 +74,7 @@ class HtmlWebViewMountLimiter {
     _active.remove(permit.id);
     permit._granted = false;
     permit._released = true;
-    permit._onRevoked?.call();
+    _notifyRevoked(permit);
     _drain();
   }
 
@@ -89,7 +90,7 @@ class HtmlWebViewMountLimiter {
     _waiting.clear();
     _active.clear();
     for (final permit in activePermits) {
-      permit._onRevoked?.call();
+      _notifyRevoked(permit);
     }
   }
 
@@ -103,17 +104,53 @@ class HtmlWebViewMountLimiter {
       _active[permit.id] = permit;
       final schedule = _scheduleGranted;
       if (schedule == null) {
-        if (!permit._released) {
-          permit._onGranted();
-        }
+        if (!permit._released) _notifyGranted(permit);
       } else {
-        schedule(() {
-          if (!permit._released) {
-            permit._onGranted();
-          }
-        });
+        try {
+          schedule(() {
+            if (!permit._released && !_notifyGranted(permit)) {
+              _drain();
+            }
+          });
+        } catch (error, stack) {
+          _releaseFailedPermit(permit, error, stack);
+        }
       }
     }
+  }
+
+  bool _notifyGranted(HtmlWebViewMountPermit permit) {
+    try {
+      permit._onGranted();
+      return true;
+    } catch (error, stack) {
+      _releaseFailedPermit(permit, error, stack);
+      return false;
+    }
+  }
+
+  void _notifyRevoked(HtmlWebViewMountPermit permit) {
+    try {
+      permit._onRevoked?.call();
+    } catch (error, stack) {
+      _reportCallbackError(error, stack);
+    }
+  }
+
+  void _releaseFailedPermit(
+    HtmlWebViewMountPermit permit,
+    Object error,
+    StackTrace stack,
+  ) {
+    permit._granted = false;
+    permit._released = true;
+    _active.remove(permit.id);
+    _reportCallbackError(error, stack);
+  }
+
+  void _reportCallbackError(Object error, StackTrace stack) {
+    final zone = Zone.current;
+    zone.scheduleMicrotask(() => zone.handleUncaughtError(error, stack));
   }
 }
 
