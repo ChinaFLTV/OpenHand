@@ -305,37 +305,81 @@ void validateCanonicalJsonSubset(
   Object? source,
   Object? canonical, {
   String path = 'value',
+  int maxDepth = 128,
+  int maxContainerItems = 100000,
+  int maxTotalNodes = 1000000,
+  bool requireMatchingScalarTypes = true,
 }) {
-  if (source is Map) {
-    if (canonical is! Map) throw FormatException('$path must be an object.');
-    for (final entry in source.entries) {
-      final key = '${entry.key}';
-      if (!canonical.containsKey(key)) {
-        throw FormatException('$path contains unsupported field $key.');
+  if (maxDepth < 0 || maxContainerItems <= 0 || maxTotalNodes <= 0) {
+    throw ArgumentError('JSON 校验边界无效。');
+  }
+  final pending =
+      <({Object? source, Object? canonical, String path, int depth})>[
+        (source: source, canonical: canonical, path: path, depth: 0),
+      ];
+  var visitedNodes = 0;
+
+  while (pending.isNotEmpty) {
+    final current = pending.removeLast();
+    visitedNodes += 1;
+    if (visitedNodes > maxTotalNodes) {
+      throw FormatException('${current.path} 的节点数量超过限制。');
+    }
+    if (current.depth > maxDepth) {
+      throw FormatException('${current.path} 的嵌套层级超过限制。');
+    }
+
+    final currentSource = current.source;
+    final currentCanonical = current.canonical;
+    if (currentSource is Map) {
+      if (currentCanonical is! Map) {
+        throw FormatException('${current.path} 必须是对象。');
       }
-      validateCanonicalJsonSubset(
-        entry.value,
-        canonical[key],
-        path: '$path.$key',
-      );
+      if (currentSource.length > maxContainerItems) {
+        throw FormatException('${current.path} 的字段数量超过限制。');
+      }
+      final entries = currentSource.entries.toList(growable: false);
+      for (final entry in entries) {
+        final key = '${entry.key}';
+        if (!currentCanonical.containsKey(key)) {
+          throw FormatException('${current.path} 包含不支持的字段：$key。');
+        }
+      }
+      for (var index = entries.length - 1; index >= 0; index -= 1) {
+        final entry = entries[index];
+        final key = '${entry.key}';
+        pending.add((
+          source: entry.value,
+          canonical: currentCanonical[key],
+          path: '${current.path}.$key',
+          depth: current.depth + 1,
+        ));
+      }
+      continue;
     }
-    return;
-  }
-  if (source is List) {
-    if (canonical is! List || source.length != canonical.length) {
-      throw FormatException('$path contains invalid items.');
+    if (currentSource is List) {
+      if (currentCanonical is! List ||
+          currentSource.length != currentCanonical.length) {
+        throw FormatException('${current.path} 包含无效集合项。');
+      }
+      if (currentSource.length > maxContainerItems) {
+        throw FormatException('${current.path} 的集合项数超过限制。');
+      }
+      for (var index = currentSource.length - 1; index >= 0; index -= 1) {
+        pending.add((
+          source: currentSource[index],
+          canonical: currentCanonical[index],
+          path: '${current.path}[$index]',
+          depth: current.depth + 1,
+        ));
+      }
+      continue;
     }
-    for (var index = 0; index < source.length; index++) {
-      validateCanonicalJsonSubset(
-        source[index],
-        canonical[index],
-        path: '$path[$index]',
-      );
+    if ((requireMatchingScalarTypes &&
+            currentSource.runtimeType != currentCanonical.runtimeType) ||
+        currentSource != currentCanonical) {
+      throw FormatException('${current.path} 包含无效值。');
     }
-    return;
-  }
-  if (source.runtimeType != canonical.runtimeType || source != canonical) {
-    throw FormatException('$path contains an invalid value.');
   }
 }
 

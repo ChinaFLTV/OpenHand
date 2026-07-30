@@ -28,9 +28,11 @@ import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -164,6 +166,20 @@ const EdgeInsets _agentActivityCardPadding = EdgeInsets.fromLTRB(
   12,
 );
 const int _agentRoutePreviewKeywordLimit = 10;
+const int _agentStructuredFieldMaxItems = 256;
+const int _agentStructuredFieldKeyMaxChars = 256;
+const int _agentStructuredFieldValueMaxChars = 32768;
+const BoundedJsonConversionConfig _agentStructuredValueConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 16,
+      maxContainerItems: _agentStructuredFieldMaxItems,
+      maxTotalNodes: 4096,
+      maxStringCodeUnits: _agentStructuredFieldValueMaxChars,
+      maxDepthPlaceholder: '<层级过深>',
+      cyclicMapPlaceholder: '<循环映射>',
+      cyclicIterablePlaceholder: '<循环集合>',
+      truncatedPlaceholder: '<已截断>',
+    );
 const List<String> _agentImageExtensions = <String>[
   'jpg',
   'jpeg',
@@ -10449,7 +10465,7 @@ class _AgentKeyValueEditor extends StatelessWidget {
     final theme = Theme.of(context);
     final addButton = IconButton.filledTonal(
       tooltip: openHandLocalizedText(context, zh: '添加字段', en: 'Add field'),
-      onPressed: onAdd,
+      onPressed: entries.length >= _agentStructuredFieldMaxItems ? null : onAdd,
       icon: const Icon(Icons.add_rounded),
     );
     final animationSettings = _agentChipAnimationSettings(context);
@@ -10477,6 +10493,8 @@ class _AgentKeyValueEditor extends StatelessWidget {
                             flex: 5,
                             child: TextField(
                               controller: entry.key,
+                              maxLength: _agentStructuredFieldKeyMaxChars,
+                              buildCounter: openHandHiddenTextFieldCounter,
                               decoration: InputDecoration(labelText: keyLabel),
                               onChanged: (_) => onChanged?.call(),
                             ),
@@ -10486,6 +10504,8 @@ class _AgentKeyValueEditor extends StatelessWidget {
                             flex: 7,
                             child: TextField(
                               controller: entry.value,
+                              maxLength: _agentStructuredFieldValueMaxChars,
+                              buildCounter: openHandHiddenTextFieldCounter,
                               decoration: InputDecoration(
                                 labelText: valueLabel,
                               ),
@@ -12103,20 +12123,32 @@ class _KeyValueDraft {
   static String _valueText(Object? value) {
     if (value == null) return '';
     if (value is String) {
-      return value.trim().toLowerCase() == 'null' ? '' : value;
+      if (value.trim().toLowerCase() == 'null') return '';
+      return clipTextByCodeUnits(
+        value,
+        _agentStructuredFieldValueMaxChars,
+        suffix: '...[已截断]',
+      );
     }
-    try {
-      return jsonEncode(value);
-    } catch (_) {
-      return '$value';
-    }
+    return jsonEncode(
+      convertToJsonSafeValue(
+        value,
+        config: _agentStructuredValueConversionConfig,
+      ),
+    );
   }
 }
 
 List<_KeyValueDraft> _keyValueEntriesFromMap(Map<String, Object?>? map) {
   if (map == null || map.isEmpty) return <_KeyValueDraft>[];
   return map.entries
-      .map((entry) => _KeyValueDraft(key: entry.key, value: entry.value))
+      .take(_agentStructuredFieldMaxItems)
+      .map(
+        (entry) => _KeyValueDraft(
+          key: clipTextByCodeUnits(entry.key, _agentStructuredFieldKeyMaxChars),
+          value: entry.value,
+        ),
+      )
       .toList();
 }
 
@@ -12125,7 +12157,11 @@ Map<String, Object?> _agentKeyValueDraftMapFromEntries(
 ) {
   final result = <String, Object?>{};
   for (final entry in entries) {
-    final key = entry.key.text.trim();
+    if (result.length >= _agentStructuredFieldMaxItems) break;
+    final key = clipTextByCodeUnits(
+      entry.key.text.trim(),
+      _agentStructuredFieldKeyMaxChars,
+    );
     if (key.isEmpty) continue;
     result[key] = _agentParseStructuredValue(entry.value.text);
   }
@@ -12135,7 +12171,10 @@ Map<String, Object?> _agentKeyValueDraftMapFromEntries(
 String? _agentFirstDuplicateKey(Iterable<_KeyValueDraft> entries) {
   final seen = <String>{};
   for (final entry in entries) {
-    final key = entry.key.text.trim();
+    final key = clipTextByCodeUnits(
+      entry.key.text.trim(),
+      _agentStructuredFieldKeyMaxChars,
+    );
     if (key.isEmpty) continue;
     final normalized = key.toLowerCase();
     if (!seen.add(normalized)) return key;
@@ -12147,8 +12186,18 @@ Object? _agentParseStructuredValue(String raw) {
   final value = raw.trim();
   if (value.isEmpty) return '';
   if (value.toLowerCase() == 'null') return '';
+  if (value.length > _agentStructuredFieldValueMaxChars) {
+    return clipTextByCodeUnits(
+      value,
+      _agentStructuredFieldValueMaxChars,
+      suffix: '...[已截断]',
+    );
+  }
   try {
-    return jsonDecode(value);
+    return convertToJsonSafeValue(
+      jsonDecode(value),
+      config: _agentStructuredValueConversionConfig,
+    );
   } on FormatException {
     return value;
   }
