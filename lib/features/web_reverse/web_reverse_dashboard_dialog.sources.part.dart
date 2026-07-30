@@ -133,6 +133,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   void _onCtrlChanged() {
     if (!mounted) return;
+    final selectedId = _selectedId;
+    final selectedScriptRemoved =
+        selectedId != null &&
+        !widget.controller.parsedScripts.containsKey(selectedId);
     // 暂停状态变更时刷新调试器侧栏 + 把当前栈帧位置滚到视野中央。
     final paused = widget.controller.pausedState;
     if (paused != null && paused.callFrames.isNotEmpty) {
@@ -147,7 +151,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         });
       }
     }
-    setState(() {});
+    setState(() {
+      if (!selectedScriptRemoved) return;
+      _selectedId = null;
+      _source = null;
+      _sourceMap = null;
+      _sourceMapLoading = false;
+      _originalSourceIndex = -1;
+      _bpAtLine.clear();
+      _lastSentUri = null;
+    });
   }
 
   @override
@@ -922,16 +935,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       _originalSourceIndex = -1;
     });
     final src = await widget.controller.getScriptSource(id);
-    if (!mounted) return;
+    if (!mounted || _selectedId != id) return;
     setState(() => _source = src);
     _resetSourceScrollPositions();
     await _pushCurrentToLsp();
+    if (!mounted || _selectedId != id) return;
     // 抓 sourcemap 不阻塞源码渲染；完成后追加显示「Map(N)」chip。
     final url = widget.controller.parsedScripts[id]?.url ?? '';
     if (url.isNotEmpty) {
       setState(() => _sourceMapLoading = true);
       final info = await widget.controller.fetchSourceMapForUrl(url);
-      if (!mounted) return;
+      if (!mounted || _selectedId != id) return;
       setState(() {
         _sourceMap = info;
         _sourceMapLoading = false;

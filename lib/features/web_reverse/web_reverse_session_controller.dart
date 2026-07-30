@@ -1100,6 +1100,8 @@ class WebReverseSessionController extends ChangeNotifier {
         _onSecurityStateChanged(ev.params);
       case 'Fetch.requestPaused':
         _onFetchRequestPaused(ev.params);
+      case 'Runtime.executionContextsCleared':
+        _onExecutionContextsCleared();
       case 'Debugger.scriptParsed':
         _onScriptParsed(ev.params);
       case 'Debugger.paused':
@@ -6317,6 +6319,13 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  void _onExecutionContextsCleared() {
+    _parsedScripts.clear();
+    _scriptSources.clear();
+    _sourceMapCache.clear();
+    _notifyInspectorChanged();
+  }
+
   /// 在 page 上启用 Debugger domain；调用后 [_onScriptParsed] 会陆续填充 [_parsedScripts]。
   Future<bool> enableDebugger() async {
     final cdp = _browserCdp;
@@ -6367,16 +6376,23 @@ class WebReverseSessionController extends ChangeNotifier {
     final cached = _scriptSources.get(scriptId);
     if (cached != null) return cached;
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return null;
     try {
       final r = await cdp.send(
         'Debugger.getScriptSource',
         params: <String, Object?>{'scriptId': scriptId},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: _cdpDebuggerTimeout,
       );
       final source = r['scriptSource'] as String?;
       if (source == null) return null;
+      if (_disposed ||
+          !identical(_browserCdp, cdp) ||
+          _pageSessionId != sessionId ||
+          !_parsedScripts.containsKey(scriptId)) {
+        return null;
+      }
       final boundedSource = _capWebReverseText(
         source,
         _maxScriptSourceChars,
@@ -8610,22 +8626,23 @@ class WebReverseSessionController extends ChangeNotifier {
 
   // ─── Source Map 解析（Slice 3：源码板块集成） ───
   // 缓存 key 用脚本 URL；map 经常达到数 MB，因此同时限制条目数与估算字符数。
-  // null 表示「尝试过但失败 / 没有 sourceMappingURL」，避免反复重试。
-  final LifecycleLruCache<WebReverseSourceMapInfo?> _sourceMapCache =
-      LifecycleLruCache<WebReverseSourceMapInfo?>(
+  final LifecycleLruCache<WebReverseSourceMapInfo> _sourceMapCache =
+      LifecycleLruCache<WebReverseSourceMapInfo>(
         maxEntries: _maxSourceMapCacheEntries,
         maxCost: _maxSourceMapCacheChars,
-        costOf: (value) => value?.estimatedRetainedChars ?? 1,
+        costOf: (value) => value.estimatedRetainedChars,
       );
 
-  /// 从已 parsed 脚本的 URL 抓取并解析 source map：先 fetch 文件文本拿
-  /// `//# sourceMappingURL=` 注释，再 fetch map JSON，最后 Dart 端 VLQ
-  /// 解码 mappings 为 segments（按行索引）。
+  /// 从已解析脚本的 URL 抓取并解析 Source Map：先读取脚本中的
+  /// `sourceMappingURL`，再获取并校验映射文件。VLQ 定位由使用方按需执行。
   /// 返回 null：网络失败 / map 不存在 / JSON 解析失败。
   Future<WebReverseSourceMapInfo?> fetchSourceMapForUrl(String url) async {
     if (url.isEmpty || url.length > _maxImportedUrlChars) return null;
-    if (_sourceMapCache.containsKey(url)) return _sourceMapCache.get(url);
-    if (_browserCdp == null || _pageSessionId == null) return null;
+    final cached = _sourceMapCache.get(url);
+    if (cached != null) return cached;
+    final cdp = _browserCdp;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return null;
     try {
       final js =
           '''
@@ -8727,13 +8744,18 @@ class WebReverseSessionController extends ChangeNotifier {
         awaitPromise: true,
         timeout: _sourceMapFetchTimeout + const Duration(seconds: 2),
       );
+      if (_disposed ||
+          !identical(_browserCdp, cdp) ||
+          _pageSessionId != sessionId) {
+        return null;
+      }
       final raw = cdpStringResultValue(r);
       if (raw == null || raw.length > _maxSourceMapResultChars) {
-        return _cacheSourceMap(url, null);
+        return null;
       }
       final wrap = decodeStringKeyedJsonMap(raw);
       if (wrap == null || wrap['error'] != null || wrap['map'] is! Map) {
-        return _cacheSourceMap(url, null);
+        return null;
       }
       final mapJson = stringKeyedMapFromValue(wrap['map']);
       final rawSources = mapJson['sources'];
@@ -8744,7 +8766,7 @@ class WebReverseSessionController extends ChangeNotifier {
           (rawNames is List && rawNames.length > _maxSourceMapListEntries) ||
           (rawSourcesContent is List &&
               rawSourcesContent.length > _maxSourceMapListEntries)) {
-        return _cacheSourceMap(url, null);
+        return null;
       }
       final sources = stringListFromValue(rawSources);
       final names = stringListFromValue(rawNames);
@@ -8772,13 +8794,13 @@ class WebReverseSessionController extends ChangeNotifier {
       return _cacheSourceMap(url, info);
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '按地址获取源映射', e, st);
-      return _cacheSourceMap(url, null);
+      return null;
     }
   }
 
-  WebReverseSourceMapInfo? _cacheSourceMap(
+  WebReverseSourceMapInfo _cacheSourceMap(
     String url,
-    WebReverseSourceMapInfo? value,
+    WebReverseSourceMapInfo value,
   ) {
     _sourceMapCache.put(url, value);
     return value;
