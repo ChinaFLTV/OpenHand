@@ -144,15 +144,15 @@ class _HarnessSessionTile extends StatelessWidget {
             hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
             splashColor: colorScheme.primary.withValues(alpha: 0.08),
             child: Padding(
-              padding: _kThreadTileContentPadding,
+              padding: _kSidebarTileContentPadding,
               child: Row(
                 children: [
                   Icon(
                     Icons.precision_manufacturing_outlined,
-                    size: 16,
+                    size: _kSidebarTileIconSize,
                     color: iconColor,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: _kSidebarTileIconGap),
                   Expanded(
                     child: OpenHandAnimatedTitleText(
                       text: title,
@@ -376,11 +376,15 @@ class _ThreadTile extends StatelessWidget {
             hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
             splashColor: colorScheme.primary.withValues(alpha: 0.08),
             child: Padding(
-              padding: _kThreadTileContentPadding,
+              padding: _kSidebarTileContentPadding,
               child: Row(
                 children: [
-                  Icon(templateIcon, size: 16, color: iconColor),
-                  const SizedBox(width: 10),
+                  Icon(
+                    templateIcon,
+                    size: _kSidebarTileIconSize,
+                    color: iconColor,
+                  ),
+                  const SizedBox(width: _kSidebarTileIconGap),
                   Expanded(
                     child: TweenAnimationBuilder<Color?>(
                       tween: ColorTween(end: titleColor),
@@ -417,12 +421,6 @@ class _ThreadTile extends StatelessWidget {
     );
   }
 }
-
-/// 线程项内边距：略紧凑于旧卡片，贴合系统导航胶囊密度。
-const EdgeInsets _kThreadTileContentPadding = EdgeInsets.symmetric(
-  horizontal: 14,
-  vertical: 11,
-);
 
 class _ActiveThreadBadge extends StatelessWidget {
   const _ActiveThreadBadge({

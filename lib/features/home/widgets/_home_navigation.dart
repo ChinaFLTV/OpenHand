@@ -109,12 +109,20 @@ class _NavigationPane extends StatefulWidget {
 }
 
 class _NavigationPaneState extends State<_NavigationPane> {
-  // Reuse tiles while their visible state is unchanged.
   final Map<String, _ThreadTileCacheEntry> _threadTileCache =
       <String, _ThreadTileCacheEntry>{};
   _HarnessTileCacheEntry? _harnessTileCache;
-
   final AppearTracker _threadAppear = AppearTracker();
+  final ScrollController _featureScrollController = ScrollController();
+  final ScrollController _threadScrollController = ScrollController();
+  bool _creatingThread = false;
+
+  @override
+  void dispose() {
+    _featureScrollController.dispose();
+    _threadScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant _NavigationPane oldWidget) {
@@ -131,6 +139,16 @@ class _NavigationPaneState extends State<_NavigationPane> {
       if (session.id == sessionId) return session;
     }
     return null;
+  }
+
+  Future<void> _requestCreateThread() async {
+    if (_creatingThread) return;
+    setState(() => _creatingThread = true);
+    try {
+      await widget.onCreateThreadRequested();
+    } finally {
+      if (mounted) setState(() => _creatingThread = false);
+    }
   }
 
   /// Builds an interleaved list of AI thread tiles and the optional HE session
@@ -337,161 +355,280 @@ class _NavigationPaneState extends State<_NavigationPane> {
         if (threadTiles[index].key case final key?) key: index,
     };
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: CustomScrollView(
-        slivers: [
-          SliverList(
-            delegate: SliverChildListDelegate(<Widget>[
-              const SizedBox(height: 18),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: MicroPressFeedback(
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: widget.onCreateThreadRequested,
-                      icon: const Icon(Icons.add_comment_rounded),
-                      label: Text(l10n.newThread),
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availablePanelHeight = math.max(
+          0,
+          constraints.maxHeight - _contentPaneGap,
+        );
+        final featurePanelHeight = math.min(
+          _kFeaturePanelPreferredHeight,
+          availablePanelHeight * _kFeaturePanelMaxShare,
+        );
+        return Column(
+          children: [
+            SizedBox(
+              height: featurePanelHeight,
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: OpenHandSafeScrollbar(
+                  controller: _featureScrollController,
+                  child: CustomScrollView(
+                    controller: _featureScrollController,
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate.fixed([
+                            for (final destination
+                                in _kSystemNavigationDestinations)
+                              _AdaptiveNavigationDestination(
+                                destination: destination,
+                                isSelected:
+                                    widget.selectedSection ==
+                                    destination.section,
+                                onSelected: widget.onSectionSelected,
+                              ),
+                          ]),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              for (final destination in _kSystemNavigationDestinations)
-                _AdaptiveNavigationDestination(
-                  destination: destination,
-                  isSelected: widget.selectedSection == destination.section,
-                  onSelected: widget.onSectionSelected,
-                ),
-              // 系统导航与线程列表的分区：细分割 + 轻量区头，避免「大标题压卡片堆」的土气感。
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
-                child: Row(
+            ),
+            const SizedBox(height: _contentPaneGap),
+            Expanded(
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.forum_outlined,
-                      size: 15,
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.88,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.forum_outlined,
+                            size: 15,
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.88,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.threads,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                          MicroPressFeedback(
+                            scale: 0.94,
+                            enabled: !_creatingThread,
+                            child: IconButton(
+                              tooltip: l10n.newThread,
+                              onPressed: _creatingThread
+                                  ? null
+                                  : _requestCreateThread,
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size.square(
+                                  _kCreateThreadButtonSize,
+                                ),
+                                maximumSize: const Size.square(
+                                  _kCreateThreadButtonSize,
+                                ),
+                                padding: EdgeInsets.zero,
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: colorScheme.onSurfaceVariant,
+                                disabledBackgroundColor: Colors.transparent,
+                                disabledForegroundColor: colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.48),
+                                hoverColor: colorScheme.onSurface.withValues(
+                                  alpha: 0.05,
+                                ),
+                                focusColor: colorScheme.onSurface.withValues(
+                                  alpha: 0.07,
+                                ),
+                                highlightColor: colorScheme.onSurface
+                                    .withValues(alpha: 0.09),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                              ),
+                              icon: AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  _kHomeSidebarTileMotionDuration,
+                                ),
+                                child: _creatingThread
+                                    ? SizedBox.square(
+                                        key: const ValueKey<String>(
+                                          'creating-thread-progress',
+                                        ),
+                                        dimension: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.edit_square,
+                                        key: ValueKey<String>(
+                                          'create-thread-icon',
+                                        ),
+                                        size: 18,
+                                      ),
+                              ),
+                            ),
+                          ),
+                          if (hasThreads) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              constraints: const BoxConstraints(minWidth: 22),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.72),
+                                borderRadius: kOpenHandPillBorderRadius,
+                              ),
+                              child: Text(
+                                '$threadCount',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        l10n.threads,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
+                      child: OpenHandSafeScrollbar(
+                        controller: _threadScrollController,
+                        child: CustomScrollView(
+                          controller: _threadScrollController,
+                          slivers: [
+                            if (!hasThreads)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    4,
+                                    16,
+                                    20,
+                                  ),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surfaceContainerLowest
+                                          .withValues(alpha: 0.55),
+                                      borderRadius: _borderRadius18,
+                                      border: Border.all(
+                                        color: colorScheme.outlineVariant
+                                            .withValues(alpha: 0.45),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(14),
+                                      child: Text(
+                                        l10n.threadsEmptyBody,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                              height: 1.45,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (hasThreads)
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  16,
+                                ),
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (_, index) => threadTiles[index],
+                                    childCount: threadTiles.length,
+                                    addAutomaticKeepAlives: false,
+                                    addRepaintBoundaries: false,
+                                    findChildIndexCallback: (key) =>
+                                        threadTileIndexByKey[key],
+                                  ),
+                                ),
+                              ),
+                            if (widget.hasMoreSessions)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: MicroPressFeedback(
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: TextButton.icon(
+                                        onPressed: widget.onLoadMoreSessions,
+                                        icon: const Icon(
+                                          Icons.expand_more_rounded,
+                                        ),
+                                        label: Text(l10n.threadsLoadMore),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                    if (hasThreads)
-                      Container(
-                        constraints: const BoxConstraints(minWidth: 22),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.72,
-                          ),
-                          borderRadius: kOpenHandPillBorderRadius,
-                        ),
-                        child: Text(
-                          '$threadCount',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-            ]),
-          ),
-          if (!hasThreads)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLowest.withValues(
-                      alpha: 0.55,
-                    ),
-                    borderRadius: _borderRadius18,
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.45),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.threadsEmptyBody,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ),
-          if (hasThreads)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (_, index) => threadTiles[index],
-                  childCount: threadTiles.length,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: false,
-                  findChildIndexCallback: (key) => threadTileIndexByKey[key],
-                ),
-              ),
-            ),
-          if (widget.hasMoreSessions)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: MicroPressFeedback(
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      onPressed: widget.onLoadMoreSessions,
-                      icon: const Icon(Icons.expand_more_rounded),
-                      label: Text(l10n.threadsLoadMore),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }
 
-/// 线程列表项纵向间距：与系统导航胶囊节奏对齐，避免卡片式厚重堆叠。
 const double _kThreadTileGap = 4;
+const double _kFeaturePanelPreferredHeight = 510;
+const double _kFeaturePanelMaxShare = 0.64;
+const double _kCreateThreadButtonSize = 32;
+const EdgeInsets _kSidebarTileOuterPadding = EdgeInsets.fromLTRB(
+  12,
+  0,
+  12,
+  _kThreadTileGap,
+);
+const EdgeInsets _kSidebarTileContentPadding = EdgeInsets.symmetric(
+  horizontal: 14,
+  vertical: 11,
+);
+const double _kSidebarTileIconSize = 16;
+const double _kSidebarTileIconGap = 10;
 
 const List<_NavigationDestinationSpec> _kSystemNavigationDestinations =
     <_NavigationDestinationSpec>[
@@ -552,16 +689,6 @@ const List<_NavigationDestinationSpec> _kSystemNavigationDestinations =
       ),
     ];
 
-const EdgeInsets _kNavigationDestinationOuterPadding = EdgeInsets.symmetric(
-  horizontal: 12,
-);
-const EdgeInsets _kNavigationDestinationContentPadding = EdgeInsets.symmetric(
-  horizontal: 16,
-);
-const double _kNavigationDestinationFallbackHeight = 58;
-const double _kNavigationDestinationIconSize = 22;
-const double _kNavigationDestinationIconGap = 12;
-
 class _NavigationDestinationSpec {
   const _NavigationDestinationSpec({
     required this.section,
@@ -601,9 +728,6 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
     );
     final duration = openHandMotionDuration(context, motionSettings.duration);
     final curve = motionSettings.curve.curve;
-    final tileHeight =
-        theme.navigationDrawerTheme.tileHeight ??
-        _kNavigationDestinationFallbackHeight;
     final backgroundColor = isSelected
         ? colorScheme.primaryContainer
         : Colors.transparent;
@@ -613,13 +737,14 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
     final iconColor = isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurfaceVariant;
-    final textStyle = theme.textTheme.titleMedium?.copyWith(
+    final textStyle = theme.textTheme.titleSmall?.copyWith(
       color: foregroundColor,
       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+      height: 1.25,
     );
 
     return Padding(
-      padding: _kNavigationDestinationOuterPadding,
+      padding: _kSidebarTileOuterPadding,
       child: Semantics(
         button: true,
         selected: isSelected,
@@ -627,7 +752,6 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
           scale: 0.985,
           child: AnimatedContainer(
             width: double.infinity,
-            height: tileHeight,
             duration: duration,
             curve: curve,
             decoration: BoxDecoration(
@@ -645,7 +769,7 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
                   }
                 },
                 child: Padding(
-                  padding: _kNavigationDestinationContentPadding,
+                  padding: _kSidebarTileContentPadding,
                   child: Row(
                     children: [
                       TweenAnimationBuilder<Color?>(
@@ -678,13 +802,13 @@ class _AdaptiveNavigationDestination extends StatelessWidget {
                                     ? destination.selectedIcon
                                     : destination.icon,
                               ),
-                              size: _kNavigationDestinationIconSize,
+                              size: _kSidebarTileIconSize,
                               color: animatedColor ?? iconColor,
                             ),
                           );
                         },
                       ),
-                      const SizedBox(width: _kNavigationDestinationIconGap),
+                      const SizedBox(width: _kSidebarTileIconGap),
                       Expanded(
                         child: AnimatedDefaultTextStyle(
                           duration: duration,
