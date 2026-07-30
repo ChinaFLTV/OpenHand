@@ -520,7 +520,13 @@ class AiFileMutationLedger {
         .map((lane) => lane.tail)
         .toList(growable: false);
     try {
-      await Future.wait<void>(pendingMutations);
+      if (pendingMutations.isNotEmpty) {
+        await Future.wait<void>(pendingMutations).timeout(
+          _ledgerTreeScanTimeout,
+          onTimeout: () =>
+              throw TimeoutException('等待文件变更写入队列完成超时。', _ledgerTreeScanTimeout),
+        );
+      }
       final lateAppends = _lateLedgerAppends.values.toList(growable: false);
       if (lateAppends.isNotEmpty) {
         await Future.wait<void>(lateAppends).timeout(_ledgerFileIoTimeout);
