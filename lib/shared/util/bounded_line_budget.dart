@@ -5,6 +5,8 @@
 /// 预算，所以必须一边回退已渲染的行、一边重算省略数，直到标记也放得下。
 library;
 
+import 'text_clip.dart';
+
 /// [renderLinesWithinBudget] 的结果。
 ///
 /// [includedItemCount] 只统计真正渲染出来的条目，不含省略标记那一行——
@@ -17,8 +19,7 @@ typedef BoundedLineRender = ({String text, int includedItemCount});
 /// - [maxItems] 为候选条数上限，先于预算生效。
 /// - [lineBuilder] 负责把单个条目渲染成一行（不含换行符）。
 /// - 行与行之间按 `\n` 连接，预算计算已计入分隔符。
-/// - 若连一行都放不下，直接返回省略标记本身（与预算无关），保证调用方总能
-///   拿到「有多少内容被丢弃」这一信息，而不是一个空串。
+/// - 若连一行都放不下，省略标记也会在预算内安全裁剪。
 BoundedLineRender renderLinesWithinBudget<T>({
   required List<T> items,
   required int maxItems,
@@ -52,7 +53,10 @@ BoundedLineRender renderLinesWithinBudget<T>({
       break;
     }
     if (lines.isEmpty) {
-      return (text: marker, includedItemCount: 0);
+      return (
+        text: clipTextByCodeUnits(marker, maxCharacters, suffix: ''),
+        includedItemCount: 0,
+      );
     }
     final removed = lines.removeLast();
     includedItemCount -= 1;
