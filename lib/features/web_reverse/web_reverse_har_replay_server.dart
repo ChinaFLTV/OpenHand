@@ -177,7 +177,7 @@ class WebReverseHarReplayServer {
     }
     if (_activeRequests >= _maxConcurrentRequests) {
       unawaited(
-        _respondJson(request, HttpStatus.serviceUnavailable, const {
+        _respondJson(request, HttpStatus.tooManyRequests, const {
           'error': 'too_many_requests',
         }),
       );
@@ -260,7 +260,7 @@ class WebReverseHarReplayServer {
         response.headers.set('x-openhand-har-body-truncated', '1');
       }
       response.add(byPath.bodyBytes);
-      await response.close();
+      await response.close().timeout(_closeTimeout);
     } catch (error, stack) {
       silentLog('web_reverse_har_replay_server', '处理重放请求', error, stack);
       await _closeResponseAfterFailure(request);
@@ -277,7 +277,7 @@ class WebReverseHarReplayServer {
       response.statusCode = statusCode;
       response.headers.contentType = ContentType.json;
       response.write(jsonEncode(body));
-      await response.close();
+      await response.close().timeout(_closeTimeout);
     } catch (error, stack) {
       silentLog('web_reverse_har_replay_server', '写入 JSON 响应', error, stack);
       await _closeResponseAfterFailure(request);
@@ -288,7 +288,7 @@ class WebReverseHarReplayServer {
     try {
       await request.response.close().timeout(_closeTimeout);
     } catch (_) {
-      // The client may already be gone; server shutdown remains authoritative.
+      // 客户端可能已经离线，最终由服务器关闭流程强制回收连接。
     }
   }
 
@@ -313,7 +313,7 @@ class WebReverseHarReplayServer {
     try {
       await Future.wait(pending).timeout(_closeTimeout);
     } catch (_) {
-      // Forced server close is the final lifecycle boundary.
+      // 强制关闭服务器即生命周期最终边界。
     }
   }
 
