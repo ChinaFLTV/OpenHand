@@ -36,8 +36,6 @@ class AiAttachmentService {
   }) : _attachmentsDirectoryPath = attachmentsDirectoryPath,
        _perSessionAttachmentsDirectoryPath = perSessionAttachmentsDirectoryPath;
 
-  static const int maxAttachmentPromptCharactersPerFile = 8000;
-  static const int maxAttachmentPromptCharactersPerMessage = 32000;
   static const int _minAttachmentPromptCharactersPerFile = 512;
   int maxInlineImageDimension = 1568;
   int maxTextRawBytes = 2 * kBytesPerMiB;
@@ -189,7 +187,8 @@ class AiAttachmentService {
     }
     final attachments = <AiMessageAttachment>[];
     final createdFiles = <File>[];
-    var remainingPromptBudget = maxAttachmentPromptCharactersPerMessage;
+    var remainingPromptBudget =
+        aiMessageAttachmentsMaxPromptCharactersPerMessage;
     try {
       for (var index = 0; index < filePaths.length; index++) {
         final sourcePath = p.normalize(filePaths[index].trim());
@@ -215,7 +214,7 @@ class AiAttachmentService {
           remainingPromptBudget,
         );
         var filePromptBudget = math.min(
-          maxAttachmentPromptCharactersPerFile,
+          aiMessageAttachmentMaxPromptCharacters,
           math.max(minimumBudget, fairShareBudget),
         );
         final maxAllowedForCurrent = math.max(
@@ -226,7 +225,7 @@ class AiAttachmentService {
           filePromptBudget = math.min(filePromptBudget, maxAllowedForCurrent);
         } else {
           filePromptBudget = math.min(
-            maxAttachmentPromptCharactersPerFile,
+            aiMessageAttachmentMaxPromptCharacters,
             remainingPromptBudget,
           );
         }

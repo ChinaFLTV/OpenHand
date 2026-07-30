@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
+import '../../../shared/util/text_clip.dart';
 
 enum AiAttachmentKind {
   image('image'),
@@ -29,6 +30,13 @@ enum AiAttachmentKind {
 
 const String aiSessionMessageAttachmentsMetadataKey = 'attachments';
 const int aiMessageAttachmentLimit = 20;
+const int aiMessageAttachmentMaxIdCharacters = 256;
+const int aiMessageAttachmentMaxNameCharacters = 512;
+const int aiMessageAttachmentMaxPathCharacters = 4096;
+const int aiMessageAttachmentMaxMimeTypeCharacters = 256;
+const int aiMessageAttachmentMaxPromptCharacters = 8000;
+const int aiMessageAttachmentsMaxPromptCharactersPerMessage = 32000;
+const int aiMessageAttachmentMaxSummaryCharacters = 2000;
 const int _aiMessageAttachmentMetadataScanLimit = aiMessageAttachmentLimit * 5;
 
 /// 单个消息附件的最大字节数。文件选择阶段即执行限制，避免超限文件进入协议编码链路。
@@ -71,21 +79,37 @@ class AiMessageAttachment {
       ),
     );
   }
-  const AiMessageAttachment({
-    required this.id,
-    required this.name,
-    required this.storagePath,
+  AiMessageAttachment({
+    required String id,
+    required String name,
+    required String storagePath,
     required this.kind,
-    required this.mimeType,
-    required this.sizeBytes,
-    this.promptText = '',
-    this.summaryText = '',
-    this.width,
-    this.height,
-    this.originalSourcePath,
-    this.pixelCount,
-    this.compressionRatio,
-  });
+    required String mimeType,
+    required int sizeBytes,
+    String promptText = '',
+    String summaryText = '',
+    int? width,
+    int? height,
+    String? originalSourcePath,
+    int? pixelCount,
+    double? compressionRatio,
+  }) : id = _clip(id, aiMessageAttachmentMaxIdCharacters),
+       name = _clip(name, aiMessageAttachmentMaxNameCharacters),
+       storagePath = _clip(storagePath, aiMessageAttachmentMaxPathCharacters),
+       mimeType = _clip(mimeType, aiMessageAttachmentMaxMimeTypeCharacters),
+       sizeBytes = sizeBytes < 0 ? 0 : sizeBytes,
+       promptText = _clip(promptText, aiMessageAttachmentMaxPromptCharacters),
+       summaryText = _clip(
+         summaryText,
+         aiMessageAttachmentMaxSummaryCharacters,
+       ),
+       width = width != null && width >= 0 ? width : null,
+       height = height != null && height >= 0 ? height : null,
+       originalSourcePath = nullIfBlank(originalSourcePath) == null
+           ? null
+           : _clip(originalSourcePath!, aiMessageAttachmentMaxPathCharacters),
+       pixelCount = pixelCount != null && pixelCount >= 0 ? pixelCount : null,
+       compressionRatio = optionalUnitIntervalFromValue(compressionRatio);
 
   final String id;
   final String name;
@@ -166,23 +190,45 @@ class AiMessageAttachment {
   }
 
   static List<AiMessageAttachment> listFromMetadata(Object? rawValue) {
-    return stringKeyedMapListFromValueOrJsonText(
-          rawValue,
-          limit: _aiMessageAttachmentMetadataScanLimit,
-        )
-        .map(AiMessageAttachment.fromJson)
-        .where((item) => item.id.isNotEmpty && item.storagePath.isNotEmpty)
-        .take(aiMessageAttachmentLimit)
-        .toList(growable: false);
+    return _boundedAttachments(
+      stringKeyedMapListFromValueOrJsonText(
+            rawValue,
+            limit: _aiMessageAttachmentMetadataScanLimit,
+          )
+          .map(AiMessageAttachment.fromJson)
+          .where((item) => item.id.isNotEmpty && item.storagePath.isNotEmpty),
+    );
   }
 
   static List<Map<String, Object?>> listToMetadata(
     List<AiMessageAttachment> attachments,
   ) {
-    return attachments
-        .take(aiMessageAttachmentLimit)
-        .map((item) => item.toJson())
-        .toList(growable: false);
+    return _boundedAttachments(
+      attachments,
+    ).map((item) => item.toJson()).toList(growable: false);
+  }
+
+  static List<AiMessageAttachment> _boundedAttachments(
+    Iterable<AiMessageAttachment> attachments,
+  ) {
+    final items = <AiMessageAttachment>[];
+    var remainingPromptCharacters =
+        aiMessageAttachmentsMaxPromptCharactersPerMessage;
+    for (final attachment in attachments) {
+      if (attachment.id.isEmpty || attachment.storagePath.isEmpty) continue;
+      final bounded = attachment.promptText.length <= remainingPromptCharacters
+          ? attachment
+          : attachment.copyWith(
+              promptText: _clip(
+                attachment.promptText,
+                remainingPromptCharacters,
+              ),
+            );
+      items.add(bounded);
+      remainingPromptCharacters -= bounded.promptText.length;
+      if (items.length >= aiMessageAttachmentLimit) break;
+    }
+    return items.toList(growable: false);
   }
 
   static int _readInt(Object? value) {
@@ -192,6 +238,10 @@ class AiMessageAttachment {
 
   static int? _readNullableInt(Object? value) {
     return optionalNonNegativeIntFromValue(value);
+  }
+
+  static String _clip(String value, int maxCharacters) {
+    return clipTextByCodeUnits(value.trim(), maxCharacters, suffix: '…');
   }
 }
 
