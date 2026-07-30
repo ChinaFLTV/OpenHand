@@ -395,26 +395,51 @@ class _NavigationPaneState extends State<_NavigationPane> {
                   padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.forum_outlined,
-                        size: 15,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.88,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                l10n.threads,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                            if (hasThreads) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                constraints: const BoxConstraints(minWidth: 22),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.72),
+                                  borderRadius: kOpenHandPillBorderRadius,
+                                ),
+                                child: Text(
+                                  '$threadCount',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          l10n.threads,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
                       MicroPressFeedback(
                         scale: 0.94,
                         enabled: !_creatingThread,
@@ -474,35 +499,18 @@ class _NavigationPaneState extends State<_NavigationPane> {
                           ),
                         ),
                       ),
-                      if (hasThreads) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          constraints: const BoxConstraints(minWidth: 22),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.72),
-                            borderRadius: kOpenHandPillBorderRadius,
-                          ),
-                          child: Text(
-                            '$threadCount',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Expanded(
                   child: OpenHandSafeScrollbar(
                     controller: _threadScrollController,
