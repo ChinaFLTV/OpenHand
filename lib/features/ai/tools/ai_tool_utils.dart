@@ -8,6 +8,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -49,6 +50,13 @@ class AiToolUtils {
   static const Duration _metadataProcessTimeout = Duration(seconds: 2);
   static const Duration _searchProcessTimeout = Duration(seconds: 30);
   static const int _maxSymbolicLinkDepth = 40;
+  static const BoundedDeletePolicy _singleFileDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: 1,
+        maxDepth: 0,
+        operationTimeout: fileTreeScanIdleTimeout,
+        totalTimeout: Duration(seconds: 5),
+      );
 
   static final Map<String, Future<void>> _fileMutationLocks =
       <String, Future<void>>{};
@@ -1323,7 +1331,11 @@ class AiToolUtils {
         );
       }
 
-      await file.delete();
+      await deletePathBounded(
+        p.absolute(file.path),
+        policy: _singleFileDeletePolicy,
+        allowMissing: false,
+      );
       await updateTrackerAfterMutation(
         filePath: file.path,
         fileTracker: fileTracker,

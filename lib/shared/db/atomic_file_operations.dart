@@ -181,7 +181,7 @@ Future<void> deleteFileAtomically(File targetFile) {
         if (await artifact.exists().timeout(
           deadline.limit(_atomicMetadataTimeout),
         )) {
-          await artifact.delete();
+          await _discardAtomicFile(targetFile, artifact);
         }
       }
     } finally {
@@ -689,7 +689,7 @@ Future<void> _writeAtomicallyLocked(
       throw FileSystemException('原子写入临时文件在发布前消失。', tempFile.path);
     }
     if (await backupFile.exists().timeout(remainingBudget())) {
-      await _discardAtomicBackup(targetFile, backupFile);
+      await _discardAtomicFile(targetFile, backupFile);
     }
     if (await targetFile.exists().timeout(remainingBudget())) {
       await targetFile.rename(backupFile.path);
@@ -698,7 +698,7 @@ Future<void> _writeAtomicallyLocked(
     await tempFile.rename(targetFile.path);
     try {
       if (await backupFile.exists().timeout(remainingBudget())) {
-        await _discardAtomicBackup(targetFile, backupFile);
+        await _discardAtomicFile(targetFile, backupFile);
       }
     } catch (_) {
       // 新目标已发布，备份清理失败不应覆盖写入结果。
@@ -723,17 +723,21 @@ Future<void> _writeAtomicallyLocked(
       }
     }
     if (backupExists) {
+      var targetDiscarded = false;
       try {
         if (await targetFile.exists().timeout(_atomicCleanupTimeout)) {
-          await targetFile.delete();
+          await _discardAtomicFile(targetFile, targetFile);
         }
+        targetDiscarded = true;
       } catch (_) {
-        // 删除失败时仍继续尝试恢复。
+        // 目标未移出原路径时不能覆盖恢复，旧备份留待下次启动处理。
       }
-      try {
-        await backupFile.rename(targetFile.path);
-      } catch (_) {
-        // 回滚失败时继续抛出原始异常，由调用方呈现问题。
+      if (targetDiscarded) {
+        try {
+          await backupFile.rename(targetFile.path);
+        } catch (_) {
+          // 回滚失败时继续抛出原始异常，由调用方呈现问题。
+        }
       }
     }
     rethrow;
@@ -797,15 +801,15 @@ Future<void> _discardAtomicBackupQuietly(
   File backupFile,
 ) async {
   try {
-    await _discardAtomicBackup(targetFile, backupFile);
+    await _discardAtomicFile(targetFile, backupFile);
   } catch (_) {
     // 备份清理失败不影响完整目标或恢复结果。
   }
 }
 
-Future<void> _discardAtomicBackup(File targetFile, File backupFile) async {
+Future<void> _discardAtomicFile(File targetFile, File file) async {
   final discardFile = _newAtomicDiscardFile(targetFile);
-  await backupFile.rename(discardFile.path);
+  await file.rename(discardFile.path);
   try {
     await discardFile.delete().timeout(_atomicCleanupTimeout);
   } catch (_) {

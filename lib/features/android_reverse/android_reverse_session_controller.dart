@@ -953,7 +953,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
     }
     final apkFile = File(rawApkPath);
-    if (!await apkFile.exists()) {
+    if (!await isRegularFilePath(apkFile.path, followLinks: true)) {
       return AdbCommandResult(
         args: <String>['static-quick-scan', rawApkPath],
         exitCode: -1,
@@ -1119,7 +1119,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
     }
     try {
-      if (!await File(evidenceBundleScriptPath).exists()) {
+      if (!await isRegularFilePath(
+        evidenceBundleScriptPath,
+        followLinks: true,
+      )) {
         await _writeMcpLinkageArtifacts(updateError: true);
       }
       final result = await runTrackedProcessOrFailed(
@@ -1175,7 +1178,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
     }
     final script = File(scriptPath);
-    if (!await script.exists()) {
+    if (!await isRegularFilePath(script.path, followLinks: true)) {
       return AdbCommandResult(
         args: <String>['local-script', scriptPath, ...args],
         exitCode: -1,
@@ -1516,7 +1519,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       }
       quickScanDir = '$decompiledDir/${resolved.slug}/quick_scan';
     }
-    if (!await Directory(quickScanDir).exists()) {
+    if (!await isDirectoryPath(quickScanDir, followLinks: true)) {
       return AdbCommandResult(
         args: const <String>['static-read-quick-scan'],
         exitCode: -1,
@@ -1704,7 +1707,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
       return _ResolvedStaticApk(apkPath: '', slug: fallbackSlug);
     }
-    if (requireApk && !await File(rawApkPath).exists()) return null;
+    if (requireApk && !await isRegularFilePath(rawApkPath, followLinks: true)) {
+      return null;
+    }
     return _ResolvedStaticApk(
       apkPath: rawApkPath,
       slug: _safeArtifactName(

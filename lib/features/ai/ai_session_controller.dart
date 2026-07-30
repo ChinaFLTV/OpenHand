@@ -2,14 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io'
-    show
-        Directory,
-        File,
-        FileSystemEntity,
-        FileSystemEntityType,
-        Link,
-        NetworkInterface,
-        Platform;
+    show Directory, File, FileSystemEntityType, NetworkInterface, Platform;
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show FlutterView, PlatformDispatcher;
@@ -26,11 +19,11 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
-import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/stable_hash.dart';
@@ -233,6 +226,13 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _toolOutputCleanupPathCheckTimeout = Duration(
     seconds: 3,
   );
+  static const BoundedDeletePolicy _toolOutputDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: 1,
+        maxDepth: 0,
+        operationTimeout: _toolOutputCleanupPathCheckTimeout,
+        totalTimeout: Duration(seconds: 5),
+      );
   static const int _maxForkedToolOutputBytes = 256 * kBytesPerMiB;
   static const String _telemetryInFlightKey = 'telemetry_in_flight';
   static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
@@ -2608,7 +2608,7 @@ class AiSessionController extends ChangeNotifier {
       final dir = Directory(OpenHandPaths.defaultRootDirectoryPath());
       final file = File('${dir.path}/device_id');
       await recoverAtomicWriteBackupIfNeeded(file);
-      if (await file.exists()) {
+      if (await regularFileExistsBounded(file)) {
         final existing = (await readBoundedFileString(
           file,
           maxBytes: _deviceIdFileMaxBytes,
@@ -4491,7 +4491,7 @@ class AiSessionController extends ChangeNotifier {
       return;
     }
     final sourceFile = File(sourcePath);
-    if (!await sourceFile.exists()) {
+    if (!await isRegularFilePath(sourceFile.path, followLinks: true)) {
       return;
     }
     final targetDirectory = Directory(
@@ -5014,28 +5014,16 @@ class AiSessionController extends ChangeNotifier {
     required String allowedRoot,
   }) async {
     try {
-      final type = await FileSystemEntity.type(path, followLinks: false);
-      switch (type) {
-        case FileSystemEntityType.file:
-          final isContained = await isPhysicalPathWithinOrEqual(
-            allowedRoot,
-            path,
-          ).timeout(_toolOutputCleanupPathCheckTimeout, onTimeout: () => false);
-          if (!isContained) return;
-          await File(path).delete();
-        case FileSystemEntityType.link:
-          final isParentContained = await isPhysicalPathWithinOrEqual(
-            allowedRoot,
-            p.dirname(path),
-          ).timeout(_toolOutputCleanupPathCheckTimeout, onTimeout: () => false);
-          if (!isParentContained) return;
-          await Link(path).delete();
-        case FileSystemEntityType.directory:
-        case FileSystemEntityType.pipe:
-        case FileSystemEntityType.unixDomainSock:
-        case FileSystemEntityType.notFound:
-          break;
+      final type = await probeFileSystemEntityType(path);
+      if (type != FileSystemEntityType.file &&
+          type != FileSystemEntityType.link) {
+        return;
       }
+      await deletePathBounded(
+        p.absolute(path),
+        policy: _toolOutputDeletePolicy,
+        allowedRoot: p.absolute(allowedRoot),
+      );
     } catch (error, stack) {
       silentLog('ai_session_controller', '删除持久化工具输出', error, stack);
     }
@@ -5044,7 +5032,7 @@ class AiSessionController extends ChangeNotifier {
   Future<void> _deleteDirectoryIfEmpty(Directory directory) async {
     try {
       if (await isDirectoryEmpty(directory)) {
-        await directory.delete();
+        await directory.delete().timeout(_toolOutputCleanupPathCheckTimeout);
       }
     } catch (error, stack) {
       silentLog('ai_session_controller', '删除空工具输出目录', error, stack);

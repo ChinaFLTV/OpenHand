@@ -256,7 +256,7 @@ class AiClaudeHookService {
     }
     var hasConfig = false;
     for (final filePath in _candidateConfigPaths(cwd)) {
-      if (await File(filePath).exists()) {
+      if (await isRegularFilePath(filePath, followLinks: true)) {
         hasConfig = true;
         break;
       }
@@ -363,7 +363,7 @@ class AiClaudeHookService {
     for (final filePath in _candidateConfigPaths(cwd)) {
       if (entries.length >= _maxCommandsPerInvocation) break;
       final file = File(filePath);
-      if (!await file.exists()) {
+      if (!await isRegularFilePath(file.path, followLinks: true)) {
         continue;
       }
       try {
