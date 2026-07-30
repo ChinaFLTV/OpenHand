@@ -194,7 +194,8 @@ class AiSessionController extends ChangeNotifier {
       return _persistMachineTerminalMetadata(sessionId, metadata);
     });
   }
-  static const int maxManualTitleCharacters = 200;
+  static const int maxManualTitleCharacters =
+      AiSessionDataLimits.maxSessionTitleCharacters;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _responseVariantHiddenMessageKey =
       'hidden_by_response_variant';

@@ -220,6 +220,16 @@ abstract final class AiSessionDataLimits {
   static const int maxErrorDetailCharacters = 8000;
   static const int maxCacheHitTrendPoints = 10000;
   static const int maxStatisticsReferenceCharacters = 256;
+  static const int maxSessionIdCharacters = 256;
+  static const int maxSessionTitleCharacters = 200;
+  static const int maxTemplateIdCharacters = 256;
+  static const int maxTemplateNameCharacters = 512;
+  static const int maxTemplateIconCharacters = 128;
+  static const int maxVersionCharacters = 128;
+  static const int maxModelFieldCharacters = 512;
+  static const int maxSessionReferenceIdCharacters = 256;
+  static const int maxEnvironmentTagCharacters = 128;
+  static const int maxEnvironmentPathCharacters = 4096;
 }
 
 String normalizeAiSessionPlan(Object? value) {
@@ -228,6 +238,18 @@ String normalizeAiSessionPlan(Object? value) {
     AiSessionDataLimits.maxPlanCharacters,
     suffix: '…',
   );
+}
+
+String _boundedAiSessionText(Object? value, int maxCharacters) {
+  return clipTextByCodeUnits(
+    stringFromValue(value),
+    maxCharacters,
+    suffix: '…',
+  );
+}
+
+String? _boundedNullableAiSessionText(Object? value, int maxCharacters) {
+  return nullIfBlank(_boundedAiSessionText(value, maxCharacters));
 }
 
 class AiSessionTodoItem {
@@ -613,27 +635,27 @@ class AiSession {
     );
   }
   AiSession({
-    required this.id,
-    required this.title,
-    required this.templateId,
-    required this.templateName,
-    required this.templateIconName,
-    required this.templateInternalVersion,
+    required String id,
+    required String title,
+    required String templateId,
+    required String templateName,
+    required String templateIconName,
+    required String templateInternalVersion,
     required this.createdAt,
     required this.updatedAt,
     required this.messages,
     required this.environment,
     required this.statistics,
     required this.recentErrors,
-    this.lastUsedModelId,
-    this.lastUsedModelLabel,
+    String? lastUsedModelId,
+    String? lastUsedModelLabel,
     this.isTitleManuallyEdited = false,
     this.autoTitleAcquired = false,
     this.autoTitleRetryCount = 0,
     this.autoTitleFirstUserContent,
     this.autoTitleGeneratedAt,
-    this.autoTitleSourceMessageId,
-    this.latestCompressionCheckpointMessageId,
+    String? autoTitleSourceMessageId,
+    String? latestCompressionCheckpointMessageId,
     this.latestCompressionAt,
     this.lastPromptMetadata = const <String, Object?>{},
     this.todoItems = const <AiSessionTodoItem>[],
@@ -647,7 +669,48 @@ class AiSession {
     AiSessionMessageLoadState? messageLoadState,
     int? messageWindowStartIndex,
     int? messageTotalCount,
-  }) : pendingPlan = nullIfBlank(normalizeAiSessionPlan(pendingPlan)),
+  }) : id = _boundedAiSessionText(
+         id,
+         AiSessionDataLimits.maxSessionIdCharacters,
+       ),
+       title = clipText(
+         stringFromValue(title),
+         AiSessionDataLimits.maxSessionTitleCharacters,
+         suffix: '…',
+       ),
+       templateId = _boundedAiSessionText(
+         templateId,
+         AiSessionDataLimits.maxTemplateIdCharacters,
+       ),
+       templateName = _boundedAiSessionText(
+         templateName,
+         AiSessionDataLimits.maxTemplateNameCharacters,
+       ),
+       templateIconName = _boundedAiSessionText(
+         templateIconName,
+         AiSessionDataLimits.maxTemplateIconCharacters,
+       ),
+       templateInternalVersion = _boundedAiSessionText(
+         templateInternalVersion,
+         AiSessionDataLimits.maxVersionCharacters,
+       ),
+       lastUsedModelId = _boundedNullableAiSessionText(
+         lastUsedModelId,
+         AiSessionDataLimits.maxModelFieldCharacters,
+       ),
+       lastUsedModelLabel = _boundedNullableAiSessionText(
+         lastUsedModelLabel,
+         AiSessionDataLimits.maxModelFieldCharacters,
+       ),
+       autoTitleSourceMessageId = _boundedNullableAiSessionText(
+         autoTitleSourceMessageId,
+         AiSessionDataLimits.maxSessionReferenceIdCharacters,
+       ),
+       latestCompressionCheckpointMessageId = _boundedNullableAiSessionText(
+         latestCompressionCheckpointMessageId,
+         AiSessionDataLimits.maxSessionReferenceIdCharacters,
+       ),
+       pendingPlan = nullIfBlank(normalizeAiSessionPlan(pendingPlan)),
        messageLoadState =
            messageLoadState ??
            (messages.isEmpty && statistics.totalMessageCount > 0
@@ -1191,21 +1254,68 @@ class AiSessionEnvironment {
     );
   }
   AiSessionEnvironment({
-    required this.localeTag,
-    required this.platform,
-    required this.appVersion,
-    required this.appBuildNumber,
-    required this.applicationDirectory,
-    required this.homeDirectory,
-    required this.settingsFilePath,
-    required this.skillsStoragePath,
-    required this.mcpServersFilePath,
-    required this.userMemoryFilePath,
-    required this.sessionsDirectoryPath,
-    required this.compressionThresholdChars,
+    required String localeTag,
+    required String platform,
+    required String appVersion,
+    required String appBuildNumber,
+    required String applicationDirectory,
+    required String homeDirectory,
+    required String settingsFilePath,
+    required String skillsStoragePath,
+    required String mcpServersFilePath,
+    required String userMemoryFilePath,
+    required String sessionsDirectoryPath,
+    required int compressionThresholdChars,
     int singleRoundToolCallLimit = defaultSingleRoundToolCallLimit,
     int sequentialToolRoundLimit = defaultSequentialToolRoundLimit,
-  }) : singleRoundToolCallLimit = normalizeSingleRoundToolCallLimit(
+  }) : localeTag = _boundedAiSessionText(
+         localeTag,
+         AiSessionDataLimits.maxEnvironmentTagCharacters,
+       ),
+       platform = _boundedAiSessionText(
+         platform,
+         AiSessionDataLimits.maxEnvironmentTagCharacters,
+       ),
+       appVersion = _boundedAiSessionText(
+         appVersion,
+         AiSessionDataLimits.maxVersionCharacters,
+       ),
+       appBuildNumber = _boundedAiSessionText(
+         appBuildNumber,
+         AiSessionDataLimits.maxVersionCharacters,
+       ),
+       applicationDirectory = _boundedAiSessionText(
+         applicationDirectory,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       homeDirectory = _boundedAiSessionText(
+         homeDirectory,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       settingsFilePath = _boundedAiSessionText(
+         settingsFilePath,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       skillsStoragePath = _boundedAiSessionText(
+         skillsStoragePath,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       mcpServersFilePath = _boundedAiSessionText(
+         mcpServersFilePath,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       userMemoryFilePath = _boundedAiSessionText(
+         userMemoryFilePath,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       sessionsDirectoryPath = _boundedAiSessionText(
+         sessionsDirectoryPath,
+         AiSessionDataLimits.maxEnvironmentPathCharacters,
+       ),
+       compressionThresholdChars = compressionThresholdChars < 0
+           ? 0
+           : compressionThresholdChars,
+       singleRoundToolCallLimit = normalizeSingleRoundToolCallLimit(
          singleRoundToolCallLimit,
        ),
        sequentialToolRoundLimit = normalizeSequentialToolRoundLimit(
