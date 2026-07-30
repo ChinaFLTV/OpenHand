@@ -100,9 +100,12 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   }
 
   Future<void> _checkForUpdate() async {
-    final result = await widget.dataSource.checkForUpdate(
-      widget.appInfo.version,
-    );
+    late final AppUpdateCheckResult result;
+    try {
+      result = await widget.dataSource.checkForUpdate(widget.appInfo.version);
+    } catch (error) {
+      result = AppUpdateCheckError(message: '检查更新失败：$error');
+    }
     if (!mounted) return;
     setState(() {
       switch (result) {
@@ -120,12 +123,16 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
 
   Future<void> _startDownload() async {
     final release = _release;
-    if (release == null) return;
-    setState(() {
-      _phase = _UpdatePhase.downloading;
-    });
+    if (release == null || _downloadCancellation != null) return;
     final cancellation = Completer<void>();
     _downloadCancellation = cancellation;
+    _progressAnimController.stop();
+    _targetProgress = 0;
+    _progressAnimation = const AlwaysStoppedAnimation<double>(0);
+    setState(() {
+      _phase = _UpdatePhase.downloading;
+      _downloadedFilePath = null;
+    });
     try {
       await widget.dataSource.downloadUpdate(
         release,

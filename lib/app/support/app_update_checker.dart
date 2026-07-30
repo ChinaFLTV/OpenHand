@@ -13,6 +13,7 @@ import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/path_safety.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
 import 'system_proxy.dart';
@@ -155,7 +156,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         platformAssetSuffix: _platformAssetSuffix(),
       );
       if (release == null) {
-        return AppUpdateCheckError(message: 'Failed to parse release info.');
+        return AppUpdateCheckError(message: '无法解析版本发布信息。');
       }
       if (release.isNewerThan(currentVersion)) {
         return AppUpdateAvailable(release: release);
@@ -178,15 +179,15 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     Future<void>? cancelSignal,
   }) async {
     if (release.downloadUrl.isEmpty) {
-      throw Exception('No download URL available.');
+      throw Exception('没有可用的更新包下载地址。');
     }
     final initialDownloadUri = Uri.tryParse(release.downloadUrl);
     if (initialDownloadUri == null) {
-      throw const FormatException('Update download URL must use HTTPS.');
+      throw const FormatException('更新包下载地址必须使用 HTTPS。');
     }
     _validateSecureUpdateUri(initialDownloadUri);
     if (release.downloadSize > _kUpdateMaxDownloadBytes) {
-      throw const FileSystemException('Update package is too large.');
+      throw const FileSystemException('更新包超过大小上限。');
     }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
     final deadline = MonotonicDeadline(
@@ -229,30 +230,28 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           allowMalformed: true,
         );
         throw HttpException(
-          'Download failed: HTTP ${response.statusCode}: $body',
+          '更新包下载失败：HTTP ${response.statusCode}：$body',
           uri: downloadUri,
         );
       }
       final contentLength = response.contentLength;
       if (contentLength > _kUpdateMaxDownloadBytes) {
-        throw const FileSystemException('Update package is too large.');
+        throw const FileSystemException('更新包超过大小上限。');
       }
       if (contentLength > 0 &&
           release.downloadSize > 0 &&
           contentLength != release.downloadSize) {
-        throw const FileSystemException(
-          'Update package size does not match release metadata.',
-        );
+        throw const FileSystemException('更新包大小与发布信息不一致。');
       }
       final expectedLength = contentLength > 0
           ? contentLength
           : release.downloadSize;
       if (expectedLength <= 0) {
-        throw const FileSystemException('Update package size is unknown.');
+        throw const FileSystemException('无法确定更新包大小。');
       }
-      downloadDirectory = await Directory.systemTemp.createTemp(
-        'openhand-update-',
-      );
+      downloadDirectory = await Directory.systemTemp
+          .createTemp('openhand-update-')
+          .timeout(shorterDuration(_kUpdateFileIoTimeout, remainingBudget()));
       final fileName = _safeUpdateFileName(initialDownloadUri);
       final filePath = p.join(downloadDirectory.path, fileName);
       final partialFile = File('$filePath.part');
@@ -282,12 +281,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         );
         await for (final chunk in boundedResponse) {
           if (cancelled) {
-            throw const HttpException('Update download was cancelled.');
+            throw const HttpException('更新包下载已取消。');
           }
           if (chunk.length > expectedLength - received) {
-            throw const FileSystemException(
-              'Update package size does not match release metadata.',
-            );
+            throw const FileSystemException('更新包大小与发布信息不一致。');
           }
           await openedOutput.run(
             (file) => file.writeFrom(chunk),
@@ -297,13 +294,13 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           onProgress(unitRatio(received, expectedLength));
         }
         if (cancelled) {
-          throw const HttpException('Update download was cancelled.');
+          throw const HttpException('更新包下载已取消。');
         }
         if (received <= 0) {
-          throw const FileSystemException('Downloaded update is empty.');
+          throw const FileSystemException('下载的更新包为空。');
         }
         if (received != expectedLength) {
-          throw const FileSystemException('Update download is incomplete.');
+          throw const FileSystemException('更新包下载不完整。');
         }
         await openedOutput.run(
           (file) => file.flush(),
@@ -318,11 +315,21 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         await output?.cleanup();
       }
       if (cancelled) {
-        throw const HttpException('Update download was cancelled.');
+        throw const HttpException('更新包下载已取消。');
       }
-      await partialFile.rename(filePath);
+      final publish = partialFile.rename(filePath);
+      try {
+        await publish.timeout(
+          shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
+        );
+      } on TimeoutException {
+        final directory = downloadDirectory;
+        downloadDirectory = null;
+        _cleanupLateUpdatePublish(publish, directory);
+        rethrow;
+      }
       if (cancelled) {
-        throw const HttpException('Update download was cancelled.');
+        throw const HttpException('更新包下载已取消。');
       }
       onProgress(1.0);
       onFilePath(filePath);
@@ -330,7 +337,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       final directory = downloadDirectory;
       if (directory != null) {
         try {
-          if (await directory.exists()) {
+          if (await directory.exists().timeout(_kUpdateFileIoTimeout)) {
             await deletePathBounded(
               p.absolute(directory.path),
               policy: _kUpdateCleanupPolicy,
@@ -375,14 +382,11 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         return (response: response, uri: uri);
       }
       if (redirects >= _kUpdateMaxRedirects) {
-        throw HttpException(
-          'Update request exceeded redirect limit.',
-          uri: uri,
-        );
+        throw HttpException('更新请求超过重定向次数上限。', uri: uri);
       }
       final location = response.headers.value(HttpHeaders.locationHeader);
       if (location == null || location.trim().isEmpty) {
-        throw HttpException('Update redirect is missing Location.', uri: uri);
+        throw HttpException('更新请求的重定向缺少 Location。', uri: uri);
       }
       final nextUri = uri.resolve(location.trim());
       _validateSecureUpdateUri(nextUri);
@@ -410,17 +414,36 @@ void _validateSecureUpdateUri(Uri uri) {
   if (uri.scheme.toLowerCase() != 'https' ||
       uri.host.trim().isEmpty ||
       uri.userInfo.isNotEmpty) {
-    throw const FormatException('Update URL must use HTTPS.');
+    throw const FormatException('更新地址必须使用 HTTPS。');
   }
 }
 
 String _safeUpdateFileName(Uri uri) {
   final rawName = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last.trim();
   final basename = nullIfBlank(p.basename(rawName));
-  if (basename == null || basename == '.' || basename == '..') {
-    return _kFallbackUpdateFileName;
-  }
-  return basename.replaceAll(RegExp(r'[\\/]'), '_');
+  return sanitizePortableFileNamePart(
+    basename ?? '',
+    fallback: _kFallbackUpdateFileName,
+    allowWhitespace: true,
+    collapseReplacement: true,
+  );
+}
+
+void _cleanupLateUpdatePublish(Future<File> publish, Directory directory) {
+  unawaited(
+    publish
+        .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+        .whenComplete(() async {
+          try {
+            await deletePathBounded(
+              p.absolute(directory.path),
+              policy: _kUpdateCleanupPolicy,
+            );
+          } catch (error, stack) {
+            silentLog('app_update_checker', '清理延迟发布的更新包', error, stack);
+          }
+        }),
+  );
 }
 
 AppReleaseInfo? _parseGitHubReleaseInfo(
