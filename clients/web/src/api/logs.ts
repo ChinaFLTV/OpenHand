@@ -63,7 +63,7 @@ export async function exportLogsBundle(): Promise<void> {
       },
       signal: timed.controller.signal,
     });
-    await throwIfApiResponseFailed(res);
+    await throwIfApiResponseFailed(res, timed.controller.signal);
     blob = await readResponseBlobBounded(res, {
       maxBytes: EXPORT_LOGS_MAX_BYTES,
       signal: timed.controller.signal,

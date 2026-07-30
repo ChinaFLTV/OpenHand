@@ -1005,7 +1005,7 @@ export async function exportSessionDownload(
       credentials: 'same-origin',
       signal: timed.controller.signal,
     });
-    await throwIfApiResponseFailed(res);
+    await throwIfApiResponseFailed(res, timed.controller.signal);
     const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
     if (parsedFilename) {
       filename = normalizeJsonlExportFilename(parsedFilename);

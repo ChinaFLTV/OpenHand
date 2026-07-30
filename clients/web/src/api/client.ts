@@ -6,6 +6,7 @@ import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import { isAbortError } from '../shared/util/errors';
 import { normalizeDurationMs } from '../shared/util/number';
 import { clientEnvironmentHeaders } from '../utils/client_env';
+import { readResponseTextBounded } from '../utils/bounded_response';
 import {
   createTimedAbortController,
   OperationTimeoutError,
@@ -15,6 +16,8 @@ import {
 const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000;
 const MIN_API_REQUEST_TIMEOUT_MS = 1_000;
 const MAX_API_REQUEST_TIMEOUT_MS = 60 * 60 * 1_000;
+const MAX_API_RESPONSE_BYTES = 64 * 1024 * 1024;
+const MAX_API_ERROR_RESPONSE_BYTES = 1024 * 1024;
 export const LONG_API_REQUEST_TIMEOUT_MS = 300_000;
 
 export class ApiError extends Error {
@@ -41,13 +44,19 @@ interface ApiOptions {
 
 export type ApiRequestSignalOptions = Pick<ApiOptions, 'signal' | 'timeoutMs'>;
 
-export async function throwIfApiResponseFailed(response: Response): Promise<void> {
+export async function throwIfApiResponseFailed(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<void> {
   if (response.status === 401) {
     clearAuthStorage();
     throw new UnauthorizedError(null);
   }
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
+    const text = await readResponseTextBounded(response, {
+      maxBytes: MAX_API_ERROR_RESPONSE_BYTES,
+      signal,
+    }).catch(() => '');
     throw new ApiError(response.status, text || null);
   }
 }
@@ -119,7 +128,10 @@ export async function apiRequest<T = unknown>(
     });
 
     let parsed: unknown = null;
-    const text = await res.text();
+    const text = await readResponseTextBounded(res, {
+      maxBytes: MAX_API_RESPONSE_BYTES,
+      signal: abortSignal.signal,
+    });
     if (text) {
       try {
         parsed = JSON.parse(text);

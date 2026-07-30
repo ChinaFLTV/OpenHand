@@ -3,6 +3,8 @@ interface BoundedResponseBlobOptions {
   signal?: AbortSignal;
 }
 
+type BoundedResponseBodyOptions = BoundedResponseBlobOptions;
+
 class ResponseBodySizeLimitError extends Error {
   readonly maxBytes: number;
 
@@ -36,12 +38,11 @@ async function cancelReaderQuietly(
   }
 }
 
-/// 在明确的字节上限内读取完整响应体。
-/// 调用方提供的信号必须覆盖完整读取阶段，而不只是响应头阶段。
-export async function readResponseBlobBounded(
+async function consumeResponseBodyBounded(
   response: Response,
-  { maxBytes, signal }: BoundedResponseBlobOptions,
-): Promise<Blob> {
+  { maxBytes, signal }: BoundedResponseBodyOptions,
+  onChunk: (chunk: Uint8Array) => void,
+): Promise<void> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
     throw new RangeError('maxBytes 必须是正安全整数。');
   }
@@ -54,15 +55,12 @@ export async function readResponseBlobBounded(
   const body = response.body;
   if (body == null) {
     if (declaredBytes == null || declaredBytes === 0) {
-      return new Blob([], {
-        type: response.headers.get('content-type') ?? '',
-      });
+      return;
     }
     throw new Error('响应体数据流不可用。');
   }
 
   const reader = body.getReader();
-  const chunks: BlobPart[] = [];
   let receivedBytes = 0;
   const handleAbort = () => {
     void cancelReaderQuietly(reader, signal ? abortReason(signal) : undefined);
@@ -81,7 +79,7 @@ export async function readResponseBlobBounded(
         throw error;
       }
       receivedBytes += chunk.byteLength;
-      chunks.push(chunk.slice());
+      onChunk(chunk);
     }
   } finally {
     signal?.removeEventListener('abort', handleAbort);
@@ -91,7 +89,33 @@ export async function readResponseBlobBounded(
       // 数据流可能已取消或分离。
     }
   }
+}
+
+/// 在明确的字节上限内读取完整二进制响应体。
+/// 调用方提供的信号必须覆盖完整读取阶段，而不只是响应头阶段。
+export async function readResponseBlobBounded(
+  response: Response,
+  options: BoundedResponseBlobOptions,
+): Promise<Blob> {
+  const chunks: BlobPart[] = [];
+  await consumeResponseBodyBounded(response, options, (chunk) => {
+    chunks.push(chunk.slice());
+  });
   return new Blob(chunks, {
     type: response.headers.get('content-type') ?? '',
   });
+}
+
+/// 在明确的 UTF-8 字节上限内读取文本响应，避免 `response.text()` 无界聚合。
+export async function readResponseTextBounded(
+  response: Response,
+  options: BoundedResponseBodyOptions,
+): Promise<string> {
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  await consumeResponseBodyBounded(response, options, (chunk) => {
+    parts.push(decoder.decode(chunk, { stream: true }));
+  });
+  parts.push(decoder.decode());
+  return parts.join('');
 }
