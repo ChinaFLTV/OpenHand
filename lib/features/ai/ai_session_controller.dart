@@ -12605,6 +12605,13 @@ $tail''';
             trackedSession.statistics.lastPromptHistoryMessageCount,
         cacheHitRatio: cacheHitRatio,
         cacheHitTrendPoints: cacheTrend.points
+            .skip(
+              cacheTrend.points.length >
+                      AiSessionDataLimits.maxCacheHitTrendPoints
+                  ? cacheTrend.points.length -
+                        AiSessionDataLimits.maxCacheHitTrendPoints
+                  : 0,
+            )
             .map((point) => point.toStatisticsPoint())
             .toList(growable: false),
         cacheHitTrendExcludedCount:

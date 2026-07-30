@@ -214,6 +214,12 @@ abstract final class AiSessionDataLimits {
   static const int maxPlanCharacters = 32000;
   static const int maxRecentErrors = 1000;
   static const int maxPlanHistoryEntries = 1000;
+  static const int maxErrorIdCharacters = 128;
+  static const int maxErrorStageCharacters = 256;
+  static const int maxErrorMessageCharacters = 2000;
+  static const int maxErrorDetailCharacters = 8000;
+  static const int maxCacheHitTrendPoints = 10000;
+  static const int maxStatisticsReferenceCharacters = 256;
 }
 
 String normalizeAiSessionPlan(Object? value) {
@@ -1536,7 +1542,9 @@ class AiSessionStatistics {
       lastPromptHistoryMessageCount:
           lastPromptHistoryMessageCount ?? this.lastPromptHistoryMessageCount,
       cacheHitRatio: cacheHitRatio ?? this.cacheHitRatio,
-      cacheHitTrendPoints: cacheHitTrendPoints ?? this.cacheHitTrendPoints,
+      cacheHitTrendPoints: cacheHitTrendPoints == null
+          ? this.cacheHitTrendPoints
+          : _retainRecentTrendPoints(cacheHitTrendPoints),
       cacheHitTrendExcludedCount:
           cacheHitTrendExcludedCount ?? this.cacheHitTrendExcludedCount,
     );
@@ -1572,9 +1580,9 @@ class AiSessionStatistics {
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
       'cache_hit_ratio': cacheHitRatio,
       if (includeCacheHitTrendPoints)
-        'cache_hit_trend_points': cacheHitTrendPoints
-            .map((p) => p.toJson())
-            .toList(growable: false),
+        'cache_hit_trend_points': _retainRecentTrendPoints(
+          cacheHitTrendPoints,
+        ).map((p) => p.toJson()).toList(growable: false),
       'cache_hit_trend_excluded_count': cacheHitTrendExcludedCount,
     };
   }
@@ -1669,7 +1677,7 @@ class AiSessionStatistics {
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
       cacheHitRatio: cacheHitRatio,
-      cacheHitTrendPoints: cacheHitTrendPoints,
+      cacheHitTrendPoints: _retainRecentTrendPoints(cacheHitTrendPoints),
       cacheHitTrendExcludedCount: cacheHitTrendExcludedCount,
     );
   }
@@ -1689,7 +1697,18 @@ class AiSessionStatistics {
   static List<AiSessionCacheHitTrendPoint> _readTrendPoints(Object? value) {
     return stringKeyedMapListFromValueOrJsonText(
       value,
+      limit: AiSessionDataLimits.maxCacheHitTrendPoints,
+      fromEnd: true,
     ).map(AiSessionCacheHitTrendPoint.fromJson).toList(growable: false);
+  }
+
+  static List<AiSessionCacheHitTrendPoint> _retainRecentTrendPoints(
+    List<AiSessionCacheHitTrendPoint> points,
+  ) {
+    final start = points.length > AiSessionDataLimits.maxCacheHitTrendPoints
+        ? points.length - AiSessionDataLimits.maxCacheHitTrendPoints
+        : 0;
+    return points.skip(start).toList(growable: false);
   }
 }
 
@@ -1764,7 +1783,11 @@ class AiSessionCacheHitTrendPoint {
   static String? _readString(Object? value) {
     final text = optionalStringFromValue(value);
     if (text == null || text == 'null') return null;
-    return text;
+    return clipTextByCodeUnits(
+      text,
+      AiSessionDataLimits.maxStatisticsReferenceCharacters,
+      suffix: '…',
+    );
   }
 
   static int _readNonNegativeInt(Object? value) {
@@ -1793,14 +1816,35 @@ class AiSessionErrorRecord {
       presentedAt: utcDateTimeFromValue(json['presented_at']),
     );
   }
-  const AiSessionErrorRecord({
-    required this.id,
+  AiSessionErrorRecord({
+    required String id,
     required this.createdAt,
-    required this.stage,
-    required this.message,
-    this.detail,
+    required String stage,
+    required String message,
+    String? detail,
     this.presentedAt,
-  });
+  }) : id = clipTextByCodeUnits(
+         id.trim(),
+         AiSessionDataLimits.maxErrorIdCharacters,
+         suffix: '',
+       ),
+       stage = clipTextByCodeUnits(
+         stage.trim(),
+         AiSessionDataLimits.maxErrorStageCharacters,
+         suffix: '…',
+       ),
+       message = clipTextByCodeUnits(
+         message.trim(),
+         AiSessionDataLimits.maxErrorMessageCharacters,
+         suffix: '…',
+       ),
+       detail = nullIfBlank(detail) == null
+           ? null
+           : clipTextByCodeUnits(
+               detail!.trim(),
+               AiSessionDataLimits.maxErrorDetailCharacters,
+               suffix: '…',
+             );
 
   final String id;
   final DateTime createdAt;
