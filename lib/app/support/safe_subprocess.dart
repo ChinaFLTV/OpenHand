@@ -267,13 +267,12 @@ Future<Process> startTrackedProcess(
   return process;
 }
 
-/// Starts a tracked process in a fresh POSIX process group when the platform
-/// provides `setsid`, then records the wrapper pid as the group leader.
+/// 平台提供 `setsid` 时，在新的 POSIX 进程组中启动受跟踪进程，并把包装进程
+/// pid 记录为组长。
 ///
-/// This lets callers stop the whole command tree with
-/// [terminateTrackedProcessTree] instead of killing only the shell process.
-/// On Windows, detached modes, or systems without `setsid`, it falls back to
-/// [startTrackedProcess] and still receives normal app-exit cleanup.
+/// 调用方可通过 [terminateTrackedProcessTree] 终止整棵命令树，而不是只结束外层
+/// shell。Windows、脱离模式或缺少 `setsid` 时回退到 [startTrackedProcess]，
+/// 仍接受正常的应用退出清理。
 Future<Process> startTrackedProcessInNewGroup(
   String executable,
   List<String> arguments, {
@@ -377,8 +376,7 @@ class _ProcessGroupLauncher {
   final List<String> prefixArguments;
 }
 
-/// Terminates a process plus its POSIX process group when the process was
-/// launched through [startTrackedProcessInNewGroup].
+/// 终止进程；通过 [startTrackedProcessInNewGroup] 启动时同时终止其 POSIX 进程组。
 Future<void> terminateTrackedProcessTree(
   Process process, {
   Duration? gracefulTimeout,
@@ -474,7 +472,7 @@ Future<void> _terminateTrackedProcessTree(
       await process.exitCode.timeout(boundedGracefulTimeout);
       return;
     } on TimeoutException {
-      // Escalate the complete Windows process tree below.
+      // 下方升级为强制终止整棵 Windows 进程树。
     } catch (error, stack) {
       silentLog('safe_subprocess', '等待 Windows 子进程退出', error, stack);
     }
@@ -517,13 +515,13 @@ Future<void> _terminateTrackedProcessTree(
       await process.exitCode.timeout(boundedGracefulTimeout);
       return;
     } on TimeoutException {
-      // Escalate below.
+      // 下方升级为强制终止。
     } catch (error, stack) {
       silentLog('safe_subprocess', '等待 SIGTERM 后子进程退出', error, stack);
     }
   } else if (boundedGracefulTimeout > Duration.zero) {
-    // A direct parent's exit does not prove that its descendants stopped.
-    // Give the complete group/snapshot the configured grace before SIGKILL.
+    // 直接父进程退出不能证明后代已停止；发送 SIGKILL 前给整个进程组或快照
+    // 留出配置的优雅退出窗口。
     await Future<void>.delayed(boundedGracefulTimeout);
   }
 
@@ -1033,36 +1031,24 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
   return signalled.length;
 }
 
-/// Runs an external command with a hard wall-clock timeout that **kills**
-/// the child process on expiry.
+/// 在严格墙钟时限内执行外部命令，超时后终止子进程。
 ///
-/// Why not just `Process.run(...).timeout(...)`?  `Future.timeout` only
-/// abandons the dart-side `Future`; the underlying child process keeps
-/// running.  On macOS this is especially harmful for `osascript`, which
-/// continues to send Apple Events to other apps and can leave the host
-/// process's input-method context in a bad state — observed in practice
-/// as "TextField in dialogs no longer accepts input or paste" plus
-/// `IMKCFRunLoopWakeUpReliable` console errors.
+/// 不能只用 `Process.run(...).timeout(...)`：`Future.timeout` 只放弃 Dart 侧
+/// Future，底层子进程仍会运行。macOS 的 `osascript` 还会继续向其他应用发送
+/// Apple Event，可能破坏宿主输入法上下文，表现为弹窗 TextField 无法输入或粘贴，
+/// 并伴随 `IMKCFRunLoopWakeUpReliable` 控制台错误。
 ///
-/// Stdout/stderr are drained continuously but retained only up to
-/// [maxStdoutBytes]/[maxStderrBytes], so a noisy process or a descendant that
-/// inherits the pipes cannot grow memory without bound. Returns null when the
-/// command times out or fails to start; non-zero exits remain normal
-/// [ProcessResult] values. All errors are logged via [silentLog] (debug-only).
-/// [stdinBytes] are written before stdin is always closed, and that work shares
-/// the same wall-clock timeout. [onProcessStarted] runs once after output
-/// subscriptions are installed so cancellable callers can retain a safe handle.
-/// [onFailure] observes launch/runtime failures before this helper converts them
-/// to `null`; callback failures are isolated from process cleanup.
-/// [outputDecoder] defaults to tolerant UTF-8; callers wrapping legacy system
-/// tools may supply [SystemEncoding.decoder] without duplicating collection.
+/// stdout/stderr 持续排空，但最多保留 [maxStdoutBytes]/[maxStderrBytes]，避免高噪声
+/// 进程或继承管道的后代无限增长内存。命令超时或启动失败时返回 null，非零退出码仍
+/// 作为正常 [ProcessResult] 返回；异常仅通过调试态 [silentLog] 记录。
+/// [stdinBytes] 写完后始终关闭 stdin，并共享同一墙钟时限。输出订阅安装完成后只
+/// 调用一次 [onProcessStarted]，便于可取消调用方安全持有句柄。[onFailure] 在失败
+/// 转换为 null 前观察启动或运行异常，回调异常与进程清理隔离。[outputDecoder]
+/// 默认使用容错 UTF-8；旧系统工具可传入 [SystemEncoding.decoder]，无需重复采集。
 ///
-/// **Tool-execution registry integration**: when [toolCallId] is provided
-/// and non-empty, the spawned process attaches its pid + a SIGTERM→SIGKILL
-/// killer with [AiToolExecutionRegistry], enabling the per-call Stop UX.
-/// The owning tool runtime removes the registration after the complete tool
-/// call. Pass null when no AiToolExecutionContext is in scope (e.g. boot-time
-/// CLI probes).
+/// 提供非空 [toolCallId] 时，会向 [AiToolExecutionRegistry] 登记子进程 pid 和
+/// SIGTERM→SIGKILL 终止器，以支持单次工具调用停止；工具调用完整结束后由所属运行时
+/// 移除登记。当前没有工具执行上下文时传 null，例如启动期 CLI 探测。
 Future<ProcessResult?> runProcessWithTimeout(
   String executable,
   List<String> arguments, {
@@ -1142,8 +1128,7 @@ Future<ProcessResult?> runProcessWithTimeout(
       ]).timeout(_processStreamCleanupTimeout);
       return true;
     } on TimeoutException {
-      // Subscriptions are explicitly cancelled in finally. A descendant that
-      // inherited the pipe therefore cannot keep buffering after this call.
+      // finally 会明确取消订阅，继承管道的后代无法在本次调用结束后继续堆积缓冲。
       return false;
     } catch (error, stack) {
       silentLog(tag, '等待 $executable 输出流', error, stack);
@@ -2078,11 +2063,10 @@ void _watchSystemOpenLauncher(
   });
 }
 
-/// Opens a local file or directory with the system default application.
+/// 使用系统默认应用打开本地文件或目录。
 ///
-/// This is the preferred high-level wrapper for app UI actions. It rejects
-/// URI-like strings and leading dash arguments so local-path open actions
-/// cannot be accidentally upgraded into URL launches or command options.
+/// UI 操作优先使用此高层封装。它拒绝类似 URI 的字符串和横线开头参数，避免本地路径
+/// 打开操作意外升级为 URL 启动或命令选项。
 Future<bool> openLocalPathWithSystemApp(
   String path, {
   String tag = 'safe_subprocess.open_path',
@@ -2106,11 +2090,10 @@ Future<bool> openLocalPathWithSystemApp(
   return false;
 }
 
-/// Opens a http(s) URL with the user's system default browser.
+/// 使用用户的系统默认浏览器打开 HTTP(S) URL。
 ///
-/// Only absolute `http` / `https` URLs with a host are accepted. User-info and
-/// whitespace are rejected so UI text cannot be promoted into launcher flags or
-/// surprising credential-bearing URLs.
+/// 仅接受带主机的绝对 `http` / `https` URL；拒绝用户信息和空白字符，防止 UI 文本
+/// 被解释为启动器参数或意外携带凭据的 URL。
 Future<bool> openHttpUrlWithSystemBrowser(
   String url, {
   String tag = 'safe_subprocess.open_url',
@@ -2133,11 +2116,10 @@ Future<bool> openHttpUrlWithSystemBrowser(
   return false;
 }
 
-/// Opens a constrained external URI with the system default application.
+/// 使用系统默认应用打开受约束的外部 URI。
 ///
-/// Accepted schemes are deliberately narrow: http(s), file and mailto. Local
-/// files are routed through [openLocalPathWithSystemApp] so path safety checks
-/// stay centralized; http(s) URLs reuse [openHttpUrlWithSystemBrowser].
+/// 仅接受 http(s)、file 和 mailto。文件统一经 [openLocalPathWithSystemApp]
+/// 执行路径安全检查；HTTP(S) URL 复用 [openHttpUrlWithSystemBrowser]。
 Future<bool> openExternalUriWithSystemApp(
   Uri uri, {
   String tag = 'safe_subprocess.open_external_uri',
@@ -2162,11 +2144,10 @@ Future<bool> openExternalUriWithSystemApp(
   return false;
 }
 
-/// Reveals a local file or directory in the system file manager.
+/// 在系统文件管理器中显示本地文件或目录。
 ///
-/// macOS and Windows highlight the target where supported. Linux file managers
-/// do not share a portable "select file" contract, so this opens the target
-/// directory, or the containing directory for files.
+/// macOS 和 Windows 在支持时选中目标。Linux 文件管理器没有统一可移植的“选择文件”
+/// 协议，因此目录直接打开，文件则打开其所在目录。
 Future<bool> revealLocalPathInSystemFileManager(
   String path, {
   String tag = 'safe_subprocess.reveal_path',

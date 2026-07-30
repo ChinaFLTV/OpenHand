@@ -310,11 +310,9 @@ abstract interface class BoundedFileHandleOwner {
   Future<void> releaseFile(RandomAccessFile file);
 }
 
-/// Serializes timed asynchronous operations on one [RandomAccessFile] and
-/// defers release when a timed-out operation is still pending. Dart forbids a
-/// second async operation (including close) on the same handle until the first
-/// settles, so immediate cleanup after [Future.timeout] can otherwise leak the
-/// handle permanently.
+/// 串行执行同一 [RandomAccessFile] 上的限时异步操作；操作超时但尚未结束时延后
+/// 释放。Dart 不允许同一句柄在前一异步操作结束前执行第二个操作（包括关闭），
+/// 因此不能在 [Future.timeout] 后立即清理，否则可能永久泄漏句柄。
 final class BoundedRandomAccessFileLease {
   BoundedRandomAccessFileLease(
     this.file, {
@@ -341,7 +339,7 @@ final class BoundedRandomAccessFileLease {
     if (_cleanupRequested ||
         _pendingOperation != null ||
         _releaseFuture != null) {
-      throw StateError('Random-access file lease is not available.');
+      throw StateError('随机访问文件租约当前不可用。');
     }
     final operationFuture = operation(file);
     final settled = operationFuture.then<void>(
@@ -355,10 +353,7 @@ final class BoundedRandomAccessFileLease {
         timeout,
         onTimeout: () {
           deadlineExpired = true;
-          throw TimeoutException(
-            'Random-access file operation timed out.',
-            timeout,
-          );
+          throw TimeoutException('随机访问文件操作超时。', timeout);
         },
       );
     } finally {
@@ -371,16 +366,14 @@ final class BoundedRandomAccessFileLease {
   Future<void> close({required Duration timeout}) {
     requirePositiveDuration(timeout, 'timeout');
     if (_pendingOperation != null) {
-      throw StateError(
-        'Cannot close a random-access file while an operation is pending.',
-      );
+      throw StateError('随机访问文件仍有操作未结束，无法关闭。');
     }
     _cleanupRequested = true;
     return _releaseFile().timeout(timeout);
   }
 
-  /// Releases now when idle, or schedules one release after a timed-out
-  /// operation settles. Cleanup errors stay secondary to the caller's result.
+  /// 空闲时立即释放；超时操作仍在执行时，待其结束后只安排一次释放。
+  /// 清理异常不会覆盖调用方的主要结果。
   Future<void> cleanup() async {
     _cleanupRequested = true;
     final pending = _pendingOperation;
@@ -394,7 +387,7 @@ final class BoundedRandomAccessFileLease {
     try {
       await _releaseFile().timeout(_cleanupTimeout);
     } catch (_) {
-      // Cleanup must not replace the primary file or timeout failure.
+      // 清理异常不能覆盖主要文件错误或超时错误。
     }
   }
 
@@ -404,7 +397,7 @@ final class BoundedRandomAccessFileLease {
     try {
       await _releaseFile().timeout(_cleanupTimeout);
     } catch (_) {
-      // The original operation has already timed out.
+      // 原操作已经超时。
     }
   }
 
@@ -454,16 +447,34 @@ Future<void> _cleanupLateOpenedFile(
 }) async {
   try {
     final opened = await openFuture;
-    await (release?.call(opened) ?? opened.close()).timeout(timeout);
-    if (deleteFile && await file.exists().timeout(timeout)) {
-      await file.delete().timeout(timeout);
+    final releaseFuture = Future<void>.sync(
+      () => release?.call(opened) ?? opened.close(),
+    );
+    try {
+      await releaseFuture.timeout(timeout);
+    } on TimeoutException {
+      if (deleteFile) {
+        unawaited(
+          releaseFuture.then<void>(
+            (_) => _deleteTemporaryFileAfterWriteFailure(
+              file,
+              onSecondaryError: null,
+            ),
+            onError: (Object _, StackTrace _) {},
+          ),
+        );
+      }
+      return;
+    }
+    if (deleteFile) {
+      await _deleteTemporaryFileAfterWriteFailure(file, onSecondaryError: null);
     }
   } catch (_) {
     // 调用方已收到主要错误，延迟清理失败不能覆盖原始结果。
   }
 }
 
-/// A deterministic safety failure while retaining a local file in memory.
+/// 本地文件载入内存时可确定识别的安全失败。
 final class BoundedFileReadException implements IOException {
   const BoundedFileReadException({
     required this.filePath,
@@ -479,9 +490,8 @@ final class BoundedFileReadException implements IOException {
   String toString() {
     return switch (failure) {
       BoundedFileReadFailure.tooLarge =>
-        'File exceeds the ${formatByteSize(maxBytes)} read limit: $filePath',
-      BoundedFileReadFailure.changedDuringRead =>
-        'File changed while it was being read: $filePath',
+        '文件超过 ${formatByteSize(maxBytes)} 读取上限：$filePath',
+      BoundedFileReadFailure.changedDuringRead => '文件在读取期间发生变化：$filePath',
     };
   }
 }
@@ -609,11 +619,10 @@ Future<Uint8List> readBoundedFileBytes(
   }
 }
 
-/// Reads at most [maxBytes] from the start of a regular file.
+/// 从普通文件开头最多读取 [maxBytes] 字节。
 ///
-/// Unlike [readBoundedFileBytes], a larger file is accepted and only its
-/// prefix is retained. The same idle, total-time, handle, and mutation checks
-/// still apply, making this suitable for large-file previews.
+/// 与 [readBoundedFileBytes] 不同，本方法允许更大的文件但只保留前缀，同时继续
+/// 执行空闲时限、总时限、句柄和变更检查，适合大文件预览。
 Future<Uint8List> readBoundedFilePrefixBytes(
   File file, {
   required int maxBytes,
@@ -686,8 +695,7 @@ Future<BoundedTextLineReadResult> readBoundedUtf8Lines(
   return BoundedTextLineReadResult(lines: lines, truncated: truncated);
 }
 
-/// Reads and decodes a bounded text file without first allowing an arbitrary
-/// file to be retained in memory by [File.readAsString].
+/// 读取并解码有界文本文件，避免 [File.readAsString] 先把任意大小文件留在内存中。
 Future<String> readBoundedFileString(
   File file, {
   required int maxBytes,
@@ -708,17 +716,16 @@ Future<String> readBoundedFileString(
   return encoding.decode(bytes);
 }
 
-/// Distinguishes regular files from FIFOs/devices on POSIX while preserving
-/// the portable [FileSystemEntityType] check on Windows.
+/// POSIX 平台区分普通文件与 FIFO、设备；Windows 保持可移植的
+/// [FileSystemEntityType] 检查。
 bool isRegularFileStat(FileStat stat) {
   if (stat.type != FileSystemEntityType.file) return false;
   if (Platform.isWindows) return true;
   return (stat.mode & _posixFileTypeMask) == _posixRegularFileType;
 }
 
-/// Asynchronously checks whether [path] is a regular file without following a
-/// leaf symbolic link. Metadata failures and timeouts are treated as a missing
-/// file so UI event handlers can fail closed without blocking the main isolate.
+/// 异步检查 [path] 是否为普通文件，可选择不跟随末级符号链接。元数据失败或超时
+/// 视为文件不存在，使 UI 事件处理器能够安全失败而不阻塞主 isolate。
 Future<bool> isRegularFilePath(
   String path, {
   Duration timeout = defaultBoundedFileReadIdleTimeout,
@@ -771,6 +778,6 @@ Future<void> _closeLateFile(Future<RandomAccessFile> openFuture) async {
     final input = await openFuture;
     await input.close().timeout(_boundedFileCleanupTimeout);
   } catch (_) {
-    // The caller has already received the timeout; cleanup stays best effort.
+    // 调用方已经收到超时，清理只做尽力处理。
   }
 }
