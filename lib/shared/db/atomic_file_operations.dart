@@ -13,9 +13,8 @@ import '../util/bounded_file_io.dart';
 import '../util/duration_bounds.dart';
 import '../util/text_clip.dart';
 
-/// Process-local queue for each normalized target. A separate OS file lock is
-/// acquired inside the queue so independent app instances cannot clobber the
-/// shared `.bak` file or interleave their publish/rollback sequence.
+/// 按规范化目标维护进程内队列，并在队列内获取系统文件锁，避免多个应用实例
+/// 同时覆盖共享 `.bak` 文件或交错执行发布与回滚。
 final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 const String _atomicTempSuffix = '.tmp';
 const String _atomicBackupSuffix = '.bak';
@@ -29,6 +28,9 @@ const Duration _atomicProcessLockAttemptTimeout = Duration(seconds: 2);
 const Duration _atomicProcessLockRetryDelay = Duration(milliseconds: 25);
 const Duration _atomicOperationTotalTimeout = Duration(minutes: 10);
 const Duration _atomicCleanupTimeout = Duration(seconds: 2);
+const Duration _atomicMetadataTimeout = Duration(seconds: 3);
+const Duration _atomicRecoveryTotalTimeout = Duration(seconds: 30);
+const Duration _atomicArtifactProcessingTimeout = Duration(seconds: 6);
 const int _atomicIoChunkBytes = 64 * 1024;
 const int _atomicTextChunkCodeUnits = 64 * 1024;
 const int _atomicArtifactScanMaxEntries = 10000;
@@ -38,15 +40,12 @@ const String _openDirectoryProcessTag = 'atomic_file_ops';
 const String _atomicModeProcessTag = 'atomic_file_ops.mode';
 int _atomicTempSerial = 0;
 
-/// Recovers a file from its atomic-write backup if the target is missing.
+/// 目标缺失时从原子写入残留中恢复文件。
 ///
-/// If the application was terminated during [writeFileAtomically], the target
-/// may be missing while a `.tmp`/`.tmp.*` file or `.bak` file is still present.
-/// This function restores the newest temp file first, then falls back to the
-/// backup that holds the previous content.
+/// 应用在 [writeFileAtomically] 期间终止后，目标可能缺失但仍保留 `.tmp`、
+/// `.tmp.*` 或 `.bak`。本方法优先恢复最新的完整临时文件，再回退到旧内容备份。
 ///
-/// Call this once for each critical file **before** reading it at startup.
-/// It is safe to call even when no leftover artifacts exist.
+/// 启动读取关键文件前调用一次；没有残留时可安全直接返回。
 Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) {
   return _runWithAtomicWriteLock(
     targetFile,
@@ -55,60 +54,58 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) {
 }
 
 Future<void> _recoverAtomicWriteBackupIfNeededLocked(File targetFile) async {
-  final parent = targetFile.parent;
-  if (!await parent.exists()) {
-    return;
-  }
-  final backupFile = _atomicBackupFile(targetFile);
-  if (await targetFile.exists()) {
-    // Target is intact. Keep recent temp artifacts because another app
-    // instance may still be finishing its rename; only remove stale leftovers.
-    await _deleteStaleAtomicTempArtifacts(targetFile);
-    if (await backupFile.exists()) {
-      try {
-        await backupFile.delete();
-      } on FileSystemException {
-        // Best-effort cleanup; ignore if the file cannot be deleted.
-      }
-    }
-    return;
-  }
-
-  // Target is missing — try restoring from the newest temp file first. This
-  // covers both legacy `.tmp` files and the unique `.tmp.*` files used by
-  // current writers.
-  final tempFile = await _newestAtomicTempArtifact(targetFile);
-  if (tempFile != null && await tempFile.exists()) {
-    try {
-      await _ensureAtomicParentDirectory(targetFile);
-      await tempFile.rename(targetFile.path);
-      if (await backupFile.exists()) {
-        try {
-          await backupFile.delete();
-        } on FileSystemException {
-          // Best-effort cleanup.
-        }
+  final deadline = MonotonicDeadline(
+    _atomicRecoveryTotalTimeout,
+    timeoutMessage: '恢复原子文件超过总时限。',
+  );
+  Duration metadataTimeout() => deadline.limit(_atomicMetadataTimeout);
+  try {
+    final parent = targetFile.parent;
+    if (!await parent.exists().timeout(metadataTimeout())) return;
+    final backupFile = _atomicBackupFile(targetFile);
+    if (await targetFile.exists().timeout(metadataTimeout())) {
+      // 目标完整时保留其他实例可能仍在发布的近期临时文件，只清理过期残留。
+      await _deleteStaleAtomicTempArtifacts(targetFile);
+      if (await backupFile.exists().timeout(metadataTimeout())) {
+        await _discardAtomicBackupQuietly(targetFile, backupFile);
       }
       return;
-    } on FileSystemException {
-      // Temp restore failed — fall through to try the backup file.
     }
-  }
 
-  // Restore from backup if available.
-  if (await backupFile.exists()) {
-    await _ensureAtomicParentDirectory(targetFile);
-    await backupFile.rename(targetFile.path);
+    // 目标缺失时先恢复最新完整临时文件，失败后再尝试旧内容备份。
+    final tempFile = await _newestAtomicTempArtifact(targetFile);
+    if (tempFile != null &&
+        await tempFile.exists().timeout(metadataTimeout())) {
+      try {
+        await _ensureAtomicParentDirectory(
+          targetFile,
+        ).timeout(deadline.remaining());
+        await tempFile.rename(targetFile.path);
+        if (await backupFile.exists().timeout(metadataTimeout())) {
+          await _discardAtomicBackupQuietly(targetFile, backupFile);
+        }
+        return;
+      } on FileSystemException {
+        // 临时文件恢复失败后继续尝试备份。
+      }
+    }
+
+    if (await backupFile.exists().timeout(metadataTimeout())) {
+      await _ensureAtomicParentDirectory(
+        targetFile,
+      ).timeout(deadline.remaining());
+      await backupFile.rename(targetFile.path);
+    }
+  } finally {
+    deadline.stop();
   }
 }
 
-/// Writes [content] to [targetFile] atomically by first writing to a temporary
-/// file, then renaming. If renaming fails, the original file is restored from
-/// a backup.
+/// 先写入临时文件再重命名，以原子方式把 [content] 写入 [targetFile]；发布失败时
+/// 从备份恢复原内容。
 ///
-/// This avoids data loss when the process crashes mid-write. Concurrent calls
-/// targeting the same normalized path are serialized in-process and across app
-/// instances so two writers cannot race on the `.tmp`/`.bak` files.
+/// 同一规范化路径的并发调用会在进程内及应用实例间串行，避免 `.tmp`、`.bak`
+/// 竞争和进程中断导致的数据丢失。
 /// [preserveTargetMode] 启用时，发布新文件前会保留现有目标的权限位。
 Future<void> writeFileAtomically(
   File targetFile,
@@ -133,32 +130,41 @@ Future<void> writeBytesFileAtomically(File targetFile, List<int> bytes) {
   );
 }
 
-/// Deletes a file and every recovery artifact under the same atomic-write
-/// lock, preventing a later startup from resurrecting deliberately cleared
-/// data from a stale backup or completed temp file.
+/// 在同一原子写入锁内删除文件及全部恢复残留，避免后续启动从旧备份复活已清除数据。
 Future<void> deleteFileAtomically(File targetFile) {
   return _runWithAtomicWriteLock(targetFile, (targetFile) async {
-    final artifacts = <File>[
-      ...await _atomicTempArtifacts(
+    final deadline = MonotonicDeadline(
+      _atomicOperationTotalTimeout,
+      timeoutMessage: '删除原子文件超过总时限。',
+    );
+    try {
+      // 目标最后删除；中途失败时仍保留目标，避免旧备份在下次启动时复活。
+      final artifacts = <File>[
+        _atomicBackupFile(targetFile),
+        ...await _atomicTempArtifacts(
+          targetFile,
+          includeIncomplete: true,
+          requireComplete: true,
+          totalTimeout: deadline.remaining(),
+        ),
         targetFile,
-        includeIncomplete: true,
-        requireComplete: true,
-      ),
-      targetFile,
-      _atomicBackupFile(targetFile),
-    ];
-    for (final artifact in artifacts) {
-      if (await artifact.exists()) {
-        await artifact.delete();
+      ];
+      for (final artifact in artifacts) {
+        if (await artifact.exists().timeout(
+          deadline.limit(_atomicMetadataTimeout),
+        )) {
+          await artifact.delete();
+        }
       }
+    } finally {
+      deadline.stop();
     }
   });
 }
 
-/// Copies [sourceFile] to [targetFile] without materializing the source in
-/// memory, while preserving the same atomic rename and rollback guarantees as
-/// the write helpers. [maxBytes] is enforced while streaming, so a source that
-/// grows during copying cannot consume unbounded memory or disk space.
+/// 不把源文件整体载入内存即可复制到 [targetFile]，并保持与写入方法一致的原子发布
+/// 和回滚保证。流式复制期间持续执行 [maxBytes] 上限，防止源文件增长后无限占用
+/// 内存或磁盘。
 Future<void> copyFileAtomically(
   File sourceFile,
   File targetFile, {
@@ -193,8 +199,7 @@ Future<void> _runWithAtomicWriteLock(
     }
   });
   _writeLocks[key] = current;
-  // Remove the lock once this write finishes (success or failure) and no
-  // other caller queued behind it.
+  // 当前任务结束且没有后续调用排队时移除进程内锁。
   void releaseLock() {
     if (identical(_writeLocks[key], current)) {
       _writeLocks.remove(key);
@@ -309,10 +314,10 @@ Future<void> _releaseLateAtomicProcessLock(
     try {
       await handle.unlock();
     } catch (_) {
-      // Closing the descriptor below also releases an acquired lock.
+      // 关闭描述符也会释放已经取得的锁。
     }
   } catch (_) {
-    // The descriptor still needs closing after a late lock failure.
+    // 延迟加锁失败后仍需关闭描述符。
   }
   await _closeAtomicProcessLockFile(handle);
 }
@@ -321,9 +326,7 @@ Future<File> _atomicProcessLockFile(File targetFile) async {
   final directory = Directory(
     p.join(Directory.systemTemp.path, _atomicProcessLockDirectoryName),
   );
-  if (!await directory.exists().timeout(_atomicProcessLockTimeout)) {
-    await directory.create(recursive: true).timeout(_atomicProcessLockTimeout);
-  }
+  await createDirectoryBounded(directory, timeout: _atomicProcessLockTimeout);
   var identity = p.normalize(p.absolute(targetFile.path));
   if (Platform.isWindows) identity = identity.toLowerCase();
   final digest = sha256.convert(utf8.encode(identity));
@@ -440,10 +443,7 @@ Future<void> _copyFileAtomicallyLocked(
       nextOperationTimeout(),
     );
     if (!isRegularFileStat(preflightStat)) {
-      throw FileSystemException(
-        'Source path is not a regular file.',
-        sourceFile.path,
-      );
+      throw FileSystemException('源路径不是普通文件。', sourceFile.path);
     }
 
     BoundedRandomAccessFileLease? input;
@@ -460,26 +460,17 @@ Future<void> _copyFileAtomicallyLocked(
           initialStat.size != preflightStat.size ||
           initialStat.modified != preflightStat.modified ||
           initialStat.changed != preflightStat.changed) {
-        throw FileSystemException(
-          'Source path changed before it was opened.',
-          sourceFile.path,
-        );
+        throw FileSystemException('源文件在打开前发生变化。', sourceFile.path);
       }
       final sourceLength = await openedInput.run(
         (file) => file.length(),
         timeout: nextOperationTimeout(),
       );
       if (sourceLength < 0 || sourceLength > maxBytes) {
-        throw FileSystemException(
-          'Source file exceeded the $maxBytes byte copy limit.',
-          sourceFile.path,
-        );
+        throw FileSystemException('源文件超过 $maxBytes 字节复制上限。', sourceFile.path);
       }
       if (sourceLength != initialStat.size) {
-        throw FileSystemException(
-          'Source path changed before it was opened.',
-          sourceFile.path,
-        );
+        throw FileSystemException('源文件在打开前发生变化。', sourceFile.path);
       }
 
       final openedOutput = BoundedRandomAccessFileLease(
@@ -500,10 +491,7 @@ Future<void> _copyFileAtomicallyLocked(
           timeout: nextOperationTimeout(),
         );
         if (chunk.isEmpty) {
-          throw FileSystemException(
-            'Source file changed while it was being copied.',
-            sourceFile.path,
-          );
+          throw FileSystemException('源文件在复制期间发生变化。', sourceFile.path);
         }
         await openedOutput.run(
           (file) => file.writeFrom(chunk),
@@ -522,10 +510,7 @@ Future<void> _copyFileAtomicallyLocked(
           finalStat.size != sourceLength ||
           finalStat.modified != initialStat.modified ||
           finalStat.changed != initialStat.changed) {
-        throw FileSystemException(
-          'Source file changed while it was being copied.',
-          sourceFile.path,
-        );
+        throw FileSystemException('源文件在复制期间发生变化。', sourceFile.path);
       }
       await openedOutput.run(
         (file) => file.flush(),
@@ -555,10 +540,7 @@ Future<RandomAccessFile> _openAtomicFile(
   try {
     return await openFuture.timeout(
       timeout,
-      onTimeout: () => throw TimeoutException(
-        'Opening an atomic file operation timed out.',
-        timeout,
-      ),
+      onTimeout: () => throw TimeoutException('打开原子操作文件超时。', timeout),
     );
   } on TimeoutException {
     unawaited(
@@ -577,19 +559,18 @@ Future<void> _closeLateAtomicFile(
 }) async {
   try {
     final file = await openFuture;
-    // This runs outside the caller's critical path. Await the real close so a
-    // synthetic timeout cannot leave a newly-created working file behind.
+    // 此处不在调用方关键路径内，等待真实关闭完成，避免合成超时遗留新建工作文件。
     await file.close();
   } catch (_) {
-    // The primary operation has already timed out; cleanup remains best effort.
+    // 主操作已经超时，清理只做尽力处理。
   }
   if (incompleteFile != null) {
     try {
-      if (await incompleteFile.exists()) {
-        await incompleteFile.delete();
+      if (await incompleteFile.exists().timeout(_atomicCleanupTimeout)) {
+        await incompleteFile.delete().timeout(_atomicCleanupTimeout);
       }
-    } on FileSystemException {
-      // Stale-artifact cleanup remains the final fallback.
+    } catch (_) {
+      // 最终由过期残留清理兜底。
     }
   }
 }
@@ -631,21 +612,15 @@ Future<void> _writeAtomicallyLocked(
       );
     }
     if (!await workingFile.exists().timeout(remainingBudget())) {
-      throw FileSystemException(
-        'Atomic working file disappeared before it was finalized.',
-        workingFile.path,
-      );
+      throw FileSystemException('原子写入工作文件在完成前消失。', workingFile.path);
     }
     // 文件系统变更不可取消；完整等待原子切换，避免延迟重命名与回滚或后续写入竞争。
     await workingFile.rename(tempFile.path);
     if (!await tempFile.exists().timeout(remainingBudget())) {
-      throw FileSystemException(
-        'Atomic temp file disappeared before rename.',
-        tempFile.path,
-      );
+      throw FileSystemException('原子写入临时文件在发布前消失。', tempFile.path);
     }
     if (await backupFile.exists().timeout(remainingBudget())) {
-      await backupFile.delete();
+      await _discardAtomicBackup(targetFile, backupFile);
     }
     if (await targetFile.exists().timeout(remainingBudget())) {
       await targetFile.rename(backupFile.path);
@@ -654,13 +629,7 @@ Future<void> _writeAtomicallyLocked(
     await tempFile.rename(targetFile.path);
     try {
       if (await backupFile.exists().timeout(remainingBudget())) {
-        final discardFile = _newAtomicDiscardFile(targetFile);
-        await backupFile.rename(discardFile.path);
-        try {
-          await discardFile.delete().timeout(_atomicCleanupTimeout);
-        } catch (_) {
-          // 唯一废弃路径不会与后续写入冲突，过期后由临时文件清理统一回收。
-        }
+        await _discardAtomicBackup(targetFile, backupFile);
       }
     } catch (_) {
       // 新目标已发布，备份清理失败不应覆盖写入结果。
@@ -679,14 +648,14 @@ Future<void> _writeAtomicallyLocked(
     var backupExists = false;
     if (movedExistingFile) {
       try {
-        backupExists = await backupFile.exists();
+        backupExists = await backupFile.exists().timeout(_atomicCleanupTimeout);
       } catch (_) {
         // 元数据检查失败时保留原始异常。
       }
     }
     if (backupExists) {
       try {
-        if (await targetFile.exists()) {
+        if (await targetFile.exists().timeout(_atomicCleanupTimeout)) {
           await targetFile.delete();
         }
       } catch (_) {
@@ -720,13 +689,13 @@ Future<void> _setAtomicFileMode(File file, int mode, Duration timeout) async {
 }
 
 Future<void> _ensureAtomicParentDirectory(File targetFile) async {
-  final parent = targetFile.parent;
-  if (!await parent.exists()) {
-    try {
-      await parent.create(recursive: true);
-    } on FileSystemException {
-      // 后续文件操作会在目录仍缺失时给出准确错误。
-    }
+  try {
+    await createDirectoryBounded(
+      targetFile.parent,
+      timeout: _atomicIoIdleTimeout,
+    );
+  } on FileSystemException {
+    // 后续文件操作会在目录仍缺失时给出准确错误。
   }
 }
 
@@ -754,41 +723,95 @@ File _newAtomicDiscardFile(File targetFile) {
   );
 }
 
+Future<void> _discardAtomicBackupQuietly(
+  File targetFile,
+  File backupFile,
+) async {
+  try {
+    await _discardAtomicBackup(targetFile, backupFile);
+  } catch (_) {
+    // 备份清理失败不影响完整目标或恢复结果。
+  }
+}
+
+Future<void> _discardAtomicBackup(File targetFile, File backupFile) async {
+  final discardFile = _newAtomicDiscardFile(targetFile);
+  await backupFile.rename(discardFile.path);
+  try {
+    await discardFile.delete().timeout(_atomicCleanupTimeout);
+  } catch (_) {
+    // 唯一废弃路径不会与后续写入竞争，过期后由统一残留清理回收。
+  }
+}
+
 Future<File?> _newestAtomicTempArtifact(File targetFile) async {
-  final artifacts = await _atomicTempArtifacts(targetFile);
-  if (artifacts.isEmpty) {
-    return null;
-  }
-  final stamped = <({File file, DateTime modified})>[];
-  for (final file in artifacts) {
+  final deadline = MonotonicDeadline(
+    _atomicArtifactProcessingTimeout,
+    timeoutMessage: '检查原子写入临时文件超过总时限。',
+  );
+  try {
+    final List<File> artifacts;
     try {
-      stamped.add((file: file, modified: (await file.stat()).modified));
+      artifacts = await _atomicTempArtifacts(
+        targetFile,
+        requireComplete: true,
+        totalTimeout: deadline.remaining(),
+      );
     } on FileSystemException {
-      // Ignore files that disappeared while listing.
+      return null;
+    } on TimeoutException {
+      return null;
     }
+    final stamped = <({File file, DateTime modified})>[];
+    for (final file in artifacts) {
+      try {
+        final stat = await file.stat().timeout(
+          deadline.limit(_atomicMetadataTimeout),
+        );
+        stamped.add((file: file, modified: stat.modified));
+      } on FileSystemException {
+        // 枚举后消失的文件直接忽略。
+      } on TimeoutException {
+        return null;
+      }
+    }
+    if (stamped.isEmpty) return null;
+    stamped.sort((a, b) => b.modified.compareTo(a.modified));
+    return stamped.first.file;
+  } finally {
+    deadline.stop();
   }
-  if (stamped.isEmpty) {
-    return null;
-  }
-  stamped.sort((a, b) => b.modified.compareTo(a.modified));
-  return stamped.first.file;
 }
 
 Future<void> _deleteStaleAtomicTempArtifacts(File targetFile) async {
-  final cutoff = DateTime.now().subtract(_atomicStaleArtifactAge);
-  for (final file in await _atomicTempArtifacts(
-    targetFile,
-    includeIncomplete: true,
-  )) {
-    try {
-      final stat = await file.stat();
-      if (stat.modified.isAfter(cutoff)) {
-        continue;
+  final deadline = MonotonicDeadline(
+    _atomicArtifactProcessingTimeout,
+    timeoutMessage: '清理原子写入临时文件超过总时限。',
+  );
+  try {
+    final cutoff = DateTime.now().subtract(_atomicStaleArtifactAge);
+    final artifacts = await _atomicTempArtifacts(
+      targetFile,
+      includeIncomplete: true,
+      totalTimeout: deadline.remaining(),
+    );
+    for (final file in artifacts) {
+      try {
+        final stat = await file.stat().timeout(
+          deadline.limit(_atomicMetadataTimeout),
+        );
+        if (stat.modified.isAfter(cutoff)) continue;
+        await file.delete().timeout(deadline.limit(_atomicCleanupTimeout));
+      } on TimeoutException {
+        return;
+      } on FileSystemException {
+        // 过期残留清理失败不影响主文件。
       }
-      await file.delete();
-    } on FileSystemException {
-      // Best-effort cleanup.
     }
+  } catch (_) {
+    // 清理失败不影响完整目标。
+  } finally {
+    deadline.stop();
   }
 }
 
@@ -796,26 +819,31 @@ Future<List<File>> _atomicTempArtifacts(
   File targetFile, {
   bool includeIncomplete = false,
   bool requireComplete = false,
+  Duration totalTimeout = _atomicArtifactScanTimeout,
 }) async {
-  final parent = targetFile.parent;
-  if (!await parent.exists()) {
-    return const <File>[];
-  }
-  final legacyTempPath = '${targetFile.path}$_atomicTempSuffix';
-  final uniqueTempPrefix = '$legacyTempPath.';
-  final incompleteTempPrefix = '$legacyTempPath$_atomicWritingMarker';
-  final artifacts = <File>[];
+  requirePositiveDuration(totalTimeout, 'totalTimeout');
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '扫描原子写入残留超过总时限。',
+  );
   try {
+    final parent = targetFile.parent;
+    if (!await parent.exists().timeout(
+      deadline.limit(_atomicMetadataTimeout),
+    )) {
+      return const <File>[];
+    }
+    final legacyTempPath = '${targetFile.path}$_atomicTempSuffix';
+    final uniqueTempPrefix = '$legacyTempPath.';
+    final incompleteTempPrefix = '$legacyTempPath$_atomicWritingMarker';
+    final artifacts = <File>[];
     final listing = await listDirectoryBounded(
       parent,
       maxEntries: _atomicArtifactScanMaxEntries,
-      totalTimeout: _atomicArtifactScanTimeout,
+      totalTimeout: deadline.limit(_atomicArtifactScanTimeout),
     );
     if (requireComplete && listing.truncated) {
-      throw FileSystemException(
-        'Atomic artifact scan did not complete.',
-        parent.path,
-      );
+      throw FileSystemException('原子写入残留扫描未完整结束。', parent.path);
     }
     for (final entity in listing.entries) {
       if (entity is! File) {
@@ -830,13 +858,13 @@ Future<List<File>> _atomicTempArtifacts(
         artifacts.add(entity);
       }
     }
+    return artifacts;
   } on FileSystemException {
-    if (requireComplete) {
-      rethrow;
-    }
+    if (requireComplete) rethrow;
     return const <File>[];
+  } finally {
+    deadline.stop();
   }
-  return artifacts;
 }
 
 /// 使用平台文件管理器打开目录。
@@ -853,9 +881,10 @@ Future<void> openDirectoryInFileManager(
     if (!createIfMissing) {
       throw FileSystemException('目录不存在。', directory.path);
     }
-    await directory
-        .create(recursive: true)
-        .timeout(_openDirectoryCommandTimeout);
+    await createDirectoryBounded(
+      directory,
+      timeout: _openDirectoryCommandTimeout,
+    );
   } else if (type != FileSystemEntityType.directory) {
     throw FileSystemException('路径不是目录。', directory.path);
   }
@@ -884,21 +913,18 @@ Future<void> openDirectoryInFileManager(
         tag: _openDirectoryProcessTag,
       );
     } else {
-      throw const FileSystemException('Unsupported platform.');
+      throw const FileSystemException('当前平台不支持打开目录。');
     }
   } on ProcessException catch (error) {
-    throw FileSystemException(error.message);
+    throw FileSystemException('打开目录失败：${error.message}');
   }
 
-  // Windows explorer.exe always returns exit code 1 even on success,
-  // so skip the exit code check for it.
+  // Windows explorer.exe 成功时也可能返回退出码 1，因此不检查其退出码。
   if (result == null) {
-    throw const FileSystemException('Open command timed out.');
+    throw const FileSystemException('打开目录命令超时。');
   }
   if (result.exitCode != 0 && !Platform.isWindows) {
     final message = '${result.stderr}'.trim();
-    throw FileSystemException(
-      message.isEmpty ? 'Unable to open directory.' : message,
-    );
+    throw FileSystemException(message.isEmpty ? '无法打开目录。' : '无法打开目录：$message');
   }
 }
