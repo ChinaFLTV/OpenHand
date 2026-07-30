@@ -6297,13 +6297,18 @@ class WebReverseSessionController extends ChangeNotifier {
   /// key=scriptId，value=(url, isModule)。源码本身在 [_scriptSources] 缓存。
   final Map<String, ({String url, bool isModule})> _parsedScripts =
       <String, ({String url, bool isModule})>{};
+  late final Map<String, ({String url, bool isModule})> _parsedScriptsView =
+      UnmodifiableMapView<String, ({String url, bool isModule})>(
+        _parsedScripts,
+      );
   Map<String, ({String url, bool isModule})> get parsedScripts =>
-      Map<String, ({String url, bool isModule})>.unmodifiable(_parsedScripts);
+      _parsedScriptsView;
   final LifecycleLruCache<String> _scriptSources = LifecycleLruCache<String>(
     maxEntries: _maxScriptSourceCacheEntries,
     maxCost: _maxScriptSourceCacheChars,
     costOf: (source) => source.length,
   );
+  bool _scriptNotifyScheduled = false;
 
   void _onScriptParsed(Map<String, Object?> p) {
     final id = p['scriptId'] as String?;
@@ -6317,13 +6322,23 @@ class WebReverseSessionController extends ChangeNotifier {
       _parsedScripts.remove(oldestId);
       _scriptSources.remove(oldestId);
     }
+    _scheduleScriptNotify();
+  }
+
+  void _scheduleScriptNotify() {
+    if (_scriptNotifyScheduled || _disposed) return;
+    _scriptNotifyScheduled = true;
+    scheduleMicrotask(() {
+      _scriptNotifyScheduled = false;
+      _safeNotify();
+    });
   }
 
   void _onExecutionContextsCleared() {
     _parsedScripts.clear();
     _scriptSources.clear();
     _sourceMapCache.clear();
-    _notifyInspectorChanged();
+    _safeNotify();
   }
 
   /// 在 page 上启用 Debugger domain；调用后 [_onScriptParsed] 会陆续填充 [_parsedScripts]。
