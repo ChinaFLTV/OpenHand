@@ -92,6 +92,7 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _preserveLog = true;
   bool _reattachAfterReconnectInFlight = false;
   bool _reattachAfterReconnectQueued = false;
+  Future<void>? _startTask;
   Future<void>? _restartBrowserTask;
   Future<void>? _attachToTargetTask;
   Future<void>? _safeStopTask;
@@ -429,11 +430,26 @@ class WebReverseSessionController extends ChangeNotifier {
   static const Duration _browserStopGrace = Duration(milliseconds: 500);
   static const Duration _browserCleanupTimeout = Duration(seconds: 3);
 
-  Future<void> start() async {
+  Future<void> start() {
     if (_disposed) {
-      throw StateError('Web reverse session has been disposed');
+      return Future<void>.error(
+        StateError('Web reverse session has been disposed'),
+      );
     }
-    if (_started) return;
+    final active = _startTask;
+    if (active != null) return active;
+    if (_started) return Future<void>.value();
+    late final Future<void> task;
+    task = _startOnce().whenComplete(() {
+      if (identical(_startTask, task)) {
+        _startTask = null;
+      }
+    });
+    _startTask = task;
+    return task;
+  }
+
+  Future<void> _startOnce() async {
     _started = true;
     _resourcesStopped = false;
     try {
@@ -447,7 +463,7 @@ class WebReverseSessionController extends ChangeNotifier {
         await _safeStop();
         return;
       }
-      _launchResult = await _launcher.launch(
+      final launchResult = await _launcher.launch(
         executablePath: executablePath,
         browserKind: config.browserKind,
         userDataDir: config.userDataDir,
@@ -456,9 +472,11 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       if (_stopped || _disposed) {
         _started = false;
+        await _terminateBrowserProcess(launchResult.process, '回收迟到启动的浏览器');
         await _safeStop();
         return;
       }
+      _launchResult = launchResult;
       _browserCdp = WebReverseCdpClient(
         endpoint: _launchResult!.webSocketDebuggerUrl,
       );
