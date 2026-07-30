@@ -839,10 +839,9 @@ Future<List<File>> _atomicTempArtifacts(
   return artifacts;
 }
 
-/// Opens a directory in the platform-native file manager.
+/// 使用平台文件管理器打开目录。
 ///
-/// Throws [FileSystemException] if the platform is unsupported or the
-/// command fails.
+/// 平台不受支持、目录无效或系统命令失败时抛出 [FileSystemException]。
 Future<void> openDirectoryInFileManager(
   Directory directory, {
   bool createIfMissing = true,

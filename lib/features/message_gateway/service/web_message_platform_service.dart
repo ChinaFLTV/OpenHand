@@ -328,6 +328,7 @@ class WebMessagePlatformService {
   static const int _maxUploadDirectoryCleanupCandidates = 4096;
   static const Duration _uploadCacheScanIdleTimeout = Duration(seconds: 3);
   static const Duration _uploadCacheScanTotalTimeout = Duration(seconds: 30);
+  static const Duration _uploadCacheOperationTimeout = Duration(seconds: 5);
   static const BoundedDeletePolicy _uploadCacheDeletePolicy =
       BoundedDeletePolicy(
         maxEntries: _maxUploadCacheScanEntries + 1,
@@ -6555,7 +6556,9 @@ class WebMessagePlatformService {
       request.requestedUri.queryParameters['extensions'],
     );
     final dir = await _resolveWorkspacePath(relative);
-    if (dir == null || !await FileSystemEntity.isDirectory(dir)) {
+    if (dir == null ||
+        await _awaitWorkspaceFileOperation(FileSystemEntity.type(dir)) !=
+            FileSystemEntityType.directory) {
       return _errorJson(HttpStatus.notFound, 'directory_not_found');
     }
     final root = _workspaceDirectoryPath;
@@ -6640,7 +6643,9 @@ class WebMessagePlatformService {
   Future<shelf.Response> _readWorkspaceFile(shelf.Request request) async {
     final relative = request.requestedUri.queryParameters['path'] ?? '';
     final filePath = await _resolveWorkspacePath(relative);
-    if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
+    if (filePath == null ||
+        await _awaitWorkspaceFileOperation(FileSystemEntity.type(filePath)) !=
+            FileSystemEntityType.file) {
       return _errorJson(HttpStatus.notFound, 'file_not_found');
     }
     if (!_workspaceExtensionAllowed(filePath, _workspaceAllowedExtensions())) {
@@ -6656,7 +6661,7 @@ class WebMessagePlatformService {
         idleTimeout: defaultBoundedFileReadIdleTimeout,
         totalTimeout: defaultBoundedFileReadTotalTimeout,
       );
-      stat = await file.stat();
+      stat = await _awaitWorkspaceFileOperation(file.stat());
     } on BoundedFileReadException catch (error) {
       if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -6706,7 +6711,7 @@ class WebMessagePlatformService {
     final file = File(filePath);
     await writeFileAtomically(file, content);
     _fileMutationCount++;
-    final stat = await file.stat();
+    final stat = await _awaitWorkspaceFileOperation(file.stat());
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 写入项目文件', <String, Object?>{
       'path': _relativeWorkspacePath(filePath),
       'size': stat.size,
@@ -6737,13 +6742,17 @@ class WebMessagePlatformService {
     if (dirPath == null) {
       return _errorJson(HttpStatus.badRequest, 'path_outside_workspace');
     }
-    final type = await FileSystemEntity.type(dirPath, followLinks: false);
+    final type = await _awaitWorkspaceFileOperation(
+      FileSystemEntity.type(dirPath, followLinks: false),
+    );
     if (type == FileSystemEntityType.file) {
       return _errorJson(HttpStatus.conflict, 'file_already_exists');
     }
-    await Directory(dirPath).create(recursive: true);
+    await _awaitWorkspaceFileOperation(
+      Directory(dirPath).create(recursive: true),
+    );
     if (type == FileSystemEntityType.notFound) _fileMutationCount++;
-    final stat = await Directory(dirPath).stat();
+    final stat = await _awaitWorkspaceFileOperation(Directory(dirPath).stat());
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 创建项目目录', <String, Object?>{
       'path': _relativeWorkspacePath(dirPath),
     });
@@ -6772,7 +6781,9 @@ class WebMessagePlatformService {
     if (resolved == null) {
       return _errorJson(HttpStatus.badRequest, 'path_outside_workspace');
     }
-    final type = await FileSystemEntity.type(resolved, followLinks: false);
+    final type = await _awaitWorkspaceFileOperation(
+      FileSystemEntity.type(resolved, followLinks: false),
+    );
     if (type == FileSystemEntityType.notFound) {
       return _errorJson(HttpStatus.notFound, 'not_found');
     }
@@ -6781,7 +6792,7 @@ class WebMessagePlatformService {
       if (!await isDirectoryEmpty(Directory(resolved))) {
         return _errorJson(HttpStatus.conflict, 'directory_not_empty');
       }
-      await Directory(resolved).delete();
+      await _awaitWorkspaceFileOperation(Directory(resolved).delete());
     } else {
       if (!_workspaceExtensionAllowed(
         resolved,
@@ -6789,7 +6800,7 @@ class WebMessagePlatformService {
       )) {
         return _errorJson(HttpStatus.forbidden, 'file_extension_not_allowed');
       }
-      await File(resolved).delete();
+      await _awaitWorkspaceFileOperation(File(resolved).delete());
     }
     _fileMutationCount++;
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 删除项目文件', <String, Object?>{
@@ -8520,7 +8531,9 @@ class WebMessagePlatformService {
           );
         }
         if (output.isEmpty) {
-          await dir.create(recursive: true);
+          await dir
+              .create(recursive: true)
+              .timeout(_uploadCacheOperationTimeout);
         }
         final file = File(
           p.join(
@@ -8544,8 +8557,8 @@ class WebMessagePlatformService {
         final trimmed = path.trim();
         if (trimmed.isEmpty) continue;
         final file = File(trimmed);
-        if (await file.exists()) {
-          await file.delete();
+        if (await file.exists().timeout(_uploadCacheOperationTimeout)) {
+          await file.delete().timeout(_uploadCacheOperationTimeout);
         }
       } catch (error, stack) {
         silentLog('web_message_platform_service', '删除已落盘附件', error, stack);
@@ -8558,7 +8571,9 @@ class WebMessagePlatformService {
 
   Future<_CleanupStats> _cleanupUploadCache({required bool expiredOnly}) async {
     final root = Directory(_uploadCacheDirectoryPath);
-    if (!await root.exists()) return const _CleanupStats();
+    if (!await root.exists().timeout(_uploadCacheOperationTimeout)) {
+      return const _CleanupStats();
+    }
     if (!expiredOnly) {
       final usage = await measureDirectoryBounded(
         root,
@@ -8587,9 +8602,9 @@ class WebMessagePlatformService {
     final parentDirectories = <String>{};
     final scan = await _visitUploadCacheFiles(root, (entity) async {
       try {
-        final stat = await entity.stat();
+        final stat = await entity.stat().timeout(_uploadCacheOperationTimeout);
         if (stat.modified.isAfter(cutoff)) return;
-        await entity.delete();
+        await entity.delete().timeout(_uploadCacheOperationTimeout);
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
         _rememberUploadParent(parentDirectories, entity.parent.path);
       } catch (error, stack) {
@@ -8605,7 +8620,9 @@ class WebMessagePlatformService {
 
   Future<_CleanupStats> _enforceUploadCacheMaxBytes() async {
     final root = Directory(_uploadCacheDirectoryPath);
-    if (!await root.exists()) return const _CleanupStats();
+    if (!await root.exists().timeout(_uploadCacheOperationTimeout)) {
+      return const _CleanupStats();
+    }
     var candidates = <({File file, int size, DateTime modified})>[];
     var stats = const _CleanupStats();
     final parentDirectories = <String>{};
@@ -8632,7 +8649,7 @@ class WebMessagePlatformService {
         }
         overflowed = true;
         try {
-          await candidate.file.delete();
+          await candidate.file.delete().timeout(_uploadCacheOperationTimeout);
           stats += _CleanupStats(deletedFiles: 1, bytesFreed: candidate.size);
           _rememberUploadParent(parentDirectories, candidate.file.parent.path);
         } catch (error, stack) {
@@ -8644,7 +8661,7 @@ class WebMessagePlatformService {
 
     final scan = await _visitUploadCacheFiles(root, (entity) async {
       try {
-        final stat = await entity.stat();
+        final stat = await entity.stat().timeout(_uploadCacheOperationTimeout);
         candidates.add((
           file: entity,
           size: stat.size,
@@ -8741,7 +8758,7 @@ class WebMessagePlatformService {
       final directory = Directory(normalizedPath);
       try {
         if (await isDirectoryEmpty(directory)) {
-          await directory.delete();
+          await directory.delete().timeout(_uploadCacheOperationTimeout);
           deletedDirectories += 1;
         }
       } catch (error, stack) {
@@ -9101,6 +9118,17 @@ class WebMessagePlatformService {
       resolved,
     ).timeout(_workspaceMetadataTimeout, onTimeout: () => false);
     return isContained ? resolved : null;
+  }
+
+  Future<T> _awaitWorkspaceFileOperation<T>(Future<T> operation) async {
+    try {
+      return await operation.timeout(_workspaceMetadataTimeout);
+    } on TimeoutException {
+      throw const _WebGatewayRequestException(
+        HttpStatus.requestTimeout,
+        'workspace_file_operation_timeout',
+      );
+    }
   }
 
   String _relativeWorkspacePath(String absolutePath) {

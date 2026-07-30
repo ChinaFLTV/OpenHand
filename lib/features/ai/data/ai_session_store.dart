@@ -1660,7 +1660,7 @@ class AiSessionStore {
       );
       final rawIds = decoded is Map ? decoded['session_ids'] : null;
       if (rawIds is! List) {
-        await file.delete();
+        await deleteFileAtomically(file);
         return;
       }
       final sessionIds = <String>{
@@ -1676,7 +1676,7 @@ class AiSessionStore {
           }, conflictAlgorithm: ConflictAlgorithm.ignore);
         }
       });
-      await file.delete();
+      await deleteFileAtomically(file);
     } catch (error, stack) {
       silentLog('ai_session_store', '迁移待处理会话清理', error, stack);
     }
@@ -1706,27 +1706,19 @@ class AiSessionStore {
     return openDirectoryInFileManager(Directory(_sessionsDirectoryPath));
   }
 
-  /// Wipes every session row from the database (messages cascade) and
-  /// removes the on-disk sessions directory tree (including all attachment
-  /// subfolders and any legacy `session-*.json` files).
+  /// 清空全部会话行，并删除磁盘上的会话目录、附件和旧版会话文件。
   ///
-  /// Safe to call when the controller has no active streams. Callers should
-  /// invoke `AiSessionController.refresh()` afterwards so in-memory state is
-  /// rebuilt from the now-empty store.
+  /// 调用前应确保控制器没有活动流；完成后由调用方刷新内存状态。
   Future<void> clearAll() async {
     await _db.delete('sessions');
     final root = Directory(_sessionsDirectoryPath);
-    if (await root.exists()) {
-      // Re-create the empty directory so subsequent writes do not race on a
-      // missing parent (the per-session writers `mkdir` on first use, but
-      // some callers — e.g. `openStorageDirectory()` — still need a real
-      // directory to open).
-      await deletePathBounded(
-        p.absolute(root.path),
-        allowedRoot: p.absolute(_sessionsDirectoryPath),
-      );
-      await root.create(recursive: true);
-    }
+    await deletePathBounded(
+      p.absolute(root.path),
+      allowedRoot: p.absolute(_sessionsDirectoryPath),
+    );
+    await root
+        .create(recursive: true)
+        .timeout(defaultBoundedFileReadIdleTimeout);
   }
 
   // Row ↔ Model conversion
