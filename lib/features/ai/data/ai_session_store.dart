@@ -264,7 +264,7 @@ class AiSessionStore {
     final metadataFile = File(metadataPath);
     await recoverAtomicWriteBackupIfNeeded(markdownFile);
     await recoverAtomicWriteBackupIfNeeded(metadataFile);
-    if (!await markdownFile.exists()) {
+    if (!await regularFileExistsBounded(markdownFile)) {
       return null;
     }
     final markdown = await readBoundedFileString(
@@ -272,8 +272,8 @@ class AiSessionStore {
       maxBytes: _compactMemoryMarkdownMaxBytes,
     );
     Map<String, Object?> metadata = const <String, Object?>{};
-    if (await metadataFile.exists()) {
-      try {
+    try {
+      if (await regularFileExistsBounded(metadataFile)) {
         final decoded = jsonDecode(
           await readBoundedFileString(
             metadataFile,
@@ -283,9 +283,9 @@ class AiSessionStore {
         if (decoded is Map) {
           metadata = stringKeyedMapFromValue(decoded);
         }
-      } catch (error, stack) {
-        silentLog('ai_session_store', '加载压缩记忆元数据', error, stack);
       }
+    } catch (error, stack) {
+      silentLog('ai_session_store', '加载压缩记忆元数据', error, stack);
     }
     final markdownGeneration = _compactMemoryMarkdownGeneration(markdown);
     final metadataGeneration = '${metadata['generation'] ?? ''}'.trim();
@@ -1651,7 +1651,7 @@ class AiSessionStore {
     final file = _pendingSessionCleanupFile;
     try {
       await recoverAtomicWriteBackupIfNeeded(file);
-      if (!await file.exists()) return;
+      if (!await regularFileExistsBounded(file)) return;
       final decoded = jsonDecode(
         await readBoundedFileString(
           file,

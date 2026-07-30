@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
@@ -366,7 +367,8 @@ class KnowledgeBaseController extends ChangeNotifier {
       if (file == null) {
         return const <KnowledgeChunk>[];
       }
-      final stat = await file.stat();
+      final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
+      if (!isRegularFileStat(stat)) return const <KnowledgeChunk>[];
       final tags = _sourceTags(source);
       final parsed = await const KnowledgeDocumentParserRegistry().parse(
         KnowledgeDocumentParseRequest(
@@ -399,7 +401,7 @@ class KnowledgeBaseController extends ChangeNotifier {
         continue;
       }
       final file = File(normalized);
-      if (await file.exists()) {
+      if (await isRegularFilePath(normalized, followLinks: true)) {
         return file;
       }
     }

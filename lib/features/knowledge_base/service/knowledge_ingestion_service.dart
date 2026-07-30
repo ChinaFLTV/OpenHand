@@ -78,10 +78,16 @@ class KnowledgeIngestionService {
     final initialTitle = p.basename(file.path);
     report(KnowledgeIndexingProgress(sourceTitle: initialTitle));
     cancelToken?.throwIfCancelled();
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(
+      file,
+      timeout: _readerFileIdleTimeout,
+    )) {
       throw FileSystemException('文件不存在', filePath);
     }
-    final stat = await file.stat();
+    final stat = await file.stat().timeout(_readerFileIdleTimeout);
+    if (!isRegularFileStat(stat)) {
+      throw FileSystemException('路径不是普通文件。', filePath);
+    }
     cancelToken?.throwIfCancelled();
     final maxFileSizeMb = KnowledgeBaseSettingRanges.maxFileSizeMb.normalize(
       settings.maxFileSizeMb,

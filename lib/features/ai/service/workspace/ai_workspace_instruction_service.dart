@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -50,7 +51,8 @@ class AiWorkspaceInstructionService {
       return const <AiWorkspaceInstructionDocument>[];
     }
     final normalizedStart = p.normalize(startValue);
-    if (!await Directory(normalizedStart).exists()) {
+    if (await probeFileSystemEntityType(normalizedStart, followLinks: true) !=
+        FileSystemEntityType.directory) {
       return const <AiWorkspaceInstructionDocument>[];
     }
     final homeValue = nullIfBlank(homeDirectory);
@@ -91,10 +93,8 @@ class AiWorkspaceInstructionService {
         return;
       }
       final file = File(normalizedPath);
-      if (!await file.exists()) {
-        return;
-      }
       try {
+        if (!await regularFileExistsBounded(file)) return;
         final content = await readBoundedFileString(
           file,
           maxBytes: _maxDocumentBytes,
@@ -111,6 +111,8 @@ class AiWorkspaceInstructionService {
           ),
         );
       } on IOException {
+        return;
+      } on TimeoutException {
         return;
       } on FormatException {
         return;
@@ -179,7 +181,11 @@ class AiWorkspaceInstructionService {
     required Future<void> Function(String filePath) addDocument,
   }) async {
     final rulesDirectory = Directory(p.join(rootDirectory, '.claude', 'rules'));
-    if (!await rulesDirectory.exists()) {
+    if (await probeFileSystemEntityType(
+          rulesDirectory.path,
+          followLinks: true,
+        ) !=
+        FileSystemEntityType.directory) {
       return;
     }
     final ruleFiles = <String>[];

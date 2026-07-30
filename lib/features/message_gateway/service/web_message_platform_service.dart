@@ -6146,10 +6146,23 @@ class WebMessagePlatformService {
       return _errorJson(HttpStatus.forbidden, 'asset_not_in_whitelist');
     }
     final file = File(requested);
-    if (!await file.exists()) {
+    final FileStat stat;
+    try {
+      if (!await regularFileExistsBounded(file)) {
+        return _errorJson(HttpStatus.notFound, 'asset_missing');
+      }
+      stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
+    } on TimeoutException {
+      return _errorJson(
+        HttpStatus.requestTimeout,
+        'asset_file_operation_timeout',
+      );
+    } on FileSystemException {
       return _errorJson(HttpStatus.notFound, 'asset_missing');
     }
-    final stat = await file.stat();
+    if (!isRegularFileStat(stat)) {
+      return _errorJson(HttpStatus.notFound, 'asset_missing');
+    }
     // 简单上限: 单文件 ≤ 512 MiB, 覆盖常见生成视频同时防止误暴露超大文件。
     const maxBytes = 512 * 1024 * 1024;
     if (stat.size > maxBytes) {
