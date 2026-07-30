@@ -1,9 +1,7 @@
-/// SourceMap 反解析面板。
+/// Source Map 反解析面板。
 ///
-/// 输入: 压缩文件 URL + 行 + 列 →
-/// (1) JS 取 file text + sourceMappingURL → 解析后再取 map JSON
-/// (2) Dart 端 VLQ 解码 mappings → 二分定位段 →
-/// (3) 返回 source / originalLine / originalColumn / name
+/// 输入压缩文件 URL、行和列，由会话控制器安全抓取并解析映射文件，
+/// 再通过 VLQ 解码定位原始源码位置。
 library;
 
 import 'dart:convert';
@@ -49,8 +47,8 @@ class _Resolved {
     required this.snippet,
   });
   final String source;
-  final int line; // 0-based in map → display +1
-  final int column; // 0-based in map → display +1
+  final int line; // 映射从 0 开始，展示时加 1。
+  final int column; // 映射从 0 开始，展示时加 1。
   final String? name;
   final String snippet;
 }
@@ -88,90 +86,24 @@ class _SmDialogState extends State<_SmDialog> {
       _result = null;
     });
     try {
-      final js =
-          '''
-(async () => {
-  try {
-    const r = await fetch(${jsonEncode(url)});
-    const text = await r.text();
-    const m = /[#@]\\s*sourceMappingURL=(\\S+)/.exec(text);
-    if (!m) return JSON.stringify({ error: 'no sourceMappingURL' });
-    let mapUrl = m[1];
-    if (mapUrl.startsWith('data:')) {
-      const b64 = mapUrl.slice(mapUrl.indexOf('base64,') + 7);
-      return JSON.stringify({ map: atob(b64) });
-    }
-    mapUrl = new URL(mapUrl, ${jsonEncode(url)}).toString();
-    const mr = await fetch(mapUrl);
-    const mt = await mr.text();
-    return JSON.stringify({ map: mt, mapUrl });
-  } catch (err) {
-    return JSON.stringify({ error: String(err) });
-  }
-})()
-''';
-      final r = await widget.controller.evaluateJavaScript(
-        js,
-        awaitPromise: true,
-      );
-      if (r == null || r['error'] != null) {
-        if (!mounted) return;
+      final info = await widget.controller.fetchSourceMapForUrl(url);
+      if (!mounted) return;
+      if (info == null) {
+        final detail =
+            loc?.webReverseSmBadEvalResult ?? 'Source Map unavailable';
         setState(() {
           _busy = false;
           _status =
-              loc?.webReverseSmFetchFailed('${r?['error']}') ??
-              'Fetch failed: ${r?['error']}';
+              loc?.webReverseSmFetchFailed(detail) ?? 'Fetch failed: $detail';
         });
         return;
       }
-      final raw = cdpStringResultValue(r);
-      if (raw == null) {
-        if (!mounted) return;
-        setState(() {
-          _busy = false;
-          _status = loc?.webReverseSmBadEvalResult ?? 'Bad eval result';
-        });
-        return;
-      }
-      final wrap = decodeStringKeyedJsonMap(raw);
-      if (wrap == null) {
-        if (!mounted) return;
-        setState(() {
-          _busy = false;
-          _status = loc?.webReverseSmBadEvalResult ?? 'Bad eval result';
-        });
-        return;
-      }
-      if (wrap['error'] != null) {
-        if (!mounted) return;
-        setState(() {
-          _busy = false;
-          _status = 'Error: ${wrap['error']}';
-        });
-        return;
-      }
-      final mapText = '${wrap['map']}';
-      final map = decodeStringKeyedJsonMap(mapText);
-      if (map == null) {
-        if (!mounted) return;
-        setState(() {
-          _busy = false;
-          _status = 'Error: invalid sourcemap JSON';
-        });
-        return;
-      }
-      final sources = stringListFromValue(map['sources']);
-      final names = stringListFromValue(map['names']);
-      final sourceRoot = '${map['sourceRoot'] ?? ''}';
-      final mappings = '${map['mappings'] ?? ''}';
-      final rawSourcesContent = map['sourcesContent'];
-      final sourcesContent = rawSourcesContent is List
-          ? rawSourcesContent
-                .map((e) => e == null ? null : '$e')
-                .toList(growable: false)
-          : const <String?>[];
 
-      final hit = _decode(mappings, targetLine: line - 1, targetColumn: col);
+      final hit = _decode(
+        info.mappings,
+        targetLine: line - 1,
+        targetColumn: col,
+      );
       if (hit == null) {
         if (!mounted) return;
         setState(() {
@@ -185,17 +117,10 @@ class _SmDialogState extends State<_SmDialog> {
       final origCol = hit['origCol']!;
       final nameIdx = hit['name'];
 
-      final srcRel = (srcIdx >= 0 && srcIdx < sources.length)
-          ? sources[srcIdx]
-          : '?';
-      final src = sourceRoot.isEmpty
-          ? srcRel
-          : (sourceRoot.endsWith('/')
-                ? '$sourceRoot$srcRel'
-                : '$sourceRoot/$srcRel');
+      final src = info.resolveSource(srcIdx);
       String snippet = '';
-      if (srcIdx >= 0 && srcIdx < sourcesContent.length) {
-        final body = sourcesContent[srcIdx];
+      if (srcIdx >= 0 && srcIdx < info.sourcesContent.length) {
+        final body = info.sourcesContent[srcIdx];
         if (body != null) {
           final lines = const LineSplitter().convert(body);
           if (origLine < lines.length) {
@@ -219,8 +144,8 @@ class _SmDialogState extends State<_SmDialog> {
           source: src,
           line: origLine,
           column: origCol,
-          name: (nameIdx != null && nameIdx >= 0 && nameIdx < names.length)
-              ? names[nameIdx]
+          name: (nameIdx != null && nameIdx >= 0 && nameIdx < info.names.length)
+              ? info.names[nameIdx]
               : null,
           snippet: snippet,
         );
@@ -231,7 +156,7 @@ class _SmDialogState extends State<_SmDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _status = 'Error: $e';
+        _status = loc?.webReverseSmFetchFailed('$e') ?? 'Source Map 解析失败：$e';
       });
     }
   }
