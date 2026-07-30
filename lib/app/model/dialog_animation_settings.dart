@@ -3,42 +3,42 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/util/input_value_parsing.dart';
 
-/// Available dialog entrance / exit animation styles.
+/// 弹窗进场与退场动画样式。
 enum DialogAnimationStyle {
-  /// No animation — dialogs appear and disappear instantly.
+  /// 不播放动画。
   none('none'),
 
-  /// Plain opacity-only transition.
+  /// 仅透明度过渡。
   fade('fade'),
 
-  /// Classic Material fade + scale from center.
+  /// 从中心淡入并缩放。
   fadeScale('fade_scale'),
 
-  /// Slide up from the bottom with fade.
+  /// 从下方滑入并淡入。
   slideUp('slide_up'),
 
-  /// Slide down from the top with fade.
+  /// 从上方滑入并淡入。
   slideDown('slide_down'),
 
-  /// Slide in from the left with fade — perfect for in-row chips.
+  /// 从左侧滑入并淡入。
   slideLeft('slide_left'),
 
-  /// Slide in from the right with fade — perfect for in-row chips.
+  /// 从右侧滑入并淡入。
   slideRight('slide_right'),
 
-  /// Expands from center outward (scale + fade).
+  /// 从中心展开并淡入。
   expand('expand'),
 
-  /// Rotates in with scale (3D feel).
+  /// 旋转、缩放并淡入。
   rotateScale('rotate_scale'),
 
-  /// Elastic / bouncy scale entrance.
+  /// 弹性缩放。
   elastic('elastic'),
 
-  /// Spring scale — Q-bouncy overshoot scale entrance with fade.
+  /// 带自然回弹的弹簧缩放。
   springScale('spring_scale'),
 
-  /// 3D X-axis flip with fade — cinematic card flip.
+  /// 绕 X 轴翻转并淡入。
   flipX('flip_x');
 
   const DialogAnimationStyle(this.storageValue);
@@ -72,7 +72,7 @@ enum DialogAnimationStyle {
   }
 }
 
-/// Available easing curves for dialog transitions.
+/// 弹窗动画缓动曲线。
 enum DialogAnimationCurve {
   easeInOut('ease_in_out'),
   easeOut('ease_out'),
@@ -132,7 +132,7 @@ enum DialogAnimationCurve {
   }
 }
 
-/// Bundled dialog animation settings.
+/// 弹窗动画组合设置。
 class DialogAnimationSettings {
   const DialogAnimationSettings({
     this.entranceStyle = DialogAnimationStyle.fadeScale,
@@ -205,9 +205,7 @@ class DialogAnimationSettings {
 
   bool get disablesAnimation => entranceDisabled && exitDisabled;
 
-  /// The persisted user preference, independent from either direction being
-  /// disabled. Keeping this value prevents a temporary `none/none` choice
-  /// from destroying the duration restored when motion is re-enabled.
+  /// 持久化的动画时长不受单向禁用影响，重新启用动画时可恢复原时长。
   int get configuredDurationMs => normalizeDurationMs(durationMs);
 
   int get effectiveDurationMs => disablesAnimation ? 0 : configuredDurationMs;
@@ -274,7 +272,7 @@ class DialogAnimationSettings {
   int get hashCode => Object.hash(entranceStyle, exitStyle, durationMs, curve);
 }
 
-/// Centralized motion presets used by settings defaults and runtime fallbacks.
+/// 设置默认值与运行时回退共用的动画预设。
 class OpenHandMotionDefaults {
   const OpenHandMotionDefaults._();
 

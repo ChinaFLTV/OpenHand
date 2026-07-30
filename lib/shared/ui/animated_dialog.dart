@@ -1062,10 +1062,12 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
         barrierSemanticsDismissible: semanticsDismissible,
       );
     }
-    final curvedAnimation = CurvedAnimation(
-      parent: animation!,
-      curve: _entranceBarrierCurve,
-      reverseCurve: _exitBarrierCurve,
+    final curvedAnimation = OpenHandBoundedDoubleAnimation(
+      CurvedAnimation(
+        parent: animation!,
+        curve: _entranceBarrierCurve,
+        reverseCurve: _exitBarrierCurve,
+      ),
     );
     return AnimatedModalBarrier(
       color: curvedAnimation.drive(

@@ -63,7 +63,7 @@ DialogAnimationSettings openHandMotionSettingsFallbackOf(
       OpenHandMotionSettingsScope.listItem =>
         controller.listItemAnimationSettings,
     };
-  } catch (_) {
+  } on ProviderNotFoundException {
     return openHandDefaultMotionSettings(scope);
   }
 }
