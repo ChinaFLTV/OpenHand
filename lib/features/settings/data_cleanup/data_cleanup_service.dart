@@ -24,6 +24,7 @@ import '../../../shared/db/database_service.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../hooks/hooks_controller.dart';
@@ -579,17 +580,29 @@ class _DataCleanupScanBudget {
   }
 }
 
+Future<bool> _cleanupDirectoryExists(
+  Directory directory, {
+  _DataCleanupScanBudget? budget,
+}) async {
+  final timeout = budget?.nextOperationTimeout() ?? _dataCleanupScanIdleTimeout;
+  return await FileSystemEntity.type(
+        directory.path,
+        followLinks: false,
+      ).timeout(timeout) ==
+      FileSystemEntityType.directory;
+}
+
 Future<DataCleanupSizeReport> _isolateMeasureAttachments(
   String sessionsRoot,
 ) async {
   final root = Directory(sessionsRoot);
-  if (!await root.exists()) {
-    return DataCleanupSizeReport.empty;
-  }
   int totalBytes = 0;
   int totalFiles = 0;
   final budget = _DataCleanupScanBudget();
   try {
+    if (!await _cleanupDirectoryExists(root, budget: budget)) {
+      return DataCleanupSizeReport.empty;
+    }
     await for (final entity
         in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
       if (!budget.takeEntry()) break;
@@ -606,7 +619,7 @@ Future<DataCleanupSizeReport> _isolateMeasureAttachments(
         continue;
       }
       final perSession = Directory(p.join(entity.path, 'attachments'));
-      if (await perSession.exists()) {
+      if (await _cleanupDirectoryExists(perSession, budget: budget)) {
         final stats = await _walkDirectoryStats(perSession, budget: budget);
         totalBytes += stats.bytes;
         totalFiles += stats.files;
@@ -629,12 +642,12 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
   String sessionsRoot,
 ) async {
   final root = Directory(sessionsRoot);
-  if (!await root.exists()) {
-    return const DataCleanupSizeReport(bytes: 0);
-  }
   int totalBytes = 0;
   final budget = _DataCleanupScanBudget();
   try {
+    if (!await _cleanupDirectoryExists(root, budget: budget)) {
+      return const DataCleanupSizeReport(bytes: 0);
+    }
     await for (final entity
         in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
       if (!budget.takeEntry()) break;
@@ -693,16 +706,21 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
 
 Future<DataCleanupSizeReport> _isolateMeasureDirectory(String dir) async {
   final root = Directory(dir);
-  if (!await root.exists()) {
-    return DataCleanupSizeReport.empty;
-  }
   final budget = _DataCleanupScanBudget();
-  final stats = await _walkDirectoryStats(root, budget: budget);
-  return DataCleanupSizeReport(
-    bytes: stats.bytes,
-    itemCount: stats.files,
-    error: budget.incomplete ? _dataCleanupPartialScanError : null,
-  );
+  try {
+    if (!await _cleanupDirectoryExists(root, budget: budget)) {
+      return DataCleanupSizeReport.empty;
+    }
+    final stats = await _walkDirectoryStats(root, budget: budget);
+    return DataCleanupSizeReport(
+      bytes: stats.bytes,
+      itemCount: stats.files,
+      error: budget.incomplete ? _dataCleanupPartialScanError : null,
+    );
+  } catch (error, stack) {
+    silentLog('data_cleanup', '检查待统计目录', error, stack);
+    return DataCleanupSizeReport.unknown;
+  }
 }
 
 Future<DataCleanupSizeReport> _isolateMeasureDirectoryExcluding(
@@ -710,29 +728,38 @@ Future<DataCleanupSizeReport> _isolateMeasureDirectoryExcluding(
 ) async {
   if (args.isEmpty) return DataCleanupSizeReport.empty;
   final root = Directory(args.first);
-  if (!await root.exists()) {
-    return DataCleanupSizeReport.empty;
-  }
   final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
   final budget = _DataCleanupScanBudget();
-  final stats = await _walkDirectoryStats(
-    root,
-    excludedRoots: excludedRoots,
-    budget: budget,
-  );
-  return DataCleanupSizeReport(
-    bytes: stats.bytes,
-    itemCount: stats.files,
-    error: budget.incomplete ? _dataCleanupPartialScanError : null,
-  );
+  try {
+    if (!await _cleanupDirectoryExists(root, budget: budget)) {
+      return DataCleanupSizeReport.empty;
+    }
+    final stats = await _walkDirectoryStats(
+      root,
+      excludedRoots: excludedRoots,
+      budget: budget,
+    );
+    return DataCleanupSizeReport(
+      bytes: stats.bytes,
+      itemCount: stats.files,
+      error: budget.incomplete ? _dataCleanupPartialScanError : null,
+    );
+  } catch (error, stack) {
+    silentLog('data_cleanup', '检查带排除项的待统计目录', error, stack);
+    return DataCleanupSizeReport.unknown;
+  }
 }
 
 Future<DataCleanupSizeReport> _isolateMeasureFile(String path) async {
   final file = File(path);
-  if (!await file.exists().timeout(_dataCleanupScanIdleTimeout)) {
-    return DataCleanupSizeReport.empty;
-  }
   try {
+    if (!await regularFileExistsBounded(
+      file,
+      timeout: _dataCleanupScanIdleTimeout,
+      followLinks: false,
+    )) {
+      return DataCleanupSizeReport.empty;
+    }
     return DataCleanupSizeReport(
       bytes: await file.length().timeout(_dataCleanupScanIdleTimeout),
       itemCount: 1,
@@ -747,12 +774,13 @@ Future<void> _isolateDeleteFile(String path) async {
   if (!_isSafeDeleteTarget(path)) {
     return;
   }
-  final file = File(path);
-  if (!await file.exists()) {
-    return;
-  }
+  final budget = _DataCleanupScanBudget();
   try {
-    await file.delete();
+    await _deletePathWithinCleanupBudget(
+      path,
+      allowedRoot: p.dirname(path),
+      budget: budget,
+    );
   } catch (error, stack) {
     // 上层会通过 controller refresh 兜底，单文件删除失败不致命。
     silentLog('data_cleanup', '删除文件', error, stack);
@@ -764,11 +792,9 @@ Future<void> _isolateDeleteAttachments(String sessionsRoot) async {
     return;
   }
   final root = Directory(sessionsRoot);
-  if (!await root.exists()) {
-    return;
-  }
   final budget = _DataCleanupScanBudget();
   try {
+    if (!await _cleanupDirectoryExists(root, budget: budget)) return;
     await for (final entity
         in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
       if (!budget.takeEntry()) break;
@@ -786,7 +812,7 @@ Future<void> _isolateDeleteAttachments(String sessionsRoot) async {
         continue;
       }
       final perSession = Directory(p.join(entity.path, 'attachments'));
-      if (await perSession.exists()) {
+      if (await _cleanupDirectoryExists(perSession, budget: budget)) {
         await _safeDeleteDirectoryAndRecreate(
           perSession,
           budget: budget,
@@ -806,10 +832,13 @@ Future<void> _isolateDeleteDirectoryContents(String dir) async {
     return;
   }
   final root = Directory(dir);
-  if (!await root.exists()) {
-    return;
+  final budget = _DataCleanupScanBudget();
+  try {
+    if (!await _cleanupDirectoryExists(root, budget: budget)) return;
+    await _safeDeleteDirectoryAndRecreate(root, budget: budget);
+  } catch (error, stack) {
+    silentLog('data_cleanup', '检查待清理目录', error, stack);
   }
-  await _safeDeleteDirectoryAndRecreate(root);
 }
 
 Future<void> _isolateDeleteDirectoryContentsExcluding(List<String> args) async {
@@ -819,11 +848,13 @@ Future<void> _isolateDeleteDirectoryContentsExcluding(List<String> args) async {
     return;
   }
   final root = Directory(dir);
-  if (!await root.exists()) {
-    return;
+  try {
+    if (!await _cleanupDirectoryExists(root)) return;
+    final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
+    await _deleteDirectoryContentsExcludingBounded(root, excludedRoots);
+  } catch (error, stack) {
+    silentLog('data_cleanup', '检查带排除项的待清理目录', error, stack);
   }
-  final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
-  await _deleteDirectoryContentsExcludingBounded(root, excludedRoots);
 }
 
 /// 防误删兜底：拒绝任何看起来像系统根 / HOME 根 / OpenHand 根的路径。
