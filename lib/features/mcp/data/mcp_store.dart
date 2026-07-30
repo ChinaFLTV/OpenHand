@@ -108,9 +108,6 @@ class McpStore {
       throw const FileSystemException('MCP configuration exceeds size limit.');
     }
     final targetFile = File(_serversFilePath);
-    if (!await targetFile.parent.exists()) {
-      await targetFile.parent.create(recursive: true);
-    }
     await writeFileAtomically(targetFile, content);
     _expectedContent = content;
   }

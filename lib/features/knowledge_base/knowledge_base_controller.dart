@@ -264,9 +264,6 @@ class KnowledgeBaseController extends ChangeNotifier {
         'notes',
       ),
     );
-    if (!await notesDir.exists()) {
-      await notesDir.create(recursive: true);
-    }
     final safeTitle = normalizedTitle
         .replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fa5._-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')

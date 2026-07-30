@@ -279,6 +279,7 @@ class McpKeywordIndexService {
   final Directory _storageDir;
   final int _maxPersistedBytes;
   final SerialTaskQueue _persistenceQueue = SerialTaskQueue();
+  bool _storageRecovered = false;
   Future<McpKeywordIndexBuildResult>? _inflight;
   int _persistenceRevision = 0;
 
@@ -517,12 +518,9 @@ class McpKeywordIndexService {
 
   Future<void> _persist(McpKeywordIndex index) async {
     try {
-      if (!await _storageDir.exists()) {
-        await _storageDir.create(recursive: true);
-      }
       final content = jsonEncode(index.toJson());
       if (utf8.encode(content).length + 1 > _maxPersistedBytes) {
-        throw StateError('MCP keyword index exceeds its persistence limit.');
+        throw StateError('MCP 关键词索引超过持久化大小上限。');
       }
       await writeFileAtomically(_file, '$content\n');
     } catch (e, s) {
@@ -557,6 +555,10 @@ class McpKeywordIndexService {
 
   Future<McpKeywordIndex?> _loadFromDisk() async {
     try {
+      if (!_storageRecovered) {
+        await recoverAtomicWriteBackupIfNeeded(_file);
+        _storageRecovered = true;
+      }
       if (!await _file.exists()) return null;
       final raw = await readBoundedFileString(
         _file,

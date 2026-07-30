@@ -57,6 +57,7 @@ class McpToolCatalogCacheService {
   final int _maxPersistedBytes;
   final SerialTaskQueue _queue = SerialTaskQueue();
   Map<String, McpCachedToolCatalog>? _snapshot;
+  bool _storageRecovered = false;
 
   File get _file => File(p.join(_storageDir.path, _fileName));
 
@@ -110,6 +111,10 @@ class McpToolCatalogCacheService {
 
   Future<Map<String, McpCachedToolCatalog>> _loadFromDisk() async {
     try {
+      if (!_storageRecovered) {
+        await recoverAtomicWriteBackupIfNeeded(_file);
+        _storageRecovered = true;
+      }
       if (!await _file.exists()) return <String, McpCachedToolCatalog>{};
       final raw = await readBoundedFileString(
         _file,
@@ -132,9 +137,6 @@ class McpToolCatalogCacheService {
   }
 
   Future<void> _persist(Map<String, McpCachedToolCatalog> entries) async {
-    if (!await _storageDir.exists()) {
-      await _storageDir.create(recursive: true);
-    }
     final content = jsonEncode(<String, Object?>{
       'version': 1,
       'catalogs': <String, Object?>{

@@ -1037,9 +1037,6 @@ class SkillsRepository {
         throw const FileSystemException('Unable to read archive entry.');
       }
       final outputFile = File(destinationPath);
-      if (!await outputFile.parent.exists()) {
-        await outputFile.parent.create(recursive: true);
-      }
       await writeBytesFileAtomically(outputFile, content);
     }
   }
@@ -1219,10 +1216,6 @@ class SkillsRepository {
       return;
     }
 
-    final parentDirectory = file.parent;
-    if (!await parentDirectory.exists()) {
-      await parentDirectory.create(recursive: true);
-    }
     await writeBytesFileAtomically(file, bytes);
   }
 

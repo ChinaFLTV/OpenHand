@@ -1027,9 +1027,6 @@ class WebFetchScraplingBridge {
         'scrapling',
       ),
     );
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
     final file = File(p.join(dir.path, 'bridge.py'));
     await writeBytesFileAtomically(file, bytes.buffer.asUint8List());
     if (!Platform.isWindows) {

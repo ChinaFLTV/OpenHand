@@ -73,9 +73,6 @@ class AgentsStore {
 
   Future<void> save(List<AgentProfile> agents) async {
     final file = File(_filePath);
-    if (!await file.parent.exists()) {
-      await file.parent.create(recursive: true);
-    }
     final content = prettyPrintJson(<String, Object?>{
       _rootKey: agents.map((agent) => agent.toJson()).toList(growable: false),
     });

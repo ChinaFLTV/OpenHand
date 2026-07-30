@@ -80,9 +80,6 @@ class McpServerOpsStore {
 
   Future<Map<String, Object?>?> _readRoot() async {
     final file = File(_filePath);
-    if (!await file.parent.exists()) {
-      await file.parent.create(recursive: true);
-    }
     await recoverAtomicWriteBackupIfNeeded(file);
     if (!await file.exists()) {
       return null;
@@ -93,9 +90,6 @@ class McpServerOpsStore {
 
   Future<void> _writeRoot(Map<String, Object?> root) async {
     final file = File(_filePath);
-    if (!await file.parent.exists()) {
-      await file.parent.create(recursive: true);
-    }
     final content = prettyPrintJson(root);
     await writeFileAtomically(file, content);
   }

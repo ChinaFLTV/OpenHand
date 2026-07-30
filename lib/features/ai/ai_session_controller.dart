@@ -2606,8 +2606,8 @@ class AiSessionController extends ChangeNotifier {
   Future<String> _readOrCreateDeviceId() async {
     try {
       final dir = Directory(OpenHandPaths.defaultRootDirectoryPath());
-      await dir.create(recursive: true);
       final file = File('${dir.path}/device_id');
+      await recoverAtomicWriteBackupIfNeeded(file);
       if (await file.exists()) {
         final existing = (await readBoundedFileString(
           file,
