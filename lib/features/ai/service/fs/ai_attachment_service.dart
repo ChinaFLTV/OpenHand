@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
@@ -46,6 +46,8 @@ class AiAttachmentService {
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
   static const int _maxStoredAttachmentBytes = kBytesPerGiB;
+  static const int _maxImageRawBytesHardLimit = 64 * kBytesPerMiB;
+  static const int _maxDecodedImagePixels = 40 * 1000 * 1000;
   static const int _maxPdfTextSpanMatches = 10000;
   static const int _maxAttachmentCleanupEntries = 100000;
   static const BoundedDeletePolicy _attachmentDeletePolicy =
@@ -425,7 +427,11 @@ class AiAttachmentService {
       'Legacy XLS preview is not available in this runtime. Keep the file name '
       'and use the surrounding prompt to explain what to inspect.';
 
-  int maxImageRawBytes = 50 * kBytesPerMiB;
+  int _maxImageRawBytes = 50 * kBytesPerMiB;
+  int get maxImageRawBytes => _maxImageRawBytes;
+  set maxImageRawBytes(int value) {
+    _maxImageRawBytes = value.clamp(1, _maxImageRawBytesHardLimit);
+  }
 
   Future<AiMessageAttachment> _importImageAttachment({
     required File sourceFile,
@@ -454,37 +460,30 @@ class AiAttachmentService {
     }
     final originalSize = sourceBytes.length;
     final attachmentId = idGenerator();
-    final decodedImage = extension == '.svg'
-        ? null
-        : img.decodeImage(sourceBytes);
-    var outputBytes = Uint8List.fromList(sourceBytes);
-    var width = decodedImage?.width;
-    var height = decodedImage?.height;
-    var outputExtension = extension;
-    if (decodedImage != null) {
-      final resizedImage = _resizeImageIfNeeded(decodedImage);
-      width = resizedImage.width;
-      height = resizedImage.height;
-      if (extension == '.png') {
-        outputBytes = Uint8List.fromList(img.encodePng(resizedImage));
-      } else {
-        outputBytes = Uint8List.fromList(
-          img.encodeJpg(resizedImage, quality: 86),
-        );
-        outputExtension = '.jpg';
-      }
-      // 超过用户设置的图片上限时，逐步降低 JPEG 质量和尺寸。
-      if (imageSizeLimitBytes != null &&
-          imageSizeLimitBytes > 0 &&
-          outputBytes.length > imageSizeLimitBytes) {
-        final compressed = _compressImageToLimit(
-          source: resizedImage,
-          limitBytes: imageSizeLimitBytes,
-        );
-        outputBytes = compressed.bytes;
-        width = compressed.width;
-        height = compressed.height;
-        outputExtension = '.jpg';
+    late final Uint8List outputBytes;
+    late final String outputExtension;
+    int? width;
+    int? height;
+    if (extension == '.svg') {
+      outputBytes = sourceBytes;
+      outputExtension = extension;
+    } else {
+      try {
+        final processed =
+            await compute(_processRasterImageAttachment, <String, Object?>{
+              'bytes': sourceBytes,
+              'extension': extension,
+              'max_dimension': maxInlineImageDimension,
+              'max_output_bytes': imageSizeLimitBytes,
+              'hard_max_output_bytes': _maxImageRawBytesHardLimit,
+              'max_pixels': _maxDecodedImagePixels,
+            });
+        outputBytes = processed['bytes']! as Uint8List;
+        outputExtension = processed['extension']! as String;
+        width = processed['width'] as int?;
+        height = processed['height'] as int?;
+      } catch (error) {
+        throw AiAttachmentException('处理图片附件失败：$error');
       }
     }
     final targetName = _useModernLayout
@@ -524,36 +523,6 @@ class AiAttachmentService {
       pixelCount: pixelCount,
       compressionRatio: compressionRatio,
     );
-  }
-
-  /// 将 [source] 压缩为不超过 [limitBytes] 的 JPEG。
-  ///
-  /// 先逐步降低质量；仍超限时缩小尺寸，直到满足限制或图片过小。
-  ({Uint8List bytes, int width, int height}) _compressImageToLimit({
-    required img.Image source,
-    required int limitBytes,
-  }) {
-    img.Image current = source;
-    Uint8List bytes = Uint8List.fromList(img.encodeJpg(current, quality: 92));
-    if (bytes.length <= limitBytes) {
-      return (bytes: bytes, width: current.width, height: current.height);
-    }
-    for (var quality = 84; quality >= 30; quality -= 8) {
-      bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
-      if (bytes.length <= limitBytes) {
-        return (bytes: bytes, width: current.width, height: current.height);
-      }
-    }
-    while (current.width > 256 && current.height > 256) {
-      current = img.copyResize(current, width: (current.width * 0.75).round());
-      for (var quality = 80; quality >= 30; quality -= 10) {
-        bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
-        if (bytes.length <= limitBytes) {
-          return (bytes: bytes, width: current.width, height: current.height);
-        }
-      }
-    }
-    return (bytes: bytes, width: current.width, height: current.height);
   }
 
   /// 原样落盘类附件的统一导入骨架：分配 id、复制副本、组装附件记录。
@@ -673,17 +642,6 @@ class AiAttachmentService {
     throw const AiAttachmentException(
       'Unable to allocate a unique attachment id.',
     );
-  }
-
-  img.Image _resizeImageIfNeeded(img.Image source) {
-    final maxSide = math.max(source.width, source.height);
-    if (maxSide <= maxInlineImageDimension) {
-      return source;
-    }
-    if (source.width >= source.height) {
-      return img.copyResize(source, width: maxInlineImageDimension);
-    }
-    return img.copyResize(source, height: maxInlineImageDimension);
   }
 
   Future<File> _copyFile({
@@ -1081,6 +1039,102 @@ class AiAttachmentService {
     );
     return '${trimmed.substring(0, safeLimit).trimRight()}\n\n[truncated]';
   }
+}
+
+/// 在后台 isolate 解码、缩放并压缩单帧栅格图片。
+Map<String, Object?> _processRasterImageAttachment(Map<String, Object?> input) {
+  final bytes = input['bytes']! as Uint8List;
+  final extension = input['extension']! as String;
+  final maxDimension = (input['max_dimension']! as int).clamp(1, 16384);
+  final requestedOutputBytes = input['max_output_bytes'] as int?;
+  final hardMaxOutputBytes = input['hard_max_output_bytes']! as int;
+  final maxOutputBytes =
+      requestedOutputBytes == null || requestedOutputBytes <= 0
+      ? hardMaxOutputBytes
+      : math.min(requestedOutputBytes, hardMaxOutputBytes);
+  final maxPixels = input['max_pixels']! as int;
+  final decoder = img.findDecoderForData(bytes);
+  if (decoder == null) {
+    return <String, Object?>{
+      'bytes': bytes,
+      'extension': extension,
+      'width': null,
+      'height': null,
+    };
+  }
+  final info = decoder.startDecode(bytes);
+  if (info == null ||
+      info.width <= 0 ||
+      info.height <= 0 ||
+      info.width * info.height > maxPixels) {
+    throw const FormatException('图片尺寸无效或像素总量超过安全上限。');
+  }
+  final decoded = decoder.decodeFrame(0);
+  if (decoded == null ||
+      decoded.width <= 0 ||
+      decoded.height <= 0 ||
+      decoded.width * decoded.height > maxPixels) {
+    throw const FormatException('图片解码失败或像素总量超过安全上限。');
+  }
+  final maxSide = math.max(decoded.width, decoded.height);
+  final resized = maxSide <= maxDimension
+      ? decoded
+      : decoded.width >= decoded.height
+      ? img.copyResize(decoded, width: maxDimension)
+      : img.copyResize(decoded, height: maxDimension);
+  var outputExtension = extension;
+  var outputBytes = extension == '.png'
+      ? Uint8List.fromList(img.encodePng(resized))
+      : Uint8List.fromList(img.encodeJpg(resized, quality: 86));
+  if (extension != '.png') outputExtension = '.jpg';
+  if (outputBytes.length > maxOutputBytes) {
+    final compressed = _compressRasterImageToLimit(
+      source: resized,
+      limitBytes: maxOutputBytes,
+    );
+    outputBytes = compressed.bytes;
+    outputExtension = '.jpg';
+    return <String, Object?>{
+      'bytes': outputBytes,
+      'extension': outputExtension,
+      'width': compressed.width,
+      'height': compressed.height,
+    };
+  }
+  return <String, Object?>{
+    'bytes': outputBytes,
+    'extension': outputExtension,
+    'width': resized.width,
+    'height': resized.height,
+  };
+}
+
+/// 逐步降低 JPEG 质量和尺寸，避免压缩过程无上限重试。
+({Uint8List bytes, int width, int height}) _compressRasterImageToLimit({
+  required img.Image source,
+  required int limitBytes,
+}) {
+  img.Image current = source;
+  Uint8List bytes = Uint8List.fromList(img.encodeJpg(current, quality: 92));
+  if (bytes.length <= limitBytes) {
+    return (bytes: bytes, width: current.width, height: current.height);
+  }
+  for (var quality = 84; quality >= 30; quality -= 8) {
+    bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
+    if (bytes.length <= limitBytes) {
+      return (bytes: bytes, width: current.width, height: current.height);
+    }
+  }
+  while (current.width > 256 && current.height > 256) {
+    current = img.copyResize(current, width: (current.width * 0.75).round());
+    for (var quality = 80; quality >= 30; quality -= 10) {
+      bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
+      if (bytes.length <= limitBytes) {
+        return (bytes: bytes, width: current.width, height: current.height);
+      }
+    }
+  }
+  return (bytes: bytes, width: current.width, height: current.height);
 }
 
 class _ZipArchiveReader {

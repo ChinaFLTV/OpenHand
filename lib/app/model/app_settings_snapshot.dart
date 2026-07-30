@@ -562,7 +562,7 @@ class AppSettingsSnapshot {
 
   static const int defaultAiAttachmentMaxImageRawBytes = 50 * kBytesPerMiB;
   static const int minAiAttachmentMaxImageRawBytes = 64 * kBytesPerKiB;
-  static const int maxAiAttachmentMaxImageRawBytes = kBytesPerGiB;
+  static const int maxAiAttachmentMaxImageRawBytes = 64 * kBytesPerMiB;
 
   static const int defaultAiChatMaxStreamLineBufferBytes = 4 * kBytesPerMiB;
   static const int minAiChatMaxStreamLineBufferBytes = 4 * kBytesPerKiB;
