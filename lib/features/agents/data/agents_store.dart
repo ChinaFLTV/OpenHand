@@ -23,8 +23,6 @@ class AgentsStore {
   static const String _rootKey = 'agents';
   static const int _maxStoreBytes = 32 * kBytesPerMiB;
   static const int _maxAgents = 10000;
-  static const int _maxActivityEvents = 200;
-  static const int _maxAuditEvents = 500;
 
   final String _filePath;
 
@@ -60,8 +58,8 @@ class AgentsStore {
         throw FormatException('第 $index 个智能体必须是对象。');
       }
       final source = stringKeyedMapFromValue(value);
-      if (_listLength(source['activities']) > _maxActivityEvents ||
-          _listLength(source['audit_events']) > _maxAuditEvents) {
+      if (_listLength(source['activities']) > agentStoredActivityEventLimit ||
+          _listLength(source['audit_events']) > agentStoredAuditEventLimit) {
         throw FormatException('第 $index 个智能体的事件数量超过上限。');
       }
       final agent = AgentProfile.fromJson(source);

@@ -6,6 +6,8 @@ import '../../../shared/util/text_normalization.dart';
 final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
 const String agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
+const int agentStoredActivityEventLimit = 200;
+const int agentStoredAuditEventLimit = 500;
 const int agentResourceOpenHandlePressureLimit = 128;
 const int agentTaskRecommendedPollMs = 1500;
 const String agentTaskTrackToolName = 'AgentTaskTrack';

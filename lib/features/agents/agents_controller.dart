@@ -32,8 +32,6 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   static const Uuid _uuid = Uuid();
-  static const int _maxActivityEvents = 200;
-  static const int _maxAuditEvents = 500;
   static const String _retryableExtraKey = 'retryable';
   static const String _retryCountExtraKey = 'retry_count';
   static const String _resourceTelemetryExtraKey =
@@ -1099,8 +1097,8 @@ class AgentsController extends ManagedChangeNotifier {
       cronIds: dedupeNonEmptyStrings(agent.cronIds),
       hookIds: dedupeNonEmptyStrings(agent.hookIds),
       instructionIds: dedupeNonEmptyStrings(agent.instructionIds),
-      activities: agent.activities.take(_maxActivityEvents).toList(),
-      auditEvents: agent.auditEvents.take(_maxAuditEvents).toList(),
+      activities: agent.activities.take(agentStoredActivityEventLimit).toList(),
+      auditEvents: agent.auditEvents.take(agentStoredAuditEventLimit).toList(),
       workers: normalizedWorkers,
     );
     return normalized.copyWith(
@@ -1127,21 +1125,7 @@ class AgentsController extends ManagedChangeNotifier {
         .length;
     final derivedOpenHandles =
         activeTaskCount + busyWorkerCount + pendingApprovalCount;
-    final derivedPersistedBytes = _resourcePayloadBytes(<String, Object?>{
-      'tasks': agent.tasks.map((item) => item.toJson()).toList(growable: false),
-      'approvals': agent.approvals
-          .map((item) => item.toJson())
-          .toList(growable: false),
-      'activities': agent.activities
-          .map((item) => item.toJson())
-          .toList(growable: false),
-      'audit_events': agent.auditEvents
-          .map((item) => item.toJson())
-          .toList(growable: false),
-      'workers': agent.workers
-          .map((item) => item.toJson())
-          .toList(growable: false),
-    });
+    final derivedPersistedBytes = _resourcePayloadBytes(agent.toJson());
     final auditTokens = agent.auditEvents.fold<int>(
       0,
       (sum, event) => sum + event.tokenUsage,
@@ -1387,7 +1371,7 @@ class AgentsController extends ManagedChangeNotifier {
     return <AgentActivityEvent>[
       event,
       ...existing,
-    ].take(_maxActivityEvents).toList();
+    ].take(agentStoredActivityEventLimit).toList();
   }
 
   /// 审计事件的统一构造：标识符由控制器生成，一次操作默认计一次请求。
@@ -1414,7 +1398,10 @@ class AgentsController extends ManagedChangeNotifier {
     List<AgentAuditEvent> existing,
     AgentAuditEvent event,
   ) {
-    return <AgentAuditEvent>[event, ...existing].take(_maxAuditEvents).toList();
+    return <AgentAuditEvent>[
+      event,
+      ...existing,
+    ].take(agentStoredAuditEventLimit).toList();
   }
 
   AgentProfile _dispatchReadyTasksForAgent(
@@ -1505,8 +1492,12 @@ class AgentsController extends ManagedChangeNotifier {
     return scaledAgent.copyWith(
       tasks: tasks,
       workers: workers,
-      activities: activities.take(_maxActivityEvents).toList(growable: false),
-      auditEvents: auditEvents.take(_maxAuditEvents).toList(growable: false),
+      activities: activities
+          .take(agentStoredActivityEventLimit)
+          .toList(growable: false),
+      auditEvents: auditEvents
+          .take(agentStoredAuditEventLimit)
+          .toList(growable: false),
     );
   }
 
@@ -1974,7 +1965,11 @@ class AgentsController extends ManagedChangeNotifier {
         .map((worker) {
           final ownsTask =
               worker.currentTaskId == task.id ||
-              (assignedWorkerId.isNotEmpty && worker.id == assignedWorkerId);
+              (worker.currentTaskId.trim().isEmpty &&
+                  assignedWorkerId.isNotEmpty &&
+                  worker.id == assignedWorkerId &&
+                  (worker.status == AgentWorkerStatus.busy ||
+                      worker.busyScore > 0));
           if (!ownsTask) return worker;
           final wasActivelyRunningTask = worker.currentTaskId == task.id;
           return worker.copyWith(
