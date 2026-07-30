@@ -578,9 +578,11 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                       style: theme.textTheme.labelSmall,
                                     ),
                                     Text(
-                                      e.payload.length > 200
-                                          ? '${e.payload.substring(0, 200)}…'
-                                          : e.payload,
+                                      clipTextByCodeUnits(
+                                        e.payload,
+                                        200,
+                                        suffix: '…',
+                                      ),
                                       style: const TextStyle(
                                         fontFamily:
                                             kOpenHandMonospaceFontFamily,

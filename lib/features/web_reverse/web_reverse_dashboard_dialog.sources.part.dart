@@ -1965,7 +1965,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   String _shortenUrl(String url) {
     const maxLen = 64;
     if (url.length <= maxLen) return url;
-    final tail = url.length - maxLen + 3;
+    final tail = safeUtf16SuffixStart(url, url.length - maxLen + 3);
     return '...${url.substring(tail)}';
   }
 }
@@ -2819,9 +2819,7 @@ class _SourceHoverBubble extends StatelessWidget {
     final cs = theme.colorScheme;
     final preview = markdown == null
         ? null
-        : (markdown!.length > 360
-              ? '${markdown!.substring(0, 360)}…'
-              : markdown!);
+        : clipTextByCodeUnits(markdown!, 360, suffix: '…');
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
       child: Material(

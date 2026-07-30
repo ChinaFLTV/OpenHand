@@ -5,9 +5,10 @@ import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/text_clip.dart';
 
 const int kWebReverseClipboardMaxChars = 1000000;
-const String _webReverseClipboardTinyClipMarker = '[clipped]';
+const String _webReverseClipboardTinyClipMarker = '[已截断]';
 
 class WebReverseClipboardCopyResult {
   const WebReverseClipboardCopyResult({
@@ -144,14 +145,17 @@ void showWebReverseClipboardErrorSnack({
   final limit = nonNegativeIntFromValue(maxChars, fallback: 0);
   if (text.length <= limit) return (text: text, clipped: false);
   if (limit <= 0) return (text: '', clipped: text.isNotEmpty);
-  final suffix =
-      '\n\n[OpenHand clipped clipboard text: ${text.length - limit} chars omitted]';
+  const suffix = '\n\n[OpenHand 已截断剪贴板内容]';
   if (suffix.length >= limit) {
-    final marker = _webReverseClipboardTinyClipMarker.length >= limit
-        ? _webReverseClipboardTinyClipMarker.substring(0, limit)
-        : _webReverseClipboardTinyClipMarker;
+    final marker = clipTextByCodeUnits(
+      _webReverseClipboardTinyClipMarker,
+      limit,
+      suffix: '',
+    );
     return (text: marker, clipped: true);
   }
-  final keep = nonNegativeRemaining(limit, suffix.length);
-  return (text: '${text.substring(0, keep)}$suffix', clipped: true);
+  return (
+    text: clipTextByCodeUnits(text, limit, suffix: suffix),
+    clipped: true,
+  );
 }

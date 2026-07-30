@@ -18,6 +18,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -1075,9 +1076,11 @@ class _WsDialogState extends State<_WsDialog> {
                                               ),
                                               const SizedBox(height: 4),
                                               SelectableText(
-                                                f.payload.length > 800
-                                                    ? '${f.payload.substring(0, 800)}…'
-                                                    : f.payload,
+                                                clipTextByCodeUnits(
+                                                  f.payload,
+                                                  800,
+                                                  suffix: '…',
+                                                ),
                                                 style: const TextStyle(
                                                   fontFamily:
                                                       kOpenHandMonospaceFontFamily,

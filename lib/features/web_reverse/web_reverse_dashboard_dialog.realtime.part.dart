@@ -466,9 +466,7 @@ class _FrameTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final payload = frame.errorMessage ?? frame.payload;
-    final preview = payload.length > 800
-        ? '${payload.substring(0, 800)}…'
-        : payload;
+    final preview = clipTextByCodeUnits(payload, 800, suffix: '…');
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,

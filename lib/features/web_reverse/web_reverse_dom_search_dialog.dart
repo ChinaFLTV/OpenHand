@@ -16,6 +16,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -183,9 +184,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                 label.write(' id="$idAttr"');
               }
               if (classAttr != null && classAttr.isNotEmpty) {
-                final cls = classAttr.length > 60
-                    ? '${classAttr.substring(0, 60)}…'
-                    : classAttr;
+                final cls = clipTextByCodeUnits(classAttr, 60, suffix: '…');
                 label.write(' class="$cls"');
               }
               label.write('>');
@@ -193,9 +192,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                   .where((e) => e.key != 'id' && e.key != 'class')
                   .take(4)
                   .map((e) {
-                    final v = e.value.length > 40
-                        ? '${e.value.substring(0, 40)}…'
-                        : e.value;
+                    final v = clipTextByCodeUnits(e.value, 40, suffix: '…');
                     return '${e.key}="$v"';
                   })
                   .join(' ');

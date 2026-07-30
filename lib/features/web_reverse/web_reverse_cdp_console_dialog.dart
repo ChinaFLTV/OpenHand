@@ -535,7 +535,9 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
 }
 
 String _capCdpConsoleHistoryText(String text, int maxChars) {
-  if (text.length <= maxChars) return text;
-  final omitted = text.length - maxChars;
-  return '${text.substring(0, maxChars)}\n\n[OpenHand 已截断 CDP 控制台历史，省略 $omitted 个字符]';
+  return clipTextByCodeUnits(
+    text,
+    maxChars,
+    suffix: '\n\n[OpenHand 已截断 CDP 控制台历史]',
+  );
 }

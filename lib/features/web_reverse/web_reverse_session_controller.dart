@@ -2223,7 +2223,7 @@ class WebReverseSessionController extends ChangeNotifier {
         : _capWebReverseText(
             jsonEncode(explanations),
             _maxSecurityExplanationsChars,
-            'security explanations',
+            '安全说明',
           );
     _safeNotify();
   }
@@ -3063,7 +3063,11 @@ class WebReverseSessionController extends ChangeNotifier {
     final mask = response['mask'] == true;
     var payload = '${response['payloadData'] ?? ''}';
     if (payload.length > _maxWebSocketFramePayloadChars) {
-      payload = '${payload.substring(0, _maxWebSocketFramePayloadChars)}…';
+      payload = clipTextByCodeUnits(
+        payload,
+        _maxWebSocketFramePayloadChars,
+        suffix: '…',
+      );
     }
     entry.wsFrames.add(
       CdpWebSocketFrame(
@@ -3090,7 +3094,7 @@ class WebReverseSessionController extends ChangeNotifier {
       'opcode': opcode,
       'mask': mask,
       'payload_preview': payload.length > 256
-          ? '${payload.substring(0, 256)}…'
+          ? clipTextByCodeUnits(payload, 256, suffix: '…')
           : payload,
       'ts': DateTime.now().toUtc().toIso8601String(),
     });
@@ -3341,7 +3345,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (textBuffer.isNotEmpty) textBuffer.write(' ');
       final remaining = _maxConsoleTextChars - textBuffer.length;
       if (remaining <= 0) break;
-      textBuffer.write(clipText(part, remaining, suffix: ''));
+      textBuffer.write(clipTextByCodeUnits(part, remaining, suffix: ''));
       if (textBuffer.length >= _maxConsoleTextChars) break;
     }
     final text = textBuffer.toString();
@@ -3507,11 +3511,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _appendConsole(String level, String text) {
     final ts = DateTime.now();
-    final cappedText = _capWebReverseText(
-      text,
-      _maxConsoleTextChars,
-      'console text',
-    );
+    final cappedText = _capWebReverseText(text, _maxConsoleTextChars, '控制台文本');
     _consoleMessages.add(
       CdpConsoleEntry(level: level, text: cappedText, timestamp: ts),
     );
@@ -3536,7 +3536,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final t = _capWebReverseText(
       expr.trim(),
       _maxReplHistoryExpressionChars,
-      'REPL history expression',
+      'REPL 历史表达式',
     );
     if (t.isEmpty) return;
     if (_replHistory.isNotEmpty && _replHistory.last == t) return;
@@ -3553,7 +3553,7 @@ class WebReverseSessionController extends ChangeNotifier {
           (e) => _capWebReverseText(
             e,
             _maxReplHistoryExpressionChars,
-            'REPL history expression',
+            'REPL 历史表达式',
           ),
         )
         .toList(growable: false);
@@ -4342,7 +4342,11 @@ class WebReverseSessionController extends ChangeNotifier {
         preview = '$res';
       }
       if (preview.length > _maxReplPreviewChars) {
-        preview = '${preview.substring(0, _maxReplPreviewChars)}\n…(truncated)';
+        preview = clipTextByCodeUnits(
+          preview,
+          _maxReplPreviewChars,
+          suffix: '\n…（已截断）',
+        );
       }
       _appendConsole('repl-result', preview);
       return preview;
@@ -6769,7 +6773,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final boundedSource = _capWebReverseText(
         source,
         _maxScriptSourceChars,
-        'script source',
+        '脚本源码',
       );
       _scriptSources.put(scriptId, boundedSource);
       return boundedSource;
@@ -8310,11 +8314,7 @@ class WebReverseSessionController extends ChangeNotifier {
       } else {
         body = base64
             ? rawBody
-            : _capWebReverseText(
-                rawBody,
-                _maxCachedResponseBodyChars,
-                'response body',
-              );
+            : _capWebReverseText(rawBody, _maxCachedResponseBodyChars, '响应正文');
       }
       entry.cachedBody = body;
       entry.cachedBodyBase64 = base64;
@@ -8423,7 +8423,7 @@ class WebReverseSessionController extends ChangeNotifier {
               ..requestHeaders = reqHeaders
               ..requestPostData = _importedTextOrNull(
                 postData['text'],
-                label: 'HAR request body',
+                label: 'HAR 请求正文',
               )
               ..responseHeaders = resHeaders
               ..statusCode = optionalIntFromValue(res['status'])
@@ -8626,7 +8626,7 @@ class WebReverseSessionController extends ChangeNotifier {
           entry.requestHeaders = _headersFromSnapshotMap(m['request_headers']);
           entry.requestPostData = _importedTextOrNull(
             m['request_post'],
-            label: 'snapshot request body',
+            label: '快照请求正文',
           );
           entry.statusCode = m['status'] as int?;
           entry.statusText = _importedShortTextOrNull(m['status_text']);
@@ -8643,7 +8643,7 @@ class WebReverseSessionController extends ChangeNotifier {
           entry.initiatorUrl = _importedTextOrNull(
             m['initiator_url'],
             maxChars: _maxImportedUrlChars,
-            label: 'snapshot initiator URL',
+            label: '快照发起方 URL',
           );
           entry.initiatorLineNumber = m['initiator_line'] as int?;
           entry.initiatorColumnNumber = m['initiator_col'] as int?;
@@ -8656,7 +8656,7 @@ class WebReverseSessionController extends ChangeNotifier {
           entry.failed = m['failed'] == true;
           entry.errorText = _importedTextOrNull(
             m['error_text'],
-            label: 'snapshot error text',
+            label: '快照错误文本',
           );
           final rrMs = m['response_received_ms'];
           if (rrMs is int) {
@@ -8714,7 +8714,7 @@ class WebReverseSessionController extends ChangeNotifier {
               text: _capWebReverseText(
                 '${m['text'] ?? ''}',
                 _maxConsoleTextChars,
-                'console text',
+                '控制台文本',
               ),
               timestamp: dateTimeFromValue(m['ts']) ?? DateTime.now(),
             ),
@@ -9403,13 +9403,15 @@ class CdpConsoleEntry {
 }
 
 String _capWebReverseText(String text, int maxChars, String label) {
-  if (text.length <= maxChars) return text;
-  final omitted = text.length - maxChars;
-  return '${text.substring(0, maxChars)}\n\n[OpenHand clipped $label: $omitted chars omitted]';
+  return clipTextByCodeUnits(
+    text,
+    maxChars,
+    suffix: '\n\n[OpenHand 已截断：$label]',
+  );
 }
 
 String _capPlainWebReverseText(String text, int maxChars) {
-  return clipText(text, maxChars, suffix: '');
+  return clipTextByCodeUnits(text, maxChars, suffix: '');
 }
 
 String? _importedTextOrNull(

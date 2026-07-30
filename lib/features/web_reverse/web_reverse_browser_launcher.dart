@@ -9,6 +9,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_cdp_http.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -314,9 +315,10 @@ class WebReverseBrowserLauncher {
       }
       await _cancelProcessOutputSubscriptions(errSub, outSub);
       final err = stderrBuffer.snapshot().join().trim();
-      final hint = err.isEmpty
-          ? ''
-          : '\n浏览器 stderr 摘要：\n${err.length > 1024 ? "${err.substring(err.length - 1024)}（已截断）" : err}';
+      final errSummary = err.length > 1024
+          ? '${err.substring(safeUtf16SuffixStart(err, err.length - 1024))}（已截断）'
+          : err;
+      final hint = err.isEmpty ? '' : '\n浏览器 stderr 摘要：\n$errSummary';
       final exitedHint = processExited
           ? '\n浏览器进程已提前退出，常见原因是 user-data-dir 被另一实例锁定。'
           : '';

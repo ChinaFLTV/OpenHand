@@ -18,6 +18,7 @@ import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -99,8 +100,8 @@ class _ReplDialogState extends State<_ReplDialog> {
     setState(() {
       _log.add(
         _ReplEntry(
-          _capReplDialogText(expr, _kReplLogExpressionChars, 'expression'),
-          _capReplDialogText(result, _kReplLogResultChars, 'result'),
+          _capReplDialogText(expr, _kReplLogExpressionChars, '表达式'),
+          _capReplDialogText(result, _kReplLogResultChars, '结果'),
           error,
         ),
       );
@@ -410,7 +411,9 @@ class _HistDownIntent extends Intent {
 }
 
 String _capReplDialogText(String text, int maxChars, String label) {
-  if (text.length <= maxChars) return text;
-  final omitted = text.length - maxChars;
-  return '${text.substring(0, maxChars)}\n\n[OpenHand clipped REPL $label: $omitted chars omitted]';
+  return clipTextByCodeUnits(
+    text,
+    maxChars,
+    suffix: '\n\n[OpenHand 已截断 REPL $label]',
+  );
 }

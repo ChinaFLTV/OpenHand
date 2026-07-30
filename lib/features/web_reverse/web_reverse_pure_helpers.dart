@@ -139,7 +139,7 @@ String _boundedWebReverseText(
 }) {
   if (value == null) return '';
   final text = trim ? '$value'.trim() : '$value';
-  return clipText(text, maxChars, suffix: '');
+  return clipTextByCodeUnits(text, maxChars, suffix: '');
 }
 
 String _validatedWebReverseId(Object? value, int maxChars, {bool trim = true}) {
@@ -1126,12 +1126,16 @@ summarizeSamplingHeapProfile(
     final current = work.removeLast();
     visited++;
     final callFrame = stringKeyedMapFromValue(current.node['callFrame']);
-    final functionName = clipText(
+    final functionName = clipTextByCodeUnits(
       '${callFrame['functionName'] ?? '(anonymous)'}',
       maxFunctionNameChars,
       suffix: '',
     );
-    final url = clipText('${callFrame['url'] ?? ''}', maxUrlChars, suffix: '');
+    final url = clipTextByCodeUnits(
+      '${callFrame['url'] ?? ''}',
+      maxUrlChars,
+      suffix: '',
+    );
     final line = intFromValue(callFrame['lineNumber'], fallback: 0);
     final column = intFromValue(callFrame['columnNumber'], fallback: 0);
     final frame = url.isEmpty

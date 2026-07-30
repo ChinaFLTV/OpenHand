@@ -15,6 +15,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -98,9 +99,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
           method: e.method,
           originalStatus: e.statusCode,
           newStatus: r?.status,
-          bodyPreview: (r?.body ?? '').length > 200
-              ? '${(r?.body ?? '').substring(0, 200)}…'
-              : (r?.body ?? ''),
+          bodyPreview: clipTextByCodeUnits(r?.body ?? '', 200, suffix: '…'),
           ok: r != null && r.status >= 200 && r.status < 400,
         );
       } catch (err, st) {

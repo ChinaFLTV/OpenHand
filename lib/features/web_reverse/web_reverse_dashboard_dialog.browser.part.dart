@@ -1108,14 +1108,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     // 正确转换。包含哨兵空格被删的场景：old=' ', cur='' → 删一个；
     // 哨兵 + 追加字符：old=' ', cur=' a' → 删 0 个 + insert 'a'；
     // 整体替换：old=' ', cur='a' → 删 1 个 + insert 'a'。
-    var prefix = 0;
-    final maxPrefix = old.length < cur.length ? old.length : cur.length;
-    while (prefix < maxPrefix &&
-        old.codeUnitAt(prefix) == cur.codeUnitAt(prefix)) {
-      prefix++;
+    final oldCharacters = old.characters.toList(growable: false);
+    final currentCharacters = cur.characters.toList(growable: false);
+    var prefixLength = 0;
+    final maxPrefix = math.min(oldCharacters.length, currentCharacters.length);
+    while (prefixLength < maxPrefix &&
+        oldCharacters[prefixLength] == currentCharacters[prefixLength]) {
+      prefixLength++;
     }
-    final toDelete = old.length - prefix;
-    final toInsert = cur.substring(prefix);
+    final toDelete = oldCharacters.length - prefixLength;
+    final toInsert = currentCharacters.skip(prefixLength).join();
     for (var i = 0; i < toDelete; i++) {
       widget.controller.dispatchKeyEvent(
         type: 'rawKeyDown',
