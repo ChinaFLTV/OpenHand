@@ -2306,44 +2306,20 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
   }
 
-  /// Called by the LSP push callback whenever the server publishes fresh
-  /// diagnostics for a file.  This is the IDEA-style reactive update path:
-  /// the server tells us when diagnostics are ready, rather than polling.
+  /// LSP 服务推送新诊断时直接更新，避免轮询。
   void _handlePushedDiagnostics(
     String filePath,
     List<AiLspDiagnostic> diagnostics,
   ) {
     if (!mounted) return;
-    // Only update files that are currently open in the editor.
+    // 只更新编辑器中仍然打开的文件。
     if (!_textControllers.containsKey(filePath)) return;
     setState(() {
-      _diagnosticsByFile[filePath] = diagnostics
-          .map(
-            (item) => _EditorDiagnostic(
-              severity: switch (item.severity) {
-                1 => 'ERROR',
-                2 => 'WARNING',
-                _ => 'INFO',
-              },
-              code: item.code ?? item.source ?? 'lsp',
-              message: item.message,
-              line: item.range.start.line,
-              column: item.range.start.character,
-              endLine: item.range.end.line,
-              endColumn: item.range.end.character,
-              length: math.max(
-                1,
-                item.range.start.line == item.range.end.line
-                    ? item.range.end.character - item.range.start.character
-                    : 1,
-              ),
-            ),
-          )
-          .toList(growable: false);
+      _diagnosticsByFile[filePath] = _mapLspDiagnostics(diagnostics);
       _diagnosticsStaleFiles.remove(filePath);
       _diagnosticsLoadingFiles.remove(filePath);
     });
-    // Sync diagnostics into the text controller for inline decorations.
+    // 同步到文本控制器以刷新行内标记。
     final controller = _textControllers[filePath];
     if (controller != null) {
       controller.diagnostics =
@@ -4401,8 +4377,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Future<void> _refreshDiagnostics(String filePath) async {
     if (_diagnosticsLoadingFiles.contains(filePath)) {
-      // A refresh is already in-flight.  Queue a re-fetch so the latest
-      // content is diagnosed once the current request completes.
+      // 当前已有请求时排队补拉，确保完成后诊断最新内容。
       _diagnosticsPendingRefresh.add(filePath);
       return;
     }
@@ -4430,29 +4405,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       }
       setState(() {
         _diagnosticsLoadingFiles.remove(filePath);
-        _diagnosticsByFile[filePath] = diagnostics
-            .map(
-              (item) => _EditorDiagnostic(
-                severity: switch (item.severity) {
-                  1 => 'ERROR',
-                  2 => 'WARNING',
-                  _ => 'INFO',
-                },
-                code: item.code ?? item.source ?? 'lsp',
-                message: item.message,
-                line: item.range.start.line,
-                column: item.range.start.character,
-                endLine: item.range.end.line,
-                endColumn: item.range.end.character,
-                length: math.max(
-                  1,
-                  item.range.start.line == item.range.end.line
-                      ? item.range.end.character - item.range.start.character
-                      : 1,
-                ),
-              ),
-            )
-            .toList(growable: false);
+        _diagnosticsByFile[filePath] = _mapLspDiagnostics(diagnostics);
         _diagnosticsStaleFiles.remove(filePath);
       });
     } catch (_) {
@@ -4465,7 +4418,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       });
     }
 
-    // If new changes arrived while we were busy, immediately re-fetch.
+    // 请求期间有新改动时立即补拉一次。
     if (widget.openFiles.contains(filePath) &&
         _diagnosticsPendingRefresh.remove(filePath)) {
       unawaited(_refreshDiagnostics(filePath));
@@ -12459,6 +12412,32 @@ class _EditorDiagnostic {
 
   bool get isError => severity == 'ERROR';
   bool get isWarning => severity == 'WARNING';
+}
+
+List<_EditorDiagnostic> _mapLspDiagnostics(List<AiLspDiagnostic> diagnostics) {
+  return diagnostics
+      .map(
+        (item) => _EditorDiagnostic(
+          severity: switch (item.severity) {
+            1 => 'ERROR',
+            2 => 'WARNING',
+            _ => 'INFO',
+          },
+          code: item.code ?? item.source ?? 'lsp',
+          message: item.message,
+          line: item.range.start.line,
+          column: item.range.start.character,
+          endLine: item.range.end.line,
+          endColumn: item.range.end.character,
+          length: math.max(
+            1,
+            item.range.start.line == item.range.end.line
+                ? item.range.end.character - item.range.start.character
+                : 1,
+          ),
+        ),
+      )
+      .toList(growable: false);
 }
 
 class _EditorDiagnosticDecoratedRange {
