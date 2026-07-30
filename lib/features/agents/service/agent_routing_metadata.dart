@@ -2,10 +2,29 @@ import 'dart:convert';
 
 import 'package:yaml/yaml.dart';
 
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
-import '../../../shared/util/text_normalization.dart';
 import '../model/agent_models.dart';
+
+const int agentRouteFrontMatterMaxChars = 32768;
+const int agentRouteKeywordMaxChars = 256;
+const int agentRouteKeywordMaxItems = 128;
+const int _agentRouteMaxDepth = 16;
+const int _agentRouteMaxContainerItems = 256;
+const int _agentRouteMaxTotalNodes = 4096;
+const int _agentRoutePreviewMaxChars = 600;
+const BoundedJsonConversionConfig _agentRouteConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: _agentRouteMaxDepth,
+      maxContainerItems: _agentRouteMaxContainerItems,
+      maxTotalNodes: _agentRouteMaxTotalNodes,
+      maxStringCodeUnits: 2048,
+      maxDepthPlaceholder: '<层级过深>',
+      cyclicMapPlaceholder: '<循环映射>',
+      cyclicIterablePlaceholder: '<循环集合>',
+      truncatedPlaceholder: '<已截断>',
+    );
 
 class AgentRoutingMetadata {
   const AgentRoutingMetadata({
@@ -16,13 +35,13 @@ class AgentRoutingMetadata {
   });
 
   factory AgentRoutingMetadata.fromAgent(AgentProfile agent) {
-    final raw = agent.routeFrontMatter.trim();
+    final raw = agent.routeFrontMatter;
     final frontMatter = parseAgentRouteFrontMatter(raw);
     return AgentRoutingMetadata(
       frontMatter: frontMatter,
       preview: _preview(raw),
       keywords: _routingKeywords(frontMatter, agent),
-      hasRoute: raw.isNotEmpty || frontMatter.isNotEmpty,
+      hasRoute: raw.trim().isNotEmpty || frontMatter.isNotEmpty,
     );
   }
 
@@ -42,6 +61,9 @@ class AgentRoutingMetadata {
 }
 
 Map<String, Object?> parseAgentRouteFrontMatter(String raw) {
+  if (raw.length > agentRouteFrontMatterMaxChars) {
+    return const <String, Object?>{};
+  }
   final trimmed = raw.trim();
   if (trimmed.isEmpty) return const <String, Object?>{};
   final candidate = _frontMatterBody(trimmed) ?? trimmed;
@@ -69,7 +91,7 @@ Map<String, Object?>? _tryParseJsonMap(String text) {
   if (!trimmed.startsWith('{')) return null;
   try {
     final decoded = jsonDecode(trimmed);
-    if (decoded is Map) return _jsonMap(decoded);
+    if (decoded is Map) return _boundedJsonMap(decoded);
   } catch (_) {
     return null;
   }
@@ -80,7 +102,9 @@ Map<String, Object?>? _tryParseYamlMap(String text) {
   if (!text.contains(':')) return null;
   try {
     final decoded = loadYaml(text);
-    if (decoded is YamlMap || decoded is Map) return _jsonMap(decoded as Map);
+    if (decoded is YamlMap || decoded is Map) {
+      return _boundedJsonMap(decoded as Map);
+    }
   } catch (_) {
     return null;
   }
@@ -89,7 +113,9 @@ Map<String, Object?>? _tryParseYamlMap(String text) {
 
 Map<String, Object?> _parseFlatKeyValueLines(String text) {
   final values = <String, Object?>{};
-  for (final line in const LineSplitter().convert(text)) {
+  final lines = const LineSplitter().convert(text);
+  for (var i = 0; i < lines.length && i < _agentRouteMaxTotalNodes; i += 1) {
+    final line = lines[i];
     final trimmed = line.trim();
     if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
     final separatorIndex = trimmed.indexOf(':');
@@ -98,60 +124,84 @@ Map<String, Object?> _parseFlatKeyValueLines(String text) {
     final value = trimmed.substring(separatorIndex + 1).trim();
     if (key.isEmpty || value.isEmpty) continue;
     values[key] = _stripQuotes(value);
+    if (values.length > _agentRouteMaxContainerItems) break;
   }
-  return values;
+  return _boundedJsonMap(values);
 }
 
-Map<String, Object?> _jsonMap(Map<dynamic, dynamic> raw) {
+Map<String, Object?> _boundedJsonMap(Map<dynamic, dynamic> raw) {
+  final converted = convertToJsonSafeMap(
+    raw,
+    config: _agentRouteConversionConfig,
+  );
   final result = <String, Object?>{};
-  for (final entry in raw.entries) {
-    final key = '${entry.key}'.trim();
+  for (final entry in converted.entries) {
+    final key = entry.key.trim();
     if (key.isEmpty) continue;
-    result[key] = _jsonValue(entry.value);
+    result[key] = entry.value;
   }
   return result;
-}
-
-Object? _jsonValue(Object? raw) {
-  if (raw == null || raw is num || raw is bool || raw is String) return raw;
-  if (raw is YamlList || raw is List) {
-    return (raw as Iterable).map(_jsonValue).toList(growable: false);
-  }
-  if (raw is YamlMap || raw is Map) return _jsonMap(raw as Map);
-  return '$raw';
 }
 
 List<String> _routingKeywords(
   Map<String, Object?> frontMatter,
   AgentProfile agent,
 ) {
-  final values = <String>[];
-  for (final key in const <String>[
-    'keywords',
-    'keyword',
-    'triggers',
-    'trigger',
-    'tags',
-    'domains',
-    'domain',
-    'routes',
-    'route',
-    'intents',
-    'intent',
-  ]) {
-    values.addAll(_stringsFromValue(frontMatter[key]));
-  }
-  values.addAll(agent.taskLabels);
-  values.addAll(agent.skillNames);
-  return dedupeNonEmptyStrings(values);
+  return _boundedDistinctStrings(<Object?>[
+    for (final key in const <String>[
+      'keywords',
+      'keyword',
+      'triggers',
+      'trigger',
+      'tags',
+      'domains',
+      'domain',
+      'routes',
+      'route',
+      'intents',
+      'intent',
+    ])
+      frontMatter[key],
+    agent.taskLabels,
+    agent.skillNames,
+  ]);
 }
 
-List<String> _stringsFromValue(Object? raw) {
-  if (raw == null) return const <String>[];
-  if (raw is Iterable) {
-    return raw.expand(_stringsFromValue).toList(growable: false);
+List<String> _boundedDistinctStrings(Iterable<Object?> sources) {
+  final result = <String>[];
+  final seen = <String>{};
+
+  bool collect(Object? value, int depth) {
+    if (value == null || result.length >= agentRouteKeywordMaxItems) {
+      return result.length < agentRouteKeywordMaxItems;
+    }
+    if (value is Iterable) {
+      if (depth >= _agentRouteMaxDepth) return true;
+      var itemCount = 0;
+      for (final item in value) {
+        if (itemCount >= _agentRouteMaxContainerItems ||
+            !collect(item, depth + 1)) {
+          break;
+        }
+        itemCount += 1;
+      }
+      return result.length < agentRouteKeywordMaxItems;
+    }
+    final text = '$value';
+    if (text.length > agentRouteFrontMatterMaxChars) return true;
+    for (final raw in splitTrimmedNonEmpty(text)) {
+      if (raw.length > agentRouteKeywordMaxChars) continue;
+      final normalized = raw.toLowerCase();
+      if (seen.add(normalized)) result.add(raw);
+      if (result.length >= agentRouteKeywordMaxItems) return false;
+    }
+    return true;
   }
-  return splitTrimmedNonEmpty('$raw');
+
+  for (final source in sources) {
+    if (!collect(source, 0)) break;
+  }
+  return result;
 }
 
 String _stripQuotes(String value) {
@@ -165,7 +215,5 @@ String _stripQuotes(String value) {
 }
 
 String _preview(String raw) {
-  const maxChars = 600;
-  final normalized = raw.trim();
-  return clipText(normalized, maxChars);
+  return clipTextByCodeUnits(raw, _agentRoutePreviewMaxChars).trim();
 }

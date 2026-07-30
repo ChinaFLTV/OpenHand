@@ -1,5 +1,7 @@
 import 'dart:collection';
 
+import 'text_clip.dart';
+
 enum JsonNonFiniteNumberBehavior { stringify, zero }
 
 /// JSON 安全转换的资源与兼容策略。
@@ -8,6 +10,8 @@ final class BoundedJsonConversionConfig {
     this.maxDepth = 64,
     this.maxContainerItems = 10000,
     this.maxTotalNodes = 100000,
+    this.maxStringCodeUnits,
+    this.truncatedStringSuffix = '...',
     this.nonFiniteNumberBehavior = JsonNonFiniteNumberBehavior.stringify,
     this.maxDepthPlaceholder = '<max-depth>',
     this.cyclicMapPlaceholder = '<cyclic-map>',
@@ -15,11 +19,14 @@ final class BoundedJsonConversionConfig {
     this.truncatedPlaceholder = '<truncated>',
   }) : assert(maxDepth >= 0),
        assert(maxContainerItems > 0),
-       assert(maxTotalNodes > 0);
+       assert(maxTotalNodes > 0),
+       assert(maxStringCodeUnits == null || maxStringCodeUnits >= 0);
 
   final int maxDepth;
   final int maxContainerItems;
   final int maxTotalNodes;
+  final int? maxStringCodeUnits;
+  final String truncatedStringSuffix;
   final JsonNonFiniteNumberBehavior nonFiniteNumberBehavior;
   final String maxDepthPlaceholder;
   final String cyclicMapPlaceholder;
@@ -56,22 +63,29 @@ final class _BoundedJsonConverter {
     }
     _visitedNodes += 1;
 
-    if (value == null || value is String || value is bool) return value;
+    if (value == null || value is bool) return value;
+    if (value is String) return _convertString(value);
     if (value is num) {
       if (value.isFinite) return value;
       return switch (config.nonFiniteNumberBehavior) {
-        JsonNonFiniteNumberBehavior.stringify => value.toString(),
+        JsonNonFiniteNumberBehavior.stringify => _convertString(
+          value.toString(),
+        ),
         JsonNonFiniteNumberBehavior.zero => 0,
       };
     }
-    if (value is DateTime) return value.toUtc().toIso8601String();
+    if (value is DateTime) {
+      return _convertString(value.toUtc().toIso8601String());
+    }
     if (value is Duration) return value.inMilliseconds;
-    if (value is Uri || value is BigInt) return value.toString();
-    if (value is Enum) return value.name;
+    if (value is Uri || value is BigInt) {
+      return _convertString(value.toString());
+    }
+    if (value is Enum) return _convertString(value.name);
     if (depth >= config.maxDepth) return config.maxDepthPlaceholder;
     if (value is Map) return _convertMap(value, depth);
     if (value is Iterable) return _convertIterable(value, depth);
-    return value.toString();
+    return _convertString(value.toString());
   }
 
   Object _convertMap(Map<Object?, Object?> value, int depth) {
@@ -84,7 +98,10 @@ final class _BoundedJsonConverter {
           _visitedNodes < config.maxTotalNodes &&
           iterator.moveNext()) {
         final entry = iterator.current;
-        result['${entry.key}'] = convert(entry.value, depth + 1);
+        result[_convertString('${entry.key}')] = convert(
+          entry.value,
+          depth + 1,
+        );
         itemCount += 1;
       }
       if ((itemCount >= config.maxContainerItems ||
@@ -129,5 +146,15 @@ final class _BoundedJsonConverter {
       key = '_$key';
     }
     return key;
+  }
+
+  String _convertString(String value) {
+    final maxCodeUnits = config.maxStringCodeUnits;
+    if (maxCodeUnits == null || value.length <= maxCodeUnits) return value;
+    return clipTextByCodeUnits(
+      value,
+      maxCodeUnits,
+      suffix: config.truncatedStringSuffix,
+    );
   }
 }

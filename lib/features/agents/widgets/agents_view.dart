@@ -10008,18 +10008,23 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required List<AiBuiltinToolConfig> builtinToolConfigs,
   }) {
     FocusScope.of(dialogContext).unfocus();
-    final validationError = _validateDraft();
+    final routeFrontMatter = _buildRouteFrontMatter();
+    final validationError = _validateDraft(routeFrontMatter);
     if (validationError != null) {
       _showAgentErrorSnack(context, validationError);
       return;
     }
     final metadata = _metadataMapFromEntries();
     Navigator.of(dialogContext, rootNavigator: true).pop(
-      _buildAgent(builtinToolConfigs: builtinToolConfigs, metadata: metadata),
+      _buildAgent(
+        builtinToolConfigs: builtinToolConfigs,
+        metadata: metadata,
+        routeFrontMatter: routeFrontMatter,
+      ),
     );
   }
 
-  String? _validateDraft() {
+  String? _validateDraft(String routeFrontMatter) {
     final duplicateMetadata = _firstDuplicateKey(_metadataEntries);
     if (duplicateMetadata != null) {
       return openHandLocalizedText(
@@ -10035,6 +10040,33 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         zh: '路由扩展字段重复：$duplicateRoute',
         en: 'Duplicate routing field: $duplicateRoute',
       );
+    }
+    if (routeFrontMatter.length > agentRouteFrontMatterMaxChars) {
+      return openHandLocalizedText(
+        context,
+        zh: '路由配置不能超过 $agentRouteFrontMatterMaxChars 个字符。',
+        en: 'Routing configuration cannot exceed $agentRouteFrontMatterMaxChars characters.',
+      );
+    }
+    for (final values in <List<String>>[
+      _routeKeywords,
+      _routeDomains,
+      _routeIntents,
+    ]) {
+      if (values.length > agentRouteKeywordMaxItems) {
+        return openHandLocalizedText(
+          context,
+          zh: '关键词、领域和意图每组最多 $agentRouteKeywordMaxItems 项。',
+          en: 'Keywords, domains, and intents are limited to $agentRouteKeywordMaxItems items per group.',
+        );
+      }
+      if (values.any((value) => value.length > agentRouteKeywordMaxChars)) {
+        return openHandLocalizedText(
+          context,
+          zh: '单个关键词、领域或意图不能超过 $agentRouteKeywordMaxChars 个字符。',
+          en: 'Each keyword, domain, or intent cannot exceed $agentRouteKeywordMaxChars characters.',
+        );
+      }
     }
     return null;
   }
@@ -10054,6 +10086,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   AgentProfile _buildAgent({
     required List<AiBuiltinToolConfig> builtinToolConfigs,
     required Map<String, Object?> metadata,
+    required String routeFrontMatter,
   }) {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
@@ -10086,7 +10119,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       level: _level.text.trim(),
       introduction: _introduction.text.trim(),
       archive: _archive.text.trim(),
-      routeFrontMatter: _buildRouteFrontMatter(),
+      routeFrontMatter: routeFrontMatter,
       welcomeMessage: _welcomeMessage.text.trim(),
       modelProviderConfigId: _modelProviderConfigId,
       modelId: _modelId,
@@ -10222,7 +10255,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   List<String> _routeStringsFromValues(Iterable<Object?> values) {
-    return dedupeNonEmptyStrings(values.expand(_stringsFromStructuredValue));
+    return dedupeNonEmptyStrings(values.expand(_stringsFromStructuredValue))
+        .where((value) => value.length <= agentRouteKeywordMaxChars)
+        .take(agentRouteKeywordMaxItems)
+        .toList(growable: false);
   }
 
   List<String> _stringsFromStructuredValue(Object? raw) {
