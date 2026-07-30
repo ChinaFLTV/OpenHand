@@ -34,7 +34,7 @@ String? validateHarnessHandoffDocument(String content) {
     return '内容过短';
   }
   final h1Pattern = RegExp(
-    r'^#\s+(?:Harness|Harness) Engineering\s+(?:交接文档|会话摘要)\s*$',
+    r'^#\s+Harness Engineering\s+(?:交接文档|会话摘要)\s*$',
     multiLine: true,
   );
   if (!h1Pattern.hasMatch(normalized)) {
@@ -337,18 +337,18 @@ class HarnessApiPhaseRunner {
       emit('');
     }
 
-    // Load the HE template bundle for system/developer instructions.
+    // 加载 Harness 模板中的系统和开发者指令。
     final templateBundle = await _templateRepository.loadBundle(
       _harnessTemplateId,
     );
 
     String buildSystemContent(AiResolvedToolCatalog currentPhaseToolCatalog) {
       final systemContent = StringBuffer()
-        ..writeln('# [0] System Instructions')
+        ..writeln('# 系统指令')
         ..writeln()
         ..writeln(templateBundle.systemInstructions)
         ..writeln()
-        ..writeln('# [1] Developer Instructions')
+        ..writeln('# 开发者指令')
         ..writeln()
         ..writeln(templateBundle.developerInstructions)
         ..writeln()
@@ -378,7 +378,6 @@ class HarnessApiPhaseRunner {
           ..writeln(
             harnessPromptBuilder.renderCompactToolCatalog(
               tools: currentPhaseToolCatalog.definitions,
-              phase: phase,
             ),
           );
       }
@@ -391,28 +390,23 @@ class HarnessApiPhaseRunner {
           ..writeln(harnessPromptBuilder.compactXmlToolInstructions);
       }
 
-      // ── Reviewer isolation reinforcement ──────────────────────────────────
-      // When executing the reviewing phase via API, inject an explicit
-      // isolation statement into the system prompt to combat self-evaluation
-      // bias (the model reviewing its own work tends to score higher).
+      // 验收阶段不继承实施者结论，必须以工作区事实独立核验。
       if (phase == HarnessPhase.reviewing) {
         systemContent
           ..writeln()
-          ..writeln('# 代理隔离声明')
+          ..writeln('# 验收规则')
           ..writeln()
           ..writeln(
-            '你正在作为 **独立的验收代理** 运行。'
-            '本会话与实施代理 **没有任何共享状态**。'
-            '你必须仅基于执行计划、原始需求和代码库的真实状态进行评估。'
-            '**不要假设任何实施步骤已正确完成** — 请逐一独立验证。',
+            '仅依据原始需求、执行计划和当前工作区验收。'
+            '不要依赖实施者的解释或结论；逐项验证后再判定。',
           );
       }
 
-      // Inject workspace instruction documents (same as default thread).
+      // 注入工作区指令文档。
       if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
         systemContent
           ..writeln()
-          ..writeln('# Workspace Instructions')
+          ..writeln('# 工作区指令')
           ..writeln();
         for (final doc in runtimeContext.workspaceInstructionDocuments) {
           systemContent
@@ -1157,7 +1151,7 @@ class HarnessApiPhaseRunner {
     }
   }
 
-  /// Builds the prompt sent to the model to generate a handoff document.
+  /// 构建交接摘要请求，工具结果只保留必要前缀。
   String _buildHandoffPrompt(
     List<AiChatTurn> conversation,
     HarnessPhase phase,
@@ -1170,7 +1164,6 @@ class HarnessApiPhaseRunner {
       ..writeln('## 对话历史')
       ..writeln();
 
-    // Include conversation content, with tool calls summarized.
     for (final turn in conversation) {
       final role = turn.role == AiChatRole.system
           ? '系统'
@@ -1181,10 +1174,9 @@ class HarnessApiPhaseRunner {
           : '工具';
       sb.writeln('### [$role]');
 
-      // Truncate very long tool result contents to keep the prompt manageable.
       final content = turn.content;
       if (turn.role == AiChatRole.tool && content.length > 2000) {
-        sb.writeln('${content.substring(0, 2000)}… (${content.length} chars)');
+        sb.writeln('${content.substring(0, 2000)}…（共 ${content.length} 个字符）');
       } else {
         sb.writeln(content);
       }
@@ -1200,86 +1192,62 @@ class HarnessApiPhaseRunner {
     return sb.toString();
   }
 
-  /// System prompt for the handoff document generation.
+  /// 交接摘要系统提示词。
   static const String _handoffSystemPrompt = '''
-你是 Harness Engineering 会话的交接摘要器。只输出 Markdown 正文，不调用工具，不输出解释前后缀。
+你负责压缩 Harness Engineering 会话，供下一会话直接接力。
 
-目标：把对话历史压缩为持久化、信息密度高、可接力执行的会话摘要。全文使用简体中文；路径、命令、文件名、CLI 名、模型名、PASS/FAIL、退出码、轮次编号保留原文。
+规则：
+- 只输出简体中文 Markdown 正文，不调用工具，不添加前后缀。
+- 保留路径、命令、技术标识、PASS/FAIL、退出码和轮次编号原文。
+- 只写可确认事实，区分“已确认”与“待确认”，不重复、不推测。
+- 逐条保留写命令、CLI 失败、拒绝规则命中、未确认操作和活跃后台进程。
+- 章节顺序固定；无内容时写“暂无已确认事项”。
 
-必须保留：原始任务、当前阶段、最近活跃角色、已完成/待完成步骤、所有持久化文件路径、未闭环 CLI 失败、未确认写命令、未读交接、活跃后台进程、风险与边界情况。
-
-请严格使用以下章节顺序；没有事实的章节也要写“暂无已确认事项”，不要省略关键章节：
-
-```markdown
+输出结构：
 # Harness Engineering 会话摘要
 
 ## 配置
-- 工作目录：{path}
-- 持久化目录：{path}
-- 角色 / CLI / 模型：{已知配置}
+工作目录、持久化目录、角色、CLI 与模型。
 
 ## 原始任务
-{task description}
+完整保留目标与硬约束。
 
 ## 当前状态
-- 阶段：{current_phase}
-- 最近活跃角色：{role / agent_id}
-- 已完成步骤：{list}
-- 待完成步骤：{list}
+当前阶段、最近活跃角色、已完成和待完成步骤。
 
 ## 本次会话已创建的持久化文件
-- 计划：{paths}
-- 反馈：{paths}
-- 交接：{paths}
-- Lessons：{paths}
-- Meta：{paths / status}
+按计划、反馈、交接、Lessons、Meta 分类列出路径和状态。
 
 ## 当前成果
-{已完成事项的简要描述}
+简述已确认成果。
 
 ## 未解决问题（含未闭环的 CLI 失败 / 未确认写命令 / 未读交接）
-- {轮次 / 角色 / CLI / 现象 / 状态}
+逐项记录轮次、角色、CLI、现象和状态。
 
 ## 活跃后台进程
-- {BashBackground id / 命令 / 用途 / stop 状态}
+列出进程 ID、命令、用途和停止状态。
 
 ## 风险与边界情况
-{已知限制、脆弱假设、需用户介入的开放问题}
-```
-
-规则：
-1. 稳定事实优先；不要编造。
-2. 显式区分“已确认”和“待确认”。
-3. 同一事实不要重复表达。
-4. 任何写命令、CLI 失败、deny-list 命中事件必须逐条保留。
+列出已知限制、脆弱假设和需用户介入的问题。
 ''';
 
-  /// Builds the resume prompt for the new session after handoff.
+  /// 构建接力会话提示词。
   String _buildHandoffResumePrompt({
     required String phasePrompt,
     required String handoffContent,
     required HarnessPhase phase,
   }) {
-    return '''# 会话接力 — ${phase.displayNameZh}阶段
+    return '''# 接力执行：${phase.displayNameZh}阶段
 
-**重要：这是一个接力会话。** 前一个会话因上下文窗口接近上限而生成了交接文档。
-你必须基于交接文档中的工作进展继续完成任务，不要重新从头开始。
+根据交接摘要继续未完成事项。不要重做已确认完成的工作；优先处理未解决问题和风险，完成后按原始阶段任务输出。
 
-## 交接文档
+## 交接摘要
 
 $handoffContent
 
-## 原始阶段提示
+## 原始阶段任务
 
 $phasePrompt
-
-## 继续执行指令
-
-1. 仔细阅读交接文档，理解已完成的工作和当前进度
-2. 从交接文档记录的"未完成事项"继续推进
-3. 不要重复已完成的工作
-4. 如果交接文档提到了已知问题，请优先处理
-5. 完成所有剩余步骤后，按照原始阶段提示的要求输出最终结果
 ''';
   }
 

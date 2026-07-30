@@ -1,10 +1,5 @@
-// Harness Engineering prompt builder service.
-// This module provides specialized prompt construction for Harness
-// Engineering phases, implementing:
-// - Compressed tool catalog rendering (~75% token reduction)
-// - Phase-aware context loading (architecture, conventions, etc.)
-// - Protocol-adaptive tool format (skip XML for API-native tools)
-// - Unified language policy (no repetition)
+// Harness Engineering 提示词构建器：负责压缩工具目录、按阶段过滤工具，
+// 并为不支持原生工具调用的模型补充 XML 调用格式。
 
 import '../../ai/index.dart';
 import '../model/harness_phase.dart';
@@ -13,28 +8,20 @@ import '../model/harness_tool_affinity.dart';
 class HarnessPromptBuilder {
   const HarnessPromptBuilder();
 
-  /// Renders a compressed tool catalog for HE phases.
-  ///
-  /// Compared to the default full catalog (~8000 chars), this compressed
-  /// version targets ~2000 chars by:
-  /// 1. Grouping tools by category with shared parameter signatures
-  /// 2. Truncating descriptions to 60 chars
-  /// 3. Omitting full JSON schemas (API tools array has those)
-  /// 4. Using a concise list format
-  String renderCompactToolCatalog({
-    required List<AiToolDefinition> tools,
-    required HarnessPhase phase,
-  }) {
+  static const int _toolDescriptionMaxCharacters = 60;
+  static const int _lessonsSummaryThresholdCharacters = 1500;
+  static const int _lessonsFallbackCharacters = 1000;
+  static const int _lessonsMaxKeyPoints = 15;
+
+  /// 按来源分组并省略完整 Schema，渲染精简工具目录。
+  String renderCompactToolCatalog({required List<AiToolDefinition> tools}) {
     if (tools.isEmpty) {
       return '无可用工具。';
     }
 
-    final buffer = StringBuffer()
-      ..writeln('# 可用工具（共 ${tools.length} 个）')
-      ..writeln()
-      ..writeln('能力优先级：Skill > MCP > Builtin');
+    final buffer = StringBuffer()..writeln('# 可用工具（共 ${tools.length} 个）');
 
-    // Group tools by type
+    // 按来源分组，组内保持稳定顺序。
     final skillTools = <AiToolDefinition>[];
     final mcpTools = <AiToolDefinition>[];
     final builtinTools = <AiToolDefinition>[];
@@ -58,9 +45,11 @@ class HarnessPromptBuilder {
         ..writeln()
         ..writeln('## Skills（通用参数：task?: string）');
       for (final tool in skillTools) {
-        final shortName = tool.name.replaceFirst('skill__', '');
-        final desc = _truncateDescription(tool.description, 60);
-        buffer.writeln('- $shortName: $desc');
+        final desc = _truncateDescription(
+          tool.description,
+          _toolDescriptionMaxCharacters,
+        );
+        buffer.writeln('- ${tool.name}: $desc');
       }
     }
 
@@ -69,14 +58,12 @@ class HarnessPromptBuilder {
         ..writeln()
         ..writeln('## MCP 工具');
       for (final tool in mcpTools) {
-        // Extract server and tool name from mcp__server__tool format
-        final parts = tool.name.split('__');
-        final displayName = parts.length >= 3
-            ? '${parts[1]}/${parts.sublist(2).join('__')}'
-            : tool.name.replaceFirst('mcp__', '');
-        final desc = _truncateDescription(tool.description, 60);
+        final desc = _truncateDescription(
+          tool.description,
+          _toolDescriptionMaxCharacters,
+        );
         final requiredArgs = _extractRequiredArgs(tool.parameters);
-        buffer.write('- $displayName: $desc');
+        buffer.write('- ${tool.name}: $desc');
         if (requiredArgs.isNotEmpty) {
           buffer.write(' [${requiredArgs.join(', ')}]');
         }
@@ -89,7 +76,10 @@ class HarnessPromptBuilder {
         ..writeln()
         ..writeln('## 内建工具');
       for (final tool in builtinTools) {
-        final desc = _truncateDescription(tool.description, 60);
+        final desc = _truncateDescription(
+          tool.description,
+          _toolDescriptionMaxCharacters,
+        );
         final requiredArgs = _extractRequiredArgs(tool.parameters);
         buffer.write('- ${tool.name}: $desc');
         if (requiredArgs.isNotEmpty) {
@@ -102,41 +92,48 @@ class HarnessPromptBuilder {
     return buffer.toString().trimRight();
   }
 
-  /// Filters tools based on phase affinity.
-  ///
-  /// Returns a filtered catalog containing only tools relevant to the phase.
+  /// 按阶段能力和写入权限过滤工具目录。
   AiResolvedToolCatalog filterToolsForPhase({
     required HarnessPhase phase,
     required AiResolvedToolCatalog catalog,
   }) {
-    // Implementing phase gets full access
-    if (phase == HarnessPhase.implementing) {
-      return catalog;
-    }
-
     final filteredDefinitions = <AiToolDefinition>[];
     final filteredToolsByName = <String, AiResolvedTool>{};
 
-    // Phases that produce mandatory output artifacts (architecture.md,
-    // plan files, feedback files) need the Write tool; only the reading
-    // phase is truly read-only with no file output.
+    // 元信息、规划和验收阶段需要 Write 写入各自的持久化产物。
     final phaseNeedsWrite =
         phase == HarnessPhase.metaCollection ||
         phase == HarnessPhase.planning ||
         phase == HarnessPhase.reviewing;
 
-    // Edit / multi-edit are always excluded outside implementing; Write
-    // is allowed for phases that produce artifacts.
+    const alwaysExcludedBuiltins = <AiBuiltinToolKind>{
+      AiBuiltinToolKind.askUserChoice,
+      AiBuiltinToolKind.skillManager,
+      AiBuiltinToolKind.memory,
+    };
     final readOnlyExcludeBuiltins = <AiBuiltinToolKind>{
       AiBuiltinToolKind.edit,
       AiBuiltinToolKind.multiEdit,
+      AiBuiltinToolKind.applyFileDiffs,
+      AiBuiltinToolKind.deleteFile,
       if (!phaseNeedsWrite) AiBuiltinToolKind.write,
       AiBuiltinToolKind.notebookEdit,
+      AiBuiltinToolKind.bashBackground,
+      AiBuiltinToolKind.taskOutput,
+      AiBuiltinToolKind.taskStop,
+      AiBuiltinToolKind.machineTerminalWrite,
+      AiBuiltinToolKind.machineTerminalExec,
+      AiBuiltinToolKind.machineTerminalControl,
     };
     bool isAllowed(AiResolvedTool tool) {
-      if (tool.source == AiRuntimeToolSource.builtin &&
-          readOnlyExcludeBuiltins.contains(tool.builtinKind)) {
-        return false;
+      if (tool.source == AiRuntimeToolSource.builtin) {
+        final kind = tool.builtinKind;
+        if (kind != null &&
+            (alwaysExcludedBuiltins.contains(kind) ||
+                phase != HarnessPhase.implementing &&
+                    readOnlyExcludeBuiltins.contains(kind))) {
+          return false;
+        }
       }
       if (!isToolRelevantForPhase(phase: phase, tool: tool)) {
         return false;
@@ -210,27 +207,21 @@ class HarnessPromptBuilder {
     );
   }
 
-  /// Renders experience lessons as a compressed summary.
-  ///
-  /// When full lessons content exceeds the threshold, extracts and
-  /// returns only the most important points (top 5 lessons).
+  /// 超过阈值时提取经验记录中的标题、列表和关键提示。
   String renderLessonsSummary(String fullLessonsContent) {
     if (fullLessonsContent.trim().isEmpty) {
       return '';
     }
 
-    // If content is short, return as-is
-    if (fullLessonsContent.length < 1500) {
+    if (fullLessonsContent.length < _lessonsSummaryThresholdCharacters) {
       return fullLessonsContent;
     }
 
-    // Extract key points from lessons
     final lines = fullLessonsContent.split('\n');
     final keyPoints = <String>[];
 
     for (final line in lines) {
       final trimmed = line.trim();
-      // Capture section headers and key findings
       if (trimmed.startsWith('#') ||
           trimmed.startsWith('- ') ||
           trimmed.startsWith('* ') ||
@@ -240,48 +231,35 @@ class HarnessPromptBuilder {
           trimmed.contains('必须') ||
           trimmed.contains('错误') ||
           trimmed.contains('问题')) {
-        if (trimmed.isNotEmpty && keyPoints.length < 15) {
+        if (trimmed.isNotEmpty && keyPoints.length < _lessonsMaxKeyPoints) {
           keyPoints.add(trimmed);
         }
       }
     }
 
     if (keyPoints.isEmpty) {
-      // Fallback: return first 1000 chars
-      return '${fullLessonsContent.substring(0, 1000).trimRight()}…\n\n（经验教训已压缩；完整内容见 steering/lesson/ 目录）';
+      return '${fullLessonsContent.substring(0, _lessonsFallbackCharacters).trimRight()}…\n\n（经验教训已压缩；完整内容见 steering/lesson/ 目录）';
     }
 
     return '## 经验教训摘要\n\n${keyPoints.join('\n')}\n\n（完整经验教训见 steering/lesson/ 目录）';
   }
 
-  /// Returns the compact XML tool call format instructions.
-  ///
-  /// This is a ~500 char version of the full ~3500 char instructions,
-  /// used only when the model doesn't support native tool calls.
+  /// 非原生模型使用的精简 XML 工具调用格式。
   String get compactXmlToolInstructions => '''
 ## 工具调用格式
 
-在响应末尾输出以下 XML（之后不要有任何文字）：
-
-```xml
+需要调用工具时，在响应末尾输出以下 XML：
 <tool_calls>
   <tool_call><tool_name>工具名</tool_name><parameters>{"key":"value"}</parameters></tool_call>
 </tool_calls>
-```
 
-规则：(1) XML 后不要有文字 (2) parameters 内为 JSON (3) 不要用 Markdown 代码块包裹 XML
+`tool_name` 使用目录中的完整名称，`parameters` 必须是 JSON。XML 后停止输出，禁止代码围栏。
 ''';
 
-  /// Checks if XML tool instructions should be injected.
-  ///
-  /// Returns false for models with native tool call support.
+  /// 原生工具调用模型不注入 XML 说明。
   bool shouldInjectXmlInstructions(AiProtocolAdapter adapter) {
     return !adapter.supportsToolCalls;
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Private helpers
-  // ─────────────────────────────────────────────────────────────────────────
 
   String _truncateDescription(String description, int maxChars) {
     final normalized = description
@@ -337,5 +315,5 @@ class HarnessPromptBuilder {
   }
 }
 
-/// Global instance for convenience.
+/// 全局无状态实例。
 const harnessPromptBuilder = HarnessPromptBuilder();

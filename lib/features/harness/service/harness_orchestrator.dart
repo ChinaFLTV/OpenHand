@@ -1856,7 +1856,6 @@ class HarnessOrchestrator extends ChangeNotifier {
     final sb = StringBuffer()
       ..writeln('# Harness Engineering - ${phase.displayNameZh}阶段')
       ..writeln()
-      ..writeln()
       ..writeln('> 遵循系统语言策略：所有输出使用简体中文，技术标识保留原文。')
       ..writeln()
       ..writeln('## 任务')
@@ -1866,7 +1865,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       ..writeln(config.workingDirectory)
       ..writeln()
       ..writeln('## 运行时约束')
-      ..writeln('1. 无交互 CLI 自动化会话，阶段内无需等待人工批准。')
+      ..writeln('1. 直接执行允许的操作；需要审批时使用运行时审批流程。')
       ..writeln(_phaseDirectoryPermissionConstraint(phase))
       ..writeln('3. 直接使用会话内可用工具；不要转交子代理或尝试未注册工具。')
       ..writeln('4. 若路径或工具不可用，立即报告阻塞原因与替代方案。')
@@ -1963,107 +1962,58 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     ${_manualPhaseMissionAddendum(HarnessPhase.metaCollection)}
 
-    请仔细扫描 ${config.workingDirectory} 下的项目，并产出两个完整的 Markdown 文档。除代码、命令、路径、文件名等技术标识外，所有标题、说明、总结都必须使用简体中文。
+    扫描 ${config.workingDirectory}，基于事实生成简体中文文档：
+    - `$meta/architecture.md`：2–3 层目录树、入口与构建文件、语言/框架/测试工具、模块职责、外部依赖。
+    - `$meta/conventions.md`：编码与命名风格、目录约定、可确认的构建/测试/Lint 命令、限制与易错点。
 
-    1. **architecture.md**：必须包含
-       - 顶层目录树（展开 2-3 层）
-       - 关键入口点（主文件、配置文件、构建文件）
-       - 识别到的语言、框架以及构建/测试工具
-       - 主要模块及其职责
-       - 外部依赖（库、API、服务）
-
-    2. **conventions.md**：必须包含
-       - 现有代码中观察到的编码风格与命名约定
-       - 目录约定（不同类型文件通常放在哪里）
-       - README 或配置文件中可确认的构建、测试、Lint 命令
-       - 明确存在的限制、规则或易错点
-
-    分析完成后，你**必须**调用 Write 工具将文件写入以下路径（使用绝对路径）：
-    - $meta/architecture.md
-    - $meta/conventions.md
-
-    **重要**：不要仅仅描述分析结果——你必须实际调用 Write 工具将两个文件分别写入磁盘。未成功写入将导致阶段失败。
-    要求准确、克制、基于事实。项目中不存在的信息不得臆测。''',
+    必须调用 Write 分别写入以上绝对路径；不得臆测缺失信息。''',
 
       HarnessPhase.reading =>
         '''你是本任务的调查者/分析者（Reader/Analyst）。
 
-    请深入分析 ${config.workingDirectory} 下的项目，并产出一份结构化分析报告。除代码、命令、路径、文件名等技术标识外，报告全文必须使用简体中文。
-
-    分析内容必须覆盖：
+    分析 ${config.workingDirectory} 并输出简体中文 Markdown 报告，覆盖：
     1. 对任务要求的精确拆解
     2. 需要创建或修改的具体文件与模块
     3. 每个相关文件的当前状态（准确概括关键实现）
     4. 潜在风险、副作用与外部依赖
     5. 推荐的实现路径及理由
 
-    请使用清晰、结构化的 Markdown 报告格式输出。
-    这份报告会被规划者直接使用，因此必须充分、准确、可执行。''',
+    结论必须具体、可验证，供规划阶段直接使用。''',
 
       HarnessPhase.planning =>
         '''你是本任务的规划者（Planner）。
 
     ${_manualPhaseMissionAddendum(HarnessPhase.planning)}
 
-    请基于上方的任务与分析上下文，产出一份详细、按编号排列的执行计划。除代码、命令、路径、文件名等技术标识外，所有步骤说明和验收标准都必须使用简体中文。
+    基于任务和分析上下文生成编号计划。每步必须：
+    - 只包含一个可独立验证的改动；
+    - 指明确切文件和验收标准；
+    - 标注 `[simple | medium | complex]`。
 
-    每个步骤都必须满足：
-    - **原子化**：表示一个可独立验证的单一改动
-    - **具体**：明确指出需要创建或修改的确切文件
-    - **可验证**：包含清晰的验收标准
-    - **带复杂度标签**：使用 [simple | medium | complex]
-
-    **严禁事项（违反即为严重错误）：**
-    - 绝对不要修改、创建或删除工作目录下的任何项目源码、配置文件或资源文件
-    - 绝对不要执行构建、测试、安装或其他改变项目状态的命令
-    - 不要编写或生成任何代码到项目中——所有实施工作必须留给实施者（Implementer）在下一阶段完成
-    - 你的唯一输出产物是保存到持久化目录中的计划文件
-
-    计划完成后，你**必须**调用 Write 工具将完整计划写入以下路径（注意使用绝对路径）：
-    $planDir/plan-$ts.md
-
-    计划文件必须以任务描述开头，并包含全部执行步骤。
-    **重要**：不要仅仅描述计划内容——你必须实际调用 Write 工具将文件写入磁盘。未调用 Write 将导致阶段失败。''',
+    本阶段不得修改项目、生成代码或运行会改变项目状态的命令。唯一产物是 `$planDir/plan-$ts.md`；文件以任务描述开头并包含全部步骤。必须调用 Write 写入该绝对路径。''',
 
       HarnessPhase.implementing =>
         '''你是本任务的实施者（Implementer）。
 
-    请按照上方“执行计划”中的步骤逐项实施。
-    工作目录：${config.workingDirectory}
+    在 ${config.workingDirectory} 按执行计划逐项实施。遵守项目约定和经验教训；改动保持原子、限定于任务范围并逐项验证。
 
-    关键要求：
-    - 严格遵守“约定与约束”中的要求
-    - 若存在“经验教训”，必须主动规避已知问题
-    - 每次改动都必须保持原子性，并与当前计划步骤严格对应
-    - 不得修改与当前任务无关的文件
-    - 面向用户或后续角色输出的总结说明必须使用简体中文
-
-    全部步骤完成后，请用简体中文简要总结：
-    - 改了什么，以及为什么这样改
-    - 如果偏离了计划，说明偏离点及原因
-    - 实施过程中发现的潜在问题''',
+    完成后用简体中文简述改动及原因、计划偏离和新发现的风险。''',
 
       HarnessPhase.reviewing =>
         '''你是本任务的验收者（Reviewer）。
 
-    **关键要求：你处于一个全新且独立的会话中，与实施者完全隔离。**
-    你不知道实施者的推理过程，也不能假设任何步骤已经被正确完成。
-    你必须仅基于原始需求、上方执行计划以及项目当前真实代码状态进行验收。
-
-    **评审独立性**：你与实施者完全隔离，必须从零核验每个步骤。
+    仅依据原始需求、执行计划和当前工作区验收；不要依赖实施者的解释或结论。
     ${_reviewRetryCount > 0 ? '\n**注意**：第 $_reviewRetryCount 次重试，重点检查之前的问题是否修复。\n' : ''}
     ${_manualPhaseMissionAddendum(HarnessPhase.reviewing)}
 
-    验证内容：
+    逐项验证：
     1. 所有计划步骤已完成且满足验收标准
     2. 无回归问题（如可行，运行相关测试）
     3. 代码质量符合项目约定
     4. 边界与错误处理得当
     5. 无明显安全风险
 
-    输出格式：首行 **PASS** 或 **FAIL**，后续为具体发现与问题。
-    你**必须**调用 Write 工具将验收报告写入（使用绝对路径）：$feedbackDir/feedback-$ts.md
-    **重要**：不要仅仅描述验收结论——你必须实际调用 Write 工具将报告写入磁盘。未成功写入将导致阶段失败。''',
+    首行输出 **PASS** 或 **FAIL**，随后列出证据和问题。必须调用 Write 将完整报告写入 `$feedbackDir/feedback-$ts.md`。''',
     };
   }
 

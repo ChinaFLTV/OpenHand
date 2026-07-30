@@ -1,44 +1,41 @@
-// Harness Engineering phase-tool affinity configuration.
-// This module defines which tool categories are relevant for each phase,
-// enabling intelligent tool filtering to reduce token overhead while
-// maintaining functional completeness.
+// Harness Engineering 阶段工具亲和矩阵，用于过滤无关能力并压缩上下文。
 
 import '../../ai/index.dart';
 import 'harness_phase.dart';
 
 enum HarnessToolCategory {
-  /// File system operations: Read, Glob, LS, DeleteFile
+  /// 文件系统操作。
   filesystem,
 
-  /// Search tools: Grep, CodebaseSearch
+  /// 搜索工具。
   search,
 
-  /// Shell execution: Bash
+  /// Shell 执行。
   shell,
 
-  /// Version control: Git
+  /// 版本控制。
   vcs,
 
-  /// Web operations: WebFetch, WebSearch
+  /// Web 操作。
   web,
 
-  /// Language Server Protocol: Lsp, ReadLints
+  /// LSP 与诊断读取。
   lsp,
 
-  /// Planning tools: TodoWrite, ExitPlanMode
+  /// 规划工具。
   planning,
 
-  /// Skill tools: skill__*
+  /// Skill 工具。
   skill,
 
-  /// MCP tools: mcp__*
+  /// MCP 工具。
   mcp,
 
-  /// Agent delegation: Task
+  /// 子代理工具；Harness 各阶段均不开放。
   agent,
 }
 
-/// Maps builtin tool kinds to their category.
+/// 将内建工具映射到阶段能力类别。
 HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
   return switch (kind) {
     AiBuiltinToolKind.read ||
@@ -90,26 +87,20 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.agentTaskResume ||
     AiBuiltinToolKind.agentTaskComplete ||
     AiBuiltinToolKind.agentTaskResult => HarnessToolCategory.agent,
-    // Interactive user-facing tool; not tied to any phase category so it stays
-    // available across all phases without affinity filtering.
+    // 交互工具由提示词构建器统一排除。
     AiBuiltinToolKind.askUserChoice => null,
-    // Skill manager is Hermes-Talker-specific and is not exposed to
-    // Harness Engineering sessions; treat as un-categorized.
+    // 下列工具由其他专用链路使用，不参与 Harness 阶段亲和。
     AiBuiltinToolKind.skillManager => null,
-    // ToolSearch is dynamically gated by lazy-loading; not bound to any
-    // phase category so it remains visible whenever the controller exposes it.
+    // ToolSearch 由延迟加载策略动态控制。
     AiBuiltinToolKind.toolSearch => null,
-    // Memory tool is Hermes-Talker-specific (self-learning sub-agent only).
+    // Memory 仅供自主学习链路使用。
     AiBuiltinToolKind.memory => null,
   };
 }
 
-/// Phase-tool affinity matrix.
-///
-/// This defines which tool categories are relevant for each phase,
-/// allowing filtering of irrelevant tools to reduce prompt size.
+/// 阶段工具亲和矩阵。
 const Map<HarnessPhase, Set<HarnessToolCategory>> kPhaseToolAffinity = {
-  // metaCollection: scanning project structure
+  // 元信息采集：扫描项目结构。
   HarnessPhase.metaCollection: {
     HarnessToolCategory.filesystem,
     HarnessToolCategory.search,
@@ -117,18 +108,17 @@ const Map<HarnessPhase, Set<HarnessToolCategory>> kPhaseToolAffinity = {
     HarnessToolCategory.vcs,
   },
 
-  // reading: analyzing codebase deeply
+  // 调研：分析代码库。
   HarnessPhase.reading: {
     HarnessToolCategory.filesystem,
     HarnessToolCategory.search,
     HarnessToolCategory.shell,
     HarnessToolCategory.vcs,
     HarnessToolCategory.lsp,
-    HarnessToolCategory.web, // For documentation lookup
+    HarnessToolCategory.web,
   },
 
-  // planning: creating execution plan (needs shell for mkdir to create
-  // the plan directory before writing the plan file)
+  // 规划：读取上下文并写入计划。
   HarnessPhase.planning: {
     HarnessToolCategory.filesystem,
     HarnessToolCategory.search,
@@ -136,7 +126,7 @@ const Map<HarnessPhase, Set<HarnessToolCategory>> kPhaseToolAffinity = {
     HarnessToolCategory.planning,
   },
 
-  // implementing: executing changes (full access)
+  // 实施：执行项目改动。
   HarnessPhase.implementing: {
     HarnessToolCategory.filesystem,
     HarnessToolCategory.search,
@@ -148,61 +138,58 @@ const Map<HarnessPhase, Set<HarnessToolCategory>> kPhaseToolAffinity = {
     HarnessToolCategory.web,
   },
 
-  // reviewing: verifying implementation
+  // 验收：只读核验和测试。
   HarnessPhase.reviewing: {
     HarnessToolCategory.filesystem,
     HarnessToolCategory.search,
     HarnessToolCategory.shell,
     HarnessToolCategory.vcs,
     HarnessToolCategory.lsp,
-    HarnessToolCategory.agent, // Can delegate sub-tasks for verification
   },
 };
 
-/// Checks if a tool is relevant for a given phase based on affinity.
+/// 判断工具是否属于当前阶段能力范围。
 bool isToolRelevantForPhase({
   required HarnessPhase phase,
   required AiResolvedTool tool,
 }) {
   final affinity = kPhaseToolAffinity[phase];
   if (affinity == null) {
-    // If no affinity defined, include all tools
+    // 未配置阶段保持向后兼容。
     return true;
   }
 
-  // Skill tools
+  // Skill 工具。
   if (tool.source == AiRuntimeToolSource.skill) {
     return affinity.contains(HarnessToolCategory.skill);
   }
 
-  // MCP tools
+  // MCP 工具。
   if (tool.source == AiRuntimeToolSource.mcp) {
     return affinity.contains(HarnessToolCategory.mcp);
   }
 
-  // Builtin tools
+  // 内建工具。
   if (tool.source == AiRuntimeToolSource.builtin && tool.builtinKind != null) {
     final category = builtinToolCategory(tool.builtinKind!);
     if (category == null) {
-      return true; // Unknown category, include by default
+      return true;
     }
     return affinity.contains(category);
   }
 
-  // Unknown source, include by default
+  // 未知来源保持向后兼容。
   return true;
 }
 
-/// Skill slugs that are excluded from certain phases.
-///
-/// These skills are not useful or potentially harmful in read-only phases.
+/// 只读阶段排除的 Skill。
 const Set<String> kReadOnlyPhaseExcludedSkillSlugs = {
-  'imagegen', // Image generation not needed in analysis phases
-  'pdf', // PDF generation not needed in read-only phases
-  'excel-report-generator', // Report generation is for output, not analysis
+  'imagegen',
+  'pdf',
+  'excel-report-generator',
 };
 
-/// Checks if a skill should be excluded from read-only phases.
+/// 判断 Skill 是否应从只读阶段排除。
 bool shouldExcludeSkillFromReadOnlyPhase(String skillSlug) {
   return kReadOnlyPhaseExcludedSkillSlugs.contains(skillSlug.toLowerCase());
 }
