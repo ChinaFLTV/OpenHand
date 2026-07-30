@@ -4,6 +4,8 @@ import 'dart:async';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/bounded_line_budget.dart';
+import '../../../../shared/util/bounded_text_buffer.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../../memory/index.dart';
@@ -15,7 +17,10 @@ const int _selfLearningProfileMaxCharacters = 8 * 1024;
 const int _selfLearningHistoryMaxCharacters = 16 * 1024;
 const int _selfLearningHistoryMaxEntries = 64;
 const int _selfLearningHistoryEntryMaxCharacters = 2 * 1024;
+const int _selfLearningConversationMaxMessages = 48;
+const int _selfLearningConversationMessageMaxCharacters = 4 * kBytesPerKiB;
 const String _selfLearningProfileTruncatedWarning = '[画像已截断：本轮禁止修改或删除画像。]';
+const int kSelfLearningProgressMaxCharacters = 512 * kBytesPerKiB;
 
 /// 由 bootstrap 注入的 LLM 驱动回调签名。
 ///
@@ -29,11 +34,10 @@ const String _selfLearningProfileTruncatedWarning = '[画像已截断：本轮�
 typedef SelfLearningLlmDispatcher =
     Future<SelfLearningOutcome> Function(SelfLearningContext context);
 
-/// 由派发器在流式生成期间调用的进度回调。每次调用都会传入当前**累计**的
-/// 文本内容（而非增量），运行器内部会节流持久化到 selfLearning 卡片的
-/// metadata['ai_response'] / metadata['ai_reasoning'] 字段以驱动 UI 流式展示。
+/// 由派发器在流式生成期间调用的增量进度回调。运行器会合并、限长并节流持久化
+/// 到 selfLearning 卡片，避免每个令牌都复制累计全文。
 typedef SelfLearningProgressCallback =
-    Future<void> Function({String? aiResponse, String? aiReasoning});
+    void Function({String? aiResponseDelta, String? aiReasoningDelta});
 
 /// 构造给 LLM 子 Agent 的上下文。
 class SelfLearningContext {
@@ -59,8 +63,7 @@ class SelfLearningContext {
   /// 增量更新；通常派发器只需使用 [onProgress] 即可。
   final String? placeholderMessageId;
 
-  /// 进度回调；派发器在收到 textDelta / reasoningDelta 时累计文本并调用
-  /// 此回调，运行器会节流写入卡片以驱动 UI 流式展示。
+  /// 增量进度回调；运行器负责累计、限长并节流写入卡片。
   final SelfLearningProgressCallback? onProgress;
 }
 
@@ -203,8 +206,8 @@ class SelfLearningRunner {
         silentLog(
           'self_learning_runner',
           '跳过会话自我学习（轮次不足）',
-          'turns=$sliceMessageCount min=$minConversationTurns '
-              'session=${session.id}',
+          '对话轮次=$sliceMessageCount 最低轮次=$minConversationTurns '
+              '会话=${session.id}',
         );
         return null;
       }
@@ -214,7 +217,7 @@ class SelfLearningRunner {
         silentLog(
           'self_learning_runner',
           '跳过会话自我学习（调度器不可用）',
-          'session=${session.id}',
+          '会话=${session.id}',
         );
         return null;
       }
@@ -223,7 +226,7 @@ class SelfLearningRunner {
         silentLog(
           'self_learning_runner',
           '跳过会话自我学习（记忆不可用）',
-          'session=${session.id}',
+          '会话=${session.id}',
         );
         return null;
       }
@@ -234,8 +237,8 @@ class SelfLearningRunner {
         silentLog(
           'self_learning_runner',
           '跳过会话自我学习（对话已变更）',
-          'turns=$refreshedSliceMessageCount min=$minConversationTurns '
-              'session=${session.id}',
+          '对话轮次=$refreshedSliceMessageCount 最低轮次=$minConversationTurns '
+              '会话=${session.id}',
         );
         return null;
       }
@@ -296,20 +299,27 @@ class SelfLearningRunner {
         },
       );
 
-      // 节流写入：累计文本由 dispatcher 通过 onProgress 提供，运行器
-      // 至多每 [_streamFlushInterval] 持久化一次，避免在长文本流式输出
-      // 期间写穿 sqflite。
-      String? latestResponse;
-      String? latestReasoning;
+      // 增量文本统一限长，定时合并写入，避免长流式响应反复复制累计全文。
+      final responseProgress = BoundedTextBuffer(
+        maxCharacters: kSelfLearningProgressMaxCharacters,
+      );
+      final reasoningProgress = BoundedTextBuffer(
+        maxCharacters: kSelfLearningProgressMaxCharacters,
+      );
       String? lastFlushedResponse;
       String? lastFlushedReasoning;
       Timer? flushTimer;
       Future<void>? pendingFlush;
+      var flushRequested = false;
 
       Future<void> doFlush() async {
         if (placeholderId == null) return;
-        final response = latestResponse;
-        final reasoning = latestReasoning;
+        final response = responseProgress.isEmpty
+            ? null
+            : responseProgress.text;
+        final reasoning = reasoningProgress.isEmpty
+            ? null
+            : reasoningProgress.text;
         if (response == lastFlushedResponse &&
             reasoning == lastFlushedReasoning) {
           return;
@@ -328,16 +338,34 @@ class SelfLearningRunner {
         );
       }
 
-      Future<void> onProgress({String? aiResponse, String? aiReasoning}) async {
-        if (aiResponse != null) latestResponse = aiResponse;
-        if (aiReasoning != null) latestReasoning = aiReasoning;
+      Future<void> flushLatest() {
+        flushRequested = true;
+        final active = pendingFlush;
+        if (active != null) return active;
+        late final Future<void> current;
+        current =
+            (() async {
+              do {
+                flushRequested = false;
+                await doFlush();
+              } while (flushRequested);
+            })().whenComplete(() {
+              if (identical(pendingFlush, current)) pendingFlush = null;
+            });
+        pendingFlush = current;
+        return current;
+      }
+
+      void onProgress({String? aiResponseDelta, String? aiReasoningDelta}) {
+        if (aiResponseDelta != null) responseProgress.append(aiResponseDelta);
+        if (aiReasoningDelta != null) {
+          reasoningProgress.append(aiReasoningDelta);
+        }
         flushTimer ??= startSafeTimer(
           _streamFlushInterval,
           () async {
             flushTimer = null;
-            pendingFlush = doFlush();
-            await pendingFlush;
-            pendingFlush = null;
+            await flushLatest();
           },
           onError: (error, stack) {
             silentLog('self_learning_runner', '流刷新定时器', error, stack);
@@ -426,11 +454,19 @@ class SelfLearningRunner {
           sessionTitle: latest.title,
           status: 'error',
           summary: '自我学习失败: $error',
-          aiResponse: latestResponse,
-          aiReasoning: latestReasoning,
+          aiResponse: responseProgress.isEmpty ? null : responseProgress.text,
+          aiReasoning: reasoningProgress.isEmpty
+              ? null
+              : reasoningProgress.text,
           error: '$error',
         );
         if (placeholderId != null) {
+          final latestResponse = responseProgress.isEmpty
+              ? null
+              : responseProgress.text;
+          final latestReasoning = reasoningProgress.isEmpty
+              ? null
+              : reasoningProgress.text;
           await sessionController.updateSelfLearningMessage(
             sessionId: session.id,
             messageId: placeholderId,
@@ -440,9 +476,9 @@ class SelfLearningRunner {
               'status': 'error',
               'error': '$error',
               'stack': stack.toString(),
-              if (latestResponse != null && latestResponse!.isNotEmpty)
+              if (latestResponse != null && latestResponse.isNotEmpty)
                 'ai_response': latestResponse,
-              if (latestReasoning != null && latestReasoning!.isNotEmpty)
+              if (latestReasoning != null && latestReasoning.isNotEmpty)
                 'ai_reasoning': latestReasoning,
             },
           );
@@ -529,19 +565,32 @@ class SelfLearningRunner {
 
   String _buildConversationSlice(AiSession session) {
     final startIndex = _sliceStartIndex(session);
+    final messageCount = _countSliceMessages(session);
+    final omitted = messageCount > _selfLearningConversationMaxMessages
+        ? messageCount - _selfLearningConversationMaxMessages
+        : 0;
     final buffer = StringBuffer();
+    if (omitted > 0) buffer.writeln('[已省略更早的 $omitted 条对话]');
+    var remainingToSkip = omitted;
     for (var i = startIndex; i < session.messages.length; i++) {
       final m = session.messages[i];
       if (!_shouldIncludeMessageInSlice(m)) continue;
+      if (remainingToSkip > 0) {
+        remainingToSkip -= 1;
+        continue;
+      }
       final role = m.kind == AiSessionMessageKind.user ? 'user' : 'assistant';
-      buffer.writeln('$role: ${m.content}');
+      final content = clipTextWithOmissionMarker(
+        m.content,
+        maxCodeUnits: _selfLearningConversationMessageMaxCharacters,
+        marker: 'conversation_message_truncated',
+      ).text;
+      buffer.writeln('$role: $content');
     }
     return buffer.toString().trimRight();
   }
 
-  /// Counts pure user/assistant messages after the most recent
-  /// `selfLearning` checkpoint. Robust against multi-line message content
-  /// (unlike line counting on the rendered slice).
+  /// 统计最近一次自主学习检查点后的纯用户/助手消息，不受多行正文影响。
   int _countSliceMessages(AiSession session) {
     final startIndex = _sliceStartIndex(session);
     var count = 0;
@@ -562,74 +611,45 @@ class SelfLearningRunner {
     final profileSection = userProfile.isEmpty ? '(空)' : userProfile;
     final autoLearnedSection = autoLearned.isEmpty ? '(空)' : autoLearned;
     return '''
-[系统消息: 这是一次自我学习流程,目的是在不打扰用户的情况下,把本次对话中
-**真正具有长期价值**的信号沉淀为长期记忆/画像/技能。请按以下流程严格执行。
+# 自主学习
 
-══════════════════════════════════════════════════════════════════════
-【强制硬规则 — 任何一条违反则本轮立即返回 "无变更" 并结束】
-══════════════════════════════════════════════════════════════════════
-H1. 你**必须真正调用 memory / skill_manager 工具**才能产生任何持久化效果。
-    仅在思考或回复中"描述要做什么"是无效的、会被丢弃。
-H2. 严禁基于**单次、偶发、临时性**对话片段（如临时心情、随口一句、
-    一次性玩笑、玩梗、一次性切换语气）就更新画像或新增记忆。
-H3. 严禁与已有画像/记忆**重复、近义、碎片化**的新增 — 必须先逐条对照
-    "当前用户画像" 与 "最近的自主学习记忆"，能合并则合并(update)，
-    不能合并且不显著则放弃(no-op)。
-H4. 严禁删除用户主动写入(非"自主学习"标签)的记忆。删除仅允许针对自己
-    历史新增的、已被新条目完全覆盖的过期条目。
-H5. 严禁仅凭一次对话就推断出新的"长期偏好/价值观/身份"。需至少看到
-    **同一信号在本次对话中清晰出现 ≥ 2 次**（不同上下文/不同表达），
-    或与现有画像中的相关条目**形成可解释的强化/修正关系**。
+目标：仅沉淀可跨对话复用的长期信息，不打扰用户。拿不准时放弃变更。
 
-══════════════════════════════════════════════════════════════════════
-【执行步骤】
-══════════════════════════════════════════════════════════════════════
-S1. 信号筛选 — 在思考中先列出本次对话中**候选信号**（最多 5 条），
-    然后逐条用 H1–H5 自检；通过自检的才进入 S2。
-S2. 画像更新 — 仅当满足下列**全部**条件才调用 memory(action=upsert_profile)：
-    (a) 信号强度高（明确陈述 / 重复出现 / 与已有画像存在张力或缺失）；
-    (b) 不属于一次性玩笑/网络梗的临时风格；
-    (c) **辩证式**修订：保留已有正确部分，只针对真正变化或缺失的字段
-        增/改一段最多 80 字的精炼内容；不要重写无关字段；
-    (d) 修订后整体长度增长 ≤ 30%（避免画像被无意义铺陈撑大）。
-S3. 通用记忆 — 仅当满足下列**全部**条件才调用 memory(action=append/update)
-    并使用 '$autoLearnedMemoriesTag' 标签：
-    (a) 是可在**未来其他对话中复用**的事实/经验/决策/偏好（不是"刚才聊了 X"）；
-    (b) **不可压缩进画像**（否则应走 S2）；
-    (c) 与现有同类记忆不重复也不矛盾（重复→update 现有条目，矛盾→update
-        并解释取舍；都不行则放弃）；
-    (d) **每条 type=user 记忆必须提供 `title` 字段**（≤30 汉字 / ≤80 ASCII），
-        update 且原 title 仍准确时可省略。
-S4. 技能 — 仅当出现**完整、可复现、非平凡**的工作流时才调用 skill_manager；
-    优先 patch 细调，避免 edit 全量重写；默认保存到全局技能目录。
-S5. 输出自然、零痕迹 — 不要向用户提及"记忆/画像/技能"这件事。
+## 硬规则
 
-══════════════════════════════════════════════════════════════════════
-【准入门槛速查表 — 拿不准就**放弃**】
-══════════════════════════════════════════════════════════════════════
-| 类型 | 该做 | 不该做 |
-|------|------|--------|
-| 画像 upsert | 强信号、重复出现、修正现有缺陷 | 一次性梗、临时心情、本就涵盖 |
-| 记忆 append | 可跨对话复用的事实/经验 | 描述本次对话本身 / 已存在 |
-| 记忆 update | 已有条目内容过期或不准 | 新增近义条目 |
-| 记忆 delete | 仅删自己历史新增的过期条目 | 删用户手写记忆 |
+- H1：仅 `memory` / `skill_manager` 工具调用会持久化；描述计划不算执行。
+- H2：忽略临时心情、随口表达、玩笑、网络梗和一次性语气变化。
+- H3：禁止重复、近义或碎片化新增；优先更新现有条目，否则放弃。
+- H4：禁止删除用户手写记忆；仅可删除自主学习创建且已被替代的过期条目。
+- H5：新增长期偏好、价值观或身份，必须在本段对话中独立出现至少两次，
+  或能明确强化、修正现有画像。
 
----
+## 执行
 
-## 当前用户画像
+1. 筛选最多 5 个候选信号，逐项检查 H1–H5。
+2. 画像：仅处理明确、稳定且现有画像缺失或不准的信息。保留正确内容，
+   单处修改不超过 80 字，整体增长不超过 30%；画像已截断时禁止更新。
+3. 记忆：仅保存不可归入画像的可复用事实、经验、决策或偏好，使用
+   `$autoLearnedMemoriesTag` 标签。重复或冲突时更新现有条目。用户记忆需提供
+   `title`（不超过 30 个汉字或 80 个 ASCII 字符），原标题准确时可省略。
+4. 技能：仅保存完整、可复现、非平凡的工作流；优先 `patch`，避免全量重写。
+
+## 上下文
+
+### 当前用户画像
 $profileSection
 ${userProfileTruncated ? _selfLearningProfileTruncatedWarning : ''}
 
-## 最近的自主学习记忆
+### 最近的自主学习记忆
 $autoLearnedSection
 
-## 本次需要学习的对话片段
+### 本次对话片段
 $slice
 
-══════════════════════════════════════════════════════════════════════
-完成后不要回复用户，只用一段中文向系统总结本轮"评估了哪些候选信号、
-为何接受或放弃"。如果全部信号都被 H1–H5 拒绝，**直接返回"无变更"** —
-这本身就是合格的输出，比强行新增更好。]
+## 输出
+
+完成后仅用简短中文总结候选信号及取舍理由，不解释内部机制。没有合格变更时
+仅输出“无变更”。
 ''';
   }
 

@@ -1,8 +1,14 @@
 library;
 
+import 'dart:async';
+
 import '../../../../app/state/settings_controller.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_text_buffer.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../memory/index.dart';
 import '../../model/ai_model_catalog.dart';
 import '../../model/ai_model_config.dart';
@@ -18,6 +24,12 @@ import '../usage/ai_usage_tracker.dart';
 import 'self_learning_runner.dart';
 
 const int _selfLearningSummaryPreviewMaxChars = 120;
+const int _selfLearningMaxToolCallRounds = 16;
+const int _selfLearningMaxToolCallsPerRound = 8;
+const int _selfLearningMaxTotalToolCalls = 32;
+const int _selfLearningMaxToolArgumentsCharacters = 256 * kBytesPerKiB;
+const int _selfLearningMaxTurnCharacters = 64 * kBytesPerKiB;
+const Duration _selfLearningEventDrainTimeout = Duration(milliseconds: 800);
 
 final RegExp _selfLearningModelSeparatorPattern = RegExp(r'[\s_]+');
 final RegExp _selfLearningWhitespacePattern = RegExp(r'\s+');
@@ -134,7 +146,7 @@ bool _looksLikeDedicatedMediaGenerationModel(String modelId) {
     _selfLearningModelSeparatorPattern,
     '-',
   );
-  // ── Image-only generators ────────────────────────────────────────────
+  // 仅生成图片的模型。
   const imagePrefixes = <String>[
     'sora',
     'dall-e',
@@ -152,12 +164,12 @@ bool _looksLikeDedicatedMediaGenerationModel(String modelId) {
   for (final prefix in imagePrefixes) {
     if (normalized.startsWith(prefix)) return true;
   }
-  // ── Audio-only generators ────────────────────────────────────────────
+  // 仅生成音频的模型。
   const audioPrefixes = <String>['cogtts', 'cogsound', 't2a'];
   for (final prefix in audioPrefixes) {
     if (normalized.startsWith(prefix)) return true;
   }
-  // ── Substring fallbacks ──────────────────────────────────────────────
+  // 目录未覆盖时按模型名特征兜底。
   return normalized.contains('grok-imagine') ||
       normalized.contains('grok-2-image') ||
       normalized.contains('image-generation') ||
@@ -186,6 +198,10 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
   required MemoryController memoryController,
   int maxToolCallRounds = 8,
 }) {
+  final effectiveMaxToolCallRounds = maxToolCallRounds.clamp(
+    1,
+    _selfLearningMaxToolCallRounds,
+  );
   final memoryTool = AiMemoryTool(
     memoryControllerProvider: () => memoryController,
   );
@@ -196,7 +212,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
   return (SelfLearningContext context) async {
     final session = context.session;
 
-    // ---------- Resolve model ----------
+    // 解析可用文本模型。
     final models = settingsController.aiModels;
     final selection = selectSelfLearningModel(
       models: models,
@@ -219,7 +235,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       );
     }
 
-    // ---------- Tool catalog (restricted to memory + skill_manager) ----------
+    // 自主学习仅允许记忆与技能工具。
     final memoryDef = AiToolRuntimeService.builtinToolDefault(
       AiBuiltinToolKind.memory,
     )?.definition;
@@ -231,7 +247,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       if (skillManagerDef != null) skillManagerDef,
     ];
 
-    // ---------- Loop state ----------
+    // 初始化受限工具循环。
     final turns = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: context.prompt),
       const AiChatTurn(
@@ -242,8 +258,12 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       ),
     ];
 
-    final responseBuffer = StringBuffer();
-    final reasoningBuffer = StringBuffer();
+    final responseBuffer = BoundedTextBuffer(
+      maxCharacters: kSelfLearningProgressMaxCharacters,
+    );
+    final reasoningBuffer = BoundedTextBuffer(
+      maxCharacters: kSelfLearningProgressMaxCharacters,
+    );
     final progress = context.onProgress;
     final responseTimeout = Duration(
       seconds: settingsController.aiResponseTimeoutSeconds,
@@ -263,10 +283,11 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     final skillChanges = <Map<String, Object?>>[];
     var lastReply = '';
     var roundsRun = 0;
+    var totalToolCalls = 0;
     var nudgeRecovered = false;
     var terminatedReason = 'completed';
 
-    for (var round = 0; round < maxToolCallRounds; round++) {
+    for (var round = 0; round < effectiveMaxToolCallRounds; round++) {
       roundsRun = round + 1;
       final streaming = await AiUsageTraceContext.runDerived(
         source: AiUsageSource.selfLearning,
@@ -277,72 +298,97 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
           messages: List<AiChatTurn>.unmodifiable(turns),
           tools: toolDefinitions,
           timeout: responseTimeout,
+          streamIdleTimeout: responseTimeout,
         ),
       );
 
-      final roundResponse = StringBuffer();
-      final roundReasoning = StringBuffer();
-
-      await streaming.events.listen((event) {
+      var receivedResponseDelta = false;
+      var receivedReasoningDelta = false;
+      final subscription = streaming.events.listen((event) {
         switch (event.type) {
           case AiChatStreamEventType.textDelta:
-            if (event.textDelta != null) {
-              roundResponse.write(event.textDelta);
-              responseBuffer.write(event.textDelta);
-              if (progress != null) {
-                progress(aiResponse: responseBuffer.toString());
-              }
+            final delta = event.textDelta;
+            if (delta != null && delta.isNotEmpty) {
+              receivedResponseDelta = true;
+              responseBuffer.append(delta);
+              progress?.call(aiResponseDelta: delta);
             }
           case AiChatStreamEventType.reasoningDelta:
-            if (event.reasoningDelta != null) {
-              roundReasoning.write(event.reasoningDelta);
-              reasoningBuffer.write(event.reasoningDelta);
-              if (progress != null) {
-                progress(aiReasoning: reasoningBuffer.toString());
-              }
+            final delta = event.reasoningDelta;
+            if (delta != null && delta.isNotEmpty) {
+              receivedReasoningDelta = true;
+              reasoningBuffer.append(delta);
+              progress?.call(aiReasoningDelta: delta);
             }
           case AiChatStreamEventType.toolCallDelta:
           case AiChatStreamEventType.usage:
             break;
         }
-      }).asFuture<void>();
-
-      final result = await streaming.result;
+      });
+      final eventDrain = subscription.asFuture<void>();
+      late final AiChatStreamResult result;
+      try {
+        result = await streaming.result.timeout(
+          responseTimeout,
+          onTimeout: () =>
+              throw TimeoutException('自主学习流式响应超过时限。', responseTimeout),
+        );
+        try {
+          await eventDrain.timeout(_selfLearningEventDrainTimeout);
+        } on TimeoutException {
+          await cancelStreamSubscriptionBounded<AiChatStreamEvent>(
+            subscription,
+            onError: (error, stack) => silentLog(
+              'self_learning_dispatcher',
+              '取消延迟的自主学习事件流',
+              error,
+              stack,
+            ),
+          );
+        }
+      } catch (error, stack) {
+        final cancel = streaming.cancel;
+        if (cancel != null) {
+          await runAsyncCleanupBounded(
+            cancel,
+            onError: (cancelError, cancelStack) => silentLog(
+              'self_learning_dispatcher',
+              '取消失败的自主学习响应流',
+              cancelError,
+              cancelStack,
+            ),
+          );
+        }
+        await cancelStreamSubscriptionBounded<AiChatStreamEvent>(
+          subscription,
+          onError: (cancelError, cancelStack) => silentLog(
+            'self_learning_dispatcher',
+            '取消失败的自主学习事件流',
+            cancelError,
+            cancelStack,
+          ),
+        );
+        Error.throwWithStackTrace(error, stack);
+      }
       if (result.usage != null) {
         aggregateUsage = aggregateUsage == null
             ? result.usage
             : aggregateUsage.merge(result.usage!);
       }
-      lastReply = result.reply.trim();
+      lastReply = clipTextWithEllipsis(result.reply.trim(), 160);
 
-      // Streaming fallback. 部分后端（或部分模型，例如关闭了
-      // streaming / 用 buffered SSE 的 OpenAI 兼容代理）只在最后一帧给出
-      // 完整 reply / reasoning，并不会发出 textDelta / reasoningDelta 事件。
-      // 此时 roundResponse / roundReasoning 会保持为空，导致卡片完全没有
-      // "AI 思考 / AI 响应" 内容，看起来像 BUG。这里在每轮 stream 结束后
-      // 用 result.reply / result.reasoning 做兜底回填，保证最终 metadata
-      // 一定包含模型实际输出。
-      if (roundResponse.isEmpty && result.reply.isNotEmpty) {
-        roundResponse.write(result.reply);
-        responseBuffer.write(result.reply);
-        if (progress != null) {
-          progress(aiResponse: responseBuffer.toString());
-        }
+      // 兼容仅在流结束时返回完整正文的后端。
+      if (!receivedResponseDelta && result.reply.isNotEmpty) {
+        responseBuffer.append(result.reply);
+        progress?.call(aiResponseDelta: result.reply);
       }
-      if (roundReasoning.isEmpty && result.reasoning.isNotEmpty) {
-        roundReasoning.write(result.reasoning);
-        reasoningBuffer.write(result.reasoning);
-        if (progress != null) {
-          progress(aiReasoning: reasoningBuffer.toString());
-        }
+      if (!receivedReasoningDelta && result.reasoning.isNotEmpty) {
+        reasoningBuffer.append(result.reasoning);
+        progress?.call(aiReasoningDelta: result.reasoning);
       }
 
-      // No tool calls → done.
+      // 未调用工具时最多追加一次纠偏提示。
       if (result.toolCalls.isEmpty) {
-        // Recovery: 若模型在思考/回复里明显**描述**了要更新画像
-        // /记忆/技能（出现 upsert_profile / append / memory / skill_manager
-        // 等关键词）但**没有**真正发起工具调用，认定为"光说不做"。给模型
-        // 追加一条强提醒并再跑一轮，让它实际动手。最多重试 1 次以避免循环。
         final spokeIntent = _looksLikeUnfulfilledIntent(
           reply: result.reply,
           reasoning: result.reasoning,
@@ -352,31 +398,31 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
               t.role == AiChatRole.user &&
               t.content.contains('__SELF_LEARNING_NUDGE__'),
         );
-        if (spokeIntent && !alreadyNudged && round + 1 < maxToolCallRounds) {
+        if (spokeIntent &&
+            !alreadyNudged &&
+            round + 1 < effectiveMaxToolCallRounds) {
           turns.add(
-            AiChatTurn(role: AiChatRole.assistant, content: result.reply),
+            AiChatTurn(
+              role: AiChatRole.assistant,
+              content: _boundedSelfLearningTurn(
+                result.reply,
+                marker: 'assistant_reply_truncated',
+              ),
+            ),
           );
           turns.add(
             const AiChatTurn(
               role: AiChatRole.user,
               content:
                   '__SELF_LEARNING_NUDGE__\n'
-                  '你刚才详细描述了要更新画像/记忆/技能，但并没有**实际调用**'
-                  ' memory / skill_manager 工具——这意味着没有任何持久化发生。\n\n'
-                  '请立刻执行以下两件事之一：\n'
-                  '(A) 如果你确认那些更新值得做：直接发起对应的 memory / '
-                  'skill_manager 工具调用（标准 tool_call 格式），不要再描述、'
-                  '不要再思考、不要写"我将"，直接调用；\n'
-                  '(B) 如果对照系统提示中的硬规则 H1–H5，那些信号其实没达到'
-                  '准入门槛：返回一段一句话说明"无变更"，然后结束本轮。\n\n'
-                  '请二选一，立即给出结果。',
+                  '你描述了变更但未调用工具。立即二选一：\n'
+                  '- 需要变更：直接调用 memory / skill_manager，不要解释。\n'
+                  '- 不满足 H1–H5：仅回复“无变更”。',
             ),
           );
-          if (progress != null) {
-            const nudgeMarker = '\n\n— 检测到光说不做，已要求实际动手 —\n\n';
-            responseBuffer.write(nudgeMarker);
-            progress(aiResponse: responseBuffer.toString());
-          }
+          const nudgeMarker = '\n\n— 已要求模型执行实际变更 —\n\n';
+          responseBuffer.append(nudgeMarker);
+          progress?.call(aiResponseDelta: nudgeMarker);
           nudgeRecovered = true;
           continue;
         }
@@ -384,11 +430,27 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         break;
       }
 
-      // Model invoked tools → append assistant turn then execute each.
+      if (result.toolCalls.length > _selfLearningMaxToolCallsPerRound ||
+          totalToolCalls + result.toolCalls.length >
+              _selfLearningMaxTotalToolCalls) {
+        throw StateError('自主学习工具调用数量超过安全上限。');
+      }
+      if (result.toolCalls.any(
+        (call) =>
+            call.arguments.length > _selfLearningMaxToolArgumentsCharacters,
+      )) {
+        throw StateError('自主学习工具参数超过安全上限。');
+      }
+      totalToolCalls += result.toolCalls.length;
+
+      // 记录助手工具请求，再按顺序执行。
       turns.add(
         AiChatTurn(
           role: AiChatRole.assistant,
-          content: result.reply,
+          content: _boundedSelfLearningTurn(
+            result.reply,
+            marker: 'assistant_reply_truncated',
+          ),
           toolCalls: result.toolCalls,
         ),
       );
@@ -402,9 +464,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
           if (normalizedName == 'memory') {
             final action = AiToolUtils.readString(args['action']).toLowerCase();
             if (context.userProfileTruncated && action == 'upsert_profile') {
-              resultText =
-                  'status: failed\nerror: user profile snapshot is truncated; '
-                  'upsert_profile is disabled for this run.';
+              resultText = 'status: failed\nerror: 用户画像快照已截断，本轮禁止更新画像。';
               memoryCallsError += 1;
             } else {
               final r = await memoryTool.run(
@@ -465,12 +525,17 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
             }
           } else {
             resultText =
-                'status: failure\nerror: unknown tool '
-                '"${toolCall.name}" — only memory / skill_manager are allowed '
-                'in the self-learning sub-agent.';
+                'status: failure\nerror: 不支持工具“${toolCall.name}”，'
+                '自主学习仅允许 memory / skill_manager。';
           }
         } catch (error, stack) {
-          resultText = 'status: failure\nerror: $error\n$stack';
+          silentLog(
+            'self_learning_dispatcher',
+            '执行自主学习工具：${toolCall.name}',
+            error,
+            stack,
+          );
+          resultText = 'status: failure\nerror: 工具执行失败：$error';
           if (normalizedName == 'memory') {
             memoryCallsError += 1;
           } else if (normalizedName == 'skillmanager' ||
@@ -489,31 +554,26 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         turns.add(
           AiChatTurn(
             role: AiChatRole.tool,
-            content: resultText,
+            content: _boundedSelfLearningTurn(
+              resultText,
+              marker: 'tool_result_truncated',
+            ),
             toolCallId: toolCall.id,
           ),
         );
       }
 
-      // Drop a visual separator in the streamed response so the user can see
-      // each round's final summary gets interleaved with tool-call rounds.
-      if (progress != null) {
-        const separator = '\n\n— 工具已执行，继续下一轮 —\n\n';
-        responseBuffer.write(separator);
-        progress(aiResponse: responseBuffer.toString());
-      }
+      const separator = '\n\n— 工具已执行，继续下一轮 —\n\n';
+      responseBuffer.append(separator);
+      progress?.call(aiResponseDelta: separator);
     }
 
-    if (roundsRun >= maxToolCallRounds && terminatedReason == 'completed') {
+    if (roundsRun >= effectiveMaxToolCallRounds &&
+        terminatedReason == 'completed') {
       terminatedReason = 'max_rounds';
     }
 
-    // diagnostic: 当一整轮跑完，模型既没产出任何文本/思考，
-    // 也未调用任何工具时（responseBuffer + reasoningBuffer 全空、
-    // memoryCallsOk + skillCallsOk == 0、lastReply 也空），把
-    // model/usage/terminated_reason 等关键状态打印到 silentLog，便于
-    // 后续排查"自我学习卡片为空"是后端 buffered SSE / finish_reason / 限流
-    // 还是模型本身拒答。仅 debug 构建有效，release 树摇移除。
+    // 空结果保留必要诊断，便于区分后端空流、限流和模型拒答。
     if (responseBuffer.isEmpty &&
         reasoningBuffer.isEmpty &&
         memoryCallsOk == 0 &&
@@ -522,21 +582,18 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       silentLog(
         'self_learning_dispatcher',
         '自我学习轮次为空',
-        'model=${selected.modelId} provider=${selected.id} '
-            'rounds=$roundsRun terminated=$terminatedReason '
-            'memory_errors=$memoryCallsError skill_errors=$skillCallsError '
-            'usage=${aggregateUsage?.toJson()}',
+        '模型=${selected.modelId} 提供方=${selected.id} '
+            '轮次=$roundsRun 终止原因=$terminatedReason '
+            '记忆错误=$memoryCallsError 技能错误=$skillCallsError '
+            '用量=${aggregateUsage?.toJson()}',
       );
     }
 
-    final finalReply = lastReply;
-    final summary = finalReply.isEmpty
+    final summary = lastReply.isEmpty
         ? (memoryCallsOk + skillCallsOk > 0
               ? '本轮已记录 $memoryCallsOk 条记忆变更、$skillCallsOk 条技能变更。'
               : '模型本轮未调用任何工具，也未产生文本结论。')
-        : (finalReply.length <= 160
-              ? finalReply
-              : '${finalReply.substring(0, 157)}…');
+        : lastReply;
 
     return SelfLearningOutcome(
       summary: summary,
@@ -556,13 +613,16 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         'profile_changes': profileChanges,
         'skill_changes': skillChanges,
         'tool_call_rounds': roundsRun,
+        'tool_call_count': totalToolCalls,
         'terminated_reason': terminatedReason,
+        if (responseBuffer.startOffset > 0) 'ai_response_truncated': true,
+        if (reasoningBuffer.startOffset > 0) 'ai_reasoning_truncated': true,
         if (nudgeRecovered) 'nudge_recovered': true,
         if (toolCallsLog.isNotEmpty) 'tool_calls': toolCallsLog,
         if (aggregateUsage != null) 'usage': aggregateUsage.toJson(),
       },
-      aiResponse: responseBuffer.isEmpty ? null : responseBuffer.toString(),
-      aiReasoning: reasoningBuffer.isEmpty ? null : reasoningBuffer.toString(),
+      aiResponse: responseBuffer.isEmpty ? null : responseBuffer.text,
+      aiReasoning: reasoningBuffer.isEmpty ? null : reasoningBuffer.text,
     );
   };
 }
@@ -596,9 +656,16 @@ String _summariseSkillArgs(Map<String, Object?> args) {
 
 String _compactSelfLearningPreview(String value) {
   final flat = value.replaceAll(_selfLearningWhitespacePattern, ' ').trim();
-  if (flat.length <= _selfLearningSummaryPreviewMaxChars) return flat;
-  const keepChars = _selfLearningSummaryPreviewMaxChars - 3;
-  return '${flat.substring(0, keepChars)}…';
+  return clipTextWithEllipsis(flat, _selfLearningSummaryPreviewMaxChars);
+}
+
+String _boundedSelfLearningTurn(String value, {required String marker}) {
+  if (value.length <= _selfLearningMaxTurnCharacters) return value;
+  return clipTextWithOmissionMarker(
+    value,
+    maxCodeUnits: _selfLearningMaxTurnCharacters,
+    marker: marker,
+  ).text;
 }
 
 /// 启发式：当模型在 reply / reasoning 中提到了要做的更新动作（中文/英文/工具

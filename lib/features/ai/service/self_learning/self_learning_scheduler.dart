@@ -21,6 +21,7 @@ library;
 import 'dart:async';
 
 import '../../../../app/state/settings_controller.dart';
+import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../data/ai_session_store.dart';
 import '../../model/ai_session.dart';
@@ -166,7 +167,8 @@ class SelfLearningScheduler {
           minCreatedAt: cutoff,
         );
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('self_learning_scheduler', '加载自主学习候选会话', error, stack);
       return const SelfLearningTickResult(
         scanned: 0,
         triggered: 0,
@@ -177,34 +179,26 @@ class SelfLearningScheduler {
     _nextCandidateCursor = candidatePage.nextCursor;
     final candidates = candidatePage.sessions;
 
-    int triggered = 0;
-    int skipped = 0;
-    int errors = 0;
-    final reports = <SelfLearningSessionReport>[];
-
-    final futures = <Future<void>>[];
+    var skipped = 0;
+    final futures = <Future<_SelfLearningDispatchOutcome>>[];
     for (final session in candidates) {
       if (!_isEligible(session)) {
         skipped += 1;
         continue;
       }
-      triggered += 1;
-      futures.add(
-        _dispatch(session)
-            .then((report) {
-              if (report != null) reports.add(report);
-            })
-            .catchError((_) {
-              errors += 1;
-            }),
-      );
+      futures.add(_dispatchSafely(session));
     }
 
-    await Future.wait(futures);
+    final outcomes = await Future.wait(futures);
+    final reports = <SelfLearningSessionReport>[
+      for (final outcome in outcomes)
+        if (outcome.report != null) outcome.report!,
+    ];
+    final errors = outcomes.where((outcome) => outcome.failed).length;
 
     return SelfLearningTickResult(
       scanned: candidates.length,
-      triggered: triggered,
+      triggered: futures.length,
       skipped: skipped,
       errors: errors,
       reports: List<SelfLearningSessionReport>.unmodifiable(reports),
@@ -232,7 +226,28 @@ class SelfLearningScheduler {
     return true;
   }
 
-  Future<SelfLearningSessionReport?> _dispatch(AiSession session) async {
-    return _semaphore.withPermit(() => runForSession(session));
+  Future<_SelfLearningDispatchOutcome> _dispatchSafely(
+    AiSession session,
+  ) async {
+    final semaphore = _semaphore;
+    try {
+      return (
+        report: await semaphore.withPermit(() => runForSession(session)),
+        failed: false,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'self_learning_scheduler',
+        '执行会话自主学习：${session.id}',
+        error,
+        stack,
+      );
+      return (report: null, failed: true);
+    }
   }
 }
+
+typedef _SelfLearningDispatchOutcome = ({
+  SelfLearningSessionReport? report,
+  bool failed,
+});
