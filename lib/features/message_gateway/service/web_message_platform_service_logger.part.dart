@@ -234,7 +234,9 @@ class _WebGatewayRotatingLogger {
 
   Future<_CleanupStats> _clear() async {
     final dir = Directory(directoryPath);
-    if (!await dir.exists()) return const _CleanupStats();
+    if (!await dir.exists().timeout(_metadataTimeout)) {
+      return const _CleanupStats();
+    }
     var stats = const _CleanupStats();
     final files =
         (await listDirectoryBounded(dir, maxEntries: _maxDirectoryEntries))
@@ -243,8 +245,8 @@ class _WebGatewayRotatingLogger {
             .where((item) => p.basename(item.path).startsWith('web-platform'));
     for (final file in files) {
       try {
-        final stat = await file.stat();
-        await file.delete();
+        final stat = await file.stat().timeout(_metadataTimeout);
+        await file.delete().timeout(_writeIoTimeout);
         if (p.equals(file.path, filePath)) {
           _currentSizeBytes = 0;
         }
@@ -262,18 +264,22 @@ class _WebGatewayRotatingLogger {
 
   Future<_CleanupStats> _prune(WebGatewayLogConfig config) async {
     final dir = Directory(directoryPath);
-    if (!await dir.exists()) return const _CleanupStats();
+    if (!await dir.exists().timeout(_metadataTimeout)) {
+      return const _CleanupStats();
+    }
     final cutoff = DateTime.now().subtract(Duration(days: config.rotationDays));
     var stats = const _CleanupStats();
     final files = await _logFilesNewestFirst(dir);
 
-    Future<void> deleteFile(_LogFileSnapshot item) async {
+    Future<bool> deleteFile(_LogFileSnapshot item) async {
       final file = item.file;
       try {
-        await file.delete();
+        await file.delete().timeout(_writeIoTimeout);
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: item.stat.size);
+        return true;
       } catch (error, stack) {
         silentLog('web_gateway_logger', '裁剪时删除文件：${file.path}', error, stack);
+        return false;
       }
     }
 
@@ -282,8 +288,9 @@ class _WebGatewayRotatingLogger {
       final file = item.file;
       if (p.equals(file.path, filePath)) continue;
       if (item.stat.modified.isBefore(cutoff)) {
-        await deleteFile(item);
-        deleted.add(file.path);
+        if (await deleteFile(item)) {
+          deleted.add(file.path);
+        }
       }
     }
     final remaining = files
@@ -302,7 +309,9 @@ class _WebGatewayRotatingLogger {
 
   Future<List<Map<String, Object?>>> _readBundle() async {
     final dir = Directory(directoryPath);
-    if (!await dir.exists()) return const <Map<String, Object?>>[];
+    if (!await dir.exists().timeout(_metadataTimeout)) {
+      return const <Map<String, Object?>>[];
+    }
     final files = await _logFilesNewestFirst(dir);
     final items = <Map<String, Object?>>[];
     var remainingBytes = _maxExportBundleBytes;
@@ -341,8 +350,8 @@ class _WebGatewayRotatingLogger {
 
   Future<String> _readCurrentLogText() async {
     final file = File(filePath);
-    if (!await file.exists()) return '';
-    final stat = await file.stat();
+    if (!await file.exists().timeout(_metadataTimeout)) return '';
+    final stat = await file.stat().timeout(_metadataTimeout);
     _currentSizeBytes = stat.size;
     final bytes = await _readLogTail(
       file,
