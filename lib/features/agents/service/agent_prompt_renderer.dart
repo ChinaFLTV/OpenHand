@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../instructions/index.dart' show UserInstructionEntry;
@@ -52,7 +53,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.16';
+  static const String promptVersion = '1.2.17';
 
   final Future<String> Function(String path) _loader;
 
@@ -449,12 +450,7 @@ Map<String, Object?> _taskJson(AgentTask task) {
 }
 
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
-  return _boundedPromptMap(
-    omitAgentSystemPromptMetadata(
-      extra,
-      reason: 'Use agent_prompt_snapshot metadata instead of raw prompt text.',
-    ),
-  );
+  return _boundedPromptMap(extra);
 }
 
 const int _agentPromptTaskTextMaxChars = 1600;
@@ -469,6 +465,20 @@ const int _agentPromptAuditSummaryMaxChars = 1000;
 const int _agentPromptExtraStringMaxChars = 800;
 const int _agentPromptExtraCollectionMaxItems = 40;
 const int _agentPromptExtraMaxDepth = 4;
+const int _agentPromptExtraMaxNodes = 2048;
+const BoundedJsonConversionConfig _agentPromptExtraConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: _agentPromptExtraMaxDepth,
+      maxContainerItems: _agentPromptExtraCollectionMaxItems,
+      maxTotalNodes: _agentPromptExtraMaxNodes,
+      maxStringCodeUnits: _agentPromptExtraStringMaxChars,
+      truncatedStringSuffix: '...[已截断]',
+      mapValueTransformer: _redactPromptMetadataValue,
+      maxDepthPlaceholder: '<层级过深>',
+      cyclicMapPlaceholder: '<循环映射>',
+      cyclicIterablePlaceholder: '<循环集合>',
+      truncatedPlaceholder: '<已截断>',
+    );
 
 String _boundedPromptText(String value, {required int maxChars}) {
   if (value.length <= maxChars) return value;
@@ -477,66 +487,12 @@ String _boundedPromptText(String value, {required int maxChars}) {
 }
 
 Map<String, Object?> _boundedPromptMap(Map<String, Object?> value) {
-  return value.map(
-    (key, item) => MapEntry(key, _boundedPromptEntry(key, item, depth: 0)),
-  );
+  return convertToJsonSafeMap(value, config: _agentPromptExtraConversionConfig);
 }
 
-Object? _boundedPromptEntry(String key, Object? value, {required int depth}) {
-  if (_agentPromptSensitiveMetadataKeys.contains(key) &&
-      value is String &&
-      value.isNotEmpty) {
-    return _omittedPromptLikeValue(value);
-  }
-  return _boundedPromptValue(value, depth: depth);
-}
-
-Object? _boundedPromptValue(Object? value, {required int depth}) {
-  if (value == null || value is num || value is bool) return value;
-  if (value is String) {
-    return _boundedPromptText(value, maxChars: _agentPromptExtraStringMaxChars);
-  }
-  if (depth >= _agentPromptExtraMaxDepth) return '$value';
-  if (value is Map) {
-    final entries = value.entries.take(_agentPromptExtraCollectionMaxItems);
-    return <String, Object?>{
-      for (final entry in entries)
-        '${entry.key}': _boundedPromptEntry(
-          '${entry.key}',
-          entry.value,
-          depth: depth + 1,
-        ),
-      if (value.length > _agentPromptExtraCollectionMaxItems)
-        '_truncated_items': value.length - _agentPromptExtraCollectionMaxItems,
-    };
-  }
-  if (value is Iterable) {
-    final items = <Object?>[];
-    var hasMore = false;
-    for (final item in value) {
-      if (items.length >= _agentPromptExtraCollectionMaxItems) {
-        hasMore = true;
-        break;
-      }
-      items.add(item);
-    }
-    final omittedItems = value is List
-        ? value.length - _agentPromptExtraCollectionMaxItems
-        : null;
-    return <Object?>[
-      for (final item in items) _boundedPromptValue(item, depth: depth + 1),
-      if (hasMore)
-        <String, Object?>{
-          '_truncated_items': omittedItems == null || omittedItems < 1
-              ? true
-              : omittedItems,
-        },
-    ];
-  }
-  return _boundedPromptText(
-    '$value',
-    maxChars: _agentPromptExtraStringMaxChars,
-  );
+Object? _redactPromptMetadataValue(String key, Object? value) {
+  if (!_agentPromptSensitiveMetadataKeys.contains(key)) return value;
+  return _omittedPromptLikeValue(value);
 }
 
 Map<String, Object?> _activityJson(AgentActivityEvent event) {
@@ -572,20 +528,13 @@ Map<String, Object?> _auditJson(AgentAuditEvent event) {
 
 Map<String, Object?> _promptMetadataJson(Map<String, Object?> metadata) {
   if (metadata.isEmpty) return const <String, Object?>{};
-  final sanitized = Map<String, Object?>.from(metadata);
-  for (final key in _agentPromptSensitiveMetadataKeys) {
-    final value = sanitized.remove(key);
-    if (value is String && value.isNotEmpty) {
-      sanitized[key] = _omittedPromptLikeValue(value);
-    }
-  }
-  return _boundedPromptMap(sanitized);
+  return _boundedPromptMap(metadata);
 }
 
-Map<String, Object?> _omittedPromptLikeValue(String value) {
+Map<String, Object?> _omittedPromptLikeValue(Object? value) {
   return <String, Object?>{
     'omitted': true,
-    'chars': value.length,
+    if (value is String) 'chars': value.length,
     'reason': 'Prompt-like metadata is omitted from agent prompt context.',
   };
 }

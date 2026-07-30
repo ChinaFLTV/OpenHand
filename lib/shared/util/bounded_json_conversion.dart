@@ -4,6 +4,8 @@ import 'text_clip.dart';
 
 enum JsonNonFiniteNumberBehavior { stringify, zero }
 
+typedef JsonMapValueTransformer = Object? Function(String key, Object? value);
+
 /// JSON 安全转换的资源与兼容策略。
 final class BoundedJsonConversionConfig {
   const BoundedJsonConversionConfig({
@@ -12,6 +14,7 @@ final class BoundedJsonConversionConfig {
     this.maxTotalNodes = 100000,
     this.maxStringCodeUnits,
     this.truncatedStringSuffix = '...',
+    this.mapValueTransformer,
     this.nonFiniteNumberBehavior = JsonNonFiniteNumberBehavior.stringify,
     this.maxDepthPlaceholder = '<max-depth>',
     this.cyclicMapPlaceholder = '<cyclic-map>',
@@ -27,6 +30,7 @@ final class BoundedJsonConversionConfig {
   final int maxTotalNodes;
   final int? maxStringCodeUnits;
   final String truncatedStringSuffix;
+  final JsonMapValueTransformer? mapValueTransformer;
   final JsonNonFiniteNumberBehavior nonFiniteNumberBehavior;
   final String maxDepthPlaceholder;
   final String cyclicMapPlaceholder;
@@ -98,10 +102,12 @@ final class _BoundedJsonConverter {
           _visitedNodes < config.maxTotalNodes &&
           iterator.moveNext()) {
         final entry = iterator.current;
-        result[_convertString('${entry.key}')] = convert(
-          entry.value,
-          depth + 1,
-        );
+        final key = '${entry.key}';
+        final transformer = config.mapValueTransformer;
+        final entryValue = transformer == null
+            ? entry.value
+            : transformer(key, entry.value);
+        result[_convertString(key)] = convert(entryValue, depth + 1);
         itemCount += 1;
       }
       if ((itemCount >= config.maxContainerItems ||
