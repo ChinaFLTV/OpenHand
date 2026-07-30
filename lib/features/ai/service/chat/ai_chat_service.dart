@@ -21,6 +21,7 @@ import '../../model/ai_creation_mode.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
+import '../../model/ai_tool_call_limit_policy.dart';
 import '../dsml/ai_dsml_tool_call_parser.dart';
 import '../media/ai_image_generation_service.dart';
 import '../model_registry/ai_model_scanner.dart';
@@ -318,13 +319,15 @@ class AiChatService implements AiChatClient {
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
 
-  /// Defensive cap for the SSE line buffer. A well-behaved server delimits
-  /// events with `\n\n`, keeping per-block size in the KB range. If a buggy
-  /// or hostile server streams megabytes without a delimiter we discard the
-  /// pending buffer instead of letting it grow without bound and OOM the
-  /// process. 4 MiB is far above any realistic single-event size while
-  /// remaining cheap to retain.
-  int maxStreamLineBufferBytes = 4 * kBytesPerMiB;
+  /// SSE 单事件缓冲上限；超限立即终止响应，避免异常服务持续占用资源。
+  int _maxStreamLineBufferBytes = 4 * kBytesPerMiB;
+  int get maxStreamLineBufferBytes => _maxStreamLineBufferBytes;
+  set maxStreamLineBufferBytes(int value) {
+    _maxStreamLineBufferBytes = value.clamp(
+      1,
+      _maxRetainedStreamResponseCharacters,
+    );
+  }
 
   final http.Client _client;
   final bool _ownsClient;
@@ -1592,7 +1595,6 @@ class AiChatService implements AiChatClient {
     final lineBuffer = _SseLineCarry();
     StreamSubscription<String>? responseSubscription;
     Future<void>? responseSubscriptionCancelFuture;
-    var discardingOversizedEvent = false;
 
     Future<void> cancelResponseStream() {
       final subscription = responseSubscription;
@@ -1613,6 +1615,25 @@ class AiChatService implements AiChatClient {
         return;
       }
       eventController.add(event);
+    }
+
+    void failStream(String message) {
+      if (resultCompleter.isCompleted) return;
+      resultCompleter.completeError(
+        AiChatException(
+          message,
+          telemetry: telemetrySnapshot(
+            rawResponse: rawResponseBuffer.toString(),
+            finishReason: finishReason,
+            error: message,
+          ),
+        ),
+        StackTrace.current,
+      );
+      if (!eventController.isClosed) {
+        unawaited(eventController.close());
+      }
+      unawaited(cancelResponseStream());
     }
 
     void emitGeneratedMediaIfPresent(Object? decoded) {
@@ -1667,6 +1688,14 @@ class AiChatService implements AiChatClient {
           )
           .where((item) => nullIfBlank(item.name) != null)
           .toList(growable: false);
+      final effectiveToolCalls = resolvedParsedToolCalls.isNotEmpty
+          ? resolvedParsedToolCalls
+          : dsmlExtraction.toolCalls;
+      if (effectiveToolCalls.length > _maxRetainedStreamToolCalls) {
+        toolCalls.clear();
+        failStream('AI 响应中的工具调用数量超过安全上限。');
+        return;
+      }
       // If the DSML parser detected incomplete markup AND finishReason was
       // not already set, infer truncation.  Some API providers (especially
       // third-party) may omit finish_reason, so the incomplete markup acts
@@ -1680,9 +1709,7 @@ class AiChatService implements AiChatClient {
         AiChatStreamResult(
           reply: dsmlExtraction.sanitizedText,
           reasoning: reasoningBuffer.toString().trim(),
-          toolCalls: resolvedParsedToolCalls.isNotEmpty
-              ? resolvedParsedToolCalls
-              : dsmlExtraction.toolCalls,
+          toolCalls: effectiveToolCalls,
           wasCancelled: wasCancelled,
           usage: usage,
           rawResponse: rawResponseBuffer.toString(),
@@ -1720,20 +1747,7 @@ class AiChatService implements AiChatClient {
         return;
       }
       if (!_tryAppendRawStreamEvent(rawResponseBuffer, data)) {
-        const message = 'AI response stream exceeded the retained size limit.';
-        resultCompleter.completeError(
-          AiChatException(
-            message,
-            telemetry: telemetrySnapshot(
-              rawResponse: rawResponseBuffer.toString(),
-              finishReason: finishReason,
-              error: message,
-            ),
-          ),
-          StackTrace.current,
-        );
-        unawaited(eventController.close());
-        unawaited(cancelResponseStream());
+        failStream('AI 响应流超过累计保留上限。');
         return;
       }
       late final Object? decoded;
@@ -1846,19 +1860,25 @@ class AiChatService implements AiChatClient {
           setFinishReason: (value) => finishReason = value,
         );
       }
+      if (toolCalls.length > _maxRetainedStreamToolCalls) {
+        toolCalls.clear();
+        failStream('AI 响应中的工具调用数量超过安全上限。');
+      }
     }
 
     bool isStreamComplete() => resultCompleter.isCompleted;
 
     void processChunk(String chunk) {
-      discardingOversizedEvent = _processBoundedSseChunk(
+      final accepted = _processBoundedSseChunk(
         chunk: chunk,
         carry: lineBuffer,
         maxBufferLength: maxStreamLineBufferBytes,
-        discardingOversizedEvent: discardingOversizedEvent,
         isComplete: isStreamComplete,
         processEventBlock: processEventBlock,
       );
+      if (!accepted) {
+        failStream('AI 响应流单个事件超过安全上限。');
+      }
     }
 
     responseSubscription = streamedResponse.stream
@@ -1888,8 +1908,7 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
-            if (!discardingOversizedEvent &&
-                lineBuffer.isNotEmpty &&
+            if (lineBuffer.isNotEmpty &&
                 lineBuffer.length <= maxStreamLineBufferBytes) {
               processEventBlock(lineBuffer.pending);
             }
@@ -2128,19 +2147,20 @@ class AiChatService implements AiChatClient {
     String? finishReason;
     Map<String, Object?>? completedResponse;
     Future<void>? eventControllerCloseFuture;
-    var discardingOversizedEvent = false;
 
     Future<void> closeEvents() {
       return eventControllerCloseFuture ??= eventController.close();
     }
 
-    late final StreamSubscription<String> responseSubscription;
+    StreamSubscription<String>? responseSubscription;
     Future<void>? responseSubscriptionCancelFuture;
     var finalizing = false;
 
     Future<void> cancelResponseStream() {
+      final subscription = responseSubscription;
+      if (subscription == null) return Future<void>.value();
       return responseSubscriptionCancelFuture ??= _cancelStreamSubscription(
-        responseSubscription,
+        subscription,
         timeout: streamCancellationTimeout,
         logContext: '取消 Responses 响应流',
       );
@@ -2150,6 +2170,30 @@ class AiChatService implements AiChatClient {
       if (!resultCompleter.isCompleted && !eventController.isClosed) {
         eventController.add(event);
       }
+    }
+
+    void failStream(String message) {
+      if (resultCompleter.isCompleted) return;
+      resultCompleter.completeError(
+        AiChatException(
+          message,
+          telemetry: AiChatRequestTelemetry(
+            requestUrl: request.url,
+            requestMethod: request.method,
+            requestHeaders: capturedHeaders,
+            requestBody: capturedBody,
+            rawResponse: rawResponseBuffer.toString(),
+            startedAt: streamStartedAt,
+            endedAt: DateTime.now().toUtc(),
+            finishReason: finishReason,
+            error: message,
+            requestFallbacks: List<String>.unmodifiable(requestFallbacks),
+          ),
+        ),
+        StackTrace.current,
+      );
+      unawaited(closeEvents());
+      unawaited(cancelResponseStream());
     }
 
     void appendFinalText(String value) {
@@ -2236,6 +2280,11 @@ class AiChatService implements AiChatClient {
           : parsedStreamToolCalls.isNotEmpty
           ? parsedStreamToolCalls
           : replyExtraction.toolCalls;
+      if (resolvedToolCalls.length > _maxRetainedStreamToolCalls) {
+        toolCalls.clear();
+        failStream('AI 响应中的工具调用数量超过安全上限。');
+        return;
+      }
       if (!wasCancelled &&
           completedResponse == null &&
           replyExtraction.sanitizedText.isEmpty &&
@@ -2290,16 +2339,7 @@ class AiChatService implements AiChatClient {
         return;
       }
       if (!_tryAppendRawStreamEvent(rawResponseBuffer, data)) {
-        if (!resultCompleter.isCompleted) {
-          resultCompleter.completeError(
-            const AiChatException(
-              'AI response stream exceeded the retained size limit.',
-            ),
-            StackTrace.current,
-          );
-        }
-        unawaited(closeEvents());
-        unawaited(cancelResponseStream());
+        failStream('AI 响应流超过累计保留上限。');
         return;
       }
       late final Object? decoded;
@@ -2374,19 +2414,25 @@ class AiChatService implements AiChatClient {
         setFinishReason: (value) => finishReason = value,
         setCompletedResponse: (value) => completedResponse = value,
       );
+      if (toolCalls.length > _maxRetainedStreamToolCalls) {
+        toolCalls.clear();
+        failStream('AI 响应中的工具调用数量超过安全上限。');
+      }
     }
 
     bool isStreamComplete() => resultCompleter.isCompleted;
 
     void processChunk(String chunk) {
-      discardingOversizedEvent = _processBoundedSseChunk(
+      final accepted = _processBoundedSseChunk(
         chunk: chunk,
         carry: lineBuffer,
         maxBufferLength: maxStreamLineBufferBytes,
-        discardingOversizedEvent: discardingOversizedEvent,
         isComplete: isStreamComplete,
         processEventBlock: processEventBlock,
       );
+      if (!accepted) {
+        failStream('AI 响应流单个事件超过安全上限。');
+      }
     }
 
     responseSubscription = streamedResponse.stream
@@ -2403,8 +2449,7 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
-            if (!discardingOversizedEvent &&
-                lineBuffer.isNotEmpty &&
+            if (lineBuffer.isNotEmpty &&
                 lineBuffer.length <= maxStreamLineBufferBytes) {
               processEventBlock(lineBuffer.pending);
             }
@@ -2786,7 +2831,6 @@ bool _processBoundedSseChunk({
   required String chunk,
   required _SseLineCarry carry,
   required int maxBufferLength,
-  required bool discardingOversizedEvent,
   required bool Function() isComplete,
   required void Function(String block) processEventBlock,
 }) {
@@ -2799,23 +2843,21 @@ bool _processBoundedSseChunk({
     final separatorIndex = pending.indexOf('\n\n', cut);
     if (separatorIndex < 0) {
       if (pending.length - cut > maxBufferLength) {
-        final preserveBoundaryPrefix = pending.endsWith('\n');
-        pending = preserveBoundaryPrefix ? '\n' : '';
-        cut = 0;
-        discardingOversizedEvent = true;
+        carry.pending = '';
+        return false;
       }
       break;
     }
     final block = pending.substring(cut, separatorIndex);
     cut = separatorIndex + 2;
-    if (discardingOversizedEvent || block.length > maxBufferLength) {
-      discardingOversizedEvent = false;
-      continue;
+    if (block.length > maxBufferLength) {
+      carry.pending = '';
+      return false;
     }
     processEventBlock(block);
   }
   carry.pending = cut == 0 ? pending : pending.substring(cut);
-  return discardingOversizedEvent;
+  return true;
 }
 
 const Object _cancelledRequestSentinel = Object();
@@ -3414,6 +3456,8 @@ const int _maxAiChatRedirects = 4;
 const int _maxChatHttpErrorBytes = kBytesPerMiB;
 const int _maxChatHttpResponseBytes = 16 * kBytesPerMiB;
 const int _maxRetainedStreamResponseCharacters = 16 * kBytesPerMiB;
+const int _maxRetainedStreamToolCalls =
+    AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
 const Duration _maxStreamCancellationWait = Duration(seconds: 1);
 const Duration _maxRedirectDrainWait = Duration(seconds: 3);
 

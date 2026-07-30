@@ -566,7 +566,8 @@ class AppSettingsSnapshot {
 
   static const int defaultAiChatMaxStreamLineBufferBytes = 4 * kBytesPerMiB;
   static const int minAiChatMaxStreamLineBufferBytes = 4 * kBytesPerKiB;
-  static const int maxAiChatMaxStreamLineBufferBytes = kBytesPerGiB;
+  // 单事件最终还受聊天服务 16 MiB 累计响应上限约束，更高配置既无效又会放大内存风险。
+  static const int maxAiChatMaxStreamLineBufferBytes = 16 * kBytesPerMiB;
   static const int defaultAiFallbackTitleMaxCharacters = 80;
   static const int minAiFallbackTitleMaxCharacters = 4;
   static const int maxAiFallbackTitleMaxCharacters = 200;
