@@ -1826,7 +1826,7 @@ class AiToolRuntimeService {
     for (final path in paths) {
       try {
         final file = File(path);
-        if (!await file.exists()) {
+        if (!await isRegularFilePath(path, followLinks: true)) {
           recorded[path] = null;
           continue;
         }
@@ -2465,10 +2465,7 @@ class AiToolRuntimeService {
           )) {
         continue;
       }
-      final entityType = await FileSystemEntity.type(
-        resolvedPath,
-        followLinks: false,
-      );
+      final entityType = await probeFileSystemEntityType(resolvedPath);
       if (entityType == FileSystemEntityType.notFound) {
         continue;
       }
@@ -2490,7 +2487,9 @@ class AiToolRuntimeService {
       }
       try {
         final linkedFile = File(resolvedPath);
-        final linkedFileLength = await linkedFile.length();
+        final linkedFileLength = await AiToolUtils.fileLengthBounded(
+          linkedFile,
+        );
         final previewBytes = await AiToolUtils.readFilePrefix(
           linkedFile,
           linkedFileLength,

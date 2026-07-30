@@ -3651,7 +3651,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     if (path == null) return;
     final cached = _VideoThumbnailManager.thumbnailPathFor(path);
     try {
-      if (await File(cached).exists()) {
+      if (await isRegularFilePath(cached)) {
         if (!mounted) return;
         setState(() => _videoThumbPath = cached);
         return;

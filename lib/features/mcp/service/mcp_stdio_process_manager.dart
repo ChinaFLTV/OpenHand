@@ -9,6 +9,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1088,7 +1089,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     // 隔离缓存目录信息
     final cacheRoot = mcpStdioIsolatedCacheRoot();
     final cacheDir = Directory(cacheRoot);
-    final cacheExists = await cacheDir.exists();
+    final cacheExists = await isDirectoryPath(cacheRoot, followLinks: true);
     info['隔离缓存'] = cacheExists ? cacheRoot : '(未创建)';
     if (cacheExists) {
       try {

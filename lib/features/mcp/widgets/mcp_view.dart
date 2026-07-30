@@ -48,6 +48,7 @@ import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -814,7 +815,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       // 2. 清理该服务在隔离缓存中的残留
       final cacheRoot = mcpStdioIsolatedCacheRoot();
       final cacheDir = Directory(cacheRoot);
-      if (await cacheDir.exists()) {
+      if (await isDirectoryPath(cacheRoot, followLinks: true)) {
         try {
           bool matchesPackageSegments(List<String> candidate) {
             if (candidate.length != packageSegments.length) return false;
