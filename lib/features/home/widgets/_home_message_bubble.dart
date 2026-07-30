@@ -1980,7 +1980,6 @@ const Duration _mediaClipboardOperationTimeout = Duration(seconds: 15);
 const Duration _mediaClipboardNetworkTimeout = Duration(seconds: 25);
 const Duration _remoteMediaOpenTimeout = Duration(seconds: 20);
 const Duration _remoteMediaHeaderTimeout = Duration(seconds: 30);
-const Duration _remoteMediaChunkTimeout = Duration(seconds: 30);
 const Duration _remoteMediaFileIoTimeout = Duration(seconds: 30);
 const BoundedDeletePolicy _mediaPreviewTempDeletePolicy = BoundedDeletePolicy(
   maxEntries: 1,
@@ -1995,6 +1994,18 @@ const int _imageClipboardMaxBytes = 64 * kBytesPerMiB;
 const int _remoteImageDownloadMaxBytes = 256 * kBytesPerMiB;
 const int _remoteAudioDownloadMaxBytes = 256 * kBytesPerMiB;
 const int _remoteVideoDownloadMaxBytes = 2 * kBytesPerGiB;
+
+Future<void> _copyMessageMediaFileForSave({
+  required String sourcePath,
+  required String destinationPath,
+  required int maxBytes,
+}) {
+  return copyFileAtomically(
+    File(sourcePath),
+    File(destinationPath),
+    maxBytes: maxBytes,
+  );
+}
 
 Future<void> _deleteMediaPreviewTempFile(String path, String action) async {
   final absolutePath = p.absolute(path);
@@ -2131,66 +2142,29 @@ Future<void> _downloadRemoteUriToFile({
       throw FileSystemException('媒体下载超过容量上限。', destination);
     }
 
-    final outputFile = File(destination);
-    BoundedRandomAccessFileLease? output;
-    var deleteOnRelease = false;
-    try {
-      final openedOutput = await openBoundedRandomAccessFileLease(
-        outputFile,
-        mode: FileMode.write,
-        timeout: _remoteMediaFileIoTimeout,
-        deleteIfOpenCompletesLate: true,
-        release: (file) async {
-          await file.close();
-          if (deleteOnRelease &&
-              await outputFile.exists().timeout(_remoteMediaFileIoTimeout)) {
-            await outputFile.delete().timeout(_remoteMediaFileIoTimeout);
-          }
-        },
-      );
-      output = openedOutput;
-      final boundedResponse = limitByteStream(
-        response,
-        maxBytes: maxBytes,
-        idleTimeout: _remoteMediaChunkTimeout,
-        totalTimeout: totalTimeout,
-      );
-      await for (final chunk in boundedResponse) {
+    Stream<List<int>> responseChunks() async* {
+      await for (final chunk in response) {
         if (cancelled) {
           throw const _MediaDownloadCancelled();
         }
-        await openedOutput.run(
-          (file) => file.writeFrom(chunk),
-          timeout: _remoteMediaFileIoTimeout,
-        );
+        yield chunk;
       }
-      await openedOutput.run(
-        (file) => file.flush(),
-        timeout: _remoteMediaFileIoTimeout,
-      );
-      await openedOutput.close(timeout: _remoteMediaFileIoTimeout);
-      output = null;
-    } catch (error, stack) {
-      deleteOnRelease = true;
-      await output?.cleanup();
-      output = null;
-      try {
-        if (await outputFile.exists().timeout(_remoteMediaFileIoTimeout)) {
-          await outputFile.delete().timeout(_remoteMediaFileIoTimeout);
-        }
-      } catch (cleanupError, cleanupStack) {
-        silentLog(
-          'home_message_bubble',
-          '删除未完成的远程媒体下载文件',
-          cleanupError,
-          cleanupStack,
-        );
+      if (cancelled) {
+        throw const _MediaDownloadCancelled();
       }
-      Error.throwWithStackTrace(error, stack);
-    } finally {
-      if (output != null) deleteOnRelease = true;
-      await output?.cleanup();
     }
+
+    await writeByteStreamFileAtomically(
+      File(destination),
+      responseChunks(),
+      maxBytes: maxBytes,
+      totalTimeout: totalTimeout,
+    );
+  } catch (error, stack) {
+    if (cancelled && error is! _MediaDownloadCancelled) {
+      Error.throwWithStackTrace(const _MediaDownloadCancelled(), stack);
+    }
+    rethrow;
   } finally {
     client.close(force: true);
   }
@@ -3309,14 +3283,17 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
       if (location == null) return;
       final sourceFilePath = widget.filePath;
       if (sourceFilePath != null) {
-        final source = File(sourceFilePath);
         if (!await isRegularFilePath(sourceFilePath)) {
           throw FileSystemException(
             'Image source file is missing.',
-            source.path,
+            sourceFilePath,
           );
         }
-        await source.copy(location.path);
+        await _copyMessageMediaFileForSave(
+          sourcePath: sourceFilePath,
+          destinationPath: location.path,
+          maxBytes: _remoteImageDownloadMaxBytes,
+        );
         return;
       }
 
@@ -3396,6 +3373,13 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
 }
 
 enum _GeneratedMessageMediaKind { video, audio }
+
+int _maxBytesForGeneratedMediaKind(_GeneratedMessageMediaKind kind) {
+  return switch (kind) {
+    _GeneratedMessageMediaKind.video => _remoteVideoDownloadMaxBytes,
+    _GeneratedMessageMediaKind.audio => _remoteAudioDownloadMaxBytes,
+  };
+}
 
 class _GeneratedMediaSource {
   const _GeneratedMediaSource({
@@ -5454,11 +5438,14 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
       showSnack('正在保存…', 'Saving…');
       final filePath = widget.source.filePath;
       if (filePath != null) {
-        final source = File(filePath);
         if (!await isRegularFilePath(filePath)) {
           throw FileSystemException('Media source file is missing.', filePath);
         }
-        await source.copy(location.path);
+        await _copyMessageMediaFileForSave(
+          sourcePath: filePath,
+          destinationPath: location.path,
+          maxBytes: _maxBytesForGeneratedMediaKind(widget.source.kind),
+        );
         showSnack(
           '已保存到：${location.path}',
           'Saved to: ${location.path}',
@@ -5474,17 +5461,18 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
           widget.source.uri.toString(),
           kind: cacheKind,
         );
-        if (cachedPath != null) {
-          final cachedFile = File(cachedPath);
-          if (await cachedFile.exists()) {
-            await cachedFile.copy(location.path);
-            showSnack(
-              '已保存到：${location.path}',
-              'Saved to: ${location.path}',
-              kind: OpenHandSnackKind.success,
-            );
-            return;
-          }
+        if (cachedPath != null && await isRegularFilePath(cachedPath)) {
+          await _copyMessageMediaFileForSave(
+            sourcePath: cachedPath,
+            destinationPath: location.path,
+            maxBytes: _maxBytesForGeneratedMediaKind(widget.source.kind),
+          );
+          showSnack(
+            '已保存到：${location.path}',
+            'Saved to: ${location.path}',
+            kind: OpenHandSnackKind.success,
+          );
+          return;
         }
         await _downloadRemoteMedia(
           widget.source,
@@ -5841,9 +5829,7 @@ Future<void> _downloadRemoteMedia(
     totalTimeout: isVideo
         ? _remoteVideoDownloadTimeout
         : _remoteAudioDownloadTimeout,
-    maxBytes: isVideo
-        ? _remoteVideoDownloadMaxBytes
-        : _remoteAudioDownloadMaxBytes,
+    maxBytes: _maxBytesForGeneratedMediaKind(source.kind),
     expectedPrimaryType: isVideo ? 'video' : 'audio',
     cancelSignal: cancelSignal,
   );

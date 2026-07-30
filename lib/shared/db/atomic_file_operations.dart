@@ -27,6 +27,7 @@ const Duration _atomicProcessLockTimeout = Duration(seconds: 30);
 const Duration _atomicProcessLockAttemptTimeout = Duration(seconds: 2);
 const Duration _atomicProcessLockRetryDelay = Duration(milliseconds: 25);
 const Duration _atomicOperationTotalTimeout = Duration(minutes: 10);
+const Duration _atomicStreamWriteMaxTotalTimeout = Duration(minutes: 30);
 const Duration _atomicCleanupTimeout = Duration(seconds: 2);
 const Duration _atomicMetadataTimeout = Duration(seconds: 3);
 const Duration _atomicRecoveryTotalTimeout = Duration(seconds: 30);
@@ -127,6 +128,33 @@ Future<void> writeBytesFileAtomically(File targetFile, List<int> bytes) {
   return _runWithAtomicWriteLock(
     targetFile,
     (targetFile) => _writeBytesFileAtomicallyLocked(targetFile, bytes),
+  );
+}
+
+/// 有界读取字节流并原子替换目标文件；失败时保留原目标，且不会把整个内容载入内存。
+Future<void> writeByteStreamFileAtomically(
+  File targetFile,
+  Stream<List<int>> bytes, {
+  required int maxBytes,
+  Duration idleTimeout = _atomicIoIdleTimeout,
+  Duration totalTimeout = _atomicOperationTotalTimeout,
+}) {
+  requirePositiveInt(maxBytes, 'maxBytes');
+  requirePositiveDuration(idleTimeout, 'idleTimeout');
+  requirePositiveDuration(totalTimeout, 'totalTimeout');
+  final effectiveTotalTimeout = shorterDuration(
+    totalTimeout,
+    _atomicStreamWriteMaxTotalTimeout,
+  );
+  return _runWithAtomicWriteLock(
+    targetFile,
+    (targetFile) => _writeByteStreamFileAtomicallyLocked(
+      targetFile,
+      bytes,
+      maxBytes: maxBytes,
+      idleTimeout: shorterDuration(idleTimeout, effectiveTotalTimeout),
+      totalTimeout: effectiveTotalTimeout,
+    ),
   );
 }
 
@@ -395,6 +423,46 @@ Future<void> _writeBytesFileAtomicallyLocked(
   );
 }
 
+Future<void> _writeByteStreamFileAtomicallyLocked(
+  File targetFile,
+  Stream<List<int>> bytes, {
+  required int maxBytes,
+  required Duration idleTimeout,
+  required Duration totalTimeout,
+}) async {
+  await _writeAtomicallyLocked(
+    targetFile,
+    (tempFile, remainingBudget) => _writeAtomicTempFile(
+      tempFile,
+      remainingBudget,
+      (output, nextOperationTimeout) async {
+        var writtenBytes = 0;
+        final boundedStream = bytes.timeout(
+          idleTimeout,
+          onTimeout: (sink) =>
+              sink.addError(TimeoutException('读取原子字节流超时。', idleTimeout)),
+        );
+        await for (final chunk in boundedStream) {
+          remainingBudget();
+          if (chunk.isEmpty) continue;
+          if (chunk.length > maxBytes - writtenBytes) {
+            throw FileSystemException(
+              '字节流超过 $maxBytes 字节写入上限。',
+              targetFile.path,
+            );
+          }
+          await output.run(
+            (file) => file.writeFrom(chunk),
+            timeout: nextOperationTimeout(),
+          );
+          writtenBytes += chunk.length;
+        }
+      },
+    ),
+    totalTimeout: totalTimeout,
+  );
+}
+
 Future<void> _writeAtomicTempFile(
   File tempFile,
   Duration Function() remainingBudget,
@@ -580,9 +648,10 @@ Future<void> _writeAtomicallyLocked(
   Future<void> Function(File tempFile, Duration Function() remainingBudget)
   writeTempFile, {
   bool preserveTargetMode = false,
+  Duration totalTimeout = _atomicOperationTotalTimeout,
 }) async {
   final deadline = MonotonicDeadline(
-    _atomicOperationTotalTimeout,
+    totalTimeout,
     timeoutMessage: '原子文件操作超过总时限。',
   );
   Duration remainingBudget() => deadline.remaining();
