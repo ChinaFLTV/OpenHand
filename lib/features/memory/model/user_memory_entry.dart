@@ -1,3 +1,5 @@
+import '../../../shared/util/text_clip.dart';
+
 final RegExp _memoryWhitespacePattern = RegExp(r'\s+');
 
 class UserMemoryEntry {
@@ -44,7 +46,7 @@ class UserMemoryEntry {
     if (normalized.length <= 72) {
       return normalized;
     }
-    return '${normalized.substring(0, 72)}...';
+    return '${clipTextByCodeUnits(normalized, 72, suffix: '')}...';
   }
 
   /// 用于 UI 显示的最终标题：[title] 优先；为空时回退到 [preview]。
@@ -91,8 +93,7 @@ class UserMemoryEntry {
   /// 长度上限避免 AI 偶尔吐出整段正文当标题。
   static String normalizeTitle(String value) {
     final flat = value.replaceAll(_memoryWhitespacePattern, ' ').trim();
-    if (flat.length <= maxTitleLength) return flat;
-    return flat.substring(0, maxTitleLength);
+    return clipTextByCodeUnits(flat, maxTitleLength, suffix: '');
   }
 
   static List<String> normalizeTags(Iterable<String> values) {

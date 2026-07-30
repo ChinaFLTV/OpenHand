@@ -21,6 +21,7 @@ import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
 import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/serial_task_queue.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
@@ -589,9 +590,7 @@ class McpServerOpsRuntime {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return '(empty body)';
     const maxChars = 200;
-    return trimmed.length <= maxChars
-        ? trimmed
-        : '${trimmed.substring(0, maxChars)}...';
+    return clipTextByCodeUnits(trimmed, maxChars);
   }
 
   shelf.Middleware _telemetryMiddleware() {
@@ -1931,7 +1930,11 @@ class McpServerOpsRuntime {
   void _increment(Map<String, int> map, String key) {
     var normalized = nullIfBlank(key) ?? 'unknown';
     if (normalized.length > _maxMetricKeyChars) {
-      normalized = normalized.substring(0, _maxMetricKeyChars);
+      normalized = clipTextByCodeUnits(
+        normalized,
+        _maxMetricKeyChars,
+        suffix: '',
+      );
     }
     final existing = map[normalized];
     if (existing != null) {

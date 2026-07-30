@@ -6,6 +6,8 @@
 ///      取消的指令会以独立"用户指令"段落注入提示词。
 library;
 
+import '../../../shared/util/text_clip.dart';
+
 final RegExp _instructionWhitespacePattern = RegExp(r'\s+');
 
 class UserInstructionEntry {
@@ -117,27 +119,23 @@ class UserInstructionEntry {
 
   static String normalizeName(String value) {
     final flat = value.replaceAll(_instructionWhitespacePattern, ' ').trim();
-    if (flat.length <= maxNameLength) return flat;
-    return flat.substring(0, maxNameLength);
+    return clipTextByCodeUnits(flat, maxNameLength, suffix: '');
   }
 
   static String normalizeOneLine(String value, int max) {
     final flat = value.replaceAll(_instructionWhitespacePattern, ' ').trim();
-    if (flat.length <= max) return flat;
-    return flat.substring(0, max);
+    return clipTextByCodeUnits(flat, max, suffix: '');
   }
 
   static String normalizeBody(String value) {
     final trimmed = value.trim();
-    if (trimmed.length <= maxBodyLength) return trimmed;
-    return trimmed.substring(0, maxBodyLength);
+    return clipTextByCodeUnits(trimmed, maxBodyLength, suffix: '');
   }
 
   static String normalizeVersion(String value) {
     final flat = value.trim();
     if (flat.isEmpty) return '1.0';
-    if (flat.length > 32) return flat.substring(0, 32);
-    return flat;
+    return clipTextByCodeUnits(flat, 32, suffix: '');
   }
 
   static List<String> normalizeStringList(
@@ -151,9 +149,7 @@ class UserInstructionEntry {
     for (final raw in values) {
       final value = raw.trim();
       if (value.isEmpty) continue;
-      final clipped = value.length <= maxItemLength
-          ? value
-          : value.substring(0, maxItemLength);
+      final clipped = clipTextByCodeUnits(value, maxItemLength, suffix: '');
       final key = dedupeCaseInsensitive ? clipped.toLowerCase() : clipped;
       if (seen.add(key)) out.add(clipped);
       if (out.length >= maxItems) break;

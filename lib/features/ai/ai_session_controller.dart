@@ -10944,12 +10944,16 @@ $effectiveSummary''';
     if (trimmed.length <= _compressionCheckpointMaxChars) {
       return trimmed;
     }
-    final head = trimmed
-        .substring(0, _compressionCheckpointEdgeChars)
-        .trimRight();
-    final tail = trimmed
-        .substring(trimmed.length - _compressionCheckpointEdgeChars)
-        .trimLeft();
+    final head = clipTextByCodeUnits(
+      trimmed,
+      _compressionCheckpointEdgeChars,
+      suffix: '',
+    ).trimRight();
+    final tailStart = safeUtf16SuffixStart(
+      trimmed,
+      trimmed.length - _compressionCheckpointEdgeChars,
+    );
+    final tail = trimmed.substring(tailStart).trimLeft();
     final omitted = trimmed.length - head.length - tail.length;
     return '''$head
 
@@ -13631,10 +13635,20 @@ $tail''';
   /// 截断审计元数据，避免异常响应撑大会话文件。
   String? _clampTelemetryPayload(String? value, int maxChars) {
     if (value == null) return null;
-    if (maxChars <= 0 || value.length <= maxChars) return value;
-    final kept = value.substring(0, maxChars);
-    final dropped = value.length - maxChars;
-    return '$kept\n\n…[telemetry_truncated: dropped $dropped chars]';
+    if (maxChars <= 0) return '';
+    if (value.length <= maxChars) return value;
+    var marker = '\n\n…[telemetry_truncated: dropped ${value.length} chars]';
+    if (marker.length >= maxChars) {
+      return clipTextByCodeUnits(value, maxChars, suffix: '');
+    }
+    final kept = clipTextByCodeUnits(
+      value,
+      maxChars - marker.length,
+      suffix: '',
+    );
+    marker =
+        '\n\n…[telemetry_truncated: dropped ${value.length - kept.length} chars]';
+    return '$kept$marker';
   }
 
   Map<String, String> _redactTelemetryHeaders(Map<String, String> headers) {

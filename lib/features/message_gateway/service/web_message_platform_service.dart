@@ -1530,7 +1530,7 @@ class WebMessagePlatformService {
     var key = rawKey.trim().replaceAll(_metricWhitespacePattern, ' ');
     if (key.isEmpty) key = 'unknown';
     if (key.length > _maxMetricKeyCharacters) {
-      key = key.substring(0, _maxMetricKeyCharacters);
+      key = clipTextByCodeUnits(key, _maxMetricKeyCharacters, suffix: '');
     }
     final count = values[key];
     if (count != null) {
@@ -3675,7 +3675,7 @@ class WebMessagePlatformService {
                   // Web 端 hover 卡片预览只用于「快速一瞥」，超过截断长度的指令，
                   // 用户在 App 端原始编辑面板查看完整 body。
                   'body': entry.body.length > 4096
-                      ? '${entry.body.substring(0, 4096)}…'
+                      ? clipTextByCodeUnits(entry.body, 4096, suffix: '…')
                       : entry.body,
                   'body_truncated': entry.body.length > 4096,
                 },

@@ -562,10 +562,7 @@ String? _compactPersistenceRawDetail(String raw) {
     return parts.join('；');
   }
   const maxRawCharacters = 600;
-  if (text.length <= maxRawCharacters) {
-    return text;
-  }
-  return '${text.substring(0, maxRawCharacters)}...';
+  return clipTextByCodeUnits(text, maxRawCharacters);
 }
 
 /// 工具调用消息的公共元数据：单条工具调用的标识、名称与入参。

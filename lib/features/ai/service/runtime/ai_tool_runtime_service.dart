@@ -1608,7 +1608,7 @@ class AiToolRuntimeService {
     if (effectivePayloadBudget <= 0) {
       final fallback = notice.length <= budget
           ? notice
-          : notice.substring(0, math.max(0, budget));
+          : clipTextByCodeUnits(notice, budget, suffix: '');
       return (text: fallback, includedChars: 0, omittedChars: value.length);
     }
     final includedChars = math.min(effectivePayloadBudget, value.length);
@@ -2578,7 +2578,7 @@ class AiToolRuntimeService {
     final name = _safeToolName('skill', token, takenNames);
     final rawSummary = nullIfBlank(skill.description) ?? '';
     final summary = rawSummary.length > _skillCatalogDescriptionCap
-        ? '${rawSummary.substring(0, _skillCatalogDescriptionCap - 1).trimRight()}…'
+        ? '${clipTextByCodeUnits(rawSummary, _skillCatalogDescriptionCap - 1, suffix: '').trimRight()}…'
         : rawSummary;
     final description = [
       'Load the full instructions for the local skill "${skill.name}" only when the current request clearly matches it.',

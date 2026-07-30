@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 
 const int webGatewayOpsTrafficWindowMinutes = 12;
 
@@ -978,9 +979,7 @@ String webGatewaySummarizeClientUserAgent({
 
 String _webGatewayCompactMetricText(String value, {int maxCharacters = 48}) {
   final compact = value.trim().replaceAll(_webGatewayWhitespacePattern, ' ');
-  return compact.length <= maxCharacters
-      ? compact
-      : compact.substring(0, maxCharacters);
+  return clipTextByCodeUnits(compact, maxCharacters, suffix: '');
 }
 
 Map<String, int> _webGatewayLegacyPeerDistribution(Map<String, int> values) {
@@ -1132,7 +1131,7 @@ Map<String, int> _webGatewayStringIntMapFromValue(
     if (key.isEmpty) continue;
     final value = nonNegativeIntFromValue(entry.value, fallback: 0);
     if (key.length > maxKeyCharacters) {
-      key = key.substring(0, maxKeyCharacters);
+      key = clipTextByCodeUnits(key, maxKeyCharacters, suffix: '');
     }
     if (result.containsKey(key) || result.length < maxKeys - 1) {
       result[key] = (result[key] ?? 0) + value;

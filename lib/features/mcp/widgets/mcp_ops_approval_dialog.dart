@@ -13,6 +13,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server_ops.dart';
 import 'mcp_payload_format.dart';
@@ -994,6 +995,5 @@ _ApprovalParsedPayload _parseApprovalPayload(String text) {
 
 String _clipApprovalPayloadText(String text, {required int maxChars}) {
   final trimmed = text.trim();
-  if (trimmed.length <= maxChars) return trimmed;
-  return '${trimmed.substring(0, maxChars).trimRight()}...';
+  return clipTextByCodeUnits(trimmed, maxChars);
 }
