@@ -57,6 +57,12 @@ class AiExitPlanModeTool extends AiTool {
         'ExitPlanMode requires a non-empty plan or recoverable plan context.',
       );
     }
+    if (plan.length > AiSessionDataLimits.maxPlanCharacters) {
+      return AiToolUtils.invalidResult(
+        'ExitPlanMode',
+        '计划内容不能超过 ${AiSessionDataLimits.maxPlanCharacters} 个字符。',
+      );
+    }
     final allowedPromptsResult = _parseAllowedPrompts(args);
     if (allowedPromptsResult.error != null) {
       return AiToolUtils.invalidResult(
@@ -105,7 +111,7 @@ class AiExitPlanModeTool extends AiTool {
       return '';
     }
     final lines = <String>[];
-    for (final rawTodo in todos) {
+    for (final rawTodo in todos.take(AiSessionDataLimits.maxTodoItems)) {
       if (rawTodo is! Map) {
         continue;
       }

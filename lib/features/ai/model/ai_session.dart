@@ -210,8 +210,18 @@ abstract final class AiSessionDataLimits {
   static const int maxPlanAllowedPrompts = 256;
   static const int maxPlanAllowedPromptToolCharacters = 128;
   static const int maxPlanAllowedPromptCharacters = 4096;
+  static const int maxPlanRecordIdCharacters = 128;
+  static const int maxPlanCharacters = 32000;
   static const int maxRecentErrors = 1000;
   static const int maxPlanHistoryEntries = 1000;
+}
+
+String normalizeAiSessionPlan(Object? value) {
+  return clipTextByCodeUnits(
+    stringFromValue(value),
+    AiSessionDataLimits.maxPlanCharacters,
+    suffix: '…',
+  );
 }
 
 class AiSessionTodoItem {
@@ -411,15 +421,20 @@ class AiSessionPlanAllowedPrompt {
 }
 
 class AiSessionPlanRecord {
-  const AiSessionPlanRecord({
-    required this.id,
+  AiSessionPlanRecord({
+    required String id,
     required this.createdAt,
     required this.updatedAt,
     required this.status,
-    this.plan = '',
+    String plan = '',
     this.steps = const <AiSessionTodoItem>[],
     this.allowedPrompts = const <AiSessionPlanAllowedPrompt>[],
-  });
+  }) : id = clipTextByCodeUnits(
+         stringFromValue(id),
+         AiSessionDataLimits.maxPlanRecordIdCharacters,
+         suffix: '',
+       ),
+       plan = normalizeAiSessionPlan(plan);
 
   final String id;
   final DateTime createdAt;
@@ -618,7 +633,7 @@ class AiSession {
     this.todoItems = const <AiSessionTodoItem>[],
     this.mode = AiSessionMode.chat,
     this.awaitingPlanApproval = false,
-    this.pendingPlan,
+    String? pendingPlan,
     this.pendingPlanAllowedPrompts = const <AiSessionPlanAllowedPrompt>[],
     this.planHistory = const <AiSessionPlanRecord>[],
     this.fullAccessPermission = false,
@@ -626,7 +641,8 @@ class AiSession {
     AiSessionMessageLoadState? messageLoadState,
     int? messageWindowStartIndex,
     int? messageTotalCount,
-  }) : messageLoadState =
+  }) : pendingPlan = nullIfBlank(normalizeAiSessionPlan(pendingPlan)),
+       messageLoadState =
            messageLoadState ??
            (messages.isEmpty && statistics.totalMessageCount > 0
                ? AiSessionMessageLoadState.header
