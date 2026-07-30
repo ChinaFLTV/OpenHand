@@ -1479,7 +1479,7 @@ class AiTtsPlaybackService {
         }, timeout: _playbackFileIoTimeout);
         deleteOnRelease = false;
         try {
-          await openedOutput.close(timeout: _resourceCloseTimeout);
+          await openedOutput.close(timeout: _playbackFileIoTimeout);
         } catch (_) {
           deleteOnRelease = true;
           rethrow;

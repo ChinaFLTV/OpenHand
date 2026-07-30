@@ -4216,7 +4216,7 @@ String _settingsTestErrorDetails({
   required String targetLabel,
   required Object error,
 }) {
-  final message = _settingsFullErrorText(error);
+  final message = _settingsFullErrorText(context, error);
   final buffer = StringBuffer()
     ..writeln(title)
     ..writeln(
@@ -4255,9 +4255,20 @@ String _settingsTestErrorDetails({
   return buffer.toString().trim();
 }
 
-String _settingsFullErrorText(Object error) {
+String _settingsFullErrorText(BuildContext context, Object error) {
+  if (error is TimeoutException) {
+    final message = error.message?.trim();
+    if (message != null && message.isNotEmpty) return message;
+    return openHandLocalizedText(
+      context,
+      zh: '操作超时，请重试或适当增大超时时间。',
+      en: 'The operation timed out. Try again or increase the timeout.',
+    );
+  }
   final raw = error.toString().trim();
-  if (raw.isEmpty) return 'unknown error';
+  if (raw.isEmpty) {
+    return openHandLocalizedText(context, zh: '未知错误', en: 'Unknown error');
+  }
   return raw
       .replaceFirst(RegExp(r'^[A-Za-z0-9_.$]+Exception:\s*'), '')
       .replaceFirst(RegExp(r'^Bad state:\s*'), '')
@@ -4265,7 +4276,7 @@ String _settingsFullErrorText(Object error) {
 }
 
 String? _settingsTargetedErrorSuggestion(BuildContext context, Object error) {
-  final message = _settingsFullErrorText(error).toLowerCase();
+  final message = _settingsFullErrorText(context, error).toLowerCase();
   if (message.contains('voice_id') &&
       (message.contains('does not exist') ||
           message.contains('do not have access'))) {
