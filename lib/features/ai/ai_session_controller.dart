@@ -6702,8 +6702,9 @@ class AiSessionController extends ChangeNotifier {
           if (session.autoTitleFirstUserContent == null ||
               session.autoTitleFirstUserContent!.isEmpty) {
             final sessionWithFirstContent = session.copyWith(
-              autoTitleFirstUserContent:
-                  preparedUserTurnWithMetadata.userMessage.content,
+              autoTitleFirstUserContent: normalizeAiSessionAutoTitleSource(
+                preparedUserTurnWithMetadata.userMessage.content,
+              ),
             );
             _replaceSessionInMemory(sessionWithFirstContent);
             final committedFirstContent = await _commitSessionLocked(
@@ -6727,7 +6728,9 @@ class AiSessionController extends ChangeNotifier {
           await _generateAutoTitle(
             sessionId: session.id,
             sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
-            sourceContent: preparedUserTurnWithMetadata.userMessage.content,
+            sourceContent: normalizeAiSessionAutoTitleSource(
+              preparedUserTurnWithMetadata.userMessage.content,
+            ),
             model: model,
             allowRetryAfterIdle: false,
           );
@@ -6744,7 +6747,9 @@ class AiSessionController extends ChangeNotifier {
           _scheduleAutoTitleGeneration(
             sessionId: session.id,
             sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
-            sourceContent: preparedUserTurnWithMetadata.userMessage.content,
+            sourceContent: normalizeAiSessionAutoTitleSource(
+              preparedUserTurnWithMetadata.userMessage.content,
+            ),
             model: model,
           );
         }
@@ -11198,6 +11203,10 @@ $tail''';
     bool allowRetryAfterIdle = true,
   }) async {
     if (_isDisposed) return;
+    final normalizedSourceContent = normalizeAiSessionAutoTitleSource(
+      sourceContent,
+    );
+    if (normalizedSourceContent.isEmpty) return;
     final session = _sessionById(sessionId);
     if (session == null || session.isTitleManuallyEdited) {
       return;
@@ -11212,7 +11221,7 @@ $tail''';
       AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
       AiChatTurn(
         role: AiChatRole.user,
-        content: '<description>\n$sourceContent\n</description>',
+        content: '<description>\n$normalizedSourceContent\n</description>',
       ),
     ];
     final requestModels = _autoTitleRequestModels(model);
@@ -11247,7 +11256,7 @@ $tail''';
             ? acceptedGeneratedTitle
             : isLastAttempt && generatedTitle.isNotEmpty
             ? _deriveReadableTitleFromContent(
-                sourceContent,
+                normalizedSourceContent,
                 maxCharacters: _generatedTitleMaxCharacters,
               )
             : '';
@@ -11268,7 +11277,8 @@ $tail''';
           }
         }
         if (latestSourceMessage == null ||
-            latestSourceMessage.content != sourceContent) {
+            normalizeAiSessionAutoTitleSource(latestSourceMessage.content) !=
+                normalizedSourceContent) {
           return;
         }
         final generatedAt = _clock().toUtc();
@@ -11315,7 +11325,7 @@ $tail''';
             return _generateAutoTitle(
               sessionId: sessionId,
               sourceMessageId: sourceMessageId,
-              sourceContent: sourceContent,
+              sourceContent: normalizedSourceContent,
               model: model,
               allowRetryAfterIdle: false,
             );
@@ -11332,7 +11342,7 @@ $tail''';
     if (_isDisposed) return;
     // All API attempts failed — derive a title from user content as fallback.
     final fallbackTitle = _deriveReadableTitleFromContent(
-      sourceContent,
+      normalizedSourceContent,
       maxCharacters: _generatedTitleMaxCharacters,
     );
     final latestSession = _sessionById(sessionId);
@@ -11373,6 +11383,10 @@ $tail''';
     required String sourceContent,
     required AiModelConfig model,
   }) {
+    final normalizedSourceContent = normalizeAiSessionAutoTitleSource(
+      sourceContent,
+    );
+    if (normalizedSourceContent.isEmpty) return;
     unawaited(() async {
       try {
         if (_isDisposed) {
@@ -11381,7 +11395,7 @@ $tail''';
         await _generateAutoTitle(
           sessionId: sessionId,
           sourceMessageId: sourceMessageId,
-          sourceContent: sourceContent,
+          sourceContent: normalizedSourceContent,
           model: model,
         );
       } catch (error, stack) {

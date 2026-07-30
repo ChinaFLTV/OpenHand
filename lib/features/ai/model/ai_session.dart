@@ -228,6 +228,7 @@ abstract final class AiSessionDataLimits {
   static const int maxVersionCharacters = 128;
   static const int maxModelFieldCharacters = 512;
   static const int maxSessionReferenceIdCharacters = 256;
+  static const int maxAutoTitleSourceCharacters = 8000;
   static const int maxEnvironmentTagCharacters = 128;
   static const int maxEnvironmentPathCharacters = 4096;
 }
@@ -236,6 +237,14 @@ String normalizeAiSessionPlan(Object? value) {
   return clipTextByCodeUnits(
     stringFromValue(value),
     AiSessionDataLimits.maxPlanCharacters,
+    suffix: '…',
+  );
+}
+
+String normalizeAiSessionAutoTitleSource(Object? value) {
+  return clipTextByCodeUnits(
+    stringFromValue(value),
+    AiSessionDataLimits.maxAutoTitleSourceCharacters,
     suffix: '…',
   );
 }
@@ -652,7 +661,7 @@ class AiSession {
     this.isTitleManuallyEdited = false,
     this.autoTitleAcquired = false,
     this.autoTitleRetryCount = 0,
-    this.autoTitleFirstUserContent,
+    String? autoTitleFirstUserContent,
     this.autoTitleGeneratedAt,
     String? autoTitleSourceMessageId,
     String? latestCompressionCheckpointMessageId,
@@ -701,6 +710,9 @@ class AiSession {
        lastUsedModelLabel = _boundedNullableAiSessionText(
          lastUsedModelLabel,
          AiSessionDataLimits.maxModelFieldCharacters,
+       ),
+       autoTitleFirstUserContent = nullIfBlank(
+         normalizeAiSessionAutoTitleSource(autoTitleFirstUserContent),
        ),
        autoTitleSourceMessageId = _boundedNullableAiSessionText(
          autoTitleSourceMessageId,
