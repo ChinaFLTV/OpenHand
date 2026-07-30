@@ -6570,31 +6570,16 @@ class _AgentAuditReportBody extends StatelessWidget {
           title: l10n.agentsRecentAuditEvents,
           emptyText: l10n.agentsNoAuditData,
           children: [
-            for (final event in _recentAgentAuditEvents(
+            for (final event in recentAgentAuditEvents(
               agent.auditEvents,
-            ).take(8))
+              limit: 8,
+            ))
               _AgentAuditEventRow(event: event),
           ],
         ),
       ],
     );
   }
-}
-
-List<AgentAuditEvent> _recentAgentAuditEvents(List<AgentAuditEvent> events) {
-  final indexed = events.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final timeCompare = _agentAuditEventSortTime(
-      right.$2,
-    ).compareTo(_agentAuditEventSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-DateTime _agentAuditEventSortTime(AgentAuditEvent event) {
-  return event.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 Color _agentPressureColor(ColorScheme cs, double value) {

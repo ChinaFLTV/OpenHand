@@ -642,33 +642,31 @@ class AiAgentTool extends AiTool {
     final workerId = _optionalText(args['worker_id']);
 
     final activities = includeActivities
-        ? recentAgentActivities(agent.activities)
-              .where(
-                (event) => _activityMatches(
-                  event,
-                  kind: kind,
-                  messageType: messageType,
-                  toolName: toolName,
-                  taskId: taskId,
-                  workerId: workerId,
-                ),
-              )
-              .take(limit)
-              .toList(growable: false)
+        ? recentAgentActivities(
+            agent.activities,
+            test: (event) => _activityMatches(
+              event,
+              kind: kind,
+              messageType: messageType,
+              toolName: toolName,
+              taskId: taskId,
+              workerId: workerId,
+            ),
+            limit: limit,
+          )
         : const <AgentActivityEvent>[];
     final auditEvents = includeAudit
-        ? recentAgentAuditEvents(agent.auditEvents)
-              .where(
-                (event) => _auditMatches(
-                  event,
-                  kind: kind,
-                  toolName: toolName,
-                  taskId: taskId,
-                  workerId: workerId,
-                ),
-              )
-              .take(limit)
-              .toList(growable: false)
+        ? recentAgentAuditEvents(
+            agent.auditEvents,
+            test: (event) => _auditMatches(
+              event,
+              kind: kind,
+              toolName: toolName,
+              taskId: taskId,
+              workerId: workerId,
+            ),
+            limit: limit,
+          )
         : const <AgentAuditEvent>[];
     final payload = <String, Object?>{
       'agent': _agentSummaryJson(
@@ -740,30 +738,29 @@ class AiAgentTool extends AiTool {
         .where((worker) => _workerMatches(worker, workerId))
         .toList(growable: false);
     final tasks = includeTasks
-        ? sortedAgentTasksForAttention(agent.tasks)
-              .where((task) => _clusterTaskMatches(task, workerId: workerId))
-              .take(limit)
-              .toList(growable: false)
+        ? sortedAgentTasksForAttention(
+            agent.tasks,
+            test: (task) => _clusterTaskMatches(task, workerId: workerId),
+            limit: limit,
+          )
         : const <AgentTask>[];
     final clusterActivities = includeAudit
-        ? recentAgentActivities(agent.activities)
-              .where(_isClusterActivity)
-              .where(
-                (event) =>
-                    _matchesMetadata(event.metadata, 'worker_id', workerId),
-              )
-              .take(limit)
-              .toList(growable: false)
+        ? recentAgentActivities(
+            agent.activities,
+            test: (event) =>
+                _isClusterActivity(event) &&
+                _matchesMetadata(event.metadata, 'worker_id', workerId),
+            limit: limit,
+          )
         : const <AgentActivityEvent>[];
     final clusterAuditEvents = includeAudit
-        ? recentAgentAuditEvents(agent.auditEvents)
-              .where(_isClusterAuditEvent)
-              .where(
-                (event) =>
-                    _matchesMetadata(event.metadata, 'worker_id', workerId),
-              )
-              .take(limit)
-              .toList(growable: false)
+        ? recentAgentAuditEvents(
+            agent.auditEvents,
+            test: (event) =>
+                _isClusterAuditEvent(event) &&
+                _matchesMetadata(event.metadata, 'worker_id', workerId),
+            limit: limit,
+          )
         : const <AgentAuditEvent>[];
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
 
@@ -1001,13 +998,14 @@ class AiAgentTool extends AiTool {
       'kpi_summary': _kpiSummaryJson(agent.kpis),
       'kpi_state': sortedAgentKpisForAttention(
         agent.kpis,
-      ).take(limit).map((item) => item.toJson()).toList(growable: false),
+        limit: limit,
+      ).map((item) => item.toJson()).toList(growable: false),
       'approval_summary': _approvalSummaryJson(agent.approvals),
-      'pending_approvals': sortedAgentApprovalsForAttention(agent.approvals)
-          .where((item) => item.status == AgentApprovalStatus.pending)
-          .take(limit)
-          .map((item) => item.toJson())
-          .toList(growable: false),
+      'pending_approvals': sortedAgentApprovalsForAttention(
+        agent.approvals,
+        test: (item) => item.status == AgentApprovalStatus.pending,
+        limit: limit,
+      ).map((item) => item.toJson()).toList(growable: false),
       'resource_usage': _resourceUsageSummaryJson(agent.resourceUsage),
       'audit_summary': _auditSummaryJson(auditEvents),
       'capability_usage': _capabilityUsageJson(auditEvents, limit: limit),
@@ -1380,17 +1378,16 @@ class AiAgentTool extends AiTool {
       min: 1,
       max: 200,
     );
-    final tasks = sortedAgentTasksForAttention(agent.tasks)
-        .where(
-          (task) => _taskMatchesListFilter(
-            task,
-            status: statusFilter.status,
-            workerId: workerId,
-            labels: labels,
-          ),
-        )
-        .take(limit)
-        .toList(growable: false);
+    final tasks = sortedAgentTasksForAttention(
+      agent.tasks,
+      test: (task) => _taskMatchesListFilter(
+        task,
+        status: statusFilter.status,
+        workerId: workerId,
+        labels: labels,
+      ),
+      limit: limit,
+    );
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     return _success(
       <String, Object?>{
@@ -2952,8 +2949,7 @@ class AiAgentTool extends AiTool {
   }
 
   String _recentTaskHint(AgentProfile agent) {
-    final recent = recentAgentTasks(agent.tasks)
-        .take(5)
+    final recent = recentAgentTasks(agent.tasks, limit: 5)
         .map((task) {
           return '${task.id}(${task.status.storageValue})';
         })
@@ -3424,21 +3420,22 @@ Map<String, Object?> _agentDetailJson(
     'resource_summary': _resourceUsageSummaryJson(agent.resourceUsage),
     'kpis': sortedAgentKpisForAttention(
       agent.kpis,
-    ).take(itemLimit).map((item) => item.toJson()).toList(growable: false),
+      limit: itemLimit,
+    ).map((item) => item.toJson()).toList(growable: false),
     'workers': agent.workers
         .take(itemLimit)
         .map((item) => item.toJson())
         .toList(growable: false),
     'approvals': sortedAgentApprovalsForAttention(
       agent.approvals,
-    ).take(itemLimit).map((item) => item.toJson()).toList(growable: false),
-    'recent_activities': recentAgentActivities(agent.activities)
-        .take(itemLimit < 20 ? itemLimit : 20)
-        .map((item) => item.toJson())
-        .toList(growable: false),
+      limit: itemLimit,
+    ).map((item) => item.toJson()).toList(growable: false),
+    'recent_activities': recentAgentActivities(
+      agent.activities,
+      limit: itemLimit < 20 ? itemLimit : 20,
+    ).map((item) => item.toJson()).toList(growable: false),
     if (includeTasks)
-      'tasks': sortedAgentTasksForAttention(agent.tasks)
-          .take(itemLimit)
+      'tasks': sortedAgentTasksForAttention(agent.tasks, limit: itemLimit)
           .map(
             (task) => _taskJson(
               task,
@@ -3448,10 +3445,10 @@ Map<String, Object?> _agentDetailJson(
           )
           .toList(growable: false),
     if (includeAudit)
-      'audit_events': recentAgentAuditEvents(agent.auditEvents)
-          .take(itemLimit < 50 ? itemLimit : 50)
-          .map((item) => item.toJson())
-          .toList(growable: false),
+      'audit_events': recentAgentAuditEvents(
+        agent.auditEvents,
+        limit: itemLimit < 50 ? itemLimit : 50,
+      ).map((item) => item.toJson()).toList(growable: false),
     if (includeResources)
       'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
     'created_at': _iso(agent.createdAt),

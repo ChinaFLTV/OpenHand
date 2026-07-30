@@ -223,7 +223,10 @@ List<Map<String, Object?>> _boundInstructionJsonList(
 
 Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
   final scopePaths = agent.normalizedWorkspaceScopePaths;
-  final kpis = sortedAgentKpisForAttention(agent.kpis);
+  final kpis = sortedAgentKpisForAttention(
+    agent.kpis,
+    limit: _agentPromptStateItemLimit,
+  );
   return <String, Object?>{
     'enabled': agent.enabled,
     'lifecycle_state': agent.lifecycleState.storageValue,
@@ -238,34 +241,35 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
     'workspace_policy': agentWorkspacePolicyJson(agent),
     'task_labels': agent.taskLabels,
     'scale_settings': agent.scaleSettings.toJson(),
-    'kpis': kpis.take(12).map(_kpiJson).toList(growable: false),
+    'kpis': kpis.map(_kpiJson).toList(growable: false),
   };
 }
 
 Map<String, Object?> _operationalStateJson(AgentProfile agent) {
-  final tasks = sortedAgentTasksForAttention(agent.tasks);
-  final approvals = sortedAgentApprovalsForAttention(agent.approvals);
-  final kpis = sortedAgentKpisForAttention(agent.kpis);
-  final activeTasks = tasks
-      .where((task) => !task.status.isTerminal)
-      .take(12)
-      .map(_taskJson)
-      .toList(growable: false);
-  final blockedTasks = tasks
-      .where(_taskNeedsAttention)
-      .take(10)
-      .map(_taskJson)
-      .toList(growable: false);
-  final recentTerminalTasks = recentAgentTasks(agent.tasks)
-      .where((task) => task.status.isTerminal)
-      .take(6)
-      .map(_taskJson)
-      .toList(growable: false);
-  final pendingApprovals = approvals
-      .where((item) => item.status == AgentApprovalStatus.pending)
-      .take(10)
-      .map(_approvalJson)
-      .toList(growable: false);
+  final activeTasks = sortedAgentTasksForAttention(
+    agent.tasks,
+    test: (task) => !task.status.isTerminal,
+    limit: _agentPromptStateItemLimit,
+  ).map(_taskJson).toList(growable: false);
+  final blockedTasks = sortedAgentTasksForAttention(
+    agent.tasks,
+    test: _taskNeedsAttention,
+    limit: _agentPromptAttentionItemLimit,
+  ).map(_taskJson).toList(growable: false);
+  final recentTerminalTasks = recentAgentTasks(
+    agent.tasks,
+    test: (task) => task.status.isTerminal,
+    limit: _agentPromptTerminalTaskLimit,
+  ).map(_taskJson).toList(growable: false);
+  final pendingApprovals = sortedAgentApprovalsForAttention(
+    agent.approvals,
+    test: (item) => item.status == AgentApprovalStatus.pending,
+    limit: _agentPromptAttentionItemLimit,
+  ).map(_approvalJson).toList(growable: false);
+  final kpis = sortedAgentKpisForAttention(
+    agent.kpis,
+    limit: _agentPromptStateItemLimit,
+  );
   final workers = agent.workers;
   final idleWorkers = workers
       .where((worker) => worker.status == AgentWorkerStatus.idle)
@@ -294,8 +298,19 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     0,
     (sum, event) => sum + event.tokenUsage,
   );
-  final recentActivities = recentAgentActivities(agent.activities);
-  final recentAuditEvents = recentAgentAuditEvents(agent.auditEvents);
+  final recentActivities = recentAgentActivities(
+    agent.activities,
+    limit: _agentPromptStateItemLimit,
+  );
+  final recentAuditEvents = recentAgentAuditEvents(
+    agent.auditEvents,
+    limit: _agentPromptStateItemLimit,
+  );
+  final recentAuditTools = recentAgentAuditEvents(
+    agent.auditEvents,
+    test: (event) => event.toolName.trim().isNotEmpty,
+    limit: _agentPromptAuditSummaryItemLimit,
+  );
   return <String, Object?>{
     'task_counts': <String, Object?>{
       'total': agent.tasks.length,
@@ -346,18 +361,16 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     'active_tasks': activeTasks,
     'blocked_tasks': blockedTasks,
     'recent_terminal_tasks': recentTerminalTasks,
-    'kpi_state': kpis.take(12).map(_kpiJson).toList(growable: false),
+    'kpi_state': kpis.map(_kpiJson).toList(growable: false),
     'workers': agent.workers
         .take(_agentPromptExtraCollectionMaxItems)
         .map(_workerJson)
         .toList(growable: false),
     'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
     'recent_activity': recentActivities
-        .take(12)
         .map(_activityJson)
         .toList(growable: false),
     'recent_audit_events': recentAuditEvents
-        .take(12)
         .map(_auditJson)
         .toList(growable: false),
     'audit_summary': <String, Object?>{
@@ -365,13 +378,11 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
       'requests': requests,
       'tokens': tokens,
       'recent_kinds': recentAuditEvents
-          .take(10)
+          .take(_agentPromptAuditSummaryItemLimit)
           .map((event) => event.kind)
           .toList(growable: false),
-      'recent_tools': recentAuditEvents
-          .map((event) => nullIfBlank(event.toolName))
-          .nonNulls
-          .take(10)
+      'recent_tools': recentAuditTools
+          .map((event) => event.toolName.trim())
           .toList(growable: false),
     },
   };
@@ -468,6 +479,10 @@ const int _agentPromptArchiveMaxChars = 2000;
 const int _agentPromptInstructionBodyMaxChars = 2400;
 const int _agentPromptInstructionMaxItems = 12;
 const int _agentPromptInstructionMaxNotes = 6;
+const int _agentPromptStateItemLimit = 12;
+const int _agentPromptAttentionItemLimit = 10;
+const int _agentPromptTerminalTaskLimit = 6;
+const int _agentPromptAuditSummaryItemLimit = 10;
 const int _agentPromptEventTextMaxChars = 1200;
 const int _agentPromptAuditSummaryMaxChars = 1000;
 const int _agentPromptExtraStringMaxChars = 800;
