@@ -111,17 +111,12 @@ export async function apiRequest<T = unknown>(
 
   const abortSignal = createApiAbortSignal(opts);
   try {
-    let res: Response;
-    try {
-      res = await fetch(path, {
-        method: opts.method ?? 'GET',
-        headers,
-        body,
-        signal: abortSignal.signal,
-      });
-    } catch (error) {
-      throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
-    }
+    const res = await fetch(path, {
+      method: opts.method ?? 'GET',
+      headers,
+      body,
+      signal: abortSignal.signal,
+    });
 
     let parsed: unknown = null;
     const text = await res.text();
@@ -141,6 +136,8 @@ export async function apiRequest<T = unknown>(
       throw new ApiError(res.status, parsed);
     }
     return parsed as T;
+  } catch (error) {
+    throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
   } finally {
     abortSignal.cleanup();
   }

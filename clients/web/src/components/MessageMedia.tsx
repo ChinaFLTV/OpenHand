@@ -1220,6 +1220,14 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       if (timed.controller.signal.aborted) return;
       showSnackbar(t('detail.media.saveOk', '已保存媒体文件'), { tone: 'success' });
     } catch (error) {
+      if (timed.timedOut) {
+        const reason = timed.controller.signal.reason;
+        showSnackbar(
+          `${t('detail.media.saveFailed', '保存失败')}：${reason instanceof Error ? reason.message : t('detail.media.timeout', '操作超时')}`,
+          { tone: 'error' },
+        );
+        return;
+      }
       if (timed.controller.signal.aborted || isAbortError(error)) return;
       showSnackbar(
         `${t('detail.media.saveFailed', '保存失败')}：${error instanceof Error ? error.message : String(error)}`,
@@ -1229,7 +1237,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       timed.dispose();
       if (saveAbortRef.current === timed.controller) {
         saveAbortRef.current = null;
-        if (!timed.controller.signal.aborted) setSaving(false);
+        setSaving(false);
       }
     }
   };
@@ -1239,40 +1247,47 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     const timed = createTimedAbortController(MEDIA_CLIPBOARD_FETCH_TIMEOUT_MS);
     copyAbortRef.current = timed.controller;
     setCopying(true);
-    let richCopied = false;
     try {
-      const blob = await fetchMediaBlob(item, url, timed.controller.signal);
-      if (!timed.controller.signal.aborted) {
-        richCopied = await copyBlobToClipboard(blob);
+      let richCopied = false;
+      try {
+        const blob = await fetchMediaBlob(item, url, timed.controller.signal);
+        if (!timed.controller.signal.aborted) {
+          richCopied = await copyBlobToClipboard(blob);
+        }
+      } catch (error) {
+        if (timed.timedOut) {
+          const reason = timed.controller.signal.reason;
+          showSnackbar(
+            `${t('detail.copy.failed', '复制失败')}：${reason instanceof Error ? reason.message : t('detail.media.timeout', '操作超时')}`,
+            { tone: 'error' },
+          );
+          return;
+        }
+        if (timed.controller.signal.aborted || isAbortError(error)) return;
       }
-    } catch {
-      richCopied = false;
+      if (timed.controller.signal.aborted) return;
+      if (richCopied) {
+        showSnackbar(t('detail.media.copyOk', '已复制到剪贴板'), { tone: 'success' });
+        return;
+      }
+      const sourceText = item.path.trim() || url;
+      const textCopied = await copyTextToClipboard(sourceText);
+      if (timed.controller.signal.aborted) return;
+      showSnackbar(
+        textCopied
+          ? item.kind === 'file'
+            ? t('detail.media.copyPathOk', '浏览器不支持直接复制该文件，已复制文件路径')
+            : t('detail.media.copySourceOk', '已复制媒体来源')
+          : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
+        { tone: textCopied ? 'success' : 'error' },
+      );
     } finally {
       timed.dispose();
+      if (copyAbortRef.current === timed.controller) {
+        copyAbortRef.current = null;
+        setCopying(false);
+      }
     }
-    if (timed.controller.signal.aborted) {
-      if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
-      setCopying(false);
-      return;
-    }
-    if (richCopied) {
-      showSnackbar(t('detail.media.copyOk', '已复制到剪贴板'), { tone: 'success' });
-      if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
-      setCopying(false);
-      return;
-    }
-    const sourceText = item.path.trim() || url;
-    const textCopied = await copyTextToClipboard(sourceText);
-    showSnackbar(
-      textCopied
-        ? item.kind === 'file'
-          ? t('detail.media.copyPathOk', '浏览器不支持直接复制该文件，已复制文件路径')
-          : t('detail.media.copySourceOk', '已复制媒体来源')
-        : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'),
-      { tone: textCopied ? 'success' : 'error' },
-    );
-    if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
-    setCopying(false);
   };
 
   if (typeof document === 'undefined') return null;
