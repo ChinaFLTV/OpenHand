@@ -28,7 +28,7 @@ class MessageGatewayStore {
   Future<WebMessagePlatformConfig> load() async {
     final file = File(filePath);
     await recoverAtomicWriteBackupIfNeeded(file);
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(file)) {
       _expectedContent = null;
       _hasLoadedSnapshot = true;
       return const WebMessagePlatformConfig();
@@ -58,7 +58,7 @@ class MessageGatewayStore {
       throw StateError('Message gateway config has no trusted snapshot.');
     }
     final file = File(filePath);
-    final exists = await file.exists();
+    final exists = await regularFileExistsBounded(file);
     if (_expectedContent == null) {
       if (exists) {
         throw StateError('Message gateway config changed externally.');

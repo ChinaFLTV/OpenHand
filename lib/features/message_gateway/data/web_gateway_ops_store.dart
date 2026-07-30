@@ -37,7 +37,7 @@ class WebGatewayOpsStore {
     _hasTrustedSnapshot = false;
     final file = File(filePath);
     await recoverAtomicWriteBackupIfNeeded(file);
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(file)) {
       _expectedContent = null;
       _hasTrustedSnapshot = true;
       return const WebGatewayOpsHistoryData();
@@ -81,7 +81,7 @@ class WebGatewayOpsStore {
       throw StateError('Web gateway ops history has no trusted snapshot.');
     }
     final file = File(filePath);
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(file)) {
       if (_expectedContent != null) {
         throw StateError('Web gateway ops history was removed externally.');
       }
@@ -99,7 +99,8 @@ class WebGatewayOpsStore {
 
   Future<int> measureBytesOnly() async {
     final file = File(filePath);
-    return await file.exists() ? (await file.stat()).size : 0;
+    if (!await regularFileExistsBounded(file)) return 0;
+    return (await file.stat().timeout(defaultBoundedFileReadIdleTimeout)).size;
   }
 
   WebGatewayOpsHistoryData _decode(String raw) {
@@ -215,7 +216,7 @@ class WebGatewayOpsStore {
   }
 
   Future<void> _verifySourceUnchanged(File file) async {
-    final exists = await file.exists();
+    final exists = await regularFileExistsBounded(file);
     if (_expectedContent == null) {
       if (exists) {
         throw StateError('Web gateway ops history changed externally.');

@@ -196,12 +196,7 @@ Future<File?> _firstExistingFile(Iterable<String> paths) async {
     final normalized = p.normalize(p.absolute(path));
     if (!seen.add(normalized)) continue;
     final file = File(path);
-    final stat = await file.stat();
-    if (stat.type == FileSystemEntityType.notFound) continue;
-    if (stat.type != FileSystemEntityType.file) {
-      throw FileSystemException('Legacy source is not a regular file.', path);
-    }
-    return file;
+    if (await regularFileExistsBounded(file)) return file;
   }
   return null;
 }

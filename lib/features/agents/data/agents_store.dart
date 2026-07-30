@@ -32,7 +32,7 @@ class AgentsStore {
   Future<List<AgentProfile>> load() async {
     final file = File(_filePath);
     await recoverAtomicWriteBackupIfNeeded(file);
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(file)) {
       return const <AgentProfile>[];
     }
     final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);

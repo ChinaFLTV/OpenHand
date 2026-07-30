@@ -798,7 +798,7 @@ final class AiToolUsagePromotionStore {
     _initialized = true;
     try {
       await recoverAtomicWriteBackupIfNeeded(_file);
-      if (await _file.exists()) {
+      if (await regularFileExistsBounded(_file)) {
         final raw = await readBoundedFileString(
           _file,
           maxBytes: _maxStoreBytes,

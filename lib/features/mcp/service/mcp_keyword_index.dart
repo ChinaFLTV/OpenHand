@@ -559,7 +559,7 @@ class McpKeywordIndexService {
         await recoverAtomicWriteBackupIfNeeded(_file);
         _storageRecovered = true;
       }
-      if (!await _file.exists()) return null;
+      if (!await regularFileExistsBounded(_file)) return null;
       final raw = await readBoundedFileString(
         _file,
         maxBytes: _maxPersistedBytes,

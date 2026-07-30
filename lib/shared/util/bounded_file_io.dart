@@ -724,6 +724,23 @@ bool isRegularFileStat(FileStat stat) {
   return (stat.mode & _posixFileTypeMask) == _posixRegularFileType;
 }
 
+/// 有界检查普通文件是否存在；路径存在但不是普通文件时抛出异常，避免持久化逻辑
+/// 把目录或其他特殊实体误判成“文件不存在”后继续覆盖。
+Future<bool> regularFileExistsBounded(
+  File file, {
+  Duration timeout = defaultBoundedFileReadIdleTimeout,
+  bool followLinks = true,
+}) async {
+  final type = await _fileSystemEntityTypeBounded(
+    file.path,
+    timeout: timeout,
+    followLinks: followLinks,
+  );
+  if (type == FileSystemEntityType.notFound) return false;
+  if (type == FileSystemEntityType.file) return true;
+  throw FileSystemException('路径不是普通文件。', file.path);
+}
+
 /// 异步检查 [path] 是否为普通文件，可选择不跟随末级符号链接。元数据失败或超时
 /// 视为文件不存在，使 UI 事件处理器能够安全失败而不阻塞主 isolate。
 Future<bool> isRegularFilePath(
@@ -747,10 +764,11 @@ Future<FileSystemEntityType> probeFileSystemEntityType(
   if (path.trim().isEmpty) return FileSystemEntityType.notFound;
   requirePositiveDuration(timeout, 'timeout');
   try {
-    return await FileSystemEntity.type(
+    return await _fileSystemEntityTypeBounded(
       path,
+      timeout: timeout,
       followLinks: followLinks,
-    ).timeout(timeout);
+    );
   } on FileSystemException {
     return FileSystemEntityType.notFound;
   } on TimeoutException {
@@ -758,6 +776,15 @@ Future<FileSystemEntityType> probeFileSystemEntityType(
   } on ArgumentError {
     return FileSystemEntityType.notFound;
   }
+}
+
+Future<FileSystemEntityType> _fileSystemEntityTypeBounded(
+  String path, {
+  required Duration timeout,
+  required bool followLinks,
+}) {
+  requirePositiveDuration(timeout, 'timeout');
+  return FileSystemEntity.type(path, followLinks: followLinks).timeout(timeout);
 }
 
 Future<bool> isDirectoryPath(

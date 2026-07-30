@@ -115,7 +115,9 @@ class McpToolCatalogCacheService {
         await recoverAtomicWriteBackupIfNeeded(_file);
         _storageRecovered = true;
       }
-      if (!await _file.exists()) return <String, McpCachedToolCatalog>{};
+      if (!await regularFileExistsBounded(_file)) {
+        return <String, McpCachedToolCatalog>{};
+      }
       final raw = await readBoundedFileString(
         _file,
         maxBytes: _maxPersistedBytes,

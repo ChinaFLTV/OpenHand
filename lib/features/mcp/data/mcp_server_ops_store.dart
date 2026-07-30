@@ -81,7 +81,7 @@ class McpServerOpsStore {
   Future<Map<String, Object?>?> _readRoot() async {
     final file = File(_filePath);
     await recoverAtomicWriteBackupIfNeeded(file);
-    if (!await file.exists()) {
+    if (!await regularFileExistsBounded(file)) {
       return null;
     }
     final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);

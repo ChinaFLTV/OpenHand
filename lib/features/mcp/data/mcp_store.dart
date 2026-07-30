@@ -72,7 +72,7 @@ class McpStore {
     final targetFile = File(_serversFilePath);
     try {
       await recoverAtomicWriteBackupIfNeeded(targetFile);
-      if (!await targetFile.exists()) {
+      if (!await regularFileExistsBounded(targetFile)) {
         _acceptSnapshot(
           expectedContent: null,
           rootExtraFields: const <String, Object?>{},
@@ -373,7 +373,7 @@ class McpStore {
 
   Future<void> _verifySourceUnchanged() async {
     final file = File(_serversFilePath);
-    final exists = await file.exists();
+    final exists = await regularFileExistsBounded(file);
     if (_expectedContent == null) {
       if (exists) {
         throw StateError('MCP configuration changed after loading.');
