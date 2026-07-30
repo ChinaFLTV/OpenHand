@@ -54,6 +54,9 @@ const int _videoDownloadMaxBytes = 2 * kBytesPerGiB;
 const int _referenceImageMaxBytes = 32 * kBytesPerMiB;
 const int _referenceImagesMaxTotalBytes = 64 * kBytesPerMiB;
 const int _referenceImageMaxCount = 8;
+const int _generatedMediaOutputLimit = 16;
+const int _mediaPayloadTraversalDepthLimit = 32;
+const int _mediaPayloadMapVisitLimit = 10000;
 const Set<String> _miniMaxImageStyles = <String>{'漫画', '元气', '中世纪', '水彩'};
 const Duration _referenceImageReadIdleTimeout = Duration(seconds: 15);
 const Duration _referenceImageReadTotalTimeout = Duration(minutes: 1);
@@ -1716,19 +1719,21 @@ class AiImageGenerationService {
     Future<void>? cancelSignal,
   }) async {
     final raw = decoded['data'];
-    final List<Object?> entries;
+    final Iterable<Object?> entries;
     if (raw is List) {
-      entries = List<Object?>.from(raw);
+      entries = raw.take(_generatedMediaOutputLimit);
     } else if (raw is Map) {
       final data = stringKeyedMapFromValue(raw);
       entries = <Object?>[
         ..._mediaStrings(
           data['image_urls'],
+          limit: _generatedMediaOutputLimit,
         ).map((url) => <String, Object?>{'url': url}),
         ..._mediaStrings(
           data['image_base64'],
+          limit: _generatedMediaOutputLimit,
         ).map((value) => <String, Object?>{'b64_json': value}),
-      ];
+      ].take(_generatedMediaOutputLimit);
     } else {
       return '';
     }
@@ -1834,30 +1839,49 @@ class AiImageGenerationService {
     _GeneratedMediaKind kind,
   ) {
     final entries = <_MediaPayloadEntry>[];
+    final seen = <String>{};
 
-    void collect(Object? value, {String? label, String? mimeType}) {
-      if (value == null) return;
+    void collect(
+      Object? value, {
+      String? label,
+      String? mimeType,
+      int depth = 0,
+    }) {
+      if (value == null ||
+          entries.length >= _generatedMediaOutputLimit ||
+          depth > _mediaPayloadTraversalDepthLimit) {
+        return;
+      }
       if (value is String) {
         final trimmed = nullIfBlank(value);
         if (trimmed == null) return;
         if (_looksLikeUrl(trimmed) || trimmed.startsWith('file:')) {
-          entries.add(
-            _MediaPayloadEntry(url: trimmed, label: label, mimeType: mimeType),
-          );
+          if (seen.add(trimmed)) {
+            entries.add(
+              _MediaPayloadEntry(
+                url: trimmed,
+                label: label,
+                mimeType: mimeType,
+              ),
+            );
+          }
         } else if (_looksLikeBase64(trimmed)) {
-          entries.add(
-            _MediaPayloadEntry(
-              base64Data: trimmed,
-              label: label,
-              mimeType: mimeType,
-            ),
-          );
+          if (seen.add(trimmed)) {
+            entries.add(
+              _MediaPayloadEntry(
+                base64Data: trimmed,
+                label: label,
+                mimeType: mimeType,
+              ),
+            );
+          }
         }
         return;
       }
       if (value is List) {
         for (final item in value) {
-          collect(item, label: label, mimeType: mimeType);
+          if (entries.length >= _generatedMediaOutputLimit) break;
+          collect(item, label: label, mimeType: mimeType, depth: depth + 1);
         }
         return;
       }
@@ -1883,10 +1907,20 @@ class AiImageGenerationService {
       final effectiveMimeType = nextMimeType ?? mimeType;
 
       for (final key in _urlKeysFor(kind)) {
-        collect(map[key], label: nextLabel, mimeType: effectiveMimeType);
+        collect(
+          map[key],
+          label: nextLabel,
+          mimeType: effectiveMimeType,
+          depth: depth + 1,
+        );
       }
       for (final key in _base64KeysFor(kind)) {
-        collect(map[key], label: nextLabel, mimeType: effectiveMimeType);
+        collect(
+          map[key],
+          label: nextLabel,
+          mimeType: effectiveMimeType,
+          depth: depth + 1,
+        );
       }
       for (final key in const <String>[
         'data',
@@ -1907,20 +1941,17 @@ class AiImageGenerationService {
       ]) {
         final nested = map[key];
         if (nested == null || identical(nested, value)) continue;
-        collect(nested, label: nextLabel, mimeType: effectiveMimeType);
+        collect(
+          nested,
+          label: nextLabel,
+          mimeType: effectiveMimeType,
+          depth: depth + 1,
+        );
       }
     }
 
     collect(decoded);
-    final seen = <String>{};
-    return entries
-        .where((entry) {
-          final key = entry.url ?? entry.base64Data ?? '';
-          if (key.isEmpty || seen.contains(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .toList(growable: false);
+    return List<_MediaPayloadEntry>.unmodifiable(entries);
   }
 
   List<String> _urlKeysFor(_GeneratedMediaKind kind) {
@@ -2520,25 +2551,36 @@ class AiImageGenerationService {
   }
 
   String? _findFirstString(Map<String, Object?> map, List<String> keys) {
-    for (final key in keys) {
-      final value = map[key];
-      if (value is String) {
-        final normalized = nullIfBlank(value);
-        if (normalized != null) return normalized;
+    var visitedMaps = 0;
+
+    String? search(Map<String, Object?> current, int depth) {
+      if (depth > _mediaPayloadTraversalDepthLimit ||
+          visitedMaps >= _mediaPayloadMapVisitLimit) {
+        return null;
       }
-    }
-    for (final value in map.values) {
-      if (value is Map) {
-        final nested = _findFirstString(stringKeyedMapFromValue(value), keys);
+      visitedMaps += 1;
+      for (final key in keys) {
+        final value = current[key];
+        if (value is String) {
+          final normalized = nullIfBlank(value);
+          if (normalized != null) return normalized;
+        }
+      }
+      for (final value in current.values) {
+        if (value is! Map) continue;
+        final nested = search(stringKeyedMapFromValue(value), depth + 1);
         if (nested != null) return nested;
       }
+      return null;
     }
-    return null;
+
+    return search(map, 0);
   }
 
-  List<String> _mediaStrings(Object? value) {
+  List<String> _mediaStrings(Object? value, {required int limit}) {
     if (value is! List) return const <String>[];
     return value
+        .take(limit)
         .map(optionalStringFromValue)
         .whereType<String>()
         .toList(growable: false);

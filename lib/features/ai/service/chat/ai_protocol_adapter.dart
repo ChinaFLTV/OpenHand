@@ -30,6 +30,8 @@ const Duration _inlineImageReadIdleTimeout = Duration(seconds: 15);
 const Duration _inlineImageReadTotalTimeout = Duration(minutes: 1);
 const int _inlineMediaCacheScanLimit = 10000;
 const int _inlineMediaCacheDeleteLimit = 2000;
+const int _inlineMediaCacheMaxFiles = 2048;
+const int _inlineMediaCacheMaxBytes = 4 * kBytesPerGiB;
 const int _inlineMediaMaxDecodedBytes = 128 * kBytesPerMiB;
 const Duration _inlineMediaCacheIdleTimeout = Duration(seconds: 2);
 const Duration _inlineMediaCacheCleanupTimeout = Duration(seconds: 15);
@@ -4521,6 +4523,7 @@ class AiInlineMedia {
 /// 一个独立临时目录。
 Directory? _inlineMediaDir;
 int _inlineMediaFileSequence = 0;
+Future<void>? _inlineMediaCleanupFuture;
 Future<Directory> _ensureInlineMediaDir() async {
   final dir =
       _inlineMediaDir ??
@@ -4530,8 +4533,21 @@ Future<Directory> _ensureInlineMediaDir() async {
   return dir;
 }
 
-/// 尽力删除七天前的内联媒体文件；可重复调用且不会抛出异常。
-Future<void> pruneInlineMediaCache() async {
+/// 尽力删除过期或超出容量上限的内联媒体文件；并发调用复用同一任务。
+Future<void> pruneInlineMediaCache() {
+  final active = _inlineMediaCleanupFuture;
+  if (active != null) return active;
+  late final Future<void> future;
+  future = _pruneInlineMediaCache().whenComplete(() {
+    if (identical(_inlineMediaCleanupFuture, future)) {
+      _inlineMediaCleanupFuture = null;
+    }
+  });
+  _inlineMediaCleanupFuture = future;
+  return future;
+}
+
+Future<void> _pruneInlineMediaCache() async {
   final deadline = MonotonicDeadline(
     _inlineMediaCacheCleanupTimeout,
     timeoutMessage: '内联媒体缓存清理超时。',
@@ -4552,22 +4568,41 @@ Future<void> pruneInlineMediaCache() async {
       idleTimeout: deadline.limit(_inlineMediaCacheIdleTimeout),
       totalTimeout: remainingTime,
     );
-    var deleted = 0;
+    final files = <({File file, int bytes, DateTime modified})>[];
+    var totalBytes = 0;
     for (final entity in listing.entries) {
-      if (deleted >= _inlineMediaCacheDeleteLimit) break;
       if (entity is! File) continue;
       try {
         final stat = await entity.stat().timeout(
           deadline.limit(_inlineMediaCacheIdleTimeout),
         );
-        if (stat.modified.isBefore(cutoff)) {
-          await entity.delete().timeout(
-            deadline.limit(_inlineMediaCacheIdleTimeout),
-          );
-          deleted += 1;
-        }
+        if (stat.type != FileSystemEntityType.file) continue;
+        files.add((file: entity, bytes: stat.size, modified: stat.modified));
+        totalBytes += stat.size;
       } on FileSystemException {
-        // 跳过无法读取元数据或删除的文件。
+        // 跳过无法读取元数据的文件。
+      }
+    }
+    files.sort((left, right) => left.modified.compareTo(right.modified));
+    var deleted = 0;
+    var remainingFiles = files.length;
+    for (final entry in files) {
+      if (deleted >= _inlineMediaCacheDeleteLimit) break;
+      final expired = entry.modified.isBefore(cutoff);
+      final overCapacity =
+          listing.truncated ||
+          remainingFiles > _inlineMediaCacheMaxFiles ||
+          totalBytes > _inlineMediaCacheMaxBytes;
+      if (!expired && !overCapacity) break;
+      try {
+        await entry.file.delete().timeout(
+          deadline.limit(_inlineMediaCacheIdleTimeout),
+        );
+        deleted += 1;
+        remainingFiles -= 1;
+        totalBytes -= entry.bytes;
+      } on FileSystemException {
+        // 跳过无法删除的文件。
       }
     }
   } on TimeoutException {
@@ -4596,6 +4631,7 @@ String inlineMediaFileMarkdown({
   String? label,
 }) {
   final media = AiInlineMedia(mimeType: mimeType, base64Data: '');
+  _scheduleInlineMediaCachePrune(filePath);
   final displayLabel = sanitizeMarkdownAltText(
     label ?? 'AI Generated ${media.mediaKind}',
   );
@@ -4609,6 +4645,19 @@ String inlineMediaFileMarkdown({
     return '[🎬 $displayLabel]($filePath)';
   }
   return '[📎 $displayLabel]($filePath)';
+}
+
+void _scheduleInlineMediaCachePrune(String filePath) {
+  final cachePath = p.absolute(
+    p.join(Directory.systemTemp.path, 'openhand_media'),
+  );
+  final absoluteFilePath = p.absolute(filePath);
+  if (!p.isWithin(cachePath, absoluteFilePath)) return;
+  unawaited(
+    pruneInlineMediaCache().catchError((Object error, StackTrace stack) {
+      silentLog('ai_protocol_adapter', '清理内联媒体缓存', error, stack);
+    }),
+  );
 }
 
 /// 把内联媒体安全写入临时文件，并返回对应的 Markdown 引用。
