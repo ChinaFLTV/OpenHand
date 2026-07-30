@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart' as crypto;
 
+import 'bounded_json_conversion.dart';
+
 const int kStableFnv1a32OffsetBasis = 0x811c9dc5;
 const int kStableFnv1a32Prime = 0x01000193;
 const int kStableFnv1a32Mask = 0xffffffff;
@@ -22,9 +24,10 @@ String stableSha256Hex(String content, {int length = kStableSha256HexLength}) {
   return full.substring(0, safeLength);
 }
 
-/// 对 JSON 类数据递归规范化后计算稳定指纹，不受 Map 插入顺序影响。
+/// 对 JSON 类数据有界规范化后计算稳定指纹，不受 Map 插入顺序影响。
 String stableJsonSha256(Object? value) {
-  return stableSha256Hex(jsonEncode(_canonicalJsonValue(value)));
+  final safeValue = convertToJsonSafeValue(value);
+  return stableSha256Hex(jsonEncode(_canonicalJsonValue(safeValue)));
 }
 
 Object? _canonicalJsonValue(Object? value) {
