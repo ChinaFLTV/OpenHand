@@ -80,6 +80,8 @@ class WebReverseSessionController extends ChangeNotifier {
   StreamSubscription<CdpEvent>? _pageEventsSub;
   String? _pageSessionId;
   WebReverseHarReplayServer? _harReplayServer;
+  Future<({int port, int entryCount})?>? _harReplayStartTask;
+  int _harReplayGeneration = 0;
   WebReverseHarReplayServer? get harReplayServer => _harReplayServer;
 
   bool _started = false;
@@ -4475,25 +4477,15 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _closeAuxiliaryServices() async {
-    await _cancelRuntimeSubscription(_mitmSub, '关闭流量代理事件订阅');
-    _mitmSub = null;
-    final br = _mitmBridge;
-    _mitmBridge = null;
-    if (br != null) {
-      try {
-        await br.close();
-      } catch (error, stack) {
-        silentLog('web_reverse_session_controller', '关闭流量代理桥接', error, stack);
-      }
+    try {
+      await stopMitmproxyBridge();
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', '关闭流量代理桥接', error, stack);
     }
-    final har = _harReplayServer;
-    _harReplayServer = null;
-    if (har != null) {
-      try {
-        await har.close();
-      } catch (error, stack) {
-        silentLog('web_reverse_session_controller', '关闭网络归档重放服务', error, stack);
-      }
+    try {
+      await stopHarReplayServer();
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', '关闭网络归档重放服务', error, stack);
     }
   }
 
@@ -7648,23 +7640,55 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 启动一个本地 HAR 重放 mock server，把当前 artifacts 目录下的 HAR 1.2
   /// 文档作为只读源；返回 (port, entryCount)；失败返回 null。
   /// 调用方拿到 port 后用 `127.0.0.1:<port>/<原 path+query>` 即可命中 mock。
-  Future<({int port, int entryCount})?> startHarReplayServer() async {
+  Future<({int port, int entryCount})?> startHarReplayServer() {
     if (_harReplayServer != null) {
-      return (
+      return Future.value((
         port: _harReplayServer!.port,
         entryCount: _harReplayServer!.entryCount,
-      );
+      ));
     }
+    if (_disposed || _stopped) {
+      return Future.value();
+    }
+    final active = _harReplayStartTask;
+    if (active != null) return active;
+    final generation = ++_harReplayGeneration;
+    late final Future<({int port, int entryCount})?> task;
+    task = _startHarReplayServer(generation).whenComplete(() {
+      if (identical(_harReplayStartTask, task)) {
+        _harReplayStartTask = null;
+      }
+    });
+    _harReplayStartTask = task;
+    return task;
+  }
+
+  Future<({int port, int entryCount})?> _startHarReplayServer(
+    int generation,
+  ) async {
     try {
       // 优先用 in-flight artifacts；为空时生成一个临时 HAR。
       String? path = _lastHarPath;
       path ??= await _artifacts.exportHar();
-      if (path == null) return null;
+      if (path == null ||
+          _disposed ||
+          _stopped ||
+          generation != _harReplayGeneration) {
+        return null;
+      }
       final read = await readWebReverseHarPath(path);
-      if (read.isTooLarge) return null;
-      final bytes = read.bytes!;
-      final s = await WebReverseHarReplayServer.start(harBytes: bytes);
+      if (read.isTooLarge ||
+          _disposed ||
+          _stopped ||
+          generation != _harReplayGeneration) {
+        return null;
+      }
+      final s = await WebReverseHarReplayServer.start(harBytes: read.bytes!);
       if (s == null) return null;
+      if (_disposed || _stopped || generation != _harReplayGeneration) {
+        await s.close();
+        return null;
+      }
       _harReplayServer = s;
       _safeNotify();
       return (port: s.port, entryCount: s.entryCount);
@@ -7675,34 +7699,76 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> stopHarReplayServer() async {
+    final starting = _harReplayStartTask;
+    _harReplayGeneration += 1;
     final s = _harReplayServer;
-    if (s == null) return;
     _harReplayServer = null;
-    _safeNotify();
-    await s.close();
+    if (s != null) {
+      _safeNotify();
+      await s.close();
+    }
+    if (starting != null) {
+      await runAsyncCleanupBounded(
+        () => starting,
+        timeout: _browserCleanupTimeout,
+        onError: (error, stack) => silentLog(
+          'web_reverse_session_controller',
+          '等待网络归档重放服务停止启动',
+          error,
+          stack,
+        ),
+      );
+    }
   }
 
   // ── mitmproxy 桥接：抓 OpenHand 控制不到的流量（App 内嵌 webview / 第三方应用） ─
   WebReverseMitmproxyBridge? _mitmBridge;
   StreamSubscription<Map<String, Object?>>? _mitmSub;
+  Future<({int mitmPort, int callbackPort})?>? _mitmBridgeStartTask;
+  int _mitmBridgeGeneration = 0;
   WebReverseMitmproxyBridge? get mitmproxyBridge => _mitmBridge;
   int _mitmCount = 0;
   int get mitmproxyCount => _mitmCount;
 
   Future<({int mitmPort, int callbackPort})?> startMitmproxyBridge({
     int mitmPort = 8080,
-  }) async {
+  }) {
     if (_mitmBridge != null) {
-      return (
+      return Future.value((
         mitmPort: _mitmBridge!.mitmPort,
         callbackPort: _mitmBridge!.callbackPort,
-      );
+      ));
     }
+    if (_disposed || _stopped) {
+      return Future.value();
+    }
+    final active = _mitmBridgeStartTask;
+    if (active != null) return active;
+    final generation = ++_mitmBridgeGeneration;
+    late final Future<({int mitmPort, int callbackPort})?> task;
+    task = _startMitmproxyBridge(mitmPort, generation).whenComplete(() {
+      if (identical(_mitmBridgeStartTask, task)) {
+        _mitmBridgeStartTask = null;
+      }
+    });
+    _mitmBridgeStartTask = task;
+    return task;
+  }
+
+  Future<({int mitmPort, int callbackPort})?> _startMitmproxyBridge(
+    int mitmPort,
+    int generation,
+  ) async {
     final br = await WebReverseMitmproxyBridge.start(mitmPort: mitmPort);
     if (br == null) return null;
+    if (_disposed || _stopped || generation != _mitmBridgeGeneration) {
+      await br.close();
+      return null;
+    }
     _mitmBridge = br;
     _mitmCount = 0;
     _mitmSub = br.eventStream.listen((m) {
+      if (_disposed || !identical(_mitmBridge, br)) return;
       _mitmCount++;
       // 把 mitmproxy 流量也注入 dashboard 的网络列表，统一观察口径。
       // 这里只取核心字段做轻量适配；body 已 base64 缓存到 cachedBody 备查。
@@ -7785,13 +7851,28 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> stopMitmproxyBridge() async {
+    final starting = _mitmBridgeStartTask;
+    _mitmBridgeGeneration += 1;
     final br = _mitmBridge;
-    if (br == null) return;
     _mitmBridge = null;
     await _cancelRuntimeSubscription(_mitmSub, '停止流量代理事件订阅');
     _mitmSub = null;
-    _safeNotify();
-    await br.close();
+    if (br != null) {
+      _safeNotify();
+      await br.close();
+    }
+    if (starting != null) {
+      await runAsyncCleanupBounded(
+        () => starting,
+        timeout: _browserCleanupTimeout,
+        onError: (error, stack) => silentLog(
+          'web_reverse_session_controller',
+          '等待流量代理桥接停止启动',
+          error,
+          stack,
+        ),
+      );
+    }
   }
 
   /// 一键打包"体检报告"：把 artifacts 目录下所有 jsonl/HAR/截图 +
