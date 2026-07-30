@@ -343,14 +343,22 @@ class AgentsController extends ManagedChangeNotifier {
                       ? 1.0
                       : task.progress
                 : clampUnitInterval(progress);
+            final nextExtra = extra == null || extra.isEmpty
+                ? task.extra
+                : <String, Object?>{...task.extra, ...extra};
+            if ((status == null || status == task.status) &&
+                nextProgress == task.progress &&
+                (note == null || note == task.note) &&
+                (result == null || result == task.result) &&
+                mapEquals(nextExtra, task.extra)) {
+              return task;
+            }
             updatedTask = task.copyWith(
               status: status,
               progress: nextProgress,
               note: note,
               result: result,
-              extra: extra == null
-                  ? task.extra
-                  : <String, Object?>{...task.extra, ...extra},
+              extra: nextExtra,
               updatedAt: now,
             );
             return updatedTask!;

@@ -1537,6 +1537,10 @@ class AiAgentTool extends AiTool {
         'task_id': currentTask.id,
         if (workerExecution != null)
           'worker_execution_status': workerExecution.status,
+        if (workerExecution != null)
+          'task_update_applied': workerExecution.taskUpdateApplied,
+        if (workerExecution != null && workerExecution.taskStatus.isNotEmpty)
+          'task_status': workerExecution.taskStatus,
       },
     );
   }
@@ -1919,8 +1923,7 @@ class AiAgentTool extends AiTool {
         tokenUsage: usage,
         error: '$error',
       );
-      await _writeWorkerFailure(controller, agent, task, result);
-      return result;
+      return _writeWorkerFailure(controller, agent, task, result);
     }
 
     try {
@@ -1969,8 +1972,7 @@ class AiAgentTool extends AiTool {
             modelId: workerModel.modelId,
             error: 'Agent worker execution was cancelled.',
           );
-          await _writeWorkerFailure(controller, agent, task, result);
-          return result;
+          return _writeWorkerFailure(controller, agent, task, result);
         }
         completedRounds = round + 1;
         usage = usage == null
@@ -1996,11 +1998,9 @@ class AiAgentTool extends AiTool {
                 : null,
           );
           if (finalResult.isEmpty) {
-            await _writeWorkerFailure(controller, agent, task, result);
-          } else {
-            await _writeWorkerSuccess(controller, agent, task, result);
+            return _writeWorkerFailure(controller, agent, task, result);
           }
-          return result;
+          return _writeWorkerSuccess(controller, agent, task, result);
         }
         turns.add(
           AiChatTurn(
@@ -2073,8 +2073,7 @@ class AiAgentTool extends AiTool {
         tokenUsage: usage,
         error: 'Agent worker exceeded $_agentWorkerMaxToolRounds tool rounds.',
       );
-      await _writeWorkerFailure(controller, agent, task, result);
-      return result;
+      return _writeWorkerFailure(controller, agent, task, result);
     } on TimeoutException catch (error) {
       return finishTimeout(error);
     } catch (error) {
@@ -2089,8 +2088,7 @@ class AiAgentTool extends AiTool {
         tokenUsage: usage,
         error: '$error',
       );
-      await _writeWorkerFailure(controller, agent, task, result);
-      return result;
+      return _writeWorkerFailure(controller, agent, task, result);
     }
   }
 
@@ -2157,13 +2155,13 @@ class AiAgentTool extends AiTool {
     return modelId.isEmpty ? match : match.copyWith(modelId: modelId);
   }
 
-  Future<void> _writeWorkerSuccess(
+  Future<_AgentWorkerRunResult> _writeWorkerSuccess(
     AgentsController controller,
     AgentProfile agent,
     AgentTask task,
     _AgentWorkerRunResult result,
   ) async {
-    await controller.updateTaskState(
+    final updated = await controller.updateTaskState(
       agent.id,
       task.id,
       status: AgentTaskStatus.completed,
@@ -2174,16 +2172,22 @@ class AiAgentTool extends AiTool {
       activityTitle: 'task_completed',
       auditToolName: _agentTaskAutoWorkerToolName,
     );
-    await _recordWorkerExecution(controller, agent, task, result);
+    return _recordWorkerExecution(
+      controller,
+      agent,
+      task,
+      result,
+      updatedTask: updated,
+    );
   }
 
-  Future<void> _writeWorkerFailure(
+  Future<_AgentWorkerRunResult> _writeWorkerFailure(
     AgentsController controller,
     AgentProfile agent,
     AgentTask task,
     _AgentWorkerRunResult result,
   ) async {
-    await controller.updateTaskState(
+    final updated = await controller.updateTaskState(
       agent.id,
       task.id,
       status: AgentTaskStatus.failed,
@@ -2195,36 +2199,51 @@ class AiAgentTool extends AiTool {
       activityTitle: 'task_failed',
       auditToolName: _agentTaskAutoWorkerToolName,
     );
-    await _recordWorkerExecution(controller, agent, task, result);
+    return _recordWorkerExecution(
+      controller,
+      agent,
+      task,
+      result,
+      updatedTask: updated,
+    );
   }
 
-  Future<void> _recordWorkerExecution(
+  Future<_AgentWorkerRunResult> _recordWorkerExecution(
     AgentsController controller,
     AgentProfile agent,
     AgentTask task,
-    _AgentWorkerRunResult result,
-  ) async {
+    _AgentWorkerRunResult result, {
+    required AgentTask? updatedTask,
+  }) async {
+    final currentTask = updatedTask ?? controller.taskById(agent.id, task.id);
+    final recorded = result.copyWith(
+      taskUpdateApplied: updatedTask != null,
+      taskStatus: currentTask?.status.storageValue ?? '',
+    );
     await controller.recordAuditEvent(
       agent.id,
       kind: 'worker_execution',
-      summary: 'worker_execution: ${task.title} (${result.status})',
+      summary: 'worker_execution: ${task.title} (${recorded.status})',
       toolName: _agentTaskAutoWorkerToolName,
-      tokenUsage: result.tokenUsage?.totalTokens ?? 0,
+      tokenUsage: recorded.tokenUsage?.totalTokens ?? 0,
       requestCount: 1,
       metadata: <String, Object?>{
         'task_id': task.id,
         if ('${task.extra['assigned_worker_id'] ?? ''}'.trim().isNotEmpty)
           'worker_id': '${task.extra['assigned_worker_id']}',
-        'worker_execution_status': result.status,
-        'duration_ms': result.durationMs,
-        'rounds': result.rounds,
-        'tool_call_count': result.toolCalls.length,
-        'model_config_id': result.modelConfigId,
-        'model_id': result.modelId,
-        if (result.error != null) 'error': result.error,
+        'worker_execution_status': recorded.status,
+        'task_update_applied': recorded.taskUpdateApplied,
+        if (recorded.taskStatus.isNotEmpty) 'task_status': recorded.taskStatus,
+        'duration_ms': recorded.durationMs,
+        'rounds': recorded.rounds,
+        'tool_call_count': recorded.toolCalls.length,
+        'model_config_id': recorded.modelConfigId,
+        'model_id': recorded.modelId,
+        if (recorded.error != null) 'error': recorded.error,
       },
       auditToolName: _agentTaskAutoWorkerToolName,
     );
+    return recorded;
   }
 
   Map<String, Object?> _workerTaskExtra(
@@ -3145,6 +3164,8 @@ class _AgentWorkerRunResult {
     this.tokenUsage,
     this.result,
     this.error,
+    this.taskUpdateApplied = false,
+    this.taskStatus = '',
   });
 
   final String status;
@@ -3157,6 +3178,28 @@ class _AgentWorkerRunResult {
   final AiTokenUsage? tokenUsage;
   final String? result;
   final String? error;
+  final bool taskUpdateApplied;
+  final String taskStatus;
+
+  _AgentWorkerRunResult copyWith({
+    bool? taskUpdateApplied,
+    String? taskStatus,
+  }) {
+    return _AgentWorkerRunResult(
+      status: status,
+      rounds: rounds,
+      toolCount: toolCount,
+      toolCalls: toolCalls,
+      durationMs: durationMs,
+      modelConfigId: modelConfigId,
+      modelId: modelId,
+      tokenUsage: tokenUsage,
+      result: result,
+      error: error,
+      taskUpdateApplied: taskUpdateApplied ?? this.taskUpdateApplied,
+      taskStatus: taskStatus ?? this.taskStatus,
+    );
+  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -3167,6 +3210,8 @@ class _AgentWorkerRunResult {
       'duration_ms': durationMs,
       'model_config_id': modelConfigId,
       'model_id': modelId,
+      'task_update_applied': taskUpdateApplied,
+      if (taskStatus.isNotEmpty) 'task_status': taskStatus,
       if (tokenUsage != null) 'token_usage': tokenUsage!.toJson(),
       if (result != null && result!.trim().isNotEmpty)
         'result_preview': _previewText(result!),
