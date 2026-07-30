@@ -13,6 +13,7 @@ type ViewTransitionDocument = Document & {
 const ROUTE_TRANSITION_CLEANUP_FALLBACK_MS = 720;
 const ROUTE_TRANSITION_CLEANUP_MIN_MS = 120;
 const ROUTE_TRANSITION_CLEANUP_MAX_MS = 3_000;
+let routeTransitionGeneration = 0;
 
 function routeTransitionCleanupDelayMs(): number {
   return normalizeDurationMs(ROUTE_TRANSITION_CLEANUP_FALLBACK_MS, {
@@ -36,9 +37,12 @@ function shouldReduceMotion(): boolean {
 function runWithRouteTransition(update: () => void): void {
   const doc = document as ViewTransitionDocument;
   if (typeof doc.startViewTransition !== 'function' || shouldReduceMotion()) {
+    routeTransitionGeneration += 1;
+    delete document.documentElement.dataset.routeTransition;
     update();
     return;
   }
+  const generation = ++routeTransitionGeneration;
   document.documentElement.dataset.routeTransition = 'active';
   let cleaned = false;
   let updateStarted = false;
@@ -47,7 +51,9 @@ function runWithRouteTransition(update: () => void): void {
     if (cleaned) return;
     cleaned = true;
     if (cleanupTimer != null) window.clearTimeout(cleanupTimer);
-    delete document.documentElement.dataset.routeTransition;
+    if (generation === routeTransitionGeneration) {
+      delete document.documentElement.dataset.routeTransition;
+    }
   };
   cleanupTimer = window.setTimeout(cleanup, routeTransitionCleanupDelayMs());
   try {
