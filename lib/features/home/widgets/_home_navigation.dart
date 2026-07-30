@@ -393,7 +393,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 16, 4),
                   child: Row(
                     children: [
                       Expanded(
