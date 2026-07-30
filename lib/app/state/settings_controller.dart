@@ -1393,24 +1393,20 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  Future<bool> updateAiStreamThrottleCloudSyncEndpoint(String value) async {
-    final normalized = value.trim();
+  /// 原子更新云同步地址和令牌，避免分两次保存导致凭据只更新一半。
+  Future<bool> updateAiStreamThrottleCloudSyncCredentials({
+    required String endpoint,
+    required String token,
+  }) async {
+    final normalizedEndpoint = endpoint.trim();
+    final normalizedToken = token.trim();
     return _commitMutation(() {
-      if (_aiStreamThrottleCloudSyncEndpoint == normalized) {
+      if (_aiStreamThrottleCloudSyncEndpoint == normalizedEndpoint &&
+          _aiStreamThrottleCloudSyncToken == normalizedToken) {
         return _MutationDisposition.successNoChange;
       }
-      _aiStreamThrottleCloudSyncEndpoint = normalized;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiStreamThrottleCloudSyncToken(String value) async {
-    final normalized = value.trim();
-    return _commitMutation(() {
-      if (_aiStreamThrottleCloudSyncToken == normalized) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiStreamThrottleCloudSyncToken = normalized;
+      _aiStreamThrottleCloudSyncEndpoint = normalizedEndpoint;
+      _aiStreamThrottleCloudSyncToken = normalizedToken;
       return _MutationDisposition.apply;
     });
   }

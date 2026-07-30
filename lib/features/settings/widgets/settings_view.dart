@@ -7781,20 +7781,39 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     super.dispose();
   }
 
-  Future<void> _saveCredentials() async {
-    final c = context.read<SettingsController>();
-    await c.updateAiStreamThrottleCloudSyncEndpoint(_endpointCtrl.text);
-    await c.updateAiStreamThrottleCloudSyncToken(_tokenCtrl.text);
-  }
-
-  Future<void> _push() async {
-    final c = context.read<SettingsController>();
+  Future<SettingsController?> _beginSyncOperation() async {
+    if (_busy) return null;
     setState(() {
       _busy = true;
       _status = '';
       _statusError = false;
     });
-    await _saveCredentials();
+    final c = context.read<SettingsController>();
+    final saved = await c.updateAiStreamThrottleCloudSyncCredentials(
+      endpoint: _endpointCtrl.text,
+      token: _tokenCtrl.text,
+    );
+    if (!mounted) return null;
+    if (saved) return c;
+    setState(() {
+      _busy = false;
+      _statusError = true;
+      _status = openHandLocalizedText(
+        context,
+        zh: '同步凭据保存失败，请先解决设置持久化问题。',
+        zhHant: '同步憑證儲存失敗，請先解決設定持久化問題。',
+        en: 'Could not save sync credentials. Resolve the settings persistence issue first.',
+        fr: 'Impossible d’enregistrer les identifiants. Résolvez d’abord le problème de persistance des réglages.',
+        de: 'Synchronisierungsdaten konnten nicht gespeichert werden. Beheben Sie zuerst das Speicherproblem der Einstellungen.',
+        ja: '同期認証情報を保存できませんでした。先に設定の保存問題を解決してください。',
+      );
+    });
+    return null;
+  }
+
+  Future<void> _push() async {
+    final c = await _beginSyncOperation();
+    if (c == null) return;
     final provider = ThrottleCloudSyncProvider.fromStorage(
       c.aiStreamThrottleCloudSyncProvider,
     );
@@ -7809,18 +7828,55 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
           : '',
     );
     if (!mounted) return;
+    final createdGistId = result.createdGistId;
+    if (result.ok && createdGistId.isNotEmpty) {
+      _endpointCtrl.text = createdGistId;
+      final saved = await c.updateAiStreamThrottleCloudSyncCredentials(
+        endpoint: createdGistId,
+        token: _tokenCtrl.text,
+      );
+      if (!mounted) return;
+      if (!saved) {
+        setState(() {
+          _busy = false;
+          _statusError = true;
+          _status = openHandLocalizedText(
+            context,
+            zh: 'Gist 已创建，但 ID 保存失败。请复制后重试：$createdGistId',
+            zhHant: 'Gist 已建立，但 ID 儲存失敗。請複製後重試：$createdGistId',
+            en: 'The Gist was created, but its ID could not be saved. Copy it and retry: $createdGistId',
+            fr: 'Le Gist a été créé, mais son ID n’a pas pu être enregistré. Copiez-le puis réessayez : $createdGistId',
+            de: 'Der Gist wurde erstellt, aber seine ID konnte nicht gespeichert werden. Kopieren und erneut versuchen: $createdGistId',
+            ja: 'Gist は作成されましたが、ID を保存できませんでした。コピーして再試行してください：$createdGistId',
+          );
+        });
+        return;
+      }
+    }
     setState(() {
       _busy = false;
       _statusError = !result.ok;
       _status = result.ok
           ? openHandLocalizedText(
               context,
-              zh: '已推送：${result.message}',
-              zhHant: '已推送：${result.message}',
-              en: 'Pushed: ${result.message}',
-              fr: 'Envoyé : ${result.message}',
-              de: 'Gepusht: ${result.message}',
-              ja: 'プッシュ済み: ${result.message}',
+              zh: createdGistId.isEmpty
+                  ? '已推送到云端。'
+                  : '已创建并保存 Gist：$createdGistId',
+              zhHant: createdGistId.isEmpty
+                  ? '已推送到雲端。'
+                  : '已建立並儲存 Gist：$createdGistId',
+              en: createdGistId.isEmpty
+                  ? 'Pushed to the cloud.'
+                  : 'Gist created and saved: $createdGistId',
+              fr: createdGistId.isEmpty
+                  ? 'Configuration envoyée dans le cloud.'
+                  : 'Gist créé et enregistré : $createdGistId',
+              de: createdGistId.isEmpty
+                  ? 'In die Cloud übertragen.'
+                  : 'Gist erstellt und gespeichert: $createdGistId',
+              ja: createdGistId.isEmpty
+                  ? 'クラウドへプッシュしました。'
+                  : 'Gist を作成して保存しました：$createdGistId',
             )
           : openHandLocalizedText(
               context,
@@ -7835,13 +7891,8 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   }
 
   Future<void> _pull() async {
-    final c = context.read<SettingsController>();
-    setState(() {
-      _busy = true;
-      _status = '';
-      _statusError = false;
-    });
-    await _saveCredentials();
+    final c = await _beginSyncOperation();
+    if (c == null) return;
     final provider = ThrottleCloudSyncProvider.fromStorage(
       c.aiStreamThrottleCloudSyncProvider,
     );
@@ -7949,13 +8000,13 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       case ThrottleCloudSyncProvider.gistGitHub:
         return openHandLocalizedText(
           context,
-          zh: 'GitHub Gist 同步：在「Gist ID」处填入已有 secret gist 的 ID（首次推送可留空，会新建一个 secret gist 并把 ID 显示在状态栏，请手动回填），「PAT」需带 gist scope。',
+          zh: 'GitHub Gist 同步：填写已有 secret gist 的 ID；首次推送可留空，创建成功后会自动保存 ID。「PAT」需带 gist scope。',
           zhHant:
-              'GitHub Gist 同步：在「Gist ID」填入既有 secret gist 的 ID（首次推送可留空，會新建 secret gist 並把 ID 顯示在狀態列，請手動回填），「PAT」需帶 gist scope。',
-          en: 'GitHub Gist sync: fill in the existing secret gist ID (leave empty on first push to create a new one — copy the ID from the status bar), PAT must have gist scope.',
-          fr: 'Synchro GitHub Gist : indiquez l’ID d’un secret gist existant. Laissez vide au premier envoi pour en créer un, puis recopiez l’ID affiché. Le PAT doit avoir le scope gist.',
-          de: 'GitHub-Gist-Sync: vorhandene Secret-Gist-ID eintragen. Beim ersten Push leer lassen, um eine Secret Gist zu erstellen, dann die angezeigte ID übernehmen. PAT braucht gist-Scope.',
-          ja: 'GitHub Gist 同期: 既存の secret gist ID を入力します。初回プッシュ時は空欄で新規作成し、状態欄に表示された ID を手動で戻してください。PAT には gist scope が必要です。',
+              'GitHub Gist 同步：填寫既有 secret gist 的 ID；首次推送可留空，建立成功後會自動儲存 ID。「PAT」需帶 gist scope。',
+          en: 'GitHub Gist sync: enter an existing secret gist ID, or leave it empty on the first push to create and save one automatically. The PAT needs gist scope.',
+          fr: 'Synchro GitHub Gist : indiquez l’ID d’un secret gist existant, ou laissez-le vide au premier envoi pour le créer et l’enregistrer automatiquement. Le PAT doit avoir le scope gist.',
+          de: 'GitHub-Gist-Sync: vorhandene Secret-Gist-ID eintragen oder beim ersten Push leer lassen, um sie automatisch zu erstellen und zu speichern. PAT braucht gist-Scope.',
+          ja: 'GitHub Gist 同期：既存の secret gist ID を入力します。初回プッシュ時は空欄にすると、自動で作成して ID を保存します。PAT には gist scope が必要です。',
         );
       case ThrottleCloudSyncProvider.custom:
         return '';
@@ -8011,10 +8062,14 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               ),
             ],
             selected: <ThrottleCloudSyncProvider>{providerEnum},
-            onSelectionChanged: (s) {
-              if (s.isEmpty) return;
-              c.updateAiStreamThrottleCloudSyncProvider(s.first.storageValue);
-            },
+            onSelectionChanged: _busy
+                ? null
+                : (s) {
+                    if (s.isEmpty) return;
+                    c.updateAiStreamThrottleCloudSyncProvider(
+                      s.first.storageValue,
+                    );
+                  },
           ),
           const SizedBox(height: 12),
           if (providerEnum != ThrottleCloudSyncProvider.custom &&
@@ -8050,6 +8105,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             TextField(
               controller: _endpointCtrl,
               focusNode: _endpointFocus,
+              enabled: !_busy,
               decoration: InputDecoration(
                 labelText: openHandLocalizedText(
                   context,
@@ -8067,6 +8123,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             TextField(
               controller: _tokenCtrl,
               focusNode: _tokenFocus,
+              enabled: !_busy,
               obscureText: true,
               decoration: InputDecoration(
                 labelText: openHandLocalizedText(
@@ -8086,8 +8143,17 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             TextField(
               controller: _endpointCtrl,
               focusNode: _endpointFocus,
-              decoration: const InputDecoration(
-                labelText: 'HTTP Endpoint URL',
+              enabled: !_busy,
+              decoration: InputDecoration(
+                labelText: openHandLocalizedText(
+                  context,
+                  zh: 'HTTP 端点地址',
+                  zhHant: 'HTTP 端點位址',
+                  en: 'HTTP Endpoint URL',
+                  fr: 'URL du point de terminaison HTTP',
+                  de: 'HTTP-Endpunkt-URL',
+                  ja: 'HTTP エンドポイント URL',
+                ),
                 hintText: 'https://example.com/openhand/throttle',
               ),
             ),
@@ -8095,6 +8161,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             TextField(
               controller: _tokenCtrl,
               focusNode: _tokenFocus,
+              enabled: !_busy,
               obscureText: true,
               decoration: InputDecoration(
                 labelText: openHandLocalizedText(

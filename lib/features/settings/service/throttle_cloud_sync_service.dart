@@ -9,6 +9,7 @@ import '../../../app/state/settings_controller.dart'
     show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
 import '../../../shared/net/abortable_http_request.dart';
+import '../../../shared/net/http_error_message.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
@@ -63,6 +64,7 @@ class ThrottleCloudSyncResult {
     this.config,
     this.fetchedAt,
     this.updatedAtMs = 0,
+    this.createdGistId = '',
   });
 
   factory ThrottleCloudSyncResult.success({
@@ -70,6 +72,7 @@ class ThrottleCloudSyncResult {
     Map<String, Object?>? config,
     DateTime? fetchedAt,
     int updatedAtMs = 0,
+    String createdGistId = '',
   }) {
     return ThrottleCloudSyncResult._(
       ok: true,
@@ -77,6 +80,7 @@ class ThrottleCloudSyncResult {
       config: config,
       fetchedAt: fetchedAt,
       updatedAtMs: updatedAtMs,
+      createdGistId: createdGistId,
     );
   }
 
@@ -91,6 +95,9 @@ class ThrottleCloudSyncResult {
 
   /// 远端最近一次 push 的本地 epoch ms。0 表示未携带或解析失败。
   final int updatedAtMs;
+
+  /// 首次推送新建的 Gist ID；更新已有 Gist 或其他同步方式时为空。
+  final String createdGistId;
 }
 
 /// 节流配置云端同步 service。
@@ -185,12 +192,20 @@ class ThrottleCloudSyncService {
   static const int _maxRequestBytes = 1024 * 1024;
   static const int _maxResponseBytes = 2 * 1024 * 1024;
   static const int _httpErrorPreviewLength = 256;
+  static const String _payloadKind = 'openhand.throttle_config';
   static const String _gistFileName = 'openhand_throttle.json';
   static const String _gistApiHost = 'api.github.com';
   static const String _githubApiVersion = '2022-11-28';
   static const String _githubUserAgent = 'OpenHand-throttle-sync/1';
   static const String _customClientHeader = 'throttle-sync/1';
-  static const String _disposedMessage = 'cloud sync service is disposed';
+  static const String _disposedMessage = '云同步服务已释放。';
+  static const Set<String> _configFieldKeys = <String>{
+    'throttle_enabled',
+    'auto_mode',
+    'duration_seconds',
+    'max_chars_per_second',
+    'max_message_cards_per_second',
+  };
 
   /// 把 [config] 推送到云端。`provider == iCloud` 时走 native 端的
   /// NSUbiquitousKeyValueStore。
@@ -239,13 +254,10 @@ class ThrottleCloudSyncService {
         bodyBytes: bodyBytes,
       );
       if (isHttpFailureStatus(resp.statusCode)) {
-        return ThrottleCloudSyncResult.failure(
-          'HTTP ${resp.statusCode}: '
-          '${clipTextWithEllipsis(resp.body, _httpErrorPreviewLength)}',
-        );
+        return _httpFailure(resp, '自定义端点');
       }
       return ThrottleCloudSyncResult.success(
-        message: 'Pushed ${bodyBytes.length} bytes',
+        message: '已推送 ${bodyBytes.length} 字节。',
       );
     });
   }
@@ -283,21 +295,18 @@ class ThrottleCloudSyncService {
         },
       );
       if (isHttpFailureStatus(resp.statusCode)) {
-        return ThrottleCloudSyncResult.failure(
-          'HTTP ${resp.statusCode}: '
-          '${clipTextWithEllipsis(resp.body, _httpErrorPreviewLength)}',
-        );
+        return _httpFailure(resp, '自定义端点');
       }
       final decoded = jsonDecode(resp.body);
       if (decoded is! Map) {
-        return ThrottleCloudSyncResult.failure('response is not a JSON object');
+        return ThrottleCloudSyncResult.failure('云端响应不是 JSON 对象。');
       }
       final remote = _readRemoteConfig(decoded);
       return ThrottleCloudSyncResult.success(
         config: remote.config,
         fetchedAt: DateTime.now().toUtc(),
         updatedAtMs: remote.updatedAtMs,
-        message: 'OK',
+        message: '已拉取云端配置。',
       );
     });
   }
@@ -308,18 +317,14 @@ class ThrottleCloudSyncService {
   ) {
     final url = nullIfBlank(endpoint);
     if (url == null) {
-      return (uri: null, bearerToken: null, error: 'endpoint is required');
+      return (uri: null, bearerToken: null, error: '请填写同步地址。');
     }
     final uri = Uri.tryParse(url);
     if (uri == null ||
         !uri.hasAuthority ||
         uri.host.isEmpty ||
         uri.scheme != 'https' && uri.scheme != 'http') {
-      return (
-        uri: null,
-        bearerToken: null,
-        error: 'endpoint must be http(s) URL',
-      );
+      return (uri: null, bearerToken: null, error: '同步地址必须是有效的 HTTP(S) 地址。');
     }
     return (uri: uri, bearerToken: nullIfBlank(token), error: null);
   }
@@ -335,7 +340,7 @@ class ThrottleCloudSyncService {
       client = _client ?? _clientFactory();
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', '创建云同步客户端', error, stack);
-      return ThrottleCloudSyncResult.failure('$error');
+      return ThrottleCloudSyncResult.failure('无法创建云同步客户端。');
     }
     if (ownsClient) {
       if (_disposed) {
@@ -351,17 +356,17 @@ class ThrottleCloudSyncService {
           : result;
     } on TimeoutException {
       return ThrottleCloudSyncResult.failure(
-        'timeout after ${_remoteRequestTimeout.inSeconds}s',
+        '云同步请求超过 ${_remoteRequestTimeout.inSeconds} 秒。',
       );
     } on ByteStreamSizeLimitException catch (error) {
       return ThrottleCloudSyncResult.failure(error.message);
     } on FormatException catch (error) {
       return ThrottleCloudSyncResult.failure(
-        'invalid JSON: ${clipTextWithEllipsis(error.message.toString(), _httpErrorPreviewLength)}',
+        '云端 JSON 无效：${clipTextWithEllipsis(error.message.toString(), _httpErrorPreviewLength)}',
       );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', logAction, error, stack);
-      return ThrottleCloudSyncResult.failure('$error');
+      return ThrottleCloudSyncResult.failure('云同步请求失败，请检查网络与同步配置。');
     } finally {
       if (ownsClient && _activeOwnedClients.remove(client)) {
         client.close();
@@ -399,7 +404,7 @@ class ThrottleCloudSyncService {
     Map<String, Object?> config,
     int updatedAtMs,
   ) => <String, Object?>{
-    'kind': 'openhand.throttle_config',
+    'kind': _payloadKind,
     'version': aiStreamThrottleConfigSchemaVersion,
     'config': config,
     'updated_at_ms': updatedAtMs,
@@ -410,10 +415,52 @@ class ThrottleCloudSyncService {
     Map<dynamic, dynamic> payload,
   ) {
     final inner = payload['config'];
+    if (inner != null && inner is! Map) {
+      throw const FormatException('云端配置的 config 字段不是 JSON 对象。');
+    }
+    final kind = optionalStringFromValue(payload['kind']);
+    if (kind != null && kind != _payloadKind) {
+      throw FormatException('云端配置类型不受支持：$kind');
+    }
     final config = stringKeyedMapFromValue(inner is Map ? inner : payload);
+    _validateRemoteConfig(config);
     return (
       config: migrateAiStreamThrottleConfig(config),
       updatedAtMs: _readUpdatedAtMs(payload, config),
+    );
+  }
+
+  static void _validateRemoteConfig(Map<String, Object?> config) {
+    if (!_configFieldKeys.any(config.containsKey)) {
+      throw const FormatException('云端配置缺少可识别的节流字段。');
+    }
+    for (final key in const <String>['throttle_enabled', 'auto_mode']) {
+      if (config.containsKey(key) && config[key] is! bool) {
+        throw FormatException('云端配置字段 $key 必须是布尔值。');
+      }
+    }
+    for (final key in const <String>[
+      'duration_seconds',
+      'max_chars_per_second',
+      'max_message_cards_per_second',
+    ]) {
+      if (config.containsKey(key) && config[key] is! int) {
+        throw FormatException('云端配置字段 $key 必须是整数。');
+      }
+    }
+  }
+
+  ThrottleCloudSyncResult _httpFailure(
+    _ThrottleHttpResponse response,
+    String source,
+  ) {
+    final detail = extractApiErrorMessage(
+      response.body,
+      maxLength: _httpErrorPreviewLength,
+      emptyFallback: '服务器未返回错误详情。',
+    );
+    return ThrottleCloudSyncResult.failure(
+      '$source请求失败（HTTP ${response.statusCode}）：$detail',
     );
   }
 
@@ -441,22 +488,14 @@ class ThrottleCloudSyncService {
     int updatedAtMs,
   ) async {
     if (!Platform.isMacOS && !Platform.isIOS) {
-      return ThrottleCloudSyncResult.failure(
-        'iCloud sync is only supported on macOS / iOS.',
-      );
+      return ThrottleCloudSyncResult.failure('iCloud 同步仅支持 macOS 和 iOS。');
     }
     try {
-      // payload 顶层带 updated_at_ms，方便另一端 pull 后比对时间戳。
-      final payload = <String, Object?>{
-        'config': config,
-        'updated_at_ms': updatedAtMs,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      };
-      final json = prettyPrintJson(payload);
+      final json = prettyPrintJson(_configPayload(config, updatedAtMs));
       final payloadBytes = utf8.encode(json).length;
       if (payloadBytes > _maxRequestBytes) {
         return ThrottleCloudSyncResult.failure(
-          'iCloud payload exceeds $_maxRequestBytes bytes',
+          'iCloud 配置超过 $_maxRequestBytes 字节上限。',
         );
       }
       final result = await _icloudChannel
@@ -471,35 +510,27 @@ class ThrottleCloudSyncService {
       final synced = result?['synchronized'] == true;
       if (!ok) {
         return ThrottleCloudSyncResult.failure(
-          synced
-              ? 'iCloud rejected payload'
-              : 'iCloud sync deferred (will retry when connectivity returns)',
+          synced ? 'iCloud 拒绝了配置。' : 'iCloud 同步已延后，网络恢复后将重试。',
         );
       }
       return ThrottleCloudSyncResult.success(
-        message: synced
-            ? 'iCloud sync $payloadBytes bytes'
-            : 'iCloud sync queued',
+        message: synced ? 'iCloud 已同步 $payloadBytes 字节。' : 'iCloud 同步已进入队列。',
       );
     } on MissingPluginException {
-      return ThrottleCloudSyncResult.failure(
-        'iCloud channel not registered (host platform missing bridge).',
-      );
+      return ThrottleCloudSyncResult.failure('当前平台未注册 iCloud 同步桥接。');
     } on TimeoutException {
       return ThrottleCloudSyncResult.failure(
-        'iCloud timeout after ${_remoteRequestTimeout.inSeconds}s',
+        'iCloud 同步超过 ${_remoteRequestTimeout.inSeconds} 秒。',
       );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', '推送 iCloud 配置', error, stack);
-      return ThrottleCloudSyncResult.failure('$error');
+      return ThrottleCloudSyncResult.failure('iCloud 推送失败。');
     }
   }
 
   Future<ThrottleCloudSyncResult> _pullIcloud() async {
     if (!Platform.isMacOS && !Platform.isIOS) {
-      return ThrottleCloudSyncResult.failure(
-        'iCloud sync is only supported on macOS / iOS.',
-      );
+      return ThrottleCloudSyncResult.failure('iCloud 同步仅支持 macOS 和 iOS。');
     }
     try {
       final result = await _icloudChannel
@@ -511,39 +542,33 @@ class ThrottleCloudSyncService {
       final ok = result?['ok'] == true;
       final raw = (result?['config_json'] as String?) ?? '';
       if (!ok || raw.isEmpty) {
-        return ThrottleCloudSyncResult.failure(
-          'iCloud has no throttle config yet for this account.',
-        );
+        return ThrottleCloudSyncResult.failure('当前 iCloud 账户尚无节流配置。');
       }
       if (utf8.encode(raw).length > _maxResponseBytes) {
         return ThrottleCloudSyncResult.failure(
-          'iCloud payload exceeds $_maxResponseBytes bytes',
+          'iCloud 配置超过 $_maxResponseBytes 字节上限。',
         );
       }
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        return ThrottleCloudSyncResult.failure(
-          'iCloud payload is not a JSON object',
-        );
+        return ThrottleCloudSyncResult.failure('iCloud 配置不是 JSON 对象。');
       }
       final remote = _readRemoteConfig(decoded);
       return ThrottleCloudSyncResult.success(
         config: remote.config,
         fetchedAt: DateTime.now().toUtc(),
         updatedAtMs: remote.updatedAtMs,
-        message: 'iCloud OK',
+        message: '已拉取 iCloud 配置。',
       );
     } on MissingPluginException {
-      return ThrottleCloudSyncResult.failure(
-        'iCloud channel not registered (host platform missing bridge).',
-      );
+      return ThrottleCloudSyncResult.failure('当前平台未注册 iCloud 同步桥接。');
     } on TimeoutException {
       return ThrottleCloudSyncResult.failure(
-        'iCloud timeout after ${_remoteRequestTimeout.inSeconds}s',
+        'iCloud 同步超过 ${_remoteRequestTimeout.inSeconds} 秒。',
       );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', '拉取 iCloud 配置', error, stack);
-      return ThrottleCloudSyncResult.failure('$error');
+      return ThrottleCloudSyncResult.failure('iCloud 拉取失败。');
     }
   }
 
@@ -562,12 +587,12 @@ class ThrottleCloudSyncService {
   }) async {
     final pat = nullIfBlank(token);
     if (pat == null) {
-      return ThrottleCloudSyncResult.failure('GitHub PAT is required');
+      return ThrottleCloudSyncResult.failure('请填写 GitHub PAT。');
     }
     return _runHttpRequest('推送 GitHub Gist 配置', (client) async {
       final fileContent = prettyPrintJson(_configPayload(config, updatedAtMs));
       final body = jsonEncode(<String, Object?>{
-        'description': 'OpenHand throttle config (auto-synced)',
+        'description': 'OpenHand 节流配置（自动同步）',
         'public': false,
         'files': <String, Object?>{
           _gistFileName: <String, Object?>{'content': fileContent},
@@ -601,10 +626,7 @@ class ThrottleCloudSyncService {
         );
       }
       if (isHttpFailureStatus(resp.statusCode)) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist HTTP ${resp.statusCode}: '
-          '${clipTextWithEllipsis(resp.body, _httpErrorPreviewLength)}',
-        );
+        return _httpFailure(resp, 'GitHub Gist');
       }
       String createdId = '';
       if (id == null) {
@@ -613,11 +635,15 @@ class ThrottleCloudSyncService {
               optionalStringKeyedMapFromJsonText(resp.body)?['id'],
             ) ??
             '';
+        if (createdId.isEmpty) {
+          return ThrottleCloudSyncResult.failure(
+            'GitHub 未返回新建 Gist 的 ID，请在 GitHub 中确认结果。',
+          );
+        }
       }
       return ThrottleCloudSyncResult.success(
-        message: id == null
-            ? 'Created gist ${createdId.isEmpty ? "(id missing)" : createdId}'
-            : 'Updated gist ($id)',
+        message: id == null ? '已新建 Gist：$createdId' : '已更新 Gist：$id',
+        createdGistId: createdId,
       );
     });
   }
@@ -628,11 +654,11 @@ class ThrottleCloudSyncService {
   }) async {
     final id = nullIfBlank(gistId);
     if (id == null) {
-      return ThrottleCloudSyncResult.failure('Gist ID is required');
+      return ThrottleCloudSyncResult.failure('请填写 Gist ID。');
     }
     final pat = nullIfBlank(token);
     if (pat == null) {
-      return ThrottleCloudSyncResult.failure('GitHub PAT is required');
+      return ThrottleCloudSyncResult.failure('请填写 GitHub PAT。');
     }
     return _runHttpRequest('拉取 GitHub Gist 配置', (client) async {
       final resp = await _sendHttpRequest(
@@ -647,54 +673,41 @@ class ThrottleCloudSyncService {
         },
       );
       if (isHttpFailureStatus(resp.statusCode)) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist HTTP ${resp.statusCode}: '
-          '${clipTextWithEllipsis(resp.body, _httpErrorPreviewLength)}',
-        );
+        return _httpFailure(resp, 'GitHub Gist');
       }
       final decoded = jsonDecode(resp.body);
       if (decoded is! Map) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist response is not a JSON object',
-        );
+        return ThrottleCloudSyncResult.failure('GitHub Gist 响应不是 JSON 对象。');
       }
       final files = decoded['files'];
       if (files is! Map) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist payload missing files field',
-        );
+        return ThrottleCloudSyncResult.failure('GitHub Gist 响应缺少 files 字段。');
       }
       final entry = files[_gistFileName];
       if (entry is! Map) {
         return ThrottleCloudSyncResult.failure(
-          'Gist does not contain $_gistFileName',
+          'GitHub Gist 中不存在 $_gistFileName。',
         );
       }
-      var content = entry['content'];
+      final content = entry['content'];
       // GitHub 在文件 > 1MB 时会把内容截断并填 truncated=true，此处
       // 仅做安全提示，不再二次拉取（节流配置不会到 1MB）。
       if (entry['truncated'] == true) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist file is truncated; payload too large.',
-        );
+        return ThrottleCloudSyncResult.failure('GitHub Gist 文件已被截断，配置过大。');
       }
       if (content is! String) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist file content is not a string',
-        );
+        return ThrottleCloudSyncResult.failure('GitHub Gist 文件内容不是字符串。');
       }
       final inner = jsonDecode(content);
       if (inner is! Map) {
-        return ThrottleCloudSyncResult.failure(
-          'Gist file is not a JSON object',
-        );
+        return ThrottleCloudSyncResult.failure('GitHub Gist 文件不是 JSON 对象。');
       }
       final remote = _readRemoteConfig(inner);
       return ThrottleCloudSyncResult.success(
         config: remote.config,
         fetchedAt: DateTime.now().toUtc(),
         updatedAtMs: remote.updatedAtMs,
-        message: 'Gist OK',
+        message: '已拉取 GitHub Gist 配置。',
       );
     });
   }

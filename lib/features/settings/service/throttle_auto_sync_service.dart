@@ -85,7 +85,11 @@ class ThrottleAutoSyncService {
     );
     _lastSyncTarget = _readSyncTarget();
     _cloudChangesSub = _cloudSyncService.cloudChanges.listen(
-      (_) => _schedulePullAfter(_cloudChangeDebounce),
+      (_) {
+        if (_readSyncTarget().provider == ThrottleCloudSyncProvider.iCloud) {
+          _schedulePullAfter(_cloudChangeDebounce);
+        }
+      },
       onError: (Object error, StackTrace stack) =>
           silentLog('throttle_auto_sync', '监听云端变更流', error, stack),
     );
@@ -230,12 +234,7 @@ class ThrottleAutoSyncService {
       );
       if (result == null || _disposed || target != _readSyncTarget()) return;
       if (!result.ok || result.config == null) {
-        silentLog(
-          'throttle_auto_sync',
-          '拉取云端配置',
-          result.message,
-          StackTrace.current,
-        );
+        silentLog('throttle_auto_sync', '拉取云端配置', result.message);
         return;
       }
 
@@ -268,12 +267,7 @@ class ThrottleAutoSyncService {
         _applyingRemote = false;
       }
       if (outcome == AiStreamThrottleConfigImportOutcome.failed) {
-        silentLog(
-          'throttle_auto_sync',
-          '持久化已拉取配置',
-          '设置持久化失败',
-          StackTrace.current,
-        );
+        silentLog('throttle_auto_sync', '持久化已拉取配置', '设置持久化失败');
         return;
       }
       _lastConfigSignature = _signatureForConfig(
@@ -302,12 +296,7 @@ class ThrottleAutoSyncService {
       );
       if (result == null || _disposed || target != _readSyncTarget()) return;
       if (!result.ok) {
-        silentLog(
-          'throttle_auto_sync',
-          '推送本地配置',
-          result.message,
-          StackTrace.current,
-        );
+        silentLog('throttle_auto_sync', '推送本地配置', result.message);
       }
     } catch (error, stack) {
       silentLog('throttle_auto_sync', '推送本地配置', error, stack);
