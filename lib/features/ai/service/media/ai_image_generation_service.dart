@@ -2612,9 +2612,13 @@ class AiImageGenerationService {
 
   Future<void> _deleteFileIfPresent(File file) async {
     try {
-      if (await file.exists()) await file.delete();
+      if (await isRegularFilePath(file.path)) {
+        await file.delete().timeout(defaultBoundedFileReadIdleTimeout);
+      }
     } on FileSystemException {
-      // Empty/invalid generated media cleanup is best effort.
+      // 空文件或无效生成媒体仅做尽力清理。
+    } on TimeoutException {
+      // 清理超时不覆盖原始生成结果。
     }
   }
 

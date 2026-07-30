@@ -1332,7 +1332,7 @@ class AiFileMutationLedger {
       if (sha == null) {
         if (await _entityExists(outFile)) {
           try {
-            await outFile.delete();
+            await deleteFileAtomically(outFile);
           } catch (error, stack) {
             if (!_isMissingFileError(error)) {
               silentLog(
@@ -1811,7 +1811,7 @@ class AiFileMutationLedger {
         if (!referenced.contains(sha)) {
           try {
             final stat = await _entityStat(blob, deadline: deadline);
-            await blob.delete();
+            await deleteFileAtomically(blob).timeout(deadline.remaining());
             removed += 1;
             bytesFreed += stat.size;
           } catch (error, stack) {
@@ -1860,7 +1860,7 @@ class AiFileMutationLedger {
       if (age < _staleAtomicArtifactAge) {
         return 0;
       }
-      await file.delete();
+      await file.delete().timeout(_fileIoTimeout(deadline));
       return stat.size;
     } catch (error, stack) {
       _logFileErrorUnlessMissing('回收过期原子 blob 产物', error, stack);
@@ -1894,7 +1894,7 @@ class AiFileMutationLedger {
 
   Future<void> _deleteFileIfPresent(File file, String where) async {
     try {
-      if (await _entityExists(file)) await file.delete();
+      await deleteFileAtomically(file);
     } catch (error, stack) {
       _logFileErrorUnlessMissing(where, error, stack);
     }

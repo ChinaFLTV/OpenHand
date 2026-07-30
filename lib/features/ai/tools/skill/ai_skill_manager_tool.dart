@@ -458,7 +458,7 @@ class AiSkillManagerTool extends AiTool {
         'file_path "${targetResult.relativePath}" does not exist in skill "$name".',
       );
     }
-    await target.delete();
+    await deleteFileAtomically(target);
 
     await _deleteEmptyAncestorDirs(
       start: target.parent,

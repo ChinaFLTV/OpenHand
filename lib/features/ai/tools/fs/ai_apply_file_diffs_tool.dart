@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
@@ -352,7 +353,7 @@ class AiApplyFileDiffsTool extends AiTool {
             plan.originalContent,
           );
         } else if (await AiToolUtils.fileExistsBounded(plan.file)) {
-          await plan.file.delete();
+          await deleteFileAtomically(plan.file);
         }
         await AiToolUtils.updateTrackerAfterMutation(
           filePath: plan.filePath,

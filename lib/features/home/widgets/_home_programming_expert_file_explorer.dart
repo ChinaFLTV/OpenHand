@@ -2872,7 +2872,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final file = File(fileEdit.filePath);
       final originalText =
           controller?.text ??
-          (await file.exists()
+          (await isRegularFilePath(file.path, followLinks: true)
               ? await readBoundedFileString(
                   file,
                   maxBytes: _kProgrammingExplorerMaxEditableFileBytes,
@@ -12197,7 +12197,7 @@ class _BreadcrumbSegment extends StatelessWidget {
     String? currentInitialValue = initialValue;
     while (context.mounted) {
       final dir = Directory(currentDirectoryPath);
-      if (!await dir.exists()) return;
+      if (!await isDirectoryPath(dir.path, followLinks: true)) return;
       List<FileSystemEntity> entries;
       try {
         entries = (await listDirectoryBounded(

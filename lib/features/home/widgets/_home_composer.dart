@@ -503,7 +503,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final results = <_AtMentionItem>[];
     try {
       final dir = Directory(basePath);
-      if (!await dir.exists()) {
+      if (!await isDirectoryPath(dir.path, followLinks: true)) {
         if (_isAtMentionSearchStale(scope)) {
           return;
         }

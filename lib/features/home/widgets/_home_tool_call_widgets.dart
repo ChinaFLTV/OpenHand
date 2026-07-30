@@ -1090,7 +1090,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     setState(() => _loadingFile = true);
     try {
       final file = File(filePath);
-      if (!await file.exists()) {
+      if (!await isRegularFilePath(file.path, followLinks: true)) {
         if (!mounted) return;
         setState(() => _loadingFile = false);
         return;

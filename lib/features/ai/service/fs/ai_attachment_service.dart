@@ -119,7 +119,7 @@ class AiAttachmentService {
           final basename = p.basename(entity.path);
           if (basename.startsWith(prefix)) {
             try {
-              await entity.delete();
+              await entity.delete().timeout(defaultBoundedFileReadIdleTimeout);
             } catch (error, stack) {
               silentLog('ai_attachment_service', '删除旧版附件文件', error, stack);
             }
@@ -142,7 +142,7 @@ class AiAttachmentService {
   Future<void> _maybeDeleteIfEmpty(Directory directory) async {
     try {
       if (await isDirectoryEmpty(directory)) {
-        await directory.delete();
+        await directory.delete().timeout(defaultBoundedFileReadIdleTimeout);
       }
     } catch (error, stack) {
       silentLog('ai_attachment_service', '尝试删除空附件目录', error, stack);

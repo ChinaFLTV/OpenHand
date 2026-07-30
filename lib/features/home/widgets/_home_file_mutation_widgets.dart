@@ -391,7 +391,9 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     if (sessionId.isEmpty) return;
     final ledger = ctrl.toolRuntimeService.mutationLedger;
     final file = ledger.ledgerFileFor(sessionId);
-    final target = await file.exists() ? file.path : file.parent.path;
+    final target = await isRegularFilePath(file.path, followLinks: true)
+        ? file.path
+        : file.parent.path;
     try {
       await revealLocalPathInSystemFileManager(
         target,
@@ -2356,7 +2358,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       if (versions.isEmpty) {
         // No history, try to read current file content as 'after'.
         final file = File(widget.filePath);
-        if (await file.exists()) {
+        if (await isRegularFilePath(file.path, followLinks: true)) {
           final content = await readBoundedFileString(
             file,
             maxBytes: _kFileMutationDiffReadMaxBytes,
@@ -2397,7 +2399,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       // Read current file content as "after"
       String? afterContent;
       final currentFile = File(widget.filePath);
-      if (await currentFile.exists()) {
+      if (await isRegularFilePath(currentFile.path, followLinks: true)) {
         afterContent = await readBoundedFileString(
           currentFile,
           maxBytes: _kFileMutationDiffReadMaxBytes,

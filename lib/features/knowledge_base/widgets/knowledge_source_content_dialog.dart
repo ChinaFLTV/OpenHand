@@ -1536,7 +1536,7 @@ Future<File?> _resolveReadableFile(KnowledgeSource source) async {
   ]).toSet();
   for (final path in candidates) {
     final file = File(path);
-    if (await file.exists()) return file;
+    if (await isRegularFilePath(file.path, followLinks: true)) return file;
   }
   return null;
 }
