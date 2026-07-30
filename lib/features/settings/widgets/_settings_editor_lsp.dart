@@ -2246,7 +2246,7 @@ class _EditorLspInstallRunnerDialogState
     final generation = _processSlot.beginRun();
     Process? startedProcess;
     try {
-      await Directory(widget.plan.installRootPath).create(recursive: true);
+      await createDirectoryBounded(Directory(widget.plan.installRootPath));
       if (!mounted || !_isRunActive(generation)) return;
       _appendLine('\$ ${widget.plan.previewCommand}');
       _appendLine('');

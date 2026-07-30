@@ -23,6 +23,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../hooks/hooks_controller.dart';
@@ -885,7 +886,10 @@ Future<void> _safeDeleteDirectoryAndRecreate(
     silentLog('data_cleanup', '删除目录', error, stack);
   }
   try {
-    await dir.create(recursive: true);
+    await createDirectoryBounded(
+      dir,
+      timeout: activeBudget.nextOperationTimeout(),
+    );
   } catch (error, stack) {
     // recreate 失败也不抛——下游写入时会自行重试。
     silentLog('data_cleanup', '重建目录', error, stack);

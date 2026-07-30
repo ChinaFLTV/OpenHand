@@ -1074,7 +1074,6 @@ class HarnessApiPhaseRunner {
       p.join(persistenceDirectory, 'steering', 'handoff'),
     );
     try {
-      await handoffDir.create(recursive: true);
       final handoffFile = File(p.join(handoffDir.path, handoffFileName));
       await writeFileAtomically(handoffFile, handoffDocContent);
       final metadataFile = File('${handoffFile.path}.json');
@@ -1159,7 +1158,6 @@ class HarnessApiPhaseRunner {
       createdAt: timestamp,
     );
     try {
-      await handoffDir.create(recursive: true);
       final failureFile = File(
         p.join(
           handoffDir.path,

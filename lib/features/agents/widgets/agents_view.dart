@@ -9818,7 +9818,6 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final directory = Directory(
       p.join(OpenHandPaths.defaultRootDirectoryPath(), 'agents', 'avatars'),
     );
-    await directory.create(recursive: true);
     final rawBase = p.basenameWithoutExtension(sourceName).trim();
     final safeBase = rawBase
         .replaceAll(RegExp(r'[^a-zA-Z0-9._-]+'), '-')

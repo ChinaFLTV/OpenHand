@@ -4513,16 +4513,15 @@ class AiInlineMedia {
   }
 }
 
-/// Shared directory for inline media artifacts. Using one directory (instead
-/// of a fresh `createTemp` per call) means stale files can be pruned as a
-/// batch and we don't leak one directory per rendered media asset.
+/// 内联媒体产物共享目录。复用单个目录可批量清理过期文件，避免每个媒体资源泄漏
+/// 一个独立临时目录。
 Directory? _inlineMediaDir;
 int _inlineMediaFileSequence = 0;
 Future<Directory> _ensureInlineMediaDir() async {
-  final existing = _inlineMediaDir;
-  if (existing != null && await existing.exists()) return existing;
-  final dir = Directory(p.join(Directory.systemTemp.path, 'openhand_media'));
-  await dir.create(recursive: true);
+  final dir =
+      _inlineMediaDir ??
+      Directory(p.join(Directory.systemTemp.path, 'openhand_media'));
+  await createDirectoryBounded(dir, timeout: _inlineMediaCacheIdleTimeout);
   _inlineMediaDir = dir;
   return dir;
 }

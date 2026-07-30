@@ -244,7 +244,6 @@ abstract final class AiLspManagedInstallService {
     if (normalizedRoot.isEmpty) {
       return;
     }
-    await Directory(normalizedRoot).create(recursive: true);
     final manifest = AiLspManagedInstallManifest(
       backendId: backend.id,
       language: normalizeAiLspLanguage(language),

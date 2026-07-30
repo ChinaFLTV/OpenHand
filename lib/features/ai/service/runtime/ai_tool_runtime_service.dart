@@ -1620,7 +1620,9 @@ class AiToolRuntimeService {
     final head = value.substring(0, safeUtf16PrefixCodeUnits(value, headChars));
     final tail = tailChars <= 0
         ? ''
-        : value.substring(safeUtf16SuffixStart(value, value.length - tailChars));
+        : value.substring(
+            safeUtf16SuffixStart(value, value.length - tailChars),
+          );
     return (
       text: '$head$notice$tail',
       includedChars: includedChars,
@@ -1665,8 +1667,7 @@ class AiToolRuntimeService {
       ),
     );
     try {
-      await file.parent.create(recursive: true);
-      if (!await file.exists()) {
+      if (!await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) {
         await writeFileAtomically(file, content);
       }
       return _PersistedToolOutput(

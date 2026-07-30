@@ -2137,7 +2137,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     return ' --include-directories ${_shellSingleQuote(normalizedPersistenceDirectory)}';
   }
 
-  // ── I/O helpers ──────────────────────────────────────────────────────────
+  // ── I/O 辅助方法 ─────────────────────────────────────────────────────────
 
   Future<File> _writePromptFile(HarnessPhase phase, String content) async {
     final name =
@@ -2145,7 +2145,6 @@ class HarnessOrchestrator extends ChangeNotifier {
     final promptDir = Directory(
       p.join(config.persistenceDirectory, 'steering', 'log', 'prompts'),
     );
-    await promptDir.create(recursive: true);
     final file = File(p.join(promptDir.path, name));
     await writeFileAtomically(file, content);
     return file;
@@ -2155,8 +2154,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     String cmdStr, {
     required String workingDirectory,
     required void Function(String line) onLine,
-    // Safety net: kill the process if it hasn't exited within this duration.
-    // Two hours is generous; real AI coding tasks complete well within that.
+    // 安全兜底：进程在该时限内未退出时强制终止。两小时足以覆盖正常 AI 编码任务。
     Duration timeout = const Duration(hours: 2),
   }) async {
     final quotedWd = _shellSingleQuote(workingDirectory);
@@ -2195,10 +2193,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         },
       );
       if (result.timedOut) {
-        throw TimeoutException(
-          'CLI process exceeded its startup or execution deadline.',
-          timeout,
-        );
+        throw TimeoutException('CLI 进程超过启动或执行时限。', timeout);
       }
       return result.exitCode;
     } finally {
@@ -2211,7 +2206,6 @@ class HarnessOrchestrator extends ChangeNotifier {
       final logDir = Directory(
         p.join(config.persistenceDirectory, 'steering', 'log'),
       );
-      await logDir.create(recursive: true);
       final ts = DateTime.now()
           .toIso8601String()
           .replaceAll(':', '-')

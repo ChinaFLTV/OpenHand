@@ -71,6 +71,7 @@ import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';

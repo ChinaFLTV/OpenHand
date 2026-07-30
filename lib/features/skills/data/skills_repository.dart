@@ -13,6 +13,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_copy.dart';
 import '../../../shared/util/bounded_delete.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
@@ -58,10 +59,7 @@ class SkillsRepository {
 
   Future<Directory> ensureStorageDirectory(String storagePath) async {
     final directory = Directory(storagePath);
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
-    }
-    return directory;
+    return createDirectoryBounded(directory);
   }
 
   Future<List<LocalSkill>> loadInstalledSkills(String storagePath) async {
@@ -973,14 +971,12 @@ class SkillsRepository {
       final directory = Directory(
         p.join(rootDirectory.path, '$baseSlug$suffix'),
       );
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
+      if (!await directory.exists().timeout(_skillScanIdleTimeout)) {
+        await createDirectoryBounded(directory, timeout: _skillScanIdleTimeout);
         return directory;
       }
     }
-    throw const FileSystemException(
-      'Unable to allocate a new skill directory.',
-    );
+    throw const FileSystemException('无法分配新的技能目录。');
   }
 
   Future<void> _extractSkillArchive(
@@ -1028,13 +1024,16 @@ class SkillsRepository {
       }
 
       if (entry.file.isDirectory) {
-        await Directory(destinationPath).create(recursive: true);
+        await createDirectoryBounded(
+          Directory(destinationPath),
+          timeout: _skillScanIdleTimeout,
+        );
         continue;
       }
 
       final content = entry.file.readBytes();
       if (content == null) {
-        throw const FileSystemException('Unable to read archive entry.');
+        throw const FileSystemException('无法读取技能归档条目。');
       }
       final outputFile = File(destinationPath);
       await writeBytesFileAtomically(outputFile, content);
