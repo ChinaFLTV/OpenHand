@@ -600,8 +600,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       attempt < _kNativeAudioDurationProbeAttempts;
       attempt++
     ) {
-      await Future<void>.delayed(_kNativeAudioDurationProbeInterval);
-      if (!_isBootstrapActive(serial)) return Duration.zero;
+      final stillActive = await delayWhileContinuing(
+        _kNativeAudioDurationProbeInterval,
+        () => _isBootstrapActive(serial),
+      );
+      if (!stillActive) return Duration.zero;
       final next = await _player.getDuration().timeout(
         _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
@@ -962,8 +965,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       attempt < _kNativeAudioSeekConfirmAttempts;
       attempt++
     ) {
-      await Future<void>.delayed(_kNativeAudioSeekSettleDelay);
-      if (!_isCurrentSeek(seekSerial)) return;
+      final stillActive = await delayWhileContinuing(
+        _kNativeAudioSeekSettleDelay,
+        () => _isCurrentSeek(seekSerial),
+      );
+      if (!stillActive) return;
       final actual = await _player.getCurrentPosition().timeout(
         _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,

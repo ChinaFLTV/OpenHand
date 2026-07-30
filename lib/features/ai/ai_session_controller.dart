@@ -11430,7 +11430,7 @@ $tail''';
     required String sourceMessageId,
   }) async {
     final stopwatch = Stopwatch()..start();
-    while (stopwatch.elapsed < _autoTitleRetryWaitTimeout) {
+    while (!_isDisposed && stopwatch.elapsed < _autoTitleRetryWaitTimeout) {
       final session = _sessionById(sessionId);
       if (session == null ||
           session.isTitleManuallyEdited ||
@@ -11442,7 +11442,11 @@ $tail''';
       if (sendPhaseForSession(sessionId) == AiSendPhase.idle) {
         return true;
       }
-      await Future<void>.delayed(_autoTitleRetryPollInterval);
+      final stillActive = await delayWhileContinuing(
+        _autoTitleRetryPollInterval,
+        () => !_isDisposed,
+      );
+      if (!stillActive) return false;
     }
     return false;
   }

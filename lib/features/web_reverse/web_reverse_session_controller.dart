@@ -510,12 +510,20 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> _attachToFirstPage() async {
     final cdp = _browserCdp!;
+    bool isCurrent() =>
+        !_disposed &&
+        !_stopped &&
+        _stopBrowserTask == null &&
+        identical(_browserCdp, cdp) &&
+        !cdp.isClosed;
+
     // 列出所有 page target，优先挑 config.targetUrl 同 origin 的目标页。
     // Chrome 冷启动时可能先暴露 about:blank / 恢复页；短暂轮询后仍未命中
     // 再回退到第一个可用 page，避免无限等待。
     List<WebReversePageTargetData> infos = const <WebReversePageTargetData>[];
     WebReversePageTargetData? chosen;
     for (var attempt = 0; attempt < _kInitialTargetPickAttempts; attempt++) {
+      if (!isCurrent()) return;
       final targets = await cdp.send('Target.getTargets');
       infos = normalizeWebReversePageTargets(targets['targetInfos']);
       chosen = _chooseInitialPageTarget(
@@ -525,8 +533,13 @@ class WebReverseSessionController extends ChangeNotifier {
       if (chosen != null) {
         break;
       }
-      await Future<void>.delayed(_kInitialTargetPickDelay);
+      final stillActive = await delayWhileContinuing(
+        _kInitialTargetPickDelay,
+        isCurrent,
+      );
+      if (!stillActive) return;
     }
+    if (!isCurrent()) return;
     if (chosen == null) {
       throw CdpException(
         code: -1,
@@ -2224,6 +2237,7 @@ class WebReverseSessionController extends ChangeNotifier {
   String? _recorderScriptIdentifier;
   Future<void>? _recorderStartTask;
   int _recorderGeneration = 0;
+  int _replayGeneration = 0;
   final ListQueue<Map<String, Object?>> _recorderSteps =
       ListQueue<Map<String, Object?>>();
   int _recorderStepsChars = 0;
@@ -2524,9 +2538,20 @@ class WebReverseSessionController extends ChangeNotifier {
     Duration stepTimeout = const Duration(seconds: 5),
   }) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) {
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null || _stopBrowserTask != null) {
       return (executed: 0, failed: 0);
     }
+    final generation = ++_replayGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        !_stopped &&
+        _stopBrowserTask == null &&
+        generation == _replayGeneration &&
+        identical(_browserCdp, cdp) &&
+        _pageSessionId == sessionId &&
+        !cdp.isClosed;
+
     final steps = List<Map<String, Object?>>.of(
       _recorderSteps,
       growable: false,
@@ -2550,6 +2575,8 @@ class WebReverseSessionController extends ChangeNotifier {
   return false;
 })''';
       final r = await _evalBool(
+        cdp,
+        sessionId,
         '$expr(${jsonEncode(selector)}, 5000)',
         stepTimeout + const Duration(seconds: 6),
       );
@@ -2559,6 +2586,7 @@ class WebReverseSessionController extends ChangeNotifier {
     var executed = 0;
     var failed = 0;
     for (final step in steps) {
+      if (!isCurrent()) break;
       final type = '${step['type'] ?? ''}';
       try {
         switch (type) {
@@ -2568,7 +2596,7 @@ class WebReverseSessionController extends ChangeNotifier {
               await cdp.send(
                 'Page.navigate',
                 params: <String, Object?>{'url': url},
-                sessionId: _pageSessionId,
+                sessionId: sessionId,
                 timeout: stepTimeout,
               );
             }
@@ -2580,6 +2608,8 @@ class WebReverseSessionController extends ChangeNotifier {
             }
             await waitForSelector(selector);
             await _evalScript(
+              cdp,
+              sessionId,
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; el.scrollIntoView({block:"center"}); el.click(); return true; })()',
               stepTimeout,
@@ -2593,6 +2623,8 @@ class WebReverseSessionController extends ChangeNotifier {
             }
             await waitForSelector(selector);
             await _evalScript(
+              cdp,
+              sessionId,
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; '
               'const v = ${jsonEncode(value)}; '
@@ -2612,6 +2644,8 @@ class WebReverseSessionController extends ChangeNotifier {
             }
             await waitForSelector(selector);
             await _evalScript(
+              cdp,
+              sessionId,
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; '
               'const v = ${jsonEncode(value)}; '
@@ -2628,6 +2662,8 @@ class WebReverseSessionController extends ChangeNotifier {
               continue;
             }
             final ok = await _evalBool(
+              cdp,
+              sessionId,
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; '
               'const text = String(el.innerText || el.textContent || ""); '
@@ -2645,6 +2681,8 @@ class WebReverseSessionController extends ChangeNotifier {
               continue;
             }
             final ok = await _evalBool(
+              cdp,
+              sessionId,
               '(() => { const el = document.querySelector(${jsonEncode(selector)}); '
               'if (!el) return false; '
               'const r = el.getBoundingClientRect(); '
@@ -2661,8 +2699,10 @@ class WebReverseSessionController extends ChangeNotifier {
             failed++;
             continue;
         }
+        if (!isCurrent()) break;
         executed++;
       } catch (error, stack) {
+        if (!isCurrent()) break;
         failed++;
         silentLog(
           'web_reverse_session_controller',
@@ -2671,14 +2711,18 @@ class WebReverseSessionController extends ChangeNotifier {
           stack,
         );
       }
-      await Future<void>.delayed(interStepDelay);
+      final stillActive = await delayWhileContinuing(interStepDelay, isCurrent);
+      if (!stillActive) break;
     }
     return (executed: executed, failed: failed);
   }
 
-  Future<void> _evalScript(String expression, Duration timeout) async {
-    final cdp = _browserCdp;
-    if (cdp == null) return;
+  Future<void> _evalScript(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    String expression,
+    Duration timeout,
+  ) async {
     await cdp.send(
       'Runtime.evaluate',
       params: <String, Object?>{
@@ -2686,15 +2730,18 @@ class WebReverseSessionController extends ChangeNotifier {
         'awaitPromise': true,
         'returnByValue': true,
       },
-      sessionId: _pageSessionId,
+      sessionId: sessionId,
       timeout: timeout,
     );
   }
 
   /// 类似 [_evalScript]，但同步取 expression 求值结果（returnByValue）的 bool。
-  Future<bool?> _evalBool(String expression, Duration timeout) async {
-    final cdp = _browserCdp;
-    if (cdp == null) return null;
+  Future<bool?> _evalBool(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    String expression,
+    Duration timeout,
+  ) async {
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -2702,7 +2749,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'expression': expression,
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: timeout,
       );
       final v = cdpResultValue(r);

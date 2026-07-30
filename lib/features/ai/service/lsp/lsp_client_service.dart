@@ -2134,8 +2134,11 @@ class _AiLspSession {
 
     _sendNotification('initialized', <String, Object?>{});
     touch();
-    await Future<void>.delayed(_initializationSettleDelay);
-    if (_shutdownRequested) {
+    final stillActive = await delayWhileContinuing(
+      _initializationSettleDelay,
+      () => !_shutdownRequested,
+    );
+    if (!stillActive) {
       throw StateError('LSP session was disposed while starting');
     }
   }
