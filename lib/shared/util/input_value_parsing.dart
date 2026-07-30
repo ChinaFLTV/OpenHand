@@ -320,10 +320,15 @@ void validateCanonicalJsonSubset(
   }
 }
 
-List<Map<String, Object?>> stringKeyedMapListFromValue(Object? value) {
+List<Map<String, Object?>> stringKeyedMapListFromValue(
+  Object? value, {
+  int? limit,
+}) {
   if (value is! List) return const <Map<String, Object?>>[];
+  if (limit != null && limit <= 0) return const <Map<String, Object?>>[];
   final out = <Map<String, Object?>>[];
-  for (final item in value) {
+  final items = limit == null ? value : value.take(limit);
+  for (final item in items) {
     if (item is Map) {
       out.add(stringKeyedMapFromValue(item));
     }
@@ -332,22 +337,24 @@ List<Map<String, Object?>> stringKeyedMapListFromValue(Object? value) {
 }
 
 List<Map<String, Object?>> stringKeyedMapListFromValueOrJsonText(
-  Object? value,
-) {
-  return optionalStringKeyedMapListFromValueOrJsonText(value) ??
+  Object? value, {
+  int? limit,
+}) {
+  return optionalStringKeyedMapListFromValueOrJsonText(value, limit: limit) ??
       const <Map<String, Object?>>[];
 }
 
 List<Map<String, Object?>>? optionalStringKeyedMapListFromValueOrJsonText(
-  Object? value,
-) {
-  if (value is List) return stringKeyedMapListFromValue(value);
+  Object? value, {
+  int? limit,
+}) {
+  if (value is List) return stringKeyedMapListFromValue(value, limit: limit);
   if (value is String) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return const <Map<String, Object?>>[];
     final decoded = _tryDecodeJsonText(trimmed);
     if (decoded.value is List) {
-      return stringKeyedMapListFromValue(decoded.value);
+      return stringKeyedMapListFromValue(decoded.value, limit: limit);
     }
   }
   return null;

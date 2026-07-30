@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import 'ai_session_goal.dart';
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
@@ -200,6 +201,19 @@ enum AiSessionMode {
 
 enum AiSessionMessageLoadState { complete, header, windowed }
 
+abstract final class AiSessionDataLimits {
+  static const int maxTodoItems = 100;
+  static const int maxTodoIdCharacters = 128;
+  static const int maxTodoContentCharacters = 2000;
+  static const int maxTodoStatusCharacters = 32;
+  static const int maxTodoActiveFormCharacters = 1000;
+  static const int maxPlanAllowedPrompts = 256;
+  static const int maxPlanAllowedPromptToolCharacters = 128;
+  static const int maxPlanAllowedPromptCharacters = 4096;
+  static const int maxRecentErrors = 1000;
+  static const int maxPlanHistoryEntries = 1000;
+}
+
 class AiSessionTodoItem {
   const AiSessionTodoItem({
     required this.id,
@@ -237,14 +251,48 @@ class AiSessionTodoItem {
     return json;
   }
 
-  static AiSessionTodoItem fromJson(Object? raw) {
+  static AiSessionTodoItem? fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
-    return AiSessionTodoItem(
-      id: '${json['id'] ?? ''}',
-      content: '${json['content'] ?? ''}',
-      status: '${json['status'] ?? ''}',
-      activeForm: '${json['activeForm'] ?? json['active_form'] ?? ''}'.trim(),
+    final id = stringFromValue(json['id']);
+    final content = stringFromValue(json['content']);
+    final status = stringFromValue(json['status']);
+    final activeForm = stringFromValue(
+      json['activeForm'] ?? json['active_form'],
     );
+    if (id.isEmpty ||
+        content.isEmpty ||
+        status.isEmpty ||
+        id.length > AiSessionDataLimits.maxTodoIdCharacters ||
+        status.length > AiSessionDataLimits.maxTodoStatusCharacters) {
+      return null;
+    }
+    return AiSessionTodoItem(
+      id: id,
+      content: clipTextByCodeUnits(
+        content,
+        AiSessionDataLimits.maxTodoContentCharacters,
+        suffix: '…',
+      ),
+      status: status,
+      activeForm: clipTextByCodeUnits(
+        activeForm,
+        AiSessionDataLimits.maxTodoActiveFormCharacters,
+        suffix: '…',
+      ),
+    );
+  }
+
+  static List<AiSessionTodoItem> listFromJson(Object? rawValue) {
+    final items = <AiSessionTodoItem>[];
+    final ids = <String>{};
+    for (final raw in stringKeyedMapListFromValueOrJsonText(
+      rawValue,
+      limit: AiSessionDataLimits.maxTodoItems,
+    )) {
+      final item = AiSessionTodoItem.fromJson(raw);
+      if (item != null && ids.add(item.id)) items.add(item);
+    }
+    return items.toList(growable: false);
   }
 }
 
@@ -336,14 +384,26 @@ class AiSessionPlanAllowedPrompt {
     if (json == null) return null;
     final tool = stringFromValue(json['tool']).trim();
     final prompt = stringFromValue(json['prompt']).trim();
-    if (tool.isEmpty || prompt.isEmpty) {
+    if (tool.isEmpty ||
+        prompt.isEmpty ||
+        tool.length > AiSessionDataLimits.maxPlanAllowedPromptToolCharacters) {
       return null;
     }
-    return AiSessionPlanAllowedPrompt(tool: tool, prompt: prompt);
+    return AiSessionPlanAllowedPrompt(
+      tool: tool,
+      prompt: clipTextByCodeUnits(
+        prompt,
+        AiSessionDataLimits.maxPlanAllowedPromptCharacters,
+        suffix: '…',
+      ),
+    );
   }
 
   static List<AiSessionPlanAllowedPrompt> listFromJson(Object? rawValue) {
-    return stringKeyedMapListFromValueOrJsonText(rawValue)
+    return stringKeyedMapListFromValueOrJsonText(
+          rawValue,
+          limit: AiSessionDataLimits.maxPlanAllowedPrompts,
+        )
         .map(AiSessionPlanAllowedPrompt.fromJson)
         .whereType<AiSessionPlanAllowedPrompt>()
         .toList(growable: false);
@@ -412,9 +472,7 @@ class AiSessionPlanRecord {
       updatedAt: utcDateTimeFromValue(json['updated_at']) ?? now,
       status: AiSessionPlanStatus.fromStorage('${json['status'] ?? ''}'),
       plan: '${json['plan'] ?? ''}'.trim(),
-      steps: stringKeyedMapListFromValueOrJsonText(
-        json['steps'],
-      ).map(AiSessionTodoItem.fromJson).toList(growable: false),
+      steps: AiSessionTodoItem.listFromJson(json['steps']),
       allowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
         json['allowed_prompts'],
       ),
@@ -459,6 +517,7 @@ class AiSession {
       statistics: AiSessionStatistics.fromJson(statisticsJson),
       recentErrors: errorsJson is List
           ? errorsJson
+                .take(AiSessionDataLimits.maxRecentErrors)
                 .map(
                   (item) => AiSessionErrorRecord.fromJson(
                     _requireMap(item, 'recent_errors'),
@@ -506,6 +565,13 @@ class AiSession {
           sessionJson['full_access_permission'] as bool,
       planHistory: planHistoryJson is List
           ? planHistoryJson
+                .skip(
+                  planHistoryJson.length >
+                          AiSessionDataLimits.maxPlanHistoryEntries
+                      ? planHistoryJson.length -
+                            AiSessionDataLimits.maxPlanHistoryEntries
+                      : 0,
+                )
                 .map(
                   (item) => AiSessionPlanRecord.fromJson(
                     _requireMap(item, 'plan_history'),
@@ -519,15 +585,7 @@ class AiSession {
       lastPromptMetadata: Map<String, Object?>.of(
         stringKeyedMapFromValue(json['last_prompt_metadata']),
       ),
-      todoItems: todoItemsJson is List
-          ? todoItemsJson
-                .map(
-                  (item) => AiSessionTodoItem.fromJson(
-                    _requireMap(item, 'todo_items'),
-                  ),
-                )
-                .toList(growable: false)
-          : const <AiSessionTodoItem>[],
+      todoItems: AiSessionTodoItem.listFromJson(todoItemsJson),
       messageLoadState: AiSessionMessageLoadState.complete,
       messageWindowStartIndex: 0,
       messageTotalCount: messagesJson.length,

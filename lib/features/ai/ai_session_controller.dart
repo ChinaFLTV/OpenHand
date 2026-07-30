@@ -9594,29 +9594,7 @@ class AiSessionController extends ChangeNotifier {
     if (rawTodoItems is! List) {
       return currentTodoItems;
     }
-    final nextTodoItems = rawTodoItems
-        .map((item) {
-          if (item is! Map) {
-            return null;
-          }
-          final todoMap = stringKeyedMapFromValue(item);
-          final id = '${todoMap['id'] ?? ''}'.trim();
-          final content = '${todoMap['content'] ?? ''}'.trim();
-          final status = '${todoMap['status'] ?? ''}'.trim();
-          final activeForm =
-              '${todoMap['activeForm'] ?? todoMap['active_form'] ?? ''}'.trim();
-          if (id.isEmpty || content.isEmpty || status.isEmpty) {
-            return null;
-          }
-          return AiSessionTodoItem(
-            id: id,
-            content: content,
-            status: status,
-            activeForm: activeForm,
-          );
-        })
-        .whereType<AiSessionTodoItem>()
-        .toList(growable: false);
+    final nextTodoItems = AiSessionTodoItem.listFromJson(rawTodoItems);
     if (nextTodoItems.isNotEmpty) {
       return nextTodoItems;
     }

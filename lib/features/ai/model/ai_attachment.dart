@@ -29,6 +29,7 @@ enum AiAttachmentKind {
 
 const String aiSessionMessageAttachmentsMetadataKey = 'attachments';
 const int aiMessageAttachmentLimit = 20;
+const int _aiMessageAttachmentMetadataScanLimit = aiMessageAttachmentLimit * 5;
 
 /// 单个消息附件的最大字节数。文件选择阶段即执行限制，避免超限文件进入协议编码链路。
 const int aiMessageAttachmentMaxFileBytes = 10 * kBytesPerMiB;
@@ -165,16 +166,23 @@ class AiMessageAttachment {
   }
 
   static List<AiMessageAttachment> listFromMetadata(Object? rawValue) {
-    return stringKeyedMapListFromValueOrJsonText(rawValue)
+    return stringKeyedMapListFromValueOrJsonText(
+          rawValue,
+          limit: _aiMessageAttachmentMetadataScanLimit,
+        )
         .map(AiMessageAttachment.fromJson)
         .where((item) => item.id.isNotEmpty && item.storagePath.isNotEmpty)
+        .take(aiMessageAttachmentLimit)
         .toList(growable: false);
   }
 
   static List<Map<String, Object?>> listToMetadata(
     List<AiMessageAttachment> attachments,
   ) {
-    return attachments.map((item) => item.toJson()).toList(growable: false);
+    return attachments
+        .take(aiMessageAttachmentLimit)
+        .map((item) => item.toJson())
+        .toList(growable: false);
   }
 
   static int _readInt(Object? value) {

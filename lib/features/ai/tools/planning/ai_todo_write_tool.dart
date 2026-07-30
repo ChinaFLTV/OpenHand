@@ -1,4 +1,5 @@
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../model/ai_session.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -7,15 +8,11 @@ import '../ai_tool_utils.dart';
 
 class AiTodoWriteTool extends AiTool {
   static const int _verificationReminderTodoThreshold = 3;
-  static const String _statusPending = 'pending';
-  static const String _statusInProgress = 'in_progress';
-  static const String _statusCompleted = 'completed';
-  static const String _statusFailed = 'failed';
   static const Set<String> _allowedStatuses = <String>{
-    _statusPending,
-    _statusInProgress,
-    _statusCompleted,
-    _statusFailed,
+    AiSessionTodoState.pending,
+    AiSessionTodoState.inProgress,
+    AiSessionTodoState.completed,
+    AiSessionTodoState.failed,
   };
   static const String _verificationReminder =
       'verification_reminder: All major todos are marked completed. Before a final completion claim, verify the change with ReadLints, tests, build, a direct command, or Task(subagent_type: verify), and report any skipped check explicitly.';
@@ -36,6 +33,12 @@ class AiTodoWriteTool extends AiTool {
       return AiToolUtils.invalidResult(
         'TodoWrite',
         'TodoWrite requires a todos array.',
+      );
+    }
+    if (todos.length > AiSessionDataLimits.maxTodoItems) {
+      return AiToolUtils.invalidResult(
+        'TodoWrite',
+        'TodoWrite 最多接受 ${AiSessionDataLimits.maxTodoItems} 个待办项。',
       );
     }
     final normalizedTodos = <Map<String, Object?>>[];
@@ -69,6 +72,11 @@ class AiTodoWriteTool extends AiTool {
           'Each todo must include content.',
         );
       }
+      if (id.length > AiSessionDataLimits.maxTodoIdCharacters ||
+          content.length > AiSessionDataLimits.maxTodoContentCharacters ||
+          activeForm.length > AiSessionDataLimits.maxTodoActiveFormCharacters) {
+        return AiToolUtils.invalidResult('TodoWrite', '待办项字段超过长度上限。');
+      }
       if (!seenIds.add(id)) {
         return AiToolUtils.invalidResult(
           'TodoWrite',
@@ -81,7 +89,7 @@ class AiTodoWriteTool extends AiTool {
           'Todo status must be pending, in_progress, completed, or failed.',
         );
       }
-      if (status == _statusInProgress) inProgressCount += 1;
+      if (status == AiSessionTodoState.inProgress) inProgressCount += 1;
       normalizedTodos.add(<String, Object?>{
         'id': id,
         'content': content,
@@ -105,7 +113,9 @@ class AiTodoWriteTool extends AiTool {
               .join('\n');
     final allCompleted =
         normalizedTodos.isNotEmpty &&
-        normalizedTodos.every((todo) => todo['status'] == _statusCompleted);
+        normalizedTodos.every(
+          (todo) => todo['status'] == AiSessionTodoState.completed,
+        );
     final shouldEmitVerificationReminder =
         normalizedTodos.length >= _verificationReminderTodoThreshold &&
         allCompleted &&
@@ -113,7 +123,6 @@ class AiTodoWriteTool extends AiTool {
     final lines = shouldEmitVerificationReminder
         ? '$baseLines\n\n$_verificationReminder'
         : baseLines;
-    final oldTodos = _normalizeCurrentTodos(context.metadata['current_todos']);
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: 'TodoWrite',
@@ -125,12 +134,7 @@ class AiTodoWriteTool extends AiTool {
       metadata: <String, Object?>{
         'todo_items': normalizedTodos,
         'todo_list_replaced': true,
-        'oldTodos': oldTodos,
-        'newTodos': normalizedTodos,
         'todo_all_completed': allCompleted,
-        'todo_items_for_next_turn': allCompleted
-            ? const <Map<String, Object?>>[]
-            : normalizedTodos,
         if (shouldEmitVerificationReminder) 'todo_verification_reminder': true,
       },
     );
@@ -158,34 +162,9 @@ class AiTodoWriteTool extends AiTool {
   }
 
   String _markerForStatus(String status) {
-    if (status == _statusCompleted) return '[x]';
-    if (status == _statusInProgress) return '[-]';
-    if (status == _statusFailed) return '[!]';
+    if (status == AiSessionTodoState.completed) return '[x]';
+    if (status == AiSessionTodoState.inProgress) return '[-]';
+    if (status == AiSessionTodoState.failed) return '[!]';
     return '[ ]';
-  }
-
-  List<Map<String, Object?>> _normalizeCurrentTodos(Object? rawTodos) {
-    if (rawTodos is! List) return const <Map<String, Object?>>[];
-    final normalized = <Map<String, Object?>>[];
-    final seenIds = <String>{};
-    for (final rawTodo in rawTodos) {
-      if (rawTodo is! Map) continue;
-      final todo = stringKeyedMapFromValue(rawTodo);
-      final id = '${todo['id'] ?? ''}'.trim();
-      final content = '${todo['content'] ?? ''}'.trim();
-      final status = '${todo['status'] ?? ''}'.trim();
-      final activeForm = '${todo['activeForm'] ?? todo['active_form'] ?? ''}'
-          .trim();
-      if (id.isEmpty || content.isEmpty || status.isEmpty || !seenIds.add(id)) {
-        continue;
-      }
-      normalized.add(<String, Object?>{
-        'id': id,
-        'content': content,
-        'status': status,
-        if (activeForm.isNotEmpty) 'activeForm': activeForm,
-      });
-    }
-    return normalized;
   }
 }

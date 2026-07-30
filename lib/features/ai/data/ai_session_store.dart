@@ -1923,9 +1923,14 @@ class AiSessionStore {
         _decodeJsonMap(row['environment_json']),
       ),
       statistics: statistics,
-      recentErrors: stringKeyedMapListFromValue(
-        _decodeJsonList(row['recent_errors_json']),
-      ).map(AiSessionErrorRecord.fromJson).toList(growable: false),
+      recentErrors: _decodeJsonList(row['recent_errors_json'])
+          .take(AiSessionDataLimits.maxRecentErrors)
+          .whereType<Map>()
+          .map(
+            (item) =>
+                AiSessionErrorRecord.fromJson(stringKeyedMapFromValue(item)),
+          )
+          .toList(growable: false),
       lastUsedModelId: row['last_used_model_id'] as String?,
       lastUsedModelLabel: row['last_used_model_label'] as String?,
       isTitleManuallyEdited: boolFromValue(row['is_title_manually_edited']),
@@ -1952,12 +1957,23 @@ class AiSessionStore {
       fullAccessPermission: boolFromValue(row['full_access_permission']),
       metadata: _decodeJsonMap(row['metadata_json']),
       lastPromptMetadata: _decodeJsonMap(row['last_prompt_metadata_json']),
-      todoItems: stringKeyedMapListFromValue(
+      todoItems: AiSessionTodoItem.listFromJson(
         _decodeJsonList(row['todo_items_json']),
-      ).map(AiSessionTodoItem.fromJson).toList(growable: false),
-      planHistory: stringKeyedMapListFromValue(
-        _decodeJsonList(row['plan_history_json']),
-      ).map(AiSessionPlanRecord.fromJson).toList(growable: false),
+      ),
+      planHistory: () {
+        final items = _decodeJsonList(row['plan_history_json']);
+        final start = items.length > AiSessionDataLimits.maxPlanHistoryEntries
+            ? items.length - AiSessionDataLimits.maxPlanHistoryEntries
+            : 0;
+        return items
+            .skip(start)
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  AiSessionPlanRecord.fromJson(stringKeyedMapFromValue(item)),
+            )
+            .toList(growable: false);
+      }(),
       messageLoadState: messageLoadState,
       messageWindowStartIndex: messageWindowStartIndex,
       messageTotalCount: messageTotalCount ?? statistics.totalMessageCount,
