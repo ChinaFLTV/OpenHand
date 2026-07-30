@@ -14,6 +14,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/path_safety.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
 import 'system_proxy.dart';
@@ -27,6 +28,13 @@ const Duration _kUpdateDownloadTotalTimeout = Duration(minutes: 30);
 const Duration _kUpdateFileIoTimeout = Duration(seconds: 30);
 const int _kUpdateMetadataMaxBytes = 2 * 1024 * 1024;
 const int _kUpdateMaxDownloadBytes = 2 * 1024 * 1024 * 1024;
+const int _kUpdateMaxReleaseAssets = 256;
+const int _kUpdateTagMaxCharacters = 128;
+const int _kUpdateAssetNameMaxCharacters = 512;
+const int _kUpdateReleaseNameMaxCharacters = 256;
+const int _kUpdateReleaseNotesMaxCharacters = 64 * 1024;
+const int _kUpdateDownloadUrlMaxCharacters = 8192;
+const int _kUpdateErrorPreviewMaxCharacters = 4096;
 const int _kUpdateMaxRedirects = 5;
 const Duration _kUpdateRedirectDrainTimeout = Duration(seconds: 2);
 const String _kGitHubReleaseAcceptHeader = 'application/vnd.github.v3+json';
@@ -148,7 +156,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       );
       if (response.statusCode != 200) {
         return AppUpdateCheckError(
-          message: 'HTTP ${response.statusCode}: $body',
+          message: _boundedUpdateError('HTTP ${response.statusCode}: $body'),
         );
       }
       final release = _parseGitHubReleaseInfo(
@@ -164,7 +172,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       return AppUpdateNotAvailable();
     } catch (error, stack) {
       silentLog('app_update_checker', '检查应用更新', error, stack);
-      return AppUpdateCheckError(message: '$error');
+      return AppUpdateCheckError(message: _boundedUpdateError('$error'));
     } finally {
       deadline.stop();
       client.close(force: true);
@@ -230,7 +238,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           allowMalformed: true,
         );
         throw HttpException(
-          '更新包下载失败：HTTP ${response.statusCode}：$body',
+          _boundedUpdateError('更新包下载失败：HTTP ${response.statusCode}：$body'),
           uri: downloadUri,
         );
       }
@@ -456,34 +464,80 @@ AppReleaseInfo? _parseGitHubReleaseInfo(
 }) {
   final json = stringKeyedMapFromValue(raw);
   final tagName = stringFromValue(json['tag_name']);
-  if (tagName.isEmpty) return null;
+  if (tagName.isEmpty || tagName.length > _kUpdateTagMaxCharacters) {
+    return null;
+  }
+  final publishedAt = dateTimeFromValue(json['published_at']);
+  if (publishedAt == null) return null;
   final suffix = lowercaseStringFromValue(platformAssetSuffix);
   final version = tagName.replaceFirst(RegExp(r'^v'), '');
-  final assets = stringKeyedMapListFromValue(json['assets']);
-  final selectedAsset = _selectReleaseAsset(assets, suffix);
+  if (version.isEmpty) return null;
+  final selectedAsset = _selectReleaseAsset(json['assets'], suffix);
+  final releaseName = stringFromValue(json['name'], fallback: tagName);
+  final releaseNotes = stringFromValue(json['body']);
   return AppReleaseInfo(
     version: version,
     tagName: tagName,
-    releaseName: stringFromValue(json['name'], fallback: tagName),
-    releaseNotes: stringFromValue(json['body']),
-    publishedAt:
-        dateTimeFromValue(json['published_at'])?.toLocal() ?? DateTime.now(),
-    downloadUrl: stringFromValue(selectedAsset?['browser_download_url']),
+    releaseName: clipTextByCodeUnits(
+      releaseName,
+      _kUpdateReleaseNameMaxCharacters,
+      suffix: '…',
+    ),
+    releaseNotes: clipTextByCodeUnits(
+      releaseNotes,
+      _kUpdateReleaseNotesMaxCharacters,
+      suffix: '\n…',
+    ),
+    publishedAt: publishedAt.toLocal(),
+    downloadUrl: _secureUpdateDownloadUrl(
+      selectedAsset?['browser_download_url'],
+    ),
     downloadSize: nonNegativeIntFromValue(selectedAsset?['size'], fallback: 0),
     isPreRelease: boolFromValue(json['prerelease']),
   );
 }
 
 Map<String, Object?>? _selectReleaseAsset(
-  List<Map<String, Object?>> assets,
+  Object? rawAssets,
   String platformAssetSuffix,
 ) {
-  if (assets.isEmpty) return null;
-  if (platformAssetSuffix.isNotEmpty) {
-    for (final asset in assets) {
-      final name = lowercaseStringFromValue(asset['name']);
-      if (name.contains(platformAssetSuffix)) return asset;
-    }
+  if (rawAssets is! List) return null;
+  Map<String, Object?>? firstAsset;
+  var scanned = 0;
+  for (final rawAsset in rawAssets) {
+    if (scanned >= _kUpdateMaxReleaseAssets) break;
+    scanned += 1;
+    if (rawAsset is! Map) continue;
+    final asset = stringKeyedMapFromValue(rawAsset);
+    firstAsset ??= asset;
+    if (platformAssetSuffix.isEmpty) continue;
+    final rawName = stringFromValue(asset['name']);
+    if (rawName.length > _kUpdateAssetNameMaxCharacters) continue;
+    final name = rawName.toLowerCase();
+    if (name.contains(platformAssetSuffix)) return asset;
   }
-  return assets.first;
+  return platformAssetSuffix.isEmpty ? firstAsset : null;
+}
+
+String _secureUpdateDownloadUrl(Object? raw) {
+  final value = stringFromValue(raw).trim();
+  if (value.isEmpty || value.length > _kUpdateDownloadUrlMaxCharacters) {
+    return '';
+  }
+  final uri = Uri.tryParse(value);
+  if (uri == null) return '';
+  try {
+    _validateSecureUpdateUri(uri);
+    return uri.toString();
+  } on FormatException {
+    return '';
+  }
+}
+
+String _boundedUpdateError(String message) {
+  return clipTextByCodeUnits(
+    message,
+    _kUpdateErrorPreviewMaxCharacters,
+    suffix: '…',
+  );
 }

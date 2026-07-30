@@ -11,6 +11,7 @@ import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
 import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
+import '../util/text_clip.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -37,6 +38,7 @@ const Duration _kAppUpdatePhaseSwitchDuration = Duration(milliseconds: 320);
 const Duration _kAppUpdateProgressAnimationDuration = Duration(
   milliseconds: 400,
 );
+const int _kAppUpdateErrorMaxCharacters = 4096;
 
 class _AppUpdateDialogContent extends StatefulWidget {
   const _AppUpdateDialogContent({
@@ -104,7 +106,9 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     try {
       result = await widget.dataSource.checkForUpdate(widget.appInfo.version);
     } catch (error) {
-      result = AppUpdateCheckError(message: '检查更新失败：$error');
+      result = AppUpdateCheckError(
+        message: _boundedAppUpdateError('检查更新失败：$error'),
+      );
     }
     if (!mounted) return;
     setState(() {
@@ -116,7 +120,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
           _phase = _UpdatePhase.notAvailable;
         case AppUpdateCheckError(:final message):
           _phase = _UpdatePhase.error;
-          _errorMessage = message;
+          _errorMessage = _boundedAppUpdateError(message);
       }
     });
   }
@@ -152,7 +156,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       if (!mounted) return;
       setState(() {
         _phase = _UpdatePhase.error;
-        _errorMessage = '$error';
+        _errorMessage = _boundedAppUpdateError('$error');
       });
     } finally {
       if (identical(_downloadCancellation, cancellation)) {
@@ -547,4 +551,12 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       ],
     };
   }
+}
+
+String _boundedAppUpdateError(String message) {
+  return clipTextByCodeUnits(
+    message,
+    _kAppUpdateErrorMaxCharacters,
+    suffix: '…',
+  );
 }
