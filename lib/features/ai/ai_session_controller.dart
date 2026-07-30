@@ -207,8 +207,6 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _goalEvaluationTimeout = Duration(seconds: 90);
   static const int _goalEvaluationRecentMessageCount = 12;
   static const int _goalEvaluationMaxMessageChars = 2400;
-  static const int _goalEvaluationMaxFollowUpChars = 1600;
-  static const int _goalStatusReasonMaxChars = 800;
   static final RegExp _goalJsonFencePattern = RegExp(
     r'^```(?:json)?\s*|\s*```$',
     caseSensitive: false,
@@ -5743,7 +5741,10 @@ class AiSessionController extends ChangeNotifier {
         goal.copyWith(
           status: AiSessionGoalStatus.failed,
           updatedAt: failedAt,
-          statusReason: _boundedGoalText('$error', _goalStatusReasonMaxChars),
+          statusReason: _boundedGoalText(
+            '$error',
+            aiSessionGoalStatusReasonMaxCharacters,
+          ),
         ),
       );
       final committed = await _commitSessionLocked(_rebuildSession(failed));
@@ -5772,7 +5773,7 @@ class AiSessionController extends ChangeNotifier {
           completedAt: completedAt,
           statusReason: _boundedGoalText(
             evaluation.summary,
-            _goalStatusReasonMaxChars,
+            aiSessionGoalStatusReasonMaxCharacters,
           ),
         ),
       );
@@ -5830,7 +5831,7 @@ class AiSessionController extends ChangeNotifier {
       (evaluation.followUpPrompt ?? '').trim().isEmpty
           ? _buildGoalFollowUpPrompt(goal)
           : evaluation.followUpPrompt!.trim(),
-      _goalEvaluationMaxFollowUpChars,
+      aiSessionGoalEvaluationFollowUpMaxCharacters,
     );
     final userMessageId = _idGenerator();
     final createdAt = _clock().toUtc();
@@ -5951,7 +5952,10 @@ class AiSessionController extends ChangeNotifier {
         roundIndex: goal.turnCount,
         passed: false,
         summary: 'Evaluator returned invalid JSON.',
-        rawResponse: _boundedGoalText(rawReply, _goalStatusReasonMaxChars),
+        rawResponse: _boundedGoalText(
+          rawReply,
+          aiSessionGoalEvaluationRawResponseMaxCharacters,
+        ),
         providerConfigId: evaluatorModel.id,
         modelId: evaluatorModel.modelId,
         modelLabel: evaluatorModel.displayName,
@@ -5968,19 +5972,35 @@ class AiSessionController extends ChangeNotifier {
       passed: passed,
       summary: summary.isEmpty
           ? (passed ? 'Goal is complete.' : 'Goal is not complete yet.')
-          : _boundedGoalText(summary, _goalStatusReasonMaxChars),
+          : _boundedGoalText(
+              summary,
+              aiSessionGoalEvaluationSummaryMaxCharacters,
+            ),
       confidence: _readGoalDouble(decoded['confidence']),
       followUpPrompt: _boundedGoalText(
         '${decoded['follow_up_prompt'] ?? ''}'.trim(),
-        _goalEvaluationMaxFollowUpChars,
+        aiSessionGoalEvaluationFollowUpMaxCharacters,
       ),
-      evidence: _readStringList(
-        decoded['evidence'],
-      ).map((item) => _boundedGoalText(item, 300)).toList(growable: false),
-      missing: _readStringList(
-        decoded['missing'],
-      ).map((item) => _boundedGoalText(item, 300)).toList(growable: false),
-      rawResponse: _boundedGoalText(rawReply, _goalStatusReasonMaxChars),
+      evidence: _readStringList(decoded['evidence'])
+          .map(
+            (item) => _boundedGoalText(
+              item,
+              aiSessionGoalEvaluationEvidenceMaxCharacters,
+            ),
+          )
+          .toList(growable: false),
+      missing: _readStringList(decoded['missing'])
+          .map(
+            (item) => _boundedGoalText(
+              item,
+              aiSessionGoalEvaluationEvidenceMaxCharacters,
+            ),
+          )
+          .toList(growable: false),
+      rawResponse: _boundedGoalText(
+        rawReply,
+        aiSessionGoalEvaluationRawResponseMaxCharacters,
+      ),
       providerConfigId: evaluatorModel.id,
       modelId: evaluatorModel.modelId,
       modelLabel: evaluatorModel.displayName,

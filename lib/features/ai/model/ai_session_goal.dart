@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import 'ai_token_usage.dart';
 
 const String aiSessionGoalStateMetadataKey = 'goal_state';
@@ -7,7 +8,17 @@ const int aiSessionGoalObjectiveMaxCharacters = 4000;
 const int aiSessionGoalDefaultMaxAutoTurns = 12;
 const int aiSessionGoalHardMaxAutoTurns = 60;
 const int aiSessionGoalMaxHistoryEntries = 20;
+const int aiSessionGoalMaxEvaluationEntries = aiSessionGoalHardMaxAutoTurns;
 const int aiSessionGoalEvaluationMaxEvidenceItems = 8;
+const int aiSessionGoalReferenceIdMaxCharacters = 256;
+const int aiSessionGoalModelFieldMaxCharacters = 512;
+const int aiSessionGoalStatusReasonMaxCharacters = 800;
+const int aiSessionGoalEvaluationSummaryMaxCharacters = 800;
+const int aiSessionGoalEvaluationFollowUpMaxCharacters = 1600;
+const int aiSessionGoalEvaluationEvidenceMaxCharacters = 300;
+const int aiSessionGoalEvaluationRawResponseMaxCharacters = 800;
+const int _aiSessionGoalEvaluationEvidenceScanLimit =
+    aiSessionGoalEvaluationMaxEvidenceItems * 5;
 const String aiSessionGoalIdMetadataKey = 'goal_id';
 const String aiSessionGoalObjectiveMetadataKey = 'goal_objective';
 const String aiSessionGoalEvaluationIdMetadataKey = 'goal_evaluation_id';
@@ -146,25 +157,48 @@ class AiSessionGoalEvaluationRecord {
     final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return null;
     final id = _goalString(json['id']);
-    if (id.isEmpty) return null;
+    if (id.isEmpty || id.length > aiSessionGoalReferenceIdMaxCharacters) {
+      return null;
+    }
     final now = DateTime.now().toUtc();
     final usageJson = optionalStringKeyedMapFromValue(json['usage']);
     return AiSessionGoalEvaluationRecord(
       id: id,
       createdAt: utcDateTimeFromValue(json['created_at']) ?? now,
-      roundIndex: _goalInt(json['round_index']) ?? 0,
+      roundIndex: nonNegativeIntFromValue(json['round_index'], fallback: 0),
       passed: json['passed'] == true,
-      summary: _goalString(json['summary']),
+      summary: _goalString(
+        json['summary'],
+        maxCharacters: aiSessionGoalEvaluationSummaryMaxCharacters,
+      ),
       confidence: _goalDouble(json['confidence']),
-      followUpPrompt: _goalNullableString(json['follow_up_prompt']),
+      followUpPrompt: _goalNullableString(
+        json['follow_up_prompt'],
+        maxCharacters: aiSessionGoalEvaluationFollowUpMaxCharacters,
+      ),
       evidence: _goalStringList(json['evidence']),
       missing: _goalStringList(json['missing']),
-      rawResponse: _goalNullableString(json['raw_response']),
-      providerConfigId: _goalNullableString(json['provider_config_id']),
-      modelId: _goalNullableString(json['model_id']),
-      modelLabel: _goalNullableString(json['model_label']),
+      rawResponse: _goalNullableString(
+        json['raw_response'],
+        maxCharacters: aiSessionGoalEvaluationRawResponseMaxCharacters,
+      ),
+      providerConfigId: _goalNullableString(
+        json['provider_config_id'],
+        maxCharacters: aiSessionGoalModelFieldMaxCharacters,
+      ),
+      modelId: _goalNullableString(
+        json['model_id'],
+        maxCharacters: aiSessionGoalModelFieldMaxCharacters,
+      ),
+      modelLabel: _goalNullableString(
+        json['model_label'],
+        maxCharacters: aiSessionGoalModelFieldMaxCharacters,
+      ),
       usage: usageJson == null ? null : AiTokenUsage.fromJson(usageJson),
-      error: _goalNullableString(json['error']),
+      error: _goalNullableString(
+        json['error'],
+        maxCharacters: aiSessionGoalStatusReasonMaxCharacters,
+      ),
     );
   }
 }
@@ -287,7 +321,10 @@ class AiSessionGoalRecord {
   }) {
     return copyWith(
       updatedAt: updatedAt,
-      evaluations: <AiSessionGoalEvaluationRecord>[...evaluations, evaluation],
+      evaluations: _retainRecentGoalItems(<AiSessionGoalEvaluationRecord>[
+        ...evaluations,
+        evaluation,
+      ], aiSessionGoalMaxEvaluationEntries),
     );
   }
 
@@ -314,7 +351,10 @@ class AiSessionGoalRecord {
     putIfNotBlank(json, 'status_reason', statusReason);
     putIfNotBlank(json, 'last_assistant_message_id', lastAssistantMessageId);
     putIfNotBlank(json, 'last_auto_user_message_id', lastAutoUserMessageId);
-    json['evaluations'] = evaluations.map((item) => item.toJson()).toList();
+    json['evaluations'] = _retainRecentGoalItems(
+      evaluations,
+      aiSessionGoalMaxEvaluationEntries,
+    ).map((item) => item.toJson()).toList(growable: false);
     return json;
   }
 
@@ -322,9 +362,20 @@ class AiSessionGoalRecord {
     final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return null;
     final id = _goalString(json['id']);
-    final objective = _goalString(json['objective']);
-    if (id.isEmpty || objective.isEmpty) return null;
+    final objective = _goalString(
+      json['objective'],
+      maxCharacters: aiSessionGoalObjectiveMaxCharacters,
+    );
+    if (id.isEmpty ||
+        id.length > aiSessionGoalReferenceIdMaxCharacters ||
+        objective.isEmpty) {
+      return null;
+    }
     final now = DateTime.now().toUtc();
+    final evaluationItems = _retainRecentGoalItems(
+      _goalList(json['evaluations']),
+      aiSessionGoalMaxEvaluationEntries,
+    );
     return AiSessionGoalRecord(
       id: id,
       objective: objective,
@@ -333,24 +384,36 @@ class AiSessionGoalRecord {
       updatedAt: utcDateTimeFromValue(json['updated_at']) ?? now,
       evaluatorProviderConfigId: _goalString(
         json['evaluator_provider_config_id'],
+        maxCharacters: aiSessionGoalModelFieldMaxCharacters,
       ),
-      evaluatorModelId: _goalString(json['evaluator_model_id']),
-      evaluatorModelLabel: _goalString(json['evaluator_model_label']),
+      evaluatorModelId: _goalString(
+        json['evaluator_model_id'],
+        maxCharacters: aiSessionGoalModelFieldMaxCharacters,
+      ),
+      evaluatorModelLabel: _goalString(
+        json['evaluator_model_label'],
+        maxCharacters: aiSessionGoalModelFieldMaxCharacters,
+      ),
       maxTurns: _positiveGoalInt(json['max_turns']),
       tokenBudget: _positiveGoalInt(json['token_budget']),
-      turnCount: _goalInt(json['turn_count']) ?? 0,
-      tokensUsed: _goalInt(json['tokens_used']) ?? 0,
+      turnCount: nonNegativeIntFromValue(json['turn_count'], fallback: 0),
+      tokensUsed: nonNegativeIntFromValue(json['tokens_used'], fallback: 0),
       completedAt: utcDateTimeFromValue(json['completed_at']),
       pausedAt: utcDateTimeFromValue(json['paused_at']),
       terminatedAt: utcDateTimeFromValue(json['terminated_at']),
-      statusReason: _goalNullableString(json['status_reason']),
+      statusReason: _goalNullableString(
+        json['status_reason'],
+        maxCharacters: aiSessionGoalStatusReasonMaxCharacters,
+      ),
       lastAssistantMessageId: _goalNullableString(
         json['last_assistant_message_id'],
+        maxCharacters: aiSessionGoalReferenceIdMaxCharacters,
       ),
       lastAutoUserMessageId: _goalNullableString(
         json['last_auto_user_message_id'],
+        maxCharacters: aiSessionGoalReferenceIdMaxCharacters,
       ),
-      evaluations: _goalList(json['evaluations'])
+      evaluations: evaluationItems
           .map(AiSessionGoalEvaluationRecord.fromJson)
           .whereType<AiSessionGoalEvaluationRecord>()
           .toList(growable: false),
@@ -387,12 +450,11 @@ class AiSessionGoalState {
   }
 
   AiSessionGoalState archiveCurrent(AiSessionGoalRecord goal) {
-    final retained = <AiSessionGoalRecord>[...history, goal];
-    final overflow = retained.length - aiSessionGoalMaxHistoryEntries;
     return AiSessionGoalState(
-      history: List<AiSessionGoalRecord>.unmodifiable(
-        overflow > 0 ? retained.skip(overflow) : retained,
-      ),
+      history: _retainRecentGoalItems(<AiSessionGoalRecord>[
+        ...history,
+        goal,
+      ], aiSessionGoalMaxHistoryEntries),
     );
   }
 
@@ -400,7 +462,10 @@ class AiSessionGoalState {
     return <String, Object?>{
       'schema_version': aiSessionGoalStateSchemaVersion,
       'current': current?.toJson(),
-      'history': history.map((item) => item.toJson()).toList(),
+      'history': _retainRecentGoalItems(
+        history,
+        aiSessionGoalMaxHistoryEntries,
+      ).map((item) => item.toJson()).toList(growable: false),
     };
   }
 
@@ -417,9 +482,13 @@ class AiSessionGoalState {
   static AiSessionGoalState fromJson(Object? raw) {
     final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return empty;
+    final historyItems = _retainRecentGoalItems(
+      _goalList(json['history']),
+      aiSessionGoalMaxHistoryEntries,
+    );
     return AiSessionGoalState(
       current: AiSessionGoalRecord.fromJson(json['current']),
-      history: _goalList(json['history'])
+      history: historyItems
           .map(AiSessionGoalRecord.fromJson)
           .whereType<AiSessionGoalRecord>()
           .toList(growable: false),
@@ -460,12 +529,15 @@ class AiSessionGoalStartOptions {
     if (json == null) return null;
     final evaluatorProviderConfigId = _goalString(
       json['evaluator_provider_config_id'] ?? json['provider_config_id'],
+      maxCharacters: aiSessionGoalModelFieldMaxCharacters,
     );
     final evaluatorModelId = _goalString(
       json['evaluator_model_id'] ?? json['model_id'],
+      maxCharacters: aiSessionGoalModelFieldMaxCharacters,
     );
     final evaluatorModelLabel = _goalString(
       json['evaluator_model_label'] ?? json['model_label'],
+      maxCharacters: aiSessionGoalModelFieldMaxCharacters,
     );
     if (evaluatorProviderConfigId.isEmpty || evaluatorModelId.isEmpty) {
       return null;
@@ -499,14 +571,17 @@ List<Object?> _goalList(Object? value) {
   return const <Object?>[];
 }
 
-String _goalString(Object? value) {
+String _goalString(Object? value, {int? maxCharacters}) {
   if (value == null) return '';
   final text = '$value'.trim();
-  return text == 'null' ? '' : text;
+  if (text == 'null') return '';
+  return maxCharacters == null
+      ? text
+      : clipTextByCodeUnits(text, maxCharacters, suffix: '…');
 }
 
-String? _goalNullableString(Object? value) {
-  final text = _goalString(value);
+String? _goalNullableString(Object? value, {int? maxCharacters}) {
+  final text = _goalString(value, maxCharacters: maxCharacters);
   return text.isEmpty ? null : text;
 }
 
@@ -527,9 +602,22 @@ double? _goalDouble(Object? value) {
 }
 
 List<String> _goalStringList(Object? value) {
-  return _goalList(value)
-      .map((item) => _goalString(item))
-      .where((item) => item.isNotEmpty)
-      .take(aiSessionGoalEvaluationMaxEvidenceItems)
-      .toList(growable: false);
+  final items = <String>[];
+  for (final item in _goalList(
+    value,
+  ).take(_aiSessionGoalEvaluationEvidenceScanLimit)) {
+    final text = _goalString(
+      item,
+      maxCharacters: aiSessionGoalEvaluationEvidenceMaxCharacters,
+    );
+    if (text.isEmpty) continue;
+    items.add(text);
+    if (items.length >= aiSessionGoalEvaluationMaxEvidenceItems) break;
+  }
+  return items.toList(growable: false);
+}
+
+List<T> _retainRecentGoalItems<T>(List<T> items, int limit) {
+  final start = items.length > limit ? items.length - limit : 0;
+  return List<T>.unmodifiable(items.skip(start));
 }
