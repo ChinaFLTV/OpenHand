@@ -12,6 +12,7 @@ enum AppSection {
   pluginService,
   knowledgeBase,
   agents,
+  services,
   settings,
   harnessSession,
 }

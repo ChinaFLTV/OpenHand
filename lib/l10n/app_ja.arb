@@ -7118,6 +7118,46 @@
       }
     }
   },
+  "servicesTitle": "サービス",
+  "@servicesTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesSubtitle": "明確な目標に集中する、OpenHand 管理のプリセット AI サービスです。",
+  "@servicesSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesBuiltinBadge": "システム標準",
+  "@servicesBuiltinBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerTitle": "AI Jungler",
+  "@servicesAiJunglerTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerDescription": "目標周辺のコンテキストを能動的に探索し、進行ルートを計画して、障害を継続的に解消するようエージェントを連携させます。",
+  "@servicesAiJunglerDescription": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesCapabilitiesLabel": "コア機能",
+  "@servicesCapabilitiesLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerScout": "能動的な探索",
+  "@servicesAiJunglerScout": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerPlan": "ルート計画",
+  "@servicesAiJunglerPlan": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerCoordinate": "協調推進",
+  "@servicesAiJunglerCoordinate": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesManagedHint": "安定した一貫性を保つため、設定はシステムが一元管理します。",
+  "@servicesManagedHint": {
+    "description": "OpenHand localized UI text."
+  },
   "agentsTitle": "エージェント",
   "@agentsTitle": {
     "description": "OpenHand localized UI text."

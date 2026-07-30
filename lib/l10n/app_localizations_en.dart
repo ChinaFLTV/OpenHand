@@ -9581,6 +9581,39 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get servicesTitle => 'Services';
+
+  @override
+  String get servicesSubtitle =>
+      'Explore goal-focused AI services preconfigured and maintained by OpenHand.';
+
+  @override
+  String get servicesBuiltinBadge => 'Built in';
+
+  @override
+  String get servicesAiJunglerTitle => 'AI Jungler';
+
+  @override
+  String get servicesAiJunglerDescription =>
+      'Scouts context around a goal, plans the route forward, and coordinates agents to clear blockers continuously.';
+
+  @override
+  String get servicesCapabilitiesLabel => 'Core capabilities';
+
+  @override
+  String get servicesAiJunglerScout => 'Proactive scouting';
+
+  @override
+  String get servicesAiJunglerPlan => 'Route planning';
+
+  @override
+  String get servicesAiJunglerCoordinate => 'Coordinated delivery';
+
+  @override
+  String get servicesManagedHint =>
+      'Configuration is maintained by the system for consistent operation.';
+
+  @override
   String get agentsTitle => 'Agents';
 
   @override

@@ -16866,6 +16866,66 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
+  /// **'服务'**
+  String get servicesTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'聚合由 OpenHand 统一维护的预置 AI 服务，专注完成明确目标。'**
+  String get servicesSubtitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统预置'**
+  String get servicesBuiltinBadge;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI打野'**
+  String get servicesAiJunglerTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'围绕目标主动侦察上下文、规划推进路线，并协调智能体持续消除阻塞。'**
+  String get servicesAiJunglerDescription;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'核心能力'**
+  String get servicesCapabilitiesLabel;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'主动侦察'**
+  String get servicesAiJunglerScout;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'路线规划'**
+  String get servicesAiJunglerPlan;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'协同推进'**
+  String get servicesAiJunglerCoordinate;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置由系统统一维护，保持稳定一致。'**
+  String get servicesManagedHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh, this message translates to:
   /// **'智能体'**
   String get agentsTitle;
 

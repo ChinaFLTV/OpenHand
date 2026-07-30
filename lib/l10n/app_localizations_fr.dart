@@ -9704,6 +9704,39 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get servicesTitle => 'Services';
+
+  @override
+  String get servicesSubtitle =>
+      'Explorez les services d’IA préconfigurés et gérés par OpenHand pour atteindre des objectifs précis.';
+
+  @override
+  String get servicesBuiltinBadge => 'Intégré';
+
+  @override
+  String get servicesAiJunglerTitle => 'AI Jungler';
+
+  @override
+  String get servicesAiJunglerDescription =>
+      'Explore le contexte d’un objectif, planifie la progression et coordonne les agents pour lever les blocages en continu.';
+
+  @override
+  String get servicesCapabilitiesLabel => 'Capacités clés';
+
+  @override
+  String get servicesAiJunglerScout => 'Exploration proactive';
+
+  @override
+  String get servicesAiJunglerPlan => 'Planification du parcours';
+
+  @override
+  String get servicesAiJunglerCoordinate => 'Progression coordonnée';
+
+  @override
+  String get servicesManagedHint =>
+      'La configuration est gérée par le système pour garantir un fonctionnement cohérent.';
+
+  @override
   String get agentsTitle => 'Agents';
 
   @override

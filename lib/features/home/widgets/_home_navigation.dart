@@ -656,6 +656,11 @@ const List<_NavigationDestinationSpec> _kSystemNavigationDestinations =
         selectedIcon: Icons.smart_toy_rounded,
       ),
       _NavigationDestinationSpec(
+        section: AppSection.services,
+        icon: Icons.auto_awesome_mosaic_outlined,
+        selectedIcon: Icons.auto_awesome_mosaic_rounded,
+      ),
+      _NavigationDestinationSpec(
         section: AppSection.settings,
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings_rounded,
@@ -816,6 +821,7 @@ String _navigationDestinationLabel(BuildContext context, AppSection section) {
     AppSection.pluginService => _homePluginsLabel(context),
     AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
     AppSection.agents => _homeAgentsLabel(context),
+    AppSection.services => l10n.servicesTitle,
     AppSection.settings => l10n.settings,
     AppSection.workspace || AppSection.harnessSession => '',
   };

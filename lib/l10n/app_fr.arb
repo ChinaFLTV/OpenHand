@@ -7118,6 +7118,46 @@
       }
     }
   },
+  "servicesTitle": "Services",
+  "@servicesTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesSubtitle": "Explorez les services d’IA préconfigurés et gérés par OpenHand pour atteindre des objectifs précis.",
+  "@servicesSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesBuiltinBadge": "Intégré",
+  "@servicesBuiltinBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerTitle": "AI Jungler",
+  "@servicesAiJunglerTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerDescription": "Explore le contexte d’un objectif, planifie la progression et coordonne les agents pour lever les blocages en continu.",
+  "@servicesAiJunglerDescription": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesCapabilitiesLabel": "Capacités clés",
+  "@servicesCapabilitiesLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerScout": "Exploration proactive",
+  "@servicesAiJunglerScout": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerPlan": "Planification du parcours",
+  "@servicesAiJunglerPlan": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerCoordinate": "Progression coordonnée",
+  "@servicesAiJunglerCoordinate": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesManagedHint": "La configuration est gérée par le système pour garantir un fonctionnement cohérent.",
+  "@servicesManagedHint": {
+    "description": "OpenHand localized UI text."
+  },
   "agentsTitle": "Agents",
   "@agentsTitle": {
     "description": "OpenHand localized UI text."

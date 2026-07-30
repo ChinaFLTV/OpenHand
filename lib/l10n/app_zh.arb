@@ -7185,6 +7185,46 @@
       }
     }
   },
+  "servicesTitle": "服务",
+  "@servicesTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesSubtitle": "聚合由 OpenHand 统一维护的预置 AI 服务，专注完成明确目标。",
+  "@servicesSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesBuiltinBadge": "系统预置",
+  "@servicesBuiltinBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerTitle": "AI打野",
+  "@servicesAiJunglerTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerDescription": "围绕目标主动侦察上下文、规划推进路线，并协调智能体持续消除阻塞。",
+  "@servicesAiJunglerDescription": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesCapabilitiesLabel": "核心能力",
+  "@servicesCapabilitiesLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerScout": "主动侦察",
+  "@servicesAiJunglerScout": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerPlan": "路线规划",
+  "@servicesAiJunglerPlan": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesAiJunglerCoordinate": "协同推进",
+  "@servicesAiJunglerCoordinate": {
+    "description": "OpenHand localized UI text."
+  },
+  "servicesManagedHint": "配置由系统统一维护，保持稳定一致。",
+  "@servicesManagedHint": {
+    "description": "OpenHand localized UI text."
+  },
   "agentsTitle": "智能体",
   "@agentsTitle": {
     "description": "OpenHand localized UI text."

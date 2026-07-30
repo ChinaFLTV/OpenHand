@@ -148,6 +148,7 @@ import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../message_gateway/index.dart';
 import '../plugin_service/index.dart';
+import '../services/index.dart';
 import '../settings/index.dart';
 import '../skills/index.dart';
 import '../thread_template_runtime/index.dart';
@@ -7882,6 +7883,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.pluginService => _homePluginsLabel(context),
       AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
       AppSection.agents => _homeAgentsLabel(context),
+      AppSection.services => AppLocalizations.of(context)!.servicesTitle,
       AppSection.settings => openHandLocalizedText(
         context,
         zh: '设置',
@@ -9674,6 +9676,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onOpenPlugins: () => _selectSection(AppSection.pluginService),
       ),
       AppSection.agents => const AgentsView(),
+      AppSection.services => const ServicesView(),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,
         child: const SettingsView(),

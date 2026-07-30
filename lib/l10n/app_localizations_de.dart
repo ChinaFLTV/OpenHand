@@ -9672,6 +9672,39 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get servicesTitle => 'Dienste';
+
+  @override
+  String get servicesSubtitle =>
+      'Entdecken Sie vorkonfigurierte und von OpenHand verwaltete KI-Dienste für klare Ziele.';
+
+  @override
+  String get servicesBuiltinBadge => 'Integriert';
+
+  @override
+  String get servicesAiJunglerTitle => 'AI Jungler';
+
+  @override
+  String get servicesAiJunglerDescription =>
+      'Erkundet den Kontext eines Ziels, plant den Weg und koordiniert Agenten, um Blockaden fortlaufend zu beseitigen.';
+
+  @override
+  String get servicesCapabilitiesLabel => 'Kernfunktionen';
+
+  @override
+  String get servicesAiJunglerScout => 'Proaktive Erkundung';
+
+  @override
+  String get servicesAiJunglerPlan => 'Routenplanung';
+
+  @override
+  String get servicesAiJunglerCoordinate => 'Koordinierte Umsetzung';
+
+  @override
+  String get servicesManagedHint =>
+      'Die Konfiguration wird für einen einheitlichen Betrieb vom System verwaltet.';
+
+  @override
   String get agentsTitle => 'Agenten';
 
   @override

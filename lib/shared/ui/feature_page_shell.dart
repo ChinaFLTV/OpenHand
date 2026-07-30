@@ -13,7 +13,7 @@ class FeaturePageShell extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.actions,
+    this.actions,
     required this.body,
     this.successSignal,
     this.notices = const <Widget>[],
@@ -25,7 +25,7 @@ class FeaturePageShell extends StatelessWidget {
 
   final String title;
   final String subtitle;
-  final Widget actions;
+  final Widget? actions;
   final Widget body;
   final ValueListenable<int>? successSignal;
   final List<Widget> notices;
@@ -63,6 +63,8 @@ class FeaturePageShell extends StatelessWidget {
                   title: title,
                   subtitle: subtitle,
                 );
+                final actions = this.actions;
+                if (actions == null) return header;
                 if (stacked) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

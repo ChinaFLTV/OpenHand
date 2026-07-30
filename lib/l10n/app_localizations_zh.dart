@@ -9270,6 +9270,36 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get servicesTitle => '服务';
+
+  @override
+  String get servicesSubtitle => '聚合由 OpenHand 统一维护的预置 AI 服务，专注完成明确目标。';
+
+  @override
+  String get servicesBuiltinBadge => '系统预置';
+
+  @override
+  String get servicesAiJunglerTitle => 'AI打野';
+
+  @override
+  String get servicesAiJunglerDescription => '围绕目标主动侦察上下文、规划推进路线，并协调智能体持续消除阻塞。';
+
+  @override
+  String get servicesCapabilitiesLabel => '核心能力';
+
+  @override
+  String get servicesAiJunglerScout => '主动侦察';
+
+  @override
+  String get servicesAiJunglerPlan => '路线规划';
+
+  @override
+  String get servicesAiJunglerCoordinate => '协同推进';
+
+  @override
+  String get servicesManagedHint => '配置由系统统一维护，保持稳定一致。';
+
+  @override
   String get agentsTitle => '智能体';
 
   @override
@@ -19926,6 +19956,36 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseSnippetsNewName(String time) {
     return '脚本 $time';
   }
+
+  @override
+  String get servicesTitle => '服務';
+
+  @override
+  String get servicesSubtitle => '彙整由 OpenHand 統一維護的預置 AI 服務，專注完成明確目標。';
+
+  @override
+  String get servicesBuiltinBadge => '系統預置';
+
+  @override
+  String get servicesAiJunglerTitle => 'AI打野';
+
+  @override
+  String get servicesAiJunglerDescription => '圍繞目標主動偵察上下文、規劃推進路線，並協調智慧體持續消除阻塞。';
+
+  @override
+  String get servicesCapabilitiesLabel => '核心能力';
+
+  @override
+  String get servicesAiJunglerScout => '主動偵察';
+
+  @override
+  String get servicesAiJunglerPlan => '路線規劃';
+
+  @override
+  String get servicesAiJunglerCoordinate => '協同推進';
+
+  @override
+  String get servicesManagedHint => '設定由系統統一維護，保持穩定一致。';
 
   @override
   String get agentsTitle => '智慧體';

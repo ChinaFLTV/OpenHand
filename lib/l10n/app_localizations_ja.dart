@@ -9386,6 +9386,37 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get servicesTitle => 'サービス';
+
+  @override
+  String get servicesSubtitle => '明確な目標に集中する、OpenHand 管理のプリセット AI サービスです。';
+
+  @override
+  String get servicesBuiltinBadge => 'システム標準';
+
+  @override
+  String get servicesAiJunglerTitle => 'AI Jungler';
+
+  @override
+  String get servicesAiJunglerDescription =>
+      '目標周辺のコンテキストを能動的に探索し、進行ルートを計画して、障害を継続的に解消するようエージェントを連携させます。';
+
+  @override
+  String get servicesCapabilitiesLabel => 'コア機能';
+
+  @override
+  String get servicesAiJunglerScout => '能動的な探索';
+
+  @override
+  String get servicesAiJunglerPlan => 'ルート計画';
+
+  @override
+  String get servicesAiJunglerCoordinate => '協調推進';
+
+  @override
+  String get servicesManagedHint => '安定した一貫性を保つため、設定はシステムが一元管理します。';
+
+  @override
   String get agentsTitle => 'エージェント';
 
   @override
