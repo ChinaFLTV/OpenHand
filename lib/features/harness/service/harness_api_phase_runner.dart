@@ -706,10 +706,12 @@ class HarnessApiPhaseRunner {
           );
 
           final toolOutput = result.toToolOutput();
-          // Show abbreviated tool output in the log.
-          final outputPreview = toolOutput.length > 500
-              ? '${toolOutput.substring(0, 500)}… (${toolOutput.length} chars)'
-              : toolOutput;
+          // 日志仅展示有界工具输出，完整结果仍进入会话。
+          final outputPreview = clipTextByCodeUnits(
+            toolOutput,
+            500,
+            suffix: '…（共 ${toolOutput.length} 个字符）',
+          );
           if (outputPreview.isNotEmpty) {
             for (final line in outputPreview.split('\n')) {
               emit('  $line');
@@ -1176,7 +1178,13 @@ class HarnessApiPhaseRunner {
 
       final content = turn.content;
       if (turn.role == AiChatRole.tool && content.length > 2000) {
-        sb.writeln('${content.substring(0, 2000)}…（共 ${content.length} 个字符）');
+        sb.writeln(
+          clipTextByCodeUnits(
+            content,
+            2000,
+            suffix: '…（共 ${content.length} 个字符）',
+          ),
+        );
       } else {
         sb.writeln(content);
       }

@@ -511,8 +511,12 @@ class AiToolUtils {
         .toList(growable: false);
   }
 
-  static String truncateContent(String content, int maxCharacters) {
-    return clipText(content, maxCharacters);
+  static String truncateContent(
+    String content,
+    int maxCharacters, {
+    String suffix = '...',
+  }) {
+    return clipTextByCodeUnits(content, maxCharacters, suffix: suffix);
   }
 
   static String htmlToText(String html) {

@@ -134,12 +134,11 @@ class AiReadLintsTool extends AiTool {
     final output = combined.join('\n').trimRight();
     if (output.isEmpty) return '(no diagnostics found — all clean)';
 
-    // Truncate if too large
-    if (output.length > AiToolUtils.maxSearchOutputCharacters) {
-      return '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}\n'
-          '... (diagnostics truncated)';
-    }
-    return output;
+    return AiToolUtils.truncateContent(
+      output,
+      AiToolUtils.maxSearchOutputCharacters,
+      suffix: '\n...（诊断输出已截断）',
+    );
   }
 
   String _resolveAnalyzePath(String path, String workingDirectory) {

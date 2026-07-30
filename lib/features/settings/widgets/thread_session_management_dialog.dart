@@ -21,6 +21,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 
@@ -730,9 +731,11 @@ class _ThreadSessionManagementDialogState
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final m = tail[index];
-                        final preview = m.content.length > 320
-                            ? '${m.content.substring(0, 320)}…'
-                            : m.content;
+                        final preview = clipTextByCodeUnits(
+                          m.content,
+                          320,
+                          suffix: '…',
+                        );
                         return Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(

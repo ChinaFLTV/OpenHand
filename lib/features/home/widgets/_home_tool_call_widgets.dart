@@ -3151,8 +3151,7 @@ String? _summarizeArgumentValue(Object? value) {
   final flat = collapseInlineWhitespace(raw);
   if (flat.isEmpty) return null;
   const maxLen = 16;
-  if (flat.length <= maxLen) return flat;
-  return '${flat.substring(0, maxLen)}…';
+  return clipTextByCodeUnits(flat, maxLen, suffix: '…');
 }
 
 String _toolCallStatusLabelForData(
@@ -3908,13 +3907,10 @@ class _SelfLearningMarkdown extends StatelessWidget {
   }
 }
 
-/// Returns a compact single-line preview of [text] suitable for a card
-/// collapsed header — trims whitespace, collapses newlines and truncates
-/// past 120 characters.
+/// 生成折叠卡片标题使用的单行预览，超过 120 个代码单元时截断。
 String _previewText(String text) {
   final collapsed = collapseInlineWhitespace(text);
-  if (collapsed.length <= 120) return collapsed;
-  return '${collapsed.substring(0, 117)}…';
+  return clipTextByCodeUnits(collapsed, 120, suffix: '…');
 }
 
 /// Header row for the self-learning card. Intentionally matches the visual

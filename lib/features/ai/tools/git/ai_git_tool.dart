@@ -236,11 +236,10 @@ class AiGitTool extends AiTool {
       );
     }
     if (stdout.isEmpty) return '(no output)';
-    // Truncate very large output
-    if (stdout.length > AiToolUtils.maxSearchOutputCharacters) {
-      return '${stdout.substring(0, AiToolUtils.maxSearchOutputCharacters)}\n'
-          '... (output truncated at ${AiToolUtils.maxSearchOutputCharacters} characters)';
-    }
-    return stdout;
+    return AiToolUtils.truncateContent(
+      stdout,
+      AiToolUtils.maxSearchOutputCharacters,
+      suffix: '\n...（输出已截断，上限 ${AiToolUtils.maxSearchOutputCharacters} 个字符）',
+    );
   }
 }

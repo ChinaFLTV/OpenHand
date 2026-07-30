@@ -345,7 +345,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
       _HeMarkdownContent._previewChars,
     );
     final end = cut > 0 ? cut : _HeMarkdownContent._previewChars;
-    return '${widget.content.substring(0, end)}…';
+    return clipTextByCodeUnits(widget.content, end, suffix: '…');
   }
 
   @override

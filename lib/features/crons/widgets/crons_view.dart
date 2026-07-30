@@ -23,6 +23,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
@@ -3396,7 +3397,11 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
     final exceeds = body.length > _CollapsibleLongText._previewChars;
     final shown = (_expanded || !exceeds)
         ? body
-        : '${body.substring(0, _CollapsibleLongText._previewChars)}…';
+        : clipTextByCodeUnits(
+            body,
+            _CollapsibleLongText._previewChars,
+            suffix: '…',
+          );
     final l10n = AppLocalizations.of(context)!;
 
     final bodyTextColor = widget.subdued

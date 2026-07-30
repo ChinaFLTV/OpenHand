@@ -110,9 +110,10 @@ class _WriteCommandConfirmationDialogState
     final command = widget.request.command.trim();
     final firstLine = command.split('\n').first;
     if (firstLine.length > 120) {
-      return '${firstLine.substring(0, 120)}... [omitted ${command.length - 120} chars]';
+      final preview = clipTextByCodeUnits(firstLine, 120, suffix: '');
+      return '$preview... [已省略 ${command.length - preview.length} 个字符]';
     }
-    return '$firstLine\n... [omitted ${command.length - firstLine.length} chars]';
+    return '$firstLine\n... [已省略 ${command.length - firstLine.length} 个字符]';
   }
 
   void _closeWith(BashCommandApprovalDecision decision) {

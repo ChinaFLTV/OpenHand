@@ -3708,8 +3708,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final value = prompt?.trim();
     if (value == null || value.isEmpty) return null;
     const maxChars = 4000;
-    if (value.length <= maxChars) return value;
-    return '${value.substring(0, maxChars)}\n...';
+    return clipTextByCodeUnits(value, maxChars, suffix: '\n...');
   }
 
   String? _androidReverseInitialPackageFromPrompt(String? prompt) {
@@ -5240,8 +5239,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static String _harnessTitleFromTask(String task) {
     final firstLine =
         splitTrimmedNonEmpty(task, separator: '\n').firstOrNull ?? task.trim();
-    if (firstLine.length <= 45) return firstLine;
-    return '${firstLine.substring(0, 45)}…';
+    return clipTextByCodeUnits(firstLine, 45, suffix: '…');
   }
 
   Future<void> _generateHarnessAutoTitle(

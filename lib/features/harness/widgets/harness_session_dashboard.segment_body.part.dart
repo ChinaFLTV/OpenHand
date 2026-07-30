@@ -199,7 +199,7 @@ class _HeSegmentBody extends StatelessWidget {
     if (expanded) return content;
     final cut = content.lastIndexOf(RegExp(r'\s'), _previewChars);
     final end = cut > 0 ? cut : _previewChars;
-    return '${content.substring(0, end.clamp(0, content.length))}…';
+    return clipTextByCodeUnits(content, end, suffix: '…');
   }
 
   @override

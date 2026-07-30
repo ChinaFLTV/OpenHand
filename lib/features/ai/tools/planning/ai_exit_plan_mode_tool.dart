@@ -1,4 +1,5 @@
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_session.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -185,9 +186,11 @@ class AiExitPlanModeTool extends AiTool {
               'ExitPlanMode allowed_prompts item #$i must describe a semantic Bash action category, not a concrete shell command.',
         );
       }
-      final boundedPrompt = prompt.length <= _maxAllowedPromptChars
-          ? prompt
-          : prompt.substring(0, _maxAllowedPromptChars);
+      final boundedPrompt = clipTextByCodeUnits(
+        prompt,
+        _maxAllowedPromptChars,
+        suffix: '',
+      );
       final key = '$tool\u0000$boundedPrompt';
       if (!seen.add(key)) {
         continue;

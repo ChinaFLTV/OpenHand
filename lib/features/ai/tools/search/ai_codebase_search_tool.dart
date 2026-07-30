@@ -102,11 +102,11 @@ class AiCodebaseSearchTool extends AiTool {
       }
 
       var output = buffer.toString().trimRight();
-      if (output.length > AiToolUtils.maxSearchOutputCharacters) {
-        output =
-            '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}\n'
-            '... (results truncated)';
-      }
+      output = AiToolUtils.truncateContent(
+        output,
+        AiToolUtils.maxSearchOutputCharacters,
+        suffix: '\n...（搜索结果已截断）',
+      );
 
       return AiToolUtils.simpleSuccessResult(
         command: 'CodebaseSearch',

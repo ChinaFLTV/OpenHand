@@ -3549,7 +3549,11 @@ int _countPatternMatchesUpTo(RegExp pattern, String value, int limit) {
 String _htmlPlainTextPreview(String html) {
   if (html.isEmpty) return '';
   final source = html.length > _htmlProgressiveRenderPreviewScanCharCap
-      ? html.substring(0, _htmlProgressiveRenderPreviewScanCharCap)
+      ? clipTextByCodeUnits(
+          html,
+          _htmlProgressiveRenderPreviewScanCharCap,
+          suffix: '',
+        )
       : html;
   var text = source
       .replaceAll(_htmlPreviewRawTextElementPattern, ' ')
@@ -3565,14 +3569,20 @@ String _htmlPlainTextPreview(String html) {
     if (fallback.length <= _htmlProgressiveRenderPreviewCharCap) {
       return fallback;
     }
-    return fallback
-        .substring(0, _htmlProgressiveRenderPreviewCharCap)
-        .trimRight();
+    return clipTextByCodeUnits(
+      fallback,
+      _htmlProgressiveRenderPreviewCharCap,
+      suffix: '',
+    ).trimRight();
   }
   if (text.length <= _htmlProgressiveRenderPreviewCharCap) {
     return text;
   }
-  return text.substring(0, _htmlProgressiveRenderPreviewCharCap).trimRight();
+  return clipTextByCodeUnits(
+    text,
+    _htmlProgressiveRenderPreviewCharCap,
+    suffix: '',
+  ).trimRight();
 }
 
 String _decodeBasicHtmlEntities(String value) {

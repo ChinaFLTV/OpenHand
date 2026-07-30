@@ -1797,9 +1797,9 @@ class _AuditMessageRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final snippet = message.content.trim();
-    final preview = snippet.length > 140
-        ? '${snippet.substring(0, 140)}…'
-        : (snippet.isEmpty ? '—' : snippet);
+    final preview = snippet.isEmpty
+        ? '—'
+        : clipTextByCodeUnits(snippet, 140, suffix: '…');
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),

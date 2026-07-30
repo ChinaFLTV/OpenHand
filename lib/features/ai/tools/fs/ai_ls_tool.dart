@@ -58,11 +58,11 @@ class AiLsTool extends AiTool {
       output +=
           '\n(Directory listing truncated at $_maxDirectoryEntries entries.)';
     }
-    if (output.length > AiToolUtils.maxSearchOutputCharacters) {
-      output =
-          '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}\n'
-          '... (output truncated)';
-    }
+    output = AiToolUtils.truncateContent(
+      output,
+      AiToolUtils.maxSearchOutputCharacters,
+      suffix: '\n...（输出已截断）',
+    );
     return AiToolUtils.simpleSuccessResult(
       command: 'LS $path',
       output: output,

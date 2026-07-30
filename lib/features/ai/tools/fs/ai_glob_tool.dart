@@ -121,11 +121,11 @@ class AiGlobTool extends AiTool {
       output +=
           '\n(Directory scan reached its safety limit. Use a narrower path.)';
     }
-    if (output.length > AiToolUtils.maxSearchOutputCharacters) {
-      output =
-          '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}\n'
-          '... (output truncated)';
-    }
+    output = AiToolUtils.truncateContent(
+      output,
+      AiToolUtils.maxSearchOutputCharacters,
+      suffix: '\n...（输出已截断）',
+    );
     return AiToolUtils.simpleSuccessResult(
       command: 'Glob $pattern',
       output: output,

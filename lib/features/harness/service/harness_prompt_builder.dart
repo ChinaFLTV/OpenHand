@@ -1,6 +1,7 @@
 // Harness Engineering 提示词构建器：负责压缩工具目录、按阶段过滤工具，
 // 并为不支持原生工具调用的模型补充 XML 调用格式。
 
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/harness_phase.dart';
 import '../model/harness_tool_affinity.dart';
@@ -238,7 +239,12 @@ class HarnessPromptBuilder {
     }
 
     if (keyPoints.isEmpty) {
-      return '${fullLessonsContent.substring(0, _lessonsFallbackCharacters).trimRight()}…\n\n（经验教训已压缩；完整内容见 steering/lesson/ 目录）';
+      final preview = clipTextByCodeUnits(
+        fullLessonsContent,
+        _lessonsFallbackCharacters,
+        suffix: '…',
+      ).trimRight();
+      return '$preview\n\n（经验教训已压缩；完整内容见 steering/lesson/ 目录）';
     }
 
     return '## 经验教训摘要\n\n${keyPoints.join('\n')}\n\n（完整经验教训见 steering/lesson/ 目录）';
@@ -267,11 +273,7 @@ class HarnessPromptBuilder {
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll(RegExp(r'\.\s*\.'), '.');
 
-    if (normalized.length <= maxChars) {
-      return normalized;
-    }
-
-    return '${normalized.substring(0, maxChars).trimRight()}…';
+    return clipTextByCodeUnits(normalized, maxChars, suffix: '…').trimRight();
   }
 
   List<String> _extractRequiredArgs(Map<String, Object?> parameters) {
