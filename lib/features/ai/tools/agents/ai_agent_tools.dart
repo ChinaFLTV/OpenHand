@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../agents/index.dart';
@@ -34,6 +35,13 @@ const int _agentTaskMaxResultWaitMs = 90000;
 const int _agentTaskMinPollMs = 300;
 const int _agentWorkerMaxToolRounds = 8;
 const int _agentWorkerResultMaxChars = 24000;
+const int _agentListDefaultLimit = 100;
+const int _agentListMaxLimit = 500;
+const int _agentDetailDefaultLimit = 50;
+const int _agentDetailMaxLimit = 200;
+const int _agentToolResultMaxNodes = 50000;
+const int _agentToolResultMaxStringChars = 120000;
+const int _agentToolResultMaxTotalStringChars = 120000;
 const Duration _agentWorkerTurnTimeout = Duration(seconds: 75);
 const String _agentTaskAutoWorkerToolName = 'AgentWorker';
 const String _agentTaskAutoExecuteExtraKey = 'agent_auto_execute';
@@ -62,6 +70,27 @@ const Set<AiBuiltinToolKind> _agentWorkerBlockedBuiltinKinds =
       AiBuiltinToolKind.askUserChoice,
       ...aiAgentBuiltinToolKinds,
     };
+const Set<String> _agentToolSensitivePromptKeys = <String>{
+  agentSystemPromptMetadataKey,
+  'rendered_prompt',
+  'system_prompt',
+  'developer_prompt',
+  'hidden_prompt',
+};
+const BoundedJsonConversionConfig _agentToolResultConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 24,
+      maxContainerItems: _agentListMaxLimit,
+      maxTotalNodes: _agentToolResultMaxNodes,
+      maxStringCodeUnits: _agentToolResultMaxStringChars,
+      maxTotalStringCodeUnits: _agentToolResultMaxTotalStringChars,
+      truncatedStringSuffix: '...[已截断]',
+      mapValueTransformer: _redactAgentToolPromptValue,
+      maxDepthPlaceholder: '<层级过深>',
+      cyclicMapPlaceholder: '<循环映射>',
+      cyclicIterablePlaceholder: '<循环集合>',
+      truncatedPlaceholder: '<已截断>',
+    );
 
 /// 数字员工 worker 的默认工具：只读集合再加上知识库检索。
 const Set<AiBuiltinToolKind> _agentWorkerDefaultBuiltinKinds =
@@ -480,9 +509,16 @@ class AiAgentTool extends AiTool {
       accessPolicy,
       includeDisabled: includeDisabled,
     );
+    final limit = clampedIntFromValue(
+      args['limit'],
+      fallback: _agentListDefaultLimit,
+      min: 1,
+      max: _agentListMaxLimit,
+    );
+    final visibleAgents = agents.take(limit).toList(growable: false);
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final payload = <String, Object?>{
-      'agents': agents
+      'agents': visibleAgents
           .map(
             (agent) => _agentSummaryJson(
               agent,
@@ -490,13 +526,20 @@ class AiAgentTool extends AiTool {
             ),
           )
           .toList(growable: false),
-      'count': agents.length,
+      'count': visibleAgents.length,
+      'total_count': agents.length,
+      'limit': limit,
+      'truncated': visibleAgents.length < agents.length,
       'include_disabled': includeDisabled,
     };
     return _success(
       payload,
       stopwatch,
-      metadata: <String, Object?>{'action': 'list', 'count': agents.length},
+      metadata: <String, Object?>{
+        'action': 'list',
+        'count': visibleAgents.length,
+        'total_count': agents.length,
+      },
     );
   }
 
@@ -520,6 +563,12 @@ class AiAgentTool extends AiTool {
     final includeResources = boolFromValue(args['include_resources']);
     final includePrompt = boolFromValue(args['include_prompt']);
     final includePromptText = boolFromValue(args['include_prompt_text']);
+    final limit = clampedIntFromValue(
+      args['limit'],
+      fallback: _agentDetailDefaultLimit,
+      min: 1,
+      max: _agentDetailMaxLimit,
+    );
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final promptSnapshot = includePrompt || includePromptText
         ? await _promptRenderer.render(
@@ -528,18 +577,23 @@ class AiAgentTool extends AiTool {
             boundInstructions: _boundInstructionsForAgent(resolution.agent!),
           )
         : null;
+    final promptMetadata = promptSnapshot?.metadataJson();
+    if (includePromptText && promptSnapshot != null) {
+      promptMetadata!['rendered_prompt'] = _ExplicitAgentPromptText(
+        promptSnapshot.renderedPrompt,
+      );
+    }
     final payload = <String, Object?>{
       'agent': _agentDetailJson(
         resolution.agent!,
         includeTasks: includeTasks,
         includeAudit: includeAudit,
         includeResources: includeResources,
+        itemLimit: limit,
         callableAgentToolNames: callableAgentToolNames,
       ),
-      if (promptSnapshot != null)
-        'agent_prompt': promptSnapshot.metadataJson(
-          includePrompt: includePromptText,
-        ),
+      'limit': limit,
+      if (promptMetadata != null) 'agent_prompt': promptMetadata,
     };
     return _success(
       payload,
@@ -2914,9 +2968,12 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch, {
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
+    final output = prettyPrintJson(
+      convertToJsonSafeMap(payload, config: _agentToolResultConversionConfig),
+    );
     return AiToolUtils.simpleSuccessResult(
       command: _name,
-      output: prettyPrintJson(payload),
+      output: output,
       durationMs: stopwatch.elapsedMilliseconds,
       metadata: <String, Object?>{'tool': _name, ...metadata},
     );
@@ -2932,6 +2989,25 @@ class AiAgentTool extends AiTool {
     }
     return buffer.toString();
   }
+}
+
+Object? _redactAgentToolPromptValue(String key, Object? value) {
+  final normalizedKey = key.toLowerCase();
+  if (normalizedKey == 'rendered_prompt' && value is _ExplicitAgentPromptText) {
+    return value.text;
+  }
+  if (!_agentToolSensitivePromptKeys.contains(normalizedKey)) return value;
+  return <String, Object?>{
+    'omitted': true,
+    if (value is String) 'chars': value.length,
+    'reason': '敏感提示内容已从智能体工具结果中移除。',
+  };
+}
+
+final class _ExplicitAgentPromptText {
+  const _ExplicitAgentPromptText(this.text);
+
+  final String text;
 }
 
 String _normalizedAgentToolName(String value) {
@@ -3317,6 +3393,7 @@ Map<String, Object?> _agentDetailJson(
   required bool includeTasks,
   required bool includeAudit,
   required bool includeResources,
+  required int itemLimit,
   Set<String>? callableAgentToolNames,
 }) {
   return <String, Object?>{
@@ -3347,18 +3424,21 @@ Map<String, Object?> _agentDetailJson(
     'resource_summary': _resourceUsageSummaryJson(agent.resourceUsage),
     'kpis': sortedAgentKpisForAttention(
       agent.kpis,
-    ).map((item) => item.toJson()).toList(growable: false),
+    ).take(itemLimit).map((item) => item.toJson()).toList(growable: false),
     'workers': agent.workers
+        .take(itemLimit)
         .map((item) => item.toJson())
         .toList(growable: false),
     'approvals': sortedAgentApprovalsForAttention(
       agent.approvals,
-    ).map((item) => item.toJson()).toList(growable: false),
-    'recent_activities': recentAgentActivities(
-      agent.activities,
-    ).take(20).map((item) => item.toJson()).toList(growable: false),
+    ).take(itemLimit).map((item) => item.toJson()).toList(growable: false),
+    'recent_activities': recentAgentActivities(agent.activities)
+        .take(itemLimit < 20 ? itemLimit : 20)
+        .map((item) => item.toJson())
+        .toList(growable: false),
     if (includeTasks)
       'tasks': sortedAgentTasksForAttention(agent.tasks)
+          .take(itemLimit)
           .map(
             (task) => _taskJson(
               task,
@@ -3368,9 +3448,10 @@ Map<String, Object?> _agentDetailJson(
           )
           .toList(growable: false),
     if (includeAudit)
-      'audit_events': recentAgentAuditEvents(
-        agent.auditEvents,
-      ).take(50).map((item) => item.toJson()).toList(growable: false),
+      'audit_events': recentAgentAuditEvents(agent.auditEvents)
+          .take(itemLimit < 50 ? itemLimit : 50)
+          .map((item) => item.toJson())
+          .toList(growable: false),
     if (includeResources)
       'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
     'created_at': _iso(agent.createdAt),

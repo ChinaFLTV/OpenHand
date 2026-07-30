@@ -4169,6 +4169,12 @@ class AiToolRuntimeService {
             'description':
                 'When true, include stopped/disabled agents for inspection only. Do not assign tasks to disabled agents.',
           },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 500,
+            'description': 'Maximum returned agents. Defaults to 100.',
+          },
         },
         'additionalProperties': false,
       },
@@ -4198,6 +4204,13 @@ class AiToolRuntimeService {
             'type': 'boolean',
             'description':
                 'When true, include the full rendered digital employee system prompt. Use sparingly.',
+          },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 200,
+            'description':
+                'Maximum returned items per detail collection. Defaults to 50.',
           },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,

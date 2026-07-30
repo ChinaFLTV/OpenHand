@@ -53,7 +53,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.18';
+  static const String promptVersion = '1.2.19';
 
   final Future<String> Function(String path) _loader;
 
@@ -524,7 +524,9 @@ Map<String, Object?> _boundedPromptSection(Map<String, Object?> value) {
 }
 
 Object? _redactPromptMetadataValue(String key, Object? value) {
-  if (!_agentPromptSensitiveMetadataKeys.contains(key)) return value;
+  if (!_agentPromptSensitiveMetadataKeys.contains(key.toLowerCase())) {
+    return value;
+  }
   return _omittedPromptLikeValue(value);
 }
 
