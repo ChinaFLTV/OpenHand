@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'harness_role_config.dart';
@@ -80,7 +81,7 @@ class HarnessSessionConfig {
     return stringKeyedMapFromValue(value);
   }
 
-  /// Initializes the persistence directory structure.
+  /// 初始化持久化目录结构。
   Future<void> initializePersistenceDirectories() async {
     final dirs = [
       p.join(persistenceDirectory, 'steering', 'handoff'),
@@ -89,18 +90,17 @@ class HarnessSessionConfig {
       p.join(persistenceDirectory, 'steering', 'plan'),
       p.join(persistenceDirectory, 'steering', 'meta'),
     ];
-    for (final dirPath in dirs) {
-      await Directory(dirPath).create(recursive: true);
-    }
-    // Persist config itself for future reference
+    await Future.wait<Directory>(
+      dirs.map((dirPath) => createDirectoryBounded(Directory(dirPath))),
+    );
+    // 保存配置，供后续会话复用。
     final configFile = File(
       p.join(persistenceDirectory, 'steering', 'meta', 'harness_config.json'),
     );
     await writeFileAtomically(configFile, prettyPrintJson(toJson()));
   }
 
-  /// Returns true if meta files (architecture.md / conventions.md) are missing,
-  /// indicating a first-run in this context (profiler phase required).
+  /// 元信息文件缺失时返回 true，表示当前上下文需先执行分析阶段。
   Future<bool> isFirstRun() async {
     final metaDirectory = p.join(persistenceDirectory, 'steering', 'meta');
     final results = await Future.wait<bool>(<Future<bool>>[

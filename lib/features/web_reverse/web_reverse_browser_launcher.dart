@@ -6,6 +6,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
@@ -44,7 +45,9 @@ class WebReverseBrowserLauncher {
   static const int _lastCdpPortExclusive = 9322;
   static const Duration _handshakeTimeout = Duration(seconds: 30);
   static const Duration _handshakeProbeTimeout = Duration(seconds: 2);
+  static const Duration _portSelectionTimeout = Duration(seconds: 10);
   static const Duration _portProbeTimeout = Duration(milliseconds: 400);
+  static const Duration _profileDirectoryTimeout = Duration(seconds: 5);
   static const Duration _streamCleanupTimeout = Duration(seconds: 1);
   static const int _maxHandshakeResponseBytes = 64 * 1024;
   static const int _maxStartupStderrCharacters = 32 * 1024;
@@ -57,34 +60,47 @@ class WebReverseBrowserLauncher {
   /// 2. 再 ServerSocket.bind 一次确认本进程能 listen，避免操作系统级保留。
   /// 这两步组合能避开"用户已开 Chrome 占 9222"的常见冲突。
   Future<int?> _pickFreePort() async {
-    for (var port = _firstCdpPort; port < _lastCdpPortExclusive; port++) {
-      // 1) 是否已被 CDP 占用？每次探测独立持有客户端，超时后强制释放连接。
-      try {
-        final response = await _requestCdpEndpoint(
-          webReverseCdpHttpUri(port, '/json/version'),
-          timeout: _portProbeTimeout,
-          readBody: false,
-        );
-        if (response.statusCode >= 200 && response.statusCode < 500) {
+    final deadline = MonotonicDeadline(
+      _portSelectionTimeout,
+      timeoutMessage: '选择浏览器调试端口超过总时限。',
+    );
+    try {
+      for (var port = _firstCdpPort; port < _lastCdpPortExclusive; port++) {
+        final remaining = deadline.remainingOrNull();
+        if (remaining == null) return null;
+        final probeTimeout = deadline.limit(_portProbeTimeout);
+        // 1) 是否已被 CDP 占用？每次探测独立持有客户端，超时后强制释放连接。
+        try {
+          final response = await _requestCdpEndpoint(
+            webReverseCdpHttpUri(port, '/json/version'),
+            timeout: probeTimeout,
+            readBody: false,
+          );
+          if (response.statusCode >= 200 && response.statusCode < 500) {
+            continue;
+          }
+        } catch (_) {
+          // 拒绝连接或超时后继续执行本地绑定确认。
+        }
+        // 2) 本进程能否 bind？
+        try {
+          final server = await bindServerSocketBounded(
+            InternetAddress.loopbackIPv4,
+            port,
+            timeout: deadline.limit(_portProbeTimeout),
+          );
+          await server.close();
+          return port;
+        } on SocketException catch (_) {
+          continue;
+        } on TimeoutException catch (_) {
           continue;
         }
-      } catch (_) {
-        // 拒绝连接或超时后继续执行本地绑定确认。
       }
-      // 2) 本进程能否 bind？
-      try {
-        final server = await bindServerSocketBounded(
-          InternetAddress.loopbackIPv4,
-          port,
-          timeout: _portProbeTimeout,
-        );
-        await server.close();
-        return port;
-      } on SocketException {
-        continue;
-      }
+      return null;
+    } finally {
+      deadline.stop();
     }
-    return null;
   }
 
   /// 启动浏览器并轮询 `/json/version` 直到拿到 webSocketDebuggerUrl。
@@ -115,7 +131,10 @@ class WebReverseBrowserLauncher {
       );
     }
     final proxyArg = nullIfBlank(proxy);
-    await Directory(normalizedUserDataDir).create(recursive: true);
+    await createDirectoryBounded(
+      Directory(normalizedUserDataDir),
+      timeout: _profileDirectoryTimeout,
+    );
     final args = <String>[
       // CDP 关键参数务必排在最前，确保 Chrome 解析到这些
       // 参数前不会因为别的初始化阶段卡住（部分 Chrome 版本对参数顺序

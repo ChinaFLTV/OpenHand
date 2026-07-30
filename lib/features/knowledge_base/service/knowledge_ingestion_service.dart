@@ -363,9 +363,6 @@ class KnowledgeIngestionService {
     required int maxBytes,
   }) async {
     final root = Directory(knowledgeManagedSourcesDirectoryPath);
-    if (!await root.exists()) {
-      await root.create(recursive: true);
-    }
     final ext = p.extension(file.path);
     final target = File(p.join(root.path, '$sourceId$ext'));
     await copyFileAtomically(file, target, maxBytes: maxBytes);

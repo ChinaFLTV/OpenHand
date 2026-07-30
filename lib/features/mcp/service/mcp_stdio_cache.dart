@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import 'mcp_stdio_mirror_policy.dart';
 
 const String mcpNpmMirrorRegistry = 'https://registry.npmmirror.com';
@@ -38,9 +39,10 @@ Future<Map<String, String>> mcpStdioIsolatedCacheEnv() async {
         pnpmStore,
         yarnCache,
       ].map(
-        (path) => Directory(
-          path,
-        ).create(recursive: true).timeout(mcpStdioFileOperationTimeout),
+        (path) => createDirectoryBounded(
+          Directory(path),
+          timeout: mcpStdioFileOperationTimeout,
+        ),
       ),
     );
     final environment = <String, String>{

@@ -5,6 +5,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_base64.dart';
+import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/path_safety.dart';
@@ -70,7 +71,7 @@ class WebReverseHeadlessBatch {
     final cappedUrls = stringListFromValue(
       urls,
     ).where(_isHttpUrl).take(kWebReverseHeadlessBatchMaxUrls).toList();
-    await Directory(outputDir).create(recursive: true);
+    await createDirectoryBounded(Directory(outputDir));
     for (var i = 0; i < cappedUrls.length; i++) {
       if (_cancelled) {
         results.add(
@@ -324,7 +325,7 @@ class WebReverseHeadlessBatch {
 
       final dirName = _sanitizeDir(url, index);
       final perDir = Directory('$outputDir/$dirName');
-      await perDir.create(recursive: true);
+      await createDirectoryBounded(perDir);
 
       if (captureNetwork) {
         await writeFileAtomically(

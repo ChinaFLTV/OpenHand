@@ -33,6 +33,16 @@ class BoundedDirectoryUsage {
   final bool truncated;
 }
 
+/// 在明确时限内创建目录；目录已存在时直接返回。
+Future<Directory> createDirectoryBounded(
+  Directory directory, {
+  bool recursive = true,
+  Duration timeout = defaultBoundedDirectoryTotalTimeout,
+}) {
+  requirePositiveDuration(timeout, 'timeout');
+  return directory.create(recursive: recursive).timeout(timeout);
+}
+
 /// 有界枚举目录，避免保留无限条目或被停滞的文件系统永久阻塞。
 Future<BoundedDirectoryListing> listDirectoryBounded(
   Directory directory, {
