@@ -3299,10 +3299,23 @@ class AiSessionController extends ChangeNotifier {
       id: finalAssistant.id,
       intermediateMessageIds: generatedIntermediateMessageIds,
     );
-    final nextVariants = <AiSessionMessageResponseVariant>[
+    final combinedVariants = <AiSessionMessageResponseVariant>[
       ...baseVariants,
       newVariant,
     ];
+    final droppedVariantCount =
+        combinedVariants.length - aiSessionMessageMaxResponseVariants;
+    final droppedVariants = droppedVariantCount <= 0
+        ? const <AiSessionMessageResponseVariant>[]
+        : combinedVariants.take(droppedVariantCount);
+    final droppedBranchMessageIds = <String>{
+      for (final variant in droppedVariants)
+        if (variant.id != null) variant.id!,
+      for (final variant in droppedVariants) ...variant.intermediateMessageIds,
+    };
+    final nextVariants = AiSessionMessageResponseVariant.retainRecent(
+      combinedVariants,
+    );
     final nextIndex = nextVariants.length - 1;
     final targetMetadata =
         <String, Object?>{...targetMessage.metadata, ...finalAssistant.metadata}
@@ -3353,7 +3366,11 @@ class AiSessionController extends ChangeNotifier {
 
     final oldIntermediateMessages = messages
         .sublist(userIndex + 1, targetIndex)
-        .where((message) => !generatedIntermediateIds.contains(message.id))
+        .where(
+          (message) =>
+              !generatedIntermediateIds.contains(message.id) &&
+              !droppedBranchMessageIds.contains(message.id),
+        )
         .map(inactiveVariantIntermediate)
         .toList(growable: false);
     final consumedIds = <String>{
@@ -3364,7 +3381,9 @@ class AiSessionController extends ChangeNotifier {
     };
     final trailingMessages = <AiSessionMessage>[
       for (var i = userIndex + 1; i < messages.length; i++)
-        if (!consumedIds.contains(messages[i].id)) messages[i],
+        if (!consumedIds.contains(messages[i].id) &&
+            !droppedBranchMessageIds.contains(messages[i].id))
+          messages[i],
       hiddenFinalAssistant,
     ];
     final reorderedMessages = <AiSessionMessage>[
@@ -3390,13 +3409,20 @@ class AiSessionController extends ChangeNotifier {
     bool? streaming,
     String? contentFormatKey,
   }) {
+    final retainedVariants = AiSessionMessageResponseVariant.retainRecent(
+      variants,
+    );
+    final droppedCount = variants.length - retainedVariants.length;
     final metadata = Map<String, Object?>.from(message.metadata)
-      ..[aiSessionMessageResponseVariantsMetadataKey] = variants
+      ..[aiSessionMessageResponseVariantsMetadataKey] = retainedVariants
           .map((variant) => variant.toJson())
           .toList(growable: false)
       ..[aiSessionMessageResponseVariantIndexMetadataKey] =
-          AiSessionMessageResponseVariant.clampIndex(index, variants.length);
-    if (variants.length > 1) {
+          AiSessionMessageResponseVariant.clampIndex(
+            index - droppedCount,
+            retainedVariants.length,
+          );
+    if (retainedVariants.length > 1) {
       metadata.remove(aiSessionMessageFeedbackMetadataKey);
     }
     if (streaming != null) {

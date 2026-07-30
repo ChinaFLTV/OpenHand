@@ -162,6 +162,11 @@ const String aiSessionMessageFeedbackMetadataKey = 'message_feedback';
 const String aiSessionMessageResponseVariantsMetadataKey = 'response_variants';
 const String aiSessionMessageResponseVariantIndexMetadataKey =
     'response_variant_index';
+const int aiSessionMessageMaxResponseVariants = 20;
+const int aiSessionMessageMaxVariantIntermediateMessageIds = 1000;
+const int _aiSessionMessageResponseVariantMetadataScanLimit =
+    aiSessionMessageMaxResponseVariants * 5;
+const int _aiSessionMessageMaxVariantReferenceIdCharacters = 256;
 const String aiSessionMachineExpertRequestCardMetadataKey =
     'machine_expert_request_card';
 const String aiSessionWebReverseRequestCardMetadataKey =
@@ -1677,7 +1682,11 @@ class AiSessionMessageResponseVariant {
       return const <AiSessionMessageResponseVariant>[];
     }
     final variants = <AiSessionMessageResponseVariant>[];
-    for (final item in raw) {
+    final scanStart =
+        raw.length > _aiSessionMessageResponseVariantMetadataScanLimit
+        ? raw.length - _aiSessionMessageResponseVariantMetadataScanLimit
+        : 0;
+    for (final item in raw.skip(scanStart)) {
       final map = item is Map<String, Object?>
           ? item
           : item is Map
@@ -1689,9 +1698,23 @@ class AiSessionMessageResponseVariant {
       final variant = AiSessionMessageResponseVariant.fromJson(map);
       if (nullIfBlank(variant.content) != null) {
         variants.add(variant);
+        if (variants.length > aiSessionMessageMaxResponseVariants) {
+          variants.removeAt(0);
+        }
       }
     }
     return List<AiSessionMessageResponseVariant>.unmodifiable(variants);
+  }
+
+  static List<AiSessionMessageResponseVariant> retainRecent(
+    List<AiSessionMessageResponseVariant> variants,
+  ) {
+    final start = variants.length > aiSessionMessageMaxResponseVariants
+        ? variants.length - aiSessionMessageMaxResponseVariants
+        : 0;
+    return List<AiSessionMessageResponseVariant>.unmodifiable(
+      variants.skip(start),
+    );
   }
 
   static int clampIndex(Object? raw, int length) {
@@ -1707,7 +1730,13 @@ class AiSessionMessageResponseVariant {
   static List<String> _normalizeMessageIds(Object? raw) {
     final ids = <String>[];
     final seen = <String>{};
-    for (final id in stringListFromValueOrJsonText(raw)) {
+    for (final id in stringListFromValueOrJsonText(
+      raw,
+      limit: aiSessionMessageMaxVariantIntermediateMessageIds,
+    )) {
+      if (id.length > _aiSessionMessageMaxVariantReferenceIdCharacters) {
+        continue;
+      }
       if (!seen.add(id)) continue;
       ids.add(id);
     }

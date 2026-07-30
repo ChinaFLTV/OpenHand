@@ -185,21 +185,33 @@ List<String> trimRightNonEmptyLines(Iterable<String> lines, {int? limit}) {
 List<String> stringListFromListValue(
   Object? value, {
   bool ignoreLiteralNull = false,
+  int? limit,
 }) {
   if (value is! List) return const <String>[];
-  return trimmedNonEmptyStrings(value, ignoreLiteralNull: ignoreLiteralNull);
+  if (limit != null && limit <= 0) return const <String>[];
+  return trimmedNonEmptyStrings(
+    limit == null ? value : value.take(limit),
+    ignoreLiteralNull: ignoreLiteralNull,
+  );
 }
 
 List<String> stringListFromValue(
   Object? value, {
   Pattern separator = ',',
   bool ignoreLiteralNull = false,
+  int? limit,
 }) {
+  if (limit != null && limit <= 0) return const <String>[];
   if (value is List) {
-    return stringListFromListValue(value, ignoreLiteralNull: ignoreLiteralNull);
+    return stringListFromListValue(
+      value,
+      ignoreLiteralNull: ignoreLiteralNull,
+      limit: limit,
+    );
   }
   if (value is String) {
-    return splitTrimmedNonEmpty(value, separator: separator)
+    final items = splitTrimmedNonEmpty(value, separator: separator);
+    return (limit == null ? items : items.take(limit))
         .where(
           (item) =>
               _keepStringListItem(item, ignoreLiteralNull: ignoreLiteralNull),
@@ -213,24 +225,27 @@ List<String>? optionalStringListFromJsonText(
   String value, {
   Pattern separator = ',',
   bool requireList = false,
+  int? limit,
 }) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return const <String>[];
   final decoded = _tryDecodeJsonText(trimmed);
   if (!decoded.ok) return null;
   if (requireList && decoded.value is! List) return null;
-  return stringListFromValue(decoded.value, separator: separator);
+  return stringListFromValue(decoded.value, separator: separator, limit: limit);
 }
 
 List<String> stringListFromValueOrJsonText(
   Object? value, {
   Pattern separator = ',',
   bool requireList = false,
+  int? limit,
 }) {
   return optionalStringListFromValueOrJsonText(
         value,
         separator: separator,
         requireList: requireList,
+        limit: limit,
       ) ??
       const <String>[];
 }
@@ -239,17 +254,21 @@ List<String>? optionalStringListFromValueOrJsonText(
   Object? value, {
   Pattern separator = ',',
   bool requireList = false,
+  int? limit,
 }) {
   if (value is List) {
-    return stringListFromValue(value, separator: separator);
+    return stringListFromValue(value, separator: separator, limit: limit);
   }
   if (value is String) {
     return optionalStringListFromJsonText(
           value,
           separator: separator,
           requireList: requireList,
+          limit: limit,
         ) ??
-        (requireList ? null : stringListFromValue(value, separator: separator));
+        (requireList
+            ? null
+            : stringListFromValue(value, separator: separator, limit: limit));
   }
   return null;
 }
