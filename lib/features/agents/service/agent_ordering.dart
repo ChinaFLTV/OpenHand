@@ -27,6 +27,18 @@ List<AgentTask> recentAgentTasks(
   return _recentBy(tasks, _taskSortTime, test: test, limit: limit);
 }
 
+List<AgentTask> oldestReadyAgentTasks(
+  Iterable<AgentTask> tasks, {
+  required int limit,
+}) {
+  return _sortedItems(
+    tasks,
+    (left, right) => _taskSortTime(left).compareTo(_taskSortTime(right)),
+    test: (task) => task.status == AgentTaskStatus.ready,
+    limit: limit,
+  );
+}
+
 List<AgentActivityEvent> recentAgentActivities(
   Iterable<AgentActivityEvent> activities, {
   bool Function(AgentActivityEvent event)? test,

@@ -9,6 +9,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_normalization.dart';
 import 'data/agents_store.dart';
 import 'model/agent_models.dart';
+import 'service/agent_ordering.dart';
 import 'service/agent_runtime_availability.dart';
 
 typedef AgentsControllerProvider = AgentsController? Function();
@@ -50,6 +51,7 @@ class AgentsController extends ManagedChangeNotifier {
   bool _hasTrustedSnapshot = false;
   AgentRuntimeAvailabilityProvider? _runtimeAvailabilityProvider;
   final ChangePulse _saveSuccessPulse = ChangePulse();
+  final Set<String> _pendingResourceSampleAgentIds = <String>{};
 
   List<AgentProfile> get agents => _agentsView;
   List<AgentProfile> get enabledAgents {
@@ -383,13 +385,15 @@ class AgentsController extends ManagedChangeNotifier {
                 )
                 .toList(growable: false)
           : tasks;
-      final nextWorkers = status == null || !_taskStatusReleasesWorker(status)
+      final releasingStatus =
+          status != null && _taskStatusReleasesWorker(status) ? status : null;
+      final nextWorkers = releasingStatus == null
           ? agent.workers
           : _releaseWorkersForTask(
               agent.workers,
               releasedTask,
               now,
-              countExecution: _taskStatusCountsExecution(status),
+              countExecution: _taskStatusCountsExecution(releasingStatus),
             );
       var updated = agent.copyWith(
         tasks: nextTasks,
@@ -432,14 +436,18 @@ class AgentsController extends ManagedChangeNotifier {
           now,
           auditToolName: auditToolName,
         );
-      } else if (status != null && _taskStatusReleasesWorker(status)) {
+      } else if (releasingStatus != null) {
         updated = _scaleInIdleWorkers(
           updated,
           now,
           auditToolName: auditToolName,
         );
       }
-      final next = retryScheduled || status == AgentTaskStatus.ready
+      final shouldDispatch =
+          retryScheduled ||
+          status == AgentTaskStatus.ready ||
+          releasingStatus != null;
+      final next = shouldDispatch
           ? _dispatchReadyTasksForAgent(
               updated,
               now,
@@ -818,18 +826,26 @@ class AgentsController extends ManagedChangeNotifier {
   Future<bool> sampleResourceUsage(String agentId) {
     final normalizedAgentId = agentId.trim();
     if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
+    if (!_pendingResourceSampleAgentIds.add(normalizedAgentId)) {
+      return Future<bool>.value(false);
+    }
     return enqueueOperation(() async {
       if (!_hasTrustedSnapshot) return false;
       final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final sampled = agent.copyWith(
-        resourceUsage: _normalizeResourceUsageForAgent(agent),
+        resourceUsage: _normalizeResourceUsageForAgent(
+          agent,
+          reusePersistedByteEstimate: true,
+        ),
       );
       _replaceAgentAt(index, sampled);
       notifyListeners();
       return true;
-    });
+    }).whenComplete(
+      () => _pendingResourceSampleAgentIds.remove(normalizedAgentId),
+    );
   }
 
   Future<AgentAuditEvent?> recordAuditEvent(
@@ -990,9 +1006,7 @@ class AgentsController extends ManagedChangeNotifier {
     return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       final previous = List<AgentProfile>.from(_agents);
-      _hasTrustedSnapshot = false;
       _errorMessage = null;
-      notifyListeners();
       try {
         final changed = await mutation();
         _hasTrustedSnapshot = true;
@@ -1114,7 +1128,10 @@ class AgentsController extends ManagedChangeNotifier {
     );
   }
 
-  AgentResourceUsage _normalizeResourceUsageForAgent(AgentProfile agent) {
+  AgentResourceUsage _normalizeResourceUsageForAgent(
+    AgentProfile agent, {
+    bool reusePersistedByteEstimate = false,
+  }) {
     final usage = agent.resourceUsage;
     final telemetry = stringKeyedMapFromValue(
       usage.extra[_resourceTelemetryExtraKey],
@@ -1133,7 +1150,13 @@ class AgentsController extends ManagedChangeNotifier {
         .length;
     final derivedOpenHandles =
         activeTaskCount + busyWorkerCount + pendingApprovalCount;
-    final derivedPersistedBytes = _resourcePayloadBytes(agent.toJson());
+    final previousPersistedByteEstimate = optionalNonNegativeIntFromValue(
+      telemetry['persisted_bytes'],
+    );
+    final derivedPersistedBytes =
+        reusePersistedByteEstimate && previousPersistedByteEstimate != null
+        ? previousPersistedByteEstimate
+        : _resourcePayloadBytes(agent.toJson());
     final auditTokens = agent.auditEvents.fold<int>(
       0,
       (sum, event) => sum + event.tokenUsage,
@@ -1427,20 +1450,22 @@ class AgentsController extends ManagedChangeNotifier {
     );
     final workers = List<AgentWorker>.from(scaledAgent.workers);
     if (workers.isEmpty) return agent;
-    final tasks = <AgentTask>[];
+    final tasks = List<AgentTask>.from(scaledAgent.tasks);
+    final readyTasks = oldestReadyAgentTasks(
+      tasks.reversed,
+      limit: workers.where(_workerAcceptsTask).length,
+    );
+    if (readyTasks.isEmpty) return agent;
+    final taskIndexById = <String, int>{
+      for (var index = 0; index < tasks.length; index++) tasks[index].id: index,
+    };
     final activities = List<AgentActivityEvent>.from(scaledAgent.activities);
     final auditEvents = List<AgentAuditEvent>.from(scaledAgent.auditEvents);
     var changed = false;
-    for (final task in scaledAgent.tasks) {
-      if (task.status != AgentTaskStatus.ready) {
-        tasks.add(task);
-        continue;
-      }
+    for (final task in readyTasks) {
+      final taskIndex = taskIndexById[task.id]!;
       final workerIndex = _selectWorkerIndex(workers, agent);
-      if (workerIndex < 0) {
-        tasks.add(task);
-        continue;
-      }
+      if (workerIndex < 0) break;
       final worker = workers[workerIndex];
       final workerName = worker.name.trim().isEmpty ? worker.id : worker.name;
       final assigned = task.copyWith(
@@ -1454,7 +1479,7 @@ class AgentsController extends ManagedChangeNotifier {
           'assigned_at': now.toIso8601String(),
         },
       );
-      tasks.add(assigned);
+      tasks[taskIndex] = assigned;
       workers[workerIndex] = worker.copyWith(
         status: AgentWorkerStatus.busy,
         busyScore: 1,
