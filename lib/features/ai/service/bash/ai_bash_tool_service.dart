@@ -921,35 +921,12 @@ class AiBashToolService {
     }
 
     final stopwatch = Stopwatch()..start();
-    Future<Process>? processStart;
-    var processStartTimedOut = false;
     late final Process process;
     try {
-      process = await runBeforeLaunchProxyTransfer(() {
-        final start = _startProcess(launchSpec);
-        processStart = start;
-        return start.timeout(
-          _processStartTimeout,
-          onTimeout: () {
-            processStartTimedOut = true;
-            throw TimeoutException('进程启动超时。', _processStartTimeout);
-          },
-        );
-      });
+      process = await runBeforeLaunchProxyTransfer(
+        () => _startProcess(launchSpec),
+      );
     } on TimeoutException {
-      if (!processStartTimedOut) rethrow;
-      final pendingStart = processStart;
-      if (pendingStart != null) {
-        unawaited(
-          pendingStart.then<void>((lateProcess) async {
-            await runAsyncCleanupBounded(
-              () => terminateTrackedProcessTree(lateProcess),
-              onError: (error, stack) =>
-                  silentLog('ai_bash_tool_service', '终止延迟启动的进程', error, stack),
-            );
-          }, onError: (Object _, StackTrace _) {}),
-        );
-      }
       stopwatch.stop();
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
@@ -1484,9 +1461,11 @@ class AiBashToolService {
 
   Future<Process> _startProcess(AiSandboxLaunchSpec launchSpec) {
     if (Platform.isWindows) {
-      return startTrackedProcess(
+      return startTrackedProcessBounded(
         launchSpec.executable,
         launchSpec.arguments,
+        timeout: _processStartTimeout,
+        tag: 'ai_bash_tool_service',
         workingDirectory: launchSpec.workingDirectory,
         environment: launchSpec.environment.isEmpty
             ? null
@@ -1509,29 +1488,18 @@ class AiBashToolService {
   /// `flutter run`、`tail -f`、`ssh` 等），避免出现"按 Stop 后子孙仍在运行"的
   /// 僵尸场景。当 setsid 不可用（少数老版本 macOS / 自定义环境）时安静回退到
   /// 直接派生，行为与之前一致。
-  Future<Process> _spawnPosixShell({
-    required String shellExecutable,
-    required List<String> shellArgs,
-    required String workingDirectory,
-    Map<String, String>? environment,
-  }) async {
-    return _spawnPosixProcess(
-      executable: shellExecutable,
-      arguments: shellArgs,
-      workingDirectory: workingDirectory,
-      environment: environment,
-    );
-  }
-
   Future<Process> _spawnPosixProcess({
     required String executable,
     required List<String> arguments,
     required String workingDirectory,
     Map<String, String>? environment,
   }) async {
-    return startTrackedProcessInNewGroup(
+    return startTrackedProcessBounded(
       executable,
       arguments,
+      timeout: _processStartTimeout,
+      tag: 'ai_bash_tool_service',
+      startInNewProcessGroup: true,
       workingDirectory: workingDirectory,
       environment: environment,
     );
@@ -1644,19 +1612,15 @@ class AiBashToolService {
     final mergedEnvironment = proxyEnv.isEmpty
         ? null
         : <String, String>{...Platform.environment, ...proxyEnv};
-    final process = Platform.isWindows
-        ? await startTrackedProcess(
-            shellExecutable,
-            shellArgs,
-            workingDirectory: initialWorkingDirectory,
-            environment: mergedEnvironment,
-          )
-        : await _spawnPosixShell(
-            shellExecutable: shellExecutable,
-            shellArgs: shellArgs,
-            workingDirectory: initialWorkingDirectory,
-            environment: mergedEnvironment,
-          );
+    final process = await startTrackedProcessBounded(
+      shellExecutable,
+      shellArgs,
+      timeout: _processStartTimeout,
+      tag: 'ai_bash_tool_service',
+      workingDirectory: initialWorkingDirectory,
+      environment: mergedEnvironment,
+      startInNewProcessGroup: !Platform.isWindows,
+    );
     final session = _PersistentBashSession(
       process: process,
       currentWorkingDirectory: initialWorkingDirectory,

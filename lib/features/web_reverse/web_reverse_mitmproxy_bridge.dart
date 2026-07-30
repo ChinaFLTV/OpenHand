@@ -59,6 +59,7 @@ class WebReverseMitmproxyBridge {
   static const int _kMaxMitmBodyBytes = 256 * 1024;
   static const int _kMaxCallbackPayloadBytes = 2 * 1024 * 1024;
   static const Duration _kBindTimeout = Duration(seconds: 5);
+  static const Duration _kProcessStartTimeout = Duration(seconds: 8);
   static const Duration _kCallbackBodyIdleTimeout = Duration(seconds: 5);
   static const Duration _kCallbackBodyTotalTimeout = Duration(seconds: 20);
   static const Duration _kAddonFileOperationTimeout = Duration(seconds: 5);
@@ -163,14 +164,20 @@ class WebReverseMitmproxyBridge {
     }
     Process p;
     try {
-      p = await startTrackedProcess(exec, <String>[
-        '-p',
-        '$mitmPort',
-        '-s',
-        addonPath,
-        '--quiet',
-        '--ssl-insecure',
-      ]);
+      p = await startTrackedProcessBounded(
+        exec,
+        <String>[
+          '-p',
+          '$mitmPort',
+          '-s',
+          addonPath,
+          '--quiet',
+          '--ssl-insecure',
+        ],
+        timeout: _kProcessStartTimeout,
+        tag: 'web_reverse_mitmproxy_bridge',
+        startInNewProcessGroup: true,
+      );
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', '启动 mitmdump', error, stack);
       await _closeCallbackResources(

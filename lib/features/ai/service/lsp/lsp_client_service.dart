@@ -26,6 +26,7 @@ enum AiLspBackendAvailability {
 const int _maxLspDocumentBytes = 16 * 1024 * 1024;
 const int _maxLspSessions = 8;
 const int _maxConcurrentLspSessionStarts = 4;
+const Duration _lspProcessStartTimeout = Duration(seconds: 10);
 const Duration _lspSessionStartupTimeout = Duration(seconds: 30);
 
 int _validateLspDocumentText(String filePath, String text) {
@@ -353,9 +354,12 @@ Future<Process> _launchAiLspProcess({
   required AiLspBackendResolution backend,
   Map<String, String>? environment,
 }) {
-  return startTrackedProcessInNewGroup(
+  return startTrackedProcessBounded(
     backend.executablePath!,
     backend.arguments,
+    timeout: _lspProcessStartTimeout,
+    tag: 'lsp_client_service',
+    startInNewProcessGroup: true,
     workingDirectory: backend.rootPath,
     environment: environment,
   );

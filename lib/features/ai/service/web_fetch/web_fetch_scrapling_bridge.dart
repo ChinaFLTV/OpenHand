@@ -346,12 +346,9 @@ class WebFetchScraplingBridge {
       final helperPath = await _ensureHelperScriptWritten();
       _throwIfDisposed();
       final startupStopwatch = Stopwatch()..start();
-      final processStart = _startBridgeProcess(
+      final process = await _startBridgeProcess(
         pythonExecutable: pythonExecutable,
         helperPath: helperPath,
-      );
-      final process = await _awaitBridgeProcessStart(
-        processStart,
         timeout: nonNegativeDuration(startupTimeout - startupStopwatch.elapsed),
       );
       if (_disposed) {
@@ -382,30 +379,26 @@ class WebFetchScraplingBridge {
     }
   }
 
-  Future<Process> _awaitBridgeProcessStart(
-    Future<Process> processStart, {
+  Future<Process> _startBridgeProcess({
+    required String pythonExecutable,
+    required String helperPath,
     required Duration timeout,
   }) async {
+    if (timeout <= Duration.zero) throw _BridgeProcessStartTimeout(timeout);
     try {
-      return await processStart.timeout(
-        timeout,
-        onTimeout: () => throw _BridgeProcessStartTimeout(timeout),
+      return await startTrackedProcessBounded(
+        pythonExecutable,
+        <String>[helperPath],
+        timeout: timeout,
+        tag: 'web_fetch_scrapling_bridge',
+        startInNewProcessGroup: true,
+        workingDirectory: OpenHandPaths.applicationDirectoryPath(),
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
       );
-    } on _BridgeProcessStartTimeout {
-      _scheduleUnclaimedProcessCleanup(processStart);
-      rethrow;
+    } on TimeoutException {
+      throw _BridgeProcessStartTimeout(timeout);
     }
-  }
-
-  void _scheduleUnclaimedProcessCleanup(Future<Process> processStart) {
-    unawaited(
-      processStart.then<void>(
-        _disposeUnclaimedProcess,
-        onError: (Object error, StackTrace stack) {
-          silentLog('web_fetch_scrapling_bridge', '等待延迟进程启动', error, stack);
-        },
-      ),
-    );
   }
 
   Future<void> _disposeUnclaimedProcess(Process process) async {
@@ -457,18 +450,6 @@ class WebFetchScraplingBridge {
         _cancelRuntimeSubscription(stderrSubscription, '延迟进程标准错误'),
       ]);
     }
-  }
-
-  Future<Process> _startBridgeProcess({
-    required String pythonExecutable,
-    required String helperPath,
-  }) {
-    return startTrackedProcessInNewGroup(
-      pythonExecutable,
-      <String>[helperPath],
-      workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-      environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-    );
   }
 
   void _listenToRuntime(_ScraplingProcessRuntime runtime) {

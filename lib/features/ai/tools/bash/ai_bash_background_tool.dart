@@ -329,36 +329,24 @@ class AiBashBackgroundTool extends AiTool {
     }
 
     final startedAt = Stopwatch()..start();
-    late final Future<Process> spawnFuture;
     final Process process;
     try {
       process = await runBeforeLaunchProxyTransfer('启动进程异常', () async {
-        spawnFuture = startTrackedProcessInNewGroup(
+        return startTrackedProcessBounded(
           launchSpec.executable,
           launchSpec.arguments,
+          timeout: _processStartTimeout,
+          tag: 'ai_bash_background',
+          startInNewProcessGroup: true,
           workingDirectory: launchSpec.workingDirectory,
           environment: launchSpec.environment.isEmpty
               ? null
               : launchSpec.environment,
         );
-        return spawnFuture.timeout(_processStartTimeout);
       });
     } on TimeoutException catch (error) {
       await _closeLaunchProxy(launchSpec.proxyLease, 'start timeout');
       releaseStartReservation();
-      unawaited(
-        spawnFuture.then<void>((lateProcess) async {
-          await runAsyncCleanupBounded(
-            () => terminateTrackedProcessTree(lateProcess),
-            onError: (cleanupError, cleanupStack) => silentLog(
-              'ai_bash_background',
-              '终止延迟启动的后台进程',
-              cleanupError,
-              cleanupStack,
-            ),
-          );
-        }, onError: (Object _, StackTrace _) {}),
-      );
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Process start timed out: $error',

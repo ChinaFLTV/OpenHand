@@ -78,7 +78,6 @@ class WebReverseLspClient {
     }
     final c = cmd ?? 'typescript-language-server';
     final a = cmdArgs ?? const ['--stdio'];
-    late final Future<Process> spawnFuture;
     late final Process process;
     try {
       final environment = await _augmentedEnvironment();
@@ -86,10 +85,13 @@ class WebReverseLspClient {
         _completeInitialization(initDone, false);
         return false;
       }
-      spawnFuture = startTrackedProcess(
+      process = await startTrackedProcessBounded(
         c,
         a,
+        timeout: _kDefaultLspStartupTimeout,
+        tag: 'web_reverse_lsp_client',
         runInShell: true,
+        startInNewProcessGroup: true,
         // macOS GUI 启动的 Flutter 进程 PATH 默认是
         // /usr/bin:/bin:/usr/sbin:/sbin，找不到 npm 全局 bin（Apple
         // Silicon 在 /opt/homebrew/bin、Intel 在 /usr/local/bin、nvm 在
@@ -97,19 +99,12 @@ class WebReverseLspClient {
         // 让 typescript-language-server / pyright 等命令能直接跑起来。
         environment: environment,
       );
-      process = await spawnFuture.timeout(_kDefaultLspStartupTimeout);
     } on TimeoutException {
       if (generation == _lifecycleGeneration) {
         status = WebReverseLspStatus.failed;
         lastError = 'process startup timeout';
       }
       _completeInitialization(initDone, false);
-      unawaited(
-        spawnFuture.then<void>(
-          _terminateDetachedProcess,
-          onError: (Object _, StackTrace _) {},
-        ),
-      );
       return false;
     } catch (e, st) {
       if (generation == _lifecycleGeneration) {

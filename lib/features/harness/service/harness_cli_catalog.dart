@@ -31,6 +31,7 @@ const Duration _kHarnessCliProbeTimeout = Duration(seconds: 10);
 
 /// 登录 shell 内的 which / 环境诊断，只读不初始化。
 const Duration _kHarnessCliLookupTimeout = Duration(seconds: 5);
+const Duration _kHarnessCliProcessStartTimeout = Duration(seconds: 10);
 const int _harnessCliProbeConcurrency = 4;
 
 /// Harness Engineering 支持的 AI CLI 定义。
@@ -821,9 +822,12 @@ Future<Process> startHarnessCliInteractiveProcess({
 }) {
   final normalizedWorkingDirectory = workingDirectory?.trim();
   if (Platform.isWindows) {
-    return startTrackedProcessInNewGroup(
+    return startTrackedProcessBounded(
       executable,
       args,
+      timeout: _kHarnessCliProcessStartTimeout,
+      tag: 'harness_cli_catalog',
+      startInNewProcessGroup: true,
       workingDirectory: normalizedWorkingDirectory?.isNotEmpty == true
           ? normalizedWorkingDirectory
           : null,
@@ -839,9 +843,12 @@ Future<Process> startHarnessCliInteractiveProcess({
       'cd ${_q(normalizedWorkingDirectory)}',
     'exec ${formatHarnessCliCommandPreview(executable, args)}',
   ];
-  return startTrackedProcessInNewGroup(
+  return startTrackedProcessBounded(
     shell,
     buildHarnessCliShellArgs(shellFragments.join(' && ')),
+    timeout: _kHarnessCliProcessStartTimeout,
+    tag: 'harness_cli_catalog',
+    startInNewProcessGroup: true,
     environment: <String, String>{
       // 非真实 PTY 下仍允许 CLI 输出颜色与交互提示。
       'FORCE_COLOR': '1',

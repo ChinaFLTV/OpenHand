@@ -48,6 +48,7 @@ class WebReverseBrowserLauncher {
   static const Duration _portSelectionTimeout = Duration(seconds: 10);
   static const Duration _portProbeTimeout = Duration(milliseconds: 400);
   static const Duration _profileDirectoryTimeout = Duration(seconds: 5);
+  static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _streamCleanupTimeout = Duration(seconds: 1);
   static const int _maxHandshakeResponseBytes = 64 * 1024;
   static const int _maxStartupStderrCharacters = 32 * 1024;
@@ -170,7 +171,13 @@ class WebReverseBrowserLauncher {
     ];
     Process process;
     try {
-      process = await startTrackedProcessInNewGroup(executablePath, args);
+      process = await startTrackedProcessBounded(
+        executablePath,
+        args,
+        timeout: _processStartTimeout,
+        tag: 'web_reverse_browser_launcher',
+        startInNewProcessGroup: true,
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_browser_launcher',

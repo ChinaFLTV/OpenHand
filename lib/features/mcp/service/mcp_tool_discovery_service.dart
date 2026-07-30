@@ -199,6 +199,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _healthCheckTimeout = Duration(seconds: 6);
   static const Duration _stdioHealthCheckTimeout = Duration(minutes: 6);
   static const Duration _stdioInitializeTimeout = Duration(minutes: 5);
+  static const Duration _stdioProcessStartTimeout = Duration(seconds: 10);
   static const Duration _requestTimeout = Duration(seconds: 6);
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
@@ -817,9 +818,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<_StdioSession> _initializeStdioSession(McpServer server) async {
     final resolved = await _resolveStdioLaunch(server);
     final session = _StdioSession(
-      process: await startTrackedProcessInNewGroup(
+      process: await startTrackedProcessBounded(
         resolved.executable,
         resolved.args,
+        timeout: _stdioProcessStartTimeout,
+        tag: 'mcp_tool_discovery_service',
+        startInNewProcessGroup: true,
         environment: <String, String>{
           ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           ...resolved.environment,

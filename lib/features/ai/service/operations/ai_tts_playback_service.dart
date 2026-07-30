@@ -1715,11 +1715,17 @@ class AiTtsPlaybackService {
     required Duration timeout,
     required _AiTtsOperation operation,
   }) async {
+    final processStartTimeout = timeout < _speechProcessStartTimeout
+        ? timeout
+        : _speechProcessStartTimeout;
     final process = await operation.acquireProcess(
-      startTrackedProcessInNewGroup(executable, args),
-      timeout: timeout < _speechProcessStartTimeout
-          ? timeout
-          : _speechProcessStartTimeout,
+      startTrackedProcessBounded(
+        executable,
+        args,
+        timeout: processStartTimeout,
+        tag: 'ai_tts_playback_service',
+        startInNewProcessGroup: true,
+      ),
     );
     final stderrBuffer = StringBuffer();
     final stderrSubscription = process.stderr.transform(utf8.decoder).listen((
@@ -2828,23 +2834,9 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
     }
   }
 
-  Future<Process> acquireProcess(
-    Future<Process> acquisition, {
-    required Duration timeout,
-  }) {
+  Future<Process> acquireProcess(Future<Process> acquisition) {
     final guarded = () async {
-      final process = await acquisition.timeout(
-        timeout,
-        onTimeout: () {
-          unawaited(
-            acquisition.then<void>(
-              _terminateProcessOnce,
-              onError: (Object _, StackTrace _) {},
-            ),
-          );
-          throw TimeoutException('TTS 进程启动超时。', timeout);
-        },
-      );
+      final process = await acquisition;
       if (_cancelled) {
         await _terminateProcessOnce(process);
         throw const _AiTtsPlaybackCancelled();

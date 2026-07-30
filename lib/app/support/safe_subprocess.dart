@@ -53,6 +53,7 @@ const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _windowsTaskkillTimeout = Duration(seconds: 2);
 const Duration _processGroupSignalFallbackTimeout = Duration(seconds: 2);
 const Duration _processExecutableProbeTimeout = Duration(milliseconds: 500);
+const Duration _systemOpenProcessStartTimeout = Duration(seconds: 5);
 const Duration _processGroupPruneInterval = Duration(seconds: 5);
 const Duration _processGroupProbeTimeout = Duration(milliseconds: 500);
 const Duration _trackedChildrenCleanupPreparationTimeout = Duration(
@@ -234,9 +235,9 @@ Future<void> _handleExitedProcessGroup(Process process) async {
 /// 登记到全局子进程簿；调用方仍然完整持有 [Process] 句柄，自行 await
 /// `exitCode` / drain 管道即可。
 ///
-/// 与 [runProcessWithTimeout] 的区别：本方法不施加超时也不主动 kill，仅
-/// 负责"应用退出时陪葬"。不要用于一次性短命令——那些请走
-/// [runProcessWithTimeout]。
+/// 与 [runProcessWithTimeout] 的区别：本方法不限制运行时长，仅负责
+/// “应用退出时陪葬”。业务代码应优先使用 [startTrackedProcessBounded]，
+/// 一次性短命令请走 [runProcessWithTimeout]。
 Future<Process> startTrackedProcess(
   String executable,
   List<String> arguments, {
@@ -268,6 +269,56 @@ Future<Process> startTrackedProcess(
   return process;
 }
 
+/// 在有限时长内启动受跟踪的长驻进程；超时后自动终止迟到创建的进程树。
+Future<Process> startTrackedProcessBounded(
+  String executable,
+  List<String> arguments, {
+  required Duration timeout,
+  String tag = 'safe_subprocess.tracked',
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+  bool startInNewProcessGroup = false,
+}) async {
+  requirePositiveDuration(timeout, 'timeout');
+  final launchFuture = startInNewProcessGroup
+      ? _startTrackedProcessInNewGroup(
+          executable,
+          arguments,
+          workingDirectory: workingDirectory,
+          environment: environment,
+          runInShell: runInShell,
+          includeParentEnvironment: includeParentEnvironment,
+        )
+      : startTrackedProcess(
+          executable,
+          arguments,
+          workingDirectory: workingDirectory,
+          environment: environment,
+          runInShell: runInShell,
+          includeParentEnvironment: includeParentEnvironment,
+        ).then(
+          (process) => _TrackedProcessLaunch(
+            process: process,
+            isProcessGroupLeader: false,
+          ),
+        );
+  try {
+    return (await launchFuture.timeout(
+      timeout,
+      onTimeout: () => throw TimeoutException('受跟踪进程启动超时。', timeout),
+    )).process;
+  } on TimeoutException {
+    _terminateLateBinaryProcess(
+      launchFuture,
+      tag: tag,
+      terminateProcessTree: true,
+    );
+    rethrow;
+  }
+}
+
 /// 在有限时长内启动脱离进程；启动超时后回收迟到创建的进程。
 ///
 /// 脱离进程不会进入全局子进程簿，适用于重启助手和外部终端等明确需要独立于
@@ -295,7 +346,10 @@ Future<Process> startDetachedProcessBounded(
     mode: ProcessStartMode.detached,
   );
   try {
-    return await launchFuture.timeout(timeout);
+    return await launchFuture.timeout(
+      timeout,
+      onTimeout: () => throw TimeoutException('脱离进程启动超时。', timeout),
+    );
   } on TimeoutException {
     unawaited(
       launchFuture.then<void>(
@@ -2028,9 +2082,11 @@ Future<bool> runDetachedSystemOpen(
   bool runInShell = false,
 }) async {
   try {
-    final process = await startTrackedProcess(
+    final process = await startTrackedProcessBounded(
       executable,
       arguments,
+      timeout: _systemOpenProcessStartTimeout,
+      tag: tag,
       runInShell: runInShell,
     );
     if (trackUntilExit) {

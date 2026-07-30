@@ -193,9 +193,12 @@ class McpStdioProcessManager extends ChangeNotifier {
       // npx -y / uvx 等首次拉包 + 后续 MCP 服务运行期出站都依赖同一套
       // 代理环境。把 SystemProxyResolver 解析出的 HTTP(S)/SOCKS 端点注
       // 入子进程，否则在企业代理 / 内网透明代理环境下会 TCP 握手超时。
-      process = await _startProcessBounded(
+      process = await startTrackedProcessBounded(
         launch.executable,
         launch.args,
+        timeout: _processStartTimeout,
+        tag: 'mcp_stdio_process_manager',
+        startInNewProcessGroup: true,
         environment: <String, String>{
           ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           ...runtimeEnvironment,
@@ -375,36 +378,6 @@ class McpStdioProcessManager extends ChangeNotifier {
     return current != null &&
         current.generation == generation &&
         current.info.state == StdioProcessState.starting;
-  }
-
-  Future<Process> _startProcessBounded(
-    String executable,
-    List<String> arguments, {
-    Map<String, String>? environment,
-  }) async {
-    final startFuture = startTrackedProcessInNewGroup(
-      executable,
-      arguments,
-      environment: environment,
-    );
-    var timedOut = false;
-    unawaited(
-      startFuture.then<void>((lateProcess) {
-        if (timedOut) {
-          unawaited(_terminateUnmanagedProcess(lateProcess));
-        }
-      }, onError: (Object _, StackTrace _) {}),
-    );
-    return startFuture.timeout(
-      _processStartTimeout,
-      onTimeout: () {
-        timedOut = true;
-        throw TimeoutException(
-          'MCP STDIO 进程启动超过 ${_processStartTimeout.inMilliseconds} 毫秒。',
-          _processStartTimeout,
-        );
-      },
-    );
   }
 
   Future<void> _terminateUnmanagedProcess(

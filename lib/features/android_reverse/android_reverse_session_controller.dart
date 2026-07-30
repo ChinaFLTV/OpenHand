@@ -33,6 +33,7 @@ const Duration _kEvidenceBundleTimeout = Duration(seconds: 20);
 const Duration _kLocalScriptTimeout = Duration(seconds: 30);
 const Duration _kLocalShellActionTimeout = Duration(seconds: 20);
 const Duration _kNetworkCaptureStartupProbe = Duration(milliseconds: 900);
+const Duration _kNetworkCaptureProcessStartTimeout = Duration(seconds: 10);
 const Duration _kNetworkCaptureStopGrace = Duration(milliseconds: 800);
 const Duration _kNetworkCaptureExitWait = Duration(milliseconds: 400);
 const Duration _kRuntimeCleanupTimeout = Duration(seconds: 5);
@@ -1339,7 +1340,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       }
       _networkCaptureStdout.clear();
       _networkCaptureStderr.clear();
-      final process = await startTrackedProcessInNewGroup(
+      final process = await startTrackedProcessBounded(
         mitmdump,
         <String>[
           '-p',
@@ -1352,6 +1353,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
         environment: <String, String>{
           'OPENHAND_NETWORK_JSONL': networkJsonlPath,
         },
+        timeout: _kNetworkCaptureProcessStartTimeout,
+        tag: _kTag,
+        startInNewProcessGroup: true,
       );
       startedProcess = process;
       if (!_canContinueNetworkCaptureStart(generation)) {
