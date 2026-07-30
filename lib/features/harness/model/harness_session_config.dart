@@ -6,7 +6,11 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import 'harness_role_config.dart';
+
+const int kHarnessTaskMaxCharacters = 256 * 1024;
+const int kHarnessPathMaxCharacters = 4096;
 
 class HarnessSessionConfig {
   const HarnessSessionConfig({
@@ -64,9 +68,21 @@ class HarnessSessionConfig {
 
   static HarnessSessionConfig fromJson(Map<String, Object?> json) {
     return HarnessSessionConfig(
-      task: '${json['task'] ?? ''}',
-      workingDirectory: '${json['working_directory'] ?? ''}',
-      persistenceDirectory: '${json['persistence_directory'] ?? ''}',
+      task: clipTextByCodeUnits(
+        '${json['task'] ?? ''}',
+        kHarnessTaskMaxCharacters,
+        suffix: '',
+      ),
+      workingDirectory: clipTextByCodeUnits(
+        '${json['working_directory'] ?? ''}',
+        kHarnessPathMaxCharacters,
+        suffix: '',
+      ),
+      persistenceDirectory: clipTextByCodeUnits(
+        '${json['persistence_directory'] ?? ''}',
+        kHarnessPathMaxCharacters,
+        suffix: '',
+      ),
       profilerConfig: HarnessRoleConfig.fromJson(_requireMap(json['profiler'])),
       readerConfig: HarnessRoleConfig.fromJson(_requireMap(json['reader'])),
       plannerConfig: HarnessRoleConfig.fromJson(_requireMap(json['planner'])),

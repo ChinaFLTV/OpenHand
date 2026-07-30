@@ -1,9 +1,15 @@
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../service/harness_orchestrator.dart';
 import 'harness_phase.dart';
 import 'harness_session_config.dart';
 
 const Object _harnessSessionRecordUnset = Object();
+const int _maxHarnessPersistedPhaseLogs = 16;
+const int _maxHarnessSessionIdCharacters = 256;
+const int _maxHarnessSessionTitleCharacters = 512;
+const int _maxHarnessSessionErrorCharacters = 4000;
+const int _maxHarnessStorageValueCharacters = 64;
 
 /// Persisted metadata for a single Harness Engineering session.
 /// Saved to disk so the session survives app restarts.
@@ -130,10 +136,18 @@ class HarnessSessionRecord {
   static HarnessSessionRecord fromJson(Map<String, Object?> json) {
     final configMap = stringKeyedMapFromValue(json['config']);
     final phaseLogs = <HarnessPhaseLogSnapshot>[];
-    for (final entry in stringKeyedMapListFromValue(json['phase_logs'])) {
-      final snapshot = HarnessPhaseLogSnapshot.fromJson(entry);
-      if (snapshot != null) {
-        phaseLogs.add(snapshot);
+    final rawPhaseLogs = json['phase_logs'];
+    if (rawPhaseLogs is List) {
+      final count = rawPhaseLogs.length < _maxHarnessPersistedPhaseLogs
+          ? rawPhaseLogs.length
+          : _maxHarnessPersistedPhaseLogs;
+      for (var index = 0; index < count; index++) {
+        final snapshot = HarnessPhaseLogSnapshot.fromJson(
+          stringKeyedMapFromValue(rawPhaseLogs[index]),
+        );
+        if (snapshot != null) {
+          phaseLogs.add(snapshot);
+        }
       }
     }
     final now = DateTime.now().toUtc();
@@ -144,8 +158,16 @@ class HarnessSessionRecord {
     final queuedManualPhaseInput = json['queued_manual_phase_input'] == null
         ? (legacyQueuedManualReviewInput == null
               ? null
-              : '$legacyQueuedManualReviewInput')
-        : '${json['queued_manual_phase_input']}';
+              : clipTextByCodeUnits(
+                  '$legacyQueuedManualReviewInput',
+                  kHarnessManualPhaseInputMaxCharacters,
+                  suffix: '',
+                ))
+        : clipTextByCodeUnits(
+            '${json['queued_manual_phase_input']}',
+            kHarnessManualPhaseInputMaxCharacters,
+            suffix: '',
+          );
     final queuedManualPhaseInputPhaseValue =
         json['queued_manual_phase_input_phase'] == null
         ? (queuedManualPhaseInput == null
@@ -153,25 +175,50 @@ class HarnessSessionRecord {
               : HarnessPhase.reviewing.storageValue)
         : '${json['queued_manual_phase_input_phase']}';
     return HarnessSessionRecord(
-      id: '${json['id'] ?? ''}',
-      title: '${json['title'] ?? ''}',
+      id: clipTextByCodeUnits(
+        '${json['id'] ?? ''}',
+        _maxHarnessSessionIdCharacters,
+        suffix: '',
+      ),
+      title: clipTextByCodeUnits(
+        '${json['title'] ?? ''}',
+        _maxHarnessSessionTitleCharacters,
+        suffix: '',
+      ),
       config: HarnessSessionConfig.fromJson(configMap),
-      statusValue: '${json['status'] ?? 'idle'}',
+      statusValue: clipTextByCodeUnits(
+        '${json['status'] ?? 'idle'}',
+        _maxHarnessStorageValueCharacters,
+        suffix: '',
+      ),
       createdAt: dateTimeFromValue(json['created_at'])?.toUtc() ?? now,
       updatedAt: dateTimeFromValue(json['updated_at'])?.toUtc() ?? now,
       phaseLogs: phaseLogs,
       errorMessage: json['error_message'] == null
           ? null
-          : '${json['error_message']}',
+          : clipTextByCodeUnitsWithEllipsis(
+              '${json['error_message']}',
+              _maxHarnessSessionErrorCharacters,
+            ),
       currentPhaseValue: json['current_phase'] == null
           ? null
-          : '${json['current_phase']}',
+          : clipTextByCodeUnits(
+              '${json['current_phase']}',
+              _maxHarnessStorageValueCharacters,
+              suffix: '',
+            ),
       manualPhaseInputRequested:
           boolFromValue(json['manual_phase_input_requested']) ||
           (json['manual_phase_input_requested'] == null &&
               legacyManualReviewInputRequested),
       queuedManualPhaseInput: queuedManualPhaseInput,
-      queuedManualPhaseInputPhaseValue: queuedManualPhaseInputPhaseValue,
+      queuedManualPhaseInputPhaseValue: queuedManualPhaseInputPhaseValue == null
+          ? null
+          : clipTextByCodeUnits(
+              queuedManualPhaseInputPhaseValue,
+              _maxHarnessStorageValueCharacters,
+              suffix: '',
+            ),
     );
   }
 }

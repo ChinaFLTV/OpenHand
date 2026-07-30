@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
+
+const int _maxHarnessRoleValueCharacters = 1024;
 
 /// Execution mode for a Harness Engineering agent role.
 ///
@@ -94,13 +97,33 @@ class HarnessRoleConfig {
 
   static HarnessRoleConfig fromJson(Map<String, Object?> json) {
     return HarnessRoleConfig(
-      cliName: '${json['cli_name'] ?? ''}',
-      modelId: '${json['model_id'] ?? ''}',
+      cliName: clipTextByCodeUnits(
+        '${json['cli_name'] ?? ''}',
+        _maxHarnessRoleValueCharacters,
+        suffix: '',
+      ),
+      modelId: clipTextByCodeUnits(
+        '${json['model_id'] ?? ''}',
+        _maxHarnessRoleValueCharacters,
+        suffix: '',
+      ),
       executionMode: HarnessExecutionMode.fromStorage(
         json['execution_mode']?.toString(),
       ),
-      aiModelConfigId: json['ai_model_config_id']?.toString(),
-      urlModeModelId: json['url_mode_model_id']?.toString(),
+      aiModelConfigId: json['ai_model_config_id'] == null
+          ? null
+          : clipTextByCodeUnits(
+              '${json['ai_model_config_id']}',
+              _maxHarnessRoleValueCharacters,
+              suffix: '',
+            ),
+      urlModeModelId: json['url_mode_model_id'] == null
+          ? null
+          : clipTextByCodeUnits(
+              '${json['url_mode_model_id']}',
+              _maxHarnessRoleValueCharacters,
+              suffix: '',
+            ),
     );
   }
 

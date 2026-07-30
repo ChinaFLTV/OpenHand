@@ -285,6 +285,11 @@ class _HeComposer extends StatelessWidget {
                           focusNode: manualPhaseFocusNode,
                           maxLines: null,
                           expands: true,
+                          inputFormatters: <TextInputFormatter>[
+                            LengthLimitingTextInputFormatter(
+                              kHarnessManualPhaseInputMaxCharacters,
+                            ),
+                          ],
                           textAlignVertical: TextAlignVertical.top,
                           decoration: InputDecoration(
                             border: InputBorder.none,

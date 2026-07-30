@@ -1,5 +1,6 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/state/settings_controller.dart';
@@ -173,6 +174,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
   bool get _isValid =>
       _taskController.text.trim().isNotEmpty &&
+      _taskController.text.trim().length <= kHarnessTaskMaxCharacters &&
       _workingDirController.text.trim().isNotEmpty &&
       _persistenceDirController.text.trim().isNotEmpty;
 
@@ -748,6 +750,11 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           autofocus: true,
                           maxLines: 5,
                           minLines: 3,
+                          inputFormatters: <TextInputFormatter>[
+                            LengthLimitingTextInputFormatter(
+                              kHarnessTaskMaxCharacters,
+                            ),
+                          ],
                           decoration: InputDecoration(
                             labelText: openHandLocalizedText(
                               context,

@@ -24,8 +24,15 @@ import '../service/harness_cli_catalog.dart';
 import '../service/harness_prompt_builder.dart';
 
 const String kHarnessOrchestratorDisplayVersion = '1.0.0';
-const int _kMaxHarnessPhaseLogLines = 4000;
-const int _kMaxHarnessLogLineCharacters = 4000;
+const int kHarnessManualPhaseInputMaxCharacters = 64 * 1024;
+const int _kMaxHarnessPhaseLogLines = 1000;
+const int _kMaxHarnessLogLineCharacters = 2000;
+const int _kMaxHarnessChangedFiles = 500;
+const int _kMaxHarnessDiffSideCharacters = 128 * 1024;
+const int _kMaxHarnessDiffTotalCharacters = 2 * 1024 * 1024;
+const int _kMaxHarnessStoredPathCharacters = 4096;
+const int _kMaxHarnessStorageValueCharacters = 64;
+const String _kHarnessLogTruncationMarker = '… 较早的阶段输出已截断 …';
 const Duration _kHarnessProcessStartTimeout = Duration(seconds: 10);
 const Duration _kHarnessArtifactIoTimeout = Duration(seconds: 3);
 const BoundedDeletePolicy _kHarnessPromptDeletePolicy = BoundedDeletePolicy(
@@ -67,9 +74,58 @@ HarnessPhaseStatus _harnessPhaseStatusFromStorageValue(String value) {
 
 List<String> _harnessLogLinesFromValue(Object? value) {
   if (value is! List) return const <String>[];
-  return value
-      .map((item) => item == null ? '' : '$item')
-      .toList(growable: false);
+  final omitted = value.length > _kMaxHarnessPhaseLogLines;
+  final start = omitted ? value.length - _kMaxHarnessPhaseLogLines + 1 : 0;
+  return <String>[
+    if (omitted) _kHarnessLogTruncationMarker,
+    for (var index = start; index < value.length; index++)
+      clipTextByCodeUnitsWithEllipsis(
+        value[index] == null ? '' : '${value[index]}',
+        _kMaxHarnessLogLineCharacters,
+      ),
+  ];
+}
+
+List<Map<String, Object?>> _harnessChangedFileMapsFromValue(Object? value) {
+  if (value is! List) return const <Map<String, Object?>>[];
+  final count = value.length < _kMaxHarnessChangedFiles
+      ? value.length
+      : _kMaxHarnessChangedFiles;
+  var remainingCharacters = _kMaxHarnessDiffTotalCharacters;
+  final retained = <Map<String, Object?>>[];
+  for (var index = 0; index < count; index++) {
+    final change = HarnessChangedFile.fromJson(
+      stringKeyedMapFromValue(value[index]),
+    );
+    var contentTruncated = change.contentTruncated;
+
+    String? retainContent(String? content) {
+      if (content == null || content.isEmpty) return content;
+      if (remainingCharacters <= 0) {
+        contentTruncated = true;
+        return null;
+      }
+      final limit = remainingCharacters < _kMaxHarnessDiffSideCharacters
+          ? remainingCharacters
+          : _kMaxHarnessDiffSideCharacters;
+      final clipped = clipTextByCodeUnits(content, limit, suffix: '');
+      remainingCharacters -= clipped.length;
+      contentTruncated |= clipped.length < content.length;
+      return clipped;
+    }
+
+    retained.add(
+      HarnessChangedFile(
+        relativePath: change.relativePath,
+        absolutePath: change.absolutePath,
+        changeType: change.changeType,
+        beforeContent: retainContent(change.beforeContent),
+        afterContent: retainContent(change.afterContent),
+        contentTruncated: contentTruncated,
+      ).toJson(),
+    );
+  }
+  return retained;
 }
 
 class HarnessPhaseLog {
@@ -179,13 +235,21 @@ class HarnessPhaseLogSnapshot {
     final rawLines = json['lines'];
     return HarnessPhaseLogSnapshot(
       phaseValue: phaseValue,
-      statusValue: '${json['status'] ?? HarnessPhaseStatus.pending.name}',
+      statusValue: clipTextByCodeUnits(
+        '${json['status'] ?? HarnessPhaseStatus.pending.name}',
+        _kMaxHarnessStorageValueCharacters,
+        suffix: '',
+      ),
       lines: _harnessLogLinesFromValue(rawLines),
       exitCode: optionalIntegralIntFromValue(json['exit_code']),
       savedLogPath: json['saved_log_path'] == null
           ? null
-          : '${json['saved_log_path']}',
-      changedFiles: stringKeyedMapListFromValue(json['changed_files']),
+          : clipTextByCodeUnits(
+              '${json['saved_log_path']}',
+              _kMaxHarnessStoredPathCharacters,
+              suffix: '',
+            ),
+      changedFiles: _harnessChangedFileMapsFromValue(json['changed_files']),
       reviewVerdictFail: boolFromValue(json['review_verdict_fail']),
     );
   }
@@ -199,6 +263,7 @@ class HarnessChangedFile {
     required this.changeType,
     this.beforeContent,
     this.afterContent,
+    this.contentTruncated = false,
   });
 
   final String relativePath;
@@ -206,6 +271,7 @@ class HarnessChangedFile {
   final HarnessFileChangeType changeType;
   final String? beforeContent;
   final String? afterContent;
+  final bool contentTruncated;
 
   Map<String, Object?> toJson() => {
     'relative_path': relativePath,
@@ -213,19 +279,46 @@ class HarnessChangedFile {
     'change_type': changeType.name,
     'before_content': beforeContent,
     'after_content': afterContent,
+    'content_truncated': contentTruncated,
   };
 
   static HarnessChangedFile fromJson(Map<String, Object?> json) {
+    final rawBefore = json['before_content']?.toString();
+    final rawAfter = json['after_content']?.toString();
     return HarnessChangedFile(
-      relativePath: '${json['relative_path'] ?? ''}',
-      absolutePath: '${json['absolute_path'] ?? ''}',
+      relativePath: clipTextByCodeUnits(
+        '${json['relative_path'] ?? ''}',
+        _kMaxHarnessStoredPathCharacters,
+        suffix: '',
+      ),
+      absolutePath: clipTextByCodeUnits(
+        '${json['absolute_path'] ?? ''}',
+        _kMaxHarnessStoredPathCharacters,
+        suffix: '',
+      ),
       changeType: enumByNameOr(
         HarnessFileChangeType.values,
         json['change_type'],
         fallback: HarnessFileChangeType.modified,
       ),
-      beforeContent: json['before_content']?.toString(),
-      afterContent: json['after_content']?.toString(),
+      beforeContent: rawBefore == null
+          ? null
+          : clipTextByCodeUnits(
+              rawBefore,
+              _kMaxHarnessDiffSideCharacters,
+              suffix: '',
+            ),
+      afterContent: rawAfter == null
+          ? null
+          : clipTextByCodeUnits(
+              rawAfter,
+              _kMaxHarnessDiffSideCharacters,
+              suffix: '',
+            ),
+      contentTruncated:
+          boolFromValue(json['content_truncated']) ||
+          (rawBefore?.length ?? 0) > _kMaxHarnessDiffSideCharacters ||
+          (rawAfter?.length ?? 0) > _kMaxHarnessDiffSideCharacters,
     );
   }
 }
@@ -379,7 +472,8 @@ class HarnessOrchestrator extends ChangeNotifier {
       return false;
     }
     final normalized = input.trim();
-    if (normalized.isEmpty) {
+    if (normalized.isEmpty ||
+        normalized.length > kHarnessManualPhaseInputMaxCharacters) {
       return false;
     }
     _queuedManualPhaseInputPhase = awaitingPhase;
@@ -827,7 +921,11 @@ class HarnessOrchestrator extends ChangeNotifier {
       _queuedManualPhaseInput = null;
     } else {
       _queuedManualPhaseInputPhase = queuedManualPhaseInputPhase;
-      _queuedManualPhaseInput = normalizedManualPhaseInput;
+      _queuedManualPhaseInput = clipTextByCodeUnits(
+        normalizedManualPhaseInput,
+        kHarnessManualPhaseInputMaxCharacters,
+        suffix: '',
+      );
     }
     _reviewRetryCount = _inferReviewRetryCount();
 
@@ -1206,9 +1304,9 @@ class HarnessOrchestrator extends ChangeNotifier {
       return;
     }
     if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
-      log.lines.add('');
+      _appendLine(log, '');
     }
-    log.lines.add(note);
+    _appendLine(log, note);
   }
 
   @override
@@ -2398,9 +2496,11 @@ class HarnessOrchestrator extends ChangeNotifier {
   void _appendLine(HarnessPhaseLog log, String line) {
     if (log.lines.length >= _kMaxHarnessPhaseLogLines) {
       log.lines.removeRange(0, _kMaxHarnessPhaseLogLines ~/ 4);
-      log.lines.insert(0, '… 较早的阶段输出已截断 …');
+      log.lines.insert(0, _kHarnessLogTruncationMarker);
     }
-    log.lines.add(clipTextWithEllipsis(line, _kMaxHarnessLogLineCharacters));
+    log.lines.add(
+      clipTextByCodeUnitsWithEllipsis(line, _kMaxHarnessLogLineCharacters),
+    );
   }
 
   /// 检查阶段必需产物，返回缺失文件路径。
@@ -2516,10 +2616,18 @@ class HarnessOrchestrator extends ChangeNotifier {
       _appendLine(log, '⚠ 工作目录快照达到安全上限或读取异常，已跳过文件变更明细。');
       return;
     }
-    log.changedFiles = _computeChangedFiles(before.files, after.files);
+    final result = _computeChangedFiles(before.files, after.files);
+    log.changedFiles = result.files;
+    if (result.omittedFiles > 0) {
+      _appendLine(log, '⚠ 文件变动过多，已省略 ${result.omittedFiles} 个文件的差异明细。');
+    }
+    if (result.contentTruncated) {
+      _appendLine(log, '⚠ 文件差异内容达到安全上限，界面仅展示保留部分。');
+    }
   }
 
-  List<HarnessChangedFile> _computeChangedFiles(
+  ({List<HarnessChangedFile> files, int omittedFiles, bool contentTruncated})
+  _computeChangedFiles(
     Map<String, HarnessFileSnapshot> before,
     Map<String, HarnessFileSnapshot> after,
   ) {
@@ -2538,6 +2646,7 @@ class HarnessOrchestrator extends ChangeNotifier {
             absolutePath: p.join(_config.workingDirectory, rel),
             changeType: HarnessFileChangeType.added,
             afterContent: post.content,
+            contentTruncated: post.content == null && post.size > 0,
           ),
         );
       } else if (pre.modified != post.modified || pre.size != post.size) {
@@ -2548,6 +2657,9 @@ class HarnessOrchestrator extends ChangeNotifier {
             changeType: HarnessFileChangeType.modified,
             beforeContent: pre.content,
             afterContent: post.content,
+            contentTruncated:
+                pre.content == null && pre.size > 0 ||
+                post.content == null && post.size > 0,
           ),
         );
       }
@@ -2562,12 +2674,58 @@ class HarnessOrchestrator extends ChangeNotifier {
             absolutePath: p.join(_config.workingDirectory, rel),
             changeType: HarnessFileChangeType.deleted,
             beforeContent: before[rel]!.content,
+            contentTruncated:
+                before[rel]!.content == null && before[rel]!.size > 0,
           ),
         );
       }
     }
 
     changes.sort((a, b) => a.relativePath.compareTo(b.relativePath));
-    return changes;
+    final retainedCount = changes.length < _kMaxHarnessChangedFiles
+        ? changes.length
+        : _kMaxHarnessChangedFiles;
+    var remainingCharacters = _kMaxHarnessDiffTotalCharacters;
+    var anyContentTruncated = false;
+    final retained = <HarnessChangedFile>[];
+    for (var index = 0; index < retainedCount; index++) {
+      final change = changes[index];
+      var fileContentTruncated = change.contentTruncated;
+      String? retainContent(String? value) {
+        if (value == null || value.isEmpty) return value;
+        final limit = remainingCharacters < _kMaxHarnessDiffSideCharacters
+            ? remainingCharacters
+            : _kMaxHarnessDiffSideCharacters;
+        if (limit <= 0) {
+          fileContentTruncated = true;
+          return null;
+        }
+        final retainedValue = clipTextByCodeUnits(value, limit, suffix: '');
+        remainingCharacters -= retainedValue.length;
+        if (retainedValue.length < value.length) {
+          fileContentTruncated = true;
+        }
+        return retainedValue;
+      }
+
+      final beforeContent = retainContent(change.beforeContent);
+      final afterContent = retainContent(change.afterContent);
+      anyContentTruncated |= fileContentTruncated;
+      retained.add(
+        HarnessChangedFile(
+          relativePath: change.relativePath,
+          absolutePath: change.absolutePath,
+          changeType: change.changeType,
+          beforeContent: beforeContent,
+          afterContent: afterContent,
+          contentTruncated: fileContentTruncated,
+        ),
+      );
+    }
+    return (
+      files: retained,
+      omittedFiles: changes.length - retainedCount,
+      contentTruncated: anyContentTruncated,
+    );
   }
 }

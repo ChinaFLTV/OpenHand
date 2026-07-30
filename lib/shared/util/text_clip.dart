@@ -42,6 +42,23 @@ int safeUtf8PrefixCodeUnits(String value, int maxBytes) {
   return codeUnitLength;
 }
 
+/// 计算 UTF-8 字节数，不创建完整编码副本。
+int utf8ByteLength(String value) {
+  var length = 0;
+  for (final rune in value.runes) {
+    if (rune <= 0x7F) {
+      length += 1;
+    } else if (rune <= 0x7FF) {
+      length += 2;
+    } else if (rune <= 0xFFFF) {
+      length += 3;
+    } else {
+      length += 4;
+    }
+  }
+  return length;
+}
+
 bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
 
 bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
@@ -55,6 +72,26 @@ String clipText(String value, int maxChars, {String suffix = '...'}) {
 
 String clipTextWithEllipsis(String value, int maxChars) {
   return clipText(value, maxChars, suffix: '…');
+}
+
+/// 按 UTF-16 代码单元裁剪文本，适用于持久化和内存容量预算。
+String clipTextByCodeUnits(
+  String value,
+  int maxCodeUnits, {
+  String suffix = '...',
+}) {
+  final limit = maxCodeUnits < 0 ? 0 : maxCodeUnits;
+  if (value.length <= limit) return value;
+  if (limit == 0) return '';
+  if (suffix.length >= limit) {
+    return suffix.substring(0, safeUtf16PrefixCodeUnits(suffix, limit));
+  }
+  final end = safeUtf16PrefixCodeUnits(value, limit - suffix.length);
+  return '${value.substring(0, end)}$suffix';
+}
+
+String clipTextByCodeUnitsWithEllipsis(String value, int maxCodeUnits) {
+  return clipTextByCodeUnits(value, maxCodeUnits, suffix: '…');
 }
 
 String? clipNullableText(String? value, int maxChars, {String suffix = '...'}) {

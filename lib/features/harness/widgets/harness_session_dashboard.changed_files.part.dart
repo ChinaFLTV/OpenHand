@@ -159,8 +159,9 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
           _computing = false;
         });
       }
-    } catch (_) {
-      // Fallback: compute on main thread.
+    } catch (error, stack) {
+      silentLog('harness_diff', '在隔离线程计算文件差异', error, stack);
+      // 隔离线程不可用时退回主线程计算已受容量限制的内容。
       if (!mounted) return;
       final result = unifiedDiffLinesFromText(before, after);
       if (mounted) {
@@ -250,6 +251,34 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                 ),
               ],
             ),
+            if (file.contentTruncated) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                  borderRadius: _br12,
+                ),
+                child: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '文件内容超过安全上限，以下差异仅展示保留部分。',
+                    zhHant: '檔案內容超過安全上限，以下差異僅顯示保留部分。',
+                    en: 'The file exceeded the safety limit. The diff shows only the retained content.',
+                    fr: 'Le fichier dépasse la limite de sécurité. Le diff affiche uniquement le contenu conservé.',
+                    de: 'Die Datei überschreitet das Sicherheitslimit. Der Diff zeigt nur den beibehaltenen Inhalt.',
+                    ja: 'ファイルが安全上限を超えたため、保持された内容のみ差分表示します。',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             // ── Diff view ──
             Expanded(
