@@ -843,9 +843,22 @@ Future<List<File>> _atomicTempArtifacts(
 ///
 /// Throws [FileSystemException] if the platform is unsupported or the
 /// command fails.
-Future<void> openDirectoryInFileManager(Directory directory) async {
-  if (!await directory.exists()) {
-    await directory.create(recursive: true);
+Future<void> openDirectoryInFileManager(
+  Directory directory, {
+  bool createIfMissing = true,
+}) async {
+  final type = await FileSystemEntity.type(
+    directory.path,
+  ).timeout(_openDirectoryCommandTimeout);
+  if (type == FileSystemEntityType.notFound) {
+    if (!createIfMissing) {
+      throw FileSystemException('目录不存在。', directory.path);
+    }
+    await directory
+        .create(recursive: true)
+        .timeout(_openDirectoryCommandTimeout);
+  } else if (type != FileSystemEntityType.directory) {
+    throw FileSystemException('路径不是目录。', directory.path);
   }
 
   final ProcessResult? result;

@@ -110,12 +110,13 @@ class SkillsRepository {
       );
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', '创建技能模板', error, stack);
-      await _deleteDirectoryIfExists(
-        targetDirectory,
+      return _throwAfterFailedSkillDirectoryOperation(
+        action: '创建技能模板',
+        error: error,
+        stack: stack,
+        directory: targetDirectory,
         storageRootPath: storagePath,
       );
-      rethrow;
     }
   }
 
@@ -170,12 +171,13 @@ class SkillsRepository {
       );
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', '创建技能', error, stack);
-      await _deleteDirectoryIfExists(
-        targetDirectory,
+      return _throwAfterFailedSkillDirectoryOperation(
+        action: '创建技能',
+        error: error,
+        stack: stack,
+        directory: targetDirectory,
         storageRootPath: storagePath,
       );
-      rethrow;
     }
   }
 
@@ -198,12 +200,8 @@ class SkillsRepository {
 
     final normalizedStoragePath = p.normalize(storageDirectory.path);
     final normalizedSourcePath = p.normalize(sourceDirectory.path);
-    final relativeSourcePath = p.relative(
-      normalizedSourcePath,
-      from: normalizedStoragePath,
-    );
     final parsedSourceSkill = await _parseSkill(sourceManifest, storagePath);
-    if (relativeSourcePath == '.' || !relativeSourcePath.startsWith('..')) {
+    if (isPathWithinOrEqual(normalizedStoragePath, normalizedSourcePath)) {
       return parsedSourceSkill;
     }
 
@@ -223,12 +221,13 @@ class SkillsRepository {
         storagePath,
       );
     } catch (error, stack) {
-      silentLog('skills_repository', '导入技能目录', error, stack);
-      await _deleteDirectoryIfExists(
-        targetDirectory,
+      return _throwAfterFailedSkillDirectoryOperation(
+        action: '导入技能目录',
+        error: error,
+        stack: stack,
+        directory: targetDirectory,
         storageRootPath: storagePath,
       );
-      rethrow;
     }
   }
 
@@ -256,12 +255,13 @@ class SkillsRepository {
       }
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', '安装技能归档', error, stack);
-      await _deleteDirectoryIfExists(
-        targetDirectory,
+      return _throwAfterFailedSkillDirectoryOperation(
+        action: '安装技能归档',
+        error: error,
+        stack: stack,
+        directory: targetDirectory,
         storageRootPath: storagePath,
       );
-      rethrow;
     }
   }
 
@@ -303,14 +303,17 @@ class SkillsRepository {
       );
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', '更新技能清单', error, stack);
-      await writeFileAtomically(manifestFile, previousManifestContent);
-      await _restoreOptionalFile(
-        metadataPath,
-        previousMetadataBytes,
+      return _throwAfterFailedSkillUpdate(
+        action: '更新技能清单',
+        error: error,
+        stack: stack,
+        manifestFile: manifestFile,
+        previousManifestContent: previousManifestContent,
+        previousOptionalFiles: <String, Uint8List?>{
+          metadataPath: previousMetadataBytes,
+        },
         rootDirectoryPath: skillDirectoryPath,
       );
-      rethrow;
     }
   }
 
@@ -394,24 +397,19 @@ class SkillsRepository {
       }
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
-      silentLog('skills_repository', '更新技能', error, stack);
-      await writeFileAtomically(manifestFile, previousManifestContent);
-      await _restoreOptionalFile(
-        metadataPath,
-        previousMetadataBytes,
+      return _throwAfterFailedSkillUpdate(
+        action: '更新技能',
+        error: error,
+        stack: stack,
+        manifestFile: manifestFile,
+        previousManifestContent: previousManifestContent,
+        previousOptionalFiles: <String, Uint8List?>{
+          metadataPath: previousMetadataBytes,
+          generatedEmojiIconPath: previousEmojiIconBytes,
+          generatedImageIconPath: previousImageIconBytes,
+        },
         rootDirectoryPath: skillDirectoryPath,
       );
-      await _restoreOptionalFile(
-        generatedEmojiIconPath,
-        previousEmojiIconBytes,
-        rootDirectoryPath: skillDirectoryPath,
-      );
-      await _restoreOptionalFile(
-        generatedImageIconPath,
-        previousImageIconBytes,
-        rootDirectoryPath: skillDirectoryPath,
-      );
-      rethrow;
     }
   }
 
@@ -421,13 +419,10 @@ class SkillsRepository {
       throw const FileSystemException('Skill directory does not exist.');
     }
 
-    final relativeDirectoryPath = p.relative(
-      p.normalize(directory.path),
-      from: p.normalize(storagePath),
-    );
-    final isOutsideStorageRoot =
-        relativeDirectoryPath == '.' || relativeDirectoryPath.startsWith('..');
-    if (isOutsideStorageRoot) {
+    final normalizedDirectoryPath = p.normalize(directory.path);
+    final normalizedStoragePath = p.normalize(storagePath);
+    if (p.equals(normalizedDirectoryPath, normalizedStoragePath) ||
+        !isPathWithinOrEqual(normalizedStoragePath, normalizedDirectoryPath)) {
       throw const FileSystemException(
         'Skill directory is outside the storage root.',
       );
@@ -443,10 +438,7 @@ class SkillsRepository {
 
   Future<void> openDirectory(String path) async {
     final directory = Directory(path);
-    if (!await directory.exists()) {
-      throw const FileSystemException('Directory does not exist.');
-    }
-    return openDirectoryInFileManager(directory);
+    return openDirectoryInFileManager(directory, createIfMissing: false);
   }
 
   Future<LocalSkill> _parseSkill(File manifestFile, String storagePath) async {
@@ -802,9 +794,6 @@ class SkillsRepository {
     final metadataFile = File(
       p.join(skillDirectoryPath, _openAiMetadataRelativePath),
     );
-    if (!await metadataFile.parent.exists()) {
-      await metadataFile.parent.create(recursive: true);
-    }
 
     final generatedEmojiIconPath = p.join(
       skillDirectoryPath,
@@ -819,12 +808,6 @@ class SkillsRepository {
     String? iconRelativePath;
     if (imageIconBytes != null && imageIconBytes.isNotEmpty) {
       await _deleteOptionalFileIfExists(generatedEmojiIconPath);
-      final assetsDirectory = Directory(
-        p.join(skillDirectoryPath, _openAiAssetsRelativePath),
-      );
-      if (!await assetsDirectory.exists()) {
-        await assetsDirectory.create(recursive: true);
-      }
       final iconFile = File(generatedImageIconPath);
       await writeBytesFileAtomically(iconFile, imageIconBytes);
       iconRelativePath = './assets/$_generatedImageIconFileName';
@@ -832,12 +815,6 @@ class SkillsRepository {
       await _deleteOptionalFileIfExists(generatedImageIconPath);
       final normalizedEmojiIcon = _sanitizeEmojiIcon(emojiIcon);
       if (normalizedEmojiIcon != null) {
-        final assetsDirectory = Directory(
-          p.join(skillDirectoryPath, _openAiAssetsRelativePath),
-        );
-        if (!await assetsDirectory.exists()) {
-          await assetsDirectory.create(recursive: true);
-        }
         final iconFile = File(generatedEmojiIconPath);
         await writeFileAtomically(
           iconFile,
@@ -1211,10 +1188,7 @@ class SkillsRepository {
   }
 
   Future<void> _deleteOptionalFileIfExists(String filePath) async {
-    final file = File(filePath);
-    if (await file.exists()) {
-      await file.delete();
-    }
+    await deleteFileAtomically(File(filePath));
   }
 
   Future<Uint8List?> _readOptionalFileBytes(String filePath) async {
@@ -1237,9 +1211,7 @@ class SkillsRepository {
   }) async {
     final file = File(filePath);
     if (bytes == null) {
-      if (await file.exists()) {
-        await file.delete();
-      }
+      await deleteFileAtomically(file);
       await deleteEmptyAncestorDirectories(
         start: file.parent,
         stopAt: Directory(rootDirectoryPath),
@@ -1252,6 +1224,69 @@ class SkillsRepository {
       await parentDirectory.create(recursive: true);
     }
     await writeBytesFileAtomically(file, bytes);
+  }
+
+  Future<Never> _throwAfterFailedSkillDirectoryOperation({
+    required String action,
+    required Object error,
+    required StackTrace stack,
+    required Directory directory,
+    required String storageRootPath,
+  }) async {
+    silentLog('skills_repository', action, error, stack);
+    try {
+      await _deleteDirectoryIfExists(
+        directory,
+        storageRootPath: storageRootPath,
+      );
+    } catch (cleanupError, cleanupStack) {
+      silentLog(
+        'skills_repository',
+        '$action失败后清理目录',
+        cleanupError,
+        cleanupStack,
+      );
+    }
+    Error.throwWithStackTrace(error, stack);
+  }
+
+  Future<Never> _throwAfterFailedSkillUpdate({
+    required String action,
+    required Object error,
+    required StackTrace stack,
+    required File manifestFile,
+    required String previousManifestContent,
+    required Map<String, Uint8List?> previousOptionalFiles,
+    required String rootDirectoryPath,
+  }) async {
+    silentLog('skills_repository', action, error, stack);
+    try {
+      await writeFileAtomically(manifestFile, previousManifestContent);
+    } catch (rollbackError, rollbackStack) {
+      silentLog(
+        'skills_repository',
+        '$action失败后恢复技能清单',
+        rollbackError,
+        rollbackStack,
+      );
+    }
+    for (final entry in previousOptionalFiles.entries) {
+      try {
+        await _restoreOptionalFile(
+          entry.key,
+          entry.value,
+          rootDirectoryPath: rootDirectoryPath,
+        );
+      } catch (rollbackError, rollbackStack) {
+        silentLog(
+          'skills_repository',
+          '$action失败后恢复关联文件',
+          rollbackError,
+          rollbackStack,
+        );
+      }
+    }
+    Error.throwWithStackTrace(error, stack);
   }
 
   String _titleFromSlug(String slug) {
