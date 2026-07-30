@@ -416,9 +416,8 @@ class AiWebFetchSettings {
           const AiWebFetchScraplingSettings(),
       resultCount: _resultCountRange.fromValue(json['result_count']),
       parallel: boolFromValue(json['parallel'], defaultValue: true),
-      parallelWorkers: AiWebEngineExecutionPolicy.parallelWorkersRange.fromValue(
-        json['parallel_workers'],
-      ),
+      parallelWorkers: AiWebEngineExecutionPolicy.parallelWorkersRange
+          .fromValue(json['parallel_workers']),
       cacheTtlSeconds: _cacheTtlSecondsRange.fromValue(
         json['cache_ttl_seconds'],
       ),

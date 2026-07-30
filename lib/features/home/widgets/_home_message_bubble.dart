@@ -4714,10 +4714,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
               silentLog('home_message_bubble', '清理媒体预览临时页面', error, stack),
         );
         if (!mounted) {
-          await _deleteMediaPreviewTempFile(
-            tempFile.path,
-            '媒体预览：清理未挂载的临时页面',
-          );
+          await _deleteMediaPreviewTempFile(tempFile.path, '媒体预览：清理未挂载的临时页面');
           return;
         }
         _tempHtmlPath = tempFile.path;
@@ -8481,10 +8478,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
               silentLog('home_message_bubble', '清理全屏视频临时页面', error, stack),
         );
         if (!mounted) {
-          await _deleteMediaPreviewTempFile(
-            tempFile.path,
-            '全屏视频：清理未挂载的临时页面',
-          );
+          await _deleteMediaPreviewTempFile(tempFile.path, '全屏视频：清理未挂载的临时页面');
           return;
         }
         _tempHtmlPath = tempFile.path;

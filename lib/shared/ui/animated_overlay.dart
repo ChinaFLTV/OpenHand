@@ -286,7 +286,8 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     if (!mounted) return;
     final resolved = _resolveSettings();
     final disabled =
-        !openHandTickerMotionEnabled(context) || openHandMotionDisabled(resolved);
+        !openHandTickerMotionEnabled(context) ||
+        openHandMotionDisabled(resolved);
     if (resolved == _settings && disabled == _animationsDisabled) return;
     setState(_syncAnimationPreference);
   }

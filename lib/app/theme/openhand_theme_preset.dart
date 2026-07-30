@@ -30,7 +30,6 @@ enum OpenHandThemePreset {
   final String storageValue;
   final Color seedColor;
 
-
   static OpenHandThemePreset fromStorage(String? value) {
     return enumByStorageValueOr(
       values,

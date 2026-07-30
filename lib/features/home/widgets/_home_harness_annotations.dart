@@ -53,10 +53,7 @@ final _HeAnnotationCache _heAnnotationCache = _HeAnnotationCache();
 
 _HeAnnotation? _parseHeAnnotation(String content) {
   if (content.isEmpty) return null;
-  final cacheKey = Object.hash(
-    content.length,
-    boundedTextFingerprint(content),
-  );
+  final cacheKey = Object.hash(content.length, boundedTextFingerprint(content));
   final cached = _heAnnotationCache.get(cacheKey);
   if (cached != null) {
     return cached.value;

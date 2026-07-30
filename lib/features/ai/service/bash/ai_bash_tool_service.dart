@@ -2824,7 +2824,9 @@ class _ShellWriteCommandAnalyzer {
     if (commandName == 'sysctl') {
       for (final token in invocation.skip(1)) {
         if (token.text == '-w' || token.text.contains('=')) {
-          return BashWriteAnalysis.write('sysctl ${token.text} writes kernel parameters');
+          return BashWriteAnalysis.write(
+            'sysctl ${token.text} writes kernel parameters',
+          );
         }
       }
       return const BashWriteAnalysis.readOnly('sysctl query is read-only');

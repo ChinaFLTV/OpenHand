@@ -417,9 +417,8 @@ class AiWebSearchSettings {
       ),
       fixedModelId: optionalStringFromValue(json['fixed_model_id']),
       parallel: boolFromValue(json['parallel'], defaultValue: true),
-      parallelWorkers: AiWebEngineExecutionPolicy.parallelWorkersRange.fromValue(
-        json['parallel_workers'],
-      ),
+      parallelWorkers: AiWebEngineExecutionPolicy.parallelWorkersRange
+          .fromValue(json['parallel_workers']),
       summaryDetail: summaryDetail,
       summaryStyle: summaryStyle,
       summaryMinChars: summaryMinChars,

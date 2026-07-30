@@ -170,9 +170,8 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
 /// false-negatives would silently drop the partial preview.
 bool _mayContainToolCallMarker(String buffer) {
   for (var index = 0; index < buffer.length; index++) {
-    final needles = _markerNeedlesByLeadChar[_asciiLower(
-      buffer.codeUnitAt(index),
-    )];
+    final needles =
+        _markerNeedlesByLeadChar[_asciiLower(buffer.codeUnitAt(index))];
     if (needles == null) continue;
     for (final needle in needles) {
       if (_matchesIgnoreCaseAt(buffer, index, needle)) return true;

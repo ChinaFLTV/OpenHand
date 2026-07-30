@@ -8,6 +8,7 @@ class AiThreadTemplateIconNames {
   static const String codeRounded = 'code_rounded';
   static const String travelExploreRounded = 'travel_explore_rounded';
   static const String assistantRounded = 'assistant_rounded';
+
   /// Siri 助手：语音助理语义（Material 无官方 Siri logo，取语音气泡隐喻）。
   static const String recordVoiceOverRounded = 'record_voice_over_rounded';
   static const String androidRounded = 'android_rounded';

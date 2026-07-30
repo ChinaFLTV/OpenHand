@@ -11,7 +11,10 @@ String nonBlankStringOr(String? value, String fallback) {
 
 /// 依次尝试 [keys]，返回 [map] 中第一个非空白字符串值（已 trim）；
 /// 全部缺失或空白时返回 null。
-String? firstNonBlankStringForKeys(Map<String, Object?> map, List<String> keys) {
+String? firstNonBlankStringForKeys(
+  Map<String, Object?> map,
+  List<String> keys,
+) {
   for (final key in keys) {
     final value = map[key];
     if (value is String) {
