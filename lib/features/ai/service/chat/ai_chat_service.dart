@@ -541,8 +541,7 @@ class AiChatService implements AiChatClient {
   AiRequestBlueprint _withoutCacheAffinityMarkers(
     AiRequestBlueprint blueprint,
   ) {
-    return AiRequestBlueprint(
-      url: blueprint.url,
+    return blueprint.copyWith(
       headers: AiPromptCacheAffinity.withoutHeaderMarkers(blueprint.headers),
       body: AiPromptCacheAffinity.withoutBodyMarkers(blueprint.body),
     );
@@ -551,17 +550,13 @@ class AiChatService implements AiChatClient {
   AiRequestBlueprint _withoutCacheRetentionMarker(
     AiRequestBlueprint blueprint,
   ) {
-    return AiRequestBlueprint(
-      url: blueprint.url,
-      headers: blueprint.headers,
+    return blueprint.copyWith(
       body: AiPromptCacheRetentionPolicy.withoutMarker(blueprint.body),
     );
   }
 
   AiRequestBlueprint _withoutThinkingMarkers(AiRequestBlueprint blueprint) {
-    return AiRequestBlueprint(
-      url: blueprint.url,
-      headers: blueprint.headers,
+    return blueprint.copyWith(
       body: AiThinkingRequestPolicy.withoutRequestMarkers(blueprint.body),
     );
   }

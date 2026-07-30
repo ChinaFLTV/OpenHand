@@ -758,6 +758,18 @@ class AiRequestBlueprint {
   final String url;
   final Map<String, String> headers;
   final Map<String, Object?> body;
+
+  AiRequestBlueprint copyWith({
+    String? url,
+    Map<String, String>? headers,
+    Map<String, Object?>? body,
+  }) {
+    return AiRequestBlueprint(
+      url: url ?? this.url,
+      headers: headers ?? this.headers,
+      body: body ?? this.body,
+    );
+  }
 }
 
 class _ProtocolSystemPartition {
@@ -2506,11 +2518,7 @@ class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
       body['tools'] = existingTools;
       body['tool_choice'] = 'auto';
     }
-    return AiRequestBlueprint(
-      url: request.url,
-      headers: request.headers,
-      body: body,
-    );
+    return request.copyWith(body: body);
   }
 
   static void _normalizeBody(
@@ -3495,11 +3503,7 @@ class MimoAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
     );
     final body = Map<String, Object?>.from(request.body);
     _normalizeBody(body, model);
-    return AiRequestBlueprint(
-      url: request.url,
-      headers: request.headers,
-      body: body,
-    );
+    return request.copyWith(body: body);
   }
 
   static void _normalizeBody(Map<String, Object?> body, AiModelConfig model) {
