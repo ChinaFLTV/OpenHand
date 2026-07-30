@@ -812,7 +812,8 @@ class WebReverseSessionController extends ChangeNotifier {
     // 切换前主动 detach 旧 session（如果有），避免事件流叠加。
     if (_pageSessionId != null) {
       _clearPendingFetchRequests();
-      _samplingProfileRunning = false;
+      await stopRecording();
+      await stopMemorySampling();
       try {
         await cdp.send(
           'Target.detachFromTarget',
@@ -1083,6 +1084,10 @@ class WebReverseSessionController extends ChangeNotifier {
         // 复位、清掉缓存帧、通知 UI 切到"已断开 / 可重启"占位。
         _resetScreencastRuntimeState(resetRefCount: false);
         _clearPendingFetchRequests(resetEnabled: true);
+        _recorderGeneration += 1;
+        _recording = false;
+        _recorderScriptIdentifier = null;
+        _memorySamplingGeneration += 1;
         _samplingProfileRunning = false;
         _errorMessage = '浏览器已断开（CDP 自动重连失败），可点击「重启浏览器」恢复。';
         _safeNotify();
@@ -2123,6 +2128,8 @@ class WebReverseSessionController extends ChangeNotifier {
 
   bool _recording = false;
   String? _recorderScriptIdentifier;
+  Future<void>? _recorderStartTask;
+  int _recorderGeneration = 0;
   final ListQueue<Map<String, Object?>> _recorderSteps =
       ListQueue<Map<String, Object?>>();
   int _recorderStepsChars = 0;
@@ -2130,10 +2137,30 @@ class WebReverseSessionController extends ChangeNotifier {
       List<Map<String, Object?>>.unmodifiable(_recorderSteps);
   bool get isRecording => _recording;
 
-  Future<void> startRecording() async {
+  Future<void> startRecording() {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
-    if (_recording) return;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null || _recording) {
+      return Future<void>.value();
+    }
+    final active = _recorderStartTask;
+    if (active != null) return active;
+    final generation = ++_recorderGeneration;
+    late final Future<void> task;
+    task = _startRecordingOnce(cdp, sessionId, generation).whenComplete(() {
+      if (identical(_recorderStartTask, task)) {
+        _recorderStartTask = null;
+      }
+    });
+    _recorderStartTask = task;
+    return task;
+  }
+
+  Future<void> _startRecordingOnce(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    int generation,
+  ) async {
     const recorderJs = r'''
 (() => {
   if (window.__oh_recorder_installed) return;
@@ -2291,56 +2318,108 @@ class WebReverseSessionController extends ChangeNotifier {
       final r = await cdp.send(
         'Page.addScriptToEvaluateOnNewDocument',
         params: <String, Object?>{'source': recorderJs},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
       );
-      _recorderScriptIdentifier = r['identifier'] as String?;
+      final scriptIdentifier = r['identifier'] as String?;
+      if (!_isRecorderStartCurrent(cdp, sessionId, generation)) {
+        await _cleanupRecorderRuntime(cdp, sessionId, scriptIdentifier);
+        return;
+      }
+      _recorderScriptIdentifier = scriptIdentifier;
       // 当前页面也立即注入一次。
       await cdp.send(
         'Runtime.evaluate',
         params: const <String, Object?>{'expression': recorderJs},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
       );
+      if (!_isRecorderStartCurrent(cdp, sessionId, generation)) {
+        if (_recorderScriptIdentifier == scriptIdentifier) {
+          _recorderScriptIdentifier = null;
+        }
+        await _cleanupRecorderRuntime(cdp, sessionId, scriptIdentifier);
+        return;
+      }
       _recorderSteps.clear();
       _recorderStepsChars = 0;
       _recording = true;
       _safeNotify();
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', '开始录制', error, stack);
+      if (_isRecorderStartCurrent(cdp, sessionId, generation)) {
+        silentLog('web_reverse_session_controller', '开始录制', error, stack);
+      }
     }
   }
 
   Future<void> stopRecording() async {
+    final starting = _recorderStartTask;
+    _recorderGeneration += 1;
     final cdp = _browserCdp;
-    if (!_recording) return;
+    final sessionId = _pageSessionId;
+    final scriptIdentifier = _recorderScriptIdentifier;
+    final shouldNotify =
+        _recording || starting != null || scriptIdentifier != null;
     _recording = false;
-    if (cdp != null && _recorderScriptIdentifier != null) {
+    _recorderScriptIdentifier = null;
+    if (!shouldNotify) return;
+    if (cdp != null && sessionId != null) {
+      await _cleanupRecorderRuntime(cdp, sessionId, scriptIdentifier);
+    }
+    if (starting != null) {
+      await runAsyncCleanupBounded(
+        () => starting,
+        timeout: _browserCleanupTimeout,
+        onError: (error, stack) => silentLog(
+          'web_reverse_session_controller',
+          '等待录制器停止启动',
+          error,
+          stack,
+        ),
+      );
+    }
+    _safeNotify();
+  }
+
+  bool _isRecorderStartCurrent(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    int generation,
+  ) {
+    return !_disposed &&
+        !_stopped &&
+        generation == _recorderGeneration &&
+        identical(_browserCdp, cdp) &&
+        _pageSessionId == sessionId;
+  }
+
+  Future<void> _cleanupRecorderRuntime(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    String? scriptIdentifier,
+  ) async {
+    if (scriptIdentifier != null) {
       try {
         await cdp.send(
           'Page.removeScriptToEvaluateOnNewDocument',
-          params: <String, Object?>{'identifier': _recorderScriptIdentifier},
-          sessionId: _pageSessionId,
+          params: <String, Object?>{'identifier': scriptIdentifier},
+          sessionId: sessionId,
         );
       } catch (error, stack) {
         silentLog('web_reverse_session_controller', '移除录制脚本', error, stack);
       }
-      _recorderScriptIdentifier = null;
     }
     // 摘掉页面上的悬浮指示条；页面没卸载时 stop 后 overlay 仍可能挂着。
-    if (cdp != null && _pageSessionId != null) {
-      try {
-        await cdp.send(
-          'Runtime.evaluate',
-          params: const <String, Object?>{
-            'expression':
-                '(()=>{const el=document.getElementById("__oh_recorder_overlay");if(el)el.remove();window.__oh_recorder_installed=false;window.__oh_rec_inc=null;})()',
-          },
-          sessionId: _pageSessionId,
-        );
-      } catch (error, stack) {
-        silentLog('web_reverse_session_controller', '移除录制浮层', error, stack);
-      }
+    try {
+      await cdp.send(
+        'Runtime.evaluate',
+        params: const <String, Object?>{
+          'expression':
+              '(()=>{const el=document.getElementById("__oh_recorder_overlay");if(el)el.remove();window.__oh_recorder_installed=false;window.__oh_rec_inc=null;})()',
+        },
+        sessionId: sessionId,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', '移除录制浮层', error, stack);
     }
-    _safeNotify();
   }
 
   /// 把已录制的 step 序列在浏览器里按时间间隔重放：
@@ -2971,13 +3050,17 @@ class WebReverseSessionController extends ChangeNotifier {
       _pageTargetFirstSeenOrder.remove(id);
       _targetBuffers.remove(id);
       if (id == _currentTargetId) {
+        _recorderGeneration += 1;
+        _recording = false;
+        _recorderScriptIdentifier = null;
+        _memorySamplingGeneration += 1;
+        _samplingProfileRunning = false;
         if (_pageTargets.isNotEmpty) {
           unawaited(switchToPageTarget(_pageTargets.first.id));
         } else {
           _currentTargetId = null;
           _pageSessionId = null;
           _clearPendingFetchRequests();
-          _samplingProfileRunning = false;
         }
       }
       _safeNotify();
@@ -4313,6 +4396,8 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<void> stopBrowser() async {
     if (_stopped) return;
     _stopAliveWatchdog();
+    await stopRecording();
+    await stopMemorySampling();
     // 关 screencast → 关 CDP → kill 进程；artifacts / dock 不动。
     if (_screencastActive) {
       try {
@@ -4327,7 +4412,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     _resetScreencastRuntimeState(resetRefCount: false);
     _clearPendingFetchRequests(resetEnabled: true);
-    _samplingProfileRunning = false;
     await _cancelRuntimeSubscription(_pageEventsSub, '停止页面事件订阅');
     _pageEventsSub = null;
     _pageSessionId = null;
@@ -4425,6 +4509,8 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> _safeStopUncached() async {
     _stopAliveWatchdog();
+    await stopRecording();
+    await stopMemorySampling();
     // 主动停 screencast：进程将被 kill，事件流也会断；提前 stop 防止
     // 浏览器侧 ack 队列卡住影响下次拉起。
     if (_screencastActive) {
@@ -4441,7 +4527,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     _resetScreencastRuntimeState(resetRefCount: true);
     _clearPendingFetchRequests(resetEnabled: true);
-    _samplingProfileRunning = false;
     await _cancelRuntimeSubscription(_pageEventsSub, '关闭页面事件订阅');
     await _closeAuxiliaryServices();
     _pageEventsSub = null;
@@ -5636,30 +5721,67 @@ class WebReverseSessionController extends ChangeNotifier {
   // ── Memory: V8 实时采样（HeapProfiler.startSampling） ─────────────────
 
   bool _samplingProfileRunning = false;
+  Future<bool>? _memorySamplingStartTask;
+  int _memorySamplingGeneration = 0;
   bool get isMemorySampling => _samplingProfileRunning;
 
   /// 启动 V8 采样（HeapProfiler.startSampling）。失败返回 false。
-  Future<bool> startMemorySampling({double samplingInterval = 32768}) async {
+  Future<bool> startMemorySampling({double samplingInterval = 32768}) {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return false;
-    if (_samplingProfileRunning) return true;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return Future<bool>.value(false);
+    if (_samplingProfileRunning) return Future<bool>.value(true);
+    final active = _memorySamplingStartTask;
+    if (active != null) return active;
     final normalizedInterval = samplingInterval.isFinite
         ? samplingInterval
               .clamp(_minMemorySamplingInterval, _maxMemorySamplingInterval)
               .toDouble()
         : 32768.0;
+    final generation = ++_memorySamplingGeneration;
+    late final Future<bool> task;
+    task =
+        _startMemorySamplingOnce(
+          cdp,
+          sessionId,
+          generation,
+          normalizedInterval,
+        ).whenComplete(() {
+          if (identical(_memorySamplingStartTask, task)) {
+            _memorySamplingStartTask = null;
+          }
+        });
+    _memorySamplingStartTask = task;
+    return task;
+  }
+
+  Future<bool> _startMemorySamplingOnce(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    int generation,
+    double samplingInterval,
+  ) async {
     try {
-      await cdp.send('HeapProfiler.enable', sessionId: _pageSessionId);
+      await cdp.send('HeapProfiler.enable', sessionId: sessionId);
+      if (!_isMemorySamplingStartCurrent(cdp, sessionId, generation)) {
+        return false;
+      }
       await cdp.send(
         'HeapProfiler.startSampling',
-        params: <String, Object?>{'samplingInterval': normalizedInterval},
-        sessionId: _pageSessionId,
+        params: <String, Object?>{'samplingInterval': samplingInterval},
+        sessionId: sessionId,
       );
+      if (!_isMemorySamplingStartCurrent(cdp, sessionId, generation)) {
+        await _stopMemorySamplingRuntime(cdp, sessionId);
+        return false;
+      }
       _samplingProfileRunning = true;
       _safeNotify();
       return true;
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', '开始内存采样', error, stack);
+      if (_isMemorySamplingStartCurrent(cdp, sessionId, generation)) {
+        silentLog('web_reverse_session_controller', '开始内存采样', error, stack);
+      }
       return false;
     }
   }
@@ -5670,24 +5792,66 @@ class WebReverseSessionController extends ChangeNotifier {
   >
   stopMemorySampling() async {
     final cdp = _browserCdp;
-    if (cdp == null || !_samplingProfileRunning) return null;
+    final sessionId = _pageSessionId;
+    final starting = _memorySamplingStartTask;
+    _memorySamplingGeneration += 1;
+    final wasRunning = _samplingProfileRunning;
+    _samplingProfileRunning = false;
+    if (wasRunning) _safeNotify();
+    Map<String, Object?>? result;
     try {
-      final r = await cdp.send(
-        'HeapProfiler.stopSampling',
-        sessionId: _pageSessionId,
-        timeout: _cdpIoTimeout,
-      );
-      final profile = stringKeyedMapFromValue(r['profile']);
+      if (cdp != null &&
+          sessionId != null &&
+          (wasRunning || starting != null)) {
+        result = await _stopMemorySamplingRuntime(cdp, sessionId);
+      }
+      if (starting != null) {
+        await runAsyncCleanupBounded(
+          () => starting,
+          timeout: _browserCleanupTimeout,
+          onError: (error, stack) => silentLog(
+            'web_reverse_session_controller',
+            '等待内存采样停止启动',
+            error,
+            stack,
+          ),
+        );
+      }
+      if (result == null) return null;
+      final profile = stringKeyedMapFromValue(result['profile']);
       if (profile.isEmpty) return null;
       return summarizeSamplingHeapProfile(profile['head']);
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '停止内存采样', error, stack);
       return null;
-    } finally {
-      if (_samplingProfileRunning) {
-        _samplingProfileRunning = false;
-        _safeNotify();
-      }
+    }
+  }
+
+  bool _isMemorySamplingStartCurrent(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    int generation,
+  ) {
+    return !_disposed &&
+        !_stopped &&
+        generation == _memorySamplingGeneration &&
+        identical(_browserCdp, cdp) &&
+        _pageSessionId == sessionId;
+  }
+
+  Future<Map<String, Object?>?> _stopMemorySamplingRuntime(
+    WebReverseCdpClient cdp,
+    String sessionId,
+  ) async {
+    try {
+      return await cdp.send(
+        'HeapProfiler.stopSampling',
+        sessionId: sessionId,
+        timeout: _cdpIoTimeout,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', '停止内存采样运行时', error, stack);
+      return null;
     }
   }
 
