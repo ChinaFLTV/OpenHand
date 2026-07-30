@@ -278,7 +278,7 @@ const DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 const DEFAULT_ATTACHMENT_MAX_COUNT = 20;
 const COMPOSER_QUEUE_MAX_MESSAGES = 32;
 const COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
-const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
+const ATTACHMENT_READ_TIMEOUT_MS = 30_000;
 const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
@@ -6525,27 +6525,41 @@ export function SessionDetailPage() {
   async function readFileAsAttachment(file: File): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      let settled = false;
+      let timer = 0;
       const cleanup = () => {
+        window.clearTimeout(timer);
         reader.onload = null;
         reader.onerror = null;
+        reader.onabort = null;
       };
-      const rejectWithCleanup = (error: Error) => {
+      const fail = (error: Error, abort = false) => {
+        if (settled) return;
+        settled = true;
         cleanup();
+        if (abort && reader.readyState === FileReader.LOADING) {
+          try {
+            reader.abort();
+          } catch {
+            // 读取已结束，无需处理。
+          }
+        }
         reject(error);
       };
       reader.onload = () => {
         const result = reader.result;
         if (typeof result !== 'string') {
-          rejectWithCleanup(new Error('reader.result not string'));
+          fail(new Error('附件读取结果格式无效'));
           return;
         }
         const idx = result.indexOf('base64,');
         const data = idx >= 0 ? result.substring(idx + 'base64,'.length) : '';
         if (!data) {
-          rejectWithCleanup(new Error('empty base64 payload'));
+          fail(new Error('附件内容为空'));
           return;
         }
         const mime = file.type || mimeForAttachmentName(file.name) || (idx > 0 ? result.substring(5, result.indexOf(';')) : 'application/octet-stream');
+        settled = true;
         cleanup();
         resolve({
           att: { name: file.name, data_base64: data },
@@ -6553,8 +6567,17 @@ export function SessionDetailPage() {
           dataUrl: `data:${mime};base64,${data}`,
         });
       };
-      reader.onerror = () => rejectWithCleanup(reader.error ?? new Error('FileReader failed'));
-      reader.readAsDataURL(file);
+      reader.onerror = () => fail(reader.error ?? new Error('附件读取失败'));
+      reader.onabort = () => fail(new Error('附件读取已取消'));
+      timer = window.setTimeout(
+        () => fail(new Error('附件读取超时'), true),
+        ATTACHMENT_READ_TIMEOUT_MS,
+      );
+      try {
+        reader.readAsDataURL(file);
+      } catch (error: unknown) {
+        fail(error instanceof Error ? error : new Error('附件读取失败'));
+      }
     });
   }
 
@@ -6571,7 +6594,7 @@ export function SessionDetailPage() {
         failed += 1;
         continue;
       }
-      const timed = createTimedAbortController(ATTACHMENT_RESTORE_TIMEOUT_MS);
+      const timed = createTimedAbortController(ATTACHMENT_READ_TIMEOUT_MS);
       try {
         const res = await fetch(buildSessionAssetUrl(requestSessionId, asset.path), {
           credentials: 'same-origin',
