@@ -35,6 +35,14 @@ const int _kNativeAudioHeaderProbeBytes = 256 * 1024;
 const double _kNativeAudioWideBreakpoint = 540;
 const double _kNativeAudioShortBreakpoint = 430;
 
+void _logNativeAudioStreamError(
+  String streamName,
+  Object error,
+  StackTrace stack,
+) {
+  silentLog('native_audio_preview', '读取$streamName流', error, stack);
+}
+
 class NativeAudioPreviewController {
   _NativeAudioPreviewState? _state;
 
@@ -255,21 +263,36 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
     _player = mk.Player();
     _subscriptions
       ..add(
-        _player.stream.playing.listen((playing) {
-          _playing = playing;
-          if (!_completed) _emitState();
-        }),
+        _player.stream.playing.listen(
+          (playing) {
+            _playing = playing;
+            if (!_completed) _emitState();
+          },
+          onError: (Object error, StackTrace stack) {
+            _logNativeAudioStreamError('播放状态', error, stack);
+          },
+        ),
       )
       ..add(
-        _player.stream.completed.listen((completed) {
-          _completed = completed;
-          _emitState();
-        }),
+        _player.stream.completed.listen(
+          (completed) {
+            _completed = completed;
+            _emitState();
+          },
+          onError: (Object error, StackTrace stack) {
+            _logNativeAudioStreamError('播放完成状态', error, stack);
+          },
+        ),
       )
       ..add(
-        _player.stream.error.listen((message) {
-          silentLog('native_audio_preview', 'media_kit 播放错误', message);
-        }),
+        _player.stream.error.listen(
+          (message) {
+            silentLog('native_audio_preview', 'media_kit 播放错误', message);
+          },
+          onError: (Object error, StackTrace stack) {
+            _logNativeAudioStreamError('播放器错误', error, stack);
+          },
+        ),
       );
   }
 
@@ -373,8 +396,18 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
         ),
       ),
     );
-    await _stateController.close();
-    await _player.dispose();
+    await runAsyncCleanupBounded(
+      _stateController.close,
+      timeout: kNativeAudioControlTimeout,
+      onError: (error, stack) =>
+          silentLog('native_audio_preview', '关闭播放状态流', error, stack),
+    );
+    await runAsyncCleanupBounded(
+      _player.dispose,
+      timeout: kNativeAudioControlTimeout,
+      onError: (error, stack) =>
+          silentLog('native_audio_preview', '释放媒体播放器', error, stack),
+    );
   }
 
   void _emitState() {
@@ -437,41 +470,56 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     widget.controller?._state = this;
     _subscriptions
       ..add(
-        _player.stateStream.listen((state) {
-          if (!mounted) return;
-          if (state == _NativeAudioPlaybackState.completed) {
-            if (_seeking ||
-                _manualProgressActive ||
-                !_isNearAudioEnd(_position)) {
+        _player.stateStream.listen(
+          (state) {
+            if (!mounted) return;
+            if (state == _NativeAudioPlaybackState.completed) {
+              if (_seeking ||
+                  _manualProgressActive ||
+                  !_isNearAudioEnd(_position)) {
+                return;
+              }
+              setState(() {
+                _playerState = state;
+                if (_duration > Duration.zero) _position = _duration;
+              });
+              unawaited(_handleComplete());
               return;
             }
-            setState(() {
-              _playerState = state;
-              if (_duration > Duration.zero) _position = _duration;
-            });
-            unawaited(_handleComplete());
-            return;
-          }
-          if (_seeking) return;
-          setState(() => _playerState = state);
-        }),
+            if (_seeking) return;
+            setState(() => _playerState = state);
+          },
+          onError: (Object error, StackTrace stack) {
+            _logNativeAudioStreamError('预览状态', error, stack);
+          },
+        ),
       )
       ..add(
-        _player.durationStream.listen((duration) {
-          if (!mounted || duration < Duration.zero) return;
-          _setKnownDuration(duration);
-        }),
+        _player.durationStream.listen(
+          (duration) {
+            if (!mounted || duration < Duration.zero) return;
+            _setKnownDuration(duration);
+          },
+          onError: (Object error, StackTrace stack) {
+            _logNativeAudioStreamError('音频时长', error, stack);
+          },
+        ),
       )
       ..add(
-        _player.positionStream.listen((position) {
-          if (!mounted ||
-              _seeking ||
-              _manualProgressActive ||
-              position < Duration.zero) {
-            return;
-          }
-          _setKnownPosition(position);
-        }),
+        _player.positionStream.listen(
+          (position) {
+            if (!mounted ||
+                _seeking ||
+                _manualProgressActive ||
+                position < Duration.zero) {
+              return;
+            }
+            _setKnownPosition(position);
+          },
+          onError: (Object error, StackTrace stack) {
+            _logNativeAudioStreamError('播放位置', error, stack);
+          },
+        ),
       );
     unawaited(_bootstrap());
   }
@@ -631,11 +679,15 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     int serial,
     NativeAudioPreviewSource source,
   ) async {
-    final duration = await _resolveBestDuration(source, serial: serial);
-    if (!_isBootstrapActive(serial) || duration <= Duration.zero) {
-      return;
+    try {
+      final duration = await _resolveBestDuration(source, serial: serial);
+      if (!_isBootstrapActive(serial) || duration <= Duration.zero) {
+        return;
+      }
+      _setKnownDuration(duration);
+    } catch (error, stack) {
+      silentLog('native_audio_preview', '刷新音频时长', error, stack);
     }
-    _setKnownDuration(duration);
   }
 
   Future<Duration?> _resolveLocalDurationHint(
@@ -840,6 +892,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             setState(() => _playerState = _NativeAudioPlaybackState.completed);
           }
       }
+    } catch (error, stack) {
+      silentLog('native_audio_preview', '处理播放完成状态', error, stack);
     } finally {
       _handlingComplete = false;
     }
