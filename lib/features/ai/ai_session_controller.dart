@@ -94,6 +94,13 @@ part 'state/_ai_session_utils.dart';
 
 const int _deviceIdFileMaxBytes = 4 * 1024;
 const int _maxCachedStreamThroughputSessions = 64;
+const int _telemetryMaxNestingDepth = 32;
+const int _telemetryMaxContainerItems = 4096;
+const int _telemetryMaxTotalNodes = 32768;
+const int _telemetryMaxUsagePaths = 96;
+const String _telemetryTruncatedPlaceholder = '<已截断>';
+const String _telemetryMaxDepthPlaceholder = '<达到深度上限>';
+const String _telemetryCircularPlaceholder = '<循环引用>';
 const String _mediaGenerationPromptAssemblyLayout =
     'media_generation.latest_user.v1';
 final RegExp _deviceIdPattern = RegExp(r'^[A-Za-z0-9._:-]{1,256}$');
@@ -146,6 +153,23 @@ class _CachedStreamThroughputSnapshot {
     }
     return List<int>.unmodifiable(out);
   }
+}
+
+final class _TelemetryTraversalBudget {
+  final Set<Object> _activeContainers = HashSet<Object>.identity();
+  int _visitedNodes = 0;
+
+  bool get exhausted => _visitedNodes >= _telemetryMaxTotalNodes;
+
+  bool takeNode() {
+    if (exhausted) return false;
+    _visitedNodes += 1;
+    return true;
+  }
+
+  bool enterContainer(Object value) => _activeContainers.add(value);
+
+  void leaveContainer(Object value) => _activeContainers.remove(value);
 }
 
 typedef AiGoalContinuationYieldPredicate = bool Function(String sessionId);
@@ -13633,9 +13657,13 @@ $tail''';
     return result;
   }
 
-  List<MapEntry<String, Object?>> _sortedTelemetryMapEntries(Map value) {
+  List<MapEntry<String, Object?>> _sortedTelemetryMapEntries(
+    Map value, {
+    int maxEntries = _telemetryMaxContainerItems + 1,
+  }) {
     if (value.isEmpty) return const <MapEntry<String, Object?>>[];
     final entries = value.entries
+        .take(maxEntries)
         .map((entry) => MapEntry<String, Object?>('${entry.key}', entry.value))
         .toList(growable: false);
     entries.sort(
@@ -13644,16 +13672,20 @@ $tail''';
     return entries;
   }
 
-  Iterable<MapEntry<String, Object?>> _telemetryMapEntries(
+  List<MapEntry<String, Object?>> _telemetryMapEntries(
     Map value, {
     required bool preserveMapOrder,
+    int maxEntries = _telemetryMaxContainerItems + 1,
   }) {
     if (preserveMapOrder) {
-      return value.entries.map(
-        (entry) => MapEntry<String, Object?>('${entry.key}', entry.value),
-      );
+      return value.entries
+          .take(maxEntries)
+          .map(
+            (entry) => MapEntry<String, Object?>('${entry.key}', entry.value),
+          )
+          .toList(growable: false);
     }
-    return _sortedTelemetryMapEntries(value);
+    return _sortedTelemetryMapEntries(value, maxEntries: maxEntries);
   }
 
   Object? _sanitizeTelemetryValue(
@@ -13662,46 +13694,118 @@ $tail''';
     String? key,
     bool preserveMapOrder = false,
   }) {
+    return _sanitizeTelemetryValueInternal(
+      value,
+      maxChars,
+      key: key,
+      preserveMapOrder: preserveMapOrder,
+      depth: 0,
+      budget: _TelemetryTraversalBudget(),
+    );
+  }
+
+  Object? _sanitizeTelemetryValueInternal(
+    Object? value,
+    int maxChars, {
+    required int depth,
+    required _TelemetryTraversalBudget budget,
+    String? key,
+    required bool preserveMapOrder,
+  }) {
     if (key != null && isSensitiveDataKey(key)) {
       return kOpenHandRedactedValue;
     }
-    if (value == null || value is num || value is bool) {
+    if (!budget.takeNode()) return _telemetryTruncatedPlaceholder;
+    if (value == null || value is bool) {
       return value;
     }
+    if (value is num) return value.isFinite ? value : value.toString();
     if (value is DateTime) {
       return value.toUtc().toIso8601String();
     }
     if (value is String) {
       return _clampTelemetryPayload(value, maxChars);
     }
+    if (depth >= _telemetryMaxNestingDepth) {
+      return _telemetryMaxDepthPlaceholder;
+    }
     if (value is Map) {
+      if (!budget.enterContainer(value)) {
+        return _telemetryCircularPlaceholder;
+      }
       final sanitized = <String, Object?>{};
-      for (final entry in _telemetryMapEntries(
-        value,
-        preserveMapOrder: preserveMapOrder,
-      )) {
-        final entryKey = entry.key;
-        sanitized[entryKey] = _sanitizeTelemetryValue(
-          entry.value,
-          maxChars,
-          key: entryKey,
+      try {
+        final entries = _telemetryMapEntries(
+          value,
           preserveMapOrder: preserveMapOrder,
         );
+        var processedEntries = 0;
+        for (final entry in entries) {
+          if (processedEntries >= _telemetryMaxContainerItems ||
+              budget.exhausted) {
+            break;
+          }
+          final entryKey = entry.key;
+          sanitized[entryKey] = _sanitizeTelemetryValueInternal(
+            entry.value,
+            maxChars,
+            key: entryKey,
+            preserveMapOrder: preserveMapOrder,
+            depth: depth + 1,
+            budget: budget,
+          );
+          processedEntries += 1;
+        }
+        if (processedEntries < entries.length) {
+          sanitized[_telemetryTruncationKey(sanitized)] =
+              _telemetryTruncatedPlaceholder;
+        }
+      } finally {
+        budget.leaveContainer(value);
       }
       return sanitized;
     }
     if (value is Iterable) {
-      return value
-          .map(
-            (item) => _sanitizeTelemetryValue(
-              item,
+      if (!budget.enterContainer(value)) {
+        return _telemetryCircularPlaceholder;
+      }
+      try {
+        final sanitized = <Object?>[];
+        final iterator = value.iterator;
+        var processedItems = 0;
+        while (processedItems < _telemetryMaxContainerItems &&
+            !budget.exhausted &&
+            iterator.moveNext()) {
+          sanitized.add(
+            _sanitizeTelemetryValueInternal(
+              iterator.current,
               maxChars,
               preserveMapOrder: preserveMapOrder,
+              depth: depth + 1,
+              budget: budget,
             ),
-          )
-          .toList(growable: false);
+          );
+          processedItems += 1;
+        }
+        if ((processedItems >= _telemetryMaxContainerItems ||
+                budget.exhausted) &&
+            iterator.moveNext()) {
+          sanitized.add(_telemetryTruncatedPlaceholder);
+        }
+        return sanitized;
+      } finally {
+        budget.leaveContainer(value);
+      }
     }
     return _clampTelemetryPayload('$value', maxChars);
+  }
+
+  String _telemetryTruncationKey(Map<String, Object?> value) {
+    var key = '_openhand_truncated';
+    while (value.containsKey(key)) {
+      key = '_$key';
+    }
+    return key;
   }
 
   Map<String, Object?> _sanitizeTelemetryMap(
@@ -14430,18 +14534,26 @@ $tail''';
 
   List<String> _usageKeyPaths(Map<String, Object?> usageMap) {
     final paths = <String>[];
-    void visit(Object? value, String path) {
+    void visit(Object? value, String path, int depth) {
+      if (paths.length >= _telemetryMaxUsagePaths ||
+          depth >= _telemetryMaxNestingDepth) {
+        return;
+      }
       if (value is Map) {
-        for (final entry in _sortedTelemetryMapEntries(value)) {
+        for (final entry in _sortedTelemetryMapEntries(
+          value,
+          maxEntries: _telemetryMaxUsagePaths,
+        )) {
+          if (paths.length >= _telemetryMaxUsagePaths) break;
           final childPath = path.isEmpty ? entry.key : '$path.${entry.key}';
           paths.add(childPath);
-          visit(entry.value, childPath);
+          visit(entry.value, childPath, depth + 1);
         }
       }
     }
 
-    visit(usageMap, '');
-    return paths.take(96).toList(growable: false);
+    visit(usageMap, '', 0);
+    return paths;
   }
 
   List<String> _usageCacheFieldPaths(Map<String, Object?> usageMap) {
@@ -14457,32 +14569,49 @@ $tail''';
 
   Map<String, Object?> _cacheControlTelemetry(Map<String, Object?> body) {
     final paths = <String>[];
-    void visit(Object? value, String path) {
+    final budget = _TelemetryTraversalBudget();
+    var markerCount = 0;
+    void visit(Object? value, String path, int depth) {
+      if (depth >= _telemetryMaxNestingDepth || !budget.takeNode()) return;
       if (value is Map) {
-        for (final entry in _sortedTelemetryMapEntries(value)) {
-          final key = entry.key;
-          final childPath = path.isEmpty ? key : '$path.$key';
-          if (key == 'cache_control') {
-            paths.add(path.isEmpty ? key : path);
-            continue;
+        if (!budget.enterContainer(value)) return;
+        try {
+          for (final entry in _sortedTelemetryMapEntries(value)) {
+            if (budget.exhausted) break;
+            final key = entry.key;
+            final childPath = path.isEmpty ? key : '$path.$key';
+            if (key == 'cache_control') {
+              markerCount += 1;
+              if (paths.length < 8) {
+                paths.add(path.isEmpty ? key : path);
+              }
+              continue;
+            }
+            visit(entry.value, childPath, depth + 1);
           }
-          visit(entry.value, childPath);
+        } finally {
+          budget.leaveContainer(value);
         }
         return;
       }
       if (value is List) {
-        for (var index = 0; index < value.length; index++) {
-          visit(value[index], '$path[$index]');
+        if (!budget.enterContainer(value)) return;
+        try {
+          final itemCount = value.length.clamp(0, _telemetryMaxContainerItems);
+          for (var index = 0; index < itemCount && !budget.exhausted; index++) {
+            visit(value[index], '$path[$index]', depth + 1);
+          }
+        } finally {
+          budget.leaveContainer(value);
         }
       }
     }
 
-    visit(body, '');
+    visit(body, '', 0);
     paths.sort(_compareRuntimeMetadataText);
     return <String, Object?>{
-      'request_cache_control_marker_count': paths.length,
-      if (paths.isNotEmpty)
-        'request_cache_control_marker_paths': paths.take(8).toList(),
+      'request_cache_control_marker_count': markerCount,
+      if (paths.isNotEmpty) 'request_cache_control_marker_paths': paths,
       if (body.containsKey(AiPromptCacheRetentionPolicy.bodyField))
         'request_prompt_cache_retention':
             '${body[AiPromptCacheRetentionPolicy.bodyField] ?? ''}',
