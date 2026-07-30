@@ -6,6 +6,7 @@ const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
 const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
 const int _kWebcrackMaxOutputEntries = 512;
 const Duration _kWebcrackTempWriteTimeout = Duration(seconds: 10);
+const Duration _kWebcrackOutputReadTotalTimeout = Duration(seconds: 30);
 const BoundedDeletePolicy _kWebcrackTempDeletePolicy = BoundedDeletePolicy(
   maxEntries: 4096,
   maxDepth: 32,
@@ -3578,12 +3579,12 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
       ja: '[webcrack 入力が大きすぎます: ${src.length} chars, limit $_kWebcrackMaxInputChars chars]',
     );
   }
-  final tmpDir = await Directory.systemTemp.createTemp('oh-webcrack-');
-  final input = File('${tmpDir.path}/input.js');
+  Directory? tmpDir;
   try {
-    await writeTemporaryFileTextBounded(
-      input,
-      src,
+    final input = await writeNewTemporaryFileTextBounded(
+      directoryPrefix: 'oh-webcrack-',
+      fileName: 'input.js',
+      text: src,
       timeout: _kWebcrackTempWriteTimeout,
       onSecondaryError: (error, stack) => silentLog(
         'web_reverse_dashboard_dialog',
@@ -3592,6 +3593,7 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
         stack,
       ),
     );
+    tmpDir = input.parent;
     // npx 第一次需要联网拉包；--yes 跳过提示。
     final result = await runTrackedProcessOrFailed(
       'npx',
@@ -3612,69 +3614,92 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
         ja: '[webcrack 失敗 exit=${result.exitCode}]\n${result.stderr}',
       );
     }
-    // webcrack 默认输出 deobfuscated.js + 其他文件；优先取它。
-    final out = File('${tmpDir.path}/deobfuscated.js');
-    if (await out.exists()) {
-      return await _readWebcrackOutputFile(out, locale: locale);
-    }
-    // 兜底：把整个 outDir 下所有 .js 拼起来。
-    final buf = StringBuffer();
-    var totalBytes = 0;
-    final listing = await listDirectoryBounded(
-      tmpDir,
-      maxEntries: _kWebcrackMaxOutputEntries,
-      recursive: true,
+    final outputDeadline = MonotonicDeadline(
+      _kWebcrackOutputReadTotalTimeout,
+      timeoutMessage: '读取 webcrack 输出超过总时限。',
     );
-    for (final entity in listing.entries) {
-      if (entity is File && entity.path.endsWith('.js')) {
-        final bytes = await entity.length();
-        if (totalBytes + bytes > _kWebcrackMaxOutputBytes) {
-          buf.writeln(
-            _advancedTextForLocale(
-              locale,
-              zh: '[webcrack 输出已按上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
-              zhHant:
-                  '[webcrack 輸出已依上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
-              en: '[webcrack output stopped at limit: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
-              fr: '[sortie webcrack arrêtée à la limite : $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
-              de: '[webcrack-Ausgabe am Limit gestoppt: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
-              ja: '[webcrack 出力を上限で停止しました: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
-            ),
-          );
-          break;
-        }
-        totalBytes += bytes;
-        buf
-          ..writeln('// ─── ${entity.path} ───')
-          ..writeln(await _readWebcrackOutputFile(entity, locale: locale))
-          ..writeln();
+    try {
+      // webcrack 默认输出 deobfuscated.js + 其他文件；优先取它。
+      final out = File('${tmpDir.path}/deobfuscated.js');
+      if (await out.exists().timeout(
+        outputDeadline.limit(_kWebcrackTempWriteTimeout),
+      )) {
+        return await _readWebcrackOutputFile(
+          out,
+          locale: locale,
+          totalTimeout: outputDeadline.remaining(),
+        );
       }
-    }
-    if (listing.truncated) {
-      buf.writeln(
-        _advancedTextForLocale(
-          locale,
-          zh: '[webcrack 输出目录扫描达到安全上限，结果可能不完整]',
-          zhHant: '[webcrack 輸出目錄掃描達到安全上限，結果可能不完整]',
-          en: '[webcrack output scan reached its safety limit; results may be incomplete]',
-          fr: '[l’analyse de la sortie webcrack a atteint sa limite de sécurité ; le résultat peut être incomplet]',
-          de: '[Die webcrack-Ausgabesuche hat ihr Sicherheitslimit erreicht; das Ergebnis kann unvollständig sein]',
-          ja: '[webcrack 出力の走査が安全上限に達したため、結果が不完全な可能性があります]',
-        ),
+      // 兜底：把整个 outDir 下所有 .js 拼起来。
+      final buf = StringBuffer();
+      var totalBytes = 0;
+      final listing = await listDirectoryBounded(
+        tmpDir,
+        maxEntries: _kWebcrackMaxOutputEntries,
+        recursive: true,
+        totalTimeout: outputDeadline.remaining(),
       );
-    }
-    final s = buf.toString();
-    return s.isEmpty
-        ? _advancedTextForLocale(
+      for (final entity in listing.entries) {
+        if (entity is File && entity.path.endsWith('.js')) {
+          final bytes = await entity.length().timeout(
+            outputDeadline.limit(_kWebcrackTempWriteTimeout),
+          );
+          if (totalBytes + bytes > _kWebcrackMaxOutputBytes) {
+            buf.writeln(
+              _advancedTextForLocale(
+                locale,
+                zh: '[webcrack 输出已按上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+                zhHant:
+                    '[webcrack 輸出已依上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+                en: '[webcrack output stopped at limit: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+                fr: '[sortie webcrack arrêtée à la limite : $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+                de: '[webcrack-Ausgabe am Limit gestoppt: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+                ja: '[webcrack 出力を上限で停止しました: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+              ),
+            );
+            break;
+          }
+          totalBytes += bytes;
+          buf
+            ..writeln('// ─── ${entity.path} ───')
+            ..writeln(
+              await _readWebcrackOutputFile(
+                entity,
+                locale: locale,
+                totalTimeout: outputDeadline.remaining(),
+              ),
+            )
+            ..writeln();
+        }
+      }
+      if (listing.truncated) {
+        buf.writeln(
+          _advancedTextForLocale(
             locale,
-            zh: '[webcrack 无输出]',
-            zhHant: '[webcrack 無輸出]',
-            en: '[webcrack produced no output]',
-            fr: '[webcrack n’a produit aucune sortie]',
-            de: '[webcrack hat keine Ausgabe erzeugt]',
-            ja: '[webcrack の出力はありません]',
-          )
-        : s;
+            zh: '[webcrack 输出目录扫描达到安全上限，结果可能不完整]',
+            zhHant: '[webcrack 輸出目錄掃描達到安全上限，結果可能不完整]',
+            en: '[webcrack output scan reached its safety limit; results may be incomplete]',
+            fr: '[l’analyse de la sortie webcrack a atteint sa limite de sécurité ; le résultat peut être incomplet]',
+            de: '[Die webcrack-Ausgabesuche hat ihr Sicherheitslimit erreicht; das Ergebnis kann unvollständig sein]',
+            ja: '[webcrack 出力の走査が安全上限に達したため、結果が不完全な可能性があります]',
+          ),
+        );
+      }
+      final s = buf.toString();
+      return s.isEmpty
+          ? _advancedTextForLocale(
+              locale,
+              zh: '[webcrack 无输出]',
+              zhHant: '[webcrack 無輸出]',
+              en: '[webcrack produced no output]',
+              fr: '[webcrack n’a produit aucune sortie]',
+              de: '[webcrack hat keine Ausgabe erzeugt]',
+              ja: '[webcrack の出力はありません]',
+            )
+          : s;
+    } finally {
+      outputDeadline.stop();
+    }
   } catch (error, stack) {
     silentLog('web_reverse_dashboard_dialog', '执行 webcrack', error, stack);
     return _advancedTextForLocale(
@@ -3687,19 +3712,22 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
       ja: '[実行エラー]\n$error',
     );
   } finally {
-    try {
-      await deletePathBounded(
-        p.absolute(tmpDir.path),
-        policy: _kWebcrackTempDeletePolicy,
-        allowedRoot: p.absolute(Directory.systemTemp.path),
-      );
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_dashboard_dialog',
-        '删除 webcrack 临时文件',
-        error,
-        stack,
-      );
+    final directory = tmpDir;
+    if (directory != null) {
+      try {
+        await deletePathBounded(
+          p.absolute(directory.path),
+          policy: _kWebcrackTempDeletePolicy,
+          allowedRoot: p.absolute(Directory.systemTemp.path),
+        );
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_dashboard_dialog',
+          '删除 webcrack 临时文件',
+          error,
+          stack,
+        );
+      }
     }
   }
 }
@@ -3707,21 +3735,36 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
 Future<String> _readWebcrackOutputFile(
   File file, {
   required Locale locale,
+  required Duration totalTimeout,
 }) async {
-  final bytes = await file.length();
-  if (bytes > _kWebcrackMaxOutputBytes) {
-    return _advancedTextForLocale(
-      locale,
-      zh: '[webcrack 输出过大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]',
-      zhHant:
-          '[webcrack 輸出過大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]',
-      en: '[webcrack output too large: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
-      fr: '[sortie webcrack trop volumineuse : $bytes bytes, limite $_kWebcrackMaxOutputBytes bytes]',
-      de: '[webcrack-Ausgabe zu gross: $bytes bytes, Limit $_kWebcrackMaxOutputBytes bytes]',
-      ja: '[webcrack 出力が大きすぎます: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '读取 webcrack 输出文件超过总时限。',
+  );
+  try {
+    final bytes = await file.length().timeout(
+      deadline.limit(_kWebcrackTempWriteTimeout),
     );
+    if (bytes > _kWebcrackMaxOutputBytes) {
+      return _advancedTextForLocale(
+        locale,
+        zh: '[webcrack 输出过大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]',
+        zhHant:
+            '[webcrack 輸出過大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]',
+        en: '[webcrack output too large: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
+        fr: '[sortie webcrack trop volumineuse : $bytes bytes, limite $_kWebcrackMaxOutputBytes bytes]',
+        de: '[webcrack-Ausgabe zu gross: $bytes bytes, Limit $_kWebcrackMaxOutputBytes bytes]',
+        ja: '[webcrack 出力が大きすぎます: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
+      );
+    }
+    return readBoundedFileString(
+      file,
+      maxBytes: _kWebcrackMaxOutputBytes,
+      totalTimeout: deadline.remaining(),
+    );
+  } finally {
+    deadline.stop();
   }
-  return readBoundedFileString(file, maxBytes: _kWebcrackMaxOutputBytes);
 }
 
 Future<void> _showInterceptRulesDialog(

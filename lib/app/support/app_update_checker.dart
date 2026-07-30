@@ -249,9 +249,13 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       if (expectedLength <= 0) {
         throw const FileSystemException('无法确定更新包大小。');
       }
-      downloadDirectory = await Directory.systemTemp
-          .createTemp('openhand-update-')
-          .timeout(shorterDuration(_kUpdateFileIoTimeout, remainingBudget()));
+      downloadDirectory = await createTemporaryDirectoryBounded(
+        prefix: 'openhand-update-',
+        timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
+        cleanupPolicy: _kUpdateCleanupPolicy,
+        onSecondaryError: (error, stack) =>
+            silentLog('app_update_checker', '清理延迟创建的更新目录', error, stack),
+      );
       final fileName = _safeUpdateFileName(initialDownloadUri);
       final filePath = p.join(downloadDirectory.path, fileName);
       final partialFile = File('$filePath.part');

@@ -104,9 +104,10 @@ Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
   Directory? stagingDirectory;
   Future<File>? pendingCopy;
   try {
-    stagingDirectory = await Directory(p.dirname(targetPath))
-        .createTemp(_boundedCopyStagingPrefix)
-        .timeout(deadline.nextOperationTimeout());
+    stagingDirectory = await _createBoundedCopyStagingDirectory(
+      p.dirname(targetPath),
+      deadline,
+    );
 
     for (final relativePath in plan.directories) {
       final destinationPath = p.join(stagingDirectory.path, relativePath);
@@ -213,9 +214,10 @@ Future<void> copyFileBounded(
     }
     await _requireDirectoryPath(p.dirname(targetPath), deadline);
 
-    stagingDirectory = await Directory(p.dirname(targetPath))
-        .createTemp(_boundedCopyStagingPrefix)
-        .timeout(deadline.nextOperationTimeout());
+    stagingDirectory = await _createBoundedCopyStagingDirectory(
+      p.dirname(targetPath),
+      deadline,
+    );
     final stagedFile = File(p.join(stagingDirectory.path, 'payload'));
     final copyFuture = _copyPlannedFile(
       _PlannedFile(
@@ -498,6 +500,18 @@ void _deleteDirectoryAfterPendingCopy(
     pendingCopy
         .then<void>((_) {}, onError: (Object _, StackTrace _) {})
         .whenComplete(() => _deleteDirectoryQuietly(stagingDirectory)),
+  );
+}
+
+Future<Directory> _createBoundedCopyStagingDirectory(
+  String parentPath,
+  _CopyDeadline deadline,
+) {
+  return createTemporaryDirectoryBounded(
+    parent: Directory(parentPath),
+    prefix: _boundedCopyStagingPrefix,
+    timeout: deadline.nextOperationTimeout(),
+    allowedRoot: parentPath,
   );
 }
 

@@ -28,6 +28,51 @@ const int _posixRegularFileType = 0x8000;
 
 enum BoundedFileReadFailure { tooLarge, changedDuringRead }
 
+/// 在指定父目录内创建临时目录，并在创建超时后接管迟到结果的清理。
+Future<Directory> createTemporaryDirectoryBounded({
+  Directory? parent,
+  required String prefix,
+  required Duration timeout,
+  BoundedDeletePolicy cleanupPolicy = _temporaryDirectoryCleanupPolicy,
+  String? allowedRoot,
+  OpenHandAsyncCleanupErrorHandler? onSecondaryError,
+}) async {
+  requirePositiveDuration(timeout, 'timeout');
+  final root = parent ?? Directory.systemTemp;
+  final safePrefix = sanitizePortableFileNamePart(
+    prefix,
+    fallback: 'openhand-temp-',
+    maxCharacters: 64,
+    collapseReplacement: true,
+  );
+  final create = root.createTemp(safePrefix);
+  var waitTimedOut = false;
+  try {
+    return await create.timeout(
+      timeout,
+      onTimeout: () {
+        waitTimedOut = true;
+        throw TimeoutException('临时目录创建超过时限。', timeout);
+      },
+    );
+  } on TimeoutException {
+    if (!waitTimedOut) rethrow;
+    unawaited(
+      create.then<void>(
+        (directory) => _deleteTemporaryDirectory(
+          directory,
+          policy: cleanupPolicy,
+          allowedRoot: p.absolute(allowedRoot ?? root.path),
+          onSecondaryError: onSecondaryError,
+        ),
+        onError: (Object error, StackTrace stack) =>
+            _reportSecondaryFileError(onSecondaryError, error, stack),
+      ),
+    );
+    rethrow;
+  }
+}
+
 /// 在系统临时目录中新建私有目录并写入二进制文件。
 ///
 /// 创建和写入共享同一总时限；失败时删除整个临时目录，创建操作延迟完成时也会
@@ -80,12 +125,6 @@ Future<File> _writeNewTemporaryFileBounded({
   required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
 }) async {
   requirePositiveDuration(timeout, 'timeout');
-  final prefix = sanitizePortableFileNamePart(
-    directoryPrefix,
-    fallback: 'openhand-temp-',
-    maxCharacters: 64,
-    collapseReplacement: true,
-  );
   final name = sanitizePortableFileNamePart(
     fileName,
     fallback: 'temporary-file',
@@ -93,24 +132,13 @@ Future<File> _writeNewTemporaryFileBounded({
     collapseReplacement: true,
   );
   final deadline = MonotonicDeadline(timeout, timeoutMessage: '临时文件写入超过总时限。');
-  final createFuture = Directory.systemTemp.createTemp(prefix);
   Directory? directory;
   try {
-    try {
-      directory = await createFuture.timeout(deadline.remaining());
-    } on TimeoutException {
-      unawaited(
-        createFuture.then<void>(
-          (created) => _deleteTemporaryDirectory(
-            created,
-            onSecondaryError: onSecondaryError,
-          ),
-          onError: (Object error, StackTrace stack) =>
-              _reportSecondaryFileError(onSecondaryError, error, stack),
-        ),
-      );
-      rethrow;
-    }
+    directory = await createTemporaryDirectoryBounded(
+      prefix: directoryPrefix,
+      timeout: deadline.remaining(),
+      onSecondaryError: onSecondaryError,
+    );
     final file = File(p.join(directory.path, name));
     final writeTimeout = deadline.remaining();
     final writeFuture = Future<void>.sync(() => write(file));
@@ -129,6 +157,8 @@ Future<File> _writeNewTemporaryFileBounded({
             .whenComplete(
               () => _deleteTemporaryDirectory(
                 created,
+                policy: _temporaryDirectoryCleanupPolicy,
+                allowedRoot: p.absolute(Directory.systemTemp.path),
                 onSecondaryError: onSecondaryError,
               ),
             ),
@@ -141,6 +171,8 @@ Future<File> _writeNewTemporaryFileBounded({
     if (created != null) {
       await _deleteTemporaryDirectory(
         created,
+        policy: _temporaryDirectoryCleanupPolicy,
+        allowedRoot: p.absolute(Directory.systemTemp.path),
         onSecondaryError: onSecondaryError,
       );
     }
@@ -152,13 +184,15 @@ Future<File> _writeNewTemporaryFileBounded({
 
 Future<void> _deleteTemporaryDirectory(
   Directory directory, {
+  required BoundedDeletePolicy policy,
+  required String allowedRoot,
   required OpenHandAsyncCleanupErrorHandler? onSecondaryError,
 }) async {
   try {
     await deletePathBounded(
       p.absolute(directory.path),
-      policy: _temporaryDirectoryCleanupPolicy,
-      allowedRoot: p.absolute(Directory.systemTemp.path),
+      policy: policy,
+      allowedRoot: allowedRoot,
     );
   } catch (error, stack) {
     _reportSecondaryFileError(onSecondaryError, error, stack);
