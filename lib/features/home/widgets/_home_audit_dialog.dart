@@ -1508,7 +1508,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
       confirmLabel: loc.auditDelete,
       destructive: true,
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
       await widget.controller.deleteMessages(<String>[

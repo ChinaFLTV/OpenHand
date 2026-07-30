@@ -3814,7 +3814,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
       context: context,
       builder: (_) => _InterceptRuleEditor(initial: initial),
     );
-    if (updated == null) return;
+    if (updated == null || !mounted) return;
     setState(() {
       if (index == null) {
         _rules.add(updated);

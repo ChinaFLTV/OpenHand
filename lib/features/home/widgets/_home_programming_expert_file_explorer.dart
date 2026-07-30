@@ -443,6 +443,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     if (!node.childrenLoaded) {
       await _loadChildren(node);
     }
+    if (!mounted) return;
     setState(() => node.isExpanded = !node.isExpanded);
   }
 

@@ -228,7 +228,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
       final dir = await getDirectoryPath(
         confirmButtonText: loc?.webReverseHarSelect ?? 'Select',
       );
-      if (dir == null) return;
+      if (dir == null || !mounted) return;
       setState(() => _folder = dir);
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', '选择 HAR 轮转目录', e, s);

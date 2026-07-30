@@ -5056,7 +5056,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         ja: 'クリーンアップを確認',
       ),
     );
-    if (confirmed) {
+    if (confirmed && mounted) {
       await _runCleanup(label: label, action: action);
     }
   }

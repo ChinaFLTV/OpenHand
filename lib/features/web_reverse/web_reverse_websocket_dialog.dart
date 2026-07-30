@@ -299,7 +299,7 @@ class _WsDialogState extends State<_WsDialog> {
     final e = _selected;
     if (e == null) return;
     final edited = await _showEditFrameDialog(basePayload);
-    if (edited == null) return;
+    if (edited == null || !mounted) return;
     setState(() {
       _busy = true;
       _status = openHandLocalizedText(
@@ -370,7 +370,7 @@ class _WsDialogState extends State<_WsDialog> {
     final e = _selected;
     if (e == null) return;
     final cfg = await _showFuzzConfigDialog(basePayload);
-    if (cfg == null) return;
+    if (cfg == null || !mounted) return;
     final mutated = <String>[];
     final rng = Random();
     for (var i = 0; i < cfg.count; i++) {
