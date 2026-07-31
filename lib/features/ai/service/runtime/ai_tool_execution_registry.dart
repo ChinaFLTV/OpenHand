@@ -172,11 +172,17 @@ class AiToolExecutionRegistry with ChangeNotifier {
   Future<void> _cancelEntry(_RegisteredEntry entry, String action) async {
     entry.cancelRequested = true;
     if (!entry.cancelCompleter.isCompleted) entry.cancelCompleter.complete();
-    final active = entry.cancelFuture;
-    if (active != null) return active;
-    final future = _runKiller(entry.killer, action);
-    entry.cancelFuture = future;
+    final future = entry.cancelFuture ?? _runKiller(entry.killer, action);
+    entry.cancelFuture ??= future;
     await future;
+    final key = (
+      sessionId: entry.record.sessionId,
+      toolCallId: entry.record.toolCallId,
+    );
+    if (identical(_entries[key], entry)) {
+      _entries.remove(key);
+      notifyListeners();
+    }
   }
 
   Future<void> _runKiller(Future<void> Function() killer, String action) async {

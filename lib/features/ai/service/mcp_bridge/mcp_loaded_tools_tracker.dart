@@ -100,11 +100,13 @@ class McpLoadedToolsTracker {
   final ValueNotifier<AiToolSearchLoadedEvent?> _signal =
       ValueNotifier<AiToolSearchLoadedEvent?>(null);
   int _revision = 0;
+  bool _disposed = false;
 
   ValueListenable<AiToolSearchLoadedEvent?> get signal => _signal;
 
   /// 返回指定会话已加载的工具名（按字母升序，不可变视图）。
   List<String> namesForSession(String sessionId) {
+    if (_disposed) return const <String>[];
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) return const <String>[];
     final names = _loadedBySession[normalizedSessionId];
@@ -115,6 +117,7 @@ class McpLoadedToolsTracker {
 
   /// 返回指定会话的 ToolSearch 加载历史，按时间正序（旧→新）。
   List<AiToolSearchLoadHistoryEntry> historyForSession(String sessionId) {
+    if (_disposed) return const <AiToolSearchLoadHistoryEntry>[];
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) {
       return const <AiToolSearchLoadHistoryEntry>[];
@@ -134,6 +137,7 @@ class McpLoadedToolsTracker {
     Object? totalDeferredRaw,
     Object? queryRaw,
   }) {
+    if (_disposed) return const <String>[];
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null ||
         loadedNamesRaw is! List ||
@@ -201,6 +205,7 @@ class McpLoadedToolsTracker {
 
   /// 清空指定会话的已加载缓存与历史时间线。返回被清除的工具数量。
   int clearSession(String sessionId) {
+    if (_disposed) return 0;
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) return 0;
     final removed = _loadedBySession.remove(normalizedSessionId);
@@ -209,6 +214,8 @@ class McpLoadedToolsTracker {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _loadedBySession.clear();
     _historyBySession.clear();
     _signal.dispose();

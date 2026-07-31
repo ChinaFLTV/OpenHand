@@ -600,7 +600,7 @@ class AiSessionController extends ChangeNotifier {
 
   /// ToolSearch 会话状态。键为 sessionId，记录已匹配且可经固定网关调用的
   /// runtime tool 名称；同时承载向 UI 广播匹配事件的 [ValueListenable]。
-  /// 会话被 dispose 时清理。
+  /// 会话删除或控制器关闭时清理。
   final McpLoadedToolsTracker _loadedMcpToolsTracker = McpLoadedToolsTracker();
 
   ValueListenable<AiToolSearchLoadedEvent?> get toolSearchLoadedSignal =>
@@ -977,6 +977,7 @@ class AiSessionController extends ChangeNotifier {
   final Set<AiGoalContinuationYieldPredicate> _goalContinuationYieldPredicates =
       <AiGoalContinuationYieldPredicate>{};
   final Set<String> _deletedSessionIds = <String>{};
+  final Set<String> _sessionDeletionsInProgress = <String>{};
   final Map<String, AiSendPhase> _approvalPreviousPhases =
       <String, AiSendPhase>{};
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
@@ -1592,8 +1593,34 @@ class AiSessionController extends ChangeNotifier {
     _lastCharThroughputSnapshot.remove(sessionId);
     _lastRawCharThroughputSnapshot.remove(sessionId);
     _sessionsInitiallyThrottled.remove(sessionId);
+    _sessionStatisticsHydratedIds.remove(sessionId);
+    _sessionMessageWindowLoadErrors.remove(sessionId);
+    _sessionMessageWindowHydrationGenerations.remove(sessionId);
+    _hydratingSessionMessageIds.remove(sessionId);
     if (_sessionStreamThrottleOverrides.remove(sessionId) != null) {
       _notifySessionStreamThrottleChanged();
+    }
+  }
+
+  bool _hasPendingDeletedSessionWork(String sessionId) {
+    final messageTaskPrefix = '$sessionId::';
+    return _sessionDeletionsInProgress.contains(sessionId) ||
+        _sessionOperationQueues.containsKey(sessionId) ||
+        _sessionHeaderOperationQueues.containsKey(sessionId) ||
+        _sessionMessageHydrationTasks.containsKey(sessionId) ||
+        _sessionOlderMessageHydrationTasks.containsKey(sessionId) ||
+        _sessionCacheStatsHydrationTasks.containsKey(sessionId) ||
+        _responseRegenerationRecoveryTasks.containsKey(sessionId) ||
+        _sessionMessageContentLoadTasks.keys.any(
+          (key) => key.startsWith(messageTaskPrefix),
+        );
+  }
+
+  void _releaseDeletedSessionMarkerIfIdle(String sessionId) {
+    if (_deletedSessionIds.contains(sessionId) &&
+        !_hasPendingDeletedSessionWork(sessionId)) {
+      _deletedSessionIds.remove(sessionId);
+      _store.endSessionDeletion(sessionId);
     }
   }
 
@@ -1640,10 +1667,14 @@ class AiSessionController extends ChangeNotifier {
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
     _sessionOlderMessageHydrationTasks.removeWhere(
-      (sessionId, _) => !liveSessionIds.contains(sessionId),
+      (sessionId, _) =>
+          !liveSessionIds.contains(sessionId) &&
+          !_deletedSessionIds.contains(sessionId),
     );
     _sessionCacheStatsHydrationTasks.removeWhere(
-      (sessionId, _) => !liveSessionIds.contains(sessionId),
+      (sessionId, _) =>
+          !liveSessionIds.contains(sessionId) &&
+          !_deletedSessionIds.contains(sessionId),
     );
     final previousThrottleOverrideCount =
         _sessionStreamThrottleOverrides.length;
@@ -1659,9 +1690,18 @@ class AiSessionController extends ChangeNotifier {
           !liveSessionIds.contains(sessionId) &&
           !_sessionHeaderOperationQueues.containsKey(sessionId),
     );
-    _deletedSessionIds.removeWhere(
-      (sessionId) => !_sessionOperationQueues.containsKey(sessionId),
+    _hydratingSessionMessageIds.removeWhere(
+      (sessionId) =>
+          !liveSessionIds.contains(sessionId) &&
+          !_hasPendingDeletedSessionWork(sessionId),
     );
+    final idleDeletedSessionIds = _deletedSessionIds
+        .where((sessionId) => !_hasPendingDeletedSessionWork(sessionId))
+        .toList(growable: false);
+    for (final sessionId in idleDeletedSessionIds) {
+      _deletedSessionIds.remove(sessionId);
+      _store.endSessionDeletion(sessionId);
+    }
   }
 
   Future<void> refresh() async {
@@ -1908,6 +1948,19 @@ class AiSessionController extends ChangeNotifier {
     _hydratingSessionMessageIds.remove(sessionId);
   }
 
+  void _invalidateSessionMessageLoads(String sessionId) {
+    _invalidateSessionMessageWindowHydration(sessionId);
+    _sessionMessageWindowLoadErrors.remove(sessionId);
+    final taskPrefix = '$sessionId::';
+    for (final taskKey
+        in _sessionMessageContentLoadGenerations.keys
+            .where((key) => key.startsWith(taskPrefix))
+            .toList(growable: false)) {
+      _sessionMessageContentLoadGenerations.remove(taskKey);
+      _sessionMessageContentLoadTasks.remove(taskKey);
+    }
+  }
+
   bool _isCurrentSessionMessageWindowAttempt(String sessionId, int generation) {
     return !_isDisposed &&
         !_deletedSessionIds.contains(sessionId) &&
@@ -2051,6 +2104,7 @@ class AiSessionController extends ChangeNotifier {
         _sessionMessageContentLoadTasks.remove(taskKey);
         _sessionMessageContentLoadGenerations.remove(taskKey);
       }
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -2089,7 +2143,9 @@ class AiSessionController extends ChangeNotifier {
       final fullSession = liveBeforeLoad.hasCompleteMessages
           ? liveBeforeLoad
           : await _store.loadSessionStatisticsSnapshot(sessionId);
-      if (fullSession == null || _deletedSessionIds.contains(sessionId)) {
+      if (fullSession == null ||
+          _isDisposed ||
+          _deletedSessionIds.contains(sessionId)) {
         return _sessionById(sessionId);
       }
       final model =
@@ -2133,6 +2189,7 @@ class AiSessionController extends ChangeNotifier {
       return _sessionById(sessionId);
     } finally {
       _sessionCacheStatsHydrationTasks.remove(sessionId);
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -2190,7 +2247,7 @@ class AiSessionController extends ChangeNotifier {
         offset: offset,
         deferTelemetryMetadata: true,
       );
-      if (_deletedSessionIds.contains(sessionId)) {
+      if (_isDisposed || _deletedSessionIds.contains(sessionId)) {
         return null;
       }
       final live = _sessionById(sessionId);
@@ -2244,6 +2301,7 @@ class AiSessionController extends ChangeNotifier {
           _hydratingSessionMessageIds.remove(sessionId)) {
         notifyListeners();
       }
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -2309,6 +2367,7 @@ class AiSessionController extends ChangeNotifier {
         _hydratingSessionMessageIds.remove(sessionId);
         notifyListeners();
       }
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -2353,7 +2412,10 @@ class AiSessionController extends ChangeNotifier {
   Future<AiSession?> _hydrateSessionMessages(String sessionId) async {
     try {
       final loaded = await _store.loadSession(sessionId);
-      if (loaded == null || _deletedSessionIds.contains(sessionId)) {
+      if (loaded == null ||
+          _isDisposed ||
+          _deletedSessionIds.contains(sessionId) ||
+          _sessionById(sessionId) == null) {
         return null;
       }
       var normalized = _normalizeHydratedSessionForResume(
@@ -2368,6 +2430,11 @@ class AiSessionController extends ChangeNotifier {
           _sessionById(sessionId),
         );
         await _store.save(normalized);
+        if (_isDisposed ||
+            _deletedSessionIds.contains(sessionId) ||
+            _sessionById(sessionId) == null) {
+          return null;
+        }
       }
       final liveSession = _sessionById(sessionId);
       if (liveSession != null &&
@@ -2394,6 +2461,7 @@ class AiSessionController extends ChangeNotifier {
       if (_hydratingSessionMessageIds.remove(sessionId)) {
         notifyListeners();
       }
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -3932,15 +4000,9 @@ class AiSessionController extends ChangeNotifier {
       }
       AiSession? nextSelectedSession;
       _deletedSessionIds.add(sessionId);
-      _invalidateSessionMessageWindowHydration(sessionId);
-      _sessionMessageWindowLoadErrors.remove(sessionId);
-      for (final taskKey
-          in _sessionMessageContentLoadGenerations.keys
-              .where((key) => key.startsWith('$sessionId::'))
-              .toList(growable: false)) {
-        _sessionMessageContentLoadGenerations.remove(taskKey);
-        _sessionMessageContentLoadTasks.remove(taskKey);
-      }
+      _sessionDeletionsInProgress.add(sessionId);
+      _store.beginSessionDeletion(sessionId);
+      _invalidateSessionMessageLoads(sessionId);
       _setSessions(updatedSessions);
       if (_currentSessionId == sessionId) {
         nextSelectedSession = updatedSessions.firstOrNull;
@@ -4011,6 +4073,8 @@ class AiSessionController extends ChangeNotifier {
           return true;
         }
         _deletedSessionIds.remove(sessionId);
+        _sessionDeletionsInProgress.remove(sessionId);
+        _store.endSessionDeletion(sessionId);
         _setSessions(previousSessions);
         _currentSessionId = previousCurrentSessionId;
         _editingMessageId = previousEditingMessageId;
@@ -4808,24 +4872,41 @@ class AiSessionController extends ChangeNotifier {
     required String sessionId,
     required AiSession? deletedSession,
   }) async {
-    await runAsyncCleanupBounded(
-      () => _bashToolService.closeSession(sessionId),
-      onError: (error, stack) =>
-          silentLog('ai_session_controller', '删除后关闭持久 Bash 会话', error, stack),
-    );
-    if (!_sessionOperationQueues.containsKey(sessionId)) {
-      _clearSessionExecutionState(sessionId);
-      _sessionOperationQueues.remove(sessionId);
+    try {
+      await runAsyncCleanupBounded(
+        () => _bashToolService.closeSession(sessionId),
+        onError: (error, stack) =>
+            silentLog('ai_session_controller', '删除后关闭持久 Bash 会话', error, stack),
+      );
+      if (!_sessionOperationQueues.containsKey(sessionId)) {
+        _clearSessionExecutionState(sessionId);
+      }
+      if (deletedSession != null) {
+        await runAsyncCleanupBounded(
+          () => _emitSessionEndHook(session: deletedSession, reason: 'other'),
+          onError: (error, stack) =>
+              silentLog('ai_session_controller', '删除后执行会话结束钩子', error, stack),
+        );
+      }
+      if (deletedSession?.templateId == kMachineExpertTemplateId) {
+        await runAsyncCleanupBounded(
+          () => _machineTerminalService?.disposeWorkspace(sessionId),
+          onError: (error, stack) =>
+              silentLog('ai_session_controller', '删除后关闭机器工作区', error, stack),
+        );
+      }
+      await runAsyncCleanupBounded(
+        () => _toolRuntimeService.fileHistory.clearSessionHistory(sessionId),
+        onError: (error, stack) =>
+            silentLog('ai_session_controller', '删除后清理文件历史', error, stack),
+      );
+      _toolRuntimeService.removeSessionFileTracking(sessionId);
+      _loadedMcpToolsTracker.clearSession(sessionId);
+      _clearSessionScopedSendState(sessionId);
+    } finally {
+      _sessionDeletionsInProgress.remove(sessionId);
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
-    if (deletedSession != null) {
-      await _emitSessionEndHook(session: deletedSession, reason: 'other');
-    }
-    if (deletedSession?.templateId == kMachineExpertTemplateId) {
-      await _machineTerminalService?.disposeWorkspace(sessionId);
-    }
-    await _toolRuntimeService.fileHistory.clearSessionHistory(sessionId);
-    _toolRuntimeService.removeSessionFileTracking(sessionId);
-    _clearSessionScopedSendState(sessionId);
   }
 
   Future<
@@ -6874,8 +6955,13 @@ class AiSessionController extends ChangeNotifier {
     _isDisposed = true;
     _sessionMessageWindowHydrationTasks.clear();
     _sessionMessageWindowHydrationGenerations.clear();
+    _sessionMessageHydrationTasks.clear();
+    _sessionOlderMessageHydrationTasks.clear();
+    _sessionCacheStatsHydrationTasks.clear();
     _sessionMessageContentLoadTasks.clear();
     _sessionMessageContentLoadGenerations.clear();
+    _responseRegenerationRecoveryTasks.clear();
+    _hydratingSessionMessageIds.clear();
     _sessionStatisticsHydratedIds.clear();
     _machineTerminalService?.configureMetadataPersister(null);
     _hookService.configureUsageRecorder(null);
@@ -6909,6 +6995,19 @@ class AiSessionController extends ChangeNotifier {
     _sessionSendPhases.clear();
     _sessionPendingSendOperationIds.clear();
     _approvalPreviousPhases.clear();
+    for (final throttle in _activeCardThrottles.values) {
+      throttle.cancelPending();
+    }
+    for (final throttle in _activeCharThrottles.values) {
+      throttle.release();
+    }
+    for (final throttle in _activeReasoningCharThrottles.values) {
+      throttle.release();
+    }
+    _activeCardThrottles.clear();
+    _activeCharThrottles.clear();
+    _activeReasoningCharThrottles.clear();
+    _activeAiThroughputSamplers.clear();
     if (!_notifierDisposed) {
       _notifierDisposed = true;
       super.dispose();
@@ -10255,6 +10354,7 @@ class AiSessionController extends ChangeNotifier {
       if (identical(_responseRegenerationRecoveryTasks[sessionId], task)) {
         _responseRegenerationRecoveryTasks.remove(sessionId);
       }
+      _releaseDeletedSessionMarkerIfIdle(sessionId);
     });
     _responseRegenerationRecoveryTasks[sessionId] = task;
   }
@@ -11818,6 +11918,7 @@ $tail''';
             if (!_sessionsById.containsKey(sessionId)) {
               _sessionHeaderMutationGenerations.remove(sessionId);
             }
+            _releaseDeletedSessionMarkerIfIdle(sessionId);
           }
         });
     _sessionHeaderOperationQueues[sessionId] = nextQueue;
@@ -13594,6 +13695,7 @@ $tail''';
         .whenComplete(() {
           if (identical(_sessionOperationQueues[sessionId], nextQueue)) {
             _sessionOperationQueues.remove(sessionId);
+            _releaseDeletedSessionMarkerIfIdle(sessionId);
           }
         });
     _sessionOperationQueues[sessionId] = nextQueue;

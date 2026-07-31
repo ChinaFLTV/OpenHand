@@ -145,6 +145,7 @@ class AiSessionStore {
 
   final String _sessionsDirectoryPath;
   final SerialTaskQueue _sessionCleanupQueue = SerialTaskQueue();
+  final Map<String, int> _sessionDeletionGuardCounts = <String, int>{};
   Future<void>? _pendingSessionCleanupRetry;
 
   String get sessionsDirectoryPath => _sessionsDirectoryPath;
@@ -1378,9 +1379,11 @@ class AiSessionStore {
   /// Persists a complete [session] (metadata + all messages) atomically.
   Future<void> save(AiSession session) async {
     _validateSessionForStorage(session);
+    if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
     final replaceMessages = !_isMetadataOnlySessionSnapshot(session);
 
     await _db.transaction((txn) async {
+      if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
       final row = _sessionToRow(session);
       await txn.insert(
         'sessions',
@@ -1451,8 +1454,10 @@ class AiSessionStore {
   /// delete + bulk-insert cycle for every small state change.
   Future<void> saveSessionHeader(AiSession session) async {
     _validateSessionForStorage(session);
+    if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
     final row = _sessionToRow(session);
     await _db.transaction((txn) async {
+      if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
       final updated = await txn.update(
         'sessions',
         row,
@@ -1519,46 +1524,76 @@ class AiSessionStore {
       sessionId,
       label: '会话标识符',
     );
-    await _sessionCleanupQueue.enqueue(() async {
-      await _db.transaction((txn) async {
-        final markerKey = _pendingSessionCleanupSettingKey(normalizedSessionId);
-        final existing = await txn.query(
-          'app_settings',
-          columns: const <String>['key'],
-          where: 'key = ?',
-          whereArgs: <Object?>[markerKey],
-          limit: 1,
-        );
-        if (existing.isEmpty) {
-          final countRows = await txn.rawQuery(
-            'SELECT COUNT(*) AS marker_count FROM app_settings '
-            'WHERE key GLOB ?',
-            <Object?>['$_pendingSessionCleanupSettingPrefix*'],
-          );
-          final count = countRows.isEmpty
-              ? 0
-              : nonNegativeIntFromValue(
-                  countRows.first['marker_count'],
-                  fallback: 0,
-                );
-          if (count >= _maxPendingSessionCleanups) {
-            throw StateError('待处理会话清理任务过多。');
-          }
-          await txn.insert('app_settings', <String, Object?>{
-            'key': markerKey,
-            'value': normalizedSessionId,
-          }, conflictAlgorithm: ConflictAlgorithm.ignore);
-        }
-        // Database CASCADE will remove messages automatically.
-        await txn.delete(
-          'sessions',
-          where: 'id = ?',
-          whereArgs: <Object?>[normalizedSessionId],
-        );
-      });
-      await _deleteSessionArtifacts(normalizedSessionId);
-      await _deletePendingSessionCleanup(normalizedSessionId);
-    });
+    beginSessionDeletion(normalizedSessionId);
+    await _sessionCleanupQueue
+        .enqueue(() async {
+          await _db.transaction((txn) async {
+            final markerKey = _pendingSessionCleanupSettingKey(
+              normalizedSessionId,
+            );
+            final existing = await txn.query(
+              'app_settings',
+              columns: const <String>['key'],
+              where: 'key = ?',
+              whereArgs: <Object?>[markerKey],
+              limit: 1,
+            );
+            if (existing.isEmpty) {
+              final countRows = await txn.rawQuery(
+                'SELECT COUNT(*) AS marker_count FROM app_settings '
+                'WHERE key GLOB ?',
+                <Object?>['$_pendingSessionCleanupSettingPrefix*'],
+              );
+              final count = countRows.isEmpty
+                  ? 0
+                  : nonNegativeIntFromValue(
+                      countRows.first['marker_count'],
+                      fallback: 0,
+                    );
+              if (count >= _maxPendingSessionCleanups) {
+                throw StateError('待处理会话清理任务过多。');
+              }
+              await txn.insert('app_settings', <String, Object?>{
+                'key': markerKey,
+                'value': normalizedSessionId,
+              }, conflictAlgorithm: ConflictAlgorithm.ignore);
+            }
+            // Database CASCADE will remove messages automatically.
+            await txn.delete(
+              'sessions',
+              where: 'id = ?',
+              whereArgs: <Object?>[normalizedSessionId],
+            );
+          });
+          await _deleteSessionArtifacts(normalizedSessionId);
+          await _deletePendingSessionCleanup(normalizedSessionId);
+        })
+        .whenComplete(() => endSessionDeletion(normalizedSessionId));
+  }
+
+  /// 阻止已经开始的迟到写入在删除事务完成后重新创建会话。
+  void beginSessionDeletion(String sessionId) {
+    final normalizedSessionId = requireSafeStorageIdentifier(
+      sessionId,
+      label: '会话标识符',
+    );
+    _sessionDeletionGuardCounts.update(
+      normalizedSessionId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  /// 删除控制器确认该会话的全部异步工作结束后释放写入保护。
+  void endSessionDeletion(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    final count = _sessionDeletionGuardCounts[normalizedSessionId];
+    if (count == null) return;
+    if (count <= 1) {
+      _sessionDeletionGuardCounts.remove(normalizedSessionId);
+    } else {
+      _sessionDeletionGuardCounts[normalizedSessionId] = count - 1;
+    }
   }
 
   Future<void> retryPendingSessionCleanups() {
