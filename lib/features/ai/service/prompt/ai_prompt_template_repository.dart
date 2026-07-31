@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../model/ai_thread_template.dart';
 import 'ai_prompt_template_assembly.dart';
 
@@ -29,8 +30,10 @@ class AiPromptTemplateRepository {
            ((assetPath) => rootBundle.loadString(assetPath, cache: false));
 
   final Future<String> Function(String assetPath) _loader;
-  final Map<String, Future<AiPromptTemplateBundle>> _bundleCache =
-      <String, Future<AiPromptTemplateBundle>>{};
+  final Map<String, AiPromptTemplateBundle> _bundleCache =
+      <String, AiPromptTemplateBundle>{};
+  final OpenHandKeyedSingleFlight<String, AiPromptTemplateBundle>
+  _bundleFlights = OpenHandKeyedSingleFlight<String, AiPromptTemplateBundle>();
 
   static final Map<String, AiThreadTemplate> _templatesById =
       Map<String, AiThreadTemplate>.unmodifiable(<String, AiThreadTemplate>{
@@ -57,31 +60,18 @@ class AiPromptTemplateRepository {
     return _templatesById[resolvedId] ?? _templatesById[_defaultTemplateId]!;
   }
 
-  Future<AiPromptTemplateBundle> loadBundle(String templateId) async {
+  Future<AiPromptTemplateBundle> loadBundle(String templateId) {
     final resolvedTemplateId = resolveTemplate(templateId).id;
     final cached = _bundleCache[resolvedTemplateId];
-    if (cached != null) {
-      return cached;
-    }
-    final loadState = _PromptTemplateLoadState();
-    final future = _loadBundleUncached(resolvedTemplateId, loadState);
-    _bundleCache[resolvedTemplateId] = future;
-    unawaited(
-      future.then<void>(
-        (_) {
-          if (loadState.assetLoadFailed &&
-              identical(_bundleCache[resolvedTemplateId], future)) {
-            _bundleCache.remove(resolvedTemplateId);
-          }
-        },
-        onError: (Object _, StackTrace stackTrace) {
-          if (identical(_bundleCache[resolvedTemplateId], future)) {
-            _bundleCache.remove(resolvedTemplateId);
-          }
-        },
-      ),
-    );
-    return future;
+    if (cached != null) return Future<AiPromptTemplateBundle>.value(cached);
+    return _bundleFlights.run(resolvedTemplateId, () async {
+      final loadState = _PromptTemplateLoadState();
+      final bundle = await _loadBundleUncached(resolvedTemplateId, loadState);
+      if (!loadState.assetLoadFailed) {
+        _bundleCache[resolvedTemplateId] = bundle;
+      }
+      return bundle;
+    });
   }
 
   Future<AiPromptTemplateBundle> _loadBundleUncached(

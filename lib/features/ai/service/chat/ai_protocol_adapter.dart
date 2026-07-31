@@ -4528,7 +4528,8 @@ class AiInlineMedia {
 /// 一个独立临时目录。
 Directory? _inlineMediaDir;
 int _inlineMediaFileSequence = 0;
-Future<void>? _inlineMediaCleanupFuture;
+final OpenHandSingleFlight<void> _inlineMediaCleanupFlight =
+    OpenHandSingleFlight<void>();
 Future<Directory> _ensureInlineMediaDir() async {
   final dir =
       _inlineMediaDir ??
@@ -4540,16 +4541,7 @@ Future<Directory> _ensureInlineMediaDir() async {
 
 /// 尽力删除过期或超出容量上限的内联媒体文件；并发调用复用同一任务。
 Future<void> pruneInlineMediaCache() {
-  final active = _inlineMediaCleanupFuture;
-  if (active != null) return active;
-  late final Future<void> future;
-  future = _pruneInlineMediaCache().whenComplete(() {
-    if (identical(_inlineMediaCleanupFuture, future)) {
-      _inlineMediaCleanupFuture = null;
-    }
-  });
-  _inlineMediaCleanupFuture = future;
-  return future;
+  return _inlineMediaCleanupFlight.run(_pruneInlineMediaCache);
 }
 
 Future<void> _pruneInlineMediaCache() async {

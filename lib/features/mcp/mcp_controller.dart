@@ -216,7 +216,8 @@ class McpController extends ChangeNotifier {
   bool _autoHealthCheckInProgress = false;
   bool _listenerNotificationScheduled = false;
   bool _opsPersistenceLoaded = false;
-  Future<void>? _opsPersistenceLoadFuture;
+  final OpenHandSingleFlight<void> _opsPersistenceLoadFlight =
+      OpenHandSingleFlight<void>();
   int _activeAutoProbeSlots = 0;
   DateTime? _lastBatchProbeAt;
   static const int _maxRecentProbeRecords = 30;
@@ -267,9 +268,11 @@ class McpController extends ChangeNotifier {
   );
 
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
-  Future<void>? _refreshFuture;
+  final OpenHandSingleFlight<void> _refreshFlight =
+      OpenHandSingleFlight<void>();
   Future<void>? _runtimeReadyFuture;
-  Future<void>? _runtimeCatalogWarmupFuture;
+  final OpenHandSingleFlight<void> _runtimeCatalogWarmupFlight =
+      OpenHandSingleFlight<void>();
   late final OpenHandDebouncer _pageActivationWorkDebouncer = OpenHandDebouncer(
     delay: _pageActivationWorkDelay,
   );
@@ -338,17 +341,7 @@ class McpController extends ChangeNotifier {
   }) async {
     await ensureRuntimeReady();
     if (_isDisposed || !_hasTrustedSnapshot) return;
-    var warmup = _runtimeCatalogWarmupFuture;
-    if (warmup == null) {
-      late final Future<void> pending;
-      pending = _warmRuntimeToolCatalogs().whenComplete(() {
-        if (identical(_runtimeCatalogWarmupFuture, pending)) {
-          _runtimeCatalogWarmupFuture = null;
-        }
-      });
-      _runtimeCatalogWarmupFuture = pending;
-      warmup = pending;
-    }
+    final warmup = _runtimeCatalogWarmupFlight.run(_warmRuntimeToolCatalogs);
     try {
       await warmup.timeout(maxWait);
     } on TimeoutException {
@@ -662,14 +655,7 @@ class McpController extends ChangeNotifier {
   }
 
   Future<void> refresh() {
-    final existing = _refreshFuture;
-    if (existing != null) return existing;
-    late final Future<void> future;
-    future = _refresh().whenComplete(() {
-      if (identical(_refreshFuture, future)) _refreshFuture = null;
-    });
-    _refreshFuture = future;
-    return future;
+    return _refreshFlight.run(_refresh);
   }
 
   Future<void> _refresh() async {
@@ -841,18 +827,7 @@ class McpController extends ChangeNotifier {
     if (!force && _opsPersistenceLoaded) {
       return Future<void>.value();
     }
-    final pending = _opsPersistenceLoadFuture;
-    if (pending != null) {
-      return pending;
-    }
-    late final Future<void> tracked;
-    tracked = _loadOpsPersistenceLocked().whenComplete(() {
-      if (identical(_opsPersistenceLoadFuture, tracked)) {
-        _opsPersistenceLoadFuture = null;
-      }
-    });
-    _opsPersistenceLoadFuture = tracked;
-    return tracked;
+    return _opsPersistenceLoadFlight.run(_loadOpsPersistenceLocked);
   }
 
   Future<void> _loadOpsPersistenceLocked() async {

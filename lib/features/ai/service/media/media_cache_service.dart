@@ -126,7 +126,7 @@ class MediaCacheService {
   int _tempFileSerial = 0;
   bool _clearing = false;
   bool _disposed = false;
-  Future<void>? _clearFuture;
+  final OpenHandSingleFlight<void> _clearFlight = OpenHandSingleFlight<void>();
   Future<void>? _invalidationWorker;
   Future<void>? _prewarmFuture;
   Future<void>? _shutdownFuture;
@@ -757,14 +757,7 @@ class MediaCacheService {
   }
 
   Future<void> _clearCacheResources() {
-    final active = _clearFuture;
-    if (active != null) return active;
-    late final Future<void> future;
-    future = _performCacheClear().whenComplete(() {
-      if (identical(_clearFuture, future)) _clearFuture = null;
-    });
-    _clearFuture = future;
-    return future;
+    return _clearFlight.run(_performCacheClear);
   }
 
   Future<void> _performCacheClear() async {
