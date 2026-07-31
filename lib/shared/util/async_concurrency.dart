@@ -179,6 +179,57 @@ final class OpenHandSingleFlight<T> {
   }
 }
 
+/// 按键合并并发调用，并限制同时执行的唯一键数量。
+///
+/// 相同键共享结果；容量耗尽时以 Future 错误拒绝新键，避免用户输入持续扩大
+/// 任务 Map 和底层 I/O 并发。
+final class OpenHandKeyedSingleFlight<K, T> {
+  OpenHandKeyedSingleFlight({
+    this.maxConcurrentKeys = kOpenHandMaxAsyncConcurrency,
+  }) {
+    requirePositiveInt(maxConcurrentKeys, 'maxConcurrentKeys');
+    if (maxConcurrentKeys > kOpenHandMaxAsyncWaiters) {
+      throw ArgumentError.value(
+        maxConcurrentKeys,
+        'maxConcurrentKeys',
+        '不能超过 $kOpenHandMaxAsyncWaiters。',
+      );
+    }
+  }
+
+  final int maxConcurrentKeys;
+  final Map<K, Future<T>> _active = <K, Future<T>>{};
+
+  Future<T> run(K key, FutureOr<T> Function() operation) {
+    final active = _active[key];
+    if (active != null) return active;
+    if (_active.length >= maxConcurrentKeys) {
+      return Future<T>.error(StateError('并发单航班任务已达到上限 $maxConcurrentKeys。'));
+    }
+
+    final completer = Completer<T>();
+    final future = completer.future;
+    _active[key] = future;
+    unawaited(
+      Future<T>.sync(operation).then<void>(
+        (value) {
+          _removeIfCurrent(key, future);
+          completer.complete(value);
+        },
+        onError: (Object error, StackTrace stack) {
+          _removeIfCurrent(key, future);
+          completer.completeError(error, stack);
+        },
+      ),
+    );
+    return future;
+  }
+
+  void _removeIfCurrent(K key, Future<T> future) {
+    if (identical(_active[key], future)) _active.remove(key);
+  }
+}
+
 /// 控制异步扇出的轻量 FIFO 信号量。
 ///
 /// 并发数和等待数都会归一化，避免异常配置创建无界工作器或等待队列。

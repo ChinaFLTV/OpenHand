@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../model/ai_session_runtime_context.dart';
@@ -36,8 +37,8 @@ class AiGitSnapshotService {
   final Duration _cacheTtl;
   final Duration _commandTimeout;
   final LifecycleLruCache<_CachedGitSnapshot> _snapshotCache;
-  final Map<String, Future<AiRepositorySnapshot>> _pendingLoads =
-      <String, Future<AiRepositorySnapshot>>{};
+  final OpenHandKeyedSingleFlight<String, AiRepositorySnapshot> _loadFlights =
+      OpenHandKeyedSingleFlight<String, AiRepositorySnapshot>();
 
   Future<AiRepositorySnapshot> loadSnapshot({
     required String workingDirectory,
@@ -47,17 +48,10 @@ class AiGitSnapshotService {
     if (cachedSnapshot != null) {
       return cachedSnapshot;
     }
-    final pendingLoad = _pendingLoads[normalizedDirectory];
-    if (pendingLoad != null) {
-      return pendingLoad;
-    }
-    final loadFuture = _loadSnapshotUncached(normalizedDirectory);
-    _pendingLoads[normalizedDirectory] = loadFuture;
-    return loadFuture.whenComplete(() {
-      if (identical(_pendingLoads[normalizedDirectory], loadFuture)) {
-        _pendingLoads.remove(normalizedDirectory);
-      }
-    });
+    return _loadFlights.run(
+      normalizedDirectory,
+      () => _loadSnapshotUncached(normalizedDirectory),
+    );
   }
 
   AiRepositorySnapshot? _readFreshCachedSnapshot(String workingDirectory) {

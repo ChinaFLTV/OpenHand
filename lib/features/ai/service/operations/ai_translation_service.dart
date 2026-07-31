@@ -69,12 +69,15 @@ class AiTranslationService {
       LifecycleLruCache<AiTranslationResult>(
         maxEntries: _translationCacheMaxEntries,
       );
-  final Map<String, Future<AiTranslationResult>> _translationInFlight =
-      <String, Future<AiTranslationResult>>{};
+  final OpenHandKeyedSingleFlight<String, AiTranslationResult>
+  _translationFlights =
+      OpenHandKeyedSingleFlight<String, AiTranslationResult>();
 
   final AiTransportClient _transport;
   final AiChatClient _chatClient;
   final bool _ownsChatClient;
+  final Completer<void> _disposeSignal = Completer<void>();
+  bool _disposed = false;
   late final OpenHandRetryableAsyncCache<String> _aiPromptCache =
       OpenHandRetryableAsyncCache<String>(
         () => rootBundle.loadString(_aiPromptAsset, cache: false),
@@ -86,6 +89,7 @@ class AiTranslationService {
     required List<AiModelConfig> availableModels,
     AiModelConfig? fallbackModel,
   }) async {
+    _throwIfDisposed();
     final normalizedSettings = settings.normalized();
     final normalizedText = nullIfBlank(text);
     if (!normalizedSettings.enabled) {
@@ -103,13 +107,14 @@ class AiTranslationService {
     var triedAny = false;
 
     for (final provider in normalizedSettings.providerPriority) {
+      _throwIfDisposed();
       final providerSettings = normalizedSettings
           .provider(provider)
           .normalized();
       if (!providerSettings.enabled) continue;
       triedAny = true;
       try {
-        return await _translateWithCache(
+        final result = await _translateWithCache(
           provider: provider,
           text: boundedText,
           settings: normalizedSettings,
@@ -118,14 +123,19 @@ class AiTranslationService {
           fallbackModel: fallbackModel,
           timeout: timeout,
         );
+        _throwIfDisposed();
+        return result;
       } on AiTranslationException catch (error) {
+        _throwIfDisposed();
         firstFailure ??= error;
       } on TimeoutException {
+        _throwIfDisposed();
         firstFailure ??= AiTranslationException(
           '${provider.storageKey} translation timed out.',
           provider: provider,
         );
       } catch (error) {
+        _throwIfDisposed();
         firstFailure ??= AiTranslationException(
           _friendlyTranslationError(error),
           provider: provider,
@@ -159,30 +169,19 @@ class AiTranslationService {
     final cached = _translationCache.get(cacheKey);
     if (cached != null) return cached;
 
-    final inFlight = _translationInFlight[cacheKey];
-    if (inFlight != null) return inFlight;
-
-    final request =
-        _translateProvider(
-          provider: provider,
-          text: text,
-          settings: settings,
-          providerSettings: providerSettings,
-          availableModels: availableModels,
-          fallbackModel: fallbackModel,
-          timeout: timeout,
-        ).then((result) {
-          _translationCache.put(cacheKey, result);
-          return result;
-        });
-    _translationInFlight[cacheKey] = request;
-    try {
-      return await request;
-    } finally {
-      if (identical(_translationInFlight[cacheKey], request)) {
-        _translationInFlight.remove(cacheKey);
-      }
-    }
+    return _translationFlights.run(cacheKey, () async {
+      final result = await _translateProvider(
+        provider: provider,
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        availableModels: availableModels,
+        fallbackModel: fallbackModel,
+        timeout: timeout,
+      );
+      if (!_disposed) _translationCache.put(cacheKey, result);
+      return result;
+    });
   }
 
   Future<AiTranslationResult> _translateProvider({
@@ -310,6 +309,7 @@ class AiTranslationService {
         ],
         creationRequest: AiCreationRequest.none,
         timeout: timeout,
+        cancelSignal: _disposeSignal.future,
       ),
     );
     return _cleanAiTranslationOutput(completion.reply);
@@ -880,10 +880,16 @@ class AiTranslationService {
   }
 
   void dispose() {
-    _translationInFlight.clear();
+    if (_disposed) return;
+    _disposed = true;
+    _disposeSignal.complete();
     _transport.dispose();
     if (_ownsChatClient) {
       _chatClient.dispose();
     }
+  }
+
+  void _throwIfDisposed() {
+    if (_disposed) throw const AiTranslationException('翻译服务已释放。');
   }
 }
