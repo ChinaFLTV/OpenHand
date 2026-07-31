@@ -74,6 +74,7 @@ part 'web_message_platform_service_telemetry.part.dart';
 /// 会话不存在或已被删除的错误码，与 Web 端 `api/session_events.ts` 的判定一致。
 const String _kWebGatewayErrorSessionMissing = 'session_deleted_or_not_found';
 const String _modelSelectionLockedMessage = '已锁定服务商与模型以保证缓存命中。';
+const String _webShellAssetPath = 'assets/web/index.html';
 
 class _WebWriteApprovalRequest {
   _WebWriteApprovalRequest({
@@ -252,6 +253,10 @@ class WebMessagePlatformService {
       StreamController<List<WebWriteApprovalRequest>>.broadcast(sync: true);
   final AiTranslationService _translationService = AiTranslationService();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
+  final OpenHandRetryableAsyncCache<String> _webShellCache =
+      OpenHandRetryableAsyncCache<String>(
+        () => rootBundle.loadString(_webShellAssetPath, cache: false),
+      );
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
   final List<WebGatewayOpsSnapshotRecord> _persistedSnapshots =
       <WebGatewayOpsSnapshotRecord>[];
@@ -8890,7 +8895,7 @@ class WebMessagePlatformService {
   /// 的 Vite 构建产出）加载。缺失时返回 503 + 人可读提示。
   Future<shelf.Response> _serveWebShell() async {
     try {
-      final html = await rootBundle.loadString('assets/web/index.html');
+      final html = await _webShellCache.load();
       return _html(html);
     } catch (e, stack) {
       silentLog('web_message_platform_service', '加载 Web 页面构建产物', e, stack);

@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/async_concurrency.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -40,6 +41,12 @@ class AiWebSearchTool extends AiTool {
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
+  static const String _summaryTemplateAsset =
+      'assets/prompts/common/web_search_summary.md';
+  final OpenHandRetryableAsyncCache<String> _summaryTemplateCache =
+      OpenHandRetryableAsyncCache<String>(
+        () => rootBundle.loadString(_summaryTemplateAsset, cache: false),
+      );
 
   /// 由 [AiSessionController._captureLatestRuntimeContext] 注入：
   /// 当 webSearchSettings.modelMode == fixed 时,我们需要在所有 provider 列表里
@@ -517,9 +524,7 @@ class AiWebSearchTool extends AiTool {
   ) async {
     String template;
     try {
-      template = await rootBundle.loadString(
-        'assets/prompts/common/web_search_summary.md',
-      );
+      template = await _summaryTemplateCache.load();
     } catch (_) {
       template = _fallbackSummaryTemplate;
     }

@@ -999,7 +999,11 @@ class WebFetchScraplingBridge {
   }
 
   Future<String> _ensureHelperScriptWritten() async {
-    if (_helperPath != null) return _helperPath!;
+    final existingPath = _helperPath;
+    if (existingPath != null && await isRegularFilePath(existingPath)) {
+      return existingPath;
+    }
+    _helperPath = null;
     final bytes = await rootBundle.load(_assetPath);
     final dir = Directory(
       p.join(

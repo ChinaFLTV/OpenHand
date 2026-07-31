@@ -1069,6 +1069,7 @@ class AiSessionController extends ChangeNotifier {
   String? _cachedAutoTitleSystemPrompt;
   int? _cachedAutoTitleSystemPromptForMaxCharacters;
   Future<String>? _pendingAutoTitleSystemPromptLoad;
+  int? _pendingAutoTitleSystemPromptForMaxCharacters;
 
   bool get isLoading => _isLoading;
   bool get isMessagesHydrating => _isMessagesHydrating;
@@ -11451,25 +11452,31 @@ $tail''';
     }
     final pending = _pendingAutoTitleSystemPromptLoad;
     if (pending != null &&
-        _cachedAutoTitleSystemPromptForMaxCharacters == maxCharacters) {
+        _pendingAutoTitleSystemPromptForMaxCharacters == maxCharacters) {
       return pending;
     }
+    var assetLoaded = true;
     final future = _templateRepository.loadAutoTitleSystemPrompt(
       maxTitleCharacters: maxCharacters,
       fallback: _autoTitleSystemPromptFallback.replaceAll(
         '{{MAX_TITLE_CHARACTERS}}',
         maxCharacters.toString(),
       ),
+      onFallback: () => assetLoaded = false,
     );
     _pendingAutoTitleSystemPromptLoad = future;
-    _cachedAutoTitleSystemPromptForMaxCharacters = maxCharacters;
+    _pendingAutoTitleSystemPromptForMaxCharacters = maxCharacters;
     try {
       final resolved = await future;
-      _cachedAutoTitleSystemPrompt = resolved;
+      if (assetLoaded && identical(_pendingAutoTitleSystemPromptLoad, future)) {
+        _cachedAutoTitleSystemPrompt = resolved;
+        _cachedAutoTitleSystemPromptForMaxCharacters = maxCharacters;
+      }
       return resolved;
     } finally {
       if (identical(_pendingAutoTitleSystemPromptLoad, future)) {
         _pendingAutoTitleSystemPromptLoad = null;
+        _pendingAutoTitleSystemPromptForMaxCharacters = null;
       }
     }
   }

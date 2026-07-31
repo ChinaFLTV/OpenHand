@@ -24,7 +24,9 @@ class AiPromptTemplateBundle {
 class AiPromptTemplateRepository {
   AiPromptTemplateRepository({
     Future<String> Function(String assetPath)? loader,
-  }) : _loader = loader ?? rootBundle.loadString;
+  }) : _loader =
+           loader ??
+           ((assetPath) => rootBundle.loadString(assetPath, cache: false));
 
   final Future<String> Function(String assetPath) _loader;
   final Map<String, Future<AiPromptTemplateBundle>> _bundleCache =
@@ -61,11 +63,17 @@ class AiPromptTemplateRepository {
     if (cached != null) {
       return cached;
     }
-    final future = _loadBundleUncached(resolvedTemplateId);
+    final loadState = _PromptTemplateLoadState();
+    final future = _loadBundleUncached(resolvedTemplateId, loadState);
     _bundleCache[resolvedTemplateId] = future;
     unawaited(
       future.then<void>(
-        (_) {},
+        (_) {
+          if (loadState.assetLoadFailed &&
+              identical(_bundleCache[resolvedTemplateId], future)) {
+            _bundleCache.remove(resolvedTemplateId);
+          }
+        },
         onError: (Object _, StackTrace stackTrace) {
           if (identical(_bundleCache[resolvedTemplateId], future)) {
             _bundleCache.remove(resolvedTemplateId);
@@ -76,7 +84,10 @@ class AiPromptTemplateRepository {
     return future;
   }
 
-  Future<AiPromptTemplateBundle> _loadBundleUncached(String templateId) async {
+  Future<AiPromptTemplateBundle> _loadBundleUncached(
+    String templateId,
+    _PromptTemplateLoadState loadState,
+  ) async {
     final catalogEntry = AiPromptTemplatePolicies.resolveEntry(templateId);
     final template = resolveTemplate(catalogEntry.id);
     final policy = catalogEntry.policy;
@@ -85,27 +96,33 @@ class AiPromptTemplateRepository {
       policy,
       AiPromptTemplateAssetFiles.systemInstructions,
       fallback: fallback.systemInstructions,
+      loadState: loadState,
     );
     final developerInstructions = await _loadTemplateAsset(
       policy,
       AiPromptTemplateAssetFiles.developerInstructions,
       fallback: fallback.developerInstructions,
+      loadState: loadState,
     );
     final compressionSummaryInstructions = await _loadTemplateAsset(
       policy,
       AiPromptTemplateAssetFiles.compressionSummaryInstructions,
       fallback: fallback.compressionSummaryInstructions,
+      loadState: loadState,
     );
     final systemWithSharedSections = await _appendSectionsIfAbsent(
       systemInstructions,
       policy.sharedSections,
+      loadState,
     );
     final systemWithTemplateSections = await _appendSectionsIfAbsent(
       systemWithSharedSections,
       policy.extensionSections,
+      loadState,
     );
     final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
       systemWithTemplateSections,
+      loadState,
     );
     return AiPromptTemplateBundle(
       template: template,
@@ -122,20 +139,30 @@ class AiPromptTemplateRepository {
     AiPromptTemplatePolicy policy,
     String fileName, {
     required String fallback,
+    required _PromptTemplateLoadState loadState,
   }) {
-    return _loadTemplateSection(policy.promptAssetPathFor(fileName), fallback);
+    return _loadTemplateSection(
+      policy.promptAssetPathFor(fileName),
+      fallback,
+      loadState: loadState,
+    );
   }
 
   Future<String> _appendSectionsIfAbsent(
     String instructions,
     Iterable<AiPromptSharedSectionSpec> sections,
+    _PromptTemplateLoadState loadState,
   ) async {
     if (sections.isEmpty) {
       return instructions;
     }
     final loadedSections = <AiPromptLoadedSection>[];
     for (final section in sections) {
-      final snippet = await _loadTemplateSection(section.assetPath, '');
+      final snippet = await _loadTemplateSection(
+        section.assetPath,
+        '',
+        loadState: loadState,
+      );
       if (snippet.isEmpty) {
         continue;
       }
@@ -154,14 +181,19 @@ class AiPromptTemplateRepository {
   /// Templates that ship their own specialised version (`programming_expert`,
   /// `machine_expert`) are detected via heading/tag markers and left untouched.
   /// Language is inferred from the instructions' CJK-character ratio.
-  Future<String> _appendV4DisciplineIfAbsent(String instructions) async {
+  Future<String> _appendV4DisciplineIfAbsent(
+    String instructions,
+    _PromptTemplateLoadState loadState,
+  ) async {
     final zhSnippet = await _loadTemplateSection(
       'assets/prompts/common/v4_discipline_zh.md',
       '',
+      loadState: loadState,
     );
     final enSnippet = await _loadTemplateSection(
       'assets/prompts/common/v4_discipline_en.md',
       '',
+      loadState: loadState,
     );
     return appendAiPromptV4DisciplineIfAbsent(
       instructions,
@@ -170,11 +202,16 @@ class AiPromptTemplateRepository {
     );
   }
 
-  Future<String> _loadTemplateSection(String assetPath, String fallback) async {
+  Future<String> _loadTemplateSection(
+    String assetPath,
+    String fallback, {
+    _PromptTemplateLoadState? loadState,
+  }) async {
     try {
       final content = (await _loader(assetPath)).trim();
       return content.isEmpty ? fallback : content;
     } catch (error, stack) {
+      loadState?.assetLoadFailed = true;
       silentLog(
         'ai_prompt_template_repository',
         '加载模板片段失败，使用内置兜底：$assetPath',
@@ -195,16 +232,24 @@ class AiPromptTemplateRepository {
   Future<String> loadAutoTitleSystemPrompt({
     required int maxTitleCharacters,
     required String fallback,
+    void Function()? onFallback,
   }) async {
+    final loadState = _PromptTemplateLoadState();
     final raw = await _loadTemplateSection(
       'assets/prompts/common/auto_title_system_prompt.md',
       fallback,
+      loadState: loadState,
     );
+    if (loadState.assetLoadFailed) onFallback?.call();
     return raw.replaceAll(
       '{{MAX_TITLE_CHARACTERS}}',
       maxTitleCharacters.toString(),
     );
   }
+}
+
+final class _PromptTemplateLoadState {
+  bool assetLoadFailed = false;
 }
 
 const String _defaultTemplateId = AiPromptTemplatePolicies.defaultTemplateId;

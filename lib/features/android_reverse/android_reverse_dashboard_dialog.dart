@@ -2125,7 +2125,10 @@ class _AndroidReverseDashboardDialogState
     final loadGeneration = ++_fridaSnippetLoadGeneration;
     final scriptRevision = _fridaScriptRevision;
     try {
-      final script = await rootBundle.loadString(preset.assetPath);
+      final script = await rootBundle.loadString(
+        preset.assetPath,
+        cache: false,
+      );
       if (!mounted ||
           loadGeneration != _fridaSnippetLoadGeneration ||
           scriptRevision != _fridaScriptRevision) {
