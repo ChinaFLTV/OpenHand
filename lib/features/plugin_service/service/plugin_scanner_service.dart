@@ -95,12 +95,12 @@ class PluginScannerService {
     r'version\s+"([^"]+)"',
   );
 
-  late final OpenHandSingleFlight<_PythonRuntimeScan?> _pythonRuntimeProbe =
-      OpenHandSingleFlight<_PythonRuntimeScan?>(_resolvePythonRuntimeUncached);
+  final OpenHandSingleFlight<_PythonRuntimeScan?> _pythonRuntimeProbe =
+      OpenHandSingleFlight<_PythonRuntimeScan?>();
   final OpenHandKeyedSingleFlight<String, String?> _brewLatestVersionFlights =
       OpenHandKeyedSingleFlight<String, String?>();
-  late final OpenHandSingleFlight<String?> _latestPipVersionProbe =
-      OpenHandSingleFlight<String?>(_queryLatestPipVersionUncached);
+  final OpenHandSingleFlight<String?> _latestPipVersionProbe =
+      OpenHandSingleFlight<String?>();
 
   Future<T> _runWithFallback<T>({
     required String operation,
@@ -380,8 +380,8 @@ class PluginScannerService {
     return stable is String && stable.isNotEmpty ? stable : null;
   }
 
-  Future<String?> _queryLatestPipVersion() async {
-    return _latestPipVersionProbe.run();
+  Future<String?> _queryLatestPipVersion() {
+    return _latestPipVersionProbe.run(_queryLatestPipVersionUncached);
   }
 
   Future<String?> _queryLatestPipVersionUncached() async {
@@ -613,7 +613,7 @@ class PluginScannerService {
   }
 
   Future<_PythonRuntimeScan?> _resolvePythonRuntime() {
-    return _pythonRuntimeProbe.run();
+    return _pythonRuntimeProbe.run(_resolvePythonRuntimeUncached);
   }
 
   Future<_PythonRuntimeScan?> _resolvePythonRuntimeUncached() async {

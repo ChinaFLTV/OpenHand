@@ -47,8 +47,8 @@ class PluginServiceController extends ManagedChangeNotifier {
   bool _isOperating = false;
   String? _checkingPluginId;
   String? _errorMessage;
-  late final OpenHandSingleFlight<void> _refreshAllPluginsFlight =
-      OpenHandSingleFlight<void>(_refreshAllPluginsUncached);
+  final OpenHandSingleFlight<void> _refreshAllPluginsFlight =
+      OpenHandSingleFlight<void>();
   final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
   final ChangePulse _operationSuccessPulse = ChangePulse();
 
@@ -78,7 +78,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   /// 重新扫描所有插件状态。
   Future<void> rescan() {
     if (_refreshAllPluginsFlight.isRunning) {
-      return _refreshAllPluginsFlight.run();
+      return _refreshAllPluginsFlight.run(_refreshAllPluginsUncached);
     }
     if (_isOperating || _checkingPluginId != null) {
       return Future<void>.value();
@@ -87,7 +87,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   }
 
   Future<void> _refreshAllPlugins() {
-    return _refreshAllPluginsFlight.run();
+    return _refreshAllPluginsFlight.run(_refreshAllPluginsUncached);
   }
 
   Future<void> _refreshAllPluginsUncached() async {

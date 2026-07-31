@@ -148,14 +148,11 @@ final class OpenHandRetryableAsyncCache<T> {
 ///
 /// Future 会在调用操作前登记，避免操作同步通知监听器时重入并重复启动。
 final class OpenHandSingleFlight<T> {
-  OpenHandSingleFlight(this._operation);
-
-  final FutureOr<T> Function() _operation;
   Future<T>? _active;
 
   bool get isRunning => _active != null;
 
-  Future<T> run() {
+  Future<T> run(FutureOr<T> Function() operation) {
     final active = _active;
     if (active != null) return active;
 
@@ -163,7 +160,7 @@ final class OpenHandSingleFlight<T> {
     final future = completer.future;
     _active = future;
     unawaited(
-      Future<T>.sync(_operation).then<void>(
+      Future<T>.sync(operation).then<void>(
         (value) {
           _clearIfCurrent(future);
           completer.complete(value);

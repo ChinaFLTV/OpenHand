@@ -341,12 +341,16 @@ final class BoundedRandomAccessFileLease {
         _releaseFuture != null) {
       throw StateError('随机访问文件租约当前不可用。');
     }
-    final operationFuture = operation(file);
-    final settled = operationFuture.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
+    final settledCompleter = Completer<void>();
+    final settled = settledCompleter.future;
     _pendingOperation = settled;
+    final operationFuture = Future<T>.sync(() => operation(file));
+    unawaited(
+      operationFuture.then<void>(
+        (_) => settledCompleter.complete(),
+        onError: (Object _, StackTrace _) => settledCompleter.complete(),
+      ),
+    );
     var deadlineExpired = false;
     try {
       return await operationFuture.timeout(
@@ -402,9 +406,19 @@ final class BoundedRandomAccessFileLease {
   }
 
   Future<void> _releaseFile() {
-    return _releaseFuture ??= Future<void>.sync(
-      () => _release?.call(file) ?? file.close(),
+    final active = _releaseFuture;
+    if (active != null) return active;
+    final completer = Completer<void>();
+    final future = completer.future;
+    _releaseFuture = future;
+    unawaited(
+      Future<void>.sync(() => _release?.call(file) ?? file.close()).then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) =>
+            completer.completeError(error, stack),
+      ),
     );
+    return future;
   }
 }
 

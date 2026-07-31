@@ -7,6 +7,7 @@
 import 'package:flutter/services.dart';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../model/ai_message_content_format.dart';
 
 class AiOutputFormatPrompts {
@@ -29,7 +30,8 @@ class AiOutputFormatPrompts {
   static String _plainText = _fallbackPlainText;
   static String _gptChatRules = _fallbackGptChatRules;
   static bool _loaded = false;
-  static Future<void>? _loading;
+  static final OpenHandSingleFlight<void> _loadFlight =
+      OpenHandSingleFlight<void>();
 
   static String get plainText => _plainText;
   static String get gptChatRules => _gptChatRules;
@@ -64,9 +66,7 @@ class AiOutputFormatPrompts {
 
   static Future<void> ensureLoaded([AssetBundle? bundle]) {
     if (_loaded) return Future<void>.value();
-    return _loading ??= _load(bundle ?? rootBundle).whenComplete(() {
-      _loading = null;
-    });
+    return _loadFlight.run(() => _load(bundle ?? rootBundle));
   }
 
   static Future<void> _load(AssetBundle bundle) async {

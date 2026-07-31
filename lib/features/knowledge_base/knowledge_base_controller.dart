@@ -70,8 +70,8 @@ class KnowledgeBaseController extends ChangeNotifier {
   bool _hasTrustedSettings = false;
   bool _isDisposed = false;
   int _sourceLoadGeneration = 0;
-  late final OpenHandSingleFlight<void> _initializeFlight =
-      OpenHandSingleFlight<void>(_initialize);
+  final OpenHandSingleFlight<void> _initializeFlight =
+      OpenHandSingleFlight<void>();
 
   KnowledgeBaseSettings get settings => _settings;
   List<KnowledgeSource> get sources => _sources;
@@ -88,9 +88,9 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   Future<void> initialize() {
-    if (_initializeFlight.isRunning) return _initializeFlight.run();
+    if (_initializeFlight.isRunning) return _initializeFlight.run(_initialize);
     if (_busy || _isDisposed) return Future<void>.value();
-    return _initializeFlight.run();
+    return _initializeFlight.run(_initialize);
   }
 
   Future<void> _initialize() async {

@@ -8,6 +8,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/argument_guards.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
@@ -279,8 +280,9 @@ class McpKeywordIndexService {
   final Directory _storageDir;
   final int _maxPersistedBytes;
   final SerialTaskQueue _persistenceQueue = SerialTaskQueue();
+  final OpenHandSingleFlight<McpKeywordIndexBuildResult> _buildFlight =
+      OpenHandSingleFlight<McpKeywordIndexBuildResult>();
   bool _storageRecovered = false;
-  Future<McpKeywordIndexBuildResult>? _inflight;
   int _persistenceRevision = 0;
 
   /// 整表重建进行期间发生的单服务替换，按 serverName 记最新一次的工具列表。
@@ -301,34 +303,22 @@ class McpKeywordIndexService {
     required void Function(McpKeywordIndexProgress) onProgress,
     McpKeywordIndex? baseIndex,
   }) {
-    final existing = _inflight;
-    if (existing != null) return existing;
-    final persistenceRevision = _persistenceRevision;
-    // 本次重建的基线由此刻起算：清掉上一轮遗留的替换记录，只累积重建期间新到的。
-    _replacesDuringBuild.clear();
-    final fut = _doBuild(
-      servers: servers,
-      resolveTools: resolveTools,
-      onProgress: onProgress,
-      persistenceRevision: persistenceRevision,
-      baseIndex: baseIndex,
-    );
-    _inflight = fut;
-    unawaited(
-      fut.then<void>(
-        (_) => _clearInflight(fut),
-        onError: (Object _, StackTrace _) => _clearInflight(fut),
-      ),
-    );
-    return fut;
-  }
-
-  void _clearInflight(Future<McpKeywordIndexBuildResult> completed) {
-    if (identical(_inflight, completed)) _inflight = null;
+    return _buildFlight.run(() {
+      final persistenceRevision = _persistenceRevision;
+      // 本次重建的基线由此刻起算：清掉上一轮遗留的替换记录，只累积重建期间新到的。
+      _replacesDuringBuild.clear();
+      return _doBuild(
+        servers: servers,
+        resolveTools: resolveTools,
+        onProgress: onProgress,
+        persistenceRevision: persistenceRevision,
+        baseIndex: baseIndex,
+      );
+    });
   }
 
   /// 当前是否有正在进行中的构建。
-  bool get isBuilding => _inflight != null;
+  bool get isBuilding => _buildFlight.isRunning;
 
   Future<McpKeywordIndexBuildResult> _doBuild({
     required List<McpServer> servers,
@@ -536,7 +526,7 @@ class McpKeywordIndexService {
     // 若此刻有整表重建在途，记下这次替换：重建落盘时会把它叠加到全量结果上。
     // 二者都仍各自落盘，且重建的 persist 一定排在本任务之后，故无论调度次序如何，
     // 最终盘面都是「全量 + 本次替换」；即便重建中途失败，本任务也已把增量写盘。
-    if (_inflight != null) {
+    if (_buildFlight.isRunning) {
       _replacesDuringBuild[serverName] = tools;
     }
     return _persistenceQueue.enqueue(() async {
