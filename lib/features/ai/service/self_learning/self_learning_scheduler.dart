@@ -110,7 +110,8 @@ class SelfLearningScheduler {
 
   OpenHandAsyncSemaphore _semaphore;
   AiSessionTemplateCursor? _nextCandidateCursor;
-  Future<SelfLearningTickResult>? _tickInFlight;
+  late final OpenHandSingleFlight<SelfLearningTickResult> _tickFlight =
+      OpenHandSingleFlight<SelfLearningTickResult>(_runTick);
 
   /// 调整并发度（例如在用户修改设置时调用）。
   /// 正在运行的任务不会被抢占，但新提交的任务会遵循新的上限。
@@ -127,16 +128,7 @@ class SelfLearningScheduler {
   ///
   /// 返回统计结果；无论个别会话成功与否，本方法都不会抛出异常。
   Future<SelfLearningTickResult> tick() {
-    final active = _tickInFlight;
-    if (active != null) return active;
-    late final Future<SelfLearningTickResult> current;
-    current = _runTick().whenComplete(() {
-      if (identical(_tickInFlight, current)) {
-        _tickInFlight = null;
-      }
-    });
-    _tickInFlight = current;
-    return current;
+    return _tickFlight.run();
   }
 
   Future<SelfLearningTickResult> _runTick() async {

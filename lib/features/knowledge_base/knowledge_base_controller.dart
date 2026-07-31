@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -69,7 +70,8 @@ class KnowledgeBaseController extends ChangeNotifier {
   bool _hasTrustedSettings = false;
   bool _isDisposed = false;
   int _sourceLoadGeneration = 0;
-  Future<void>? _initializeFuture;
+  late final OpenHandSingleFlight<void> _initializeFlight =
+      OpenHandSingleFlight<void>(_initialize);
 
   KnowledgeBaseSettings get settings => _settings;
   List<KnowledgeSource> get sources => _sources;
@@ -86,17 +88,9 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   Future<void> initialize() {
-    final active = _initializeFuture;
-    if (active != null) return active;
+    if (_initializeFlight.isRunning) return _initializeFlight.run();
     if (_busy || _isDisposed) return Future<void>.value();
-    late final Future<void> current;
-    current = _initialize().whenComplete(() {
-      if (identical(_initializeFuture, current)) {
-        _initializeFuture = null;
-      }
-    });
-    _initializeFuture = current;
-    return current;
+    return _initializeFlight.run();
   }
 
   Future<void> _initialize() async {

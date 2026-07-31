@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/version_compare.dart';
@@ -46,7 +47,8 @@ class PluginServiceController extends ManagedChangeNotifier {
   bool _isOperating = false;
   String? _checkingPluginId;
   String? _errorMessage;
-  Future<void>? _refreshAllPluginsFuture;
+  late final OpenHandSingleFlight<void> _refreshAllPluginsFlight =
+      OpenHandSingleFlight<void>(_refreshAllPluginsUncached);
   final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
   final ChangePulse _operationSuccessPulse = ChangePulse();
 
@@ -75,8 +77,9 @@ class PluginServiceController extends ManagedChangeNotifier {
 
   /// 重新扫描所有插件状态。
   Future<void> rescan() {
-    final active = _refreshAllPluginsFuture;
-    if (active != null) return active;
+    if (_refreshAllPluginsFlight.isRunning) {
+      return _refreshAllPluginsFlight.run();
+    }
     if (_isOperating || _checkingPluginId != null) {
       return Future<void>.value();
     }
@@ -84,16 +87,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   }
 
   Future<void> _refreshAllPlugins() {
-    final active = _refreshAllPluginsFuture;
-    if (active != null) return active;
-    late final Future<void> refresh;
-    refresh = _refreshAllPluginsUncached().whenComplete(() {
-      if (identical(_refreshAllPluginsFuture, refresh)) {
-        _refreshAllPluginsFuture = null;
-      }
-    });
-    _refreshAllPluginsFuture = refresh;
-    return refresh;
+    return _refreshAllPluginsFlight.run();
   }
 
   Future<void> _refreshAllPluginsUncached() async {

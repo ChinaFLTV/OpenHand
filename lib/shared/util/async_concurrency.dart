@@ -141,6 +141,44 @@ final class OpenHandRetryableAsyncCache<T> {
   void clear() => _future = null;
 }
 
+/// 合并并发调用；当前操作结束后允许下一轮重新执行。
+///
+/// Future 会在调用操作前登记，避免操作同步通知监听器时重入并重复启动。
+final class OpenHandSingleFlight<T> {
+  OpenHandSingleFlight(this._operation);
+
+  final FutureOr<T> Function() _operation;
+  Future<T>? _active;
+
+  bool get isRunning => _active != null;
+
+  Future<T> run() {
+    final active = _active;
+    if (active != null) return active;
+
+    final completer = Completer<T>();
+    final future = completer.future;
+    _active = future;
+    unawaited(
+      Future<T>.sync(_operation).then<void>(
+        (value) {
+          _clearIfCurrent(future);
+          completer.complete(value);
+        },
+        onError: (Object error, StackTrace stack) {
+          _clearIfCurrent(future);
+          completer.completeError(error, stack);
+        },
+      ),
+    );
+    return future;
+  }
+
+  void _clearIfCurrent(Future<T> future) {
+    if (identical(_active, future)) _active = null;
+  }
+}
+
 /// 控制异步扇出的轻量 FIFO 信号量。
 ///
 /// 并发数和等待数都会归一化，避免异常配置创建无界工作器或等待队列。
