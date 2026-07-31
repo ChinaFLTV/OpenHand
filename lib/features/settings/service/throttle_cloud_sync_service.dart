@@ -135,6 +135,7 @@ class ThrottleCloudSyncService {
   final http.Client Function() _clientFactory;
   final bool _registerCloudChangeHandler;
   final Set<http.Client> _activeOwnedClients = <http.Client>{};
+  final Set<Completer<void>> _activeRequestAborts = <Completer<void>>{};
   final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
   bool _disposed = false;
 
@@ -163,6 +164,10 @@ class ThrottleCloudSyncService {
 
   Future<void> _dispose() async {
     _disposed = true;
+    for (final abort in _activeRequestAborts.toList(growable: false)) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _activeRequestAborts.clear();
     for (final client in _activeOwnedClients.toList(growable: false)) {
       client.close();
     }
@@ -238,7 +243,7 @@ class ThrottleCloudSyncService {
     if (target.error != null) {
       return ThrottleCloudSyncResult.failure(target.error!);
     }
-    return _runHttpRequest('推送自定义端点配置', (client) async {
+    return _runHttpRequest('推送自定义端点配置', (client, cancelSignal) async {
       final body = jsonEncode(_configPayload(config, updatedAtMs));
       final bodyBytes = utf8.encode(body);
       final resp = await _sendHttpRequest(
@@ -252,6 +257,7 @@ class ThrottleCloudSyncService {
           'X-OpenHand-Client': _customClientHeader,
         },
         bodyBytes: bodyBytes,
+        cancelSignal: cancelSignal,
       );
       if (isHttpFailureStatus(resp.statusCode)) {
         return _httpFailure(resp, '自定义端点');
@@ -282,7 +288,7 @@ class ThrottleCloudSyncService {
     if (target.error != null) {
       return ThrottleCloudSyncResult.failure(target.error!);
     }
-    return _runHttpRequest('拉取自定义端点配置', (client) async {
+    return _runHttpRequest('拉取自定义端点配置', (client, cancelSignal) async {
       final resp = await _sendHttpRequest(
         client,
         method: 'GET',
@@ -293,6 +299,7 @@ class ThrottleCloudSyncService {
             HttpHeaders.authorizationHeader: 'Bearer ${target.bearerToken}',
           'X-OpenHand-Client': _customClientHeader,
         },
+        cancelSignal: cancelSignal,
       );
       if (isHttpFailureStatus(resp.statusCode)) {
         return _httpFailure(resp, '自定义端点');
@@ -331,7 +338,11 @@ class ThrottleCloudSyncService {
 
   Future<ThrottleCloudSyncResult> _runHttpRequest(
     String logAction,
-    Future<ThrottleCloudSyncResult> Function(http.Client client) request,
+    Future<ThrottleCloudSyncResult> Function(
+      http.Client client,
+      Future<void> cancelSignal,
+    )
+    request,
   ) async {
     if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
     final ownsClient = _client == null;
@@ -342,18 +353,27 @@ class ThrottleCloudSyncService {
       silentLog('throttle_cloud_sync', '创建云同步客户端', error, stack);
       return ThrottleCloudSyncResult.failure('无法创建云同步客户端。');
     }
-    if (ownsClient) {
-      if (_disposed) {
-        client.close();
-        return ThrottleCloudSyncResult.failure(_disposedMessage);
-      }
-      _activeOwnedClients.add(client);
+    final requestAbort = Completer<void>();
+    _activeRequestAborts.add(requestAbort);
+    if (_disposed) {
+      requestAbort.complete();
+      _activeRequestAborts.remove(requestAbort);
+      if (ownsClient) client.close();
+      return ThrottleCloudSyncResult.failure(_disposedMessage);
     }
+    if (ownsClient) _activeOwnedClients.add(client);
     try {
-      final result = await request(client).timeout(_remoteRequestTimeout);
+      final result = await request(
+        client,
+        requestAbort.future,
+      ).timeout(_remoteRequestTimeout);
       return _disposed
           ? ThrottleCloudSyncResult.failure(_disposedMessage)
           : result;
+    } on http.RequestAbortedException {
+      return ThrottleCloudSyncResult.failure(
+        _disposed ? _disposedMessage : '云同步请求已取消。',
+      );
     } on TimeoutException {
       return ThrottleCloudSyncResult.failure(
         '云同步请求超过 ${_remoteRequestTimeout.inSeconds} 秒。',
@@ -368,6 +388,8 @@ class ThrottleCloudSyncService {
       silentLog('throttle_cloud_sync', logAction, error, stack);
       return ThrottleCloudSyncResult.failure('云同步请求失败，请检查网络与同步配置。');
     } finally {
+      if (!requestAbort.isCompleted) requestAbort.complete();
+      _activeRequestAborts.remove(requestAbort);
       if (ownsClient && _activeOwnedClients.remove(client)) {
         client.close();
       }
@@ -379,6 +401,7 @@ class ThrottleCloudSyncService {
     required String method,
     required Uri uri,
     required Map<String, String> headers,
+    required Future<void> cancelSignal,
     List<int>? bodyBytes,
   }) async {
     if (bodyBytes != null && bodyBytes.length > _maxRequestBytes) {
@@ -390,6 +413,7 @@ class ThrottleCloudSyncService {
       client: client,
       request: request,
       connectionTimeout: _remoteRequestTimeout,
+      cancelSignal: cancelSignal,
     );
     final body = await readBoundedByteStreamText(
       response.stream,
@@ -589,7 +613,7 @@ class ThrottleCloudSyncService {
     if (pat == null) {
       return ThrottleCloudSyncResult.failure('请填写 GitHub PAT。');
     }
-    return _runHttpRequest('推送 GitHub Gist 配置', (client) async {
+    return _runHttpRequest('推送 GitHub Gist 配置', (client, cancelSignal) async {
       final fileContent = prettyPrintJson(_configPayload(config, updatedAtMs));
       final body = jsonEncode(<String, Object?>{
         'description': 'OpenHand 节流配置（自动同步）',
@@ -615,6 +639,7 @@ class ThrottleCloudSyncService {
           uri: _gistApiUri(),
           headers: headers,
           bodyBytes: bodyBytes,
+          cancelSignal: cancelSignal,
         );
       } else {
         resp = await _sendHttpRequest(
@@ -623,6 +648,7 @@ class ThrottleCloudSyncService {
           uri: _gistApiUri(id),
           headers: headers,
           bodyBytes: bodyBytes,
+          cancelSignal: cancelSignal,
         );
       }
       if (isHttpFailureStatus(resp.statusCode)) {
@@ -660,7 +686,7 @@ class ThrottleCloudSyncService {
     if (pat == null) {
       return ThrottleCloudSyncResult.failure('请填写 GitHub PAT。');
     }
-    return _runHttpRequest('拉取 GitHub Gist 配置', (client) async {
+    return _runHttpRequest('拉取 GitHub Gist 配置', (client, cancelSignal) async {
       final resp = await _sendHttpRequest(
         client,
         method: 'GET',
@@ -671,6 +697,7 @@ class ThrottleCloudSyncService {
           'X-GitHub-Api-Version': _githubApiVersion,
           'User-Agent': _githubUserAgent,
         },
+        cancelSignal: cancelSignal,
       );
       if (isHttpFailureStatus(resp.statusCode)) {
         return _httpFailure(resp, 'GitHub Gist');

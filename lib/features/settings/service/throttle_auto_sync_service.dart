@@ -59,7 +59,6 @@ class ThrottleAutoSyncService {
   final Duration _pushDebounce;
   final Duration _cloudChangeDebounce;
   final Duration _disposeTimeout;
-  final Completer<void> _disposeSignal = Completer<void>();
   final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
 
   Timer? _pushDebounceTimer;
@@ -102,7 +101,6 @@ class ThrottleAutoSyncService {
 
   Future<void> _dispose() async {
     _disposed = true;
-    if (!_disposeSignal.isCompleted) _disposeSignal.complete();
     _pullPending = false;
     _pushPending = false;
     _pushDebounceTimer?.cancel();
@@ -223,16 +221,13 @@ class ThrottleAutoSyncService {
     final target = _readSyncTarget();
     if (!_isTargetReady(target)) return;
     try {
-      final result = await awaitWithCancelSignal(
-        _cloudSyncService.pull(
-          provider: target.provider,
-          endpoint: target.endpoint,
-          token: target.token,
-          gistId: target.gistId,
-        ),
-        cancelSignal: _disposeSignal.future,
+      final result = await _cloudSyncService.pull(
+        provider: target.provider,
+        endpoint: target.endpoint,
+        token: target.token,
+        gistId: target.gistId,
       );
-      if (result == null || _disposed || target != _readSyncTarget()) return;
+      if (_disposed || target != _readSyncTarget()) return;
       if (!result.ok || result.config == null) {
         silentLog('throttle_auto_sync', '拉取云端配置', result.message);
         return;
@@ -283,18 +278,15 @@ class ThrottleAutoSyncService {
     if (!_isTargetReady(target)) return;
     try {
       final config = _settingsController.exportAiStreamThrottleConfig();
-      final result = await awaitWithCancelSignal(
-        _cloudSyncService.push(
-          provider: target.provider,
-          endpoint: target.endpoint,
-          token: target.token,
-          config: config,
-          updatedAtMs: _settingsController.aiStreamThrottleConfigUpdatedAtMs,
-          gistId: target.gistId,
-        ),
-        cancelSignal: _disposeSignal.future,
+      final result = await _cloudSyncService.push(
+        provider: target.provider,
+        endpoint: target.endpoint,
+        token: target.token,
+        config: config,
+        updatedAtMs: _settingsController.aiStreamThrottleConfigUpdatedAtMs,
+        gistId: target.gistId,
       );
-      if (result == null || _disposed || target != _readSyncTarget()) return;
+      if (_disposed || target != _readSyncTarget()) return;
       if (!result.ok) {
         silentLog('throttle_auto_sync', '推送本地配置', result.message);
       }
