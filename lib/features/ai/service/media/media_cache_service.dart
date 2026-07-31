@@ -140,13 +140,25 @@ class MediaCacheService {
   Future<void> prewarm() {
     final active = _prewarmFuture;
     if (active != null) return active;
-    return _prewarmFuture = _commitSemaphore.withPermit<void>(() async {
+    final prewarm = _commitSemaphore.withPermit<void>(() async {
       if (_disposed || _clearing) return;
       final directory = Directory(_cacheDirectoryPathProvider());
       if (await directory.exists().timeout(_fileOperationTimeout)) {
         await _pruneCacheDirectory(directory);
       }
     });
+    _prewarmFuture = prewarm;
+    unawaited(
+      prewarm.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace _) {
+          if (identical(_prewarmFuture, prewarm)) {
+            _prewarmFuture = null;
+          }
+        },
+      ),
+    );
+    return prewarm;
   }
 
   Future<Directory> _ensureCacheDir() async {
