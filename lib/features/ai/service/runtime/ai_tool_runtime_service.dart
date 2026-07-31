@@ -557,6 +557,7 @@ class AiToolRuntimeService {
   final MachineTerminalService? _machineTerminalService;
   AiSubToolExecutionObserver? _subToolExecutionObserver;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
+  final Set<Completer<void>> _activeExecutionAborts = <Completer<void>>{};
   Future<void>? _shutdownFuture;
   bool _isShuttingDown = false;
 
@@ -948,6 +949,46 @@ class AiToolRuntimeService {
   }
 
   Future<AiToolExecutionResult> execute({
+    required String sessionId,
+    required AiResolvedToolCatalog catalog,
+    required AiToolCall toolCall,
+    required AiModelConfig model,
+    required Set<String> previouslyReadFiles,
+    required List<AiDenyCommandRule> denyCommandRules,
+    required bool requireWriteCommandConfirmation,
+    required Future<BashCommandApprovalDecision> Function(
+      BashCommandApprovalRequest request,
+    )?
+    confirmWriteCommand,
+    Future<void>? cancelSignal,
+    void Function(BashToolExecutionUpdate update)? onBashUpdate,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) async {
+    final executionAbort = _beginExecution();
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      executionAbort.future,
+    ]);
+    try {
+      return await _execute(
+        sessionId: sessionId,
+        catalog: catalog,
+        toolCall: toolCall,
+        model: model,
+        previouslyReadFiles: previouslyReadFiles,
+        denyCommandRules: denyCommandRules,
+        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+        confirmWriteCommand: confirmWriteCommand,
+        cancelSignal: effectiveCancelSignal,
+        onBashUpdate: onBashUpdate,
+        metadata: metadata,
+      );
+    } finally {
+      _finishExecution(executionAbort);
+    }
+  }
+
+  Future<AiToolExecutionResult> _execute({
     required String sessionId,
     required AiResolvedToolCatalog catalog,
     required AiToolCall toolCall,
@@ -2701,9 +2742,25 @@ class AiToolRuntimeService {
     final active = _shutdownFuture;
     if (active != null) return active;
     _isShuttingDown = true;
+    for (final abort in _activeExecutionAborts.toList(growable: false)) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _activeExecutionAborts.clear();
     _subToolExecutionObserver = null;
     _fileTrackers.clear();
     return _shutdownFuture = _finishShutdown();
+  }
+
+  Completer<void> _beginExecution() {
+    if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');
+    final abort = Completer<void>();
+    _activeExecutionAborts.add(abort);
+    return abort;
+  }
+
+  void _finishExecution(Completer<void> abort) {
+    if (!abort.isCompleted) abort.complete();
+    _activeExecutionAborts.remove(abort);
   }
 
   Future<void> _finishShutdown() async {
