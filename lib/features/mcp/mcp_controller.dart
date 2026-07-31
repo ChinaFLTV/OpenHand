@@ -845,13 +845,14 @@ class McpController extends ChangeNotifier {
     if (pending != null) {
       return pending;
     }
-    final future = _loadOpsPersistenceLocked();
-    _opsPersistenceLoadFuture = future.whenComplete(() {
-      if (identical(_opsPersistenceLoadFuture, future)) {
+    late final Future<void> tracked;
+    tracked = _loadOpsPersistenceLocked().whenComplete(() {
+      if (identical(_opsPersistenceLoadFuture, tracked)) {
         _opsPersistenceLoadFuture = null;
       }
     });
-    return _opsPersistenceLoadFuture!;
+    _opsPersistenceLoadFuture = tracked;
+    return tracked;
   }
 
   Future<void> _loadOpsPersistenceLocked() async {
