@@ -949,7 +949,7 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, Future<void>> _sessionHeaderOperationQueues =
       <String, Future<void>>{};
   final Map<String, int> _sessionHeaderMutationGenerations = <String, int>{};
-  final Set<String> _sessionPendingSendOperationIds = <String>{};
+  final Map<String, int> _sessionPendingSendOperationCounts = <String, int>{};
   final Map<String, Future<AiSession?>> _sessionMessageHydrationTasks =
       <String, Future<AiSession?>>{};
   final Map<String, Future<AiSession?>> _sessionMessageWindowHydrationTasks =
@@ -1094,7 +1094,7 @@ class AiSessionController extends ChangeNotifier {
   Set<String> get activeSessionIds {
     final ids = <String>{
       ..._sessionSendPhases.keys,
-      ..._sessionPendingSendOperationIds,
+      ..._sessionPendingSendOperationCounts.keys,
     };
     for (final entry in _sessionStopSignals.entries) {
       if (!entry.value.isCompleted) {
@@ -1507,7 +1507,7 @@ class AiSessionController extends ChangeNotifier {
     if (sendPhaseForSession(normalizedSessionId) != AiSendPhase.idle) {
       return true;
     }
-    if (_sessionPendingSendOperationIds.contains(normalizedSessionId)) {
+    if (_sessionPendingSendOperationCounts.containsKey(normalizedSessionId)) {
       return true;
     }
     return stopSignal != null;
@@ -1585,6 +1585,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   void _clearSessionScopedSendState(String sessionId) {
+    _sessionPendingSendOperationCounts.remove(sessionId);
     _didCompressInLastSendBySession.remove(sessionId);
     _compressionFailureCountsBySession.remove(sessionId);
     _lastErrorMessagesBySession.remove(sessionId);
@@ -3632,7 +3633,7 @@ class AiSessionController extends ChangeNotifier {
     WriteCommandConfirmationCallback? confirmWriteCommand,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
-    _sessionPendingSendOperationIds.add(sessionId);
+    _markSessionSendPending(sessionId);
     notifyListeners();
     return _enqueueSessionOperation(sessionId, () async {
       final hydratedSession =
@@ -3899,7 +3900,7 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(session.id);
         notifyListeners();
       }
-    });
+    }).whenComplete(() => _completeSessionSendPending(sessionId));
   }
 
   /// Public read-only accessor so the self-learning runner can fetch a
@@ -6306,7 +6307,7 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
 
-    _sessionPendingSendOperationIds.add(resolvedSessionId);
+    _markSessionSendPending(resolvedSessionId);
     notifyListeners();
     return _enqueueSessionOperation(resolvedSessionId, () async {
       var session =
@@ -6417,7 +6418,6 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
 
-      _sessionPendingSendOperationIds.remove(session.id);
       _sessionCancelHandlers.remove(session.id);
       final existingStopSignal = _sessionStopSignals[session.id];
       if (existingStopSignal != null && existingStopSignal.isCompleted) {
@@ -6909,9 +6909,7 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(resolvedSessionId);
         notifyListeners();
       }
-    }).whenComplete(() {
-      _sessionPendingSendOperationIds.remove(resolvedSessionId);
-    });
+    }).whenComplete(() => _completeSessionSendPending(resolvedSessionId));
   }
 
   List<String> _normalizeAttachmentPaths(List<String> attachmentFilePaths) {
@@ -6981,7 +6979,7 @@ class AiSessionController extends ChangeNotifier {
       ..._sessionOperationQueues.keys,
       ..._sessionHeaderOperationQueues.keys,
       ..._sessionSendPhases.keys,
-      ..._sessionPendingSendOperationIds,
+      ..._sessionPendingSendOperationCounts.keys,
     };
     final pendingOperations = <Future<void>>[
       _operationQueue.idle,
@@ -6993,7 +6991,7 @@ class AiSessionController extends ChangeNotifier {
     _sessionOperationQueues.clear();
     _sessionHeaderOperationQueues.clear();
     _sessionSendPhases.clear();
-    _sessionPendingSendOperationIds.clear();
+    _sessionPendingSendOperationCounts.clear();
     _approvalPreviousPhases.clear();
     for (final throttle in _activeCardThrottles.values) {
       throttle.cancelPending();
@@ -10279,7 +10277,7 @@ class AiSessionController extends ChangeNotifier {
 
   bool _canRestoreInterruptedResponseRegeneration(String sessionId) {
     return sendPhaseForSession(sessionId) == AiSendPhase.idle &&
-        !_sessionPendingSendOperationIds.contains(sessionId);
+        !_sessionPendingSendOperationCounts.containsKey(sessionId);
   }
 
   bool _isRegenerationRecoveryExcluded(AiSessionMessage message) {
@@ -13735,10 +13733,28 @@ $tail''';
 
   void _clearSessionExecutionState(String sessionId) {
     _clearSessionSendPhase(sessionId);
-    _sessionPendingSendOperationIds.remove(sessionId);
     _approvalPreviousPhases.remove(sessionId);
     _sessionCancelHandlers.remove(sessionId);
     _sessionStopSignals.remove(sessionId);
+  }
+
+  void _markSessionSendPending(String sessionId) {
+    _sessionPendingSendOperationCounts.update(
+      sessionId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  void _completeSessionSendPending(String sessionId) {
+    final count = _sessionPendingSendOperationCounts[sessionId];
+    if (count == null) return;
+    if (count <= 1) {
+      _sessionPendingSendOperationCounts.remove(sessionId);
+    } else {
+      _sessionPendingSendOperationCounts[sessionId] = count - 1;
+    }
+    notifyListeners();
   }
 
   /// 截断审计元数据，避免异常响应撑大会话文件。

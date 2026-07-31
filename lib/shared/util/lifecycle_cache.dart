@@ -58,6 +58,14 @@ class LifecycleLruCache<V> {
     return removed.value;
   }
 
+  bool removeIfIdentical(String key, V expectedValue) {
+    final entry = _entries[key];
+    if (entry == null || !identical(entry.value, expectedValue)) return false;
+    _entries.remove(key);
+    _totalCost -= entry.cost;
+    return true;
+  }
+
   void removeWhere(bool Function(String key, V value) test) {
     final keys = <String>[];
     for (final entry in _entries.entries) {

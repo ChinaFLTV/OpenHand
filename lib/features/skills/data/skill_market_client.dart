@@ -92,22 +92,15 @@ class SkillMarketClient {
     final normalizedPage = page < 1 ? 1 : page;
     final normalizedPageSize = pageSize < 1 ? defaultPageSize : pageSize;
     final cacheKey = '$normalizedPage|$normalizedPageSize|$normalizedKeyword';
-    final cached = _searchCache.get(cacheKey);
-    if (cached != null) {
-      return cached;
-    }
-
-    final future =
-        _fetchSearch(
-          keyword: normalizedKeyword,
-          page: normalizedPage,
-          pageSize: normalizedPageSize,
-        ).catchError((Object error, StackTrace stackTrace) {
-          _searchCache.remove(cacheKey);
-          Error.throwWithStackTrace(error, stackTrace);
-        });
-    _searchCache.put(cacheKey, future);
-    return future;
+    return _cached(
+      _searchCache,
+      cacheKey,
+      () => _fetchSearch(
+        keyword: normalizedKeyword,
+        page: normalizedPage,
+        pageSize: normalizedPageSize,
+      ),
+    );
   }
 
   Future<SkillMarketBundle> loadSkillBundle(String slug, {String? version}) {
@@ -119,21 +112,14 @@ class SkillMarketClient {
     }
     final normalizedVersion = _normalizeVersion(version);
     final cacheKey = '$normalizedSlug|$normalizedVersion';
-    final cached = _bundleCache.get(cacheKey);
-    if (cached != null) {
-      return cached;
-    }
-
-    final future =
-        _fetchSkillBundle(
-          normalizedSlug,
-          requestedVersion: normalizedVersion,
-        ).catchError((Object error, StackTrace stackTrace) {
-          _bundleCache.remove(cacheKey);
-          Error.throwWithStackTrace(error, stackTrace);
-        });
-    _bundleCache.put(cacheKey, future);
-    return future;
+    return _cached(
+      _bundleCache,
+      cacheKey,
+      () => _fetchSkillBundle(
+        normalizedSlug,
+        requestedVersion: normalizedVersion,
+      ),
+    );
   }
 
   Future<Uint8List> downloadSkillArchive(String slug) async {
@@ -504,8 +490,12 @@ class SkillMarketClient {
     if (cached != null) {
       return cached;
     }
-    final future = loader().catchError((Object error, StackTrace stackTrace) {
-      cache.remove(key);
+    late final Future<T> future;
+    future = Future<T>.sync(loader).catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      cache.removeIfIdentical(key, future);
       Error.throwWithStackTrace(error, stackTrace);
     });
     cache.put(key, future);
