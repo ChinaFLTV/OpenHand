@@ -34,6 +34,7 @@ import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/fps/openhand_fps_monitor.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';

@@ -116,7 +116,7 @@ class AiModelScanner {
   /// 为常见协议返回一组该协议下使用者可能需要的主流模型 id，
   /// 让用户从下拉选中而不是完全手输。
   ///
-  /// 列表需保守：只架设“宕机递增选项”，不代表 OpenHand 背书或股补。
+  /// 列表保持保守，仅用于扫描失败时提供候选项，不代表 OpenHand 推荐。
   static List<String> _fallbackModelIdsForProtocol(
     AiProtocolType protocolType,
   ) {

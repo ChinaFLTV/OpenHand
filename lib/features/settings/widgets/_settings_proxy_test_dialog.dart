@@ -46,6 +46,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   final Stopwatch _totalStopwatch = Stopwatch();
   late final AnimationController _cursorBlinkController;
+  HttpClient? _activeHttpClient;
+  int _diagnosticGeneration = 0;
 
   // 记录上一段 head 日志的 tag 与耗时，供顶部 chip 展示热点耗时。
   final Map<String, int> _sectionDurations = <String, int>{};
@@ -82,6 +84,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   @override
   void dispose() {
+    _diagnosticGeneration += 1;
+    _activeHttpClient?.close(force: true);
+    _activeHttpClient = null;
+    _totalStopwatch.stop();
     _cursorBlinkController.dispose();
     _scrollController.dispose();
     _completionPulse.dispose();
@@ -129,6 +135,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Future<void> _runDiagnostics() async {
+    final generation = ++_diagnosticGeneration;
     final l10n = AppLocalizations.of(context)!;
     final uri = widget.endpoint;
     final settings = widget.proxySettings;
@@ -138,68 +145,56 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     var ok = false;
     String summary;
     try {
-      _log(
-        _ProxyTestLogLevel.head,
-        'PROBE',
-        '════ Connectivity Diagnostic ════',
-      );
-      _log(_ProxyTestLogLevel.info, 'PROBE', 'target  = ${uri.toString()}');
+      _log(_ProxyTestLogLevel.head, '探测', '════ 代理连通性诊断 ════');
+      _log(_ProxyTestLogLevel.info, '探测', '目标 = ${uri.toString()}');
       _log(
         _ProxyTestLogLevel.debug,
-        'PROBE',
-        'scheme=${uri.scheme}  host=${uri.host}  port=${uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80)}  path=${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+        '探测',
+        '协议=${uri.scheme}  主机=${uri.host}  端口=${uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80)}  路径=${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
       );
 
-      _log(
-        _ProxyTestLogLevel.head,
-        'CONFIG',
-        '────────  Proxy Configuration  ────────',
-      );
+      _log(_ProxyTestLogLevel.head, '配置', '────────  代理配置  ────────');
       _log(
         _ProxyTestLogLevel.info,
-        'CONFIG',
-        'mode = ${_describeMode(settings.mode)}',
+        '配置',
+        '模式 = ${_describeMode(settings.mode)}',
       );
       if (settings.mode == AppProxyMode.manual) {
         final protos = settings.protocols.map((p) => p.name).join(',');
-        _log(_ProxyTestLogLevel.info, 'CONFIG', 'protocols = [$protos]');
+        _log(_ProxyTestLogLevel.info, '配置', '协议 = [$protos]');
         _log(
           _ProxyTestLogLevel.info,
-          'CONFIG',
-          'endpoint  = ${settings.host.isEmpty ? '<empty>' : settings.host}:${settings.port}',
+          '配置',
+          '端点 = ${settings.host.isEmpty ? '<空>' : settings.host}:${settings.port}',
         );
         if (settings.authEnabled) {
           final maskedPwd = settings.password.isEmpty
-              ? '<empty>'
+              ? '<空>'
               : '*' * settings.password.length;
           _log(
             _ProxyTestLogLevel.info,
-            'CONFIG',
-            'auth = on  user="${settings.username}"  pwd=$maskedPwd',
+            '配置',
+            '认证 = 开启  用户="${settings.username}"  密码=$maskedPwd',
           );
         } else {
-          _log(_ProxyTestLogLevel.info, 'CONFIG', 'auth = off');
+          _log(_ProxyTestLogLevel.info, '配置', '认证 = 关闭');
         }
         _log(
           _ProxyTestLogLevel.info,
-          'CONFIG',
-          'exceptions = ${settings.exceptions.length} entr${settings.exceptions.length == 1 ? "y" : "ies"}',
+          '配置',
+          '例外规则 = ${settings.exceptions.length} 条',
         );
       }
 
-      _log(
-        _ProxyTestLogLevel.head,
-        'RESOLVE',
-        '────────  findProxyFor()  ────────',
-      );
+      _log(_ProxyTestLogLevel.head, '路由', '────────  代理解析  ────────');
       final via = resolver.findProxyFor(uri);
-      _log(_ProxyTestLogLevel.ok, 'RESOLVE', 'verdict = "$via"');
+      _log(_ProxyTestLogLevel.ok, '路由', '结果 = "$via"');
       final useProxy = via.startsWith('PROXY ');
       final viaLabel = useProxy
           ? l10n.proxyTestVerdictProxy(via.substring('PROXY '.length).trim())
           : l10n.proxyTestVerdictDirect;
 
-      // Determine the host:port we will physically connect to.
+      // 解析首个实际连接的主机和端口。
       String hopHost;
       int hopPort;
       if (useProxy) {
@@ -209,41 +204,30 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             ? null
             : int.tryParse(spec.substring(colon + 1));
         if (parsedPort == null || parsedPort <= 0 || parsedPort > 65535) {
-          throw FormatException('Malformed PROXY directive: "$via"');
+          throw FormatException('代理指令格式无效："$via"');
         }
         hopHost = spec.substring(0, colon);
         hopPort = parsedPort;
         _log(
           _ProxyTestLogLevel.info,
-          'RESOLVE',
-          'first hop → proxy@$hopHost:$hopPort  (target host left to proxy)',
+          '路由',
+          '首跳 -> 代理@$hopHost:$hopPort（目标主机交由代理解析）',
         );
       } else {
         hopHost = uri.host;
         hopPort = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
-        _log(
-          _ProxyTestLogLevel.info,
-          'RESOLVE',
-          'first hop → direct@$hopHost:$hopPort',
-        );
+        _log(_ProxyTestLogLevel.info, '路由', '首跳 -> 直连@$hopHost:$hopPort');
       }
 
-      // ── Local network interfaces (split-tunnel diagnostic) ────────────
-      _log(
-        _ProxyTestLogLevel.head,
-        'NIC',
-        '────────  Local Interfaces  ────────',
-      );
+      // 枚举本地网卡，辅助判断分流链路。
+      _log(_ProxyTestLogLevel.head, '网卡', '────────  本地网卡  ────────');
       try {
         final ifaces = await NetworkInterface.list().timeout(
           const Duration(seconds: 2),
         );
+        if (!mounted || generation != _diagnosticGeneration) return;
         if (ifaces.isEmpty) {
-          _log(
-            _ProxyTestLogLevel.warn,
-            'NIC',
-            '<no active non-loopback interfaces detected>',
-          );
+          _log(_ProxyTestLogLevel.warn, '网卡', '<未发现活动的非回环网卡>');
         } else {
           for (final iface in ifaces) {
             final v4 = iface.addresses
@@ -256,21 +240,18 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 .toList();
             _log(
               _ProxyTestLogLevel.info,
-              'NIC',
-              '${iface.name}  v4=[${v4.join(",")}]  v6=[${v6.length} addr]',
+              '网卡',
+              '${iface.name}  IPv4=[${v4.join(",")}]  IPv6=[${v6.length} 个地址]',
             );
           }
         }
       } catch (e) {
-        _log(_ProxyTestLogLevel.warn, 'NIC', 'enumeration failed: $e');
+        if (!mounted || generation != _diagnosticGeneration) return;
+        _log(_ProxyTestLogLevel.warn, '网卡', '枚举失败：$e');
       }
 
-      // ── DNS resolution: A + AAAA separately ──────────────────────────
-      _log(
-        _ProxyTestLogLevel.head,
-        'DNS',
-        '────────  Lookup ($hopHost)  ────────',
-      );
+      // 分别解析 DNS A 与 AAAA 记录。
+      _log(_ProxyTestLogLevel.head, 'DNS', '────────  解析 $hopHost  ────────');
       InternetAddress? selectedAddr;
       for (final family in const <InternetAddressType>[
         InternetAddressType.IPv4,
@@ -283,182 +264,177 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             hopHost,
             type: family,
           ).timeout(const Duration(seconds: 5));
+          if (!mounted || generation != _diagnosticGeneration) return;
           final dnsMs = _totalStopwatch.elapsedMilliseconds - dnsStart;
           if (addrs.isEmpty) {
             _log(
               _ProxyTestLogLevel.debug,
               'DNS',
-              '$famName → <none>  (${dnsMs}ms)',
+              '$famName -> <无记录>（${dnsMs}ms）',
             );
           } else {
             for (final addr in addrs.take(4)) {
               _log(
                 _ProxyTestLogLevel.ok,
                 'DNS',
-                '$famName → ${addr.address}  (${dnsMs}ms)',
+                '$famName -> ${addr.address}（${dnsMs}ms）',
               );
             }
             if (addrs.length > 4) {
               _log(
                 _ProxyTestLogLevel.debug,
                 'DNS',
-                '… +${addrs.length - 4} more $famName record${addrs.length - 4 == 1 ? "" : "s"}',
+                '另有 ${addrs.length - 4} 条 $famName 记录',
               );
             }
             selectedAddr ??= addrs.first;
           }
         } on TimeoutException {
-          _log(
-            _ProxyTestLogLevel.warn,
-            'DNS',
-            '$famName lookup timed out (5000ms)',
-          );
+          if (!mounted || generation != _diagnosticGeneration) return;
+          _log(_ProxyTestLogLevel.warn, 'DNS', '$famName 解析超时（5000ms）');
         } catch (e) {
-          _log(_ProxyTestLogLevel.warn, 'DNS', '$famName lookup failed: $e');
+          if (!mounted || generation != _diagnosticGeneration) return;
+          _log(_ProxyTestLogLevel.warn, 'DNS', '$famName 解析失败：$e');
         }
       }
       if (selectedAddr != null) {
         final preferredFamily = selectedAddr.type == InternetAddressType.IPv6
             ? 'IPv6 (AAAA)'
             : 'IPv4 (A)';
-        _log(
-          _ProxyTestLogLevel.info,
-          'DNS',
-          'preferred family = $preferredFamily  (first answer)',
-        );
-        // Reverse DNS (PTR) for selected address.
+        _log(_ProxyTestLogLevel.info, 'DNS', '首选地址族 = $preferredFamily（首条响应）');
+        // 对首选地址执行反向 DNS（PTR）解析。
         try {
           final ptr = await selectedAddr.reverse().timeout(
             const Duration(seconds: 3),
           );
+          if (!mounted || generation != _diagnosticGeneration) return;
           _log(
             _ProxyTestLogLevel.ok,
             'PTR',
-            '${selectedAddr.address} ← ${ptr.host}',
+            '${selectedAddr.address} <- ${ptr.host}',
           );
         } on TimeoutException {
+          if (!mounted || generation != _diagnosticGeneration) return;
           _log(
             _ProxyTestLogLevel.debug,
             'PTR',
-            '${selectedAddr.address} ← <timeout 3000ms>',
+            '${selectedAddr.address} <- <3000ms 超时>',
           );
         } catch (e) {
+          if (!mounted || generation != _diagnosticGeneration) return;
           _log(
             _ProxyTestLogLevel.debug,
             'PTR',
-            '${selectedAddr.address} ← <unavailable: $e>',
+            '${selectedAddr.address} <- <不可用：$e>',
           );
         }
       } else {
-        _log(_ProxyTestLogLevel.warn, 'DNS', 'no usable address resolved');
+        _log(_ProxyTestLogLevel.warn, 'DNS', '未解析到可用地址');
       }
-
-      // Raw TCP probe
-      _log(
-        _ProxyTestLogLevel.head,
-        'TCP',
-        '────────  Socket Connect  ────────',
-      );
+      // 执行原始 TCP 探测。
+      _log(_ProxyTestLogLevel.head, 'TCP', '────────  套接字连接  ────────');
       final tcpStart = _totalStopwatch.elapsedMilliseconds;
+      Socket? socket;
       try {
-        final socket = await Socket.connect(
+        final connected = await Socket.connect(
           hopHost,
           hopPort,
           timeout: const Duration(seconds: 6),
-        ).timeout(const Duration(seconds: 6));
+        );
+        socket = connected;
+        if (!mounted || generation != _diagnosticGeneration) {
+          return;
+        }
         final tcpMs = _totalStopwatch.elapsedMilliseconds - tcpStart;
         _log(
           _ProxyTestLogLevel.ok,
           'TCP',
-          'handshake ok  remote=${socket.remoteAddress.address}:${socket.remotePort}  local=${socket.address.address}:${socket.port}  rtt=${tcpMs}ms',
+          '握手成功  远端=${connected.remoteAddress.address}:${connected.remotePort}  本地=${connected.address.address}:${connected.port}  往返=${tcpMs}ms',
         );
-        await socket.close();
       } on SocketException catch (e) {
+        if (!mounted || generation != _diagnosticGeneration) return;
         _log(
           _ProxyTestLogLevel.err,
           'TCP',
-          'connect failed: ${e.message}${e.osError == null ? '' : ' (errno=${e.osError!.errorCode})'}',
+          '连接失败：${e.message}${e.osError == null ? '' : '（错误码=${e.osError!.errorCode}）'}',
         );
         rethrow;
       } on TimeoutException {
-        _log(_ProxyTestLogLevel.err, 'TCP', 'connect timed out after 6000 ms');
+        if (!mounted || generation != _diagnosticGeneration) return;
+        _log(_ProxyTestLogLevel.err, 'TCP', '连接超时（6000ms）');
         rethrow;
+      } finally {
+        socket?.destroy();
       }
 
-      // ── TLS handshake (only if we go directly to an HTTPS target) ────
-      // For a proxied request the TLS handshake happens against the
-      // *target* after a CONNECT tunnel which we cannot easily observe
-      // from outside HttpClient; so we only run a stand-alone SecureSocket
-      // probe in the direct-to-https case.
+      // 仅直连 HTTPS 时单独探测 TLS；代理模式下握手发生在 CONNECT 隧道内，
+      // 由后续 HttpClient 请求统一验证。
       if (!useProxy && uri.scheme == 'https') {
-        _log(
-          _ProxyTestLogLevel.head,
-          'TLS',
-          '────────  SecureSocket Handshake  ────────',
-        );
+        _log(_ProxyTestLogLevel.head, 'TLS', '────────  安全套接字握手  ────────');
         final tlsStart = _totalStopwatch.elapsedMilliseconds;
+        SecureSocket? secure;
         try {
-          final secure = await SecureSocket.connect(
+          final connected = await SecureSocket.connect(
             hopHost,
             hopPort,
             timeout: const Duration(seconds: 8),
             supportedProtocols: const <String>['h2', 'http/1.1'],
           );
+          secure = connected;
+          if (!mounted || generation != _diagnosticGeneration) {
+            return;
+          }
           final tlsMs = _totalStopwatch.elapsedMilliseconds - tlsStart;
           _log(
             _ProxyTestLogLevel.ok,
             'TLS',
-            'handshake ok  alpn=${secure.selectedProtocol ?? "<none>"}  rtt=${tlsMs}ms',
+            '握手成功  ALPN=${connected.selectedProtocol ?? "<无>"}  往返=${tlsMs}ms',
           );
-          final cert = secure.peerCertificate;
+          final cert = connected.peerCertificate;
           if (cert != null) {
             _log(
               _ProxyTestLogLevel.info,
               'TLS',
-              'cert.subject = ${cert.subject.replaceAll("\n", " / ").trim()}',
+              '证书主题 = ${cert.subject.replaceAll("\n", " / ").trim()}',
             );
             _log(
               _ProxyTestLogLevel.info,
               'TLS',
-              'cert.issuer  = ${cert.issuer.replaceAll("\n", " / ").trim()}',
+              '证书颁发者 = ${cert.issuer.replaceAll("\n", " / ").trim()}',
             );
             _log(
               _ProxyTestLogLevel.debug,
               'TLS',
-              'cert.validity = ${cert.startValidity.toIso8601String()} → ${cert.endValidity.toIso8601String()}',
+              '证书有效期 = ${cert.startValidity.toIso8601String()} -> ${cert.endValidity.toIso8601String()}',
             );
           } else {
-            _log(
-              _ProxyTestLogLevel.warn,
-              'TLS',
-              'peerCertificate = <null>  (unexpected)',
-            );
+            _log(_ProxyTestLogLevel.warn, 'TLS', '对端证书 = <空>（异常）');
           }
-          await secure.close();
         } on HandshakeException catch (e) {
-          _log(_ProxyTestLogLevel.err, 'TLS', 'handshake failed: ${e.message}');
+          if (!mounted || generation != _diagnosticGeneration) return;
+          _log(_ProxyTestLogLevel.err, 'TLS', '握手失败：${e.message}');
           rethrow;
         } on TimeoutException {
-          _log(
-            _ProxyTestLogLevel.err,
-            'TLS',
-            'handshake timed out after 8000 ms',
-          );
+          if (!mounted || generation != _diagnosticGeneration) return;
+          _log(_ProxyTestLogLevel.err, 'TLS', '握手超时（8000ms）');
           rethrow;
+        } finally {
+          secure?.destroy();
         }
       } else if (useProxy && uri.scheme == 'https') {
         _log(
           _ProxyTestLogLevel.debug,
           'TLS',
-          'skipped — TLS handshake will tunnel through proxy CONNECT (observed via HTTP step)',
+          '已跳过：TLS 握手将通过代理 CONNECT 隧道进行，并由 HTTP 探测验证',
         );
       }
 
-      // Real HTTP request via HttpClient (handles TLS + CONNECT/forward proxy semantics).
-      _log(_ProxyTestLogLevel.head, 'HTTP', '────────  Request  ────────');
+      // 使用 HttpClient 验证 TLS、CONNECT 与正向代理语义。
+      _log(_ProxyTestLogLevel.head, 'HTTP', '────────  请求  ────────');
       httpClient = resolver.createRawHttpClient(
         connectionTimeout: const Duration(seconds: 8),
       );
+      _activeHttpClient = httpClient;
       _log(
         _ProxyTestLogLevel.info,
         'HTTP',
@@ -478,9 +454,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
       final httpStart = _totalStopwatch.elapsedMilliseconds;
       final request = await httpClient.getUrl(uri).timeout(_httpRequestTimeout);
+      if (!mounted || generation != _diagnosticGeneration) return;
       request.headers.set('User-Agent', 'OpenHand-ProxyDiag/1.0');
       request.headers.set('Accept', '*/*');
       final response = await request.close().timeout(_httpRequestTimeout);
+      if (!mounted || generation != _diagnosticGeneration) return;
       final ttfb = _totalStopwatch.elapsedMilliseconds - httpStart;
       _log(
         _ProxyTestLogLevel.ok,
@@ -492,27 +470,18 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           _log(_ProxyTestLogLevel.debug, 'HTTP', '< $name: $v');
         }
       });
-      // 仅探测有界响应正文。
-      var bodyBytes = 0;
-      final bodyReadDeadline = MonotonicDeadline(
-        _httpRequestTimeout,
-        timeoutMessage: 'HTTP 响应正文探测超过总时限。',
+      final bodyResult = await readBoundedByteStreamPrefix(
+        response,
+        maxBytes: _maxHttpBodyProbeBytes,
+        idleTimeout: _httpRequestTimeout,
+        totalTimeout: _httpRequestTimeout,
       );
-      try {
-        await for (final chunk in response.timeout(_httpRequestTimeout)) {
-          if (bodyReadDeadline.isExpired) {
-            throw bodyReadDeadline.timeoutException();
-          }
-          bodyBytes += chunk.length;
-          if (bodyBytes > _maxHttpBodyProbeBytes) break;
-        }
-      } finally {
-        bodyReadDeadline.stop();
-      }
+      if (!mounted || generation != _diagnosticGeneration) return;
+      final bodyBytes = bodyResult.bytes.length;
       _log(
         _ProxyTestLogLevel.info,
         'HTTP',
-        'ttfb=${ttfb}ms  body=$bodyBytes byte${bodyBytes == 1 ? '' : 's'}  contentLength=${response.contentLength}',
+        '首字节=${ttfb}ms  正文=$bodyBytes${bodyResult.truncated ? '+' : ''} 字节  声明长度=${response.contentLength}',
       );
 
       ok = response.statusCode >= 200 && response.statusCode < 400;
@@ -520,6 +489,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           ? l10n.proxyTestSuccess(_totalStopwatch.elapsedMilliseconds, viaLabel)
           : l10n.proxyTestFailure('HTTP ${response.statusCode}');
     } catch (error, stack) {
+      if (!mounted || generation != _diagnosticGeneration) return;
       silentLog('settings_proxy_test_dialog', '执行连通性测试', error, stack);
       ok = false;
       if (mounted) {
@@ -529,20 +499,24 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       } else {
         summary = error.toString();
       }
-      _log(_ProxyTestLogLevel.err, 'FATAL', error.toString());
+      _log(_ProxyTestLogLevel.err, '错误', error.toString());
     } finally {
+      if (identical(_activeHttpClient, httpClient)) {
+        _activeHttpClient = null;
+      }
       try {
         httpClient?.close(force: true);
       } catch (error, stack) {
         silentLog('settings_proxy_test_dialog', '关闭 HTTP 客户端', error, stack);
       }
     }
+    if (!mounted || generation != _diagnosticGeneration) return;
     _totalStopwatch.stop();
     _finalizeCurrentSection(_totalStopwatch.elapsedMilliseconds);
     _log(
       ok ? _ProxyTestLogLevel.ok : _ProxyTestLogLevel.err,
-      'DONE',
-      '════ ${ok ? 'SUCCESS' : 'FAILURE'}  total=${_totalStopwatch.elapsedMilliseconds}ms ════',
+      '完成',
+      '════ ${ok ? '成功' : '失败'}  总耗时=${_totalStopwatch.elapsedMilliseconds}ms ════',
     );
     if (!mounted) return;
     setState(() {
@@ -557,11 +531,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   String _describeMode(AppProxyMode mode) {
     switch (mode) {
       case AppProxyMode.disabled:
-        return 'disabled';
+        return '禁用';
       case AppProxyMode.automatic:
-        return 'automatic (system)';
+        return '自动（系统）';
       case AppProxyMode.manual:
-        return 'manual';
+        return '手动';
     }
   }
 
@@ -582,7 +556,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   String _formatEntryAsPlainText(_ProxyTestLogEntry e) {
     final ts = (e.elapsedMs / 1000).toStringAsFixed(3).padLeft(7);
-    final lvl = e.level.name.toUpperCase().padRight(5);
+    final lvl = switch (e.level) {
+      _ProxyTestLogLevel.head => '阶段',
+      _ProxyTestLogLevel.info => '信息',
+      _ProxyTestLogLevel.ok => '成功',
+      _ProxyTestLogLevel.warn => '警告',
+      _ProxyTestLogLevel.err => '错误',
+      _ProxyTestLogLevel.debug => '调试',
+    }.padRight(5);
     return '[+${ts}s] $lvl ${e.tag.padRight(7)} | ${e.body}';
   }
 
@@ -660,9 +641,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     // 状态色固定为绿/红/琥珀，避免主题主色削弱成功/失败辨识度。
-    const successColor = OpenHandStatusColors.success; // green-500
-    const errorColor = OpenHandStatusColors.error; // red-500
-    const runningColor = Color(0xFFFACC15); // amber-400
+    const successColor = OpenHandStatusColors.success; // 绿色
+    const errorColor = OpenHandStatusColors.error; // 红色
+    const runningColor = Color(0xFFFACC15); // 琥珀色
     final IconData statusIcon;
     final Color statusColor;
     final String statusText;
@@ -711,7 +692,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                       _buildHeaderChip(
                         theme: theme,
                         icon: Icons.timer_outlined,
-                        label: 'total ${_entries.last.elapsedMs}ms',
+                        label: '总计 ${_entries.last.elapsedMs}ms',
                         tone: theme.colorScheme.secondaryContainer,
                         fg: theme.colorScheme.onSecondaryContainer,
                       ),
@@ -719,7 +700,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                       _buildHeaderChip(
                         theme: theme,
                         icon: Icons.local_fire_department_outlined,
-                        label: 'hot ${slowest.key} ${slowest.value}ms',
+                        label: '最慢 ${slowest.key} ${slowest.value}ms',
                         tone: theme.colorScheme.tertiaryContainer,
                         fg: theme.colorScheme.onTertiaryContainer,
                       ),
@@ -840,8 +821,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   Widget _buildCursor({required double t}) {
     final color = Color.lerp(
-      const Color(0xFF8AE234), // green
-      const Color(0xFFFCD34D), // amber
+      const Color(0xFF8AE234), // 绿色
+      const Color(0xFFFCD34D), // 琥珀色
       t,
     )!;
     // 纯色块的透明度直接折进颜色：Opacity 会为每个色块开一层 saveLayer，
@@ -970,15 +951,15 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       case _ProxyTestLogLevel.head:
         return const Color(0xFF7DD3FC); // sky-300
       case _ProxyTestLogLevel.info:
-        return const Color(0xFFE5E7EB); // gray-200
+        return const Color(0xFFE5E7EB); // 浅灰色
       case _ProxyTestLogLevel.ok:
-        return const Color(0xFF86EFAC); // green-300
+        return const Color(0xFF86EFAC); // 浅绿色
       case _ProxyTestLogLevel.warn:
-        return const Color(0xFFFCD34D); // amber-300
+        return const Color(0xFFFCD34D); // 琥珀色
       case _ProxyTestLogLevel.err:
         return const Color(0xFFFCA5A5); // red-300
       case _ProxyTestLogLevel.debug:
-        return const Color(0xFF9CA3AF); // gray-400
+        return const Color(0xFF9CA3AF); // 灰色
     }
   }
 
