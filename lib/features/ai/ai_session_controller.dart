@@ -2713,7 +2713,13 @@ class AiSessionController extends ChangeNotifier {
       return next;
     } catch (error, stack) {
       silentLog('ai_session_controller', '读取或创建设备 ID', error, stack);
-      return 'openhand-${Platform.localHostname}';
+      try {
+        final hostName = Platform.localHostname.trim();
+        if (hostName.isNotEmpty) return 'openhand-$hostName';
+      } catch (hostError, hostStack) {
+        silentLog('ai_session_controller', '读取本地主机名', hostError, hostStack);
+      }
+      return 'openhand-${_idGenerator()}';
     }
   }
 

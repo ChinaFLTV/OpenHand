@@ -135,7 +135,8 @@ class AiTtsPlaybackService {
   int _tempFileSerial = 0;
   _AiTtsOperation? _activeOperation;
   Future<void>? _stalePlaybackCleanupFuture;
-  Future<Set<String>>? _macOsVoiceNamesFuture;
+  late final OpenHandRetryableAsyncCache<Set<String>> _macOsVoiceNamesCache =
+      OpenHandRetryableAsyncCache<Set<String>>(_loadMacOsVoiceNames);
   Future<void>? _disposeFuture;
   bool _disposed = false;
 
@@ -1841,7 +1842,13 @@ class AiTtsPlaybackService {
   Future<String> _resolveMacOsVoice(String configuredVoice) async {
     final normalized = _macOsVoiceAlias(configuredVoice.trim());
     if (normalized.isEmpty || !Platform.isMacOS) return '';
-    final voices = await (_macOsVoiceNamesFuture ??= _loadMacOsVoiceNames());
+    late final Set<String> voices;
+    try {
+      voices = await _macOsVoiceNamesCache.load();
+    } catch (error, stack) {
+      silentLog('ai_tts_playback_service', '加载 macOS 语音名称', error, stack);
+      return '';
+    }
     if (voices.contains(normalized)) return normalized;
     final lower = normalized.toLowerCase();
     for (final voice in voices) {
@@ -1851,29 +1858,24 @@ class AiTtsPlaybackService {
   }
 
   Future<Set<String>> _loadMacOsVoiceNames() async {
-    try {
-      final result = await runTrackedProcessOrFailed(
-        'say',
-        const <String>['-v', '?'],
-        timeout: const Duration(seconds: 2),
-        tag: 'ai_tts.load_voices',
-      );
-      if (result.exitCode != 0) return const <String>{};
-      final output = '${result.stdout}';
-      return trimmedNonEmptyStrings(
-        output
-            .split('\n')
-            .map(
-              (line) => line
-                  .trimLeft()
-                  .split(_macOsVoiceColumnSeparatorPattern)
-                  .first,
-            ),
-      ).toSet();
-    } catch (error, stack) {
-      silentLog('ai_tts_playback_service', '加载 macOS 语音名称', error, stack);
-      return const <String>{};
+    final result = await runTrackedProcessOrFailed(
+      'say',
+      const <String>['-v', '?'],
+      timeout: const Duration(seconds: 2),
+      tag: 'ai_tts.load_voices',
+    );
+    if (result.exitCode != 0) {
+      throw StateError('macOS 语音清单命令执行失败，退出码：${result.exitCode}。');
     }
+    final output = '${result.stdout}';
+    return trimmedNonEmptyStrings(
+      output
+          .split('\n')
+          .map(
+            (line) =>
+                line.trimLeft().split(_macOsVoiceColumnSeparatorPattern).first,
+          ),
+    ).toSet();
   }
 
   static String _normalizeText(String text, int maxCharacters) {
