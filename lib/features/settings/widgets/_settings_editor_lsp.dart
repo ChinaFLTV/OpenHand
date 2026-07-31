@@ -400,23 +400,11 @@ extension on _SettingsViewState {
   }
 
   Future<void> _ensureEditorLspManifestLoaded(String rootPath) {
-    final active = _editorLspManifestRefreshes[rootPath];
-    if (active != null) return active;
-    final before = AiLspManagedInstallService.peekManifest(rootPath);
-    late final Future<void> tracked;
-    tracked = AiLspManagedInstallService.readManifest(rootPath)
-        .then<void>((manifest) {
-          if (!identical(before, manifest)) {
-            _refreshEditorLspManifestState();
-          }
-        })
-        .whenComplete(() {
-          if (identical(_editorLspManifestRefreshes[rootPath], tracked)) {
-            _editorLspManifestRefreshes.remove(rootPath);
-          }
-        });
-    _editorLspManifestRefreshes[rootPath] = tracked;
-    return tracked;
+    return _editorLspManifestRefreshes.run(rootPath, () async {
+      final before = AiLspManagedInstallService.peekManifest(rootPath);
+      final manifest = await AiLspManagedInstallService.readManifest(rootPath);
+      if (!identical(before, manifest)) _refreshEditorLspManifestState();
+    });
   }
 
   Future<void> _openEditorLspConfigDialog(

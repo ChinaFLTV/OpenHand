@@ -1294,8 +1294,8 @@ class _SettingsViewState extends State<SettingsView> {
   GlobalKey<AnimatedListState> _aiModelListKey = GlobalKey<AnimatedListState>();
   final Set<String> _mutatingAiModelIds = <String>{};
   final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
-  final Map<String, Future<void>> _editorLspManifestRefreshes =
-      <String, Future<void>>{};
+  final OpenHandKeyedSingleFlight<String, void> _editorLspManifestRefreshes =
+      OpenHandKeyedSingleFlight<String, void>();
   final AiTtsPlaybackService _ttsSettingsPlaybackService =
       AiTtsPlaybackService();
 

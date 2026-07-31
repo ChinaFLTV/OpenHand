@@ -97,8 +97,8 @@ class PluginScannerService {
 
   late final OpenHandSingleFlight<_PythonRuntimeScan?> _pythonRuntimeProbe =
       OpenHandSingleFlight<_PythonRuntimeScan?>(_resolvePythonRuntimeUncached);
-  final Map<String, Future<String?>> _brewLatestVersionProbes =
-      <String, Future<String?>>{};
+  final OpenHandKeyedSingleFlight<String, String?> _brewLatestVersionFlights =
+      OpenHandKeyedSingleFlight<String, String?>();
   late final OpenHandSingleFlight<String?> _latestPipVersionProbe =
       OpenHandSingleFlight<String?>(_queryLatestPipVersionUncached);
 
@@ -355,19 +355,13 @@ class PluginScannerService {
     return versions.last;
   }
 
-  Future<String?> _queryBrewLatestVersion(String formula) async {
+  Future<String?> _queryBrewLatestVersion(String formula) {
     final normalizedFormula = formula.trim();
-    if (normalizedFormula.isEmpty) return null;
-    final active = _brewLatestVersionProbes[normalizedFormula];
-    if (active != null) return active;
-    late final Future<String?> probe;
-    probe = _queryBrewLatestVersionUncached(normalizedFormula).whenComplete(() {
-      if (identical(_brewLatestVersionProbes[normalizedFormula], probe)) {
-        _brewLatestVersionProbes.remove(normalizedFormula);
-      }
-    });
-    _brewLatestVersionProbes[normalizedFormula] = probe;
-    return probe;
+    if (normalizedFormula.isEmpty) return Future<String?>.value();
+    return _brewLatestVersionFlights.run(
+      normalizedFormula,
+      () => _queryBrewLatestVersionUncached(normalizedFormula),
+    );
   }
 
   Future<String?> _queryBrewLatestVersionUncached(String formula) async {

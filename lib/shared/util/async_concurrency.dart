@@ -125,13 +125,16 @@ final class OpenHandRetryableAsyncCache<T> {
   Future<T> load() {
     final cached = _future;
     if (cached != null) return cached;
-    final loading = Future<T>.sync(_loader);
+
+    final completer = Completer<T>();
+    final loading = completer.future;
     _future = loading;
     unawaited(
-      loading.then<void>(
-        (_) {},
-        onError: (Object _, StackTrace stack) {
+      Future<T>.sync(_loader).then<void>(
+        completer.complete,
+        onError: (Object error, StackTrace stack) {
           if (identical(_future, loading)) _future = null;
+          completer.completeError(error, stack);
         },
       ),
     );
