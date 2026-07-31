@@ -3005,16 +3005,13 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   }
 }
 
-/// 进程级 mermaid.js 字符串缓存。asset 文件 ~3.3 MB，第一次读完后
-/// 后续所有 mermaid 视图共享同一份内存，避免每个 WebView 重复 IO + 解析。
-String? _cachedMermaidJs;
-Future<String> _loadMermaidJs() async {
-  final cached = _cachedMermaidJs;
-  if (cached != null) return cached;
-  final loaded = await rootBundle.loadString('assets/tooling/mermaid.min.js');
-  _cachedMermaidJs = loaded;
-  return loaded;
-}
+/// 进程级缓存约 3.3 MB 的 Mermaid 资源；失败后允许再次加载。
+final OpenHandRetryableAsyncCache<String> _mermaidJsCache =
+    OpenHandRetryableAsyncCache<String>(
+      () =>
+          rootBundle.loadString('assets/tooling/mermaid.min.js', cache: false),
+    );
+Future<String> _loadMermaidJs() => _mermaidJsCache.load();
 
 /// Mermaid 流程图渲染视图。在代码块 header 右上角的「视图/代码」toggle
 /// 按钮切到视图时启用：用 [WebView] + 内联 mermaid.js (assets 离线) 渲染 SVG,

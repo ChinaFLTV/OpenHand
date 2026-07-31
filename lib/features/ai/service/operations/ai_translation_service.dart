@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
@@ -74,7 +75,10 @@ class AiTranslationService {
   final AiTransportClient _transport;
   final AiChatClient _chatClient;
   final bool _ownsChatClient;
-  Future<String>? _aiPromptFuture;
+  late final OpenHandRetryableAsyncCache<String> _aiPromptCache =
+      OpenHandRetryableAsyncCache<String>(
+        () => rootBundle.loadString(_aiPromptAsset, cache: false),
+      );
 
   Future<AiTranslationResult> translate({
     required String text,
@@ -274,7 +278,7 @@ class AiTranslationService {
         provider: AiTranslationProvider.ai,
       );
     }
-    final systemPrompt = await _loadAiPrompt();
+    final systemPrompt = await _aiPromptCache.load();
     final translationModel = model.protocolType == AiProtocolType.mimo
         ? model.copyWith(
             modelProfiles: <String, AiModelProfile>{
@@ -621,10 +625,6 @@ class AiTranslationService {
       }
     }
     return _readTranslatedText(json);
-  }
-
-  Future<String> _loadAiPrompt() {
-    return _aiPromptFuture ??= rootBundle.loadString(_aiPromptAsset);
   }
 
   AiModelConfig? _resolveAiModel({

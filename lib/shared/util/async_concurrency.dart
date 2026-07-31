@@ -115,6 +115,32 @@ final class OpenHandAsyncOnce {
   }
 }
 
+/// 缓存成功的异步结果；加载失败后自动失效，后续调用可重新尝试。
+final class OpenHandRetryableAsyncCache<T> {
+  OpenHandRetryableAsyncCache(this._loader);
+
+  final FutureOr<T> Function() _loader;
+  Future<T>? _future;
+
+  Future<T> load() {
+    final cached = _future;
+    if (cached != null) return cached;
+    final loading = Future<T>.sync(_loader);
+    _future = loading;
+    unawaited(
+      loading.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace stack) {
+          if (identical(_future, loading)) _future = null;
+        },
+      ),
+    );
+    return loading;
+  }
+
+  void clear() => _future = null;
+}
+
 /// 控制异步扇出的轻量 FIFO 信号量。
 ///
 /// 并发数和等待数都会归一化，避免异常配置创建无界工作器或等待队列。

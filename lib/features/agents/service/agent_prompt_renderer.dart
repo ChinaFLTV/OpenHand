@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -50,13 +51,17 @@ class AgentPromptSnapshot {
 
 class AgentPromptRenderer {
   AgentPromptRenderer({Future<String> Function(String path)? loader})
-    : _loader = loader ?? rootBundle.loadString;
+    : _templateCache = OpenHandRetryableAsyncCache<String>(
+        () => loader == null
+            ? rootBundle.loadString(defaultAssetPath, cache: false)
+            : loader(defaultAssetPath),
+      );
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
   static const String promptVersion = '1.2.20';
 
-  final Future<String> Function(String path) _loader;
+  final OpenHandRetryableAsyncCache<String> _templateCache;
 
   Future<AgentPromptSnapshot> render({
     required AgentProfile agent,
@@ -114,7 +119,7 @@ class AgentPromptRenderer {
 
   Future<String> _loadTemplate() async {
     try {
-      final content = (await _loader(defaultAssetPath)).trim();
+      final content = (await _templateCache.load()).trim();
       return content.isEmpty ? _fallbackTemplate : content;
     } catch (error, stack) {
       silentLog('agent_prompt_renderer', '加载 $defaultAssetPath', error, stack);

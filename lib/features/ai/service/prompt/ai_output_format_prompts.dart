@@ -72,11 +72,11 @@ class AiOutputFormatPrompts {
   static Future<void> _load(AssetBundle bundle) async {
     try {
       final results = await Future.wait<String>(<Future<String>>[
-        bundle.loadString(htmlBalancedAssetPath),
-        bundle.loadString(htmlRichAssetPath),
-        bundle.loadString(htmlVividAssetPath),
-        bundle.loadString(plainTextAssetPath),
-        bundle.loadString(gptChatRulesAssetPath),
+        bundle.loadString(htmlBalancedAssetPath, cache: false),
+        bundle.loadString(htmlRichAssetPath, cache: false),
+        bundle.loadString(htmlVividAssetPath, cache: false),
+        bundle.loadString(plainTextAssetPath, cache: false),
+        bundle.loadString(gptChatRulesAssetPath, cache: false),
       ]);
       final loadedBalanced = results[0].trim();
       final loadedRich = results[1].trim();
