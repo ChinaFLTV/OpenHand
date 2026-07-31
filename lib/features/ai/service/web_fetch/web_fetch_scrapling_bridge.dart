@@ -92,7 +92,6 @@ class WebFetchScraplingBridge {
 
   _ScraplingProcessRuntime? _runtime;
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
-  final Completer<void> _disposeSignal = Completer<void>();
   Future<void>? _disposeFuture;
   bool _disposed = false;
   Process? _runtimeCommandProcess;
@@ -240,7 +239,6 @@ class WebFetchScraplingBridge {
     final active = _disposeFuture;
     if (active != null) return active;
     _disposed = true;
-    if (!_disposeSignal.isCompleted) _disposeSignal.complete();
     return _disposeFuture = _finishDispose();
   }
 
@@ -555,7 +553,7 @@ class WebFetchScraplingBridge {
     try {
       await runtime.stderrDone.future.timeout(_defaultProcessKillTimeout);
     } on TimeoutException {
-      // Preserve any buffered stderr without letting a broken pipe hang cleanup.
+      // 保留已缓冲的标准错误，同时避免异常管道阻塞清理。
     }
     if (!identical(_runtime, runtime)) return;
     _handleRuntimeFailure(
@@ -647,10 +645,7 @@ class WebFetchScraplingBridge {
       ]);
       final result = await awaitWithCancelSignal(
         commandOutcome,
-        cancelSignal: combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          _disposeSignal.future,
-        ]),
+        cancelSignal: cancelSignal,
       );
       if (result is _TimeoutToken) {
         runtime.pending.remove(id);
@@ -894,16 +889,13 @@ class WebFetchScraplingBridge {
         maxCapturedLinesPerStream: _maxCapturedRuntimeLinesPerStream,
       );
       if (result.timedOut) {
-        recordEvent(
-          WebFetchScraplingRuntimeEventType.warning,
-          'Process timed out.',
-        );
+        recordEvent(WebFetchScraplingRuntimeEventType.warning, '进程执行超时。');
       } else {
         recordEvent(
           result.exitCode == 0
               ? WebFetchScraplingRuntimeEventType.status
               : WebFetchScraplingRuntimeEventType.warning,
-          'Process exited with code ${result.exitCode}.',
+          '进程已退出，退出码 ${result.exitCode}。',
         );
       }
       const maxCapturedCharacters =

@@ -76,7 +76,7 @@ class AiTranslationService {
   final AiTransportClient _transport;
   final AiChatClient _chatClient;
   final bool _ownsChatClient;
-  final Completer<void> _disposeSignal = Completer<void>();
+  final Set<Completer<void>> _activeAiCancellations = <Completer<void>>{};
   bool _disposed = false;
   late final OpenHandRetryableAsyncCache<String> _aiPromptCache =
       OpenHandRetryableAsyncCache<String>(
@@ -291,28 +291,37 @@ class AiTranslationService {
             },
           )
         : model;
-    final completion = await AiUsageTraceContext.runDerived(
-      source: AiUsageSource.translation,
-      operation: 'text_translation',
-      body: () => _chatClient.sendMessage(
-        model: translationModel,
-        messages: <AiChatTurn>[
-          AiChatTurn(role: AiChatRole.system, content: systemPrompt),
-          AiChatTurn(
-            role: AiChatRole.user,
-            content: _buildAiUserPrompt(
-              text: text,
-              sourceLanguage: settings.sourceLanguage,
-              targetLanguage: settings.targetLanguage,
+    final cancellation = Completer<void>();
+    _activeAiCancellations.add(cancellation);
+    if (_disposed) cancellation.complete();
+    try {
+      _throwIfDisposed();
+      final completion = await AiUsageTraceContext.runDerived(
+        source: AiUsageSource.translation,
+        operation: 'text_translation',
+        body: () => _chatClient.sendMessage(
+          model: translationModel,
+          messages: <AiChatTurn>[
+            AiChatTurn(role: AiChatRole.system, content: systemPrompt),
+            AiChatTurn(
+              role: AiChatRole.user,
+              content: _buildAiUserPrompt(
+                text: text,
+                sourceLanguage: settings.sourceLanguage,
+                targetLanguage: settings.targetLanguage,
+              ),
             ),
-          ),
-        ],
-        creationRequest: AiCreationRequest.none,
-        timeout: timeout,
-        cancelSignal: _disposeSignal.future,
-      ),
-    );
-    return _cleanAiTranslationOutput(completion.reply);
+          ],
+          creationRequest: AiCreationRequest.none,
+          timeout: timeout,
+          cancelSignal: cancellation.future,
+        ),
+      );
+      return _cleanAiTranslationOutput(completion.reply);
+    } finally {
+      if (!cancellation.isCompleted) cancellation.complete();
+      _activeAiCancellations.remove(cancellation);
+    }
   }
 
   Future<String> _translateWithYoudao({
@@ -882,7 +891,10 @@ class AiTranslationService {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _disposeSignal.complete();
+    for (final cancellation in _activeAiCancellations.toList(growable: false)) {
+      if (!cancellation.isCompleted) cancellation.complete();
+    }
+    _activeAiCancellations.clear();
     _transport.dispose();
     if (_ownsChatClient) {
       _chatClient.dispose();
