@@ -56,6 +56,7 @@ const Duration _commandInterruptSettleDelay = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
+const Duration _terminalForceStopWaitDuration = Duration(milliseconds: 500);
 const Duration _terminalFilesystemProbeTimeout = Duration(seconds: 3);
 const int _shutdownConcurrency = 4;
 const Duration _shutdownStepTimeout = Duration(milliseconds: 1500);
@@ -984,8 +985,8 @@ class MachineTerminalService extends ChangeNotifier {
     return metadata;
   }
 
-  /// Flushes metadata/history and waits for all owned PTYs to stop. Repeated
-  /// calls share one future so root shutdown and notifier disposal cannot race.
+  /// 刷新元数据与历史，并等待所有自有 PTY 停止。重复调用共享同一任务，
+  /// 避免应用关闭与通知器释放互相竞争。
   Future<void> shutdown() {
     final active = _shutdownFuture;
     if (active != null) return active;
@@ -1554,7 +1555,9 @@ class MachineTerminalSession {
   final Terminal terminal;
 
   Pty? _pty;
+  Pty? _stoppingPty;
   Future<void>? _startFuture;
+  Future<void>? _stopFuture;
   StreamSubscription<String>? _outputSubscription;
   DateTime _startedAt = DateTime.now();
   DateTime _updatedAt = DateTime.now();
@@ -1578,6 +1581,7 @@ class MachineTerminalSession {
   int _commandSequence = 0;
   bool _attached = true;
   bool _hasUserActivity = false;
+  bool _forceStopRequested = false;
 
   MachineTerminalStatus get status => _status;
   bool get attached => _attached;
@@ -1696,14 +1700,32 @@ class MachineTerminalSession {
     }
     final activeStart = _startFuture;
     if (activeStart != null) return activeStart;
+    final generation = ++_startGeneration;
+    final activeStop = _stopFuture;
 
-    late final Future<void> startFuture;
-    startFuture = _startPty().whenComplete(() {
-      if (identical(_startFuture, startFuture)) {
-        _startFuture = null;
-      }
-    });
+    final completer = Completer<void>();
+    final startFuture = completer.future;
     _startFuture = startFuture;
+    final Future<void> launch;
+    if (activeStop == null) {
+      launch = Future<void>.sync(() => _startPty(generation));
+    } else {
+      launch = activeStop.then<void>((_) async {
+        if (generation == _startGeneration) await _startPty(generation);
+      });
+    }
+    unawaited(
+      launch.then<void>(
+        (_) {
+          if (identical(_startFuture, startFuture)) _startFuture = null;
+          completer.complete();
+        },
+        onError: (Object error, StackTrace stack) {
+          if (identical(_startFuture, startFuture)) _startFuture = null;
+          completer.completeError(error, stack);
+        },
+      ),
+    );
     return startFuture;
   }
 
@@ -1712,9 +1734,9 @@ class MachineTerminalSession {
     return _status == MachineTerminalStatus.running && _pty != null;
   }
 
-  Future<void> _startPty() async {
+  Future<void> _startPty(int generation) async {
+    if (generation != _startGeneration) return;
     if (_status == MachineTerminalStatus.running && _pty != null) return;
-    final generation = ++_startGeneration;
     _status = MachineTerminalStatus.starting;
     _errorMessage = null;
     _exitCode = null;
@@ -1791,9 +1813,43 @@ class MachineTerminalSession {
     }
   }
 
-  Future<void> stop({bool force = false}) async {
+  Future<void> stop({bool force = false}) {
     _startGeneration += 1;
     final pendingStart = _startFuture;
+    _startFuture = null;
+    final activeStop = _stopFuture;
+    if (activeStop != null) {
+      if (force) {
+        _forceStopRequested = true;
+        try {
+          _stoppingPty?.kill(ProcessSignal.sigkill);
+        } catch (error, stack) {
+          silentLog('machine_terminal', '升级为强制停止 PTY', error, stack);
+        }
+      }
+      return activeStop;
+    }
+    _forceStopRequested = force;
+
+    final completer = Completer<void>();
+    final stopFuture = completer.future;
+    _stopFuture = stopFuture;
+    unawaited(
+      Future<void>.sync(() => _stopPty(pendingStart: pendingStart)).then<void>(
+        (_) {
+          if (identical(_stopFuture, stopFuture)) _stopFuture = null;
+          completer.complete();
+        },
+        onError: (Object error, StackTrace stack) {
+          if (identical(_stopFuture, stopFuture)) _stopFuture = null;
+          completer.completeError(error, stack);
+        },
+      ),
+    );
+    return stopFuture;
+  }
+
+  Future<void> _stopPty({required Future<void>? pendingStart}) async {
     if (pendingStart != null) {
       await pendingStart;
     }
@@ -1810,21 +1866,30 @@ class MachineTerminalSession {
     _pid = null;
     _status = MachineTerminalStatus.stopped;
     _touch();
+    _stoppingPty = pty;
     try {
+      final force = _forceStopRequested;
       pty.kill(force ? ProcessSignal.sigkill : ProcessSignal.sigterm);
-      if (!force) {
-        await pty.exitCode.timeout(
-          _terminalStopGraceDuration,
-          onTimeout: () {
-            pty.kill(ProcessSignal.sigkill);
-            return _exitCode ?? -1;
-          },
-        );
+      if (force) {
+        _exitCode = await pty.exitCode.timeout(_terminalForceStopWaitDuration);
+      } else {
+        try {
+          _exitCode = await pty.exitCode.timeout(_terminalStopGraceDuration);
+        } on TimeoutException {
+          pty.kill(ProcessSignal.sigkill);
+          _exitCode = await pty.exitCode.timeout(
+            _terminalForceStopWaitDuration,
+          );
+        }
       }
+    } on TimeoutException catch (error, stack) {
+      silentLog('machine_terminal', '等待 PTY 停止', error, stack);
     } catch (error, stack) {
       silentLog('machine_terminal', '停止 PTY', error, stack);
     } finally {
-      unawaited(_cancelOutputSubscription(outputSubscription));
+      if (identical(_stoppingPty, pty)) _stoppingPty = null;
+      _forceStopRequested = false;
+      await _cancelOutputSubscription(outputSubscription);
       _status = MachineTerminalStatus.stopped;
       _touch();
     }
@@ -1835,6 +1900,7 @@ class MachineTerminalSession {
   ) async {
     await cancelStreamSubscriptionBounded<String>(
       subscription,
+      timeout: _terminalForceStopWaitDuration,
       onError: (error, stack) =>
           silentLog('machine_terminal', '取消 PTY 输出订阅', error, stack),
     );
@@ -2373,7 +2439,7 @@ Future<String> _existingWorkingDirectory(String value) async {
     ).timeout(_terminalFilesystemProbeTimeout);
     if (type == FileSystemEntityType.directory) return normalized;
   } catch (_) {
-    // The application directory below is the stable fallback.
+    // 应用目录是稳定的兜底工作目录。
   }
   return OpenHandPaths.applicationDirectoryPath();
 }
