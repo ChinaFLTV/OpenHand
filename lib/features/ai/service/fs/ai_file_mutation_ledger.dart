@@ -390,6 +390,7 @@ class AiFileMutationLedger {
   static const Duration _staleAtomicArtifactAge = Duration(days: 1);
   static const int _initializationRetryBaseMs = 1000;
   static const int _initializationRetryCapMs = 60000;
+  static const Duration _configLoadRetryDelay = Duration(seconds: 5);
   static const int _legacyBlobRecoveryMaxFiles = 2000;
   static const int _blobRecoveryMaxBytes = 16 * kBytesPerMiB;
   static const int _maxConfigBytes = 64 * kBytesPerKiB;
@@ -440,6 +441,9 @@ class AiFileMutationLedger {
       <String, _LedgerSessionMutationLane>{};
   final Map<String, Future<void>> _lateLedgerAppends = <String, Future<void>>{};
   Completer<void>? _maintenanceGate;
+  final SerialTaskQueue _configQueue = SerialTaskQueue();
+  ({Object error, StackTrace stack})? _configLoadFailure;
+  DateTime? _nextConfigLoadRetryAt;
 
   // 按会话缓存记录和撤销集合；本类写入后统一失效，避免恢复会话时重复扫描磁盘。
   final LifecycleLruCache<List<FileMutationRecord>> _recordsCache =
@@ -635,35 +639,70 @@ class AiFileMutationLedger {
   LedgerConfig? _cachedConfig;
 
   Future<LedgerConfig> loadConfig() async {
-    if (_cachedConfig != null) return _cachedConfig!;
+    try {
+      return await _loadTrustedConfig();
+    } catch (_) {
+      return const LedgerConfig();
+    }
+  }
+
+  Future<LedgerConfig> _loadTrustedConfig() {
+    final cached = _cachedConfig;
+    if (cached != null) return Future<LedgerConfig>.value(cached);
+    return _configQueue.enqueue(_loadConfigLocked);
+  }
+
+  Future<LedgerConfig> _loadConfigLocked() async {
+    final cached = _cachedConfig;
+    if (cached != null) return cached;
+    final failure = _configLoadFailure;
+    final retryAt = _nextConfigLoadRetryAt;
+    if (failure != null &&
+        retryAt != null &&
+        DateTime.now().toUtc().isBefore(retryAt)) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
     try {
       final f = _configFile();
-      if (await _entityExists(f)) {
-        final raw = await readBoundedFileString(f, maxBytes: _maxConfigBytes);
-        final text = nullIfBlank(raw);
-        if (text != null) {
-          final decoded = jsonDecode(text);
-          if (decoded is Map) {
-            _cachedConfig = LedgerConfig.fromJson(
-              stringKeyedMapFromValue(decoded),
-            );
-            return _cachedConfig!;
-          }
-        }
+      if (!await _entityExists(f)) {
+        return _acceptLoadedConfig(const LedgerConfig());
       }
+      final raw = await readBoundedFileString(f, maxBytes: _maxConfigBytes);
+      final text = nullIfBlank(raw);
+      if (text == null) throw const FormatException('账本配置内容为空。');
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) throw const FormatException('账本配置必须是对象。');
+      return _acceptLoadedConfig(
+        LedgerConfig.fromJson(stringKeyedMapFromValue(decoded)),
+      );
     } catch (error, stack) {
+      _configLoadFailure = (error: error, stack: stack);
+      _nextConfigLoadRetryAt = DateTime.now().toUtc().add(
+        _configLoadRetryDelay,
+      );
       _logFileErrorUnlessMissing('加载账本配置', error, stack);
+      Error.throwWithStackTrace(error, stack);
     }
-    _cachedConfig = const LedgerConfig();
-    return _cachedConfig!;
+  }
+
+  LedgerConfig _acceptLoadedConfig(LedgerConfig config) {
+    _cachedConfig = config;
+    _configLoadFailure = null;
+    _nextConfigLoadRetryAt = null;
+    return config;
   }
 
   Future<void> saveConfig(LedgerConfig config) async {
     try {
       await _ensureInitialized();
       final normalized = config.copyWith();
-      await writeFileAtomically(_configFile(), jsonEncode(normalized.toJson()));
-      _cachedConfig = normalized;
+      await _configQueue.enqueue(() async {
+        await writeFileAtomically(
+          _configFile(),
+          jsonEncode(normalized.toJson()),
+        );
+        _acceptLoadedConfig(normalized);
+      });
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', '保存账本配置', error, stack);
       rethrow;
@@ -731,8 +770,13 @@ class AiFileMutationLedger {
   /// 初始化时按 [LedgerConfig.autoCleanupDays] 清理过期记录，再按
   /// [LedgerConfig.maxVersionsPerFile] 修剪每个文件的历史。
   Future<void> _runAutoCleanupOnce() async {
+    late final LedgerConfig config;
     try {
-      final config = await loadConfig();
+      config = await _loadTrustedConfig();
+    } catch (_) {
+      return;
+    }
+    try {
       if (config.autoCleanupDays > 0) {
         await _pruneOlderThan(Duration(days: config.autoCleanupDays));
       }
@@ -1517,6 +1561,8 @@ class AiFileMutationLedger {
     } finally {
       _invalidateAllCaches();
       _cachedConfig = null;
+      _configLoadFailure = null;
+      _nextConfigLoadRetryAt = null;
       _legacyBlobPathIndex = null;
       _legacyBlobRecoveryMisses.clear();
       _initialized = false;
