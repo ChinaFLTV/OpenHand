@@ -11,11 +11,12 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 import '../util/duration_bounds.dart';
+import '../util/serial_task_queue.dart';
 import '../util/text_clip.dart';
 
 /// 按规范化目标维护进程内队列，并在队列内获取系统文件锁，避免多个应用实例
 /// 同时覆盖共享 `.bak` 文件或交错执行发布与回滚。
-final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
+final KeyedSerialTaskQueue<String> _writeQueue = KeyedSerialTaskQueue<String>();
 const String _atomicTempSuffix = '.tmp';
 const String _atomicBackupSuffix = '.bak';
 const String _atomicWritingMarker = '.writing.';
@@ -215,10 +216,7 @@ Future<void> _runWithAtomicWriteLock(
 ) {
   final normalizedTargetFile = File(p.normalize(p.absolute(targetFile.path)));
   final key = normalizedTargetFile.path;
-  final previous = _writeLocks[key] ?? Future<void>.value();
-  final current = previous.catchError((Object _, StackTrace _) {}).then<void>((
-    _,
-  ) async {
+  return _writeQueue.enqueue<void>(key, () async {
     final processLock = await _acquireAtomicProcessLock(normalizedTargetFile);
     try {
       await operation(normalizedTargetFile);
@@ -226,21 +224,6 @@ Future<void> _runWithAtomicWriteLock(
       await processLock.release();
     }
   });
-  _writeLocks[key] = current;
-  // 当前任务结束且没有后续调用排队时移除进程内锁。
-  void releaseLock() {
-    if (identical(_writeLocks[key], current)) {
-      _writeLocks.remove(key);
-    }
-  }
-
-  unawaited(
-    current.then<void>(
-      (_) => releaseLock(),
-      onError: (Object _, StackTrace _) => releaseLock(),
-    ),
-  );
-  return current;
 }
 
 class _AtomicProcessLockLease {

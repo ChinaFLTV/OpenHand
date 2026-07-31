@@ -15,6 +15,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/reader_file_type.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../service/bash/ai_bash_tool_service.dart';
@@ -58,8 +59,8 @@ class AiToolUtils {
         totalTimeout: Duration(seconds: 5),
       );
 
-  static final Map<String, Future<void>> _fileMutationLocks =
-      <String, Future<void>>{};
+  static final KeyedSerialTaskQueue<String> _fileMutationQueue =
+      KeyedSerialTaskQueue<String>();
 
   static String defaultWorkingDirectory() {
     return p.normalize(Directory.current.path);
@@ -1255,19 +1256,7 @@ class AiToolUtils {
     Future<T> Function() operation,
   ) async {
     final key = await _fileMutationLockKey(file);
-    final previous = _fileMutationLocks[key] ?? Future<void>.value();
-    final gate = Completer<void>();
-    final gateFuture = gate.future;
-    _fileMutationLocks[key] = gateFuture;
-    try {
-      await previous.catchError((Object _, StackTrace _) {});
-      return await operation();
-    } finally {
-      if (!gate.isCompleted) gate.complete();
-      if (identical(_fileMutationLocks[key], gateFuture)) {
-        _fileMutationLocks.remove(key);
-      }
-    }
+    return _fileMutationQueue.enqueue<T>(key, operation);
   }
 
   static Future<String> _fileMutationLockKey(File file) async {

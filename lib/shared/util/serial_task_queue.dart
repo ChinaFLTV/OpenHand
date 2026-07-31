@@ -35,3 +35,45 @@ final class SerialTaskQueue {
     return completer.future;
   }
 }
+
+/// 按键分别串行执行任务，不同键之间保持并行。
+///
+/// 总待执行任务数受限，防止单键长队列或大量唯一键持续占用内存。
+final class KeyedSerialTaskQueue<K> {
+  KeyedSerialTaskQueue({
+    this.maxPendingTasks = SerialTaskQueue.defaultMaxPendingTasks,
+  }) {
+    requirePositiveInt(maxPendingTasks, 'maxPendingTasks');
+  }
+
+  final int maxPendingTasks;
+  final Map<K, Future<void>> _tails = <K, Future<void>>{};
+  int _pendingTasks = 0;
+
+  Future<T> enqueue<T>(K key, Future<T> Function() task) {
+    if (_pendingTasks >= maxPendingTasks) {
+      return Future<T>.error(StateError('键控串行任务队列已满，拒绝继续堆积任务。'));
+    }
+
+    _pendingTasks += 1;
+    final previous = _tails[key] ?? Future<void>.value();
+    final completer = Completer<T>();
+    late final Future<void> tail;
+    tail = previous.then<void>((_) async {
+      try {
+        completer.complete(await task());
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      } finally {
+        _pendingTasks -= 1;
+      }
+    });
+    _tails[key] = tail;
+    unawaited(
+      tail.then<void>((_) {
+        if (identical(_tails[key], tail)) _tails.remove(key);
+      }),
+    );
+    return completer.future;
+  }
+}
